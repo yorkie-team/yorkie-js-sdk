@@ -7,6 +7,10 @@ import {
   YorkieClient
 } from './api/yorkie_grpc_web_pb';
 
+import {
+  Document
+} from './document/document';
+
 import { uuid } from './util/uuid';
 
 export enum ClientStatus {
@@ -82,5 +86,8 @@ export class Client {
 export default {
   createClient: function(rpcAddr: string, key?: string) {
     return new Client(rpcAddr, key);
+  },
+  createDocument: function(collection: string, document: string): Document {
+    return new Document(collection, document);
   }
 }

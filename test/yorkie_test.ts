@@ -22,4 +22,11 @@ describe('Yorkie', () => {
     await clientWithoutKey.deactivate();
     assert.isFalse(clientWithoutKey.isActive())
   });
+
+  it('Can attach/detach documents', async () => {
+    const doc = yorkie.createDocument('test-col', 'test-doc');
+
+    const client = yorkie.createClient(testRPCAddr);
+    await client.activate();
+  });
 });

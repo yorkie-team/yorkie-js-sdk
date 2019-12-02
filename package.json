@@ -21,6 +21,7 @@
   "homepage": "https://github.com/hackerwins/yorkie-js-sdk#readme",
   "devDependencies": {
     "@types/chai": "^4.2.5",
+    "@types/long": "^4.0.0",
     "@types/mocha": "^5.2.7",
     "chai": "^4.2.0",
     "karma": "^4.4.1",
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "google-protobuf": "^3.11.0",
-    "grpc-web": "^1.0.7"
+    "grpc-web": "^1.0.7",
+    "long": "^4.0.0"
   }
 }
