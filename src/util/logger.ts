@@ -1,15 +1,32 @@
 export const logger = {
-  info: (message: string) => {
+  debug: (message: string) => {
     if (typeof console != 'undefined') {
-      console.log(`YORKIE INFO: ${message}`);
+      console.log(`YORKIE D: ${message}`);
     }
   },
+
+  info: (message: string) => {
+    if (typeof console != 'undefined') {
+      console.log(`YORKIE I: ${message}`);
+    }
+  },
+
   warn: (message: string) => {
     if (typeof console != 'undefined') {
       if (typeof console.warn !== 'undefined') {
-        console.warn(`YORKIE WARN: ${message}`);
+        console.warn(`YORKIE W: ${message}`);
       } else {
-        console.log(`YORKIE WARN: ${message}`);
+        console.log(`YORKIE W: ${message}`);
+      }
+    }
+  },
+
+  error: (message: string) => {
+    if (typeof console != 'undefined') {
+      if (typeof console.error !== 'undefined') {
+        console.error(`YORKIE E: ${message}`);
+      } else {
+        console.log(`YORKIE E: ${message}`);
       }
     }
   }

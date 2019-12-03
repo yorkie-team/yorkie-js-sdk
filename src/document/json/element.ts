@@ -12,4 +12,5 @@ export abstract class JSONElement {
   }
 
   abstract toJSON(): string;
+  abstract deepcopy(): JSONElement;
 }
