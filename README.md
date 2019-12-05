@@ -2,7 +2,7 @@
 
 ## Layout
 
-yorkie-js-sdk uses gRPC-web for communicating with RPC of Yorkie agent built on gRPC.
+yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
 ```
  +--Browser--+           +--Envoy---------+         +--Yorkie-----+

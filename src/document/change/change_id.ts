@@ -1,5 +1,6 @@
 import Long from 'long';
-import { ActorID, InitialActorID, TimeTicket } from '../time/ticket';
+import { ActorID, InitialActorID } from '../time/actor_id';
+import { TimeTicket } from '../time/ticket';
 
 export class ChangeID {
   private clientSeq: number;
@@ -13,16 +14,44 @@ export class ChangeID {
   }
 
   public static create(): ChangeID {
-    return new ChangeID(0, Long.MIN_VALUE);
+    return new ChangeID(0, Long.fromInt(0, true));
+  }
+
+  public static of(clientSeq: number, lamport: Long, actor?: ActorID): ChangeID {
+    return new ChangeID(clientSeq, lamport, actor);
   }
 
   public next(): ChangeID {
     return new ChangeID(this.clientSeq + 1, this.lamport.add(1), this.actor);
   }
 
+  public sync(other: ChangeID): ChangeID {
+    if (this.lamport.greaterThan(other.lamport)) {
+      return new ChangeID(this.clientSeq, other.lamport, this.actor)
+    }
+
+    return new ChangeID(this.clientSeq, other.lamport.add(1), this.actor);
+  }
+
   public createTimeTicket(delimiter: number): TimeTicket {
     return TimeTicket.create(this.lamport, delimiter, this.actor);
   }
+
+  public setActor(actorID: ActorID): ChangeID {
+    return new ChangeID(this.clientSeq, this.lamport, actorID);
+  }
+
+  public getClientSeq(): number {
+    return this.clientSeq;
+  }
+
+  public getLamportAsString(): string {
+    return this.lamport.toString();
+  }
+
+  public getActorID(): string {
+    return this.actor;
+  }
 }
 
-export const InitialChangeID = new ChangeID(0, Long.MIN_VALUE, InitialActorID);
+export const InitialChangeID = new ChangeID(0, Long.fromInt(0, true), InitialActorID);

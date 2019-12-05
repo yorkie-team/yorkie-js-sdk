@@ -4,7 +4,7 @@
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
   "scripts": {
-    "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs,mode=grpcwebtext:. ./src/api/yorkie.proto",
+    "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "build:dev": "webpack --config webpack.dev.config.js",
     "start:dev": "webpack-dev-server --config webpack.dev.config.js",
     "test": "karma start karma.conf.js"

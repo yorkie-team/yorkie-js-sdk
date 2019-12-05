@@ -33,4 +33,8 @@ export class JSONArray extends JSONElement {
     }
     return copy;
   }
+
+  public getLastCreatedAt(): TimeTicket {
+    return this.elements[this.elements.length - 1].getCreatedAt();
+  }
 }

@@ -5,20 +5,23 @@ import { JSONRoot } from '../json/root';
 import { JSONArray } from '../json/array';
 import { Operation } from './operation';
 
-export class PushOperation extends Operation {
+export class AddOperation extends Operation {
+  private prevCreatedAt: TimeTicket;
   private value: JSONElement;
 
-  constructor(value: JSONElement, parentCreatedAt: TimeTicket, executedAt: TimeTicket) {
+  constructor(parentCreatedAt: TimeTicket, prevCreatedAt: TimeTicket, value: JSONElement, executedAt: TimeTicket) {
     super(parentCreatedAt, executedAt);
+    this.prevCreatedAt = prevCreatedAt;
     this.value = value;
   }
 
   public static create(
-    value: JSONElement,
     parentCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
+    value: JSONElement,
     executedAt: TimeTicket,
-  ): PushOperation {
-    return new PushOperation(value, parentCreatedAt, executedAt);
+  ): AddOperation {
+    return new AddOperation(parentCreatedAt, prevCreatedAt, value, executedAt);
   }
 
   public execute(root: JSONRoot): void {
@@ -26,4 +29,13 @@ export class PushOperation extends Operation {
     parentObject.append(this.value);
     root.registerElement(this.value);
   }
+
+  public getPrevCreatedAt(): TimeTicket {
+    return this.prevCreatedAt;
+  }
+
+  public getValue(): JSONElement {
+    return this.value;
+  }
+
 }

@@ -1,9 +1,9 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
-import { InitialCheckpoint } from '../../src/document/checkpoint';
+import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 
-describe('Document', () => {
-  it('should apply updates of string', () => {
+describe('Document', function() {
+  it('should apply updates of string', function() {
     const doc1 = Document.create('test-col', 'test-doc');
     const doc2 = Document.create('test-col', 'test-doc');
 
@@ -21,7 +21,7 @@ describe('Document', () => {
     assert.notEqual(doc1, doc2);
   });
 
-  it('should apply updates inside nested map', () => {
+  it('should apply updates inside nested map', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toJSON());
 
@@ -55,5 +55,9 @@ describe('Document', () => {
     }, 'push "4"');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}', doc.toJSON());
 
+    doc.update((root) => {
+      root['k2'].push({"k2-5": "v4"});
+    }, 'push "{k2-5: 4}"');
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}', doc.toJSON());
   });
 });

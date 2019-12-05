@@ -3017,7 +3017,7 @@ proto.api.Checkpoint.prototype.toObject = function(opt_includeInstance) {
  */
 proto.api.Checkpoint.toObject = function(includeInstance, msg) {
   var f, obj = {
-    serverSeq: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    serverSeq: jspb.Message.getFieldWithDefault(msg, 1, "0"),
     clientSeq: jspb.Message.getFieldWithDefault(msg, 2, 0)
   };
 
@@ -3056,7 +3056,7 @@ proto.api.Checkpoint.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readUint64());
+      var value = /** @type {string} */ (reader.readUint64String());
       msg.setServerSeq(value);
       break;
     case 2:
@@ -3093,8 +3093,8 @@ proto.api.Checkpoint.prototype.serializeBinary = function() {
 proto.api.Checkpoint.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getServerSeq();
-  if (f !== 0) {
-    writer.writeUint64(
+  if (parseInt(f, 10) !== 0) {
+    writer.writeUint64String(
       1,
       f
     );
@@ -3111,19 +3111,19 @@ proto.api.Checkpoint.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * optional uint64 server_seq = 1;
- * @return {number}
+ * @return {string}
  */
 proto.api.Checkpoint.prototype.getServerSeq = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, "0"));
 };
 
 
 /**
- * @param {number} value
+ * @param {string} value
  * @return {!proto.api.Checkpoint} returns this
  */
 proto.api.Checkpoint.prototype.setServerSeq = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
+  return jspb.Message.setProto3StringIntField(this, 1, value);
 };
 
 
@@ -3178,7 +3178,7 @@ proto.api.ChangeID.prototype.toObject = function(opt_includeInstance) {
 proto.api.ChangeID.toObject = function(includeInstance, msg) {
   var f, obj = {
     clientSeq: jspb.Message.getFieldWithDefault(msg, 1, 0),
-    lamport: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    lamport: jspb.Message.getFieldWithDefault(msg, 2, "0"),
     actorId: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
 
@@ -3221,7 +3221,7 @@ proto.api.ChangeID.deserializeBinaryFromReader = function(msg, reader) {
       msg.setClientSeq(value);
       break;
     case 2:
-      var value = /** @type {number} */ (reader.readUint64());
+      var value = /** @type {string} */ (reader.readUint64String());
       msg.setLamport(value);
       break;
     case 3:
@@ -3265,8 +3265,8 @@ proto.api.ChangeID.serializeBinaryToWriter = function(message, writer) {
     );
   }
   f = message.getLamport();
-  if (f !== 0) {
-    writer.writeUint64(
+  if (parseInt(f, 10) !== 0) {
+    writer.writeUint64String(
       2,
       f
     );
@@ -3301,19 +3301,19 @@ proto.api.ChangeID.prototype.setClientSeq = function(value) {
 
 /**
  * optional uint64 lamport = 2;
- * @return {number}
+ * @return {string}
  */
 proto.api.ChangeID.prototype.getLamport = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, "0"));
 };
 
 
 /**
- * @param {number} value
+ * @param {string} value
  * @return {!proto.api.ChangeID} returns this
  */
 proto.api.ChangeID.prototype.setLamport = function(value) {
-  return jspb.Message.setProto3IntField(this, 2, value);
+  return jspb.Message.setProto3StringIntField(this, 2, value);
 };
 
 
@@ -3367,7 +3367,7 @@ proto.api.TimeTicket.prototype.toObject = function(opt_includeInstance) {
  */
 proto.api.TimeTicket.toObject = function(includeInstance, msg) {
   var f, obj = {
-    lamport: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    lamport: jspb.Message.getFieldWithDefault(msg, 1, "0"),
     delimiter: jspb.Message.getFieldWithDefault(msg, 2, 0),
     actorId: jspb.Message.getFieldWithDefault(msg, 3, "")
   };
@@ -3407,7 +3407,7 @@ proto.api.TimeTicket.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readUint64());
+      var value = /** @type {string} */ (reader.readUint64String());
       msg.setLamport(value);
       break;
     case 2:
@@ -3448,8 +3448,8 @@ proto.api.TimeTicket.prototype.serializeBinary = function() {
 proto.api.TimeTicket.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getLamport();
-  if (f !== 0) {
-    writer.writeUint64(
+  if (parseInt(f, 10) !== 0) {
+    writer.writeUint64String(
       1,
       f
     );
@@ -3473,19 +3473,19 @@ proto.api.TimeTicket.serializeBinaryToWriter = function(message, writer) {
 
 /**
  * optional uint64 lamport = 1;
- * @return {number}
+ * @return {string}
  */
 proto.api.TimeTicket.prototype.getLamport = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, "0"));
 };
 
 
 /**
- * @param {number} value
+ * @param {string} value
  * @return {!proto.api.TimeTicket} returns this
  */
 proto.api.TimeTicket.prototype.setLamport = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
+  return jspb.Message.setProto3StringIntField(this, 1, value);
 };
 
 

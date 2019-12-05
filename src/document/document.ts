@@ -1,25 +1,14 @@
 import { logger } from '../util/logger';
+import { ActorID } from './time/actor_id';
+import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
 import { ChangeID } from './change/change_id';
 import { ChangeContext } from './change/context';
+import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
-import { Checkpoint } from  './checkpoint';
-
-export class DocumentKey {
-  private collection: string;
-  private document: string;
-
-  constructor(collection: string, document: string) {
-    this.collection = collection;
-    this.document = document;
-  }
-
-  public static of(collection: string, document: string): DocumentKey {
-    return new DocumentKey(collection, document);
-  }
-}
+import { Checkpoint } from  './checkpoint/checkpoint';
 
 export class Document {
   private key: DocumentKey;
@@ -45,8 +34,8 @@ export class Document {
     if (!this.copy) {
       this.copy = this.root.getObject().deepcopy();
     }
-
     const context = ChangeContext.create(this.changeID.next(), message);
+
     try {
       const proxy = createProxy(context, this.copy);
       updater(proxy)
@@ -65,12 +54,44 @@ export class Document {
     }
   }
 
+  public applyChangePack(pack: ChangePack): void {
+    for (const change of pack.getChanges()) {
+      this.changeID = this.changeID.sync(change.getID());
+      change.execute(this.root);
+    }
+    this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
+
+    // TODO: remove below line. drop copy because it is contaminated.
+    this.copy = null;
+  }
+
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
   }
 
   public hasLocalChanges(): boolean {
     return this.changes.length > 0;
+  }
+
+  public flushChangePack(): ChangePack {
+    const changes = this.changes;
+    this.changes = [];
+
+    const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
+    return ChangePack.create(this.key, checkpoint, changes);
+  }
+
+  public setActor(actorID: ActorID): void {
+    for (const change of this.changes) {
+      change.setActor(actorID);
+    }
+    this.changeID = this.changeID.setActor(actorID);
+
+    // TODO also apply into root.
+  }
+
+  public getKey(): DocumentKey {
+    return this.key;
   }
 
   public toJSON(): string {

@@ -29,4 +29,12 @@ export class SetOperation extends Operation {
     parentObject.set(this.key, this.value);
     root.registerElement(this.value);
   }
+
+  public getKey(): string {
+    return this.key;
+  }
+
+  public getValue(): JSONElement {
+    return this.value;
+  }
 }

@@ -1,7 +1,7 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { SetOperation } from '../operation/set_operation';
-import { PushOperation } from '../operation/push_operation';
+import { AddOperation } from '../operation/add_operation';
 import { ChangeContext } from '../change/context';
 import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
@@ -40,18 +40,18 @@ export class ArrayProxy {
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.create(value, ticket);
       target.append(primitive);
-      context.push(PushOperation.create(primitive, target.getCreatedAt(), ticket));
+      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), primitive, ticket));
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.append(array);
-      context.push(PushOperation.create(array, target.getCreatedAt(), ticket));
+      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), array, ticket));
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
       }
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.append(obj);
-      context.push(PushOperation.create(obj, target.getCreatedAt(), ticket));
+      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), obj, ticket));
 
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);

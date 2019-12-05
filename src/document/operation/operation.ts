@@ -1,3 +1,4 @@
+import { ActorID } from '../time/actor_id';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 
@@ -16,6 +17,10 @@ export abstract class Operation {
 
   public getExecutedAt(): TimeTicket {
     return this.executedAt;
+  }
+
+  public setActor(actorID: ActorID): void {
+    this.executedAt = this.executedAt.setActor(actorID);
   }
 
   public abstract execute(root: JSONRoot): void;

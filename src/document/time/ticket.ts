@@ -1,6 +1,5 @@
 import Long from 'long';
-
-export type ActorID = string;
+import { ActorID, InitialActorID } from './actor_id';
 
 export class TimeTicket {
   private lamport: Long;
@@ -23,8 +22,23 @@ export class TimeTicket {
     }
     return `${this.lamport.toString()}:${this.delimiter}:${this.actorID}`;
   }
+
+  public setActor(actorID: ActorID): TimeTicket {
+    return new TimeTicket(this.lamport, this.delimiter, actorID);
+  }
+
+  public getLamportAsString(): string {
+    return this.lamport.toString();
+  }
+
+  public getDelimiter(): number {
+    return this.delimiter;
+  }
+
+  public getActorID(): string {
+    return this.actorID;
+  }
 }
 
-export const InitialDelimiter = -0x80000000;
-export const InitialActorID = "000000000000";
+export const InitialDelimiter = 0;
 export const InitialTimeTicket = new TimeTicket(Long.fromNumber(0, true), InitialDelimiter, InitialActorID);
