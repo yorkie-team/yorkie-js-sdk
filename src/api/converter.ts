@@ -148,7 +148,7 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
 }
 
 function fromTimeTicket(pbTimeTicket: PbTimeTicket): TimeTicket {
-  return TimeTicket.create(
+  return TimeTicket.of(
     Long.fromString(pbTimeTicket.getLamport(), true),
     pbTimeTicket.getDelimiter(),
     pbTimeTicket.getActorId()
@@ -162,7 +162,7 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
     case PbValueType.JSON_ARRAY:
       return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.STRING:
-      return JSONPrimitive.create(
+      return JSONPrimitive.of(
         JSONPrimitive.valueFromBytes(pbJSONElement.getValue_asU8()),
         fromTimeTicket(pbJSONElement.getCreatedAt())
       );

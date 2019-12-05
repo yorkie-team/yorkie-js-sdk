@@ -2,6 +2,7 @@ import Long from 'long';
 import { ActorID, InitialActorID } from '../time/actor_id';
 import { TimeTicket } from '../time/ticket';
 
+// Immutable
 export class ChangeID {
   private clientSeq: number;
   private lamport: Long;
@@ -11,10 +12,6 @@ export class ChangeID {
     this.clientSeq = clientSeq;
     this.lamport = lamport;
     this.actor = typeof actor !== 'undefined' ? actor : null;
-  }
-
-  public static create(): ChangeID {
-    return new ChangeID(0, Long.fromInt(0, true));
   }
 
   public static of(clientSeq: number, lamport: Long, actor?: ActorID): ChangeID {
@@ -34,7 +31,7 @@ export class ChangeID {
   }
 
   public createTimeTicket(delimiter: number): TimeTicket {
-    return TimeTicket.create(this.lamport, delimiter, this.actor);
+    return TimeTicket.of(this.lamport, delimiter, this.actor);
   }
 
   public setActor(actorID: ActorID): ChangeID {

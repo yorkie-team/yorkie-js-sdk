@@ -1,3 +1,4 @@
+// Immutable
 export class DocumentKey {
   private collection: string;
   private document: string;
@@ -23,5 +24,3 @@ export class DocumentKey {
     return `${this.collection}$${this.document}`;
   }
 }
-
-

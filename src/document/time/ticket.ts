@@ -1,6 +1,7 @@
 import Long from 'long';
 import { ActorID, InitialActorID } from './actor_id';
 
+// Immutable
 export class TimeTicket {
   private lamport: Long;
   private delimiter: number;
@@ -12,7 +13,7 @@ export class TimeTicket {
     this.actorID = actorID;
   }
 
-  public static create(lamport: Long, delimiter: number, actorID: string): TimeTicket {
+  public static of(lamport: Long, delimiter: number, actorID: string): TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
 
@@ -37,6 +38,20 @@ export class TimeTicket {
 
   public getActorID(): string {
     return this.actorID;
+  }
+
+  public after(other: TimeTicket): boolean {
+    return this.compare(other) > 0;
+  }
+
+  public compare(other: TimeTicket): number {
+    if (this.lamport.greaterThan(other.lamport)) {
+      return 1;
+    } else if (other.lamport.greaterThan(this.lamport)) {
+      return -1;
+    }
+
+    return this.actorID.localeCompare(other.actorID);
   }
 }
 

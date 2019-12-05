@@ -6,6 +6,7 @@ import {
 import { converter } from '../api/converter'
 import { YorkieClient } from '../api/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '../util/error';
+import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
 import { Document } from '../document/document';
 
@@ -39,6 +40,7 @@ export class Client {
           return;
         }
         
+        logger.info(`AC: "${this.getKey()}" ${res.getClientId()}`)
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
         resolve();
@@ -61,6 +63,7 @@ export class Client {
           return;
         }
         
+        logger.info(`DC: "${this.getKey()}"`)
         this.status = ClientStatus.Deactivated;
         resolve();
       });
@@ -85,6 +88,8 @@ export class Client {
           return;
         }
 
+        logger.info(`AD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
 
@@ -106,6 +111,8 @@ export class Client {
           return;
         }
 
+        logger.info(`DD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
        
@@ -124,13 +131,17 @@ export class Client {
         req.setClientId(this.id);
         req.setChangePack(converter.toChangePack(doc.flushChangePack()));
 
-        this.client.detachDocument(req, {}, (err, res) => {
+        this.client.pushPull(req, {}, (err, res) => {
           if (err) {
             reject(err);
             return;
           }
 
-          this.status = ClientStatus.Deactivated;
+          logger.info(`PP: "${this.getKey()}", "${doc.getKey().getDocument()}"`)
+
+          const pack = converter.fromChangePack(res.getChangePack());
+          doc.applyChangePack(pack);
+
           resolve(doc);
         });
       }))

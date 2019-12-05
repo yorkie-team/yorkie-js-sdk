@@ -1,5 +1,6 @@
 import Long from 'long';
 
+// Immutable
 export class Checkpoint {
   private serverSeq: Long;
   private clientSeq: number;
@@ -7,10 +8,6 @@ export class Checkpoint {
   constructor(serverSeq: Long, clientSeq: number) {
     this.serverSeq = serverSeq;
     this.clientSeq = clientSeq;
-  }
-
-  public static create(): Checkpoint {
-    return InitialCheckpoint;
   }
 
   public static of(serverSeq: Long, clientSeq: number): Checkpoint {

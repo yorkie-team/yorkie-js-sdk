@@ -1,7 +1,10 @@
 import { assert } from 'chai';
+import { Client } from '../src/core/client';
+import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
 const testRPCAddr = 'http://localhost:8080';
+const testCollection = 'test-col';
 
 describe('Yorkie', function() {
   it('Can be activated, deactivated', async function() {
@@ -24,8 +27,8 @@ describe('Yorkie', function() {
   });
 
   it('Can attach/detach documents', async function() {
-    const doc1 = yorkie.createDocument('test-col', this.test.title);
-    const doc2 = yorkie.createDocument('test-col', this.test.title);
+    const doc1 = yorkie.createDocument(testCollection, this.test.title);
+    const doc2 = yorkie.createDocument(testCollection, this.test.title);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);
@@ -49,4 +52,45 @@ describe('Yorkie', function() {
     await client1.deactivate();
     await client2.deactivate();
   });
+
+  it('Can handle concurrent operations', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = 'v1';
+      });
+      d2.update((root) => {
+        root['k1'] = 'v2';
+      });
+
+      await c1.pushPull();
+      await c2.pushPull();
+      await c1.pushPull();
+
+      assert.equal(d1.toJSON(), d2.toJSON());
+    }, this.test.title);
+  });
 });
+
+async function withTwoClientsAndDocuments(
+  callback: (c1: Client, d1: Document, c2: Client, d2: Document) => Promise<void>,
+  title: string,
+) {
+  const client1 = yorkie.createClient(testRPCAddr);
+  const client2 = yorkie.createClient(testRPCAddr);
+  await client1.activate();
+  await client2.activate();
+
+  const doc1 = yorkie.createDocument(testCollection, title);
+  const doc2 = yorkie.createDocument(testCollection, title);
+
+  await client1.attachDocument(doc1);
+  await client2.attachDocument(doc2);
+
+  await callback(client1, doc1, client2, doc2);
+
+  await client1.detachDocument(doc1);
+  await client2.detachDocument(doc2);
+
+  await client1.deactivate();
+  await client2.deactivate();
+}

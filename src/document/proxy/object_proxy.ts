@@ -54,7 +54,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
 
     if (JSONPrimitive.isSupport(value)) {
-      const primitive = JSONPrimitive.create(value, ticket);
+      const primitive = JSONPrimitive.of(value, ticket);
       target.set(key, primitive);
       context.push(SetOperation.create(key, primitive, target.getCreatedAt(), ticket));
     } else if (Array.isArray(value)) {

@@ -1,6 +1,7 @@
 import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
+// Immutable
 export class JSONPrimitive extends JSONElement {
   private value: string;
 
@@ -9,7 +10,7 @@ export class JSONPrimitive extends JSONElement {
     this.value = value;
   }
 
-  public static create(value: string, createdAt: TimeTicket): JSONPrimitive {
+  public static of(value: string, createdAt: TimeTicket): JSONPrimitive {
     return new JSONPrimitive(value, createdAt);
   }
 

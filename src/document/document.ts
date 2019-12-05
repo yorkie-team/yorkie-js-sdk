@@ -2,13 +2,13 @@ import { logger } from '../util/logger';
 import { ActorID } from './time/actor_id';
 import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
-import { ChangeID } from './change/change_id';
+import { ChangeID, InitialChangeID } from './change/change_id';
 import { ChangeContext } from './change/context';
 import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
-import { Checkpoint } from  './checkpoint/checkpoint';
+import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
 
 export class Document {
   private key: DocumentKey;
@@ -21,8 +21,8 @@ export class Document {
   constructor(collection: string, document: string) {
     this.key = DocumentKey.of(collection, document);
     this.root = JSONRoot.create();
-    this.changeID = ChangeID.create();
-    this.checkpoint = Checkpoint.create();
+    this.changeID = InitialChangeID;
+    this.checkpoint = InitialCheckpoint;
     this.changes = [];
   }
 
@@ -60,6 +60,8 @@ export class Document {
       change.execute(this.root);
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
+
+    logger.debug(`after apply pack: ${this.root.toJSON()}`)
 
     // TODO: remove below line. drop copy because it is contaminated.
     this.copy = null;
