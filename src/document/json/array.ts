@@ -1,26 +1,27 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
+import { RGA } from './rga';
 
 export class JSONArray extends JSONElement {
-  private elements: JSONElement[];
+  private elements: RGA;
 
-  constructor(createdAt: TimeTicket, elements: JSONElement[]) {
+  constructor(createdAt: TimeTicket, elements: RGA) {
     super(createdAt);
     this.elements = elements;
   }
 
   public static create(createdAt: TimeTicket): JSONArray {
-    return new JSONArray(createdAt, []);
+    return new JSONArray(createdAt, RGA.create());
   }
 
-  public append(value: JSONElement): void {
-    this.elements.push(value);
+  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
+    this.elements.insertAfter(prevCreatedAt, value);
   }
 
   public toJSON(): string {
     const json = []
-    for (var v of this.elements) {
+    for (var v of this.elements.getElements()) {
       json.push(v.toJSON());
     }
     return `[${json.join(',')}]`;
@@ -28,13 +29,13 @@ export class JSONArray extends JSONElement {
 
   public deepcopy(): JSONArray {
     const copy = JSONArray.create(this.getCreatedAt());
-    for (var v of this.elements) {
-      copy.append(v.deepcopy());
+    for (var v of this.elements.getElements()) {
+      copy.insertAfter(copy.getLastCreatedAt(), v.deepcopy());
     }
     return copy;
   }
 
   public getLastCreatedAt(): TimeTicket {
-    return this.elements[this.elements.length - 1].getCreatedAt();
+    return this.elements.getLastCreatedAt();
   }
 }

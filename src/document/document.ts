@@ -1,4 +1,4 @@
-import { logger } from '../util/logger';
+import { logger, LogLevel } from '../util/logger';
 import { ActorID } from './time/actor_id';
 import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
@@ -55,16 +55,22 @@ export class Document {
   }
 
   public applyChangePack(pack: ChangePack): void {
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(`before apply pack: ${this.root.toJSON()}`)
+    }
+
     for (const change of pack.getChanges()) {
       this.changeID = this.changeID.sync(change.getID());
       change.execute(this.root);
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    logger.debug(`after apply pack: ${this.root.toJSON()}`)
-
     // TODO: remove below line. drop copy because it is contaminated.
     this.copy = null;
+
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(`after apply pack: ${this.root.toJSON()}`)
+    }
   }
 
   public getCheckpoint(): Checkpoint {

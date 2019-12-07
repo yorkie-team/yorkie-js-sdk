@@ -12,7 +12,7 @@ export function setLogLevel(l: LogLevel): void {
 }
 
 export const logger = {
-  debug: (message: string) => {
+  debug: (message: string): void => {
     if (level > LogLevel.Debug) {
       return;
     }
@@ -22,7 +22,7 @@ export const logger = {
     }
   },
 
-  info: (message: string) => {
+  info: (message: string): void => {
     if (level > LogLevel.Info) {
       return;
     }
@@ -32,7 +32,7 @@ export const logger = {
     }
   },
 
-  warn: (message: string) => {
+  warn: (message: string): void => {
     if (level > LogLevel.Warn) {
       return;
     }
@@ -46,7 +46,7 @@ export const logger = {
     }
   },
 
-  error: (message: string) => {
+  error: (message: string): void => {
     if (level > LogLevel.Error) {
       return;
     }
@@ -60,7 +60,7 @@ export const logger = {
     }
   },
 
-  fatal: (message: string) => {
+  fatal: (message: string): void => {
     if (typeof console != 'undefined') {
       if (typeof console.error !== 'undefined') {
         console.error(`YORKIE F: ${message}`);
@@ -70,5 +70,9 @@ export const logger = {
     }
 
     throw new Error(`YORKIE F: ${message}`);
+  },
+
+  isEnabled: (l: LogLevel): boolean => {
+    return level <= l;
   }
 };

@@ -36,22 +36,23 @@ export class ArrayProxy {
 
   public static pushInternal(context: ChangeContext, target: JSONArray, value: any): void {
     const ticket = context.issueTimeTicket();
+    const prevCreatedAt = target.getLastCreatedAt();
 
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
-      target.append(primitive);
-      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), primitive, ticket));
+      target.insertAfter(prevCreatedAt, primitive);
+      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
-      target.append(array);
-      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), array, ticket));
+      target.insertAfter(prevCreatedAt, array);
+      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, array, ticket));
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
       }
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
-      target.append(obj);
-      context.push(AddOperation.create(target.getCreatedAt(), target.getLastCreatedAt(), obj, ticket));
+      target.insertAfter(prevCreatedAt, obj);
+      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket));
 
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);

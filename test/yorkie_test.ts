@@ -53,7 +53,7 @@ describe('Yorkie', function() {
     await client2.deactivate();
   });
 
-  it('Can handle concurrent operations', async function() {
+  it('Can handle concurrent set operations', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = 'v1';
@@ -61,11 +61,52 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k1'] = 'v2';
       });
+      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
 
+      d1.update((root) => {
+        root['k2'] = {};
+      });
+      await c1.pushPull(); await c2.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        root['k2'] = 'v2';
+      });
+      d2.update((root) => {
+        root['k2']['k2.1'] = {'k2.1.1': 'v3'};
+      });
+      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        root['k3'] = 'v4';
+      });
+      d2.update((root) => {
+        root['k4'] = 'v5';
+      });
+      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+    }, this.test.title);
+  });
+
+  it('Can handle concurrent add operations', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = ['1'];
+      });
+      await c1.pushPull(); await c2.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        root['k1'].push('2');
+      });
+      d2.update((root) => {
+        root['k1'].push('3');
+      });
       await c1.pushPull();
       await c2.pushPull();
       await c1.pushPull();
-
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });

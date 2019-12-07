@@ -26,7 +26,7 @@ export class AddOperation extends Operation {
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt()) as JSONArray;
-    parentObject.append(this.value);
+    parentObject.insertAfter(this.prevCreatedAt, this.value);
     root.registerElement(this.value);
   }
 

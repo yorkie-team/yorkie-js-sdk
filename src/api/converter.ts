@@ -80,17 +80,17 @@ function toOperation(operation: Operation): PbOperation {
   if (operation instanceof SetOperation) {
     const setOperation = operation as (SetOperation);
     const pbSetOperation = new PbOperation.Set();
+    pbSetOperation.setParentCreatedAt(toTimeTicket(setOperation.getParentCreatedAt()));
     pbSetOperation.setKey(setOperation.getKey())
     pbSetOperation.setValue(toJSONElement(setOperation.getValue()))
-    pbSetOperation.setParentCreatedAt(toTimeTicket(setOperation.getParentCreatedAt()));
     pbSetOperation.setExecutedAt(toTimeTicket(setOperation.getExecutedAt()));
     pbOperation.setSet(pbSetOperation);
   } else if (operation instanceof AddOperation) {
     const addOperation = operation as (AddOperation);
     const pbAddOperation = new PbOperation.Add();
+    pbAddOperation.setParentCreatedAt(toTimeTicket(addOperation.getParentCreatedAt()));
     pbAddOperation.setPrevCreatedAt(toTimeTicket(addOperation.getPrevCreatedAt()));
     pbAddOperation.setValue(toJSONElement(addOperation.getValue()));
-    pbAddOperation.setParentCreatedAt(toTimeTicket(addOperation.getParentCreatedAt()));
     pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
     pbOperation.setAdd(pbAddOperation);
   } else {
