@@ -25,9 +25,14 @@ export class AddOperation extends Operation {
   }
 
   public execute(root: JSONRoot): void {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt()) as JSONArray;
-    parentObject.insertAfter(this.prevCreatedAt, this.value);
-    root.registerElement(this.value);
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    if (parentObject instanceof JSONArray) {
+      const array = parentObject as JSONArray;
+      array.insertAfter(this.prevCreatedAt, this.value);
+      root.registerElement(this.value);
+    } else {
+      logger.fatal(``);
+    }
   }
 
   public getPrevCreatedAt(): TimeTicket {

@@ -53,7 +53,7 @@ describe('Yorkie', function() {
     await client2.deactivate();
   });
 
-  it('Can handle concurrent set operations', async function() {
+  it('Can handle concurrent set/remove operations', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = 'v1';
@@ -87,6 +87,16 @@ describe('Yorkie', function() {
       });
       await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
       assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        delete root['k3'];
+      });
+      d2.update((root) => {
+        root['k3'] = 'v6';
+      });
+      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
     }, this.test.title);
   });
 

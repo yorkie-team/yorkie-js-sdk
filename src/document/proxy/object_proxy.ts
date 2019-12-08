@@ -1,6 +1,7 @@
-import { logger } from '../../util/logger';
+import { logger, LogLevel } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { SetOperation } from '../operation/set_operation';
+import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
 import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
@@ -16,13 +17,18 @@ export class ObjectProxy {
     this.context = context;
     this.handlers = {
       set: (target: JSONObject, key: string, value: any): boolean => {
-        logger.debug(`obj[${key}]=${JSON.stringify(value)}`);
+        if (logger.isEnabled(LogLevel.Debug)) {
+          logger.debug(`obj[${key}]=${JSON.stringify(value)}`);
+        }
+
         ObjectProxy.setInternal(this.context, target, key, value);
         return true;
       },
 
       get: (target: JSONObject, key: string): any => {
-        logger.debug(`obj[${key}]`);
+        if (logger.isEnabled(LogLevel.Debug)) {
+          logger.debug(`obj[${key}]`);
+        }
 
         const elem = target.get(key);
         if (elem == null) {
@@ -39,6 +45,15 @@ export class ObjectProxy {
         }
 
         throw new TypeError(`Unsupported type of element: ${typeof elem}`)
+      },
+
+      deleteProperty: (target: JSONObject, key: string): boolean => {
+        if (logger.isEnabled(LogLevel.Debug)) {
+          logger.debug(`obj[${key}]`);
+        }
+
+        ObjectProxy.removeInternal(this.context, target, key);
+        return true;
       }
     }
   }
@@ -73,8 +88,14 @@ export class ObjectProxy {
         ObjectProxy.setInternal(context, obj, k, v);
       }
     } else {
-      throw new TypeError(`Unsupported type of value: ${typeof value}`)
+      logger.fatal(`unsupported type of value: ${typeof value}`);
     }
+  }
+
+  public static removeInternal(context: ChangeContext, target: JSONObject, key: string): void {
+    const ticket = context.issueTimeTicket();
+    const removed = target.removeByKey(key);
+    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
   }
 
   public getHandlers(): any {

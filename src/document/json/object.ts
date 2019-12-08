@@ -20,6 +20,14 @@ export class JSONObject extends JSONElement {
     this.members.set(key, value);
   }
 
+  public remove(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
+    return this.members.remove(createdAt, executedAt);
+  }
+
+  public removeByKey(key: string): JSONElement {
+    return this.members.removeByKey(key);
+  }
+
   public get(key: string): JSONElement {
     return this.members.get(key);
   }

@@ -19,6 +19,14 @@ export class JSONArray extends JSONElement {
     this.elements.insertAfter(prevCreatedAt, value);
   }
 
+  public remove(createdAt: TimeTicket): JSONElement {
+    return this.elements.remove(createdAt);
+  }
+
+  public removeByIndex(index: number): JSONElement {
+    return this.elements.removeByIndex(index);
+  }
+
   public toJSON(): string {
     const json = []
     for (var v of this.elements.getElements()) {

@@ -4,6 +4,7 @@ import { TimeTicket } from '../document/time/ticket';
 import { Operation } from '../document/operation/operation';
 import { SetOperation } from '../document/operation/set_operation';
 import { AddOperation } from '../document/operation/add_operation';
+import { RemoveOperation } from '../document/operation/remove_operation';
 import { DocumentKey } from '../document/key/document_key';
 import { ChangeID } from '../document/change/change_id';
 import { Change } from '../document/change/change';
@@ -93,6 +94,14 @@ function toOperation(operation: Operation): PbOperation {
     pbAddOperation.setValue(toJSONElement(addOperation.getValue()));
     pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
     pbOperation.setAdd(pbAddOperation);
+  } else if (operation instanceof RemoveOperation) {
+    const removeOperation = operation as (RemoveOperation);
+    const pbRemoveOperation = new PbOperation.Remove();
+    pbRemoveOperation.setParentCreatedAt(toTimeTicket(removeOperation.getParentCreatedAt()));
+    pbRemoveOperation.setCreatedAt(toTimeTicket(removeOperation.getCreatedAt()));
+    pbRemoveOperation.setExecutedAt(toTimeTicket(removeOperation.getExecutedAt()));
+    pbOperation.setRemove(pbRemoveOperation);
+
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -191,6 +200,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTimeTicket(pbAddOperation.getPrevCreatedAt()),
         fromJSONElement(pbAddOperation.getValue()),
         fromTimeTicket(pbAddOperation.getExecutedAt())
+      );
+    } else if (pbOperation.hasRemove()) {
+      const pbRemoveOperation = pbOperation.getRemove();
+      operation = RemoveOperation.create(
+        fromTimeTicket(pbRemoveOperation.getParentCreatedAt()),
+        fromTimeTicket(pbRemoveOperation.getCreatedAt()),
+        fromTimeTicket(pbRemoveOperation.getExecutedAt())
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation: ${operation}`);

@@ -60,4 +60,24 @@ describe('Document', function() {
     }, 'push "{k2-5: 4}"');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}', doc.toJSON());
   });
+
+  it('should handle delete operations', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toJSON());
+
+    doc.update((root) => {
+      root['k1'] = {'k1-1': 'v1', 'k1-2': 'v2'};
+      root['k2'] = ['1','2','3'];
+    }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}');
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}', doc.toJSON());
+
+    doc.update((root) => {
+      delete root['k1']['k1-1'];
+      root['k1']['k1-3'] = 'v4';
+
+      delete root['k2'][1];
+      root['k2'].push('4');
+    }, 'set {"k1":{"k1-2":"v2"},"k2":["1","3","4"]}');
+    assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"},"k2":["1","3","4"]}', doc.toJSON());
+  });
 });

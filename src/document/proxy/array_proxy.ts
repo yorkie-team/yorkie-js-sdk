@@ -1,7 +1,8 @@
-import { logger } from '../../util/logger';
+import { logger, LogLevel } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { SetOperation } from '../operation/set_operation';
 import { AddOperation } from '../operation/add_operation';
+import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
 import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
@@ -18,12 +19,24 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target, method: string) => {
+      get: (target: JSONArray, method: string) => {
         if (method === 'push') {
-          return (value) => {
+          return (value: any) => {
+            if (logger.isEnabled(LogLevel.Debug)) {
+              logger.debug(`array.push(${JSON.stringify(value)})`);
+            }
+
             ArrayProxy.pushInternal(this.context, target, value);
           };
         }
+      },
+      deleteProperty: (target: JSONArray, key: number): boolean => {
+        if (logger.isEnabled(LogLevel.Debug)) {
+          logger.debug(`array[${key}]`);
+        }
+
+        ArrayProxy.removeInternal(this.context, target, key);
+        return true;
       }
     }
   }
@@ -60,6 +73,12 @@ export class ArrayProxy {
     } else {
       throw new TypeError(`Unsupported type of value: ${typeof value}`)
     }
+  }
+
+  public static removeInternal(context: ChangeContext, target: JSONArray, index: number): void {
+    const ticket = context.issueTimeTicket();
+    const removed = target.removeByIndex(index);
+    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
   }
 
   public getHandlers(): any {
