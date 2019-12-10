@@ -3,6 +3,10 @@ import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { RHT } from './rht';
 
+/**
+ * JSONObject represents a JSON object, but unlike regular JSON, it has time
+ * tickets which is created by logical clock.
+ */
 export class JSONObject extends JSONElement {
   private members: RHT;
   private elementMapByCreatedAt: Map<string, JSONElement>;

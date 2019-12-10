@@ -83,7 +83,6 @@ export class ObjectProxy {
       const obj = JSONObject.create(ticket);
       target.set(key, obj);
       context.push(SetOperation.create(key, JSONObject.create(ticket), target.getCreatedAt(), ticket));
-
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);
       }

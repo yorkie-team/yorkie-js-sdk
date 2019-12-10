@@ -50,6 +50,9 @@ class RGANode {
   }
 }
 
+/**
+ * RGA is replicated growable array.
+ */
 export class RGA {
   private first: RGANode;
   private last: RGANode;

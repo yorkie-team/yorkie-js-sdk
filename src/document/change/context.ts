@@ -3,6 +3,11 @@ import { Operation } from '../operation/operation';
 import { ChangeID } from './change_id';
 import { Change } from './change';
 
+/**
+ * ChangeContext is used to record the context of modification when editing
+ * a document. Each time we add an operation, a new time ticket is issued.
+ * Finally returns a Change after the modification has been completed.
+ */
 export class ChangeContext {
   private id: ChangeID;
   private message: string;
@@ -16,6 +21,9 @@ export class ChangeContext {
     this.delimiter = InitialDelimiter;
   }
 
+  /**
+   * create creates a new instance of ChangeContext.
+   */
   public static create(id: ChangeID, message: string): ChangeContext {
     return new ChangeContext(id, message);
   }
@@ -32,6 +40,9 @@ export class ChangeContext {
     return this.operations.length > 0; 
   }
 
+  /**
+   * issueTimeTicket creates a time ticket to be used to create a new operation.
+   */
   public issueTimeTicket(): TimeTicket {
     this.delimiter += 1;
     return this.id.createTimeTicket(this.delimiter);

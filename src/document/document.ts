@@ -10,6 +10,9 @@ import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
 
+/**
+ * Document represents a document in MongoDB and contains logical clocks.
+ */
 export class Document {
   private key: DocumentKey;
   private root: JSONRoot;
@@ -26,10 +29,16 @@ export class Document {
     this.changes = [];
   }
 
+  /**
+   * create creates a new instance of Document.
+   */
   public static create(collection: string, document: string): Document {
     return new Document(collection, document);
   }
 
+  /**
+   * update executes the given updater to update this document.
+   */
   public update(updater: (root: JSONObject) => void, message?: string): void {
     if (!this.copy) {
       this.copy = this.root.getObject().deepcopy();
@@ -54,6 +63,9 @@ export class Document {
     }
   }
 
+  /**
+   * applyChangePack applies the given change pack into this document.
+   */
   public applyChangePack(pack: ChangePack): void {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(`before apply pack: ${this.root.toJSON()}`)
@@ -81,6 +93,9 @@ export class Document {
     return this.changes.length > 0;
   }
 
+  /**
+   * flushChangePack flushes the local change pack to send to the remote server.
+   */
   public flushChangePack(): ChangePack {
     const changes = this.changes;
     this.changes = [];
@@ -89,6 +104,10 @@ export class Document {
     return ChangePack.create(this.key, checkpoint, changes);
   }
 
+  /**
+   * setActor sets actor into this document. This is also applied in the local
+   * changes the document has.
+   */
   public setActor(actorID: ActorID): void {
     for (const change of this.changes) {
       change.setActor(actorID);

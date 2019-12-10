@@ -2,6 +2,9 @@ import { DocumentKey } from '../key/document_key';
 import { Checkpoint } from '../checkpoint/checkpoint';
 import { Change } from './change';
 
+/**
+ * ChangePack is a unit for delivering changes in a document to the remote.
+ */
 export class ChangePack {
   private key: DocumentKey;
   private checkpoint: Checkpoint;

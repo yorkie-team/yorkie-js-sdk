@@ -3,6 +3,9 @@ import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { RGA } from './rga';
 
+/**
+ * JSONArray represents JSON array data structure including logical clock.
+ */
 export class JSONArray extends JSONElement {
   private elements: RGA;
 

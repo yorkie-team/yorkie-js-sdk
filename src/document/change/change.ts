@@ -4,10 +4,19 @@ import { Operation } from '../operation/operation';
 import { JSONRoot } from '../json/root';
 import { ChangeID } from './change_id';
 
+/**
+ * Change represents a unit of modification in the document.
+ */
 export class Change {
   private id: ChangeID;
+
+  // message is used to save a description of the change.
   private message: string;
+
+  // operations represent a series of user edits.
   private operations: Operation[];
+
+  // serverSeq is optional and only present for changes stored on the server.
   private serverSeq: Long;
 
   constructor(id: ChangeID, message: string, operations: Operation[]) {

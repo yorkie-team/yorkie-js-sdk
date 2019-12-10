@@ -1,5 +1,8 @@
 import { TimeTicket } from '../time/ticket';
 
+/**
+ * JSONElement represents JSON element including logical clock.
+ */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
 

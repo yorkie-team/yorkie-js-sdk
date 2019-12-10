@@ -53,6 +53,23 @@ describe('Yorkie', function() {
     await client2.deactivate();
   });
 
+  it.skip('Can handle primitive types', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = true;
+        root['k2'] = 2147483647;
+        root['k3'] = '9223372036854775807';
+        root['k4'] = 1.79;
+        root['k5'] = '4';
+        root['k6'] = new Uint8Array([65,66]);
+        root['k7'] = new Date();
+      });
+
+      await c1.pushPull(); await c2.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
+    }, this.test.title);
+  });
+
   it('Can handle concurrent set/remove operations', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {

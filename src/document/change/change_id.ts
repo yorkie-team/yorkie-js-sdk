@@ -2,7 +2,9 @@ import Long from 'long';
 import { ActorID, InitialActorID } from '../time/actor_id';
 import { TimeTicket } from '../time/ticket';
 
-// Immutable
+/**
+ * ChangeID is for identifying the Change. This is immutable.
+ **/
 export class ChangeID {
   private clientSeq: number;
   private lamport: Long;

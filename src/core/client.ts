@@ -15,6 +15,11 @@ export enum ClientStatus {
   Activated = 1
 }
 
+/**
+ * Client is a normal client that can communicate with the agent.
+ * It has documents and sends changes of the documents in local
+ * to the agent to synchronize with other replicas in remote.
+ */
 export class Client {
   private client: YorkieClient;
   private id: string;
@@ -29,6 +34,11 @@ export class Client {
     this.attachedDocumentMap = new Map();
   }
 
+  /**
+   * ativate activates this client. That is, it register itself to the agent
+   * and receives a unique ID from the agent. The given ID is used to distinguish
+   * different clients.
+   */
   public activate(): Promise<void> {
     return new Promise((resolve, reject) => {
       const req = new ActivateClientRequest();
@@ -48,6 +58,9 @@ export class Client {
     });
   }
 
+  /**
+   * deactivate deactivates this client.
+   */
   public deactivate(): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
@@ -70,6 +83,10 @@ export class Client {
     });
   }
 
+  /**
+   * attachDocument attaches the given document to this client. It tells the agent that
+   * this client will synchronize the given document.
+   */
   public attachDocument(doc: Document): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
@@ -99,6 +116,14 @@ export class Client {
     });
   }
 
+  /**
+   * detachDocument dettaches the given document from this client. It tells the
+   * agent that this client will no longer synchronize the given document.
+   *
+   * To collect garbage things like CRDT tombstones left on the document, all the
+   * changes should be applied to other replicas before GC time. For this, if the
+   * document is no longer used by this client, it should be detached.
+   */
   public detachDocument(doc: Document): Promise<Document> {
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
@@ -122,6 +147,11 @@ export class Client {
     });
   }
 
+  /**
+   * pushPull pushes local changes of the attached documents to the Agent and
+   * receives changes of the remote replica from the agent then apply them to
+   * local documents.
+   */
   public pushPull(): Promise<Document[]> {
     const promises = [];
     for (const [key, doc] of this.attachedDocumentMap) {

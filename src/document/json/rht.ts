@@ -23,8 +23,11 @@ class RHTNode {
   }
 }
 
+/**
+ * RHT is replicated hash table.
+ */
 export class RHT {
-  // TODO introduce priority queue
+  // TODO introduce priority queue ordered by creation time.
   private elementMapByKey: Map<string, JSONElement>
   private nodeMapByCreatedAt: Map<string, RHTNode>;
 

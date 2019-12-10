@@ -1,7 +1,10 @@
 import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
-// Immutable
+/**
+ * Primitive represents JSON primitive data type including logical lock.
+ * This is immutable.
+ */
 export class JSONPrimitive extends JSONElement {
   private value: string;
 
