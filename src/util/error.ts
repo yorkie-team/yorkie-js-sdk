@@ -5,6 +5,7 @@ export const Code = {
 
   ClientNotActive: 'client-not-active' as Code,
   Unimplemented: 'unimplemented' as Code,
+  Unsupported: 'unsupported' as Code,
 }
 
 export class YorkieError extends Error {

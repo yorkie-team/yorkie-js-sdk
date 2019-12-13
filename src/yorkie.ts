@@ -1,3 +1,4 @@
+import Long from 'Long';
 import { Client } from './core/client';
 import { Document } from './document/document';
 
@@ -9,5 +10,6 @@ export default {
   },
   createDocument: function(collection: string, document: string): Document {
     return new Document(collection, document);
-  }
+  },
+  Long: Long,
 }

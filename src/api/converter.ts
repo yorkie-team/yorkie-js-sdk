@@ -1,4 +1,5 @@
 import Long from 'long';
+
 import { Code, YorkieError } from '../util/error';
 import { TimeTicket } from '../document/time/ticket';
 import { Operation } from '../document/operation/operation';
@@ -13,7 +14,7 @@ import { Checkpoint } from '../document/checkpoint/checkpoint';
 import { JSONElement } from '../document/json/element';
 import { JSONObject } from '../document/json/object';
 import { JSONArray } from '../document/json/array';
-import { JSONPrimitive } from '../document/json/primitive';
+import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
   ChangePack as PbChangePack,
   DocumentKey as PbDocumentKey,
@@ -65,7 +66,8 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
     pbJSONElement.setType(PbValueType.JSON_ARRAY);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
   } else if (jsonElement instanceof JSONPrimitive) {
-    pbJSONElement.setType(PbValueType.STRING);
+    const primitive = jsonElement as JSONPrimitive;
+    pbJSONElement.setType(toValueType(primitive.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
   } else {
@@ -73,6 +75,29 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   }
 
   return pbJSONElement;
+}
+
+function toValueType(valueType: PrimitiveType): PbValueType {
+  switch(valueType) {
+    case PrimitiveType.Null:
+      return PbValueType.NULL;
+    case PrimitiveType.Boolean:
+      return PbValueType.BOOLEAN;
+    case PrimitiveType.Integer:
+      return PbValueType.INTEGER;
+    case PrimitiveType.Long:
+      return PbValueType.LONG;
+    case PrimitiveType.Double:
+      return PbValueType.DOUBLE;
+    case PrimitiveType.String:
+      return PbValueType.STRING;
+    case PrimitiveType.Bytes:
+      return PbValueType.BYTES;
+    case PrimitiveType.Date:
+      return PbValueType.DATE;
+    default:
+      throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
+  }
 }
 
 function toOperation(operation: Operation): PbOperation {
@@ -170,9 +195,39 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
       return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.JSON_ARRAY:
       return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
+    case PbValueType.BOOLEAN:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Boolean, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
+    case PbValueType.INTEGER:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Integer, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
+    case PbValueType.LONG:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Long, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
+    case PbValueType.DOUBLE:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Double, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
     case PbValueType.STRING:
       return JSONPrimitive.of(
-        JSONPrimitive.valueFromBytes(pbJSONElement.getValue_asU8()),
+        JSONPrimitive.valueFromBytes(PrimitiveType.String, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
+    case PbValueType.BYTES:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Bytes, pbJSONElement.getValue_asU8()),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
+    case PbValueType.DATE:
+      return JSONPrimitive.of(
+        JSONPrimitive.valueFromBytes(PrimitiveType.Date, pbJSONElement.getValue_asU8()),
         fromTimeTicket(pbJSONElement.getCreatedAt())
       );
   }
