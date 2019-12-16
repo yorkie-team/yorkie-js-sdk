@@ -31,7 +31,7 @@ export class AddOperation extends Operation {
       array.insertAfter(this.prevCreatedAt, this.value);
       root.registerElement(this.value);
     } else {
-      logger.fatal(``);
+      logger.fatal(`fail to execute, only array can execute add`);
     }
   }
 

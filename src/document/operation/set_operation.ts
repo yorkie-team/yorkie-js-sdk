@@ -25,9 +25,14 @@ export class SetOperation extends Operation {
   }
 
   public execute(root: JSONRoot): void {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt()) as JSONObject;
-    parentObject.set(this.key, this.value);
-    root.registerElement(this.value);
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    if (parentObject instanceof JSONObject) {
+      const obj = parentObject as JSONObject;
+      obj.set(this.key, this.value);
+      root.registerElement(this.value);
+    } else {
+      logger.fatal(`fail to execute, only object can execute set`);
+    }
   }
 
   public getKey(): string {

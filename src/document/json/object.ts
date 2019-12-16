@@ -2,6 +2,7 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { RHT } from './rht';
+import { PlainText } from './text';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
@@ -22,6 +23,16 @@ export class JSONObject extends JSONElement {
 
   public set(key: string, value: JSONElement): void {
     this.members.set(key, value);
+  }
+
+  public setNewText(key: string): PlainText {
+    logger.fatal('unsupported: this method should be called by proxy');
+    return null;
+  }
+
+  public getText(key: string): PlainText {
+    logger.fatal('unsupported: this method should be called by proxy');
+    return null;
   }
 
   public remove(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {

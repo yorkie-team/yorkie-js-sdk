@@ -1,6 +1,7 @@
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { JSONObject } from './object';
+import { PlainText } from './text';
 
 /**
  * JSONRoot is a structure represents the root of JSON. It has a hash table of

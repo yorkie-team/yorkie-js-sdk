@@ -6,6 +6,8 @@ import yorkie from '../src/yorkie';
 const testRPCAddr = 'http://localhost:8080';
 const testCollection = 'test-col';
 
+// NOTE: In particular, we uses general functions, not arrow functions
+// to access test title in test codes.
 describe('Yorkie', function() {
   it('Can be activated, deactivated', async function() {
     const clientWithKey = yorkie.createClient(testRPCAddr, this.test.title);
@@ -137,6 +139,17 @@ describe('Yorkie', function() {
       await c1.pushPull();
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
+  });
+
+  it('should handle edit operations', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toJSON());
+
+    doc.update((root) => {
+      const text = root.setNewText('k1');
+      text.edit(0, 0, "ABCD");
+    });
+    // assert.equal('{"k1":"ABCD"}', doc.toJSON());
   });
 });
 

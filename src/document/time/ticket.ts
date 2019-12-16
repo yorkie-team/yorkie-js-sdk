@@ -1,5 +1,5 @@
 import Long from 'long';
-import { ActorID, InitialActorID } from './actor_id';
+import { ActorID, InitialActorID, MaxActorID } from './actor_id';
 
 // Immutable
 export class TimeTicket {
@@ -22,6 +22,13 @@ export class TimeTicket {
       return `${this.lamport.toString()}:${this.delimiter}:nil`;
     }
     return `${this.lamport.toString()}:${this.delimiter}:${this.actorID}`;
+  }
+
+  public getAnnotatedString(): string {
+    if (this.actorID == null) {
+      return `${this.lamport.toString()}:${this.delimiter}:nil`;
+    }
+    return `${this.lamport.toString()}:${this.delimiter}:${this.actorID.substring(22, 24)}`;
   }
 
   public setActor(actorID: ActorID): TimeTicket {
@@ -56,4 +63,8 @@ export class TimeTicket {
 }
 
 export const InitialDelimiter = 0;
+export const MaxDelemiter = 4294967295;
+export const MaxLamport = Long.fromString('18446744073709551615', true);
+
 export const InitialTimeTicket = new TimeTicket(Long.fromNumber(0, true), InitialDelimiter, InitialActorID);
+export const MaxTimeTicket = new TimeTicket(MaxLamport, MaxDelemiter, MaxActorID);
