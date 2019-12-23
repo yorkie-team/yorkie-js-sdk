@@ -1,6 +1,6 @@
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
-import { PlainText } from '../json/text';
+import { PlainText, TextNodeRange } from '../json/text';
 import { EditOperation } from '../operation/edit_operation';
 
 export class TextProxy {
@@ -23,6 +23,10 @@ export class TextProxy {
         } else if (keyOrMethod === 'getAnnotatedString') {
           return (): string => {
             return target.getAnnotatedString();
+          };
+        } else if (keyOrMethod === 'createRange') {
+          return (fromIdx: number, toIdx: number): TextNodeRange => {
+            return target.createRange(fromIdx, toIdx);
           };
         }
 

@@ -26,6 +26,24 @@ export class EditOperation extends Operation {
     this.content = content;
   }
 
+  public static create(
+    parentCreatedAt: TimeTicket,
+    fromPos: TextNodePos,
+    toPos: TextNodePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    content: string,
+    executedAt: TimeTicket
+  ): EditOperation {
+    return new EditOperation(
+      parentCreatedAt,
+      fromPos,
+      toPos,
+      maxCreatedAtMapByActor,
+      content,
+      executedAt
+    );
+  }
+
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof PlainText) {
@@ -34,5 +52,21 @@ export class EditOperation extends Operation {
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);
     }
+  }
+
+  public getFromPos(): TextNodePos {
+    return this.fromPos;
+  }
+
+  public getToPos(): TextNodePos {
+    return this.toPos;
+  }
+
+  public getContent(): string {
+    return this.content;
+  }
+
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+    return this.maxCreatedAtMapByActor;
   }
 }

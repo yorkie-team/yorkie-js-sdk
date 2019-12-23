@@ -6,6 +6,7 @@ import { Operation } from '../document/operation/operation';
 import { SetOperation } from '../document/operation/set_operation';
 import { AddOperation } from '../document/operation/add_operation';
 import { RemoveOperation } from '../document/operation/remove_operation';
+import { EditOperation } from '../document/operation/edit_operation';
 import { DocumentKey } from '../document/key/document_key';
 import { ChangeID } from '../document/change/change_id';
 import { Change } from '../document/change/change';
@@ -14,6 +15,7 @@ import { Checkpoint } from '../document/checkpoint/checkpoint';
 import { JSONElement } from '../document/json/element';
 import { JSONObject } from '../document/json/object';
 import { JSONArray } from '../document/json/array';
+import { TextNodeID, TextNodePos, RGATreeSplit, PlainText } from '../document/json/text';
 import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
   ChangePack as PbChangePack,
@@ -25,6 +27,7 @@ import {
   ChangeID as PbChangeID,
   JSONElement as PbJSONElement,
   ValueType as PbValueType,
+  TextNodePos as PbTextNodePos,
 } from './yorkie_pb';
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
@@ -65,12 +68,16 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   } else if (jsonElement instanceof JSONArray) {
     pbJSONElement.setType(PbValueType.JSON_ARRAY);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+  } else if (jsonElement instanceof PlainText) {
+    const text = jsonElement as PlainText;
+    pbJSONElement.setType(PbValueType.TEXT);
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
   } else if (jsonElement instanceof JSONPrimitive) {
     const primitive = jsonElement as JSONPrimitive;
     pbJSONElement.setType(toValueType(primitive.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
-  } else {
+  }  else {
     throw new YorkieError(Code.Unimplemented, `unimplemented element: ${jsonElement}`);
   }
 
@@ -100,11 +107,19 @@ function toValueType(valueType: PrimitiveType): PbValueType {
   }
 }
 
+function toTextNodePos(pos: TextNodePos): PbTextNodePos {
+  const pbTextNodePos = new PbTextNodePos();
+  pbTextNodePos.setCreatedAt(toTimeTicket(pos.getID().getCreatedAt()));
+  pbTextNodePos.setOffset(pos.getID().getOffset());
+  pbTextNodePos.setRelativeOffset(pos.getRelativeOffset());
+  return pbTextNodePos;
+}
+
 function toOperation(operation: Operation): PbOperation {
   const pbOperation = new PbOperation();
 
   if (operation instanceof SetOperation) {
-    const setOperation = operation as (SetOperation);
+    const setOperation = operation as SetOperation;
     const pbSetOperation = new PbOperation.Set();
     pbSetOperation.setParentCreatedAt(toTimeTicket(setOperation.getParentCreatedAt()));
     pbSetOperation.setKey(setOperation.getKey())
@@ -112,7 +127,7 @@ function toOperation(operation: Operation): PbOperation {
     pbSetOperation.setExecutedAt(toTimeTicket(setOperation.getExecutedAt()));
     pbOperation.setSet(pbSetOperation);
   } else if (operation instanceof AddOperation) {
-    const addOperation = operation as (AddOperation);
+    const addOperation = operation as AddOperation;
     const pbAddOperation = new PbOperation.Add();
     pbAddOperation.setParentCreatedAt(toTimeTicket(addOperation.getParentCreatedAt()));
     pbAddOperation.setPrevCreatedAt(toTimeTicket(addOperation.getPrevCreatedAt()));
@@ -120,13 +135,25 @@ function toOperation(operation: Operation): PbOperation {
     pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
     pbOperation.setAdd(pbAddOperation);
   } else if (operation instanceof RemoveOperation) {
-    const removeOperation = operation as (RemoveOperation);
+    const removeOperation = operation as RemoveOperation;
     const pbRemoveOperation = new PbOperation.Remove();
     pbRemoveOperation.setParentCreatedAt(toTimeTicket(removeOperation.getParentCreatedAt()));
     pbRemoveOperation.setCreatedAt(toTimeTicket(removeOperation.getCreatedAt()));
     pbRemoveOperation.setExecutedAt(toTimeTicket(removeOperation.getExecutedAt()));
     pbOperation.setRemove(pbRemoveOperation);
-
+  } else if (operation instanceof EditOperation) {
+    const editOperation = operation as EditOperation;
+    const pbEditOperation = new PbOperation.Edit();
+    pbEditOperation.setParentCreatedAt(toTimeTicket(editOperation.getParentCreatedAt()));
+    pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
+    pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
+    const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value));
+    }
+    pbEditOperation.setContent(editOperation.getContent());
+    pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
+    pbOperation.setEdit(pbEditOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -195,6 +222,8 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
       return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.JSON_ARRAY:
       return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
+    case PbValueType.TEXT:
+      return PlainText.create(RGATreeSplit.create(), fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.BOOLEAN:
       return JSONPrimitive.of(
         JSONPrimitive.valueFromBytes(PrimitiveType.Boolean, pbJSONElement.getValue_asU8()),
@@ -235,6 +264,16 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   throw new YorkieError(Code.Unimplemented, `unimplemented element: ${pbJSONElement}`);
 }
 
+function fromTextNodePos(pbTextNodePos: PbTextNodePos): TextNodePos {
+  return TextNodePos.of(
+    TextNodeID.of(
+      fromTimeTicket(pbTextNodePos.getCreatedAt()),
+      pbTextNodePos.getOffset()
+    ),
+    pbTextNodePos.getRelativeOffset()
+  );
+}
+
 function fromOperations(pbOperations: PbOperation[]): Operation[] {
   const operations = [];
 
@@ -262,6 +301,20 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTimeTicket(pbRemoveOperation.getParentCreatedAt()),
         fromTimeTicket(pbRemoveOperation.getCreatedAt()),
         fromTimeTicket(pbRemoveOperation.getExecutedAt())
+      );
+    } else if (pbOperation.hasEdit()) {
+      const pbEditOperation = pbOperation.getEdit();
+      const createdAtMapByActor = new Map();
+      pbEditOperation.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
+      operation = EditOperation.create(
+        fromTimeTicket(pbEditOperation.getParentCreatedAt()),
+        fromTextNodePos(pbEditOperation.getFrom()),
+        fromTextNodePos(pbEditOperation.getTo()),
+        createdAtMapByActor,
+        pbEditOperation.getContent(),
+        fromTimeTicket(pbEditOperation.getExecutedAt()),
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation: ${operation}`);

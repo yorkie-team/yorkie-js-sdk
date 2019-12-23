@@ -9,7 +9,7 @@ interface TextNodeValue {
   substring(indexStart: number, indexEnd?: number): TextNodeValue;
 }
 
-class TextNodeID {
+export class TextNodeID {
   private createdAt: TimeTicket;
   private offset: number;
 
@@ -63,6 +63,14 @@ export class TextNodePos {
     return new TextNodePos(id, relativeOffset);
   }
 
+  public getID(): TextNodeID {
+    return this.id;
+  }
+
+  public getRelativeOffset(): number {
+    return this.relativeOffset;
+  }
+
   public getAbsoluteID(): TextNodeID {
     return TextNodeID.of(
       this.id.getCreatedAt(),
@@ -84,9 +92,10 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   private insPrev: TextNode<T>;
   private insNext: TextNode<T>;
 
-  constructor(id: TextNodeID, value: T) {
+  constructor(id: TextNodeID, value?: T, deletedAt?: TimeTicket) {
     super(value);
     this.id = id;
+    this.deletedAt = deletedAt;
   }
 
   public static create<T extends TextNodeValue>(id: TextNodeID, value?: T): TextNode<T> {
@@ -135,6 +144,10 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     return this.insNext;
   }
 
+  public getInsPrevID(): TextNodeID {
+    return this.insPrev.getID();
+  }
+
   public setPrev(node: TextNode<T>): void {
     this.prev = node;
     node.next = this;
@@ -151,6 +164,10 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
 
   public hasNext(): boolean {
     return !!this.next;
+  }
+
+  public hasInsPrev(): boolean {
+    return !!this.insPrev;
   }
 
   public isDeleted(): boolean {
@@ -174,6 +191,14 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     return false;
   }
 
+  public deepcopy(): TextNode<T> {
+    return new TextNode(
+      this.id,
+      this.value,
+      this.deletedAt
+    );
+  }
+
   public getAnnotatedString(): string {
     return `${this.id.getAnnotatedString()} ${this.value ? this.value : ''}`;
   }
@@ -185,7 +210,7 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   }
 }
 
-type TextNodeRange = [TextNodePos, TextNodePos];
+export type TextNodeRange = [TextNodePos, TextNodePos];
 
 export class RGATreeSplit<T extends TextNodeValue> {
   private head: TextNode<T>;
@@ -240,6 +265,10 @@ export class RGATreeSplit<T extends TextNodeValue> {
     return TextNodePos.of(textNode.getID(), offset);
   }
 
+  public findTextNode(id: TextNodeID): TextNode<T> {
+    return this.findFloorTextNode(id);
+  }
+
   public toJSON(): string {
     const json = [];
 
@@ -252,6 +281,27 @@ export class RGATreeSplit<T extends TextNodeValue> {
     }
 
     return json.join('');
+  }
+
+  public deepcopy(): RGATreeSplit<T> {
+    const clone = new RGATreeSplit<T>();
+
+    let node = this.head.getNext();
+
+    let prev = clone.head;
+    let current
+    while (node) {
+      current = clone.insertAfter(prev, node.deepcopy());
+      if (node.hasInsPrev()) {
+        const insPrevNode = clone.findTextNode(node.getInsPrevID());
+        current.setInsPrev(insPrevNode);
+      }
+
+      prev = current;
+      node = node.getNext();
+    }
+
+    return clone;
   }
 
   public getAnnotatedString(): string {
@@ -292,7 +342,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
     }
 
     if (id.getOffset() > 0 && node.getID().getOffset() == id.getOffset()) {
-      if (node.getInsPrev()) {
+      if (!node.hasInsPrev()) {
         logger.fatal('insPrev should be presence');
       }
       node = node.getInsPrev()
@@ -365,7 +415,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
         maxCreatedAt = MaxTimeTicket;
       } else {
         maxCreatedAt = maxCreatedAtMapByActor.has(actorID) ?
-          maxCreatedAtMapByActor[actorID] : InitialTimeTicket;
+          maxCreatedAtMapByActor.get(actorID) : InitialTimeTicket;
       }
 
       if (node.delete(editedAt, maxCreatedAt)) {
@@ -377,7 +427,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
       }
     }
 
-    return maxCreatedAtMapByActor;
+    return createdAtMapByActor;
   }
 
   private insertAfter(prevNode: TextNode<T>, newNode: TextNode<T>): TextNode<T> {
@@ -438,10 +488,9 @@ export class PlainText extends JSONElement {
   }
 
   public deepcopy(): PlainText {
-    const rgaTreeSplit = RGATreeSplit.create<string>();
-
-    logger.warn('unimplemented yet: deepcopy');
-
-    return PlainText.create(rgaTreeSplit, this.getCreatedAt());
+    return PlainText.create(
+      this.rgaTreeSplit.deepcopy(),
+      this.getCreatedAt()
+    );
   }
 }

@@ -67,10 +67,6 @@ export class Document {
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
-    if (logger.isEnabled(LogLevel.Debug)) {
-      logger.debug(`before apply pack: ${this.root.toJSON()}`)
-    }
-
     for (const change of pack.getChanges()) {
       this.changeID = this.changeID.sync(change.getID());
       change.execute(this.root);
@@ -81,7 +77,7 @@ export class Document {
     this.copy = null;
 
     if (logger.isEnabled(LogLevel.Debug)) {
-      logger.debug(`after apply pack: ${this.root.toJSON()}`)
+      logger.debug(`after apply ${pack.getChanges().length} remote changes: ${this.root.toJSON()}`)
     }
   }
 

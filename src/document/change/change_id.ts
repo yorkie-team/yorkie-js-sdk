@@ -25,11 +25,11 @@ export class ChangeID {
   }
 
   public sync(other: ChangeID): ChangeID {
-    if (this.lamport.greaterThan(other.lamport)) {
+    if (other.lamport.greaterThan(this.lamport)) {
       return new ChangeID(this.clientSeq, other.lamport, this.actor)
     }
 
-    return new ChangeID(this.clientSeq, other.lamport.add(1), this.actor);
+    return new ChangeID(this.clientSeq, this.lamport.add(1), this.actor);
   }
 
   public createTimeTicket(delimiter: number): TimeTicket {

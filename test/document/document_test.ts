@@ -115,7 +115,6 @@ describe('Document', function() {
 
       range = text.createRange(4, 4);
       assert.equal('1:2:00:3:1', range[0].getAnnotatedString())
-
     });
 
     assert.equal('{"k1":"A12D"}', doc.toJSON());

@@ -41,7 +41,8 @@ export class ObjectProxy {
           };
         } else if (keyOrMethod === 'getText') {
           return (key: string): PlainText => {
-            return target.get(key) as PlainText;
+            const text = target.get(key) as PlainText;
+            return TextProxy.create(this.context, text);
           };
         }
 
