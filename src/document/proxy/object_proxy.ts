@@ -36,12 +36,12 @@ export class ObjectProxy {
           return (): string => {
             return target.toJSON();
           };
-        } else if (keyOrMethod === 'setNewText') {
+        } else if (keyOrMethod === 'getOrCreateText') {
           return (key: string): PlainText => {
             if (logger.isEnabled(LogLevel.Debug)) {
               logger.debug(`obj[${key}]=Text`);
             }
-            return ObjectProxy.setNewText(this.context, target, key);
+            return ObjectProxy.getOrCreateText(this.context, target, key);
           };
         } else if (keyOrMethod === 'getText') {
           return (key: string): PlainText => {
@@ -116,7 +116,12 @@ export class ObjectProxy {
     }
   }
 
-  public static setNewText(context: ChangeContext, target: JSONObject, key: string): PlainText {
+  public static getOrCreateText(context: ChangeContext, target: JSONObject, key: string): PlainText {
+    if (target.has(key)) {
+      const text = target.get(key) as PlainText;
+      return TextProxy.create(context, text);
+    }
+
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);

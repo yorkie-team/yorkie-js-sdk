@@ -33,11 +33,11 @@ class RHTNode extends HeapNode<TimeTicket, JSONElement> {
  * RHT is replicated hash table.
  */
 export class RHT {
-  private elementMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;
+  private elementQueueMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;
   private nodeMapByCreatedAt: Map<string, RHTNode>;
 
   constructor() {
-    this.elementMapByKey = new Map();
+    this.elementQueueMapByKey = new Map();
     this.nodeMapByCreatedAt = new Map();
   }
 
@@ -46,12 +46,12 @@ export class RHT {
   }
 
   public set(key: string, value: JSONElement): void {
-    if (!this.elementMapByKey.has(key)) {
-      this.elementMapByKey.set(key, new Heap(TicketComparator));
+    if (!this.elementQueueMapByKey.has(key)) {
+      this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
 
     const node = RHTNode.of(key, value);
-    this.elementMapByKey.get(key).push(node);
+    this.elementQueueMapByKey.get(key).push(node);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
   }
 
@@ -64,31 +64,35 @@ export class RHT {
   }
 
   public removeByKey(key: string): JSONElement {
-    if (!this.elementMapByKey.has(key)) {
+    if (!this.elementQueueMapByKey.has(key)) {
       return null;
     }
 
-    const node = this.elementMapByKey.get(key).peek() as RHTNode;
+    const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
     node.remove();
     return node.getValue();
   }
 
+  public has(key: string): boolean {
+    if (!this.elementQueueMapByKey.has(key)) {
+      return false;
+    }
+
+    const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
+    return !node.isRemoved();
+  }
+
   public get(key: string): JSONElement {
-    if (!this.elementMapByKey.has(key)) {
+    if (!this.elementQueueMapByKey.has(key)) {
       return null;
     }
 
-    const node = this.elementMapByKey.get(key).peek();
-    if (!node) {
-      return null;
-    }
-
-    return node.getValue();
+    return this.elementQueueMapByKey.get(key).peek().getValue();
   }
 
   public getMembers(): Map<string, JSONElement> {
     const members = new Map<string, JSONElement>();
-    for (const [key, value] of this.elementMapByKey) {
+    for (const [key, value] of this.elementQueueMapByKey) {
       const node = value.peek() as RHTNode;
       if (node && !node.isRemoved()) {
         members.set(node.getStrKey(), node.getValue());

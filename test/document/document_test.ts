@@ -89,34 +89,51 @@ describe('Document', function() {
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
-      const text = root.setNewText('k1');
+      const text = root.getOrCreateText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
-    }, 'set {"k1":"A12D"');
+    }, 'set {"k1":"A12D"}');
 
     doc.update((root) => {
       const text = root.getText('k1');
       assert.equal(
-        '[0:0:00:0 ][1:2:00:0 A][1:3:00:0 12]{1:2:00:1 BC}[1:2:00:3 D]',
+        '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
         text.getAnnotatedString()
       );
 
       let range = text.createRange(0, 0);
-      assert.equal('0:0:00:0:0', range[0].getAnnotatedString())
+      assert.equal('0:00:0:0:0', range[0].getAnnotatedString())
 
       range = text.createRange(1, 1);
-      assert.equal('1:2:00:0:1', range[0].getAnnotatedString())
+      assert.equal('1:00:2:0:1', range[0].getAnnotatedString())
 
       range = text.createRange(2, 2);
-      assert.equal('1:3:00:0:1', range[0].getAnnotatedString());
+      assert.equal('1:00:3:0:1', range[0].getAnnotatedString());
 
       range = text.createRange(3, 3)
-      assert.equal('1:3:00:0:2', range[0].getAnnotatedString())
+      assert.equal('1:00:3:0:2', range[0].getAnnotatedString())
 
       range = text.createRange(4, 4);
-      assert.equal('1:2:00:3:1', range[0].getAnnotatedString())
+      assert.equal('1:00:2:3:1', range[0].getAnnotatedString())
     });
 
     assert.equal('{"k1":"A12D"}', doc.toJSON());
+  });
+
+  it('should handle type 하늘', function() {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toJSON());
+
+    doc.update((root) => {
+      const text = root.getOrCreateText('k1');
+      text.edit(0, 0, 'ㅎ');
+      text.edit(0, 1, '하');
+      text.edit(0, 1, '한');
+      text.edit(0, 1, '하');
+      text.edit(1, 1, '느');
+      text.edit(1, 2, '늘');
+    }, 'set {"k1":"하늘"}');
+
+    assert.equal('{"k1":"하늘"}', doc.toJSON());
   });
 });

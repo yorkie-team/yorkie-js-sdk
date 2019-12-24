@@ -25,7 +25,7 @@ export class JSONObject extends JSONElement {
     this.members.set(key, value);
   }
 
-  public setNewText(key: string): PlainText {
+  public getOrCreateText(key: string): PlainText {
     logger.fatal('unsupported: this method should be called by proxy');
     return null;
   }
@@ -45,6 +45,10 @@ export class JSONObject extends JSONElement {
 
   public get(key: string): JSONElement {
     return this.members.get(key);
+  }
+
+  public has(key: string): boolean {
+    return this.members.has(key);
   }
 
   public toJSON(): string {

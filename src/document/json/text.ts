@@ -1,9 +1,17 @@
 import { logger } from '../../util/logger';
+import { ActorID } from '../time/actor_id';
 import { Comparator } from '../../util/comparator';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
 import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
+
+export interface Change<T> {
+  actor: ActorID;
+  from: number;
+  to: number;
+  content?: T;
+}
 
 interface TextNodeValue {
   length: number;
@@ -84,6 +92,8 @@ export class TextNodePos {
   }
 }
 
+export type TextNodeRange = [TextNodePos, TextNodePos];
+
 class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   private id: TextNodeID;
   private deletedAt: TimeTicket;
@@ -110,7 +120,12 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
         return compare;
       }
 
-      return p1.getOffset() - p2.getOffset();
+      if (p1.getOffset() > p2.getOffset()) {
+        return 1;
+      } else if (p1.getOffset() < p2.getOffset()) {
+        return -1;
+      }
+      return 0;
     }
   }
 
@@ -182,14 +197,20 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     );
   }
 
-  public delete(editedAt: TimeTicket, maxCreatedAtByOwner: TimeTicket): boolean {
-    if (!this.getCreatedAt().after(maxCreatedAtByOwner) &&
-      (!this.deletedAt || editedAt.after(this.deletedAt))) {
-      this.deletedAt = editedAt;
-      return true;
-    }
+  public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+    return (!this.getCreatedAt().after(latestCreatedAt) &&
+      (!this.deletedAt || editedAt.after(this.deletedAt)));
+  }
 
-    return false;
+  public delete(editedAt: TimeTicket): void {
+    this.deletedAt = editedAt;
+  }
+
+  public createRange(): TextNodeRange {
+    return [
+      TextNodePos.of(this.id, 0),
+      TextNodePos.of(this.id, this.getLength())
+    ];
   }
 
   public deepcopy(): TextNode<T> {
@@ -210,8 +231,6 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     return value.substring(offset, value.length) as T;
   }
 }
-
-export type TextNodeRange = [TextNodePos, TextNodePos];
 
 export class RGATreeSplit<T extends TextNodeValue> {
   private head: TextNode<T>;
@@ -234,36 +253,65 @@ export class RGATreeSplit<T extends TextNodeValue> {
   public edit(
     range: TextNodeRange,
     content: T,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor: Map<string, TimeTicket>,
     editedAt: TimeTicket
-  ): [TextNodePos, Map<string, TimeTicket>] {
+  ): [TextNodePos, Map<string, TimeTicket>, Array<Change<T>>] {
     // 01. split nodes with from and to
     const [fromLeft, fromRight] = this.findTextNodeWithSplit(range[0], editedAt);
     const [toLeft, toRight] = this.findTextNodeWithSplit(range[1], editedAt);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const maxCreatedAtMap = this.deleteNodes(nodesToDelete, maxCreatedAtMapByActor, editedAt);
+    const [changes, latestCreatedAtMap] = this.deleteNodes(
+      nodesToDelete, latestCreatedAtMapByActor, editedAt
+    );
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = TextNodePos.of(caretID, 0);
 
     // 03. insert a new node
     if (content) {
+      const idx = this.findIdxFromTextNodePos(fromLeft.createRange()[1], true);
+
       const inserted = this.insertAfter(
         fromLeft,
         TextNode.create(TextNodeID.of(editedAt, 0), content)
       );
+
+      changes.push({
+        actor: editedAt.getActorID(),
+        from: idx,
+        to: idx,
+        content: content
+      });
+
       caretPos = TextNodePos.of(inserted.getID(), inserted.getContentLength());
     }
-    
-    return [caretPos, maxCreatedAtMap];
+
+    return [caretPos, latestCreatedAtMap, changes];
   }
 
   public findTextNodePos(idx: number): TextNodePos {
     const [node, offset] = this.treeByIndex.find(idx);
     const textNode = node as TextNode<T>;
     return TextNodePos.of(textNode.getID(), offset);
+  }
+
+  public findIndexesFromRange(range: TextNodeRange): [number, number] {
+    const [fromPos, toPos] = range;
+    return [
+      this.findIdxFromTextNodePos(fromPos, false),
+      this.findIdxFromTextNodePos(toPos, true)
+    ];
+  }
+
+  public findIdxFromTextNodePos(pos: TextNodePos, preferToLeft: boolean): number {
+    const absoluteID = pos.getAbsoluteID();
+    const textNode = preferToLeft ?
+      this.findFloorTextNodePreferToLeft(absoluteID) : this.findFloorTextNode(absoluteID);
+    const index = this.treeByIndex.indexOf(textNode);
+    const offset = textNode.isDeleted() ? 0 : absoluteID.getOffset() - textNode.getID().getOffset();
+    return index + offset;
   }
 
   public findTextNode(id: TextNodeID): TextNode<T> {
@@ -403,24 +451,36 @@ export class RGATreeSplit<T extends TextNodeValue> {
 
   private deleteNodes(
     candidates: Array<TextNode<T>>,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor: Map<string, TimeTicket>,
     editedAt: TimeTicket
-  ): Map<string, TimeTicket> {
+  ): [Array<Change<T>>, Map<string, TimeTicket>] {
+    const isRemote = !!latestCreatedAtMapByActor;
+    const changes: Array<Change<T>> = [];
     const createdAtMapByActor = new Map();
+    const nodesToDelete = [];
 
+    // NOTE: We need to collect indexes for change first then delete the nodes.
     for (const node of candidates) {
       const actorID = node.getCreatedAt().toIDString();
 
-      let maxCreatedAt;
-      if (!maxCreatedAtMapByActor) {
-        maxCreatedAt = MaxTimeTicket;
-      } else {
-        maxCreatedAt = maxCreatedAtMapByActor.has(actorID) ?
-          maxCreatedAtMapByActor.get(actorID) : InitialTimeTicket;
-      }
+      const latestCreatedAt = isRemote ? (
+        latestCreatedAtMapByActor.has(actorID) ? latestCreatedAtMapByActor.get(actorID) : InitialTimeTicket
+      ) : MaxTimeTicket;
 
-      if (node.delete(editedAt, maxCreatedAt)) {
-        this.treeByIndex.splayNode(node);
+      // Delete nodes created before the latest time remaining in the replica that performed the deletion.
+      if (node.canDelete(editedAt, latestCreatedAt)) {
+        nodesToDelete.push(node);
+
+        const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
+        const change = { actor: editedAt.getActorID(), from: fromIdx, to: toIdx };
+
+        // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
+        if (changes.length && changes[0].to === change.from) {
+          changes[0].to = change.to;
+        } else {
+          changes.unshift(change);
+        }
+
         if (!createdAtMapByActor.has(actorID) || 
           node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))) {
           createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
@@ -428,7 +488,12 @@ export class RGATreeSplit<T extends TextNodeValue> {
       }
     }
 
-    return createdAtMapByActor;
+    for (const node of nodesToDelete) {
+      node.delete(editedAt);
+      this.treeByIndex.splayNode(node);
+    }
+
+    return [changes, createdAtMapByActor];
   }
 
   private insertAfter(prevNode: TextNode<T>, newNode: TextNode<T>): TextNode<T> {
@@ -446,6 +511,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
 }
 
 export class PlainText extends JSONElement {
+  private onChangesHandler: (changes: Array<Change<string>>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
 
   constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
@@ -465,10 +531,24 @@ export class PlainText extends JSONElement {
   public editInternal(
     range: TextNodeRange,
     content: string,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor: Map<string, TimeTicket>,
     editedAt: TimeTicket
   ): [TextNodePos, Map<string, TimeTicket>] {
-    return this.rgaTreeSplit.edit(range, content, maxCreatedAtMapByActor, editedAt);
+    const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
+      range,
+      content,
+      latestCreatedAtMapByActor, editedAt,
+    );
+
+    if (this.onChangesHandler) {
+      this.onChangesHandler(changes);
+    }
+
+    return [caretPos, latestCreatedAtMap];
+  }
+
+  public onChanges(handler: (changes: Array<Change<string>>) => void) {
+    this.onChangesHandler = handler;
   }
 
   public createRange(fromIdx: number, toIdx: number): TextNodeRange {
@@ -482,6 +562,10 @@ export class PlainText extends JSONElement {
 
   public toJSON(): string {
     return `"${this.rgaTreeSplit.toJSON()}"`;
+  }
+
+  public getValue(): string {
+    return this.rgaTreeSplit.toJSON();
   }
 
   public getAnnotatedString(): string {

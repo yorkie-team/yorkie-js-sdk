@@ -24,16 +24,16 @@ export class TimeTicket {
 
   public toIDString(): string {
     if (this.actorID == null) {
-      return `${this.lamport.toString()}:${this.delimiter}:nil`;
+      return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
-    return `${this.lamport.toString()}:${this.delimiter}:${this.actorID}`;
+    return `${this.lamport.toString()}:${this.actorID}:${this.delimiter}`;
   }
 
   public getAnnotatedString(): string {
     if (this.actorID == null) {
-      return `${this.lamport.toString()}:${this.delimiter}:nil`;
+      return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
-    return `${this.lamport.toString()}:${this.delimiter}:${this.actorID.substring(22, 24)}`;
+    return `${this.lamport.toString()}:${this.actorID.substring(22, 24)}:${this.delimiter}`;
   }
 
   public setActor(actorID: ActorID): TimeTicket {
@@ -63,7 +63,18 @@ export class TimeTicket {
       return -1;
     }
 
-    return this.actorID.localeCompare(other.actorID);
+    const compare = this.actorID.localeCompare(other.actorID);
+    if (compare !== 0) {
+      return compare;
+    }
+
+    if (this.delimiter > other.delimiter) {
+      return 1;
+    } else if (other.delimiter > this.delimiter) {
+      return -1;
+    }
+
+    return 0;
   }
 }
 

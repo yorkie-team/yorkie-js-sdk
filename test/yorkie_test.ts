@@ -1,4 +1,5 @@
 import { assert } from 'chai';
+import * as sinon from 'sinon';
 import { Client } from '../src/core/client';
 import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
@@ -42,7 +43,7 @@ describe('Yorkie', function() {
       root['k1'] = {'k1-1': 'v1'};
       root['k2'] = ['1', '2'];
     }, 'set v1, v2');
-    await client1.pushPull();
+    await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toJSON());
 
     await client2.attachDocument(doc2);
@@ -53,6 +54,35 @@ describe('Yorkie', function() {
 
     await client1.deactivate();
     await client2.deactivate();
+  });
+
+  it('Can handle sync', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      const spy = sinon.spy();
+      const unsub = d2.subscribe(spy);
+
+      assert.equal(0, spy.callCount);
+
+      d1.update((root) => {
+        root['k1'] = 'v1';
+      });
+      await c1.sync(); await c2.sync();
+      assert.equal(1, spy.callCount);
+
+      d1.update((root) => {
+        root['k2'] = 'v2';
+      });
+      await c1.sync(); await c2.sync();
+      assert.equal(2, spy.callCount);
+
+      unsub();
+
+      d1.update((root) => {
+        root['k3'] = 'v3';
+      });
+      await c1.sync(); await c2.sync();
+      assert.equal(2, spy.callCount);
+    }, this.test.title);
   });
 
   it('Can handle primitive types', async function() {
@@ -68,7 +98,7 @@ describe('Yorkie', function() {
         // root['k7'] = new Date();
       });
 
-      await c1.pushPull(); await c2.pushPull();
+      await c1.sync(); await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });
@@ -81,13 +111,13 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k1'] = 'v2';
       });
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
         root['k2'] = {};
       });
-      await c1.pushPull(); await c2.pushPull();
+      await c1.sync(); await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -96,7 +126,7 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k2']['k2.1'] = {'k2.1.1': 'v3'};
       });
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -105,7 +135,7 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k4'] = 'v5';
       });
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -114,7 +144,7 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k3'] = 'v6';
       });
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });
@@ -124,7 +154,7 @@ describe('Yorkie', function() {
       d1.update((root) => {
         root['k1'] = ['1'];
       });
-      await c1.pushPull(); await c2.pushPull();
+      await c1.sync(); await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -133,7 +163,7 @@ describe('Yorkie', function() {
       d2.update((root) => {
         root['k1'].push('3');
       });
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });
@@ -141,9 +171,9 @@ describe('Yorkie', function() {
   it('should handle concurrent edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.setNewText('k1');
+        root.getOrCreateText('k1');
       }, 'set new text by c1');
-      await c1.pushPull(); await c2.pushPull();
+      await c1.sync(); await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -154,7 +184,7 @@ describe('Yorkie', function() {
         const text = root.getText('k1');
         text.edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -165,7 +195,7 @@ describe('Yorkie', function() {
         const text = root.getText('k1');
         text.edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
@@ -177,7 +207,7 @@ describe('Yorkie', function() {
         text.edit(2, 3, 'TT');
       }, 'edit 2,3 TT by c1');
 
-      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });

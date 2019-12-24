@@ -1,4 +1,5 @@
 import { logger, LogLevel } from '../util/logger';
+import { Observer, Observable, createObservable, Unsubscribe } from '../util/observable';
 import { ActorID } from './time/actor_id';
 import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
@@ -10,16 +11,27 @@ import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
 
+enum DocEventType {
+  ChangeReceived = 'change-received',
+}
+
+interface DocEvent {
+  name: DocEventType;
+  value: any;
+}
+
 /**
  * Document represents a document in MongoDB and contains logical clocks.
  */
-export class Document {
+export class Document implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
   private copy: JSONObject;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private changes: Change[];
+  private eventStream: Observable<DocEvent>;
+  private eventStreamObserver: Observer<DocEvent>;
 
   constructor(collection: string, document: string) {
     this.key = DocumentKey.of(collection, document);
@@ -27,6 +39,9 @@ export class Document {
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.changes = [];
+    this.eventStream = createObservable<DocEvent>((observer) => {
+      this.eventStreamObserver = observer;
+    });
   }
 
   /**
@@ -63,18 +78,30 @@ export class Document {
     }
   }
 
+  public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
+    return this.eventStream.subscribe(nextOrObserver, error, complete);
+  }
+
   /**
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
-    for (const change of pack.getChanges()) {
+    const changes = pack.getChanges();
+    for (const change of changes) {
       this.changeID = this.changeID.sync(change.getID());
       change.execute(this.root);
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // TODO: remove below line. drop copy because it is contaminated.
-    this.copy = null;
+    if (changes.length) {
+      // TODO: remove below line. drop copy because it is contaminated.
+      this.copy = null;
+
+      this.eventStreamObserver.next({
+        name: DocEventType.ChangeReceived,
+        value: changes
+      });
+    }
 
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(`after apply ${pack.getChanges().length} remote changes: ${this.root.toJSON()}`)
@@ -115,6 +142,10 @@ export class Document {
 
   public getKey(): DocumentKey {
     return this.key;
+  }
+
+  public getRootObject(): JSONObject {
+    return this.root.getObject();
   }
 
   public toJSON(): string {

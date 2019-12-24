@@ -1,3 +1,4 @@
+import { ActorID } from '../document/time/actor_id';
 import {
   ActivateClientRequest, DeactivateClientRequest,
   AttachDocumentRequest, DetachDocumentRequest,
@@ -22,7 +23,7 @@ export enum ClientStatus {
  */
 export class Client {
   private client: YorkieClient;
-  private id: string;
+  private id: ActorID;
   private key: string;
   private status: ClientStatus;
   private attachedDocumentMap: Map<string, Document>;
@@ -148,11 +149,11 @@ export class Client {
   }
 
   /**
-   * pushPull pushes local changes of the attached documents to the Agent and
+   * sync pushes local changes of the attached documents to the Agent and
    * receives changes of the remote replica from the agent then apply them to
    * local documents.
    */
-  public pushPull(): Promise<Document[]> {
+  public sync(): Promise<Document[]> {
     const promises = [];
     for (const [key, doc] of this.attachedDocumentMap) {
       promises.push(new Promise((resolve, reject) => {
