@@ -1,3 +1,5 @@
+import { Comparator, DefaultComparator } from './comparator';
+
 interface Entry<K, V> {
   key: K;
   value: V;
@@ -19,18 +21,6 @@ class LLRBNode<K, V> {
     this.right;
   }
 }
-
-export type Comparator<K> = (keyA: K, keyB: K) => number;
-
-const DefaultComparator = (a, b) => {
-  if (a === b) {
-    return 0;
-  } else if (a < b) {
-    return -1;
-  } else {
-    return 1;
-  }
-};
 
 export class SortedMapIterator<K, V> {
   public stack: Array<Entry<K, V>>;

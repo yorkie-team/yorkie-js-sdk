@@ -6,7 +6,7 @@ export enum LogLevel {
   Fatal = 4
 }
 
-let level = LogLevel.Debug;
+let level = LogLevel.Info;
 export function setLogLevel(l: LogLevel): void {
   level = l;
 }

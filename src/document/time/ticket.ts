@@ -1,5 +1,10 @@
 import Long from 'long';
+import { Comparator } from '../../util/comparator';
 import { ActorID, InitialActorID, MaxActorID } from './actor_id';
+
+export const TicketComparator: Comparator<TimeTicket> = (p1: TimeTicket, p2: TimeTicket) => {
+  return p1.compare(p2);
+};
 
 // Immutable
 export class TimeTicket {

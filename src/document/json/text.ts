@@ -1,6 +1,7 @@
 import { logger } from '../../util/logger';
+import { Comparator } from '../../util/comparator';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
-import { Comparator, LLRBTree } from '../../util/llrb_tree';
+import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 

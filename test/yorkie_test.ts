@@ -108,15 +108,14 @@ describe('Yorkie', function() {
       await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
       assert.equal(d1.toJSON(), d2.toJSON());
 
-      // TODO: introduce priority queue on the object
-      // d1.update((root) => {
-      //   delete root['k3'];
-      // });
-      // d2.update((root) => {
-      //   root['k3'] = 'v6';
-      // });
-      // await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
-      // assert.equal(d1.toJSON(), d2.toJSON());
+      d1.update((root) => {
+        delete root['k3'];
+      });
+      d2.update((root) => {
+        root['k3'] = 'v6';
+      });
+      await c1.pushPull(); await c2.pushPull(); await c1.pushPull();
+      assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });
 

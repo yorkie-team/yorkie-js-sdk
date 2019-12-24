@@ -39,7 +39,6 @@ export class JSONPrimitive extends JSONElement {
       case PrimitiveType.Boolean:
         return bytes[0] ? true : false;
       case PrimitiveType.Integer:
-        console.warn(bytes);
         return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
       case PrimitiveType.String:
         const encoded = String.fromCharCode.apply(null, bytes);

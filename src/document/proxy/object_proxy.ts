@@ -32,7 +32,11 @@ export class ObjectProxy {
           logger.debug(`obj[${keyOrMethod}]`);
         }
 
-        if (keyOrMethod === 'setNewText') {
+        if (keyOrMethod === 'toJSON') {
+          return (): string => {
+            return target.toJSON();
+          };
+        } else if (keyOrMethod === 'setNewText') {
           return (key: string): PlainText => {
             if (logger.isEnabled(LogLevel.Debug)) {
               logger.debug(`obj[${key}]=Text`);
