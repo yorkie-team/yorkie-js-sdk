@@ -214,6 +214,60 @@ export namespace DetachDocumentResponse {
   }
 }
 
+export class WatchDocumentsRequest extends jspb.Message {
+  getHeader(): RequestHeader | undefined;
+  setHeader(value?: RequestHeader): void;
+  hasHeader(): boolean;
+  clearHeader(): void;
+
+  getClientId(): string;
+  setClientId(value: string): void;
+
+  getDocumentKeysList(): Array<DocumentKey>;
+  setDocumentKeysList(value: Array<DocumentKey>): void;
+  clearDocumentKeysList(): void;
+  addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WatchDocumentsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: WatchDocumentsRequest): WatchDocumentsRequest.AsObject;
+  static serializeBinaryToWriter(message: WatchDocumentsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): WatchDocumentsRequest;
+  static deserializeBinaryFromReader(message: WatchDocumentsRequest, reader: jspb.BinaryReader): WatchDocumentsRequest;
+}
+
+export namespace WatchDocumentsRequest {
+  export type AsObject = {
+    header?: RequestHeader.AsObject,
+    clientId: string,
+    documentKeysList: Array<DocumentKey.AsObject>,
+  }
+}
+
+export class WatchDocumentsResponse extends jspb.Message {
+  getClientId(): string;
+  setClientId(value: string): void;
+
+  getDocumentKeysList(): Array<DocumentKey>;
+  setDocumentKeysList(value: Array<DocumentKey>): void;
+  clearDocumentKeysList(): void;
+  addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): WatchDocumentsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: WatchDocumentsResponse): WatchDocumentsResponse.AsObject;
+  static serializeBinaryToWriter(message: WatchDocumentsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): WatchDocumentsResponse;
+  static deserializeBinaryFromReader(message: WatchDocumentsResponse, reader: jspb.BinaryReader): WatchDocumentsResponse;
+}
+
+export namespace WatchDocumentsResponse {
+  export type AsObject = {
+    clientId: string,
+    documentKeysList: Array<DocumentKey.AsObject>,
+  }
+}
+
 export class PushPullRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
   setHeader(value?: RequestHeader): void;

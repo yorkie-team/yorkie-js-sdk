@@ -389,6 +389,81 @@ proto.api.YorkiePromiseClient.prototype.detachDocument =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.api.WatchDocumentsRequest,
+ *   !proto.api.WatchDocumentsResponse>}
+ */
+const methodDescriptor_Yorkie_WatchDocuments = new grpc.web.MethodDescriptor(
+  '/api.Yorkie/WatchDocuments',
+  grpc.web.MethodType.SERVER_STREAMING,
+  proto.api.WatchDocumentsRequest,
+  proto.api.WatchDocumentsResponse,
+  /**
+   * @param {!proto.api.WatchDocumentsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.WatchDocumentsResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.api.WatchDocumentsRequest,
+ *   !proto.api.WatchDocumentsResponse>}
+ */
+const methodInfo_Yorkie_WatchDocuments = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.api.WatchDocumentsResponse,
+  /**
+   * @param {!proto.api.WatchDocumentsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.WatchDocumentsResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.api.WatchDocumentsRequest} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.api.WatchDocumentsResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.api.YorkieClient.prototype.watchDocuments =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/api.Yorkie/WatchDocuments',
+      request,
+      metadata || {},
+      methodDescriptor_Yorkie_WatchDocuments);
+};
+
+
+/**
+ * @param {!proto.api.WatchDocumentsRequest} request The request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!grpc.web.ClientReadableStream<!proto.api.WatchDocumentsResponse>}
+ *     The XHR Node Readable Stream
+ */
+proto.api.YorkiePromiseClient.prototype.watchDocuments =
+    function(request, metadata) {
+  return this.client_.serverStreaming(this.hostname_ +
+      '/api.Yorkie/WatchDocuments',
+      request,
+      metadata || {},
+      methodDescriptor_Yorkie_WatchDocuments);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.api.PushPullRequest,
  *   !proto.api.PushPullResponse>}
  */

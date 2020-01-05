@@ -10,7 +10,9 @@ import {
   DetachDocumentRequest,
   DetachDocumentResponse,
   PushPullRequest,
-  PushPullResponse} from './yorkie_pb';
+  PushPullResponse,
+  WatchDocumentsRequest,
+  WatchDocumentsResponse} from './yorkie_pb';
 
 export class YorkieClient {
   constructor (hostname: string,
@@ -45,6 +47,11 @@ export class YorkieClient {
                response: DetachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<DetachDocumentResponse>;
 
+  watchDocuments(
+    request: WatchDocumentsRequest,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<WatchDocumentsResponse>;
+
   pushPull(
     request: PushPullRequest,
     metadata: grpcWeb.Metadata | undefined,
@@ -78,6 +85,11 @@ export class YorkiePromiseClient {
     request: DetachDocumentRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<DetachDocumentResponse>;
+
+  watchDocuments(
+    request: WatchDocumentsRequest,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<WatchDocumentsResponse>;
 
   pushPull(
     request: PushPullRequest,

@@ -37,6 +37,10 @@ function toDocumentKey(key: DocumentKey): PbDocumentKey {
   return pbDocumentKey;
 }
 
+function toDocumentKeys(keys: Array<DocumentKey>): Array<PbDocumentKey> {
+  return keys.map(toDocumentKey);
+}
+
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
   const pbCheckpoint = new PbCheckpoint();
   pbCheckpoint.setServerSeq(checkpoint.getServerSeqAsString());
@@ -200,6 +204,10 @@ function fromDocumentKey(pbDocumentKey: PbDocumentKey): DocumentKey {
   );
 }
 
+function fromDocumentKeys(pbDocumentKeys: Array<PbDocumentKey>): Array<DocumentKey> {
+  return pbDocumentKeys.map(fromDocumentKey);
+}
+
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   return ChangeID.of(
     pbChangeID.getClientSeq(),
@@ -358,4 +366,6 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
 export const converter = {
   toChangePack: toChangePack,
   fromChangePack: fromChangePack,
+  toDocumentKeys: toDocumentKeys,
+  fromDocumentKeys: fromDocumentKeys,
 }

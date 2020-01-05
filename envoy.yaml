@@ -23,7 +23,8 @@ static_resources:
               - match: { prefix: "/" }
                 route:
                   cluster: yorkie_service
-                  max_grpc_timeout: 10s
+                  # https://github.com/grpc/grpc-web/issues/361
+                  max_grpc_timeout: 0s
               cors:
                 allow_origin:
                 - "*"

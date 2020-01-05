@@ -23,7 +23,7 @@ cd ./yorkie-js-sdk
 npm install
 
 # build
-npm run build
+npm run build:dev
 ```
 
 ## Test yorkie-js-sdk with yorkie agent
@@ -43,11 +43,27 @@ npm run build
 ```
 
 For generating proto messages and the service client stub classes with protoc and the protoc-gen-grpc-web.
-```
-# make sure both executable(protoc, protoc-gen-grpc-web) are discoverable from your PATH.
-sudo mv ~/Downloads/protoc-gen-grpc-web-1.0.7-darwin-x86_64 /usr/local/bin/protoc-gen-grpc-web
-chmod +x /usr/local/bin/protoc-gen-grpc-web
 
+How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-generator-plugin
+
+```bash
 # generate proto messages and the service client stub classes
-npm run proto
+npm run build:proto
+```
+
+## Test examples
+
+```bash
+# start mongoDB
+./yorkie/docker-compose up
+
+# start yorkie agent
+./yorkie/bin/yorkie agent
+
+# start envoy proxy
+./yorkie-js-sdk/docker-compose up --build
+
+# test
+cd ./yorkie-js-sdk
+npm run start:dev
 ```

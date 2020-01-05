@@ -1,8 +1,10 @@
 import { ActorID } from '../document/time/actor_id';
+import { Observer, Observable, createObservable, Unsubscribe } from '../util/observable';
 import {
   ActivateClientRequest, DeactivateClientRequest,
   AttachDocumentRequest, DetachDocumentRequest,
-  PushPullRequest
+  PushPullRequest,
+  WatchDocumentsRequest
 } from '../api/yorkie_pb';
 import { converter } from '../api/converter'
 import { YorkieClient } from '../api/yorkie_grpc_web_pb';
@@ -16,23 +18,39 @@ export enum ClientStatus {
   Activated = 1
 }
 
+enum ClientEventType {
+  StatusChanged = 'status-changed',
+  DocumentsChanged = 'documents-changed',
+}
+
+interface ClientEvent {
+  name: ClientEventType;
+  value: any;
+}
+
 /**
  * Client is a normal client that can communicate with the agent.
  * It has documents and sends changes of the documents in local
  * to the agent to synchronize with other replicas in remote.
  */
-export class Client {
+export class Client implements Observable<ClientEvent> {
   private client: YorkieClient;
   private id: ActorID;
   private key: string;
   private status: ClientStatus;
   private attachedDocumentMap: Map<string, Document>;
+  private inSyncing: boolean;
+  private eventStream: Observable<ClientEvent>;
+  private eventStreamObserver: Observer<ClientEvent>;
 
   constructor(rpcAddr: string, key?: string) {
     this.client = new YorkieClient(rpcAddr, null, null);
     this.key = key ? key : uuid();
     this.status = ClientStatus.Deactivated;
     this.attachedDocumentMap = new Map();
+    this.eventStream = createObservable<ClientEvent>((observer) => {
+      this.eventStreamObserver = observer;
+    });
   }
 
   /**
@@ -54,6 +72,11 @@ export class Client {
         logger.info(`AC: "${this.getKey()}" ${res.getClientId()}`)
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
+        this.eventStreamObserver.next({
+          name: ClientEventType.StatusChanged,
+          value: this.status
+        });
+
         resolve();
       });
     });
@@ -79,16 +102,21 @@ export class Client {
         
         logger.info(`DC: "${this.getKey()}"`)
         this.status = ClientStatus.Deactivated;
+        this.eventStreamObserver.next({
+          name: ClientEventType.StatusChanged,
+          value: this.status
+        });
+
         resolve();
       });
     });
   }
 
   /**
-   * attachDocument attaches the given document to this client. It tells the agent that
+   * attach attaches the given document to this client. It tells the agent that
    * this client will synchronize the given document.
    */
-  public attachDocument(doc: Document): Promise<Document> {
+  public attach(doc: Document): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -118,14 +146,14 @@ export class Client {
   }
 
   /**
-   * detachDocument dettaches the given document from this client. It tells the
+   * detach dettaches the given document from this client. It tells the
    * agent that this client will no longer synchronize the given document.
    *
    * To collect garbage things like CRDT tombstones left on the document, all the
    * changes should be applied to other replicas before GC time. For this, if the
    * document is no longer used by this client, it should be detached.
    */
-  public detachDocument(doc: Document): Promise<Document> {
+  public detach(doc: Document): Promise<Document> {
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
       req.setClientId(this.id);
@@ -154,6 +182,13 @@ export class Client {
    * local documents.
    */
   public sync(): Promise<Document[]> {
+    // TODO: Defense code to prevent synchronization at the same time.
+    //  - We need to consider to avoid this with a logic such as debounce later.
+    if (this.inSyncing) {
+      return Promise.resolve([]);
+    }
+    this.inSyncing = true;
+
     const promises = [];
     for (const [key, doc] of this.attachedDocumentMap) {
       promises.push(new Promise((resolve, reject) => {
@@ -173,12 +208,50 @@ export class Client {
           const pack = converter.fromChangePack(res.getChangePack());
           doc.applyChangePack(pack);
 
+          this.inSyncing = false;
           resolve(doc);
         });
       }))
     }
 
     return Promise.all(promises);
+  }
+
+  public watch(doc: Document): Promise<Document> {
+    if (this.status !== ClientStatus.Activated) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const req = new WatchDocumentsRequest();
+      req.setClientId(this.id);
+      req.setDocumentKeysList(converter.toDocumentKeys([doc.getKey()]));
+
+      const stream = this.client.watchDocuments(req, {});
+      stream.on('data', (response) => {
+        const keys = converter.fromDocumentKeys(response.getDocumentKeysList());
+        this.eventStreamObserver.next({
+          name: ClientEventType.DocumentsChanged,
+          value: keys,
+        });
+      });
+      stream.on('status', (status) => {
+        console.log(status.code);
+        console.log(status.details);
+        console.log(status.metadata);
+      });
+      stream.on('end', (end) => {
+        console.log(end);
+        // stream end signal
+      });
+
+      logger.info(`WD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+      resolve(doc);
+    });
+  }
+
+  public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
+    return this.eventStream.subscribe(nextOrObserver, error, complete);
   }
 
   public getID(): string {

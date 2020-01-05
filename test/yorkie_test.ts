@@ -38,7 +38,7 @@ describe('Yorkie', function() {
     await client1.activate();
     await client2.activate();
 
-    await client1.attachDocument(doc1);
+    await client1.attach(doc1);
     doc1.update((root) => {
       root['k1'] = {'k1-1': 'v1'};
       root['k2'] = ['1', '2'];
@@ -46,11 +46,11 @@ describe('Yorkie', function() {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toJSON());
 
-    await client2.attachDocument(doc2);
+    await client2.attach(doc2);
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toJSON());
 
-    await client1.detachDocument(doc1);
-    await client2.detachDocument(doc2);
+    await client1.detach(doc1);
+    await client2.detach(doc2);
 
     await client1.deactivate();
     await client2.deactivate();
@@ -82,6 +82,23 @@ describe('Yorkie', function() {
       });
       await c1.sync(); await c2.sync();
       assert.equal(2, spy.callCount);
+    }, this.test.title);
+  });
+
+  it('Can watch documents', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      await c1.watch(d1);
+      c1.subscribe(() => {
+        c1.sync();
+      });
+
+      d2.update((root) => {
+        root['k1'] = 'v1';
+      });
+      await c2.sync();
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });
 
@@ -225,13 +242,13 @@ async function withTwoClientsAndDocuments(
   const doc1 = yorkie.createDocument(testCollection, title);
   const doc2 = yorkie.createDocument(testCollection, title);
 
-  await client1.attachDocument(doc1);
-  await client2.attachDocument(doc2);
+  await client1.attach(doc1);
+  await client2.attach(doc2);
 
   await callback(client1, doc1, client2, doc2);
 
-  await client1.detachDocument(doc1);
-  await client2.detachDocument(doc2);
+  await client1.detach(doc1);
+  await client2.detach(doc2);
 
   await client1.deactivate();
   await client2.deactivate();
