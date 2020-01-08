@@ -1,4 +1,4 @@
-import Long from 'Long';
+import Long from 'long';
 import { Client } from './core/client';
 import { Document } from './document/document';
 
