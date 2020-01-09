@@ -1,4 +1,6 @@
 import Long from 'long';
+
+import { logger, LogLevel } from '../../util/logger';
 import { ActorID } from '../time/actor_id';
 import { Operation } from '../operation/operation';
 import { JSONRoot } from '../json/root';
@@ -50,8 +52,12 @@ export class Change {
   }
 
   public execute(root: JSONRoot): void {
-    for (var operation of this.operations) {
+    for (const operation of this.operations) {
       operation.execute(root);
     }
+  }
+
+  public getAnnotatedString(): string {
+    return `${this.operations.map((operation) => operation.getAnnotatedString()).join(',')}`;
   }
 }

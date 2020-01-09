@@ -51,6 +51,13 @@ export class ChangeID {
   public getActorID(): string {
     return this.actor;
   }
+
+  public getAnnotatedString(): string {
+    if (this.actor == null) {
+      return `${this.lamport.toString()}:nil:${this.clientSeq}`;
+    }
+    return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${this.clientSeq}`;
+  }
 }
 
 export const InitialChangeID = new ChangeID(0, Long.fromInt(0, true), InitialActorID);

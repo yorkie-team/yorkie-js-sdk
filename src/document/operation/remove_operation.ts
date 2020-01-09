@@ -34,6 +34,10 @@ export class RemoveOperation extends Operation {
     }
   }
 
+  public getAnnotatedString(): string {
+    return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`
+  }
+
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
   }

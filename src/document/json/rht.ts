@@ -90,15 +90,12 @@ export class RHT {
     return this.elementQueueMapByKey.get(key).peek().getValue();
   }
 
-  public getMembers(): Map<string, JSONElement> {
-    const members = new Map<string, JSONElement>();
+  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     for (const [key, value] of this.elementQueueMapByKey) {
       const node = value.peek() as RHTNode;
       if (node && !node.isRemoved()) {
-        members.set(node.getStrKey(), node.getValue());
+        yield [node.getStrKey(), node.getValue()];
       }
     }
-
-    return members;
   }
 }

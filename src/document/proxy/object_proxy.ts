@@ -19,8 +19,8 @@ export class ObjectProxy {
     this.context = context;
     this.handlers = {
       set: (target: JSONObject, key: string, value: any): boolean => {
-        if (logger.isEnabled(LogLevel.Debug)) {
-          logger.debug(`obj[${key}]=${JSON.stringify(value)}`);
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${key}]=${JSON.stringify(value)}`);
         }
 
         ObjectProxy.setInternal(this.context, target, key, value);
@@ -28,8 +28,8 @@ export class ObjectProxy {
       },
 
       get: (target: JSONObject, keyOrMethod: string): any => {
-        if (logger.isEnabled(LogLevel.Debug)) {
-          logger.debug(`obj[${keyOrMethod}]`);
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${keyOrMethod}]`);
         }
 
         if (keyOrMethod === 'toJSON') {
@@ -38,8 +38,8 @@ export class ObjectProxy {
           };
         } else if (keyOrMethod === 'getOrCreateText') {
           return (key: string): PlainText => {
-            if (logger.isEnabled(LogLevel.Debug)) {
-              logger.debug(`obj[${key}]=Text`);
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`obj[${key}]=Text`);
             }
             return ObjectProxy.getOrCreateText(this.context, target, key);
           };
@@ -68,8 +68,8 @@ export class ObjectProxy {
       },
 
       deleteProperty: (target: JSONObject, key: string): boolean => {
-        if (logger.isEnabled(LogLevel.Debug)) {
-          logger.debug(`obj[${key}]`);
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${key}]`);
         }
 
         ObjectProxy.removeInternal(this.context, target, key);

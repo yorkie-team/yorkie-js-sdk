@@ -2,6 +2,7 @@ import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
 import { PlainText, TextNodeRange } from '../json/text';
 import { EditOperation } from '../operation/edit_operation';
+import { SelectOperation } from '../operation/select_operation';
 
 export class TextProxy {
   private context: ChangeContext;
@@ -11,13 +12,18 @@ export class TextProxy {
     this.context = context;
     this.handlers = {
       get: (target: PlainText, keyOrMethod: string): any => {
-        if (logger.isEnabled(LogLevel.Debug)) {
-          logger.debug(`obj[${keyOrMethod}]`);
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${keyOrMethod}]`);
         }
 
         if (keyOrMethod === 'edit') {
           return (fromIdx: number, toIdx: number, content: string): boolean => {
             this.edit(target, fromIdx, toIdx, content);
+            return true;
+          };
+        } else if (keyOrMethod === 'updateSelection') {
+          return (fromIdx: number, toIdx: number): boolean => {
+            this.updateSelection(target, fromIdx, toIdx);
             return true;
           };
         } else if (keyOrMethod === 'getAnnotatedString') {
@@ -63,6 +69,24 @@ export class TextProxy {
       range[1],
       maxCreatedAtMapByActor,
       content,
+      ticket
+    ));
+  }
+
+  public updateSelection(target: PlainText, fromIdx: number, toIdx: number): void {
+    const range = target.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`
+      );
+    }
+    const ticket = this.context.issueTimeTicket();
+    target.updateSelection(range, ticket);
+
+    this.context.push(new SelectOperation(
+      target.getCreatedAt(),
+      range[0],
+      range[1],
       ticket
     ));
   }

@@ -22,8 +22,8 @@ export class ArrayProxy {
       get: (target: JSONArray, method: string) => {
         if (method === 'push') {
           return (value: any) => {
-            if (logger.isEnabled(LogLevel.Debug)) {
-              logger.debug(`array.push(${JSON.stringify(value)})`);
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`array.push(${JSON.stringify(value)})`);
             }
 
             ArrayProxy.pushInternal(this.context, target, value);
@@ -31,8 +31,8 @@ export class ArrayProxy {
         }
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
-        if (logger.isEnabled(LogLevel.Debug)) {
-          logger.debug(`array[${key}]`);
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`array[${key}]`);
         }
 
         ArrayProxy.removeInternal(this.context, target, key);

@@ -208,15 +208,18 @@ export class Client implements Observable<ClientEvent> {
           const pack = converter.fromChangePack(res.getChangePack());
           doc.applyChangePack(pack);
 
-          this.inSyncing = false;
           resolve(doc);
         });
       }))
     }
 
-    return Promise.all(promises);
+    return Promise.all(promises).then((docs) => {
+      this.inSyncing = false;
+      return docs;
+    });
   }
 
+  // TODO replace target with key pattern, not a document.
   public watch(doc: Document): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);

@@ -35,6 +35,10 @@ export class SetOperation extends Operation {
     }
   }
 
+  public getAnnotatedString(): string {
+    return `${this.getParentCreatedAt().getAnnotatedString()}.SET`
+  }
+
   public getKey(): string {
     return this.key;
   }

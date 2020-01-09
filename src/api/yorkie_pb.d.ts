@@ -535,6 +535,11 @@ export class Operation extends jspb.Message {
   hasEdit(): boolean;
   clearEdit(): void;
 
+  getSelect(): Operation.Select | undefined;
+  setSelect(value?: Operation.Select): void;
+  hasSelect(): boolean;
+  clearSelect(): void;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -551,6 +556,7 @@ export namespace Operation {
     add?: Operation.Add.AsObject,
     remove?: Operation.Remove.AsObject,
     edit?: Operation.Edit.AsObject,
+    select?: Operation.Select.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -709,12 +715,52 @@ export namespace Operation {
   }
 
 
+  export class Select extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): void;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): void;
+
+    getFrom(): TextNodePos | undefined;
+    setFrom(value?: TextNodePos): void;
+    hasFrom(): boolean;
+    clearFrom(): void;
+
+    getTo(): TextNodePos | undefined;
+    setTo(value?: TextNodePos): void;
+    hasTo(): boolean;
+    clearTo(): void;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): void;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Select.AsObject;
+    static toObject(includeInstance: boolean, msg: Select): Select.AsObject;
+    static serializeBinaryToWriter(message: Select, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Select;
+    static deserializeBinaryFromReader(message: Select, reader: jspb.BinaryReader): Select;
+  }
+
+  export namespace Select {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      from?: TextNodePos.AsObject,
+      to?: TextNodePos.AsObject,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
     ADD = 2,
     REMOVE = 3,
     EDIT = 4,
+    SELECT = 5,
   }
 }
 

@@ -32,7 +32,7 @@ export class JSONArray extends JSONElement {
 
   public toJSON(): string {
     const json = []
-    for (var v of this.elements.getElements()) {
+    for (const v of this.elements) {
       json.push(v.toJSON());
     }
     return `[${json.join(',')}]`;
@@ -40,7 +40,7 @@ export class JSONArray extends JSONElement {
 
   public deepcopy(): JSONArray {
     const copy = JSONArray.create(this.getCreatedAt());
-    for (var v of this.elements.getElements()) {
+    for (const v of this.elements) {
       copy.insertAfter(copy.getLastCreatedAt(), v.deepcopy());
     }
     return copy;

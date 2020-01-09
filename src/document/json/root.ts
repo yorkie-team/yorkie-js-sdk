@@ -15,14 +15,18 @@ export class JSONRoot {
   private rootObject: JSONObject;
   private elementMapByCreatedAt: Map<string, JSONElement>;
 
-  constructor() {
-    this.rootObject = JSONObject.create(InitialTimeTicket);
+  constructor(rootObject: JSONObject) {
+    this.rootObject = rootObject;
     this.elementMapByCreatedAt = new Map();
+
     this.registerElement(this.rootObject);
+    for (const [key, elem] of this.rootObject) {
+      this.registerElement(elem);
+    }
   }
 
   public static create(): JSONRoot {
-    return new JSONRoot();
+    return new JSONRoot(JSONObject.create(InitialTimeTicket));
   }
 
   /**
@@ -41,6 +45,10 @@ export class JSONRoot {
 
   public getObject(): JSONObject {
     return this.rootObject;
+  }
+
+  public deepcopy(): JSONRoot {
+    return new JSONRoot(this.rootObject.deepcopy());
   }
 
   public toJSON(): string {

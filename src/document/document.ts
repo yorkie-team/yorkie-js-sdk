@@ -26,7 +26,7 @@ interface DocEvent {
 export class Document implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
-  private copy: JSONObject;
+  private copy: JSONRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private changes: Change[];
@@ -56,12 +56,12 @@ export class Document implements Observable<DocEvent> {
    */
   public update(updater: (root: JSONObject) => void, message?: string): void {
     if (!this.copy) {
-      this.copy = this.root.getObject().deepcopy();
+      this.copy = this.root.deepcopy();
     }
     const context = ChangeContext.create(this.changeID.next(), message);
 
     try {
-      const proxy = createProxy(context, this.copy);
+      const proxy = createProxy(context, this.copy.getObject());
       updater(proxy)
     } catch (err) {
       // drop copy because it is contaminated.
@@ -86,15 +86,28 @@ export class Document implements Observable<DocEvent> {
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
+    logger.debug(`trying to apply ${pack.getChanges().length} remote changes`);
+
     const changes = pack.getChanges();
+    if (logger.isEnabled(LogLevel.Trivial)) {
+      logger.trivial(changes.map((change) =>
+        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
+      ).join('\n'));
+    }
+
+    // TODO remove below comments
+    // for (const change of changes) {
+    //   change.execute(this.copy);
+    // }
+
     for (const change of changes) {
-      this.changeID = this.changeID.sync(change.getID());
       change.execute(this.root);
+      this.changeID = this.changeID.sync(change.getID());
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     if (changes.length) {
-      // TODO: remove below line. drop copy because it is contaminated.
+      // TODO remove below line
       this.copy = null;
 
       this.eventStreamObserver.next({
@@ -103,8 +116,9 @@ export class Document implements Observable<DocEvent> {
       });
     }
 
-    if (logger.isEnabled(LogLevel.Debug)) {
-      logger.debug(`after apply ${pack.getChanges().length} remote changes: ${this.root.toJSON()}`)
+    logger.debug(`after apply ${changes.length} remote changes`)
+    if (logger.isEnabled(LogLevel.Trivial)) {
+      logger.trivial(`${this.getRootObject().toJSON()}`);
     }
   }
 

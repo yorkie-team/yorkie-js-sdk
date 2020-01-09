@@ -7,6 +7,7 @@ import { SetOperation } from '../document/operation/set_operation';
 import { AddOperation } from '../document/operation/add_operation';
 import { RemoveOperation } from '../document/operation/remove_operation';
 import { EditOperation } from '../document/operation/edit_operation';
+import { SelectOperation } from '../document/operation/select_operation';
 import { DocumentKey } from '../document/key/document_key';
 import { ChangeID } from '../document/change/change_id';
 import { Change } from '../document/change/change';
@@ -158,6 +159,14 @@ function toOperation(operation: Operation): PbOperation {
     pbEditOperation.setContent(editOperation.getContent());
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
+  } else if (operation instanceof SelectOperation) {
+    const selectOperation = operation as SelectOperation;
+    const pbSelectOperation = new PbOperation.Select();
+    pbSelectOperation.setParentCreatedAt(toTimeTicket(selectOperation.getParentCreatedAt()));
+    pbSelectOperation.setFrom(toTextNodePos(selectOperation.getFromPos()));
+    pbSelectOperation.setTo(toTextNodePos(selectOperation.getToPos()));
+    pbSelectOperation.setExecutedAt(toTimeTicket(selectOperation.getExecutedAt()));
+    pbOperation.setSelect(pbSelectOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -323,6 +332,14 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         createdAtMapByActor,
         pbEditOperation.getContent(),
         fromTimeTicket(pbEditOperation.getExecutedAt()),
+      );
+    } else if (pbOperation.hasSelect()) {
+      const pbSelectOperation = pbOperation.getSelect();
+      operation = SelectOperation.create(
+        fromTimeTicket(pbSelectOperation.getParentCreatedAt()),
+        fromTextNodePos(pbSelectOperation.getFrom()),
+        fromTextNodePos(pbSelectOperation.getTo()),
+        fromTimeTicket(pbSelectOperation.getExecutedAt()),
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation: ${operation}`);

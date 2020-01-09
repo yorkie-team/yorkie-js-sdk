@@ -1,4 +1,4 @@
-import { logger } from '../../util/logger';
+import { LogLevel, logger } from '../../util/logger';
 import { ActorID } from '../time/actor_id';
 import { Comparator } from '../../util/comparator';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
@@ -6,7 +6,13 @@ import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
+enum ChangeType {
+  Content = 'content',
+  Selection = 'selection',
+}
+
 export interface Change<T> {
+  type: ChangeType;
   actor: ActorID;
   from: number;
   to: number;
@@ -279,6 +285,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
       );
 
       changes.push({
+        type: ChangeType.Content,
         actor: editedAt.getActorID(),
         from: idx,
         to: idx,
@@ -310,6 +317,9 @@ export class RGATreeSplit<T extends TextNodeValue> {
     const textNode = preferToLeft ?
       this.findFloorTextNodePreferToLeft(absoluteID) : this.findFloorTextNode(absoluteID);
     const index = this.treeByIndex.indexOf(textNode);
+    if (!textNode) {
+      logger.fatal(`the node of the given id should be found: ${absoluteID.getAnnotatedString()}`);
+    }
     const offset = textNode.isDeleted() ? 0 : absoluteID.getOffset() - textNode.getID().getOffset();
     return index + offset;
   }
@@ -472,7 +482,12 @@ export class RGATreeSplit<T extends TextNodeValue> {
         nodesToDelete.push(node);
 
         const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
-        const change = { actor: editedAt.getActorID(), from: fromIdx, to: toIdx };
+        const change = { 
+          type: ChangeType.Content,
+          actor: editedAt.getActorID(),
+          from: fromIdx,
+          to: toIdx
+        };
 
         // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
         if (changes.length && changes[0].to === change.from) {
@@ -510,13 +525,35 @@ export class RGATreeSplit<T extends TextNodeValue> {
   }
 }
 
+class Selection {
+  private from: TextNodePos;
+  private to: TextNodePos;
+  private updatedAt: TimeTicket;
+
+  constructor(from: TextNodePos, to: TextNodePos, updatedAt: TimeTicket) {
+    this.from = from;
+    this.to = to;
+    this.updatedAt = updatedAt;
+  }
+
+  public static of(range: TextNodeRange, updatedAt: TimeTicket): Selection {
+    return new Selection(range[0], range[1], updatedAt);
+  }
+
+  public getUpdatedAt(): TimeTicket {
+    return this.updatedAt;
+  }
+}
+
 export class PlainText extends JSONElement {
   private onChangesHandler: (changes: Array<Change<string>>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
+  private selectionMap: Map<string, Selection>;
 
   constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
+    this.selectionMap = new Map();
   }
 
   public static create(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket): PlainText {
@@ -540,11 +577,23 @@ export class PlainText extends JSONElement {
       latestCreatedAtMapByActor, editedAt,
     );
 
+    const selectionChange = this.updateSelectionInternal([caretPos, caretPos], editedAt);
+    if (selectionChange) {
+      changes.push(selectionChange);
+    }
+
     if (this.onChangesHandler) {
       this.onChangesHandler(changes);
     }
 
     return [caretPos, latestCreatedAtMap];
+  }
+
+  public updateSelection(range: TextNodeRange, updatedAt: TimeTicket): void {
+    const change = this.updateSelectionInternal(range, updatedAt);
+    if (this.onChangesHandler && change) {
+      this.onChangesHandler([change]);
+    }
   }
 
   public onChanges(handler: (changes: Array<Change<string>>) => void) {
@@ -577,5 +626,25 @@ export class PlainText extends JSONElement {
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt()
     );
+  }
+
+  private updateSelectionInternal(range: TextNodeRange, updatedAt: TimeTicket): Change<string> {
+    if (!this.selectionMap.has(updatedAt.getActorID())) {
+      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      return null;
+    }
+
+    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
+    if (updatedAt.after(prevSelection.getUpdatedAt())) {
+      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+
+      const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
+      return {
+        type: ChangeType.Selection,
+        actor: updatedAt.getActorID(),
+        from,
+        to,
+      };
+    }
   }
 }

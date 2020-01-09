@@ -16,9 +16,24 @@
   </div>
   <script src="./yorkie.js"></script>
   <script>
+    const colors = [
+      '#B34D4D', '#4DB380', '#6680B3', '#66991A', '#99E6E6',
+      '#80B300', '#99FF99', '#FF4D4D', '#B366CC', '#991AFF',
+      '#4D80CC', '#66E64D', '#33FFCC', '#999933', '#999966',
+      '#66994D', '#E6B333', '#E6331A', '#1AFF33', '#E6FF80',
+      '#4DB3FF', '#E666B3', '#E6B3B3', '#66664D', '#CC9999',
+      '#809900', '#CC80CC', '#E64D66', '#3366E6', '#FFFF99',
+      '#00E680', '#4D8000', '#FF1A66', '#FF99E6', '#CCCC00',
+      '#9900B3', '#B3B31A', '#FFB399', '#B33300', '#4D8066',
+      '#CCFF1A', '#FF6633', '#1AB399', '#809980', '#6666FF',
+      '#FF33FF', '#33991A', '#FF3380', '#00B3E6', '#E666FF'
+    ];
+    let nextColorIdx = 0;
+
     const placeholder = document.getElementById('placeholder');
     const logHolder = document.getElementById('log-holder');
     const textLogHolder = document.getElementById('text-log-holder');
+    const selectionMap = new Map();
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
@@ -43,6 +58,50 @@
       });
     }
 
+    function displayRemoteSelection(cm, change) {
+      let color;
+      if (selectionMap.has(change.actor)) {
+        const selection = selectionMap.get(change.actor);
+        color = selection.color;
+        selection.marker.clear();
+      } else {
+        color = colors[nextColorIdx];
+        nextColorIdx = (nextColorIdx + 1) % colors.length;
+      }
+
+      if (change.from === change.to) {
+        const pos = cm.posFromIndex(change.from);
+        const cursorCoords = cm.cursorCoords(pos);
+        const cursorElement = document.createElement('span');
+        cursorElement.style.borderLeftWidth = '2px';
+        cursorElement.style.borderLeftStyle = 'solid';
+        cursorElement.style.borderLeftColor = color;
+        cursorElement.style.marginLeft = cursorElement.style.marginRight = '-1px';
+        cursorElement.style.height = (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
+        cursorElement.setAttribute('data-actor-id', change.actor);
+        cursorElement.style.zIndex = 0;
+
+        selectionMap.set(change.actor, {
+          color: color,
+          marker: cm.setBookmark(pos, {
+            widget: cursorElement,
+            insertLeft: true
+          })
+        });
+      } else {
+        const fromPos = cm.posFromIndex(Math.min(change.from, change.to));
+        const toPos = cm.posFromIndex(Math.max(change.from, change.to));
+
+        selectionMap.set(change.actor, {
+          color: color,
+          marker: cm.markText(fromPos, toPos, {
+            css: `background: ${color}`,
+            insertLeft: true
+          })
+        });
+      }
+    }
+
     async function main() {
       try {
         // 01. create client with RPCAddr(envoy) then activate it.
@@ -50,7 +109,7 @@
         await client.activate();
 
         // 02. create a document then attach it into the client.
-        const doc = yorkie.createDocument('examples', 'codemirror-1');
+        const doc = yorkie.createDocument('examples', 'codemirror');
         await client.attach(doc);
         await client.watch(doc);
         client.subscribe(() => {
@@ -87,21 +146,40 @@
           console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           client.sync();
         });
+        codemirror.on('beforeSelectionChange', (cm, change) => {
+          // TODO uncomment below
+          return;
+          const from = cm.indexFromPos(change.ranges[0].anchor);
+          const to = cm.indexFromPos(change.ranges[0].head);
+
+          doc.update((root) => {
+            const text = root.getOrCreateText('content');
+            text.updateSelection(from, to);
+          });
+          client.sync();
+        });
 
         // 04-2. document to codemirror(remote).
         const text = doc.getRootObject().get('content');
         text.onChanges((changes) => {
           for (const change of changes) {
-            const actor = change.actor;
-            const from = change.from;
-            const to = change.to;
-            const content = change.content || '';
+            if (change.type === 'content') {
+              const actor = change.actor;
+              const from = change.from;
+              const to = change.to;
+              const content = change.content || '';
 
-            if (actor !== client.getID()) {
-              console.log(`%c remote: ${from}-${to}: ${content}`, 'color: skyblue');
-              const fromIdx = codemirror.posFromIndex(from);
-              const toIdx = codemirror.posFromIndex(to);
-              replaceRangeFix(codemirror, content, fromIdx, toIdx, 'yorkie');
+              if (actor !== client.getID()) {
+                console.log(`%c remote: ${from}-${to}: ${content}`, 'color: skyblue');
+                const fromIdx = codemirror.posFromIndex(from);
+                const toIdx = codemirror.posFromIndex(to);
+                replaceRangeFix(codemirror, content, fromIdx, toIdx, 'yorkie');
+              }
+            } else if (change.type === 'selection') {
+              const actor = change.actor;
+              if (actor !== client.getID()) {
+                displayRemoteSelection(codemirror, change);
+              }
             }
           }
         });

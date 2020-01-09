@@ -21,10 +21,6 @@ export class JSONObject extends JSONElement {
     return new JSONObject(createdAt, RHT.create());
   }
 
-  public set(key: string, value: JSONElement): void {
-    this.members.set(key, value);
-  }
-
   public getOrCreateText(key: string): PlainText {
     logger.fatal('unsupported: this method should be called by proxy');
     return null;
@@ -33,6 +29,10 @@ export class JSONObject extends JSONElement {
   public getText(key: string): PlainText {
     logger.fatal('unsupported: this method should be called by proxy');
     return null;
+  }
+
+  public set(key: string, value: JSONElement): void {
+    this.members.set(key, value);
   }
 
   public remove(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
@@ -51,9 +51,13 @@ export class JSONObject extends JSONElement {
     return this.members.has(key);
   }
 
+  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
+    return this.members[Symbol.iterator];
+  }
+
   public toJSON(): string {
     const json = []
-    for (var [k, v] of this.members.getMembers()) {
+    for (const [k, v] of this.members) {
       json.push(`"${k}":${v.toJSON()}`);
     }
     return `{${json.join(',')}}`;
@@ -61,7 +65,7 @@ export class JSONObject extends JSONElement {
 
   public deepcopy(): JSONObject {
     const copy = JSONObject.create(this.getCreatedAt());
-    for (var [k, v] of this.members.getMembers()) {
+    for (const [k, v] of this.members) {
       copy.set(k, v.deepcopy());
     }
     return copy;

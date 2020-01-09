@@ -1,17 +1,28 @@
 export enum LogLevel {
-  Debug = 0,
-  Info = 1,
-  Warn = 2,
-  Error = 3,
-  Fatal = 4
+  Trivial = 0,
+  Debug = 1,
+  Info = 2,
+  Warn = 3,
+  Error = 4,
+  Fatal = 5
 }
 
-let level = LogLevel.Info;
+let level = LogLevel.Debug;
 export function setLogLevel(l: LogLevel): void {
   level = l;
 }
 
 export const logger = {
+  trivial: (message: string): void => {
+    if (level > LogLevel.Trivial) {
+      return;
+    }
+
+    if (typeof console != 'undefined') {
+      console.log(`YORKIE T: ${message}`);
+    }
+  },
+
   debug: (message: string): void => {
     if (level > LogLevel.Debug) {
       return;

@@ -41,8 +41,8 @@ export class Heap<K, V> {
   }
 
   public pop(): HeapNode<K, V> {
-    var count = this.nodes.length;
-    var head = this.nodes[0];
+    const count = this.nodes.length;
+    const head = this.nodes[0];
     if (count <= 0) {
       return undefined;
     } else if (count == 1) {
@@ -72,14 +72,14 @@ export class Heap<K, V> {
   }
 
   private moveDown(index: number): void {
-    var count = this.nodes.length;
+    const count = this.nodes.length;
 
-    var node = this.nodes[index];
+    const node = this.nodes[index];
     while (index < (count >> 1)) {
-      var leftChildIndex = this.getLeftChildIndex(index);
-      var rightChildIndex = this.getRightChildIndex(index);
+      const leftChildIndex = this.getLeftChildIndex(index);
+      const rightChildIndex = this.getRightChildIndex(index);
 
-      var smallerChildIndex = rightChildIndex < count &&
+      const smallerChildIndex = rightChildIndex < count &&
         this.comparator(this.nodes[leftChildIndex].getKey(), this.nodes[rightChildIndex].getKey()) < 0 ?
         rightChildIndex : leftChildIndex;
 

@@ -35,6 +35,10 @@ export class AddOperation extends Operation {
     }
   }
 
+  public getAnnotatedString(): string {
+    return `${this.getParentCreatedAt().getAnnotatedString()}.ADD`
+  }
+
   public getPrevCreatedAt(): TimeTicket {
     return this.prevCreatedAt;
   }
@@ -42,5 +46,4 @@ export class AddOperation extends Operation {
   public getValue(): JSONElement {
     return this.value;
   }
-
 }

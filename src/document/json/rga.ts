@@ -120,19 +120,14 @@ export class RGA {
     return this.last.getCreatedAt();
   }
 
-  // TODO introduce iterator
-  public getElements(): JSONElement[] {
-    const elements = [];
-
+  public *[Symbol.iterator](): IterableIterator<JSONElement> {
     let node = this.first.getNext();
     while(node) {
       if (!node.isRemoved()) {
-        elements.push(node.getValue());
+        yield node.getValue();
       }
       node = node.getNext();
     }
-
-    return elements;
   }
 
   public toAnnotatedJSON(): string {
