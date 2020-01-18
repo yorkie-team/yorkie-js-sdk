@@ -91,10 +91,12 @@ export class ObjectProxy {
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
       target.set(key, primitive);
+      context.registerElement(primitive);
       context.push(SetOperation.create(key, primitive, target.getCreatedAt(), ticket));
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.set(key, array);
+      context.registerElement(array);
       context.push(SetOperation.create(key, array.deepcopy(), target.getCreatedAt(), ticket));
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
@@ -102,10 +104,12 @@ export class ObjectProxy {
     } else if (typeof value === 'object') {
       if (value instanceof PlainText) {
         target.set(key, value);
+        context.registerElement(value);
         context.push(SetOperation.create(key, value.deepcopy(), target.getCreatedAt(), ticket));
       } else {
         const obj = JSONObject.create(ticket);
         target.set(key, obj);
+        context.registerElement(obj);
         context.push(SetOperation.create(key, obj.deepcopy(), target.getCreatedAt(), ticket));
         for (const [k, v] of Object.entries(value)) {
           ObjectProxy.setInternal(context, obj, k, v);

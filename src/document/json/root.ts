@@ -20,7 +20,7 @@ export class JSONRoot {
     this.elementMapByCreatedAt = new Map();
 
     this.registerElement(this.rootObject);
-    for (const [key, elem] of this.rootObject) {
+    for (const elem of this.getDescendants()) {
       this.registerElement(elem);
     }
   }
@@ -41,6 +41,17 @@ export class JSONRoot {
    */
   public registerElement(element: JSONElement): void {
     this.elementMapByCreatedAt.set(element.getCreatedAt().toIDString(), element);
+  }
+
+  public *getDescendants(): IterableIterator<JSONElement> {
+    for (const node of this.rootObject.getMembers()) {
+      const element = node.getValue();
+      yield element;
+    }
+  }
+
+  public getElementMapSize(): number {
+    return this.elementMapByCreatedAt.size;
   }
 
   public getObject(): JSONObject {

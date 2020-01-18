@@ -17,3 +17,11 @@ export abstract class JSONElement {
   abstract toJSON(): string;
   abstract deepcopy(): JSONElement;
 }
+
+export abstract class JSONContainer extends JSONElement {
+  constructor(createdAt: TimeTicket) {
+    super(createdAt);
+  }
+
+  abstract getDescendants(): IterableIterator<JSONElement>;
+}

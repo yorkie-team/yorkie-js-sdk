@@ -69,7 +69,7 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
         
-        logger.info(`AC: "${this.getKey()}" ${res.getClientId()}`)
+        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`)
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
         this.eventStreamObserver.next({
@@ -100,7 +100,7 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
         
-        logger.info(`DC: "${this.getKey()}"`)
+        logger.info(`[DC] c"${this.getKey()}" deactivated`)
         this.status = ClientStatus.Deactivated;
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
@@ -134,7 +134,7 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        logger.info(`AD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
 
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
@@ -165,7 +165,7 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        logger.info(`DD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`)
 
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
@@ -203,7 +203,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          logger.info(`PP: "${this.getKey()}", "${doc.getKey().getDocument()}"`)
+          logger.info(`[PP] c:"${this.getKey()}" sync d:"${doc.getKey().getDocument()}"`)
 
           const pack = converter.fromChangePack(res.getChangePack());
           doc.applyChangePack(pack);
@@ -248,7 +248,7 @@ export class Client implements Observable<ClientEvent> {
         // stream end signal
       });
 
-      logger.info(`WD: "${this.getKey()}", "${doc.getKey().toIDString()}"`)
+      logger.info(`[WD] "${this.getKey()}", "${doc.getKey().toIDString()}"`)
       resolve(doc);
     });
   }

@@ -28,8 +28,9 @@ export class SetOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONObject) {
       const obj = parentObject as JSONObject;
-      obj.set(this.key, this.value);
-      root.registerElement(this.value);
+      const value = this.value.deepcopy();
+      obj.set(this.key, value);
+      root.registerElement(value);
     } else {
       logger.fatal(`fail to execute, only object can execute set`);
     }

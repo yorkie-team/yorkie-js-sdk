@@ -16,7 +16,7 @@ class RGANode {
     this.next = null;
   }
 
-  public static createAfter(prev: RGANode, value: JSONElement): RGANode {
+  public static createAfter(prev: RGANode, value: JSONElement, isRemoved?: boolean): RGANode {
     const newNode = new RGANode(value);
     const prevNext = prev.next;
     prev.next = newNode;
@@ -25,6 +25,7 @@ class RGANode {
     if (prevNext) {
       prevNext.prev = newNode;
     }
+    newNode.removed = !!isRemoved;
 
     return newNode;
   }
@@ -60,12 +61,14 @@ export class RGA {
   private nodeMapByCreatedAt: Map<String, RGANode>;
 
   constructor() {
-    this.nodeMapByCreatedAt = new Map();
-
     const dummyHead = new RGANode(JSONPrimitive.of('', InitialTimeTicket));
-    this.nodeMapByCreatedAt.set(dummyHead.getCreatedAt().toIDString(), dummyHead);
+
     this.first = dummyHead;
     this.last = dummyHead;
+    this.size = 0;
+    this.nodeMapByCreatedAt = new Map();
+
+    this.nodeMapByCreatedAt.set(dummyHead.getCreatedAt().toIDString(), dummyHead);
   }
 
   public static create(): RGA {
@@ -85,9 +88,9 @@ export class RGA {
     return node;
   }
 
-  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement) {
+  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement, isRemoved?: boolean) {
     const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
-    const newNode = RGANode.createAfter(prevNode, value);
+    const newNode = RGANode.createAfter(prevNode, value, isRemoved);
     if (prevNode === this.last) {
       this.last = newNode;
     }
@@ -120,17 +123,15 @@ export class RGA {
     return this.last.getCreatedAt();
   }
 
-  public *[Symbol.iterator](): IterableIterator<JSONElement> {
+  public *[Symbol.iterator](): IterableIterator<RGANode> {
     let node = this.first.getNext();
     while(node) {
-      if (!node.isRemoved()) {
-        yield node.getValue();
-      }
+      yield node
       node = node.getNext();
     }
   }
 
-  public toAnnotatedJSON(): string {
+  public getAnnotatedString(): string {
     const json = [];
 
     let node = this.first.getNext();

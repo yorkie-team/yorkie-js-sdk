@@ -55,10 +55,12 @@ export class Document implements Observable<DocEvent> {
    * update executes the given updater to update this document.
    */
   public update(updater: (root: JSONObject) => void, message?: string): void {
-    if (!this.copy) {
-      this.copy = this.root.deepcopy();
-    }
-    const context = ChangeContext.create(this.changeID.next(), message);
+    this.ensureCopy();
+    const context = ChangeContext.create(
+      this.changeID.next(),
+      message,
+      this.copy
+    );
 
     try {
       const proxy = createProxy(context, this.copy.getObject());
@@ -71,10 +73,15 @@ export class Document implements Observable<DocEvent> {
     }
 
     if (context.hasOperations()) {
+      logger.debug(`trying to update a local change`);
+
       const change = context.getChange();
       change.execute(this.root);
       this.changes.push(change);
       this.changeID = change.getID();
+
+      console.log(`copy: ${this.copy.getElementMapSize()} vs root: ${this.root.getElementMapSize()}`);
+      logger.debug(`after update a local change`);
     }
   }
 
@@ -95,10 +102,10 @@ export class Document implements Observable<DocEvent> {
       ).join('\n'));
     }
 
-    // TODO remove below comments
-    // for (const change of changes) {
-    //   change.execute(this.copy);
-    // }
+    this.ensureCopy();
+    for (const change of changes) {
+      change.execute(this.copy);
+    }
 
     for (const change of changes) {
       change.execute(this.root);
@@ -106,10 +113,9 @@ export class Document implements Observable<DocEvent> {
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    if (changes.length) {
-      // TODO remove below line
-      this.copy = null;
+    console.log(`copy: ${this.copy.getElementMapSize()} vs root: ${this.root.getElementMapSize()}`);
 
+    if (changes.length) {
       this.eventStreamObserver.next({
         name: DocEventType.ChangeReceived,
         value: changes
@@ -128,6 +134,14 @@ export class Document implements Observable<DocEvent> {
 
   public hasLocalChanges(): boolean {
     return this.changes.length > 0;
+  }
+
+  public ensureCopy(): void {
+    if (this.copy) {
+      return;
+    }
+
+    this.copy = this.root.deepcopy();
   }
 
   /**

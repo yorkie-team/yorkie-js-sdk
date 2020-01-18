@@ -56,6 +56,12 @@ export class Heap<K, V> {
     return head;
   }
 
+  public *[Symbol.iterator](): IterableIterator<HeapNode<K, V>> {
+    for (const node of this.nodes) {
+        yield node;
+    }
+  }
+
   private moveUp(index: number) {
     const node = this.nodes[index];
 

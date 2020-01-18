@@ -1,12 +1,12 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { JSONContainer, JSONElement } from './element';
 import { RGA } from './rga';
 
 /**
  * JSONArray represents JSON array data structure including logical clock.
  */
-export class JSONArray extends JSONElement {
+export class JSONArray extends JSONContainer {
   private elements: RGA;
 
   constructor(createdAt: TimeTicket, elements: RGA) {
@@ -30,23 +30,48 @@ export class JSONArray extends JSONElement {
     return this.elements.removeByIndex(index);
   }
 
+  public getLastCreatedAt(): TimeTicket {
+    return this.elements.getLastCreatedAt();
+  }
+
+  public *[Symbol.iterator](): IterableIterator<JSONElement> {
+    for (const node of this.elements) {
+      if (!node.isRemoved()) {
+        yield node.getValue();
+      }
+    }
+  }
+
+  public *getDescendants(): IterableIterator<JSONElement> {
+    for (const node of this.elements) {
+      const element = node.getValue();
+      if (element instanceof JSONContainer) {
+        for (const descendant of element.getDescendants()) {
+          yield descendant;
+        }
+      } 
+
+      yield element;
+    }
+  }
+
   public toJSON(): string {
     const json = []
-    for (const v of this.elements) {
-      json.push(v.toJSON());
+    for (const value of this) {
+      json.push(value.toJSON());
     }
     return `[${json.join(',')}]`;
   }
 
   public deepcopy(): JSONArray {
-    const copy = JSONArray.create(this.getCreatedAt());
-    for (const v of this.elements) {
-      copy.insertAfter(copy.getLastCreatedAt(), v.deepcopy());
+    const clone = JSONArray.create(this.getCreatedAt());
+    for (const node of this.elements) {
+      clone.elements.insertAfter(
+        clone.getLastCreatedAt(),
+        node.getValue().deepcopy(),
+        node.isRemoved()
+      );
     }
-    return copy;
-  }
-
-  public getLastCreatedAt(): TimeTicket {
-    return this.elements.getLastCreatedAt();
+    return clone;
   }
 }

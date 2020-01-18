@@ -2,18 +2,18 @@ import { HeapNode, Heap } from '../../util/heap';
 import { TicketComparator, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
-class RHTNode extends HeapNode<TimeTicket, JSONElement> {
+export class RHTNode extends HeapNode<TimeTicket, JSONElement> {
   private strKey: string;
   private removed: boolean;
 
-  constructor(strKey: string, value: JSONElement) {
+  constructor(strKey: string, value: JSONElement, isRemoved?: boolean) {
     super(value.getCreatedAt(), value);
     this.strKey = strKey;
-    this.removed = false;
+    this.removed = !!isRemoved;
   }
 
-  public static of(strKey: string, value: JSONElement): RHTNode {
-    return new RHTNode(strKey, value);
+  public static of(strKey: string, value: JSONElement, isRemoved?: boolean): RHTNode {
+    return new RHTNode(strKey, value, isRemoved);
   }
 
   public isRemoved(): boolean {
@@ -25,7 +25,7 @@ class RHTNode extends HeapNode<TimeTicket, JSONElement> {
   }
 
   public remove(): void {
-    this.removed =true;
+    this.removed = true;
   }
 }
 
@@ -45,7 +45,7 @@ export class RHT {
     return new RHT()
   }
 
-  public set(key: string, value: JSONElement): void {
+  public set(key: string, value: JSONElement, isRemoved?: boolean): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -90,11 +90,10 @@ export class RHT {
     return this.elementQueueMapByKey.get(key).peek().getValue();
   }
 
-  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
-    for (const [key, value] of this.elementQueueMapByKey) {
-      const node = value.peek() as RHTNode;
-      if (node && !node.isRemoved()) {
-        yield [node.getStrKey(), node.getValue()];
+  public *[Symbol.iterator](): IterableIterator<RHTNode> {
+    for (const [key, heap] of this.elementQueueMapByKey) {
+      for (const node of heap) {
+        yield node as RHTNode;
       }
     }
   }

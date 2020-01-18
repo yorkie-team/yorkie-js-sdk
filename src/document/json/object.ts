@@ -1,16 +1,15 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
-import { RHT } from './rht';
+import { JSONContainer, JSONElement } from './element';
+import { RHT, RHTNode } from './rht';
 import { PlainText } from './text';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  */
-export class JSONObject extends JSONElement {
+export class JSONObject extends JSONContainer {
   private members: RHT;
-  private elementMapByCreatedAt: Map<string, JSONElement>;
 
   constructor(createdAt: TimeTicket, members: RHT) {
     super(createdAt);
@@ -52,22 +51,51 @@ export class JSONObject extends JSONElement {
   }
 
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
-    return this.members[Symbol.iterator];
+    const keySet = new Set<string>();
+    for (const node of this.members) {
+      if (!keySet.has(node.getStrKey())) {
+        keySet.add(node.getStrKey());
+        if (!node.isRemoved()) {
+          yield [node.getStrKey(), node.getValue()];
+        }
+      }
+    }
   }
 
   public toJSON(): string {
     const json = []
-    for (const [k, v] of this.members) {
-      json.push(`"${k}":${v.toJSON()}`);
+    for (const [key, value] of this) {
+      json.push(`"${key}":${value.toJSON()}`);
     }
     return `{${json.join(',')}}`;
   }
 
+  public getMembers(): RHT {
+    return this.members;
+  }
+
   public deepcopy(): JSONObject {
-    const copy = JSONObject.create(this.getCreatedAt());
-    for (const [k, v] of this.members) {
-      copy.set(k, v.deepcopy());
+    const clone = JSONObject.create(this.getCreatedAt());
+    for (const node of this.members) {
+      clone.members.set(
+        node.getStrKey(),
+        node.getValue().deepcopy(),
+        node.isRemoved()
+      );
     }
-    return copy;
+    return clone;
+  }
+
+  public *getDescendants(): IterableIterator<JSONElement> {
+    for (const node of this.getMembers()) {
+      const element = node.getValue();
+      if (element instanceof JSONContainer) {
+        for (const descendant of element.getDescendants()) {
+          yield descendant;
+        }
+      } 
+
+      yield element;
+    }
   }
 }

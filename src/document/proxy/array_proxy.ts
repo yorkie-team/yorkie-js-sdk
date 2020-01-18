@@ -54,10 +54,12 @@ export class ArrayProxy {
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
       target.insertAfter(prevCreatedAt, primitive);
+      context.registerElement(primitive);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
+      context.registerElement(array);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, array, ticket));
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
@@ -65,6 +67,7 @@ export class ArrayProxy {
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
+      context.registerElement(obj);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket));
 
       for (const [k, v] of Object.entries(value)) {

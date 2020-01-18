@@ -28,8 +28,9 @@ export class AddOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONArray) {
       const array = parentObject as JSONArray;
-      array.insertAfter(this.prevCreatedAt, this.value);
-      root.registerElement(this.value);
+      const value = this.value.deepcopy();
+      array.insertAfter(this.prevCreatedAt, value);
+      root.registerElement(value);
     } else {
       logger.fatal(`fail to execute, only array can execute add`);
     }
