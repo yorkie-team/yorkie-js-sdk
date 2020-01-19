@@ -11,7 +11,7 @@ import { YorkieClient } from '../api/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '../util/error';
 import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
-import { Document } from '../document/document';
+import { Document, DocEventType } from '../document/document';
 
 export enum ClientStatus {
   Deactivated = 0,
@@ -28,6 +28,11 @@ interface ClientEvent {
   value: any;
 }
 
+interface Attachment {
+  doc: Document;
+  unsubscribe: Unsubscribe;
+}
+
 /**
  * Client is a normal client that can communicate with the agent.
  * It has documents and sends changes of the documents in local
@@ -38,7 +43,7 @@ export class Client implements Observable<ClientEvent> {
   private id: ActorID;
   private key: string;
   private status: ClientStatus;
-  private attachedDocumentMap: Map<string, Document>;
+  private attachmentMap: Map<string, Attachment>;
   private inSyncing: boolean;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver: Observer<ClientEvent>;
@@ -47,7 +52,7 @@ export class Client implements Observable<ClientEvent> {
     this.client = new YorkieClient(rpcAddr, null, null);
     this.key = key ? key : uuid();
     this.status = ClientStatus.Deactivated;
-    this.attachedDocumentMap = new Map();
+    this.attachmentMap = new Map();
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -69,7 +74,6 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
         
-        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`)
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
         this.eventStreamObserver.next({
@@ -77,6 +81,7 @@ export class Client implements Observable<ClientEvent> {
           value: this.status
         });
 
+        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`)
         resolve();
       });
     });
@@ -100,13 +105,13 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
         
-        logger.info(`[DC] c"${this.getKey()}" deactivated`)
         this.status = ClientStatus.Deactivated;
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status
         });
 
+        logger.info(`[DC] c"${this.getKey()}" deactivated`)
         resolve();
       });
     });
@@ -123,7 +128,7 @@ export class Client implements Observable<ClientEvent> {
 
     doc.setActor(this.id);
 
-    return new Promise((resolve, reject) => {
+    const attaching =  new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
       req.setClientId(this.id);
       req.setChangePack(converter.toChangePack(doc.flushChangePack()));
@@ -134,14 +139,29 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
-
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
 
-        this.attachedDocumentMap.set(doc.getKey().toIDString(), doc);
+        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
         resolve(doc);
       });
+    });
+
+    return attaching.then((doc) => {
+      return this.watch(doc as Document);
+    }).then((doc) => {
+      const unsubscribe = doc.subscribe((event) => {
+        if (event.name === DocEventType.LocalChange) {
+          this.sync();
+        }
+      });
+
+      this.attachmentMap.set(doc.getKey().toIDString(), {
+        doc: doc,
+        unsubscribe: unsubscribe
+      });
+
+      return doc;
     });
   }
 
@@ -165,12 +185,15 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`)
-
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
-       
-        this.attachedDocumentMap.delete(doc.getKey().toIDString());
+
+        if (this.attachmentMap.has(doc.getKey().toIDString())) {
+          this.attachmentMap.get(doc.getKey().toIDString()).unsubscribe();
+          this.attachmentMap.delete(doc.getKey().toIDString());
+        }
+
+        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`)
         resolve(doc);
       });
     });
@@ -190,7 +213,8 @@ export class Client implements Observable<ClientEvent> {
     this.inSyncing = true;
 
     const promises = [];
-    for (const [key, doc] of this.attachedDocumentMap) {
+    for (const [key, attachment] of this.attachmentMap) {
+      const doc = attachment.doc;
       promises.push(new Promise((resolve, reject) => {
 
         const req = new PushPullRequest();
@@ -203,11 +227,10 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          logger.info(`[PP] c:"${this.getKey()}" sync d:"${doc.getKey().getDocument()}"`)
-
           const pack = converter.fromChangePack(res.getChangePack());
           doc.applyChangePack(pack);
 
+          logger.info(`[PP] c:"${this.getKey()}" sync d:"${doc.getKey().getDocument()}"`)
           resolve(doc);
         });
       }))
@@ -220,7 +243,7 @@ export class Client implements Observable<ClientEvent> {
   }
 
   // TODO replace target with key pattern, not a document.
-  public watch(doc: Document): Promise<Document> {
+  private watch(doc: Document): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -237,6 +260,8 @@ export class Client implements Observable<ClientEvent> {
           name: ClientEventType.DocumentsChanged,
           value: keys,
         });
+
+        this.sync();
       });
       stream.on('status', (status) => {
         console.log(status.code);

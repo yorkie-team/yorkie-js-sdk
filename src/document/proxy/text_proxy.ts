@@ -43,9 +43,7 @@ export class TextProxy {
 
   public static create(context: ChangeContext, target: PlainText): PlainText {
     const textProxy = new TextProxy(context);
-    const { proxy, revoke } = Proxy.revocable(target, textProxy.getHandlers());
-    // TODO call revoke after update
-    return proxy;
+    return new Proxy(target, textProxy.getHandlers());
   }
 
   public edit(target: PlainText, fromIdx: number, toIdx: number, content: string): void {

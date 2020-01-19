@@ -549,11 +549,13 @@ export class PlainText extends JSONElement {
   private onChangesHandler: (changes: Array<Change<string>>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
+  private remoteChangeLock: boolean;
 
   constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
+    this.remoteChangeLock = false;
   }
 
   public static create(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket): PlainText {
@@ -583,17 +585,29 @@ export class PlainText extends JSONElement {
     }
 
     if (this.onChangesHandler) {
+      this.remoteChangeLock = true;
       this.onChangesHandler(changes);
+      this.remoteChangeLock = false;
     }
 
     return [caretPos, latestCreatedAtMap];
   }
 
   public updateSelection(range: TextNodeRange, updatedAt: TimeTicket): void {
+    if (this.remoteChangeLock) {
+      return;
+    }
+
     const change = this.updateSelectionInternal(range, updatedAt);
     if (this.onChangesHandler && change) {
+      this.remoteChangeLock = true;
       this.onChangesHandler([change]);
+      this.remoteChangeLock = false;
     }
+  }
+
+  public hasRemoteChangeLock(): boolean {
+    return this.remoteChangeLock;
   }
 
   public onChanges(handler: (changes: Array<Change<string>>) => void) {

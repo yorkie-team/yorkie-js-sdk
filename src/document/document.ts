@@ -11,8 +11,9 @@ import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
 
-enum DocEventType {
-  ChangeReceived = 'change-received',
+export enum DocEventType {
+  LocalChange = 'local-change',
+  RemoteChange = 'remote-change',
 }
 
 interface DocEvent {
@@ -73,15 +74,23 @@ export class Document implements Observable<DocEvent> {
     }
 
     if (context.hasOperations()) {
-      logger.debug(`trying to update a local change`);
+      if (logger.isEnabled(LogLevel.Trivial)) {
+        logger.trivial(`trying to update a local change: ${this.toJSON()}`);
+      }
 
       const change = context.getChange();
       change.execute(this.root);
       this.changes.push(change);
       this.changeID = change.getID();
 
-      console.log(`copy: ${this.copy.getElementMapSize()} vs root: ${this.root.getElementMapSize()}`);
-      logger.debug(`after update a local change`);
+      this.eventStreamObserver.next({
+        name: DocEventType.LocalChange,
+        value: [change]
+      });
+
+      if (logger.isEnabled(LogLevel.Trivial)) {
+        logger.trivial(`after update a local change: ${this.toJSON()}`);
+      }
     }
   }
 
@@ -93,6 +102,10 @@ export class Document implements Observable<DocEvent> {
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
+    if (!pack.hasChanges()) {
+      return;
+    }
+
     logger.debug(`trying to apply ${pack.getChanges().length} remote changes`);
 
     const changes = pack.getChanges();
@@ -113,11 +126,9 @@ export class Document implements Observable<DocEvent> {
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    console.log(`copy: ${this.copy.getElementMapSize()} vs root: ${this.root.getElementMapSize()}`);
-
     if (changes.length) {
       this.eventStreamObserver.next({
-        name: DocEventType.ChangeReceived,
+        name: DocEventType.RemoteChange,
         value: changes
       });
     }

@@ -43,8 +43,7 @@ export class ArrayProxy {
 
   public static create(context: ChangeContext, target: JSONArray): JSONArray {
     const arrayProxy = new ArrayProxy(context, target);
-    const { proxy, revoke } = Proxy.revocable(target, arrayProxy.getHandlers());
-    return proxy;
+    return new Proxy(target, arrayProxy.getHandlers());
   }
 
   public static pushInternal(context: ChangeContext, target: JSONArray, value: any): void {

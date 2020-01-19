@@ -39,4 +39,8 @@ export class ChangePack {
   public getChanges(): Change[] {
     return this.changes;
   }
+
+  public hasChanges(): boolean {
+    return this.changes.length > 0;
+  }
 }

@@ -80,9 +80,7 @@ export class ObjectProxy {
 
   public static create(context: ChangeContext, target: JSONObject): JSONObject {
     const objectProxy = new ObjectProxy(context);
-    const { proxy, revoke } = Proxy.revocable(target, objectProxy.getHandlers());
-    // TODO call revoke after update
-    return proxy;
+    return new Proxy(target, objectProxy.getHandlers());
   }
 
   public static setInternal(context: ChangeContext, target: JSONObject, key: string, value: any): void {
