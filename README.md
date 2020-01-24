@@ -67,3 +67,5 @@ npm run build:proto
 cd ./yorkie-js-sdk
 npm run start:dev
 ```
+
+![text-editor-example.gif](/examples/text-editor-example.gif)
