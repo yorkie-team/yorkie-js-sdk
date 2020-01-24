@@ -44,9 +44,8 @@ export class JSONRoot {
   }
 
   public *getDescendants(): IterableIterator<JSONElement> {
-    for (const node of this.rootObject.getMembers()) {
-      const element = node.getValue();
-      yield element;
+    for (const descendant of this.rootObject.getDescendants()) {
+      yield descendant;
     }
   }
 

@@ -30,7 +30,7 @@ interface ClientEvent {
 
 interface Attachment {
   doc: Document;
-  unsubscribe: Unsubscribe;
+  unsubscribe?: Unsubscribe;
 }
 
 /**
@@ -121,14 +121,14 @@ export class Client implements Observable<ClientEvent> {
    * attach attaches the given document to this client. It tells the agent that
    * this client will synchronize the given document.
    */
-  public attach(doc: Document): Promise<Document> {
+  public attach(doc: Document, withoutWatch?: boolean): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
     doc.setActor(this.id);
 
-    const attaching =  new Promise((resolve, reject) => {
+    const attaching = new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
       req.setClientId(this.id);
       req.setChangePack(converter.toChangePack(doc.flushChangePack()));
@@ -145,7 +145,17 @@ export class Client implements Observable<ClientEvent> {
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
         resolve(doc);
       });
-    });
+    }) as Promise<Document>;
+
+    if (withoutWatch) {
+      return attaching.then((doc) => {
+        this.attachmentMap.set(doc.getKey().toIDString(), {
+          doc: doc,
+        });
+
+        return doc;
+      });
+    }
 
     return attaching.then((doc) => {
       return this.watch(doc as Document);
@@ -189,7 +199,10 @@ export class Client implements Observable<ClientEvent> {
         doc.applyChangePack(pack);
 
         if (this.attachmentMap.has(doc.getKey().toIDString())) {
-          this.attachmentMap.get(doc.getKey().toIDString()).unsubscribe();
+          const attachment = this.attachmentMap.get(doc.getKey().toIDString());
+          if (attachment.unsubscribe) {
+            attachment.unsubscribe();
+          }
           this.attachmentMap.delete(doc.getKey().toIDString());
         }
 

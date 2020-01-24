@@ -38,7 +38,7 @@ describe('Yorkie', function() {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1);
+    await client1.attach(doc1, true);
     doc1.update((root) => {
       root['k1'] = {'k1-1': 'v1'};
       root['k2'] = ['1', '2'];
@@ -46,7 +46,7 @@ describe('Yorkie', function() {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toJSON());
 
-    await client2.attach(doc2);
+    await client2.attach(doc2, true);
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toJSON());
 
     await client1.detach(doc1);
@@ -87,11 +87,6 @@ describe('Yorkie', function() {
 
   it('Can watch documents', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      await c1.watch(d1);
-      c1.subscribe(() => {
-        c1.sync();
-      });
-
       d2.update((root) => {
         root['k1'] = 'v1';
       });
@@ -242,8 +237,8 @@ async function withTwoClientsAndDocuments(
   const doc1 = yorkie.createDocument(testCollection, title);
   const doc2 = yorkie.createDocument(testCollection, title);
 
-  await client1.attach(doc1);
-  await client2.attach(doc2);
+  await client1.attach(doc1, true);
+  await client2.attach(doc2, true);
 
   await callback(client1, doc1, client2, doc2);
 

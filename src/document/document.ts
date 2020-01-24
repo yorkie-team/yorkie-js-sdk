@@ -27,7 +27,7 @@ interface DocEvent {
 export class Document implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
-  private copy: JSONRoot;
+  private clone: JSONRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private changes: Change[];
@@ -56,19 +56,19 @@ export class Document implements Observable<DocEvent> {
    * update executes the given updater to update this document.
    */
   public update(updater: (root: JSONObject) => void, message?: string): void {
-    this.ensureCopy();
+    this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
       message,
-      this.copy
+      this.clone
     );
 
     try {
-      const proxy = createProxy(context, this.copy.getObject());
+      const proxy = createProxy(context, this.clone.getObject());
       updater(proxy)
     } catch (err) {
-      // drop copy because it is contaminated.
-      this.copy = null;
+      // drop clone because it is contaminated.
+      this.clone = null;
       logger.error(err);
       throw err;
     }
@@ -83,10 +83,12 @@ export class Document implements Observable<DocEvent> {
       this.changes.push(change);
       this.changeID = change.getID();
 
-      this.eventStreamObserver.next({
-        name: DocEventType.LocalChange,
-        value: [change]
-      });
+      if (this.eventStreamObserver) {
+        this.eventStreamObserver.next({
+          name: DocEventType.LocalChange,
+          value: [change]
+        });
+      }
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
@@ -115,9 +117,9 @@ export class Document implements Observable<DocEvent> {
       ).join('\n'));
     }
 
-    this.ensureCopy();
+    this.ensureClone();
     for (const change of changes) {
-      change.execute(this.copy);
+      change.execute(this.clone);
     }
 
     for (const change of changes) {
@@ -126,7 +128,7 @@ export class Document implements Observable<DocEvent> {
     }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    if (changes.length) {
+    if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         name: DocEventType.RemoteChange,
         value: changes
@@ -147,12 +149,12 @@ export class Document implements Observable<DocEvent> {
     return this.changes.length > 0;
   }
 
-  public ensureCopy(): void {
-    if (this.copy) {
+  public ensureClone(): void {
+    if (this.clone) {
       return;
     }
 
-    this.copy = this.root.deepcopy();
+    this.clone = this.root.deepcopy();
   }
 
   /**

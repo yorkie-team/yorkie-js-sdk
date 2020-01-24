@@ -9,11 +9,11 @@ import { PlainText } from './text';
  * tickets which is created by logical clock.
  */
 export class JSONObject extends JSONContainer {
-  private members: RHT;
+  private memberNodes: RHT;
 
-  constructor(createdAt: TimeTicket, members: RHT) {
+  constructor(createdAt: TimeTicket, memberNodes: RHT) {
     super(createdAt);
-    this.members = members;
+    this.memberNodes = memberNodes;
   }
 
   public static create(createdAt: TimeTicket): JSONObject {
@@ -31,28 +31,28 @@ export class JSONObject extends JSONContainer {
   }
 
   public set(key: string, value: JSONElement): void {
-    this.members.set(key, value);
+    this.memberNodes.set(key, value);
   }
 
   public remove(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.members.remove(createdAt, executedAt);
+    return this.memberNodes.remove(createdAt, executedAt);
   }
 
   public removeByKey(key: string): JSONElement {
-    return this.members.removeByKey(key);
+    return this.memberNodes.removeByKey(key);
   }
 
   public get(key: string): JSONElement {
-    return this.members.get(key);
+    return this.memberNodes.get(key);
   }
 
   public has(key: string): boolean {
-    return this.members.has(key);
+    return this.memberNodes.has(key);
   }
 
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     const keySet = new Set<string>();
-    for (const node of this.members) {
+    for (const node of this.memberNodes) {
       if (!keySet.has(node.getStrKey())) {
         keySet.add(node.getStrKey());
         if (!node.isRemoved()) {
@@ -71,13 +71,13 @@ export class JSONObject extends JSONContainer {
   }
 
   public getMembers(): RHT {
-    return this.members;
+    return this.memberNodes;
   }
 
   public deepcopy(): JSONObject {
     const clone = JSONObject.create(this.getCreatedAt());
-    for (const node of this.members) {
-      clone.members.set(
+    for (const node of this.memberNodes) {
+      clone.memberNodes.set(
         node.getStrKey(),
         node.getValue().deepcopy(),
         node.isRemoved()
