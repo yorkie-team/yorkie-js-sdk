@@ -4,28 +4,26 @@ import { JSONElement } from './element';
 
 export class RHTNode extends HeapNode<TimeTicket, JSONElement> {
   private strKey: string;
-  private removed: boolean;
 
-  constructor(strKey: string, value: JSONElement, isRemoved?: boolean) {
+  constructor(strKey: string, value: JSONElement) {
     super(value.getCreatedAt(), value);
     this.strKey = strKey;
-    this.removed = !!isRemoved;
   }
 
-  public static of(strKey: string, value: JSONElement, isRemoved?: boolean): RHTNode {
-    return new RHTNode(strKey, value, isRemoved);
+  public static of(strKey: string, value: JSONElement): RHTNode {
+    return new RHTNode(strKey, value);
   }
 
-  public isRemoved(): boolean {
-    return this.removed;
+  public isDeleted(): boolean {
+    return this.getValue().isDeleted();
   }
 
   public getStrKey(): string {
     return this.strKey;
   }
 
-  public remove(): void {
-    this.removed = true;
+  public remove(deletedAt: TimeTicket): void {
+    this.getValue().delete(deletedAt);
   }
 }
 
@@ -60,16 +58,16 @@ export class RHT {
       return null;
     }
 
-    this.nodeMapByCreatedAt.get(createdAt.toIDString()).remove();
+    this.nodeMapByCreatedAt.get(createdAt.toIDString()).remove(executedAt);
   }
 
-  public removeByKey(key: string): JSONElement {
+  public removeByKey(key: string, deletedAt: TimeTicket): JSONElement {
     if (!this.elementQueueMapByKey.has(key)) {
       return null;
     }
 
     const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
-    node.remove();
+    node.remove(deletedAt);
     return node.getValue();
   }
 
@@ -79,7 +77,7 @@ export class RHT {
     }
 
     const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
-    return !node.isRemoved();
+    return !node.isDeleted();
   }
 
   public get(key: string): JSONElement {

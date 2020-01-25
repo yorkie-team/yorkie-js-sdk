@@ -636,10 +636,12 @@ export class PlainText extends JSONElement {
   }
 
   public deepcopy(): PlainText {
-    return PlainText.create(
+    const text = PlainText.create(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt()
     );
+    text.delete(this.getDeletedAt());
+    return text;
   }
 
   private updateSelectionInternal(range: TextNodeRange, updatedAt: TimeTicket): Change<string> {

@@ -133,7 +133,7 @@ export class ObjectProxy {
 
   public static removeInternal(context: ChangeContext, target: JSONObject, key: string): void {
     const ticket = context.issueTimeTicket();
-    const removed = target.removeByKey(key);
+    const removed = target.removeByKey(key, ticket);
     context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
   }
 

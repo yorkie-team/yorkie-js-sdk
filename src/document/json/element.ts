@@ -5,6 +5,7 @@ import { TimeTicket } from '../time/ticket';
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
+  private deletedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
@@ -12,6 +13,18 @@ export abstract class JSONElement {
 
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
+  }
+
+  public getDeletedAt(): TimeTicket {
+    return this.deletedAt;
+  }
+
+  public delete(deletedAt: TimeTicket): void {
+    this.deletedAt = deletedAt;
+  }
+
+  public isDeleted(): boolean {
+    return !!this.deletedAt;
   }
 
   abstract toJSON(): string;

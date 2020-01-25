@@ -88,9 +88,9 @@ export class RGA {
     return node;
   }
 
-  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement, isRemoved?: boolean) {
+  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement) {
     const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
-    const newNode = RGANode.createAfter(prevNode, value, isRemoved);
+    const newNode = RGANode.createAfter(prevNode, value);
     if (prevNode === this.last) {
       this.last = newNode;
     }

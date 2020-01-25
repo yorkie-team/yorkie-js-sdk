@@ -68,10 +68,10 @@ export class JSONArray extends JSONContainer {
     for (const node of this.elements) {
       clone.elements.insertAfter(
         clone.getLastCreatedAt(),
-        node.getValue().deepcopy(),
-        node.isRemoved()
+        node.getValue().deepcopy()
       );
     }
+    clone.delete(this.getDeletedAt())
     return clone;
   }
 }

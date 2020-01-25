@@ -4056,7 +4056,8 @@ proto.api.JSONElement.toObject = function(includeInstance, msg) {
   var f, obj = {
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    type: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    type: jspb.Message.getFieldWithDefault(msg, 4, 0),
     value: msg.getValue_asB64()
   };
 
@@ -4105,10 +4106,15 @@ proto.api.JSONElement.deserializeBinaryFromReader = function(msg, reader) {
       msg.setUpdatedAt(value);
       break;
     case 3:
+      var value = new proto.api.TimeTicket;
+      reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
+      msg.setDeletedAt(value);
+      break;
+    case 4:
       var value = /** @type {!proto.api.ValueType} */ (reader.readEnum());
       msg.setType(value);
       break;
-    case 4:
+    case 5:
       var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setValue(value);
       break;
@@ -4157,17 +4163,25 @@ proto.api.JSONElement.serializeBinaryToWriter = function(message, writer) {
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
+  f = message.getDeletedAt();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.api.TimeTicket.serializeBinaryToWriter
+    );
+  }
   f = message.getType();
   if (f !== 0.0) {
     writer.writeEnum(
-      3,
+      4,
       f
     );
   }
   f = message.getValue_asU8();
   if (f.length > 0) {
     writer.writeBytes(
-      4,
+      5,
       f
     );
   }
@@ -4249,11 +4263,48 @@ proto.api.JSONElement.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional ValueType type = 3;
+ * optional TimeTicket deleted_at = 3;
+ * @return {?proto.api.TimeTicket}
+ */
+proto.api.JSONElement.prototype.getDeletedAt = function() {
+  return /** @type{?proto.api.TimeTicket} */ (
+    jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
+};
+
+
+/**
+ * @param {?proto.api.TimeTicket|undefined} value
+ * @return {!proto.api.JSONElement} returns this
+*/
+proto.api.JSONElement.prototype.setDeletedAt = function(value) {
+  return jspb.Message.setWrapperField(this, 3, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.JSONElement} returns this
+ */
+proto.api.JSONElement.prototype.clearDeletedAt = function() {
+  return this.setDeletedAt(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.JSONElement.prototype.hasDeletedAt = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional ValueType type = 4;
  * @return {!proto.api.ValueType}
  */
 proto.api.JSONElement.prototype.getType = function() {
-  return /** @type {!proto.api.ValueType} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+  return /** @type {!proto.api.ValueType} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
 };
 
 
@@ -4262,21 +4313,21 @@ proto.api.JSONElement.prototype.getType = function() {
  * @return {!proto.api.JSONElement} returns this
  */
 proto.api.JSONElement.prototype.setType = function(value) {
-  return jspb.Message.setProto3EnumField(this, 3, value);
+  return jspb.Message.setProto3EnumField(this, 4, value);
 };
 
 
 /**
- * optional bytes value = 4;
+ * optional bytes value = 5;
  * @return {string}
  */
 proto.api.JSONElement.prototype.getValue = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 4, ""));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 5, ""));
 };
 
 
 /**
- * optional bytes value = 4;
+ * optional bytes value = 5;
  * This is a type-conversion wrapper around `getValue()`
  * @return {string}
  */
@@ -4287,7 +4338,7 @@ proto.api.JSONElement.prototype.getValue_asB64 = function() {
 
 
 /**
- * optional bytes value = 4;
+ * optional bytes value = 5;
  * Note that Uint8Array is not supported on all browsers.
  * @see http://caniuse.com/Uint8Array
  * This is a type-conversion wrapper around `getValue()`
@@ -4304,7 +4355,7 @@ proto.api.JSONElement.prototype.getValue_asU8 = function() {
  * @return {!proto.api.JSONElement} returns this
  */
 proto.api.JSONElement.prototype.setValue = function(value) {
-  return jspb.Message.setProto3BytesField(this, 4, value);
+  return jspb.Message.setProto3BytesField(this, 5, value);
 };
 
 

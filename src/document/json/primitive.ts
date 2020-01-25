@@ -53,7 +53,6 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public deepcopy(): JSONPrimitive {
-    // primitivie is immutable.
     return this;
   }
 

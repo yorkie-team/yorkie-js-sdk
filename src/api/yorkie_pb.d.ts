@@ -461,6 +461,11 @@ export class JSONElement extends jspb.Message {
   hasUpdatedAt(): boolean;
   clearUpdatedAt(): void;
 
+  getDeletedAt(): TimeTicket | undefined;
+  setDeletedAt(value?: TimeTicket): void;
+  hasDeletedAt(): boolean;
+  clearDeletedAt(): void;
+
   getType(): ValueType;
   setType(value: ValueType): void;
 
@@ -481,6 +486,7 @@ export namespace JSONElement {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     updatedAt?: TimeTicket.AsObject,
+    deletedAt?: TimeTicket.AsObject,
     type: ValueType,
     value: Uint8Array | string,
   }
