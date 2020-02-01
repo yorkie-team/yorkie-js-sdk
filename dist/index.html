@@ -103,6 +103,9 @@
 
         doc.update((root) => {
           root.getOrCreateText('content');
+        }, 'create content');
+        doc.subscribe((event) => {
+          displayLog(doc);
         });
         await client.sync();
 
@@ -125,7 +128,7 @@
           doc.update((root) => {
             const text = root.getOrCreateText('content');
             text.edit(from, to, content);
-          });
+          }, `update content by ${client.getID()}`);
 
           displayLog(doc);
           console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
@@ -137,7 +140,7 @@
           doc.update((root) => {
             const text = root.getOrCreateText('content');
             text.updateSelection(from, to);
-          });
+          }, `update selection by ${client.getID()}`);
         });
 
         // 04-2. document to codemirror(remote).

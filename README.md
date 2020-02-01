@@ -68,4 +68,4 @@ cd ./yorkie-js-sdk
 npm run start:dev
 ```
 
-![text-editor-example.gif](/examples/text-editor-example.gif)
+![text-editor-example.gif](/assets/text-editor-example.gif)

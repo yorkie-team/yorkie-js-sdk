@@ -127,6 +127,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
+    context.registerElement(text);
     context.push(SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket));
     return TextProxy.create(context, text);
   }

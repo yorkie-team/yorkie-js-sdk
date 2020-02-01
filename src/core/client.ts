@@ -131,7 +131,7 @@ export class Client implements Observable<ClientEvent> {
     const attaching = new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
       req.setClientId(this.id);
-      req.setChangePack(converter.toChangePack(doc.flushChangePack()));
+      req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
 
       this.client.attachDocument(req, {}, (err, res) => {
         if (err) {
@@ -187,7 +187,7 @@ export class Client implements Observable<ClientEvent> {
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
       req.setClientId(this.id);
-      req.setChangePack(converter.toChangePack(doc.flushChangePack()));
+      req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
 
       this.client.detachDocument(req, {}, (err, res) => {
         if (err) {
@@ -232,7 +232,7 @@ export class Client implements Observable<ClientEvent> {
 
         const req = new PushPullRequest();
         req.setClientId(this.id);
-        req.setChangePack(converter.toChangePack(doc.flushChangePack()));
+        req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
 
         this.client.pushPull(req, {}, (err, res) => {
           if (err) {

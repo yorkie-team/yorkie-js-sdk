@@ -30,7 +30,7 @@ export class Document implements Observable<DocEvent> {
   private clone: JSONRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
-  private changes: Change[];
+  private localChanges: Change[];
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver: Observer<DocEvent>;
 
@@ -39,7 +39,7 @@ export class Document implements Observable<DocEvent> {
     this.root = JSONRoot.create();
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
-    this.changes = [];
+    this.localChanges = [];
     this.eventStream = createObservable<DocEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -80,7 +80,7 @@ export class Document implements Observable<DocEvent> {
 
       const change = context.getChange();
       change.execute(this.root);
-      this.changes.push(change);
+      this.localChanges.push(change);
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
@@ -146,7 +146,7 @@ export class Document implements Observable<DocEvent> {
   }
 
   public hasLocalChanges(): boolean {
-    return this.changes.length > 0;
+    return this.localChanges.length > 0;
   }
 
   public ensureClone(): void {
@@ -158,11 +158,11 @@ export class Document implements Observable<DocEvent> {
   }
 
   /**
-   * flushChangePack flushes the local change pack to send to the remote server.
+   * flushChangePack flushes the local change into a pack to send to the remote server.
    */
-  public flushChangePack(): ChangePack {
-    const changes = this.changes;
-    this.changes = [];
+  public flushLocalChanges(): ChangePack {
+    const changes = this.localChanges;
+    this.localChanges = [];
 
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
     return ChangePack.create(this.key, checkpoint, changes);
@@ -173,7 +173,7 @@ export class Document implements Observable<DocEvent> {
    * changes the document has.
    */
   public setActor(actorID: ActorID): void {
-    for (const change of this.changes) {
+    for (const change of this.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
