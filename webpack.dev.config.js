@@ -1,7 +1,18 @@
 const path = require('path');
+const webpack = require('webpack');
+const pkg = require('./package.json');
+
+const date = (new Date()).toISOString().replace(/:\d+\.\d+Z$/, 'Z');
+const banner = `
+yorkie-js-sdk for building collaborative editing applications.
+ - Version: v${pkg.version}
+ - Date: ${date}
+ - Homepage: https://yorkie.dev
+
+Copyright 2020- hackerwins. and other contributors
+`;
 
 module.exports = {
-  watch: true,
   entry: './src/yorkie',
   devtool: 'inline-source-map',
   mode: 'development',
@@ -24,6 +35,11 @@ module.exports = {
     filename: 'yorkie.js',
     path: path.resolve(__dirname, './dist'),
   },
+  plugins: [
+    new webpack.BannerPlugin({
+      banner,
+    })
+  ],
   devServer: {
     contentBase: path.join(__dirname, './dist'),
     compress: true,
