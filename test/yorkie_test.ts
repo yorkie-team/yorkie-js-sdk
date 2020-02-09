@@ -92,7 +92,7 @@ describe('Yorkie', function() {
       });
       await c2.sync();
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       assert.equal(d1.toJSON(), d2.toJSON());
     }, this.test.title);
   });

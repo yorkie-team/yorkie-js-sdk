@@ -43,4 +43,8 @@ export class ChangePack {
   public hasChanges(): boolean {
     return this.changes.length > 0;
   }
+
+  public getChangeSize(): number {
+    return this.changes.length;
+  }
 }

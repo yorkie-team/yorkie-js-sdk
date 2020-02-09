@@ -30,7 +30,8 @@ interface ClientEvent {
 
 interface Attachment {
   doc: Document;
-  unsubscribe?: Unsubscribe;
+  isRealtimeSync: boolean;
+  remoteChangeEventReceved?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export class Client implements Observable<ClientEvent> {
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private inSyncing: boolean;
+  private syncLoopDuration: number;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver: Observer<ClientEvent>;
 
@@ -53,6 +55,8 @@ export class Client implements Observable<ClientEvent> {
     this.key = key ? key : uuid();
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
+    this.inSyncing = false;
+    this.syncLoopDuration = 300;
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -76,6 +80,7 @@ export class Client implements Observable<ClientEvent> {
         
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
+        this.runSyncLoop();
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status
@@ -121,7 +126,7 @@ export class Client implements Observable<ClientEvent> {
    * attach attaches the given document to this client. It tells the agent that
    * this client will synchronize the given document.
    */
-  public attach(doc: Document, withoutWatch?: boolean): Promise<Document> {
+  public attach(doc: Document, isManualSync?: boolean): Promise<Document> {
     if (this.status !== ClientStatus.Activated) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -147,10 +152,11 @@ export class Client implements Observable<ClientEvent> {
       });
     }) as Promise<Document>;
 
-    if (withoutWatch) {
+    if (isManualSync) {
       return attaching.then((doc) => {
         this.attachmentMap.set(doc.getKey().toIDString(), {
           doc: doc,
+          isRealtimeSync: !isManualSync,
         });
 
         return doc;
@@ -160,15 +166,9 @@ export class Client implements Observable<ClientEvent> {
     return attaching.then((doc) => {
       return this.watch(doc as Document);
     }).then((doc) => {
-      const unsubscribe = doc.subscribe((event) => {
-        if (event.name === DocEventType.LocalChange) {
-          this.sync();
-        }
-      });
-
       this.attachmentMap.set(doc.getKey().toIDString(), {
         doc: doc,
-        unsubscribe: unsubscribe
+        isRealtimeSync: !isManualSync,
       });
 
       return doc;
@@ -199,10 +199,6 @@ export class Client implements Observable<ClientEvent> {
         doc.applyChangePack(pack);
 
         if (this.attachmentMap.has(doc.getKey().toIDString())) {
-          const attachment = this.attachmentMap.get(doc.getKey().toIDString());
-          if (attachment.unsubscribe) {
-            attachment.unsubscribe();
-          }
           this.attachmentMap.delete(doc.getKey().toIDString());
         }
 
@@ -218,40 +214,64 @@ export class Client implements Observable<ClientEvent> {
    * local documents.
    */
   public sync(): Promise<Document[]> {
-    // TODO: Defense code to prevent synchronization at the same time.
-    //  - We need to consider to avoid this with a logic such as debounce later.
-    if (this.inSyncing) {
-      return Promise.resolve([]);
-    }
-    this.inSyncing = true;
-
     const promises = [];
     for (const [key, attachment] of this.attachmentMap) {
-      const doc = attachment.doc;
-      promises.push(new Promise((resolve, reject) => {
-
-        const req = new PushPullRequest();
-        req.setClientId(this.id);
-        req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
-
-        this.client.pushPull(req, {}, (err, res) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          const pack = converter.fromChangePack(res.getChangePack());
-          doc.applyChangePack(pack);
-
-          logger.info(`[PP] c:"${this.getKey()}" sync d:"${doc.getKey().getDocument()}"`)
-          resolve(doc);
-        });
-      }))
+      promises.push(this.syncInternal(attachment.doc));
     }
 
     return Promise.all(promises).then((docs) => {
-      this.inSyncing = false;
       return docs;
+    });
+  }
+
+  private runSyncLoop(): void {
+    const doLoop = () => {
+      if (!this.isActive()) {
+        return;
+      }
+
+      const promises = [];
+      for (const [key, attachment] of this.attachmentMap) {
+        if (attachment.isRealtimeSync &&
+            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceved)) {
+          attachment.remoteChangeEventReceved = false;
+          promises.push(this.syncInternal(attachment.doc));
+        }
+      }
+
+      Promise.all(promises).then(() => {
+        setTimeout(doLoop, this.syncLoopDuration);
+      });
+    };
+
+    doLoop();
+  }
+
+  private syncInternal(doc: Document): Promise<Document> {
+    return new Promise((resolve, reject) => {
+
+      const req = new PushPullRequest();
+      req.setClientId(this.id);
+      const localPack = doc.flushLocalChanges();
+      req.setChangePack(converter.toChangePack(localPack));
+
+      this.client.pushPull(req, {}, (err, res) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        const remotePack = converter.fromChangePack(res.getChangePack());
+        doc.applyChangePack(remotePack);
+
+        const docKey = doc.getKey().toIDString();
+        const localSize = localPack.getChangeSize();
+        const remoteSize = remotePack.getChangeSize();
+        logger.info(
+          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize}`
+        );
+        resolve(doc);
+      });
     });
   }
 
@@ -274,7 +294,8 @@ export class Client implements Observable<ClientEvent> {
           value: keys,
         });
 
-        this.sync();
+        const attachment = this.attachmentMap.get(doc.getKey().toIDString());
+        attachment.remoteChangeEventReceved = true;
       });
       stream.on('status', (status) => {
         console.log(status.code);
