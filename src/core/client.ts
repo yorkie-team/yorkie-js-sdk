@@ -40,23 +40,26 @@ interface Attachment {
  * to the agent to synchronize with other replicas in remote.
  */
 export class Client implements Observable<ClientEvent> {
-  private client: YorkieClient;
   private id: ActorID;
   private key: string;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
-  private inSyncing: boolean;
   private syncLoopDuration: number;
+  private reconnectStreamDelay: number;
+
+  private client: YorkieClient;
+  private remoteChangeEventStream: any;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver: Observer<ClientEvent>;
 
   constructor(rpcAddr: string, key?: string) {
-    this.client = new YorkieClient(rpcAddr, null, null);
     this.key = key ? key : uuid();
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
-    this.inSyncing = false;
     this.syncLoopDuration = 300;
+    this.reconnectStreamDelay = 500;
+
+    this.client = new YorkieClient(rpcAddr, null, null);
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -68,6 +71,10 @@ export class Client implements Observable<ClientEvent> {
    * different clients.
    */
   public activate(): Promise<void> {
+    if (this.isActive()) {
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       const req = new ActivateClientRequest();
       req.setClientKey(this.key);
@@ -81,6 +88,8 @@ export class Client implements Observable<ClientEvent> {
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
+        this.runWatchLoop();
+
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status
@@ -98,6 +107,11 @@ export class Client implements Observable<ClientEvent> {
   public deactivate(): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
+    }
+
+    if (this.remoteChangeEventStream) {
+      this.remoteChangeEventStream.close();
+      this.remoteChangeEventStream = null;
     }
 
     return new Promise((resolve, reject) => {
@@ -127,16 +141,16 @@ export class Client implements Observable<ClientEvent> {
    * this client will synchronize the given document.
    */
   public attach(doc: Document, isManualSync?: boolean): Promise<Document> {
-    if (this.status !== ClientStatus.Activated) {
+    if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
     doc.setActor(this.id);
 
-    const attaching = new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
       req.setClientId(this.id);
-      req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
+      req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.client.attachDocument(req, {}, (err, res) => {
         if (err) {
@@ -147,31 +161,15 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(pack);
 
-        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
-        resolve(doc);
-      });
-    }) as Promise<Document>;
-
-    if (isManualSync) {
-      return attaching.then((doc) => {
         this.attachmentMap.set(doc.getKey().toIDString(), {
           doc: doc,
           isRealtimeSync: !isManualSync,
         });
+        this.runWatchLoop();
 
-        return doc;
+        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
+        resolve(doc);
       });
-    }
-
-    return attaching.then((doc) => {
-      return this.watch(doc as Document);
-    }).then((doc) => {
-      this.attachmentMap.set(doc.getKey().toIDString(), {
-        doc: doc,
-        isRealtimeSync: !isManualSync,
-      });
-
-      return doc;
     });
   }
 
@@ -184,10 +182,14 @@ export class Client implements Observable<ClientEvent> {
    * document is no longer used by this client, it should be detached.
    */
   public detach(doc: Document): Promise<Document> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
       req.setClientId(this.id);
-      req.setChangePack(converter.toChangePack(doc.flushLocalChanges()));
+      req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.client.detachDocument(req, {}, (err, res) => {
         if (err) {
@@ -224,94 +226,6 @@ export class Client implements Observable<ClientEvent> {
     });
   }
 
-  private runSyncLoop(): void {
-    const doLoop = () => {
-      if (!this.isActive()) {
-        return;
-      }
-
-      const promises = [];
-      for (const [key, attachment] of this.attachmentMap) {
-        if (attachment.isRealtimeSync &&
-            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceved)) {
-          attachment.remoteChangeEventReceved = false;
-          promises.push(this.syncInternal(attachment.doc));
-        }
-      }
-
-      Promise.all(promises).then(() => {
-        setTimeout(doLoop, this.syncLoopDuration);
-      });
-    };
-
-    doLoop();
-  }
-
-  private syncInternal(doc: Document): Promise<Document> {
-    return new Promise((resolve, reject) => {
-
-      const req = new PushPullRequest();
-      req.setClientId(this.id);
-      const localPack = doc.flushLocalChanges();
-      req.setChangePack(converter.toChangePack(localPack));
-
-      this.client.pushPull(req, {}, (err, res) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        const remotePack = converter.fromChangePack(res.getChangePack());
-        doc.applyChangePack(remotePack);
-
-        const docKey = doc.getKey().toIDString();
-        const localSize = localPack.getChangeSize();
-        const remoteSize = remotePack.getChangeSize();
-        logger.info(
-          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize}`
-        );
-        resolve(doc);
-      });
-    });
-  }
-
-  // TODO replace target with key pattern, not a document.
-  private watch(doc: Document): Promise<Document> {
-    if (this.status !== ClientStatus.Activated) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-
-    return new Promise((resolve, reject) => {
-      const req = new WatchDocumentsRequest();
-      req.setClientId(this.id);
-      req.setDocumentKeysList(converter.toDocumentKeys([doc.getKey()]));
-
-      const stream = this.client.watchDocuments(req, {});
-      stream.on('data', (response) => {
-        const keys = converter.fromDocumentKeys(response.getDocumentKeysList());
-        this.eventStreamObserver.next({
-          name: ClientEventType.DocumentsChanged,
-          value: keys,
-        });
-
-        const attachment = this.attachmentMap.get(doc.getKey().toIDString());
-        attachment.remoteChangeEventReceved = true;
-      });
-      stream.on('status', (status) => {
-        console.log(status.code);
-        console.log(status.details);
-        console.log(status.metadata);
-      });
-      stream.on('end', (end) => {
-        console.log(end);
-        // stream end signal
-      });
-
-      logger.info(`[WD] "${this.getKey()}", "${doc.getKey().toIDString()}"`)
-      resolve(doc);
-    });
-  }
-
   public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
     return this.eventStream.subscribe(nextOrObserver, error, complete);
   }
@@ -327,5 +241,112 @@ export class Client implements Observable<ClientEvent> {
   public isActive(): boolean {
     return this.status === ClientStatus.Activated;
   }
-}
 
+  private runSyncLoop(): void {
+    const doLoop = () => {
+      if (!this.isActive()) {
+        return;
+      }
+
+      const promises = [];
+      for (const [key, attachment] of this.attachmentMap) {
+        if (attachment.isRealtimeSync &&
+            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceved)) {
+          attachment.remoteChangeEventReceved = false;
+          promises.push(this.syncInternal(attachment.doc));
+        }
+      }
+
+      Promise.all(promises).finally(() => {
+        setTimeout(doLoop, this.syncLoopDuration);
+      });
+    };
+
+    doLoop();
+  }
+
+  private runWatchLoop(): void {
+    const doLoop = () => {
+      if (!this.isActive()) {
+        return;
+      }
+
+      if (this.remoteChangeEventStream) {
+        this.remoteChangeEventStream.close();
+        this.remoteChangeEventStream = null;
+      }
+
+      const keys = [];
+      for (const [_, attachment] of this.attachmentMap) {
+        if (attachment.isRealtimeSync) {
+          keys.push(attachment.doc.getKey());
+        }
+      }
+
+      if (!keys.length) {
+        return;
+      }
+
+      const req = new WatchDocumentsRequest();
+      req.setClientId(this.id);
+      req.setDocumentKeysList(converter.toDocumentKeys(keys));
+
+      const stream = this.client.watchDocuments(req, {});
+      stream.on('data', (response) => {
+        const keys = converter.fromDocumentKeys(response.getDocumentKeysList());
+        this.eventStreamObserver.next({
+          name: ClientEventType.DocumentsChanged,
+          value: keys,
+        });
+
+        for (const key of keys) {
+          const attachment = this.attachmentMap.get(key.toIDString());
+          attachment.remoteChangeEventReceved = true;
+        }
+      });
+      stream.on('end', () => {
+        // stream end signal
+        this.remoteChangeEventStream = null;
+        setTimeout(doLoop, this.reconnectStreamDelay);
+      });
+      this.remoteChangeEventStream = stream;
+
+      logger.info(`[WD] "${this.getKey()}", "${keys}"`)
+    };
+
+    doLoop();
+  }
+
+  private syncInternal(doc: Document): Promise<Document> {
+    return new Promise((resolve, reject) => {
+      const req = new PushPullRequest();
+      req.setClientId(this.id);
+      const localChangePack = doc.createChangePack();
+      req.setChangePack(converter.toChangePack(localChangePack));
+
+      let isRejected = false;
+      this.client.pushPull(req, {}, (err, res) => {
+        if (err) {
+          isRejected = true;
+          reject(err);
+          return;
+        }
+
+        const remoteChangePack = converter.fromChangePack(res.getChangePack());
+        doc.applyChangePack(remoteChangePack);
+
+        const docKey = doc.getKey().toIDString();
+        const localSize = localChangePack.getChangeSize();
+        const remoteSize = remoteChangePack.getChangeSize();
+        logger.info(
+          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize}`
+        );
+      }).on('end', () => {
+        if (isRejected) {
+          return;
+        }
+        resolve(doc);
+      });
+    });
+  }
+}

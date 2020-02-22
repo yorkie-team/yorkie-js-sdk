@@ -104,38 +104,46 @@ export class Document implements Observable<DocEvent> {
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
-    if (!pack.hasChanges()) {
-      return;
+    if (pack.hasChanges()) {
+      logger.debug(`trying to apply ${pack.getChanges().length} remote changes`);
+
+      const changes = pack.getChanges();
+      if (logger.isEnabled(LogLevel.Trivial)) {
+        logger.trivial(changes.map((change) =>
+          `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
+        ).join('\n'));
+      }
+
+      this.ensureClone();
+      for (const change of changes) {
+        change.execute(this.clone);
+      }
+
+      for (const change of changes) {
+        change.execute(this.root);
+        this.changeID = this.changeID.sync(change.getID());
+      }
+
+      if (changes.length && this.eventStreamObserver) {
+        this.eventStreamObserver.next({
+          name: DocEventType.RemoteChange,
+          value: changes
+        });
+      }
+
+      logger.debug(`after apply ${changes.length} remote changes`)
     }
 
-    logger.debug(`trying to apply ${pack.getChanges().length} remote changes`);
-
-    const changes = pack.getChanges();
-    if (logger.isEnabled(LogLevel.Trivial)) {
-      logger.trivial(changes.map((change) =>
-        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
-      ).join('\n'));
+    while (this.localChanges.length) {
+      const change = this.localChanges[0];
+      if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
+        break;
+      }
+      this.localChanges.shift();
     }
 
-    this.ensureClone();
-    for (const change of changes) {
-      change.execute(this.clone);
-    }
-
-    for (const change of changes) {
-      change.execute(this.root);
-      this.changeID = this.changeID.sync(change.getID());
-    }
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next({
-        name: DocEventType.RemoteChange,
-        value: changes
-      });
-    }
-
-    logger.debug(`after apply ${changes.length} remote changes`)
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.getRootObject().toJSON()}`);
     }
@@ -158,12 +166,10 @@ export class Document implements Observable<DocEvent> {
   }
 
   /**
-   * flushChangePack flushes the local change into a pack to send to the remote server.
+   * createChangePack create change pack of the local changes to send to the remote server.
    */
-  public flushLocalChanges(): ChangePack {
+  public createChangePack(): ChangePack {
     const changes = this.localChanges;
-    this.localChanges = [];
-
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
     return ChangePack.create(this.key, checkpoint, changes);
   }

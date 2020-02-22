@@ -1,0 +1,12 @@
+version: '3.3'
+
+services:
+  envoy:
+    build:
+      context: ./docker
+      dockerfile: ./envoy.Dockerfile
+    image: 'grpcweb:envoy'
+    container_name: 'envoy'
+    ports:
+      - '8080:8080'
+      - '9901:9901'
