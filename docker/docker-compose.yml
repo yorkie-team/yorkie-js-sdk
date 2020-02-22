@@ -1,0 +1,31 @@
+version: '3.3'
+
+services:
+  envoy:
+    build:
+      context: ./
+      dockerfile: ./envoy.Dockerfile
+    image: 'grpcweb:envoy'
+    container_name: 'envoy'
+    ports:
+      - '8080:8080'
+      - '9901:9901'
+    depends_on:
+      - yorkie
+  yorkie:
+    volumes:
+    - ./yorkie.json:/app/yorkie.json
+    image: 'yorkieteam/yorkie:latest'
+    container_name: 'yorkie'
+    command: ["/app/bin/yorkie", "agent", "-c", "/app/yorkie.json"]
+    restart: always
+    ports:
+      - '9090:9090'
+    depends_on:
+      - mongo
+  mongo:
+    image: 'mongo:latest'
+    container_name: 'mongo'
+    restart: always
+    ports:
+      - '27017:27017'

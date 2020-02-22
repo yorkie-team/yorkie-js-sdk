@@ -1,0 +1,10 @@
+{
+  "RPCPort": 9090,
+  "Mongo": {
+			"ConnectionURI":        "mongodb://mongo:27017",
+			"ConnectionTimeoutSec": 5,
+			"PingTimeoutSec":       5,
+			"YorkieDatabase":       "yorkie-meta"
+
+  }
+}
