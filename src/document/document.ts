@@ -131,7 +131,7 @@ export class Document implements Observable<DocEvent> {
         });
       }
 
-      logger.debug(`after apply ${changes.length} remote changes`)
+      logger.debug(`after appling ${changes.length} remote changes`)
     }
 
     while (this.localChanges.length) {

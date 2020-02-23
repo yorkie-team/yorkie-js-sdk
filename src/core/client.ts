@@ -311,7 +311,7 @@ export class Client implements Observable<ClientEvent> {
       });
       this.remoteChangeEventStream = stream;
 
-      logger.info(`[WD] "${this.getKey()}", "${keys}"`)
+      logger.info(`[WD] c:"${this.getKey()}" watches d:"${keys.map(key => key.toIDString())}"`)
     };
 
     doLoop();
@@ -322,6 +322,7 @@ export class Client implements Observable<ClientEvent> {
       const req = new PushPullRequest();
       req.setClientId(this.id);
       const localChangePack = doc.createChangePack();
+      const localSize = localChangePack.getChangeSize();
       req.setChangePack(converter.toChangePack(localChangePack));
 
       let isRejected = false;
@@ -336,7 +337,6 @@ export class Client implements Observable<ClientEvent> {
         doc.applyChangePack(remoteChangePack);
 
         const docKey = doc.getKey().toIDString();
-        const localSize = localChangePack.getChangeSize();
         const remoteSize = remoteChangePack.getChangeSize();
         logger.info(
           `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize}`

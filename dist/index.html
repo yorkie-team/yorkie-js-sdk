@@ -134,6 +134,14 @@
           console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
         });
         codemirror.on('beforeSelectionChange', (cm, change) => {
+          // Fix concurrent issue.
+          // CAUSION: The following conditional statement ignores cursor changes
+          //          that occur while applying remote changes to CodeMirror
+          //          and handles only movement by keyboard and mouse.
+          if (!change.origin) {
+            return;
+          }
+
           const from = cm.indexFromPos(change.ranges[0].anchor);
           const to = cm.indexFromPos(change.ranges[0].head);
 
