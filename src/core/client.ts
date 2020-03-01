@@ -50,6 +50,16 @@ interface Attachment {
   remoteChangeEventReceved?: boolean;
 }
 
+interface ClientOptions {
+  syncLoopDuration: number;
+  reconnectStreamDelay: number;
+}
+
+const DefaultClientOptions: ClientOptions = {
+  syncLoopDuration: 300,
+  reconnectStreamDelay: 1000
+};
+
 /**
  * Client is a normal client that can communicate with the agent.
  * It has documents and sends changes of the documents in local
@@ -64,16 +74,19 @@ export class Client implements Observable<ClientEvent> {
   private reconnectStreamDelay: number;
 
   private client: YorkieClient;
+  private watchLoopTimerID: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream: any;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver: Observer<ClientEvent>;
 
-  constructor(rpcAddr: string, key?: string) {
+  constructor(rpcAddr: string, key?: string, opts?: ClientOptions) {
     this.key = key ? key : uuid();
+    opts = opts || DefaultClientOptions;
+
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
-    this.syncLoopDuration = 300;
-    this.reconnectStreamDelay = 500;
+    this.syncLoopDuration = opts.syncLoopDuration;
+    this.reconnectStreamDelay = opts.reconnectStreamDelay;
 
     this.client = new YorkieClient(rpcAddr, null, null);
     this.eventStream = createObservable<ClientEvent>((observer) => {
@@ -261,6 +274,7 @@ export class Client implements Observable<ClientEvent> {
   private runSyncLoop(): void {
     const doLoop = () => {
       if (!this.isActive()) {
+        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`)
         return;
       }
 
@@ -278,18 +292,25 @@ export class Client implements Observable<ClientEvent> {
       });
     };
 
+    logger.debug(`[SL] c:"${this.getKey()}" run sync loop`)
     doLoop();
   }
 
   private runWatchLoop(): void {
     const doLoop = () => {
       if (!this.isActive()) {
+        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`)
         return;
       }
 
       if (this.remoteChangeEventStream) {
         this.remoteChangeEventStream.close();
         this.remoteChangeEventStream = null;
+      }
+
+      if (this.watchLoopTimerID) {
+        clearTimeout(this.watchLoopTimerID);
+        this.watchLoopTimerID = null;
       }
 
       const keys = [];
@@ -300,6 +321,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       if (!keys.length) {
+        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`)
         return;
       }
 
@@ -323,12 +345,14 @@ export class Client implements Observable<ClientEvent> {
       stream.on('end', () => {
         // stream end signal
         this.remoteChangeEventStream = null;
-        setTimeout(doLoop, this.reconnectStreamDelay);
+        this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
       });
       this.remoteChangeEventStream = stream;
 
       logger.info(`[WD] c:"${this.getKey()}" watches d:"${keys.map(key => key.toIDString())}"`)
     };
+
+    logger.debug(`[WL] c:"${this.getKey()}" run watch loop`)
 
     doLoop();
   }

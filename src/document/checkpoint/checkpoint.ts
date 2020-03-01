@@ -17,7 +17,7 @@
 import Long from 'long';
 
 /**
- * Checkpoint is used to determine the client received changes.
+ * Checkpoint is used to determine the changes sent and received by the client.
  **/
 export class Checkpoint {
   private serverSeq: Long;
