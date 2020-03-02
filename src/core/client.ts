@@ -56,7 +56,7 @@ interface ClientOptions {
 }
 
 const DefaultClientOptions: ClientOptions = {
-  syncLoopDuration: 300,
+  syncLoopDuration: 50,
   reconnectStreamDelay: 1000
 };
 
