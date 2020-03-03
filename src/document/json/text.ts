@@ -196,10 +196,6 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     node.insNext = this;
   }
 
-  public setInsNext(insNext: TextNode<T>): void {
-    this.insNext = insNext;
-  }
-
   public hasNext(): boolean {
     return !!this.next;
   }
@@ -279,8 +275,8 @@ export class RGATreeSplit<T extends TextNodeValue> {
     editedAt: TimeTicket
   ): [TextNodePos, Map<string, TimeTicket>, Array<Change<T>>] {
     // 01. split nodes with from and to
-    const [fromLeft, fromRight] = this.findTextNodeWithSplit(range[0], editedAt);
     const [toLeft, toRight] = this.findTextNodeWithSplit(range[1], editedAt);
+    const [fromLeft, fromRight] = this.findTextNodeWithSplit(range[0], editedAt);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
@@ -468,7 +464,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
 
     const insNext = node.getInsNext();
     if (insNext) {
-      insNext.setInsNext(splitNode);
+      insNext.setInsPrev(splitNode);
     }
     splitNode.setInsPrev(node);
 
