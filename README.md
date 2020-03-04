@@ -1,6 +1,10 @@
-# yorkie-js-sdk
+# Yorkie JavaScript SDK
 
-## How yorkie-js-sdk works
+The Yorkie JavaScript SDK implements the client-side libraries.
+
+To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/master/js-sdk
+
+### How yorkie-js-sdk works
 
 yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
@@ -14,7 +18,9 @@ yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
 For more details: https://grpc.io/blog/state-of-grpc-web/
 
-## Build yorkie-js-sdk
+## For contributing
+
+### Build yorkie-js-sdk
 
 ```bash
 # install packages
@@ -33,7 +39,7 @@ How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-genera
 npm run build:proto
 ```
 
-## Test yorkie-js-sdk with Envoy, Yorkie and MongoDB.
+### Test yorkie-js-sdk with Envoy, Yorkie and MongoDB.
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
@@ -48,7 +54,7 @@ Start the test in another terminal session.
 npm run test
 ```
 
-## Test co-editing example with CodeMirror
+### Test co-editing example with CodeMirror
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
