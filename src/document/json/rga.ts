@@ -91,6 +91,10 @@ export class RGA {
     return new RGA();
   }
 
+  public get length () {
+    return this.size; 
+  }
+
   private findByCreatedAt(prevCreatedAt: TimeTicket, createdAt: TimeTicket): RGANode {
     let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!node) {

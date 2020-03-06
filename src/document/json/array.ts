@@ -50,6 +50,10 @@ export class JSONArray extends JSONContainer {
     return this.elements.getLastCreatedAt();
   }
 
+  public get length () {
+    return this.elements.length; 
+  }
+
   public *[Symbol.iterator](): IterableIterator<JSONElement> {
     for (const node of this.elements) {
       if (!node.isRemoved()) {

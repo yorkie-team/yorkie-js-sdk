@@ -43,8 +43,12 @@ export class ArrayProxy {
             }
 
             ArrayProxy.pushInternal(this.context, target, value);
-          };
+          }; 
+        } else if (method === 'toJSON') {
+          return target.toJSON()
         }
+
+        return target[method];
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
