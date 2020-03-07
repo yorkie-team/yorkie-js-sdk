@@ -16,7 +16,7 @@
 
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
-import { PlainText, TextNodeRange } from '../json/text';
+import { PlainText, TextNodeRange, Change } from '../json/text';
 import { EditOperation } from '../operation/edit_operation';
 import { SelectOperation } from '../operation/select_operation';
 
@@ -46,10 +46,18 @@ export class TextProxy {
           return (): string => {
             return target.getAnnotatedString();
           };
+        } else if (method === 'getValue') {
+          return (): string => {
+            return target.getValue();
+          };
         } else if (method === 'createRange') {
           return (fromIdx: number, toIdx: number): TextNodeRange => {
             return target.createRange(fromIdx, toIdx);
           };
+        } else if (method === 'onChanges') {
+          return (handler: (changes: Array<Change<string>>) => void) => {
+            target.onChanges(handler);
+          }
         }
 
         logger.fatal(`unsupported method: ${method}`);

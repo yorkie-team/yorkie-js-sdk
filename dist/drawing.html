@@ -37,14 +37,10 @@
       }
     }
 
-    function displayLog(doc) {
-      // logHolder.innerText = doc.toJSON();
-    }
-
     function getPoint(e) {
       return {
-        x: e.clientX - drawingPanel.offsetLeft,
-        y: e.clientY - drawingPanel.offsetTop
+        x: e.clientX - (drawingPanel.offsetLeft) + window.scrollX,
+        y: e.clientY - (drawingPanel.offsetTop) + window.scrollY
       };
     }
 
@@ -69,17 +65,21 @@
 
         doc.subscribe((event) => {
           paintCanvas(doc.getRootObject().shapes);
-          displayLog(doc);
         });
         await client.sync();
 
         document.addEventListener('mousedown', (e) => {
           if (!window.isMouseDown) {
             window.isMouseDown = true; 
+            const point = getPoint(e);
+            if (point.x < 0 || point.y < 0 ||
+                point.x > 500 || point.y > 500) {
+              return;
+            }
 
             doc.update((root) => {
               const shape = root.shapes.push({
-                points: [getPoint(e)]
+                points: [point]
               });
               window.currentID = shape.getID();
             }, `update content by ${client.getID()}`);
@@ -88,9 +88,15 @@
 
         document.addEventListener('mousemove', (e) => {
           if (window.isMouseDown) {
+            const point = getPoint(e);
+            if (point.x < 0 || point.y < 0 ||
+                point.x > 500 || point.y > 500) {
+              return;
+            }
+
             doc.update((root) => {
               const shape = root.shapes.getElementByID(window.currentID);
-              shape.points.push(getPoint(e));
+              shape.points.push(point);
               paintCanvas(root.shapes);
             }, `update content by ${client.getID()}`);
           }
@@ -104,7 +110,6 @@
 
         // 05. set initial value.
         paintCanvas(doc.getRootObject().shapes);
-        displayLog(doc);
       } catch (e) {
         console.error(e);
       }

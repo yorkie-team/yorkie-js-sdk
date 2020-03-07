@@ -140,7 +140,7 @@ export class Client implements Observable<ClientEvent> {
     }
 
     if (this.remoteChangeEventStream) {
-      this.remoteChangeEventStream.close();
+      this.remoteChangeEventStream.cancel();
       this.remoteChangeEventStream = null;
     }
 
@@ -305,7 +305,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       if (this.remoteChangeEventStream) {
-        this.remoteChangeEventStream.close();
+        this.remoteChangeEventStream.cancel();
         this.remoteChangeEventStream = null;
       }
 

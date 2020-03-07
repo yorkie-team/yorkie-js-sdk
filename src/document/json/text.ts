@@ -622,7 +622,7 @@ export class PlainText extends JSONElement {
     return this.remoteChangeLock;
   }
 
-  public onChanges(handler: (changes: Array<Change<string>>) => void) {
+  public onChanges(handler: (changes: Array<Change<string>>) => void): void {
     this.onChangesHandler = handler;
   }
 

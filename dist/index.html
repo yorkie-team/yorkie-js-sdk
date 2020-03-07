@@ -26,7 +26,7 @@
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
-      textLogHolder.innerText = doc.getRootObject().get('content').getAnnotatedString();
+      textLogHolder.innerText = doc.getRootObject().content.getAnnotatedString();
     }
 
     // https://github.com/codemirror/CodeMirror/pull/5619
@@ -151,7 +151,7 @@
         });
 
         // 04-2. document to codemirror(remote).
-        const text = doc.getRootObject().get('content');
+        const text = doc.getRootObject().content;
         text.onChanges((changes) => {
           for (const change of changes) {
             if (change.type === 'content') {
