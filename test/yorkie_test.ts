@@ -27,7 +27,11 @@ const testCollection = 'test-col';
 // to access test title in test codes.
 describe('Yorkie', function() {
   it('Can be activated, deactivated', async function() {
-    const clientWithKey = yorkie.createClient(testRPCAddr, this.test.title);
+    const clientWithKey = yorkie.createClient(testRPCAddr, {
+      key: this.test.title,
+      syncLoopDuration: 50,
+      reconnectStreamDelay: 1000
+    });
     assert.isFalse(clientWithKey.isActive())
     await clientWithKey.activate();
     assert.isTrue(clientWithKey.isActive())

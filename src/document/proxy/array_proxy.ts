@@ -25,6 +25,7 @@ import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
 import { ObjectProxy } from './object_proxy';
+import { toProxy } from './proxy';
 
 export class ArrayProxy {
   private context: ChangeContext;
@@ -35,25 +36,49 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string) => {
-        if (method === 'push') {
-          return (value: any) => {
+      get: (target: JSONArray, method: string|Symbol) => {
+        if (method === 'getID') {
+          return (value: any): TimeTicket => {
+            return target.getCreatedAt();
+          }; 
+        } else if (method === 'getElementByID') {
+          return (createdAt: TimeTicket): JSONElement => {
+            return toProxy(context, target.get(createdAt));
+          }; 
+        } else if (method === 'push') {
+          return (value: any): JSONElement => {
             if (logger.isEnabled(LogLevel.Trivial)) {
               logger.trivial(`array.push(${JSON.stringify(value)})`);
             }
 
-            ArrayProxy.pushInternal(this.context, target, value);
+            return toProxy(context, ArrayProxy.pushInternal(context, target, value));
+          }; 
+        } else if (method === 'getLast') {
+          return (): JSONElement => {
+            return toProxy(context, target.getLast());
           };
+        } else if (method === 'length') {
+          return target.length;
+        } else if (method === Symbol.iterator) {
+          return ArrayProxy.iteratorInternal.bind(this, context, target);
         }
+
+        return target[method as any];
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
         }
 
-        ArrayProxy.removeInternal(this.context, target, key);
+        ArrayProxy.removeInternal(context, target, key);
         return true;
       }
+    }
+  }
+
+  public static *iteratorInternal(change: ChangeContext, target: JSONArray): IterableIterator<any> {
+    for (const elem of target) {
+      yield toProxy(change, elem);
     }
   }
 
@@ -62,7 +87,7 @@ export class ArrayProxy {
     return new Proxy(target, arrayProxy.getHandlers());
   }
 
-  public static pushInternal(context: ChangeContext, target: JSONArray, value: any): void {
+  public static pushInternal(context: ChangeContext, target: JSONArray, value: any): JSONElement {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getLastCreatedAt();
 
@@ -71,6 +96,7 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, primitive);
       context.registerElement(primitive);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
+      return primitive;
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
@@ -79,6 +105,7 @@ export class ArrayProxy {
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
       }
+      return array;
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
@@ -88,6 +115,7 @@ export class ArrayProxy {
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);
       }
+      return obj;
     } else {
       throw new TypeError(`Unsupported type of value: ${typeof value}`)
     }

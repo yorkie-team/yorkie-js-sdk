@@ -208,7 +208,14 @@ export class Document implements Observable<DocEvent> {
   }
 
   public getRootObject(): JSONObject {
-    return this.root.getObject();
+    this.ensureClone();
+
+    const context = ChangeContext.create(
+      this.changeID.next(),
+      '',
+      this.clone
+    );
+    return createProxy(context, this.clone.getObject());
   }
 
   public toJSON(): string {

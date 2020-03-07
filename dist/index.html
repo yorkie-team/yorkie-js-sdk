@@ -103,7 +103,7 @@
 
         doc.update((root) => {
           root.getOrCreateText('content');
-        }, 'create content');
+        }, 'create content if not exists');
         doc.subscribe((event) => {
           displayLog(doc);
         });

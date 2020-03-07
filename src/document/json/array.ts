@@ -38,6 +38,14 @@ export class JSONArray extends JSONContainer {
     this.elements.insertAfter(prevCreatedAt, value);
   }
 
+  public get(createdAt: TimeTicket): JSONElement {
+    return this.elements.get(createdAt);
+  }
+
+  public getLast(): JSONElement {
+    return this.elements.getLast();
+  }
+
   public remove(createdAt: TimeTicket): JSONElement {
     return this.elements.remove(createdAt);
   }
@@ -48,6 +56,10 @@ export class JSONArray extends JSONContainer {
 
   public getLastCreatedAt(): TimeTicket {
     return this.elements.getLastCreatedAt();
+  }
+
+  public get length(): number {
+    return this.elements.length; 
   }
 
   public *[Symbol.iterator](): IterableIterator<JSONElement> {

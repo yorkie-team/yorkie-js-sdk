@@ -17,8 +17,29 @@
 import { JSONElement } from '../json/element';
 import { ChangeContext } from '../change/context';
 import { ObjectProxy } from './object_proxy';
+import { ArrayProxy } from './array_proxy';
 import { JSONObject } from '../json/object';
+import { JSONArray } from '../json/array';
+import { JSONPrimitive } from '../json/primitive';
+
 
 export function createProxy(context: ChangeContext, target: JSONObject): JSONObject {
   return ObjectProxy.create(context, target);
+}
+
+export function toProxy(context: ChangeContext, elem: JSONElement): any {
+  if (elem instanceof JSONPrimitive) {
+    const primitive = elem as JSONPrimitive;
+    return primitive.getValue();
+  } else if (elem instanceof JSONObject) {
+    const obj = elem as JSONObject;
+    return ObjectProxy.create(context, obj);
+  } else if (elem instanceof JSONArray) {
+    const array = elem as JSONArray;
+    return ArrayProxy.create(context, array);
+  } else if (elem === null) {
+    return null;
+  } else {
+    throw new TypeError(`Unsupported type of element: ${typeof elem}`);
+  }
 }

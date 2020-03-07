@@ -50,7 +50,8 @@ interface Attachment {
   remoteChangeEventReceved?: boolean;
 }
 
-interface ClientOptions {
+export interface ClientOptions {
+  key?: string;
   syncLoopDuration: number;
   reconnectStreamDelay: number;
 }
@@ -79,10 +80,10 @@ export class Client implements Observable<ClientEvent> {
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver: Observer<ClientEvent>;
 
-  constructor(rpcAddr: string, key?: string, opts?: ClientOptions) {
-    this.key = key ? key : uuid();
+  constructor(rpcAddr: string, opts?: ClientOptions) {
     opts = opts || DefaultClientOptions;
 
+    this.key = opts.key ? opts.key : uuid();
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.syncLoopDuration = opts.syncLoopDuration;
