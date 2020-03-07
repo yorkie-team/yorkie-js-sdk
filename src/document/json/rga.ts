@@ -91,7 +91,7 @@ export class RGA {
     return new RGA();
   }
 
-  public get length () {
+  public get length(): number {
     return this.size; 
   }
 

@@ -35,7 +35,7 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string) => {
+      get: (target: JSONArray, method: string|Symbol) => {
         if (method === 'push') {
           return (value: any) => {
             if (logger.isEnabled(LogLevel.Trivial)) {
@@ -45,10 +45,14 @@ export class ArrayProxy {
             ArrayProxy.pushInternal(this.context, target, value);
           }; 
         } else if (method === 'toJSON') {
-          return target.toJSON()
+          return target.toJSON();
+        } else if (method === 'length') {
+          return target.length;
+        } else if (method === Symbol.iterator) {
+          return ArrayProxy.iteratorInternal.bind(this.context, target);
         }
 
-        return target[method];
+        return target[method as any];
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
@@ -57,6 +61,25 @@ export class ArrayProxy {
 
         ArrayProxy.removeInternal(this.context, target, key);
         return true;
+      }
+    }
+  }
+
+  public static *iteratorInternal(target: JSONArray): IterableIterator<any> {
+    for (const elem of target) {
+      if (elem instanceof JSONPrimitive) {
+        const primitive = elem as JSONPrimitive;
+        yield primitive.getValue();
+      } else if (elem instanceof JSONObject) {
+        const obj = elem as JSONObject;
+        yield ObjectProxy.create(this as any, obj);
+      } else if (elem instanceof JSONArray) {
+        const array = elem as JSONArray;
+        yield ArrayProxy.create(this as any, array);
+      } else if (elem === null) {
+        yield null;
+      } else {
+        throw new TypeError(`Unsupported type of element: ${typeof elem}`);
       }
     }
   }

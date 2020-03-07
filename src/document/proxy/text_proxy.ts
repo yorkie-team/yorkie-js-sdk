@@ -27,32 +27,32 @@ export class TextProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: PlainText, keyOrMethod: string): any => {
+      get: (target: PlainText, method: string): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
-          logger.trivial(`obj[${keyOrMethod}]`);
+          logger.trivial(`obj[${method}]`);
         }
 
-        if (keyOrMethod === 'edit') {
+        if (method === 'edit') {
           return (fromIdx: number, toIdx: number, content: string): boolean => {
             this.edit(target, fromIdx, toIdx, content);
             return true;
           };
-        } else if (keyOrMethod === 'updateSelection') {
+        } else if (method === 'updateSelection') {
           return (fromIdx: number, toIdx: number): boolean => {
             this.updateSelection(target, fromIdx, toIdx);
             return true;
           };
-        } else if (keyOrMethod === 'getAnnotatedString') {
+        } else if (method === 'getAnnotatedString') {
           return (): string => {
             return target.getAnnotatedString();
           };
-        } else if (keyOrMethod === 'createRange') {
+        } else if (method === 'createRange') {
           return (fromIdx: number, toIdx: number): TextNodeRange => {
             return target.createRange(fromIdx, toIdx);
           };
         }
 
-        logger.fatal(`unsupported method: ${keyOrMethod}`);
+        logger.fatal(`unsupported method: ${method}`);
       }
     };
   }

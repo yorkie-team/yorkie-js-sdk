@@ -80,7 +80,7 @@ export class ObjectProxy {
           return ArrayProxy.create(this.context, array);
         }
 
-        throw new TypeError(`Unsupported type of element: ${typeof elem}`)
+        throw new TypeError(`Unsupported type of element: ${typeof elem}`);
       },
 
       deleteProperty: (target: JSONObject, key: string): boolean => {

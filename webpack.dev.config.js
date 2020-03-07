@@ -76,7 +76,7 @@ module.exports = {
     port: 9000,
     proxy: {
       '/api': {
-        target: 'http://yorkie.dev',
+        target: 'http://localhost:8080',
         pathRewrite: {'^/api' : ''}
       }
     }

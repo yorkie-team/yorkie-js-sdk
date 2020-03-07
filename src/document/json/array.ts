@@ -50,7 +50,7 @@ export class JSONArray extends JSONContainer {
     return this.elements.getLastCreatedAt();
   }
 
-  public get length () {
+  public get length(): number {
     return this.elements.length; 
   }
 
