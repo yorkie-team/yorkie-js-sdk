@@ -6,26 +6,25 @@
 </head>
 <body>
   <div>
-    <canvas width="500px" height="500px" id="draw-panel" style='border: 1px solid black;'></canvas>
+    <canvas width="500px" height="500px" id="drawing-panel" style='border: 1px solid black;'></canvas>
     <div>document:</div>
     <pre style="white-space: pre-wrap;"><code id="log-holder"></code></pre>
   </div>
   <script src="./yorkie.js"></script>
   <script>
-    const drawPanel = document.getElementById('draw-panel');
+    const drawingPanel = document.getElementById('drawing-panel');
     const placeholder = document.getElementById('placeholder');
     const logHolder = document.getElementById('log-holder');
 
-    function drawCanvas(points) {
+    function paintCanvas(shapes) {
       // TODO Now repainting the whole thing. Only changed parts should be drawn.
-      const context = drawPanel.getContext('2d');
+      const context = drawingPanel.getContext('2d');
       context.clearRect(0, 0, 500, 500);
 
-      if (points.length) {
+      for (const shape of shapes) {
         context.beginPath();
         let isMoved = false; 
-
-        for (const p of points) {
+        for (const p of shape.points) {
           if (isMoved === false) {
             isMoved = true; 
             context.moveTo(p.x, p.y);
@@ -39,35 +38,37 @@
     }
 
     function displayLog(doc) {
-      return;
-      logHolder.innerText = doc.toJSON();
+      // logHolder.innerText = doc.toJSON();
     }
 
     function getPoint(e) {
       return {
-        x: e.clientX - drawPanel.offsetLeft,
-        y: e.clientY - drawPanel.offsetTop
+        x: e.clientX - drawingPanel.offsetLeft,
+        y: e.clientY - drawingPanel.offsetTop
       };
     }
 
     async function main() {
       try {
         // 01. create client with RPCAddr(envoy) then activate it.
-        const client = yorkie.createClient('/api');
+        const client = yorkie.createClient('/api', {
+          syncLoopDuration: 0,
+          reconnectStreamDelay: 1000
+        });
         await client.activate();
 
         // 02. create a document then attach it into the client.
-        const doc = yorkie.createDocument('examples', 'draw-panel-2');
+        const doc = yorkie.createDocument('examples', 'drawing-panel-3');
         await client.attach(doc);
 
         doc.update((root) => {
-          if (!root['points']) {
-            root['points'] = [];
+          if (!root['shapes']) {
+            root['shapes'] = [];
           }
         }, 'create points if not exists');
 
         doc.subscribe((event) => {
-          drawCanvas(doc.getRootObject().points);
+          paintCanvas(doc.getRootObject().shapes);
           displayLog(doc);
         });
         await client.sync();
@@ -77,7 +78,10 @@
             window.isMouseDown = true; 
 
             doc.update((root) => {
-              root['points'].push(getPoint(e));
+              const shape = root.shapes.push({
+                points: [getPoint(e)]
+              });
+              window.currentID = shape.getID();
             }, `update content by ${client.getID()}`);
           }
         });
@@ -85,8 +89,9 @@
         document.addEventListener('mousemove', (e) => {
           if (window.isMouseDown) {
             doc.update((root) => {
-              root['points'].push(getPoint(e));
-              drawCanvas(root['points']);
+              const shape = root.shapes.getElementByID(window.currentID);
+              shape.points.push(getPoint(e));
+              paintCanvas(root.shapes);
             }, `update content by ${client.getID()}`);
           }
         });
@@ -98,7 +103,7 @@
         });
 
         // 05. set initial value.
-        drawCanvas(doc.getRootObject().points);
+        paintCanvas(doc.getRootObject().shapes);
         displayLog(doc);
       } catch (e) {
         console.error(e);

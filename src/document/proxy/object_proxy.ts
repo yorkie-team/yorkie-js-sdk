@@ -26,6 +26,7 @@ import { JSONPrimitive } from '../json/primitive';
 import { PlainText, RGATreeSplit } from '../json/text';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
+import { toProxy } from './proxy';
 
 export class ObjectProxy {
   private context: ChangeContext;
@@ -39,7 +40,7 @@ export class ObjectProxy {
           logger.trivial(`obj[${key}]=${JSON.stringify(value)}`);
         }
 
-        ObjectProxy.setInternal(this.context, target, key, value);
+        ObjectProxy.setInternal(context, target, key, value);
         return true;
       },
 
@@ -48,7 +49,11 @@ export class ObjectProxy {
           logger.trivial(`obj[${keyOrMethod}]`);
         }
 
-        if (keyOrMethod === 'toJSON') {
+        if (keyOrMethod === 'getID') {
+          return (value: any): TimeTicket => {
+            return target.getCreatedAt();
+          }; 
+        } else if (keyOrMethod === 'toJSON') {
           return (): string => {
             return target.toJSON();
           };
@@ -57,30 +62,16 @@ export class ObjectProxy {
             if (logger.isEnabled(LogLevel.Trivial)) {
               logger.trivial(`obj[${key}]=Text`);
             }
-            return ObjectProxy.getOrCreateText(this.context, target, key);
+            return ObjectProxy.getOrCreateText(context, target, key);
           };
         } else if (keyOrMethod === 'getText') {
           return (key: string): PlainText => {
             const text = target.get(key) as PlainText;
-            return TextProxy.create(this.context, text);
+            return TextProxy.create(context, text);
           };
         }
 
-        const elem = target.get(keyOrMethod);
-        if (elem == null) {
-          return null;
-        } else if (elem instanceof JSONPrimitive) {
-          const primitive = elem as JSONPrimitive;
-          return primitive.getValue();
-        } else if (elem instanceof JSONObject) {
-          const obj = elem as JSONObject;
-          return ObjectProxy.create(this.context, obj);
-        } else if (elem instanceof JSONArray) {
-          const array = elem as JSONArray;
-          return ArrayProxy.create(this.context, array);
-        }
-
-        throw new TypeError(`Unsupported type of element: ${typeof elem}`);
+        return toProxy(context, target.get(keyOrMethod));
       },
 
       deleteProperty: (target: JSONObject, key: string): boolean => {
@@ -88,7 +79,7 @@ export class ObjectProxy {
           logger.trivial(`obj[${key}]`);
         }
 
-        ObjectProxy.removeInternal(this.context, target, key);
+        ObjectProxy.removeInternal(context, target, key);
         return true;
       }
     }

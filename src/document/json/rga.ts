@@ -119,6 +119,11 @@ export class RGA {
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
   }
 
+  public get(createdAt: TimeTicket): JSONElement {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    return node.getValue();
+  }
+
   public remove(createdAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     node.remove();
@@ -137,6 +142,10 @@ export class RGA {
 
     node.remove();
     return node.getValue();
+  }
+
+  public getLast(): JSONElement {
+    return this.last.getValue();
   }
 
   public getLastCreatedAt(): TimeTicket {
