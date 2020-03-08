@@ -36,12 +36,7 @@ export class JSONObject extends JSONContainer {
     return new JSONObject(createdAt, RHT.create());
   }
 
-  public getOrCreateText(key: string): PlainText {
-    logger.fatal('unsupported: this method should be called by proxy');
-    return null;
-  }
-
-  public getText(key: string): PlainText {
+  public createText(key: string): PlainText {
     logger.fatal('unsupported: this method should be called by proxy');
     return null;
   }

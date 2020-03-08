@@ -102,7 +102,9 @@
         await client.attach(doc);
 
         doc.update((root) => {
-          root.getOrCreateText('content');
+          if (!root.content) {
+            root.createText('content');
+          }
         }, 'create content if not exists');
         doc.subscribe((event) => {
           displayLog(doc);
@@ -126,8 +128,7 @@
           const content = change.text.join('\n');
 
           doc.update((root) => {
-            const text = root.getOrCreateText('content');
-            text.edit(from, to, content);
+            root.content.edit(from, to, content);
           }, `update content by ${client.getID()}`);
 
           console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
@@ -145,8 +146,7 @@
           const to = cm.indexFromPos(change.ranges[0].head);
 
           doc.update((root) => {
-            const text = root.getOrCreateText('content');
-            text.updateSelection(from, to);
+            root.content.updateSelection(from, to);
           }, `update selection by ${client.getID()}`);
         });
 

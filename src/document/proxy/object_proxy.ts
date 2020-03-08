@@ -57,17 +57,19 @@ export class ObjectProxy {
           return (): string => {
             return target.toJSON();
           };
-        } else if (keyOrMethod === 'getOrCreateText') {
+        } else if (keyOrMethod === 'createText') {
           return (key: string): PlainText => {
             if (logger.isEnabled(LogLevel.Trivial)) {
               logger.trivial(`obj[${key}]=Text`);
             }
-            return ObjectProxy.getOrCreateText(context, target, key);
+            return ObjectProxy.createText(context, target, key);
           };
-        } else if (keyOrMethod === 'getText') {
+        } else if (keyOrMethod === 'createText') {
           return (key: string): PlainText => {
-            const text = target.get(key) as PlainText;
-            return TextProxy.create(context, text);
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`obj[${key}]=Text`);
+            }
+            return ObjectProxy.createText(context, target, key);
           };
         }
 
@@ -125,12 +127,7 @@ export class ObjectProxy {
     }
   }
 
-  public static getOrCreateText(context: ChangeContext, target: JSONObject, key: string): PlainText {
-    if (target.has(key)) {
-      const text = target.get(key) as PlainText;
-      return TextProxy.create(context, text);
-    }
-
+  public static createText(context: ChangeContext, target: JSONObject, key: string): PlainText {
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);

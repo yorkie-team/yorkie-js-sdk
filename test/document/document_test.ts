@@ -105,31 +105,30 @@ describe('Document', function() {
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
-      const text = root.getOrCreateText('k1');
+      const text = root.createText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
 
     doc.update((root) => {
-      const text = root.getText('k1');
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
-        text.getAnnotatedString()
+        root['k1'].getAnnotatedString()
       );
 
-      let range = text.createRange(0, 0);
+      let range = root['k1'].createRange(0, 0);
       assert.equal('0:00:0:0:0', range[0].getAnnotatedString())
 
-      range = text.createRange(1, 1);
+      range = root['k1'].createRange(1, 1);
       assert.equal('1:00:2:0:1', range[0].getAnnotatedString())
 
-      range = text.createRange(2, 2);
+      range = root['k1'].createRange(2, 2);
       assert.equal('1:00:3:0:1', range[0].getAnnotatedString());
 
-      range = text.createRange(3, 3)
+      range = root['k1'].createRange(3, 3)
       assert.equal('1:00:3:0:2', range[0].getAnnotatedString())
 
-      range = text.createRange(4, 4);
+      range = root['k1'].createRange(4, 4);
       assert.equal('1:00:2:3:1', range[0].getAnnotatedString())
     });
 
@@ -141,7 +140,7 @@ describe('Document', function() {
     assert.equal('{}', doc.toJSON());
 
     doc.update((root) => {
-      const text = root.getOrCreateText('k1');
+      const text = root.createText('k1');
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
       text.edit(0, 1, '한');

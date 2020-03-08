@@ -203,40 +203,34 @@ describe('Yorkie', function() {
   it('should handle concurrent edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.getOrCreateText('k1');
+        root.createText('k1');
       }, 'set new text by c1');
       await c1.sync(); await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const text = root.getText('k1');
-        text.edit(0, 0, 'ABCD');
+        root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
       d2.update((root) => {
-        const text = root.getText('k1');
-        text.edit(0, 0, '1234');
+        root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
       await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const text = root.getText('k1');
-        text.edit(2, 3, 'XX');
+        root['k1'].edit(2, 3, 'XX');
       }, 'edit 2,3 XX by c1');
       d2.update((root) => {
-        const text = root.getText('k1');
-        text.edit(2, 3, 'YY');
+        root['k1'].edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
       await c1.sync(); await c2.sync(); await c1.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const text = root.getText('k1');
-        text.edit(4, 5, 'ZZ');
+        root['k1'].edit(4, 5, 'ZZ');
       }, 'edit 4,5 ZZ by c1');
       d2.update((root) => {
-        const text = root.getText('k1');
-        text.edit(2, 3, 'TT');
+        root['k1'].edit(2, 3, 'TT');
       }, 'edit 2,3 TT by c1');
 
       await c1.sync(); await c2.sync(); await c1.sync();
