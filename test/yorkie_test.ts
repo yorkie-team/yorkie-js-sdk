@@ -20,7 +20,7 @@ import { Client } from '../src/core/client';
 import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
-const testRPCAddr = 'http://localhost:8080';
+const testRPCAddr = 'https://yorkie.dev/api';
 const testCollection = 'test-col';
 
 // NOTE: In particular, we uses general functions, not arrow functions

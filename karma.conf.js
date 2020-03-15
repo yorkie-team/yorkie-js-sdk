@@ -15,6 +15,13 @@ module.exports = function(config) {
     frameworks: ['mocha'],
 
 
+    client: {
+      mocha: {
+        timeout: 6000
+      }
+    },
+
+
     // list of files / patterns to load in the browser
     files: [
       'test/**/*.ts'
@@ -68,7 +75,7 @@ module.exports = function(config) {
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ['Chrome'],
+    browsers: ['ChromeHeadless'],
 
 
     // Continuous Integration mode
