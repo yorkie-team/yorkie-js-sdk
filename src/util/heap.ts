@@ -78,7 +78,7 @@ export class Heap<K, V> {
     }
   }
 
-  private moveUp(index: number) {
+  private moveUp(index: number): void {
     const node = this.nodes[index];
 
     while (index > 0) {

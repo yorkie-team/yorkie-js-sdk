@@ -59,7 +59,7 @@ export class RHT {
     return new RHT()
   }
 
-  public set(key: string, value: JSONElement, isRemoved?: boolean): void {
+  public set(key: string, value: JSONElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -105,7 +105,7 @@ export class RHT {
   }
 
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
-    for (const [key, heap] of this.elementQueueMapByKey) {
+    for (const [, heap] of this.elementQueueMapByKey) {
       for (const node of heap) {
         yield node as RHTNode;
       }

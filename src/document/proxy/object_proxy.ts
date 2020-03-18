@@ -19,7 +19,6 @@ import { TimeTicket } from '../time/ticket';
 import { SetOperation } from '../operation/set_operation';
 import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
-import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
@@ -50,7 +49,7 @@ export class ObjectProxy {
         }
 
         if (keyOrMethod === 'getID') {
-          return (value: any): TimeTicket => {
+          return (): TimeTicket => {
             return target.getCreatedAt();
           }; 
         } else if (keyOrMethod === 'toJSON') {

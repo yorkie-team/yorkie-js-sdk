@@ -27,7 +27,7 @@ import { YorkieClient } from '../api/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '../util/error';
 import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
-import { Document, DocEventType } from '../document/document';
+import { Document } from '../document/document';
 
 export enum ClientStatus {
   Deactivated = 0,
@@ -148,7 +148,7 @@ export class Client implements Observable<ClientEvent> {
       const req = new DeactivateClientRequest();
       req.setClientId(this.id);
 
-      this.client.deactivateClient(req, {}, (err, res) => {
+      this.client.deactivateClient(req, {}, (err,) => {
         if (err) {
           reject(err);
           return;
@@ -247,7 +247,7 @@ export class Client implements Observable<ClientEvent> {
    */
   public sync(): Promise<Document[]> {
     const promises = [];
-    for (const [key, attachment] of this.attachmentMap) {
+    for (const [, attachment] of this.attachmentMap) {
       promises.push(this.syncInternal(attachment.doc));
     }
 
@@ -273,14 +273,14 @@ export class Client implements Observable<ClientEvent> {
   }
 
   private runSyncLoop(): void {
-    const doLoop = () => {
+    const doLoop = (): void => {
       if (!this.isActive()) {
         logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`)
         return;
       }
 
       const promises = [];
-      for (const [key, attachment] of this.attachmentMap) {
+      for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync &&
             (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceved)) {
           attachment.remoteChangeEventReceved = false;
@@ -298,7 +298,7 @@ export class Client implements Observable<ClientEvent> {
   }
 
   private runWatchLoop(): void {
-    const doLoop = () => {
+    const doLoop = (): void => {
       if (!this.isActive()) {
         logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`)
         return;
@@ -315,7 +315,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       const keys = [];
-      for (const [_, attachment] of this.attachmentMap) {
+      for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
           keys.push(attachment.doc.getKey());
         }

@@ -16,7 +16,6 @@
 
 import { logger, LogLevel } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
-import { SetOperation } from '../operation/set_operation';
 import { AddOperation } from '../operation/add_operation';
 import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
@@ -36,9 +35,9 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string|Symbol) => {
+      get: (target: JSONArray, method: string|symbol): any => {
         if (method === 'getID') {
-          return (value: any): TimeTicket => {
+          return (): TimeTicket => {
             return target.getCreatedAt();
           }; 
         } else if (method === 'getElementByID') {

@@ -17,7 +17,7 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
-import { RHT, RHTNode } from './rht';
+import { RHT } from './rht';
 import { PlainText } from './text';
 
 /**
@@ -37,7 +37,7 @@ export class JSONObject extends JSONContainer {
   }
 
   public createText(key: string): PlainText {
-    logger.fatal('unsupported: this method should be called by proxy');
+    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
   }
 

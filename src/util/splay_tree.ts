@@ -114,7 +114,7 @@ export class SplayTree<V> {
     }
 
     let node = this.root;
-    while (true) {
+    for (;;) {
       if (node.hasLeft() && pos <= node.getLeftWeight()) {
         node = node.getLeft();
       } else if (node.hasRight() && node.getLeftWeight() + node.getLength() < pos) {
@@ -199,7 +199,7 @@ export class SplayTree<V> {
       return;
     }
 
-    while (true) {
+    for (;;) {
       if (this.isLeftChild(node.getParent()) && this.isRightChild(node)) {
         // zig-zag
         this.rotateLeft(node);
