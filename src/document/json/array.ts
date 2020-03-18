@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
 import { RGA } from './rga';

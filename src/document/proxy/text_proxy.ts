@@ -55,7 +55,7 @@ export class TextProxy {
             return target.createRange(fromIdx, toIdx);
           };
         } else if (method === 'onChanges') {
-          return (handler: (changes: Array<Change<string>>) => void) => {
+          return (handler: (changes: Array<Change<string>>) => void): void => {
             target.onChanges(handler);
           }
         }
@@ -83,7 +83,7 @@ export class TextProxy {
     }
 
     const ticket = this.context.issueTimeTicket();
-    const [caretPos, maxCreatedAtMapByActor] = target.editInternal(range, content, null, ticket);
+    const [, maxCreatedAtMapByActor] = target.editInternal(range, content, null, ticket);
 
     this.context.push(new EditOperation(
       target.getCreatedAt(),

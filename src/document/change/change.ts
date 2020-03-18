@@ -16,7 +16,6 @@
 
 import Long from 'long';
 
-import { logger, LogLevel } from '../../util/logger';
 import { ActorID } from '../time/actor_id';
 import { Operation } from '../operation/operation';
 import { JSONRoot } from '../json/root';

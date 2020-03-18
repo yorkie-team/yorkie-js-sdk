@@ -30,6 +30,6 @@ export class YorkieError extends Error {
 
   constructor(readonly code: Code, readonly message: string) {
     super(message);
-    this.toString = () => `${this.name}: [code=${this.code}]: ${this.message}`;
+    this.toString = (): string => `${this.name}: [code=${this.code}]: ${this.message}`;
   }
 }

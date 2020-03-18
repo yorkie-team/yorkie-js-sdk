@@ -81,30 +81,6 @@ function toTimeTicket(ticket: TimeTicket): PbTimeTicket {
   return pbTimeTicket;
 }
 
-function toJSONElement(jsonElement: JSONElement): PbJSONElement {
-  const pbJSONElement = new PbJSONElement();
-  if (jsonElement instanceof JSONObject) {
-    pbJSONElement.setType(PbValueType.JSON_OBJECT);
-    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof JSONArray) {
-    pbJSONElement.setType(PbValueType.JSON_ARRAY);
-    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof PlainText) {
-    const text = jsonElement as PlainText;
-    pbJSONElement.setType(PbValueType.TEXT);
-    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof JSONPrimitive) {
-    const primitive = jsonElement as JSONPrimitive;
-    pbJSONElement.setType(toValueType(primitive.getType()));
-    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-    pbJSONElement.setValue(jsonElement.toBytes());
-  }  else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element: ${jsonElement}`);
-  }
-
-  return pbJSONElement;
-}
-
 function toValueType(valueType: PrimitiveType): PbValueType {
   switch(valueType) {
     case PrimitiveType.Null:
@@ -126,6 +102,29 @@ function toValueType(valueType: PrimitiveType): PbValueType {
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
+}
+
+function toJSONElement(jsonElement: JSONElement): PbJSONElement {
+  const pbJSONElement = new PbJSONElement();
+  if (jsonElement instanceof JSONObject) {
+    pbJSONElement.setType(PbValueType.JSON_OBJECT);
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+  } else if (jsonElement instanceof JSONArray) {
+    pbJSONElement.setType(PbValueType.JSON_ARRAY);
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+  } else if (jsonElement instanceof PlainText) {
+    pbJSONElement.setType(PbValueType.TEXT);
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+  } else if (jsonElement instanceof JSONPrimitive) {
+    const primitive = jsonElement as JSONPrimitive;
+    pbJSONElement.setType(toValueType(primitive.getType()));
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+    pbJSONElement.setValue(jsonElement.toBytes());
+  }  else {
+    throw new YorkieError(Code.Unimplemented, `unimplemented element: ${jsonElement}`);
+  }
+
+  return pbJSONElement;
 }
 
 function toTextNodePos(pos: TextNodePos): PbTextNodePos {

@@ -74,7 +74,7 @@ export class RGA {
   private first: RGANode;
   private last: RGANode;
   private size: number;
-  private nodeMapByCreatedAt: Map<String, RGANode>;
+  private nodeMapByCreatedAt: Map<string, RGANode>;
 
   constructor() {
     const dummyHead = new RGANode(JSONPrimitive.of('', InitialTimeTicket));
@@ -108,7 +108,7 @@ export class RGA {
     return node;
   }
 
-  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement) {
+  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
     const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
     const newNode = RGANode.createAfter(prevNode, value);
     if (prevNode === this.last) {

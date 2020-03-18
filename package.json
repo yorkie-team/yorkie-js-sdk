@@ -7,7 +7,8 @@
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "build:dev": "webpack --config webpack.dev.config.js",
     "start:dev": "webpack-dev-server --watch --config webpack.dev.config.js",
-    "test": "karma start karma.conf.js --single-run"
+    "test": "karma start karma.conf.js --single-run",
+    "lint": "eslint . --fix --ext .ts"
   },
   "repository": {
     "type": "git",
@@ -38,6 +39,9 @@
     "webpack-dev-server": "^3.10.1"
   },
   "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.24.0",
+    "@typescript-eslint/parser": "^2.24.0",
+    "eslint": "^6.8.0",
     "google-protobuf": "^3.11.2",
     "grpc-web": "^1.0.7",
     "long": "^4.0.0"

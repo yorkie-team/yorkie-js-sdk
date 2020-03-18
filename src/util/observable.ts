@@ -33,22 +33,9 @@ export interface SubscribeFn<T> {
   (observer: Observer<T>): Unsubscribe;
 }
 
-export interface Observable<T> {
-  subscribe: SubscribeFn<T>;
-  getProxy?: () => ObserverProxy<T>;
-}
-
-export type Executor<T> = (observer: Observer<T>) => void;
-
-export function createObservable<T>(executor: Executor<T>): Observable<T> {
-  const proxy = new ObserverProxy(executor);
-  return {
-    subscribe: proxy.subscribe.bind(proxy),
-    getProxy: () => {
-      return proxy;
-    }
-  };
-}
+const Noop = (): void => {
+  // Do nothing
+};
 
 class ObserverProxy<T> implements Observer<T> {
   public finalized = false;
@@ -69,20 +56,20 @@ class ObserverProxy<T> implements Observer<T> {
     });
   }
 
-  public next(value: T) {
+  public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.next(value);
     });
   }
 
-  public error(error: Error) {
+  public error(error: Error): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.error(error);
     });
     this.close(error);
   }
 
-  public complete() {
+  public complete(): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.complete();
     });
@@ -146,7 +133,7 @@ class ObserverProxy<T> implements Observer<T> {
     return unsub;
   }
 
-  private unsubscribeOne(i: number) {
+  private unsubscribeOne(i: number): void {
     if (this.observers === undefined || this.observers[i] === undefined) {
       return;
     }
@@ -198,6 +185,20 @@ class ObserverProxy<T> implements Observer<T> {
   }
 }
 
-const Noop = () => {
-  // Do nothing
-};
+export interface Observable<T> {
+  subscribe: SubscribeFn<T>;
+  getProxy?: () => ObserverProxy<T>;
+}
+
+export type Executor<T> = (observer: Observer<T>) => void;
+
+export function createObservable<T>(executor: Executor<T>): Observable<T> {
+  const proxy = new ObserverProxy(executor);
+  return {
+    subscribe: proxy.subscribe.bind(proxy),
+    getProxy: (): ObserverProxy<T> => {
+      return proxy;
+    }
+  };
+}
+

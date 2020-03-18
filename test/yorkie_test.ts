@@ -23,6 +23,30 @@ import yorkie from '../src/yorkie';
 const testRPCAddr = 'https://yorkie.dev/api';
 const testCollection = 'test-col';
 
+async function withTwoClientsAndDocuments(
+  callback: (c1: Client, d1: Document, c2: Client, d2: Document) => Promise<void>,
+  title: string,
+): Promise<void> {
+  const client1 = yorkie.createClient(testRPCAddr);
+  const client2 = yorkie.createClient(testRPCAddr);
+  await client1.activate();
+  await client2.activate();
+
+  const doc1 = yorkie.createDocument(testCollection, title);
+  const doc2 = yorkie.createDocument(testCollection, title);
+
+  await client1.attach(doc1, true);
+  await client2.attach(doc2, true);
+
+  await callback(client1, doc1, client2, doc2);
+
+  await client1.detach(doc1);
+  await client2.detach(doc2);
+
+  await client1.deactivate();
+  await client2.deactivate();
+}
+
 // NOTE: In particular, we uses general functions, not arrow functions
 // to access test title in test codes.
 describe('Yorkie', function() {
@@ -238,27 +262,3 @@ describe('Yorkie', function() {
     }, this.test.title);
   });
 });
-
-async function withTwoClientsAndDocuments(
-  callback: (c1: Client, d1: Document, c2: Client, d2: Document) => Promise<void>,
-  title: string,
-) {
-  const client1 = yorkie.createClient(testRPCAddr);
-  const client2 = yorkie.createClient(testRPCAddr);
-  await client1.activate();
-  await client2.activate();
-
-  const doc1 = yorkie.createDocument(testCollection, title);
-  const doc2 = yorkie.createDocument(testCollection, title);
-
-  await client1.attach(doc1, true);
-  await client2.attach(doc2, true);
-
-  await callback(client1, doc1, client2, doc2);
-
-  await client1.detach(doc1);
-  await client2.detach(doc2);
-
-  await client1.deactivate();
-  await client2.deactivate();
-}

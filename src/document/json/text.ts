@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { LogLevel, logger } from '../../util/logger';
+import { logger } from '../../util/logger';
 import { ActorID } from '../time/actor_id';
 import { Comparator } from '../../util/comparator';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
@@ -136,7 +136,7 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   }
 
   public static createComparator(): Comparator<TextNodeID> {
-    return (p1: TextNodeID, p2: TextNodeID) => {
+    return (p1: TextNodeID, p2: TextNodeID): number => {
       const compare = p1.getCreatedAt().compare(p2.getCreatedAt());
       if (compare !== 0) {
         return compare;
@@ -148,7 +148,7 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
         return -1;
       }
       return 0;
-    }
+    };
   }
 
   public getID(): TextNodeID {
@@ -447,7 +447,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
     return nodes;
   }
 
-  private splitTextNode(node: TextNode<T>, offset: number) {
+  private splitTextNode(node: TextNode<T>, offset: number): TextNode<T> {
     if (offset > node.getContentLength()) {
       logger.fatal('offset should be less than or equal to length');
     }
@@ -575,7 +575,9 @@ export class PlainText extends JSONElement {
   }
 
   public edit(fromIdx: number, toIdx: number, content: string): PlainText {
-    logger.fatal('unsupported: this method should be called by proxy');
+    logger.fatal(
+      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`
+    );
     return null;
   }
 
