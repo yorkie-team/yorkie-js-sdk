@@ -14,8 +14,11 @@
     "type": "git",
     "url": "git+https://github.com/hackerwins/yorkie-js-sdk.git"
   },
-  "author": "",
-  "license": "MIT",
+  "author": {
+    "name": "hackerwins",
+    "email": "<susukang98@gmail.com>"
+  },
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/hackerwins/yorkie-js-sdk/issues"
   },
