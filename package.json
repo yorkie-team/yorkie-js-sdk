@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
   "scripts": {
@@ -28,7 +28,10 @@
     "@types/long": "^4.0.0",
     "@types/mocha": "^5.2.7",
     "@types/sinon": "^7.5.1",
+    "@typescript-eslint/eslint-plugin": "^2.24.0",
+    "@typescript-eslint/parser": "^2.24.0",
     "chai": "^4.2.0",
+    "eslint": "^6.8.0",
     "karma": "^4.4.1",
     "karma-chrome-launcher": "^3.1.0",
     "karma-mocha": "^1.3.0",
@@ -42,9 +45,6 @@
     "webpack-dev-server": "^3.10.1"
   },
   "dependencies": {
-    "@typescript-eslint/eslint-plugin": "^2.24.0",
-    "@typescript-eslint/parser": "^2.24.0",
-    "eslint": "^6.8.0",
     "google-protobuf": "^3.11.2",
     "grpc-web": "^1.0.7",
     "long": "^4.0.0"
