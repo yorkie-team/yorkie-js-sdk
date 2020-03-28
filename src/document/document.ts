@@ -21,6 +21,7 @@ import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
 import { ChangeID, InitialChangeID } from './change/change_id';
 import { ChangeContext } from './change/context';
+import { converter } from '../api/converter';
 import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
@@ -28,6 +29,7 @@ import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
 
 export enum DocEventType {
+  Snapshot = 'snapshot',
   LocalChange = 'local-change',
   RemoteChange = 'remote-change',
 }
@@ -120,36 +122,13 @@ export class Document implements Observable<DocEvent> {
    * applyChangePack applies the given change pack into this document.
    */
   public applyChangePack(pack: ChangePack): void {
-    if (pack.hasChanges()) {
-      logger.debug(`trying to apply ${pack.getChanges().length} remote changes`);
-
-      const changes = pack.getChanges();
-      if (logger.isEnabled(LogLevel.Trivial)) {
-        logger.trivial(changes.map((change) =>
-          `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
-        ).join('\n'));
-      }
-
-      this.ensureClone();
-      for (const change of changes) {
-        change.execute(this.clone);
-      }
-
-      for (const change of changes) {
-        change.execute(this.root);
-        this.changeID = this.changeID.sync(change.getID());
-      }
-
-      if (changes.length && this.eventStreamObserver) {
-        this.eventStreamObserver.next({
-          name: DocEventType.RemoteChange,
-          value: changes
-        });
-      }
-
-      logger.debug(`after appling ${changes.length} remote changes`)
+    if (pack.hasSnapshot()) {
+      this.applySnapshot(pack.getSnapshot(), pack.getCheckpoint().getServerSeq());
+    } else if (pack.hasChanges()) {
+      this.applyChanges(pack.getChanges());
     }
 
+    // 02. Remove local changes applied to server.
     while (this.localChanges.length) {
       const change = this.localChanges[0];
       if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
@@ -158,10 +137,11 @@ export class Document implements Observable<DocEvent> {
       this.localChanges.shift();
     }
 
+    // 03. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     if (logger.isEnabled(LogLevel.Trivial)) {
-      logger.trivial(`${this.getRootObject().toJSON()}`);
+      logger.trivial(`${this.root.toJSON()}`);
     }
   }
 
@@ -218,7 +198,64 @@ export class Document implements Observable<DocEvent> {
     return createProxy(context, this.clone.getObject());
   }
 
+  public getRoot(): JSONObject {
+    return this.root.getObject();
+  }
+
   public toJSON(): string {
     return this.root.toJSON();
+  }
+
+  public toSortedJSON(): string {
+    return this.root.toSortedJSON();
+  }
+
+  private applySnapshot(snapshot: Uint8Array, serverSeq: Long): void {
+    const obj = converter.bytesToObject(snapshot);
+    this.root = new JSONRoot(obj);
+
+    for (const change of this.localChanges) {
+      change.execute(this.root);
+    }
+    this.changeID = this.changeID.syncLamport(serverSeq);
+
+    // drop clone because it is contaminated.
+    this.clone = null;
+
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next({
+        name: DocEventType.Snapshot,
+        value: snapshot,
+      });
+    }
+  }
+
+  private applyChanges(changes: Array<Change>): void {
+    logger.debug(`trying to apply ${changes.length} remote changes`);
+
+    if (logger.isEnabled(LogLevel.Trivial)) {
+      logger.trivial(changes.map((change) =>
+        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
+      ).join('\n'));
+    }
+
+    this.ensureClone();
+    for (const change of changes) {
+      change.execute(this.clone);
+    }
+
+    for (const change of changes) {
+      change.execute(this.root);
+      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    }
+
+    if (changes.length && this.eventStreamObserver) {
+      this.eventStreamObserver.next({
+        name: DocEventType.RemoteChange,
+        value: changes
+      });
+    }
+
+    logger.debug(`after appling ${changes.length} remote changes`)
   }
 }

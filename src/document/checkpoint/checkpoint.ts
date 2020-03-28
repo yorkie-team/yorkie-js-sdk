@@ -60,9 +60,17 @@ export class Checkpoint {
     return this.clientSeq;
   }
 
+  public getServerSeq(): Long {
+    return this.serverSeq;
+  }
+
   public equals(other: Checkpoint): boolean {
     return this.clientSeq === other.clientSeq &&
       this.serverSeq.equals(other.serverSeq);
+  }
+
+  public getAnnotatedString(): string {
+    return `serverSeq=${this.serverSeq}, clientSeq=${this.clientSeq}`;
   }
 }
 

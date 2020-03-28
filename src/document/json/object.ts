@@ -74,14 +74,29 @@ export class JSONObject extends JSONContainer {
   }
 
   public toJSON(): string {
-    const json = []
+    const json = [];
     for (const [key, value] of this) {
       json.push(`"${key}":${value.toJSON()}`);
     }
     return `{${json.join(',')}}`;
   }
 
-  public getMembers(): RHT {
+  public toSortedJSON(): string {
+    const keys = Array<string>();
+    for (const [key,] of this) {
+      keys.push(key);
+    }
+
+    const json = [];
+    for (const key of keys.sort()) {
+      const node = this.memberNodes.get(key)
+      json.push(`"${key}":${node.toSortedJSON()}`);
+    }
+
+    return `{${json.join(',')}}`;
+  }
+
+  public getRHT(): RHT {
     return this.memberNodes;
   }
 
@@ -98,7 +113,7 @@ export class JSONObject extends JSONContainer {
   }
 
   public *getDescendants(): IterableIterator<JSONElement> {
-    for (const node of this.getMembers()) {
+    for (const node of this.memberNodes) {
       const element = node.getValue();
       if (element instanceof JSONContainer) {
         for (const descendant of element.getDescendants()) {

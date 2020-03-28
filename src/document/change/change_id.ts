@@ -40,9 +40,9 @@ export class ChangeID {
     return new ChangeID(this.clientSeq + 1, this.lamport.add(1), this.actor);
   }
 
-  public sync(other: ChangeID): ChangeID {
-    if (other.lamport.greaterThan(this.lamport)) {
-      return new ChangeID(this.clientSeq, other.lamport, this.actor)
+  public syncLamport(otherLamport: Long): ChangeID {
+    if (otherLamport.greaterThan(this.lamport)) {
+      return new ChangeID(this.clientSeq, otherLamport, this.actor)
     }
 
     return new ChangeID(this.clientSeq, this.lamport.add(1), this.actor);
@@ -58,6 +58,10 @@ export class ChangeID {
 
   public getClientSeq(): number {
     return this.clientSeq;
+  }
+
+  public getLamport(): Long {
+    return this.lamport;
   }
 
   public getLamportAsString(): string {

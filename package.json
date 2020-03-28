@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
   "scripts": {
@@ -8,6 +8,7 @@
     "build:dev": "webpack --config webpack.dev.config.js",
     "start:dev": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
+    "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --ext .ts"
   },
   "repository": {
