@@ -25,22 +25,26 @@ export class ChangePack {
   private key: DocumentKey;
   private checkpoint: Checkpoint;
   private changes: Change[];
+  private snapshot: Uint8Array;
 
-  constructor(key: DocumentKey, checkpoint: Checkpoint, changes: Change[]) {
+  constructor(key: DocumentKey, checkpoint: Checkpoint, changes: Change[], snapshot: Uint8Array) {
     this.key = key;
     this.checkpoint = checkpoint;
     this.changes = changes;
+    this.snapshot = snapshot;
   }
 
   public static create(
     key: DocumentKey,
     checkpoint: Checkpoint,
     changes: Change[],
+    snapshot?: Uint8Array,
   ): ChangePack {
     return new ChangePack(
       key,
       checkpoint,
-      changes
+      changes,
+      snapshot,
     );
   }
 
@@ -62,5 +66,13 @@ export class ChangePack {
 
   public getChangeSize(): number {
     return this.changes.length;
+  }
+
+  public hasSnapshot(): boolean {
+    return !!this.snapshot && !!this.snapshot.length;
+  }
+
+  public getSnapshot(): Uint8Array {
+    return this.snapshot;
   }
 }

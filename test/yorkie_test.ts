@@ -21,6 +21,7 @@ import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
 const testRPCAddr = 'https://yorkie.dev/api';
+// const testRPCAddr = 'http://localhost:8080';
 const testCollection = 'test-col';
 
 async function withTwoClientsAndDocuments(
@@ -32,8 +33,9 @@ async function withTwoClientsAndDocuments(
   await client1.activate();
   await client2.activate();
 
-  const doc1 = yorkie.createDocument(testCollection, title);
-  const doc2 = yorkie.createDocument(testCollection, title);
+  const docKey = `${title}-${(new Date()).getTime()}`;
+  const doc1 = yorkie.createDocument(testCollection, docKey);
+  const doc2 = yorkie.createDocument(testCollection, docKey);
 
   await client1.attach(doc1, true);
   await client2.attach(doc2, true);
@@ -51,15 +53,16 @@ async function withTwoClientsAndDocuments(
 // to access test title in test codes.
 describe('Yorkie', function() {
   it('Can be activated, deactivated', async function() {
+    const docKey = `${this.test.title}-${(new Date()).getTime()}`;
     const clientWithKey = yorkie.createClient(testRPCAddr, {
-      key: this.test.title,
+      key: docKey,
       syncLoopDuration: 50,
       reconnectStreamDelay: 1000
     });
     assert.isFalse(clientWithKey.isActive())
     await clientWithKey.activate();
     assert.isTrue(clientWithKey.isActive())
-    assert.equal(this.test.title, clientWithKey.getKey())
+    assert.equal(docKey, clientWithKey.getKey())
     await clientWithKey.deactivate();
     assert.isFalse(clientWithKey.isActive())
 
@@ -74,8 +77,9 @@ describe('Yorkie', function() {
   });
 
   it('Can attach/detach documents', async function() {
-    const doc1 = yorkie.createDocument(testCollection, this.test.title);
-    const doc2 = yorkie.createDocument(testCollection, this.test.title);
+    const docKey = `${this.test.title}-${(new Date()).getTime()}`;
+    const doc1 = yorkie.createDocument(testCollection, docKey);
+    const doc2 = yorkie.createDocument(testCollection, docKey);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);
@@ -88,10 +92,10 @@ describe('Yorkie', function() {
       root['k2'] = ['1', '2'];
     }, 'set v1, v2');
     await client1.sync();
-    assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
     await client2.attach(doc2, true);
-    assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
 
     await client1.detach(doc1);
     await client2.detach(doc2);
@@ -130,15 +134,26 @@ describe('Yorkie', function() {
   });
 
   it('Can watch documents', async function() {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d2.update((root) => {
-        root['k1'] = 'v1';
-      });
-      await c2.sync();
+    const c1 = yorkie.createClient(testRPCAddr);
+    const c2 = yorkie.createClient(testRPCAddr);
+    await c1.activate(); await c2.activate();
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      assert.equal(d1.toJSON(), d2.toJSON());
-    }, this.test.title);
+    const docKey = `${this.test.title}-${(new Date()).getTime()}`;
+    const d1 = yorkie.createDocument(testCollection, docKey);
+    const d2 = yorkie.createDocument(testCollection, docKey);
+    await c1.attach(d1); await c2.attach(d2);
+
+    d2.update((root) => {
+      root['k1'] = 'v1';
+    });
+    await c2.sync();
+
+    // NOTE: waiting for snapshot
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    await c1.detach(d1); await c2.detach(d2);
+    await c1.deactivate(); await c2.deactivate();
   });
 
   it('Can handle primitive types', async function() {
@@ -155,7 +170,7 @@ describe('Yorkie', function() {
       });
 
       await c1.sync(); await c2.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test.title);
   });
 
@@ -168,13 +183,13 @@ describe('Yorkie', function() {
         root['k1'] = 'v2';
       });
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k2'] = {};
       });
       await c1.sync(); await c2.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k2'] = 'v2';
@@ -183,7 +198,7 @@ describe('Yorkie', function() {
         root['k2']['k2.1'] = {'k2.1.1': 'v3'};
       });
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k3'] = 'v4';
@@ -192,7 +207,7 @@ describe('Yorkie', function() {
         root['k4'] = 'v5';
       });
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         delete root['k3'];
@@ -201,7 +216,7 @@ describe('Yorkie', function() {
         root['k3'] = 'v6';
       });
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test.title);
   });
 
@@ -211,7 +226,7 @@ describe('Yorkie', function() {
         root['k1'] = ['1'];
       });
       await c1.sync(); await c2.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k1'].push('2');
@@ -220,7 +235,27 @@ describe('Yorkie', function() {
         root['k1'].push('3');
       });
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test.title);
+  });
+
+  it('should handle edit operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.createText('k1');
+        root['k1'].edit(0, 0, 'ABCD');
+      }, 'set new text by c1');
+      await c1.sync(); await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root.createText('k1');
+        root['k1'].edit(0, 0, '1234');
+      }, 'edit 0,0 1234 by c1');
+      await c1.sync(); await c2.sync(); await c1.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test.title);
   });
 
@@ -230,16 +265,19 @@ describe('Yorkie', function() {
         root.createText('k1');
       }, 'set new text by c1');
       await c1.sync(); await c2.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), `{"k1":""}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
+      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
       d2.update((root) => {
         root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
+      assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k1'].edit(2, 3, 'XX');
@@ -248,7 +286,7 @@ describe('Yorkie', function() {
         root['k1'].edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
         root['k1'].edit(4, 5, 'ZZ');
@@ -258,7 +296,32 @@ describe('Yorkie', function() {
       }, 'edit 2,3 TT by c1');
 
       await c1.sync(); await c2.sync(); await c1.sync();
-      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test.title);
+  });
+
+  it('should handle snapshot', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      // 01. Updates 700 changes over snapshot threshold.
+      for (let idx = 0; idx < 700; idx++) {
+        d1.update((root) => {
+          root[`${idx}`] = idx;
+        });
+      }
+      await c1.sync();
+
+      // NOTE: waiting for snapshot.
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 02. Makes local changes then pull a snapshot from the agent.
+      d2.update((root) => {
+        root['key'] = 'value';
+      });
+      await c2.sync();
+      assert.equal(d2.getRootObject()['key'], 'value');
+
+      await c1.sync(); await c2.sync(); await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test.title);
   });
 });

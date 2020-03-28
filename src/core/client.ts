@@ -362,9 +362,9 @@ export class Client implements Observable<ClientEvent> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
       req.setClientId(this.id);
-      const localChangePack = doc.createChangePack();
-      const localSize = localChangePack.getChangeSize();
-      req.setChangePack(converter.toChangePack(localChangePack));
+      const reqPack = doc.createChangePack();
+      const localSize = reqPack.getChangeSize();
+      req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
       this.client.pushPull(req, {}, (err, res) => {
@@ -374,13 +374,13 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        const remoteChangePack = converter.fromChangePack(res.getChangePack());
-        doc.applyChangePack(remoteChangePack);
+        const respPack = converter.fromChangePack(res.getChangePack());
+        doc.applyChangePack(respPack);
 
         const docKey = doc.getKey().toIDString();
-        const remoteSize = remoteChangePack.getChangeSize();
+        const remoteSize = respPack.getChangeSize();
         logger.info(
-          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize}`
+          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack.getCheckpoint().getAnnotatedString()}`
         );
       }).on('end', () => {
         if (isRejected) {

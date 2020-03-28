@@ -44,6 +44,7 @@ export abstract class JSONElement {
   }
 
   abstract toJSON(): string;
+  abstract toSortedJSON(): string;
   abstract deepcopy(): JSONElement;
 }
 

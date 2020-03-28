@@ -116,7 +116,7 @@ export class TextNodePos {
 
 export type TextNodeRange = [TextNodePos, TextNodePos];
 
-class TextNode<T extends TextNodeValue> extends SplayNode<T> {
+export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   private id: TextNodeID;
   private deletedAt: TimeTicket;
 
@@ -206,6 +206,10 @@ class TextNode<T extends TextNodeValue> extends SplayNode<T> {
 
   public isDeleted(): boolean {
     return !!this.deletedAt;
+  }
+
+  public getDeletedAt(): TimeTicket {
+    return this.deletedAt;
   }
 
   public split(offset: number): TextNode<T> {
@@ -343,15 +347,25 @@ export class RGATreeSplit<T extends TextNodeValue> {
   public toJSON(): string {
     const json = [];
 
-    let node = this.head;
-    while(node) {
+    for (const node of this) {
       if (!node.isDeleted()) {
         json.push(node.getValue());
       }
-      node = node.getNext();
     }
 
     return json.join('');
+  }
+
+  public *[Symbol.iterator](): IterableIterator<TextNode<T>> {
+    let node = this.head;
+    while(node) {
+      yield node;
+      node = node.getNext();
+    }
+  }
+
+  public getHead(): TextNode<T> {
+    return this.head;
   }
 
   public deepcopy(): RGATreeSplit<T> {
@@ -390,6 +404,19 @@ export class RGATreeSplit<T extends TextNodeValue> {
     }
 
     return result.join('');
+  }
+
+  public insertAfter(prevNode: TextNode<T>, newNode: TextNode<T>): TextNode<T> {
+    const next = prevNode.getNext();
+    newNode.setPrev(prevNode);
+    if (next) {
+      next.setPrev(newNode);
+    }
+
+    this.treeByID.put(newNode.getID(), newNode);
+    this.treeByIndex.insertAfter(prevNode, newNode);
+
+    return newNode;
   }
 
   private findTextNodeWithSplit(pos: TextNodePos, editedAt: TimeTicket): [TextNode<T>, TextNode<T>] {
@@ -522,19 +549,6 @@ export class RGATreeSplit<T extends TextNodeValue> {
 
     return [changes, createdAtMapByActor];
   }
-
-  private insertAfter(prevNode: TextNode<T>, newNode: TextNode<T>): TextNode<T> {
-    const next = prevNode.getNext();
-    newNode.setPrev(prevNode);
-    if (next) {
-      next.setPrev(newNode);
-    }
-
-    this.treeByID.put(newNode.getID(), newNode);
-    this.treeByIndex.insertAfter(prevNode, newNode);
-
-    return newNode;
-  }
 }
 
 class Selection {
@@ -641,8 +655,16 @@ export class PlainText extends JSONElement {
     return `"${this.rgaTreeSplit.toJSON()}"`;
   }
 
+  public toSortedJSON(): string {
+    return this.toJSON();
+  }
+
   public getValue(): string {
     return this.rgaTreeSplit.toJSON();
+  }
+
+  public getRGATreeSplit(): RGATreeSplit<string> {
+    return this.rgaTreeSplit;
   }
 
   public getAnnotatedString(): string {

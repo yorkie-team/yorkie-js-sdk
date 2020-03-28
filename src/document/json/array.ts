@@ -90,6 +90,14 @@ export class JSONArray extends JSONContainer {
     return `[${json.join(',')}]`;
   }
 
+  public toSortedJSON(): string {
+    return this.toJSON();
+  }
+
+  public getElements(): RGA {
+    return this.elements;
+  }
+
   public deepcopy(): JSONArray {
     const clone = JSONArray.create(this.getCreatedAt());
     for (const node of this.elements) {

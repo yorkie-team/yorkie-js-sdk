@@ -79,4 +79,8 @@ export class JSONRoot {
   public toJSON(): string {
     return this.rootObject.toJSON();
   }
+
+  public toSortedJSON(): string {
+    return this.rootObject.toSortedJSON();
+  }
 }

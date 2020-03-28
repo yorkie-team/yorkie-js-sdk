@@ -119,6 +119,10 @@ export class RGA {
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
   }
 
+  public insert(value: JSONElement): void {
+    this.insertAfter(this.last.getCreatedAt(), value);
+  }
+
   public get(createdAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     return node.getValue();
@@ -155,7 +159,7 @@ export class RGA {
   public *[Symbol.iterator](): IterableIterator<RGANode> {
     let node = this.first.getNext();
     while(node) {
-      yield node
+      yield node;
       node = node.getNext();
     }
   }

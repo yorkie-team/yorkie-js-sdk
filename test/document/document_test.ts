@@ -31,7 +31,7 @@ describe('Document', function() {
       root['k2'] = 'v2';
       assert.equal('v1', root['k1']);
     }, 'set v1, v2');
-    assert.equal('{"k1":"v1","k2":"v2"}', doc1.toJSON());
+    assert.equal('{"k1":"v1","k2":"v2"}', doc1.toSortedJSON());
 
     assert.isTrue(doc1.hasLocalChanges());
     assert.notEqual(doc1, doc2);
@@ -39,24 +39,24 @@ describe('Document', function() {
 
   it('should apply updates inside nested map', function () {
     const doc = Document.create('test-col', 'test-doc');
-    assert.equal('{}', doc.toJSON());
+    assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1'] = {'k1-1': 'v1'};
       root['k1']['k1-2'] = 'v2';
     }, 'set {"k1-1":"v1","k1-2":"v2":}');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1']['k1-2'] = 'v3';
     }, 'set {"k1-2":"v3"}');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'] = ["1","2"];
       root['k2'].push("3");
     }, 'set ["1","2","3"]');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toSortedJSON());
 
     assert.throws(() => {
       doc.update((root) => {
@@ -64,28 +64,28 @@ describe('Document', function() {
         throw new Error('dummy error');
       }, 'push "4"');
     }, 'dummy error');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'].push("4");
     }, 'push "4"');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'].push({"k2-5": "v4"});
     }, 'push "{k2-5: 4}"');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}', doc.toSortedJSON());
   });
 
   it('should handle delete operations', function () {
     const doc = Document.create('test-col', 'test-doc');
-    assert.equal('{}', doc.toJSON());
+    assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1'] = {'k1-1': 'v1', 'k1-2': 'v2'};
       root['k2'] = ['1','2','3'];
     }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}', doc.toSortedJSON());
 
     doc.update((root) => {
       delete root['k1']['k1-1'];
@@ -94,12 +94,12 @@ describe('Document', function() {
       delete root['k2'][1];
       root['k2'].push('4');
     }, 'set {"k1":{"k1-2":"v2"},"k2":["1","3","4"]}');
-    assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"},"k2":["1","3","4"]}', doc.toJSON());
+    assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"},"k2":["1","3","4"]}', doc.toSortedJSON());
   });
 
   it('should handle edit operations', function () {
     const doc = Document.create('test-col', 'test-doc');
-    assert.equal('{}', doc.toJSON());
+    assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
     //           |            |      |
@@ -132,12 +132,12 @@ describe('Document', function() {
       assert.equal('1:00:2:3:1', range[0].getAnnotatedString())
     });
 
-    assert.equal('{"k1":"A12D"}', doc.toJSON());
+    assert.equal('{"k1":"A12D"}', doc.toSortedJSON());
   });
 
   it('should handle type 하늘', function() {
     const doc = Document.create('test-col', 'test-doc');
-    assert.equal('{}', doc.toJSON());
+    assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
       const text = root.createText('k1');
@@ -149,6 +149,6 @@ describe('Document', function() {
       text.edit(1, 2, '늘');
     }, 'set {"k1":"하늘"}');
 
-    assert.equal('{"k1":"하늘"}', doc.toJSON());
+    assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
   });
 });
