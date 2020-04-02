@@ -2,7 +2,7 @@
  * 
  * yorkie-js-sdk for building collaborative editing applications.
  *  - Version: v0.0.3
- *  - Date: 2020-03-29T14:36Z
+ *  - Date: 2020-04-02T13:20Z
  *  - Homepage: https://yorkie.dev
  * 
  * Copyright 2020 The Yorkie Authors. All rights reserved.
