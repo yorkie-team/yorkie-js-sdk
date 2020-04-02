@@ -510,7 +510,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
     for (const node of candidates) {
-      const actorID = node.getCreatedAt().toIDString();
+      const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote ? (
         latestCreatedAtMapByActor.has(actorID) ? latestCreatedAtMapByActor.get(actorID) : InitialTimeTicket
