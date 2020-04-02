@@ -156,27 +156,26 @@ export class RGA {
     return this.last.getCreatedAt();
   }
 
+  public getAnnotatedString(): string {
+    const json = [];
+
+    for (const node of this) {
+      const elem = `${node.getCreatedAt().toIDString()}:${node.getValue().toJSON()}`;
+      if (node.isRemoved()) {
+        json.push(`{${elem}}`);
+      } else {
+        json.push(`[${elem}]`);
+      }
+    }
+
+    return json.join('');
+  }
+
   public *[Symbol.iterator](): IterableIterator<RGANode> {
     let node = this.first.getNext();
     while(node) {
       yield node;
       node = node.getNext();
     }
-  }
-
-  public getAnnotatedString(): string {
-    const json = [];
-
-    let node = this.first.getNext();
-    while(node) {
-      if (node.isRemoved()) {
-        json.push(`{${node.getCreatedAt().toIDString()}:${node.getValue().toJSON()}}`);
-      } else {
-        json.push(`[${node.getCreatedAt().toIDString()}:${node.getValue().toJSON()}]`);
-      }
-      node = node.getNext();
-    }
-
-    return json.join('');
   }
 }

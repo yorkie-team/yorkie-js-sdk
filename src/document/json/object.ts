@@ -61,18 +61,6 @@ export class JSONObject extends JSONContainer {
     return this.memberNodes.has(key);
   }
 
-  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
-    const keySet = new Set<string>();
-    for (const node of this.memberNodes) {
-      if (!keySet.has(node.getStrKey())) {
-        keySet.add(node.getStrKey());
-        if (!node.isDeleted()) {
-          yield [node.getStrKey(), node.getValue()];
-        }
-      }
-    }
-  }
-
   public toJSON(): string {
     const json = [];
     for (const [key, value] of this) {
@@ -122,6 +110,18 @@ export class JSONObject extends JSONContainer {
       } 
 
       yield element;
+    }
+  }
+
+  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
+    const keySet = new Set<string>();
+    for (const node of this.memberNodes) {
+      if (!keySet.has(node.getStrKey())) {
+        keySet.add(node.getStrKey());
+        if (!node.isDeleted()) {
+          yield [node.getStrKey(), node.getValue()];
+        }
+      }
     }
   }
 }
