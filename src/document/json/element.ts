@@ -31,12 +31,18 @@ export abstract class JSONElement {
     return this.createdAt;
   }
 
+  public getID(): TimeTicket {
+    return this.createdAt;
+  }
+
   public getDeletedAt(): TimeTicket {
     return this.deletedAt;
   }
 
   public delete(deletedAt: TimeTicket): void {
-    this.deletedAt = deletedAt;
+    if (!this.deletedAt || deletedAt && deletedAt.after(this.deletedAt)) {
+      this.deletedAt = deletedAt;
+    }
   }
 
   public isDeleted(): boolean {

@@ -21,18 +21,16 @@ import { JSONPrimitive } from './primitive';
 
 class RGANode {
   private value: JSONElement;
-  private removed: boolean;
   private prev: RGANode;
   private next: RGANode;
 
   constructor(value: JSONElement) {
     this.value = value;
-    this.removed = false;
     this.prev = null;
     this.next = null;
   }
 
-  public static createAfter(prev: RGANode, value: JSONElement, isRemoved?: boolean): RGANode {
+  public static createAfter(prev: RGANode, value: JSONElement): RGANode {
     const newNode = new RGANode(value);
     const prevNext = prev.next;
     prev.next = newNode;
@@ -41,13 +39,12 @@ class RGANode {
     if (prevNext) {
       prevNext.prev = newNode;
     }
-    newNode.removed = !!isRemoved;
 
     return newNode;
   }
 
-  public remove(): void {
-    this.removed = true;
+  public remove(deletedAt: TimeTicket): void {
+    this.value.delete(deletedAt);
   }
 
   public getCreatedAt(): TimeTicket {
@@ -63,7 +60,7 @@ class RGANode {
   }
 
   public isRemoved(): boolean {
-    return this.removed;
+    return this.value.isDeleted();
   }
 }
 
@@ -128,14 +125,7 @@ export class RGA {
     return node.getValue();
   }
 
-  public remove(createdAt: TimeTicket): JSONElement {
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    node.remove();
-    return node.getValue();
-  }
-
-  // TODO introduce TreeList: O(n) -> O(log n)
-  public removeByIndex(index: number): JSONElement {
+  public getByIndex(index: number): JSONElement {
     let node = this.first.getNext();
     while(index > 0) {
       if (!node.isRemoved()) {
@@ -144,7 +134,26 @@ export class RGA {
       node = node.getNext();
     }
 
-    node.remove();
+    return node.getValue();
+  }
+
+  public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    node.remove(editedAt);
+    return node.getValue();
+  }
+
+  // TODO introduce TreeList: O(n) -> O(log n)
+  public removeByIndex(index: number, editedAt: TimeTicket): JSONElement {
+    let node = this.first.getNext();
+    while(index > 0) {
+      if (!node.isRemoved()) {
+        index -= 1;
+      }
+      node = node.getNext();
+    }
+
+    node.remove(editedAt);
     return node.getValue();
   }
 

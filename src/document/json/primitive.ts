@@ -66,11 +66,15 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public toJSON(): string {
-    return `"${this.value}"`;
+    if (this.valueType === PrimitiveType.String) {
+      return `"${this.value}"`;
+    }
+
+    return `${this.value}`;
   }
 
   public toSortedJSON(): string {
-    return `"${this.value}"`;
+    return this.toJSON();
   }
 
   public deepcopy(): JSONPrimitive {
