@@ -41,16 +41,20 @@ export class JSONArray extends JSONContainer {
     return this.elements.get(createdAt);
   }
 
+  public getByIndex(index: number): JSONElement {
+    return this.elements.getByIndex(index);
+  }
+
   public getLast(): JSONElement {
     return this.elements.getLast();
   }
 
-  public remove(createdAt: TimeTicket): JSONElement {
-    return this.elements.remove(createdAt);
+  public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
+    return this.elements.remove(createdAt, editedAt);
   }
 
-  public removeByIndex(index: number): JSONElement {
-    return this.elements.removeByIndex(index);
+  public removeByIndex(index: number, editedAt: TimeTicket): JSONElement {
+    return this.elements.removeByIndex(index, editedAt);
   }
 
   public getLastCreatedAt(): TimeTicket {

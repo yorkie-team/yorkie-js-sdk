@@ -44,7 +44,7 @@ export class RemoveOperation extends Operation {
       obj.remove(this.createdAt, this.getExecutedAt());
     } else if (parentObject instanceof JSONArray) {
       const array = parentObject as JSONArray;
-      array.remove(this.createdAt);
+      array.remove(this.createdAt, this.getExecutedAt());
     } else {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }

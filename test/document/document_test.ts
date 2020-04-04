@@ -151,4 +151,26 @@ describe('Document', function() {
 
     assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
   });
+
+  it('can remove element by ID in array', function() {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+  
+    let toDelete;
+    doc.update((root) => {
+      root['list'] = [];
+      root['list'].push(1);
+      root['list'].push(2);
+      root['list'].push(3);
+      root['list'].push(4);
+      toDelete = root['list'].getElementByIndex(2);
+    }, 'set {"list":[1,2,3,4]}');
+  
+    assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
+  
+    doc.update((root) => {
+      root['list'].removeByID(toDelete.getID());
+    }, 'remove 3');
+    assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
+  });
 });

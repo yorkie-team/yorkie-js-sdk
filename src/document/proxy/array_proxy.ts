@@ -44,6 +44,14 @@ export class ArrayProxy {
           return (createdAt: TimeTicket): JSONElement => {
             return toProxy(context, target.get(createdAt));
           }; 
+        } else if (method === 'getElementByIndex') {
+          return (index: number): JSONElement => {
+            const elem = target.getByIndex(index);
+            if (elem instanceof JSONPrimitive) {
+              return elem;
+            }
+            return toProxy(context, elem);
+          }; 
         } else if (method === 'push') {
           return (value: any): JSONElement => {
             if (logger.isEnabled(LogLevel.Trivial)) {
@@ -56,6 +64,11 @@ export class ArrayProxy {
           return (): JSONElement => {
             return toProxy(context, target.getLast());
           };
+        } else if (method === 'removeByID') {
+          return (createdAt: TimeTicket): JSONElement => {
+            const removed = ArrayProxy.removeInternalByID(context, target, createdAt);
+            return toProxy(context, removed);
+          }; 
         } else if (method === 'length') {
           return target.length;
         } else if (method === Symbol.iterator) {
@@ -69,7 +82,7 @@ export class ArrayProxy {
           logger.trivial(`array[${key}]`);
         }
 
-        ArrayProxy.removeInternal(context, target, key);
+        ArrayProxy.removeInternalByIndex(context, target, key);
         return true;
       }
     }
@@ -120,10 +133,19 @@ export class ArrayProxy {
     }
   }
 
-  public static removeInternal(context: ChangeContext, target: JSONArray, index: number): void {
+  public static removeInternalByIndex(context: ChangeContext, target: JSONArray, index: number): JSONElement {
     const ticket = context.issueTimeTicket();
-    const removed = target.removeByIndex(index);
+    const removed = target.removeByIndex(index, ticket);
     context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
+
+    return removed;
+  }
+
+  public static removeInternalByID(context: ChangeContext, target: JSONArray, createdAt: TimeTicket): JSONElement {
+    const ticket = context.issueTimeTicket();
+    const removed = target.remove(createdAt, ticket);
+    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
+    return removed;
   }
 
   public getHandlers(): any {
