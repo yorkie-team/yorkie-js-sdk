@@ -78,9 +78,10 @@
             }
 
             doc.update((root) => {
-              const shape = root.shapes.push({
+              root.shapes.push({
                 points: [point]
               });
+              const shape = root.shapes.getLast();
               window.currentID = shape.getID();
             }, `update content by ${client.getID()}`);
           }

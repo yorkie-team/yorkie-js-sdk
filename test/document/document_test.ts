@@ -152,25 +152,31 @@ describe('Document', function() {
     assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
   });
 
-  it('can remove element by ID in array', function() {
+  it('can push element then remove it by ID in array', function() {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
   
     let toDelete;
     doc.update((root) => {
       root['list'] = [];
-      root['list'].push(1);
-      root['list'].push(2);
-      root['list'].push(3);
-      root['list'].push(4);
+      assert.equal(1, root['list'].push(4));
+      assert.equal(2, root['list'].push(3));
+      assert.equal(3, root['list'].push(2));
+      assert.equal(4, root['list'].push(1));
       toDelete = root['list'].getElementByIndex(2);
-    }, 'set {"list":[1,2,3,4]}');
+    }, 'set {"list":[4,3,2,1]}');
   
-    assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
+    assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
   
     doc.update((root) => {
       root['list'].removeByID(toDelete.getID());
-    }, 'remove 3');
-    assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
+    }, 'remove 2');
+    assert.equal('{"list":[4,3,1]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      assert.equal(4, root['list'].push(2));
+    }, 'push 2');
+    assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
+
   });
 });
