@@ -98,7 +98,7 @@ export class RGA {
       logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
     }
 
-    while (node.getNext() && createdAt.after(node.getNext().getCreatedAt())) {
+    while (node.getNext() && node.getNext().getCreatedAt().after(createdAt)) {
       node = node.getNext();
     }
 
@@ -126,15 +126,16 @@ export class RGA {
   }
 
   public getByIndex(index: number): JSONElement {
-    let node = this.first.getNext();
-    while(index > 0) {
+    let idx = 0;
+    for (const node of this) {
       if (!node.isRemoved()) {
-        index -= 1;
+        if (idx++ === index) {
+          return node.getValue();
+        }
       }
-      node = node.getNext();
     }
 
-    return node.getValue();
+    throw new Error('out of bound');
   }
 
   public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
