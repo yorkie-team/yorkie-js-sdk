@@ -140,6 +140,7 @@ export class RGA {
   public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     node.remove(editedAt);
+    this.size -= 1;
     return node.getValue();
   }
 
@@ -154,6 +155,7 @@ export class RGA {
     }
 
     node.remove(editedAt);
+    this.size -= 1;
     return node.getValue();
   }
 

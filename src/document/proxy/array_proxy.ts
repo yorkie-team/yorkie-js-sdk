@@ -52,14 +52,6 @@ export class ArrayProxy {
             }
             return toProxy(context, elem);
           }; 
-        } else if (method === 'push') {
-          return (value: any): JSONElement => {
-            if (logger.isEnabled(LogLevel.Trivial)) {
-              logger.trivial(`array.push(${JSON.stringify(value)})`);
-            }
-
-            return toProxy(context, ArrayProxy.pushInternal(context, target, value));
-          }; 
         } else if (method === 'getLast') {
           return (): JSONElement => {
             return toProxy(context, target.getLast());
@@ -69,13 +61,21 @@ export class ArrayProxy {
             const removed = ArrayProxy.removeInternalByID(context, target, createdAt);
             return toProxy(context, removed);
           }; 
+        } else if (method === 'push') {
+          return (value: any): number => {
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`array.push(${JSON.stringify(value)})`);
+            }
+
+            return ArrayProxy.pushInternal(context, target, value);
+          }; 
         } else if (method === 'length') {
           return target.length;
         } else if (method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
         }
 
-        return target[method as any];
+        throw new TypeError(`Unsupported method: ${String(method)}`);
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
@@ -99,7 +99,7 @@ export class ArrayProxy {
     return new Proxy(target, arrayProxy.getHandlers());
   }
 
-  public static pushInternal(context: ChangeContext, target: JSONArray, value: any): JSONElement {
+  public static pushInternal(context: ChangeContext, target: JSONArray, value: any): number {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getLastCreatedAt();
 
@@ -108,7 +108,7 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, primitive);
       context.registerElement(primitive);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
-      return primitive;
+      return target.length;
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
@@ -117,7 +117,7 @@ export class ArrayProxy {
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
       }
-      return array;
+      return target.length;
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
@@ -127,7 +127,7 @@ export class ArrayProxy {
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);
       }
-      return obj;
+      return target.length;
     } else {
       throw new TypeError(`Unsupported type of value: ${typeof value}`)
     }
