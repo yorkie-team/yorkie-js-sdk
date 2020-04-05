@@ -177,6 +177,26 @@ describe('Document', function() {
       assert.equal(4, root['list'].push(2));
     }, 'push 2');
     assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
+  });
 
+  it('can inster an element after the given element in array', function() {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+  
+    let prev;
+    doc.update((root) => {
+      root['list'] = [];
+      root['list'].push(1);
+      root['list'].push(2);
+      root['list'].push(4);
+      prev = root['list'].getElementByIndex(1);
+    }, 'set {"list":[1,2,4]}');
+  
+    assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
+  
+    doc.update((root) => {
+      root['list'].insertAfter(prev.getID(), 3);
+    }, 'insert 3');
+    assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
   });
 });

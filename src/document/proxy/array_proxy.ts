@@ -36,6 +36,7 @@ export class ArrayProxy {
     this.array = array;
     this.handlers = {
       get: (target: JSONArray, method: string|symbol): any => {
+        // Yorkie extension API
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
@@ -61,6 +62,12 @@ export class ArrayProxy {
             const removed = ArrayProxy.removeInternalByID(context, target, createdAt);
             return toProxy(context, removed);
           }; 
+        } else if (method === 'insertAfter') {
+          return (prevID: TimeTicket, value: any): JSONElement => {
+            const inserted = ArrayProxy.insertAfterInternal(context, target, prevID, value);
+            return toProxy(context, inserted);
+          }; 
+        // JavaScript Native API
         } else if (method === 'push') {
           return (value: any): number => {
             if (logger.isEnabled(LogLevel.Trivial)) {
@@ -100,15 +107,18 @@ export class ArrayProxy {
   }
 
   public static pushInternal(context: ChangeContext, target: JSONArray, value: any): number {
-    const ticket = context.issueTimeTicket();
-    const prevCreatedAt = target.getLastCreatedAt();
+    ArrayProxy.insertAfterInternal(context, target, target.getLastCreatedAt(), value);
+    return target.length;
+  }
 
+  public static insertAfterInternal(context: ChangeContext, target: JSONArray, prevCreatedAt:TimeTicket, value: any): JSONElement {
+    const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
       target.insertAfter(prevCreatedAt, primitive);
       context.registerElement(primitive);
       context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
-      return target.length;
+      return primitive;
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
@@ -117,7 +127,7 @@ export class ArrayProxy {
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element)
       }
-      return target.length;
+      return array;
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
@@ -127,7 +137,7 @@ export class ArrayProxy {
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);
       }
-      return target.length;
+      return obj;
     } else {
       throw new TypeError(`Unsupported type of value: ${typeof value}`)
     }
@@ -137,7 +147,6 @@ export class ArrayProxy {
     const ticket = context.issueTimeTicket();
     const removed = target.removeByIndex(index, ticket);
     context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
-
     return removed;
   }
 

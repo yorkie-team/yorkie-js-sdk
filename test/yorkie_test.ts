@@ -239,6 +239,43 @@ describe('Yorkie', function() {
     }, this.test.title);
   });
 
+  it('Can handle concurrent insertAfter operations', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev
+      d1.update((root) => {
+        root['k1'] = [1,2,3,4];
+        prev = root['k1'].getElementByIndex(1);
+      });
+      await c1.sync(); await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].removeByID(prev.getID());
+        assert.equal('{"k1":[1,3,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        root['k1'].insertAfter(prev.getID(), 2);
+        assert.equal('{"k1":[1,2,2,3,4]}', root.toJSON());
+      });
+      await c1.sync(); await c2.sync(); await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal('{"k1":[1,2,3,4]}', d1.toJSON());
+
+      d1.update((root) => {
+        const prev = root['k1'].getElementByIndex(1);
+        root['k1'].insertAfter(prev.getID(), '2.1');
+        assert.equal('{"k1":[1,2,"2.1",3,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        const prev = root['k1'].getElementByIndex(1);
+        root['k1'].insertAfter(prev.getID(), '2.2');
+        assert.equal('{"k1":[1,2,"2.2",3,4]}', root.toJSON());
+      });
+      await c1.sync(); await c2.sync(); await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test.title);
+  });
+
   it('should handle edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
