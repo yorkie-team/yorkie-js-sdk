@@ -21,7 +21,7 @@ import { TimeTicket } from '../time/ticket';
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
-  private deletedAt: TimeTicket;
+  private removedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
@@ -35,21 +35,21 @@ export abstract class JSONElement {
     return this.createdAt;
   }
 
-  public getDeletedAt(): TimeTicket {
-    return this.deletedAt;
+  public getRemovedAt(): TimeTicket {
+    return this.removedAt;
   }
 
-  public delete(deletedAt: TimeTicket): boolean {
-    if (!this.deletedAt || deletedAt && deletedAt.after(this.deletedAt)) {
-      this.deletedAt = deletedAt;
+  public remove(removedAt: TimeTicket): boolean {
+    if (!this.removedAt || removedAt && removedAt.after(this.removedAt)) {
+      this.removedAt = removedAt;
       return true;
     }
 
     return false;
   }
 
-  public isDeleted(): boolean {
-    return !!this.deletedAt;
+  public isRemoved(): boolean {
+    return !!this.removedAt;
   }
 
   abstract toJSON(): string;

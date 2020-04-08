@@ -26,6 +26,13 @@ import { JSONPrimitive } from '../json/primitive';
 import { ObjectProxy } from './object_proxy';
 import { toProxy } from './proxy';
 
+function isNumericString(val: any): boolean {
+  if (typeof(val) === 'string' || val instanceof String) {
+    return !isNaN(val as any);
+  }
+  return false;
+}
+
 export class ArrayProxy {
   private context: ChangeContext;
   private handlers: any;
@@ -59,8 +66,8 @@ export class ArrayProxy {
           };
         } else if (method === 'removeByID') {
           return (createdAt: TimeTicket): JSONElement => {
-            const removed = ArrayProxy.removeInternalByID(context, target, createdAt);
-            return toProxy(context, removed);
+            const deleted = ArrayProxy.deleteInternalByID(context, target, createdAt);
+            return toProxy(context, deleted);
           }; 
         } else if (method === 'insertAfter') {
           return (prevID: TimeTicket, value: any): JSONElement => {
@@ -68,7 +75,7 @@ export class ArrayProxy {
             return toProxy(context, inserted);
           }; 
         // JavaScript Native API
-        } else if (!isNaN(+(method as string))) {
+        } else if (isNumericString(method)) {
             return toProxy(context, target.getByIndex(+(method as string)));
         } else if (method === 'push') {
           return (value: any): number => {
@@ -94,7 +101,7 @@ export class ArrayProxy {
           logger.trivial(`array[${key}]`);
         }
 
-        ArrayProxy.removeInternalByIndex(context, target, key);
+        ArrayProxy.deleteInternalByIndex(context, target, key);
         return true;
       }
     }
@@ -148,18 +155,18 @@ export class ArrayProxy {
     }
   }
 
-  public static removeInternalByIndex(context: ChangeContext, target: JSONArray, index: number): JSONElement {
+  public static deleteInternalByIndex(context: ChangeContext, target: JSONArray, index: number): JSONElement {
     const ticket = context.issueTimeTicket();
-    const removed = target.removeByIndex(index, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
-    return removed;
+    const deleted = target.deleteByIndex(index, ticket);
+    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
+    return deleted;
   }
 
-  public static removeInternalByID(context: ChangeContext, target: JSONArray, createdAt: TimeTicket): JSONElement {
+  public static deleteInternalByID(context: ChangeContext, target: JSONArray, createdAt: TimeTicket): JSONElement {
     const ticket = context.issueTimeTicket();
-    const removed = target.remove(createdAt, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
-    return removed;
+    const deleted = target.delete(createdAt, ticket);
+    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
+    return deleted;
   }
 
   public getHandlers(): any {

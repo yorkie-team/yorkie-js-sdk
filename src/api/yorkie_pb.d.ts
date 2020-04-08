@@ -677,10 +677,10 @@ export class JSONElementSimple extends jspb.Message {
   hasUpdatedAt(): boolean;
   clearUpdatedAt(): void;
 
-  getDeletedAt(): TimeTicket | undefined;
-  setDeletedAt(value?: TimeTicket): void;
-  hasDeletedAt(): boolean;
-  clearDeletedAt(): void;
+  getRemovedAt(): TimeTicket | undefined;
+  setRemovedAt(value?: TimeTicket): void;
+  hasRemovedAt(): boolean;
+  clearRemovedAt(): void;
 
   getType(): ValueType;
   setType(value: ValueType): void;
@@ -702,7 +702,7 @@ export namespace JSONElementSimple {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     updatedAt?: TimeTicket.AsObject,
-    deletedAt?: TimeTicket.AsObject,
+    removedAt?: TimeTicket.AsObject,
     type: ValueType,
     value: Uint8Array | string,
   }
@@ -763,10 +763,10 @@ export namespace JSONElement {
     hasUpdatedAt(): boolean;
     clearUpdatedAt(): void;
 
-    getDeletedAt(): TimeTicket | undefined;
-    setDeletedAt(value?: TimeTicket): void;
-    hasDeletedAt(): boolean;
-    clearDeletedAt(): void;
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): void;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Object.AsObject;
@@ -781,7 +781,7 @@ export namespace JSONElement {
       nodesList: Array<RHTNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
       updatedAt?: TimeTicket.AsObject,
-      deletedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
     }
   }
 
@@ -802,10 +802,10 @@ export namespace JSONElement {
     hasUpdatedAt(): boolean;
     clearUpdatedAt(): void;
 
-    getDeletedAt(): TimeTicket | undefined;
-    setDeletedAt(value?: TimeTicket): void;
-    hasDeletedAt(): boolean;
-    clearDeletedAt(): void;
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): void;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Array.AsObject;
@@ -820,7 +820,7 @@ export namespace JSONElement {
       nodesList: Array<RGANode.AsObject>,
       createdAt?: TimeTicket.AsObject,
       updatedAt?: TimeTicket.AsObject,
-      deletedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
     }
   }
 
@@ -844,10 +844,10 @@ export namespace JSONElement {
     hasUpdatedAt(): boolean;
     clearUpdatedAt(): void;
 
-    getDeletedAt(): TimeTicket | undefined;
-    setDeletedAt(value?: TimeTicket): void;
-    hasDeletedAt(): boolean;
-    clearDeletedAt(): void;
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): void;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Primitive.AsObject;
@@ -863,7 +863,7 @@ export namespace JSONElement {
       value: Uint8Array | string,
       createdAt?: TimeTicket.AsObject,
       updatedAt?: TimeTicket.AsObject,
-      deletedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
     }
   }
 
@@ -884,10 +884,10 @@ export namespace JSONElement {
     hasUpdatedAt(): boolean;
     clearUpdatedAt(): void;
 
-    getDeletedAt(): TimeTicket | undefined;
-    setDeletedAt(value?: TimeTicket): void;
-    hasDeletedAt(): boolean;
-    clearDeletedAt(): void;
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): void;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Text.AsObject;
@@ -902,7 +902,7 @@ export namespace JSONElement {
       nodesList: Array<TextNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
       updatedAt?: TimeTicket.AsObject,
-      deletedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
     }
   }
 
@@ -975,10 +975,10 @@ export class TextNode extends jspb.Message {
   getValue(): string;
   setValue(value: string): void;
 
-  getDeletedAt(): TimeTicket | undefined;
-  setDeletedAt(value?: TimeTicket): void;
-  hasDeletedAt(): boolean;
-  clearDeletedAt(): void;
+  getRemovedAt(): TimeTicket | undefined;
+  setRemovedAt(value?: TimeTicket): void;
+  hasRemovedAt(): boolean;
+  clearRemovedAt(): void;
 
   getInsPrevId(): TextNodeID | undefined;
   setInsPrevId(value?: TextNodeID): void;
@@ -997,7 +997,7 @@ export namespace TextNode {
   export type AsObject = {
     id?: TextNodeID.AsObject,
     value: string,
-    deletedAt?: TimeTicket.AsObject,
+    removedAt?: TimeTicket.AsObject,
     insPrevId?: TextNodeID.AsObject,
   }
 }

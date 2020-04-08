@@ -262,7 +262,7 @@ function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
     pbTextNode.setValue(textNode.getValue());
-    pbTextNode.setDeletedAt(toTimeTicket(textNode.getDeletedAt()));
+    pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     pbTextNodes.push(pbTextNode);
   }
@@ -274,7 +274,7 @@ function toJSONObject(obj: JSONObject): PbJSONElement {
   const pbJSONObject = new PbJSONElement.Object()
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
   pbJSONObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
-  pbJSONObject.setDeletedAt(toTimeTicket(obj.getDeletedAt()));
+  pbJSONObject.setRemovedAt(toTimeTicket(obj.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
   pbJSONElement.setObject(pbJSONObject);
@@ -285,7 +285,7 @@ function toJSONArray(arr: JSONArray): PbJSONElement {
   const pbJSONArray = new PbJSONElement.Array();
   pbJSONArray.setNodesList(toRGANodes(arr.getElements()));
   pbJSONArray.setCreatedAt(toTimeTicket(arr.getCreatedAt()));
-  pbJSONArray.setDeletedAt(toTimeTicket(arr.getDeletedAt()));
+  pbJSONArray.setRemovedAt(toTimeTicket(arr.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
   pbJSONElement.setArray(pbJSONArray);
@@ -297,7 +297,7 @@ function toJSONPrimitive(primitive: JSONPrimitive): PbJSONElement {
   pbJSONPrimitive.setType(toValueType(primitive.getType()));
   pbJSONPrimitive.setValue(primitive.toBytes());
   pbJSONPrimitive.setCreatedAt(toTimeTicket(primitive.getCreatedAt()));
-  pbJSONPrimitive.setDeletedAt(toTimeTicket(primitive.getDeletedAt()));
+  pbJSONPrimitive.setRemovedAt(toTimeTicket(primitive.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
   pbJSONElement.setPrimitive(pbJSONPrimitive);
@@ -308,7 +308,7 @@ function toPlainText(text: PlainText): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
-  pbText.setDeletedAt(toTimeTicket(text.getDeletedAt()));
+  pbText.setRemovedAt(toTimeTicket(text.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
   pbJSONElement.setText(pbText);
@@ -437,7 +437,7 @@ function fromTextNode(pbTextNode: PbTextNode): TextNode<string> {
     fromTextNodeID(pbTextNode.getId()),
     pbTextNode.getValue()
   );
-  textNode.delete(fromTimeTicket(pbTextNode.getDeletedAt()));
+  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
 }
 
@@ -539,7 +539,7 @@ function fromJSONObject(pbObject: PbJSONElement.Object): JSONObject {
   }
 
   const obj = new JSONObject(fromTimeTicket(pbObject.getCreatedAt()), rht);
-  obj.delete(fromTimeTicket(pbObject.getDeletedAt()));
+  obj.remove(fromTimeTicket(pbObject.getRemovedAt()));
   return obj;
 }
 
@@ -551,7 +551,7 @@ function fromJSONArray(pbArray: PbJSONElement.Array): JSONArray {
   }
 
   const arr = new JSONArray(fromTimeTicket(pbArray.getCreatedAt()), rgaTreeList);
-  arr.delete(fromTimeTicket(pbArray.getDeletedAt()));
+  arr.remove(fromTimeTicket(pbArray.getRemovedAt()));
   return arr;
 }
 
@@ -560,7 +560,7 @@ function fromJSONPrimitive(pbPrimitive: PbJSONElement.Primitive): JSONPrimitive 
     JSONPrimitive.valueFromBytes(fromValueType(pbPrimitive.getType()), pbPrimitive.getValue_asU8()),
     fromTimeTicket(pbPrimitive.getCreatedAt())
   );
-  primitive.delete(fromTimeTicket(pbPrimitive.getDeletedAt()));
+  primitive.remove(fromTimeTicket(pbPrimitive.getRemovedAt()));
   return primitive;
 }
 
@@ -580,7 +580,7 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt()),
   );
-  text.delete(fromTimeTicket(pbText.getDeletedAt()));
+  text.remove(fromTimeTicket(pbText.getRemovedAt()));
   return text;
 }
 

@@ -44,8 +44,8 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     return newNode;
   }
 
-  public remove(deletedAt: TimeTicket): boolean {
-    return this.value.delete(deletedAt);
+  public remove(removedAt: TimeTicket): boolean {
+    return this.value.remove(removedAt);
   }
 
   public getCreatedAt(): TimeTicket {
@@ -53,7 +53,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   }
 
   public getLength(): number {
-    return this.value.isDeleted() ? 0 : 1;
+    return this.value.isRemoved() ? 0 : 1;
   }
 
   public getNext(): RGATreeListNode {
@@ -65,7 +65,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   }
 
   public isRemoved(): boolean {
-    return this.value.isDeleted();
+    return this.value.isRemoved();
   }
 }
 
@@ -81,7 +81,7 @@ export class RGATreeList {
 
   constructor() {
     const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
-    dummyValue.delete(InitialTimeTicket);
+    dummyValue.remove(InitialTimeTicket);
     this.dummyHead = new RGATreeListNode(dummyValue);
     this.last = this.dummyHead;
     this.size = 0;
@@ -155,7 +155,7 @@ export class RGATreeList {
     return rgaNode;
   }
 
-  public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
+  public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);
@@ -164,7 +164,7 @@ export class RGATreeList {
     return node.getValue();
   }
 
-  public removeByIndex(index: number, editedAt: TimeTicket): JSONElement {
+  public deleteByIndex(index: number, editedAt: TimeTicket): JSONElement {
     const node = this.getByIndex(index);
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);

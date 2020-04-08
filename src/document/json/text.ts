@@ -118,17 +118,17 @@ export type TextNodeRange = [TextNodePos, TextNodePos];
 
 export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   private id: TextNodeID;
-  private deletedAt: TimeTicket;
+  private removedAt: TimeTicket;
 
   private prev: TextNode<T>;
   private next: TextNode<T>;
   private insPrev: TextNode<T>;
   private insNext: TextNode<T>;
 
-  constructor(id: TextNodeID, value?: T, deletedAt?: TimeTicket) {
+  constructor(id: TextNodeID, value?: T, removedAt?: TimeTicket) {
     super(value);
     this.id = id;
-    this.deletedAt = deletedAt;
+    this.removedAt = removedAt;
   }
 
   public static create<T extends TextNodeValue>(id: TextNodeID, value?: T): TextNode<T> {
@@ -160,7 +160,7 @@ export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
   }
 
   public getLength(): number {
-    if (this.deletedAt) {
+    if (this.removedAt) {
       return 0;
     }
     return this.getContentLength();
@@ -204,12 +204,12 @@ export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     return !!this.insPrev;
   }
 
-  public isDeleted(): boolean {
-    return !!this.deletedAt;
+  public isRemoved(): boolean {
+    return !!this.removedAt;
   }
 
-  public getDeletedAt(): TimeTicket {
-    return this.deletedAt;
+  public getRemovedAt(): TimeTicket {
+    return this.removedAt;
   }
 
   public split(offset: number): TextNode<T> {
@@ -221,11 +221,11 @@ export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
 
   public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
     return (!this.getCreatedAt().after(latestCreatedAt) &&
-      (!this.deletedAt || editedAt.after(this.deletedAt)));
+      (!this.removedAt || editedAt.after(this.removedAt)));
   }
 
-  public delete(editedAt: TimeTicket): void {
-    this.deletedAt = editedAt;
+  public remove(editedAt: TimeTicket): void {
+    this.removedAt = editedAt;
   }
 
   public createRange(): TextNodeRange {
@@ -239,7 +239,7 @@ export class TextNode<T extends TextNodeValue> extends SplayNode<T> {
     return new TextNode(
       this.id,
       this.value,
-      this.deletedAt
+      this.removedAt
     );
   }
 
@@ -336,7 +336,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
     if (!textNode) {
       logger.fatal(`the node of the given id should be found: ${absoluteID.getAnnotatedString()}`);
     }
-    const offset = textNode.isDeleted() ? 0 : absoluteID.getOffset() - textNode.getID().getOffset();
+    const offset = textNode.isRemoved() ? 0 : absoluteID.getOffset() - textNode.getID().getOffset();
     return index + offset;
   }
 
@@ -348,7 +348,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
     const json = [];
 
     for (const node of this) {
-      if (!node.isDeleted()) {
+      if (!node.isRemoved()) {
         json.push(node.getValue());
       }
     }
@@ -394,7 +394,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
 
     let node = this.head;
     while(node) {
-      if (node.isDeleted()) {
+      if (node.isRemoved()) {
         result.push(`{${node.getAnnotatedString()}}`);
       } else {
         result.push(`[${node.getAnnotatedString()}]`);
@@ -543,7 +543,7 @@ export class RGATreeSplit<T extends TextNodeValue> {
     }
 
     for (const node of nodesToDelete) {
-      node.delete(editedAt);
+      node.remove(editedAt);
       this.treeByIndex.splayNode(node);
     }
 
@@ -676,7 +676,7 @@ export class PlainText extends JSONElement {
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt()
     );
-    text.delete(this.getDeletedAt());
+    text.remove(this.getRemovedAt());
     return text;
   }
 

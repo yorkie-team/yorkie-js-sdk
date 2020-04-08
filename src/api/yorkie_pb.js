@@ -5935,7 +5935,7 @@ proto.api.JSONElementSimple.toObject = function(includeInstance, msg) {
   var f, obj = {
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     type: jspb.Message.getFieldWithDefault(msg, 4, 0),
     value: msg.getValue_asB64()
   };
@@ -5987,7 +5987,7 @@ proto.api.JSONElementSimple.deserializeBinaryFromReader = function(msg, reader) 
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     case 4:
       var value = /** @type {!proto.api.ValueType} */ (reader.readEnum());
@@ -6042,7 +6042,7 @@ proto.api.JSONElementSimple.serializeBinaryToWriter = function(message, writer) 
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -6142,10 +6142,10 @@ proto.api.JSONElementSimple.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional TimeTicket deleted_at = 3;
+ * optional TimeTicket removed_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElementSimple.prototype.getDeletedAt = function() {
+proto.api.JSONElementSimple.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -6155,7 +6155,7 @@ proto.api.JSONElementSimple.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElementSimple} returns this
 */
-proto.api.JSONElementSimple.prototype.setDeletedAt = function(value) {
+proto.api.JSONElementSimple.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -6164,8 +6164,8 @@ proto.api.JSONElementSimple.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElementSimple} returns this
  */
-proto.api.JSONElementSimple.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.JSONElementSimple.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -6173,7 +6173,7 @@ proto.api.JSONElementSimple.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElementSimple.prototype.hasDeletedAt = function() {
+proto.api.JSONElementSimple.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 
@@ -6465,7 +6465,7 @@ proto.api.JSONElement.Object.toObject = function(includeInstance, msg) {
     proto.api.RHTNode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -6520,7 +6520,7 @@ proto.api.JSONElement.Object.deserializeBinaryFromReader = function(msg, reader)
     case 4:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     default:
       reader.skipField();
@@ -6575,7 +6575,7 @@ proto.api.JSONElement.Object.serializeBinaryToWriter = function(message, writer)
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       4,
@@ -6699,10 +6699,10 @@ proto.api.JSONElement.Object.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional TimeTicket deleted_at = 4;
+ * optional TimeTicket removed_at = 4;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Object.prototype.getDeletedAt = function() {
+proto.api.JSONElement.Object.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 4));
 };
@@ -6712,7 +6712,7 @@ proto.api.JSONElement.Object.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Object} returns this
 */
-proto.api.JSONElement.Object.prototype.setDeletedAt = function(value) {
+proto.api.JSONElement.Object.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 4, value);
 };
 
@@ -6721,8 +6721,8 @@ proto.api.JSONElement.Object.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Object} returns this
  */
-proto.api.JSONElement.Object.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.JSONElement.Object.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -6730,7 +6730,7 @@ proto.api.JSONElement.Object.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Object.prototype.hasDeletedAt = function() {
+proto.api.JSONElement.Object.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 4) != null;
 };
 
@@ -6778,7 +6778,7 @@ proto.api.JSONElement.Array.toObject = function(includeInstance, msg) {
     proto.api.RGANode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -6833,7 +6833,7 @@ proto.api.JSONElement.Array.deserializeBinaryFromReader = function(msg, reader) 
     case 4:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     default:
       reader.skipField();
@@ -6888,7 +6888,7 @@ proto.api.JSONElement.Array.serializeBinaryToWriter = function(message, writer) 
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       4,
@@ -7012,10 +7012,10 @@ proto.api.JSONElement.Array.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional TimeTicket deleted_at = 4;
+ * optional TimeTicket removed_at = 4;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Array.prototype.getDeletedAt = function() {
+proto.api.JSONElement.Array.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 4));
 };
@@ -7025,7 +7025,7 @@ proto.api.JSONElement.Array.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Array} returns this
 */
-proto.api.JSONElement.Array.prototype.setDeletedAt = function(value) {
+proto.api.JSONElement.Array.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 4, value);
 };
 
@@ -7034,8 +7034,8 @@ proto.api.JSONElement.Array.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Array} returns this
  */
-proto.api.JSONElement.Array.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.JSONElement.Array.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -7043,7 +7043,7 @@ proto.api.JSONElement.Array.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Array.prototype.hasDeletedAt = function() {
+proto.api.JSONElement.Array.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 4) != null;
 };
 
@@ -7084,7 +7084,7 @@ proto.api.JSONElement.Primitive.toObject = function(includeInstance, msg) {
     value: msg.getValue_asB64(),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -7142,7 +7142,7 @@ proto.api.JSONElement.Primitive.deserializeBinaryFromReader = function(msg, read
     case 5:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     default:
       reader.skipField();
@@ -7203,7 +7203,7 @@ proto.api.JSONElement.Primitive.serializeBinaryToWriter = function(message, writ
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       5,
@@ -7349,10 +7349,10 @@ proto.api.JSONElement.Primitive.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional TimeTicket deleted_at = 5;
+ * optional TimeTicket removed_at = 5;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Primitive.prototype.getDeletedAt = function() {
+proto.api.JSONElement.Primitive.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 5));
 };
@@ -7362,7 +7362,7 @@ proto.api.JSONElement.Primitive.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Primitive} returns this
 */
-proto.api.JSONElement.Primitive.prototype.setDeletedAt = function(value) {
+proto.api.JSONElement.Primitive.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 5, value);
 };
 
@@ -7371,8 +7371,8 @@ proto.api.JSONElement.Primitive.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Primitive} returns this
  */
-proto.api.JSONElement.Primitive.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.JSONElement.Primitive.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -7380,7 +7380,7 @@ proto.api.JSONElement.Primitive.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Primitive.prototype.hasDeletedAt = function() {
+proto.api.JSONElement.Primitive.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 5) != null;
 };
 
@@ -7428,7 +7428,7 @@ proto.api.JSONElement.Text.toObject = function(includeInstance, msg) {
     proto.api.TextNode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -7483,7 +7483,7 @@ proto.api.JSONElement.Text.deserializeBinaryFromReader = function(msg, reader) {
     case 4:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     default:
       reader.skipField();
@@ -7538,7 +7538,7 @@ proto.api.JSONElement.Text.serializeBinaryToWriter = function(message, writer) {
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       4,
@@ -7662,10 +7662,10 @@ proto.api.JSONElement.Text.prototype.hasUpdatedAt = function() {
 
 
 /**
- * optional TimeTicket deleted_at = 4;
+ * optional TimeTicket removed_at = 4;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Text.prototype.getDeletedAt = function() {
+proto.api.JSONElement.Text.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 4));
 };
@@ -7675,7 +7675,7 @@ proto.api.JSONElement.Text.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Text} returns this
 */
-proto.api.JSONElement.Text.prototype.setDeletedAt = function(value) {
+proto.api.JSONElement.Text.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 4, value);
 };
 
@@ -7684,8 +7684,8 @@ proto.api.JSONElement.Text.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Text} returns this
  */
-proto.api.JSONElement.Text.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.JSONElement.Text.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -7693,7 +7693,7 @@ proto.api.JSONElement.Text.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Text.prototype.hasDeletedAt = function() {
+proto.api.JSONElement.Text.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 4) != null;
 };
 
@@ -8263,7 +8263,7 @@ proto.api.TextNode.toObject = function(includeInstance, msg) {
   var f, obj = {
     id: (f = msg.getId()) && proto.api.TextNodeID.toObject(includeInstance, f),
     value: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    deletedAt: (f = msg.getDeletedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     insPrevId: (f = msg.getInsPrevId()) && proto.api.TextNodeID.toObject(includeInstance, f)
   };
 
@@ -8313,7 +8313,7 @@ proto.api.TextNode.deserializeBinaryFromReader = function(msg, reader) {
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setDeletedAt(value);
+      msg.setRemovedAt(value);
       break;
     case 4:
       var value = new proto.api.TextNodeID;
@@ -8364,7 +8364,7 @@ proto.api.TextNode.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getDeletedAt();
+  f = message.getRemovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -8439,10 +8439,10 @@ proto.api.TextNode.prototype.setValue = function(value) {
 
 
 /**
- * optional TimeTicket deleted_at = 3;
+ * optional TimeTicket removed_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.TextNode.prototype.getDeletedAt = function() {
+proto.api.TextNode.prototype.getRemovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -8452,7 +8452,7 @@ proto.api.TextNode.prototype.getDeletedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.TextNode} returns this
 */
-proto.api.TextNode.prototype.setDeletedAt = function(value) {
+proto.api.TextNode.prototype.setRemovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -8461,8 +8461,8 @@ proto.api.TextNode.prototype.setDeletedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.TextNode} returns this
  */
-proto.api.TextNode.prototype.clearDeletedAt = function() {
-  return this.setDeletedAt(undefined);
+proto.api.TextNode.prototype.clearRemovedAt = function() {
+  return this.setRemovedAt(undefined);
 };
 
 
@@ -8470,7 +8470,7 @@ proto.api.TextNode.prototype.clearDeletedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.TextNode.prototype.hasDeletedAt = function() {
+proto.api.TextNode.prototype.hasRemovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 

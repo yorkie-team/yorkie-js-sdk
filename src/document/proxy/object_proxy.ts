@@ -73,7 +73,7 @@ export class ObjectProxy {
           logger.trivial(`obj[${key}]`);
         }
 
-        ObjectProxy.removeInternal(context, target, key);
+        ObjectProxy.deleteInternal(context, target, key);
         return true;
       }
     }
@@ -128,10 +128,10 @@ export class ObjectProxy {
     return TextProxy.create(context, text);
   }
 
-  public static removeInternal(context: ChangeContext, target: JSONObject, key: string): void {
+  public static deleteInternal(context: ChangeContext, target: JSONObject, key: string): void {
     const ticket = context.issueTimeTicket();
-    const removed = target.removeByKey(key, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), removed.getCreatedAt(), ticket));
+    const deleted = target.deleteByKey(key, ticket);
+    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
   }
 
   public getHandlers(): any {

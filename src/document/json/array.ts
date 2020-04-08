@@ -49,12 +49,12 @@ export class JSONArray extends JSONContainer {
     return this.elements.getLast();
   }
 
-  public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
-    return this.elements.remove(createdAt, editedAt);
+  public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
+    return this.elements.delete(createdAt, editedAt);
   }
 
-  public removeByIndex(index: number, editedAt: TimeTicket): JSONElement {
-    return this.elements.removeByIndex(index, editedAt);
+  public deleteByIndex(index: number, editedAt: TimeTicket): JSONElement {
+    return this.elements.deleteByIndex(index, editedAt);
   }
 
   public getLastCreatedAt(): TimeTicket {
@@ -110,7 +110,7 @@ export class JSONArray extends JSONContainer {
         node.getValue().deepcopy()
       );
     }
-    clone.delete(this.getDeletedAt())
+    clone.remove(this.getRemovedAt())
     return clone;
   }
 }

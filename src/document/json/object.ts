@@ -45,12 +45,12 @@ export class JSONObject extends JSONContainer {
     this.memberNodes.set(key, value);
   }
 
-  public remove(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.remove(createdAt, executedAt);
+  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
+    return this.memberNodes.delete(createdAt, executedAt);
   }
 
-  public removeByKey(key: string, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.removeByKey(key, executedAt);
+  public deleteByKey(key: string, executedAt: TimeTicket): JSONElement {
+    return this.memberNodes.deleteByKey(key, executedAt);
   }
 
   public get(key: string): JSONElement {
@@ -96,7 +96,7 @@ export class JSONObject extends JSONContainer {
         node.getValue().deepcopy(),
       );
     }
-    clone.delete(this.getDeletedAt());
+    clone.remove(this.getRemovedAt());
     return clone;
   }
 
@@ -118,7 +118,7 @@ export class JSONObject extends JSONContainer {
     for (const node of this.memberNodes) {
       if (!keySet.has(node.getStrKey())) {
         keySet.add(node.getStrKey());
-        if (!node.isDeleted()) {
+        if (!node.isRemoved()) {
           yield [node.getStrKey(), node.getValue()];
         }
       }
