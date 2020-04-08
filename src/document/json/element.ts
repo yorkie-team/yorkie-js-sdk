@@ -39,10 +39,13 @@ export abstract class JSONElement {
     return this.deletedAt;
   }
 
-  public delete(deletedAt: TimeTicket): void {
+  public delete(deletedAt: TimeTicket): boolean {
     if (!this.deletedAt || deletedAt && deletedAt.after(this.deletedAt)) {
       this.deletedAt = deletedAt;
+      return true;
     }
+
+    return false;
   }
 
   public isDeleted(): boolean {

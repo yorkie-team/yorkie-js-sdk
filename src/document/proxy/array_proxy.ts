@@ -35,7 +35,7 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string|symbol): any => {
+      get: (target: JSONArray, method: string|symbol, receiver: object): any => {
         // Yorkie extension API
         if (method === 'getID') {
           return (): TimeTicket => {
@@ -68,6 +68,8 @@ export class ArrayProxy {
             return toProxy(context, inserted);
           }; 
         // JavaScript Native API
+        } else if (!isNaN(+(method as string))) {
+            return toProxy(context, target.getByIndex(+(method as string)));
         } else if (method === 'push') {
           return (value: any): number => {
             if (logger.isEnabled(LogLevel.Trivial)) {
@@ -82,7 +84,10 @@ export class ArrayProxy {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
         }
 
-        throw new TypeError(`Unsupported method: ${String(method)}`);
+        // TODO we need to distinguish between the case we need to call default
+        // behavior and the case where we need to call an internal method
+        // throw new TypeError(`Unsupported method: ${String(method)}`);
+        return Reflect.get(target, method, receiver);
       },
       deleteProperty: (target: JSONArray, key: number): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {

@@ -198,5 +198,22 @@ describe('Document', function() {
       root['list'].insertAfter(prev.getID(), 3);
     }, 'insert 3');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['list'][1];
+    }, 'remove 2');
+    assert.equal('{"list":[1,3,4]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      prev = root['list'].getElementByIndex(0);
+      root['list'].insertAfter(prev.getID(), 2);
+    }, 'insert 2');
+    assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
+
+    const root = doc.getRootObject();
+    for (let idx = 0; idx < root['list'].length; idx++) {
+      assert.equal(idx + 1, root['list'][idx]);
+      assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
+    }
   });
 });

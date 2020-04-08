@@ -16,21 +16,21 @@
 
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
-import { RGA } from './rga';
+import { RGATreeList } from './rga_tree_list';
 
 /**
  * JSONArray represents JSON array data structure including logical clock.
  */
 export class JSONArray extends JSONContainer {
-  private elements: RGA;
+  private elements: RGATreeList;
 
-  constructor(createdAt: TimeTicket, elements: RGA) {
+  constructor(createdAt: TimeTicket, elements: RGATreeList) {
     super(createdAt);
     this.elements = elements;
   }
 
   public static create(createdAt: TimeTicket): JSONArray {
-    return new JSONArray(createdAt, RGA.create());
+    return new JSONArray(createdAt, RGATreeList.create());
   }
 
   public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
@@ -42,7 +42,7 @@ export class JSONArray extends JSONContainer {
   }
 
   public getByIndex(index: number): JSONElement {
-    return this.elements.getByIndex(index);
+    return this.elements.getByIndex(index).getValue();
   }
 
   public getLast(): JSONElement {
@@ -98,7 +98,7 @@ export class JSONArray extends JSONContainer {
     return this.toJSON();
   }
 
-  public getElements(): RGA {
+  public getElements(): RGATreeList {
     return this.elements;
   }
 

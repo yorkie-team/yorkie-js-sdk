@@ -30,7 +30,7 @@ import { Change } from '../document/change/change';
 import { ChangePack } from '../document/change/change_pack';
 import { Checkpoint } from '../document/checkpoint/checkpoint';
 import { RHT } from '../document/json/rht';
-import { RGA } from '../document/json/rga';
+import { RGATreeList } from '../document/json/rga_tree_list';
 import { JSONElement } from '../document/json/element';
 import { JSONObject } from '../document/json/object';
 import { JSONArray } from '../document/json/array';
@@ -244,12 +244,12 @@ function toRHTNodes(rht: RHT): PbRHTNode[] {
   return pbRHTNodes;
 }
 
-function toRGANodes(rga: RGA): PbRGANode[] {
+function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
   const pbRGANodes = []
-  for (const rgaNode of rga) {
+  for (const rgaTreeListNode of rgaTreeList) {
     const pbRGANode = new PbRGANode();
     // eslint-disable-next-line
-    pbRGANode.setElement(toJSONElement(rgaNode.getValue()));
+    pbRGANode.setElement(toJSONElement(rgaTreeListNode.getValue()));
     pbRGANodes.push(pbRGANode);
   }
 
@@ -544,13 +544,13 @@ function fromJSONObject(pbObject: PbJSONElement.Object): JSONObject {
 }
 
 function fromJSONArray(pbArray: PbJSONElement.Array): JSONArray {
-  const rga = new RGA();
+  const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.getNodesList()) {
     // eslint-disable-next-line
-    rga.insert(fromJSONElement(pbRGANode.getElement()));
+    rgaTreeList.insert(fromJSONElement(pbRGANode.getElement()));
   }
 
-  const arr = new JSONArray(fromTimeTicket(pbArray.getCreatedAt()), rga);
+  const arr = new JSONArray(fromTimeTicket(pbArray.getCreatedAt()), rgaTreeList);
   arr.delete(fromTimeTicket(pbArray.getDeletedAt()));
   return arr;
 }
