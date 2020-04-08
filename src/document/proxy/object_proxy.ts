@@ -63,13 +63,6 @@ export class ObjectProxy {
             }
             return ObjectProxy.createText(context, target, key);
           };
-        } else if (keyOrMethod === 'createText') {
-          return (key: string): PlainText => {
-            if (logger.isEnabled(LogLevel.Trivial)) {
-              logger.trivial(`obj[${key}]=Text`);
-            }
-            return ObjectProxy.createText(context, target, key);
-          };
         }
 
         return toProxy(context, target.get(keyOrMethod));
