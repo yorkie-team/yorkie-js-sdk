@@ -15,23 +15,24 @@
  */
 
 import { logger } from '../../util/logger';
+import { SplayNode, SplayTree } from '../../util/splay_tree';
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { JSONPrimitive } from './primitive';
 
-class RGANode {
-  private value: JSONElement;
-  private prev: RGANode;
-  private next: RGANode;
+class RGATreeListNode extends SplayNode<JSONElement> {
+  private prev: RGATreeListNode;
+  private next: RGATreeListNode;
 
   constructor(value: JSONElement) {
+    super(value);
     this.value = value;
     this.prev = null;
     this.next = null;
   }
 
-  public static createAfter(prev: RGANode, value: JSONElement): RGANode {
-    const newNode = new RGANode(value);
+  public static createAfter(prev: RGATreeListNode, value: JSONElement): RGATreeListNode {
+    const newNode = new RGATreeListNode(value);
     const prevNext = prev.next;
     prev.next = newNode;
     newNode.prev = prev;
@@ -43,15 +44,19 @@ class RGANode {
     return newNode;
   }
 
-  public remove(deletedAt: TimeTicket): void {
-    this.value.delete(deletedAt);
+  public remove(deletedAt: TimeTicket): boolean {
+    return this.value.delete(deletedAt);
   }
 
   public getCreatedAt(): TimeTicket {
     return this.value.getCreatedAt();
   }
 
-  public getNext(): RGANode {
+  public getLength(): number {
+    return this.value.isDeleted() ? 0 : 1;
+  }
+
+  public getNext(): RGATreeListNode {
     return this.next;
   }
 
@@ -65,34 +70,40 @@ class RGANode {
 }
 
 /**
- * RGA is replicated growable array.
+ * RGATreeList is replicated growable array.
  */
-export class RGA {
-  private first: RGANode;
-  private last: RGANode;
+export class RGATreeList {
+  private dummyHead: RGATreeListNode;
+  private last: RGATreeListNode;
   private size: number;
-  private nodeMapByCreatedAt: Map<string, RGANode>;
+  private nodeMapByIndex: SplayTree<JSONElement>;
+  private nodeMapByCreatedAt: Map<string, RGATreeListNode>;
 
   constructor() {
-    const dummyHead = new RGANode(JSONPrimitive.of('', InitialTimeTicket));
-
-    this.first = dummyHead;
-    this.last = dummyHead;
+    const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
+    dummyValue.delete(InitialTimeTicket);
+    this.dummyHead = new RGATreeListNode(dummyValue);
+    this.last = this.dummyHead;
     this.size = 0;
+    this.nodeMapByIndex = new SplayTree();
     this.nodeMapByCreatedAt = new Map();
 
-    this.nodeMapByCreatedAt.set(dummyHead.getCreatedAt().toIDString(), dummyHead);
+    this.nodeMapByIndex.insert(this.dummyHead);
+    this.nodeMapByCreatedAt.set(
+      this.dummyHead.getCreatedAt().toIDString(),
+      this.dummyHead
+    );
   }
 
-  public static create(): RGA {
-    return new RGA();
+  public static create(): RGATreeList {
+    return new RGATreeList();
   }
 
   public get length(): number {
     return this.size; 
   }
 
-  private findByCreatedAt(prevCreatedAt: TimeTicket, createdAt: TimeTicket): RGANode {
+  private findByCreatedAt(prevCreatedAt: TimeTicket, createdAt: TimeTicket): RGATreeListNode {
     let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!node) {
       logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
@@ -107,13 +118,15 @@ export class RGA {
 
   public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
     const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
-    const newNode = RGANode.createAfter(prevNode, value);
+    const newNode = RGATreeListNode.createAfter(prevNode, value);
     if (prevNode === this.last) {
       this.last = newNode;
     }
 
-    this.size += 1;
+    this.nodeMapByIndex.insertAfter(prevNode, newNode);
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
+
+    this.size += 1;
   }
 
   public insert(value: JSONElement): void {
@@ -125,38 +138,38 @@ export class RGA {
     return node.getValue();
   }
 
-  public getByIndex(index: number): JSONElement {
-    let idx = 0;
-    for (const node of this) {
-      if (!node.isRemoved()) {
-        if (idx++ === index) {
-          return node.getValue();
-        }
-      }
+  public getByIndex(idx: number): RGATreeListNode {
+    const [node, offset] = this.nodeMapByIndex.find(idx);
+    let rgaNode = node as RGATreeListNode;
+
+    if (idx === 0 && node === this.dummyHead) {
+      do {
+        rgaNode = rgaNode.getNext();
+      } while(rgaNode.isRemoved());
+    } else if (offset > 0) {
+      do {
+        rgaNode = rgaNode.getNext();
+      } while(rgaNode.isRemoved());
     }
 
-    throw new Error('out of bound');
+    return rgaNode;
   }
 
   public remove(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    node.remove(editedAt);
-    this.size -= 1;
+    if (node.remove(editedAt)) {
+      this.nodeMapByIndex.splayNode(node);
+      this.size -= 1;
+    }
     return node.getValue();
   }
 
-  // TODO introduce TreeList: O(n) -> O(log n)
   public removeByIndex(index: number, editedAt: TimeTicket): JSONElement {
-    let node = this.first.getNext();
-    while(index > 0) {
-      if (!node.isRemoved()) {
-        index -= 1;
-      }
-      node = node.getNext();
+    const node = this.getByIndex(index);
+    if (node.remove(editedAt)) {
+      this.nodeMapByIndex.splayNode(node);
+      this.size -= 1;
     }
-
-    node.remove(editedAt);
-    this.size -= 1;
     return node.getValue();
   }
 
@@ -183,8 +196,8 @@ export class RGA {
     return json.join('');
   }
 
-  public *[Symbol.iterator](): IterableIterator<RGANode> {
-    let node = this.first.getNext();
+  public *[Symbol.iterator](): IterableIterator<RGATreeListNode> {
+    let node = this.dummyHead.getNext();
     while(node) {
       yield node;
       node = node.getNext();
