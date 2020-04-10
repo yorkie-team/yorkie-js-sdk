@@ -37,6 +37,10 @@ export class JSONArray extends JSONContainer {
     this.elements.insertAfter(prevCreatedAt, value);
   }
 
+  public moveAfter(prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket): void {
+    this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
+  }
+
   public get(createdAt: TimeTicket): JSONElement {
     return this.elements.get(createdAt);
   }
@@ -47,6 +51,10 @@ export class JSONArray extends JSONContainer {
 
   public getLast(): JSONElement {
     return this.elements.getLast();
+  }
+
+  public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
+    return this.elements.getPrevCreatedAt(createdAt);
   }
 
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {

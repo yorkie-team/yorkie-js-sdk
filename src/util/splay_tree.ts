@@ -104,8 +104,8 @@ export abstract class SplayNode<V> {
 export class SplayTree<V> {
   private root: SplayNode<V>;
 
-  constructor() {
-    this.root = null;
+  constructor(root?: SplayNode<V>) {
+    this.root = root;
   }
 
   public find(pos: number): [SplayNode<V>, number] {
@@ -228,12 +228,43 @@ export class SplayTree<V> {
     }
   }
 
+  public delete(node: SplayNode<V>): void {
+    this.splayNode(node)
+
+    const leftTree = new SplayTree(node.getLeft());
+    if (leftTree.root) {
+      leftTree.root.setParent(null);
+    }
+
+    const rightTree = new SplayTree(node.getRight());
+    if (rightTree.root) {
+      rightTree.root.setParent(null);
+    }
+
+    if (leftTree.root) {
+      const maxNode = leftTree.getMaximum();
+      leftTree.splayNode(maxNode);
+      leftTree.root.setRight(rightTree.root);
+      this.root = leftTree.root;
+    } else {
+      this.root = rightTree.root;
+    }
+  }
+
   public getAnnotatedString(): string {
     const metaString = [];
     this.traverseInorder(this.root, metaString);
     return metaString.map((node) =>
       `[${node.getWeight()},${node.getLength()}]${node.getValue()}`
     ).join('');
+  }
+
+  private getMaximum(): SplayNode<V> {
+    let node = this.root;
+    while (node.hasRight()) {
+      node = node.getRight();
+    }
+    return node;
   }
 
   private traverseInorder(node: SplayNode<V>, stack: Array<SplayNode<V>>): void {
