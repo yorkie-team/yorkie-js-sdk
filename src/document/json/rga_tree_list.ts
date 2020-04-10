@@ -52,8 +52,19 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     return this.value.getCreatedAt();
   }
 
+  public release(): void {
+    this.prev.next = this.next;
+    if (this.next) {
+      this.next.prev = this.prev;
+    }
+  }
+
   public getLength(): number {
     return this.value.isRemoved() ? 0 : 1;
+  }
+
+  public getPrev(): RGATreeListNode {
+    return this.prev;
   }
 
   public getNext(): RGATreeListNode {
@@ -116,6 +127,18 @@ export class RGATreeList {
     return node;
   }
 
+  private release(node: RGATreeListNode): void {
+    if (this.last == node) {
+      this.last = node.getPrev()
+    }
+
+    node.release();
+    this.nodeMapByIndex.delete(node);
+    this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
+
+    this.size -= 1;
+  }
+
   public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
     const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
     const newNode = RGATreeListNode.createAfter(prevNode, value);
@@ -127,6 +150,24 @@ export class RGATreeList {
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
 
     this.size += 1;
+  }
+
+  public moveAfter(prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket): void {
+    const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
+    if (!prevNode) {
+      logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
+    }
+
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    if (!node) {
+      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
+    }
+
+    if (!node.getValue().getUpdatedAt() || executedAt.after(node.getValue().getUpdatedAt())) {
+      node.release();
+      this.insertAfter(prevNode.getCreatedAt(), node.getValue());
+      node.getValue().setUpdatedAt(executedAt)
+    }
   }
 
   public insert(value: JSONElement): void {
@@ -153,6 +194,14 @@ export class RGATreeList {
     }
 
     return rgaNode;
+  }
+
+  public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
+    let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    do {
+      node = node.getPrev();
+    } while(this.dummyHead !== node && node.isRemoved());
+    return node.getValue().getCreatedAt();
   }
 
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {

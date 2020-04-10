@@ -21,6 +21,7 @@ import { TimeTicket, InitialTimeTicket } from '../document/time/ticket';
 import { Operation } from '../document/operation/operation';
 import { SetOperation } from '../document/operation/set_operation';
 import { AddOperation } from '../document/operation/add_operation';
+import { MoveOperation } from '../document/operation/move_operation';
 import { RemoveOperation } from '../document/operation/remove_operation';
 import { EditOperation } from '../document/operation/edit_operation';
 import { SelectOperation } from '../document/operation/select_operation';
@@ -172,6 +173,14 @@ function toOperation(operation: Operation): PbOperation {
     pbAddOperation.setValue(toJSONElementSimple(addOperation.getValue()));
     pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
     pbOperation.setAdd(pbAddOperation);
+  } else if (operation instanceof MoveOperation) {
+    const moveOperation = operation as MoveOperation;
+    const pbMoveOperation = new PbOperation.Move();
+    pbMoveOperation.setParentCreatedAt(toTimeTicket(moveOperation.getParentCreatedAt()));
+    pbMoveOperation.setPrevCreatedAt(toTimeTicket(moveOperation.getPrevCreatedAt()));
+    pbMoveOperation.setCreatedAt(toTimeTicket(moveOperation.getCreatedAt()));
+    pbMoveOperation.setExecutedAt(toTimeTicket(moveOperation.getExecutedAt()));
+    pbOperation.setMove(pbMoveOperation);
   } else if (operation instanceof RemoveOperation) {
     const removeOperation = operation as RemoveOperation;
     const pbRemoveOperation = new PbOperation.Remove();
@@ -462,6 +471,14 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromJSONElementSimple(pbAddOperation.getValue()),
         fromTimeTicket(pbAddOperation.getExecutedAt())
       );
+    } else if (pbOperation.hasMove()) {
+      const pbMoveOperation = pbOperation.getMove();
+      operation = MoveOperation.create(
+        fromTimeTicket(pbMoveOperation.getParentCreatedAt()),
+        fromTimeTicket(pbMoveOperation.getPrevCreatedAt()),
+        fromTimeTicket(pbMoveOperation.getCreatedAt()),
+        fromTimeTicket(pbMoveOperation.getExecutedAt())
+      );
     } else if (pbOperation.hasRemove()) {
       const pbRemoveOperation = pbOperation.getRemove();
       operation = RemoveOperation.create(
@@ -492,7 +509,7 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTimeTicket(pbSelectOperation.getExecutedAt()),
       );
     } else {
-      throw new YorkieError(Code.Unimplemented, `unimplemented operation: ${operation}`);
+      throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
     }
 
     operations.push(operation)

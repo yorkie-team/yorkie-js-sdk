@@ -427,6 +427,11 @@ export class Operation extends jspb.Message {
   hasAdd(): boolean;
   clearAdd(): void;
 
+  getMove(): Operation.Move | undefined;
+  setMove(value?: Operation.Move): void;
+  hasMove(): boolean;
+  clearMove(): void;
+
   getRemove(): Operation.Remove | undefined;
   setRemove(value?: Operation.Remove): void;
   hasRemove(): boolean;
@@ -456,12 +461,18 @@ export namespace Operation {
   export type AsObject = {
     set?: Operation.Set.AsObject,
     add?: Operation.Add.AsObject,
+    move?: Operation.Move.AsObject,
     remove?: Operation.Remove.AsObject,
     edit?: Operation.Edit.AsObject,
     select?: Operation.Select.AsObject,
   }
 
   export class Set extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): void;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): void;
+
     getKey(): string;
     setKey(value: string): void;
 
@@ -469,11 +480,6 @@ export namespace Operation {
     setValue(value?: JSONElementSimple): void;
     hasValue(): boolean;
     clearValue(): void;
-
-    getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): void;
-    hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): void;
 
     getExecutedAt(): TimeTicket | undefined;
     setExecutedAt(value?: TimeTicket): void;
@@ -490,20 +496,15 @@ export namespace Operation {
 
   export namespace Set {
     export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
       key: string,
       value?: JSONElementSimple.AsObject,
-      parentCreatedAt?: TimeTicket.AsObject,
       executedAt?: TimeTicket.AsObject,
     }
   }
 
 
   export class Add extends jspb.Message {
-    getValue(): JSONElementSimple | undefined;
-    setValue(value?: JSONElementSimple): void;
-    hasValue(): boolean;
-    clearValue(): void;
-
     getParentCreatedAt(): TimeTicket | undefined;
     setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
@@ -513,6 +514,11 @@ export namespace Operation {
     setPrevCreatedAt(value?: TimeTicket): void;
     hasPrevCreatedAt(): boolean;
     clearPrevCreatedAt(): void;
+
+    getValue(): JSONElementSimple | undefined;
+    setValue(value?: JSONElementSimple): void;
+    hasValue(): boolean;
+    clearValue(): void;
 
     getExecutedAt(): TimeTicket | undefined;
     setExecutedAt(value?: TimeTicket): void;
@@ -529,9 +535,48 @@ export namespace Operation {
 
   export namespace Add {
     export type AsObject = {
-      value?: JSONElementSimple.AsObject,
       parentCreatedAt?: TimeTicket.AsObject,
       prevCreatedAt?: TimeTicket.AsObject,
+      value?: JSONElementSimple.AsObject,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
+  export class Move extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): void;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): void;
+
+    getPrevCreatedAt(): TimeTicket | undefined;
+    setPrevCreatedAt(value?: TimeTicket): void;
+    hasPrevCreatedAt(): boolean;
+    clearPrevCreatedAt(): void;
+
+    getCreatedAt(): TimeTicket | undefined;
+    setCreatedAt(value?: TimeTicket): void;
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): void;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): void;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Move.AsObject;
+    static toObject(includeInstance: boolean, msg: Move): Move.AsObject;
+    static serializeBinaryToWriter(message: Move, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Move;
+    static deserializeBinaryFromReader(message: Move, reader: jspb.BinaryReader): Move;
+  }
+
+  export namespace Move {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      prevCreatedAt?: TimeTicket.AsObject,
+      createdAt?: TimeTicket.AsObject,
       executedAt?: TimeTicket.AsObject,
     }
   }
@@ -660,9 +705,10 @@ export namespace Operation {
     BODY_NOT_SET = 0,
     SET = 1,
     ADD = 2,
-    REMOVE = 3,
-    EDIT = 4,
-    SELECT = 5,
+    MOVE = 3,
+    REMOVE = 4,
+    EDIT = 5,
+    SELECT = 6,
   }
 }
 

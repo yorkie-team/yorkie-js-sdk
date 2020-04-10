@@ -276,6 +276,31 @@ describe('Yorkie', function() {
     }, this.test.title);
   });
 
+  it('Can handle concurrent moveBefore operations', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0,1,2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync(); await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
+      });
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(1);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
+      });
+      await c1.sync(); await c2.sync(); await c1.sync();
+    }, this.test.title);
+  });
+
   it('should handle edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {

@@ -17,6 +17,7 @@
 import { logger, LogLevel } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { AddOperation } from '../operation/add_operation';
+import { MoveOperation } from '../operation/move_operation';
 import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
 import { JSONElement } from '../json/element';
@@ -74,6 +75,10 @@ export class ArrayProxy {
             const inserted = ArrayProxy.insertAfterInternal(context, target, prevID, value);
             return toProxy(context, inserted);
           }; 
+        } else if (method === 'moveBefore') {
+          return (prevID: TimeTicket, itemID: TimeTicket): void => {
+            ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
+          }; 
         // JavaScript Native API
         } else if (isNumericString(method)) {
             return toProxy(context, target.getByIndex(+(method as string)));
@@ -123,7 +128,24 @@ export class ArrayProxy {
     return target.length;
   }
 
-  public static insertAfterInternal(context: ChangeContext, target: JSONArray, prevCreatedAt:TimeTicket, value: any): JSONElement {
+  public static moveBeforeInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    nextCreatedAt: TimeTicket,
+    createdAt: TimeTicket
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    context.push(MoveOperation.create(target.getCreatedAt(), prevCreatedAt, createdAt, ticket));
+  }
+
+  public static insertAfterInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    prevCreatedAt: TimeTicket,
+    value: any
+  ): JSONElement {
     const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
