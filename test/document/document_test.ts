@@ -152,7 +152,7 @@ describe('Document', function() {
     assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
   });
 
-  it('can push element then remove it by ID in array', function() {
+  it('can push element then delete it by ID in array', function() {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
   
@@ -169,8 +169,8 @@ describe('Document', function() {
     assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
   
     doc.update((root) => {
-      root['list'].removeByID(toDelete.getID());
-    }, 'remove 2');
+      root['list'].deleteByID(toDelete.getID());
+    }, 'delete 2');
     assert.equal('{"list":[4,3,1]}', doc.toSortedJSON());
 
     doc.update((root) => {

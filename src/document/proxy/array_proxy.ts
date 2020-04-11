@@ -65,20 +65,20 @@ export class ArrayProxy {
           return (): JSONElement => {
             return toProxy(context, target.getLast());
           };
-        } else if (method === 'removeByID') {
+        } else if (method === 'deleteByID') {
           return (createdAt: TimeTicket): JSONElement => {
             const deleted = ArrayProxy.deleteInternalByID(context, target, createdAt);
             return toProxy(context, deleted);
-          }; 
+          };
         } else if (method === 'insertAfter') {
           return (prevID: TimeTicket, value: any): JSONElement => {
             const inserted = ArrayProxy.insertAfterInternal(context, target, prevID, value);
             return toProxy(context, inserted);
-          }; 
+          };
         } else if (method === 'moveBefore') {
           return (prevID: TimeTicket, itemID: TimeTicket): void => {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
-          }; 
+          };
         // JavaScript Native API
         } else if (isNumericString(method)) {
             return toProxy(context, target.getByIndex(+(method as string)));
@@ -89,7 +89,15 @@ export class ArrayProxy {
             }
 
             return ArrayProxy.pushInternal(context, target, value);
-          }; 
+          };
+        } else if (method === 'filter') {
+          return (callback: (elem: JSONElement, idx: number, arr: Array<JSONElement>) => Array<JSONElement>): Array<JSONElement> => {
+            return Array.from(target).map((e) => toProxy(context, e)).filter(callback);
+          };
+        } else if (method === 'reduce') {
+          return (callback: (accumulator: any, curr: JSONElement) => any, accumulator: any) => {
+            return Array.from(target).map((e) => toProxy(context, e)).reduce(callback, accumulator);
+          };
         } else if (method === 'length') {
           return target.length;
         } else if (method === Symbol.iterator) {
