@@ -174,7 +174,7 @@ describe('Yorkie', function() {
     }, this.test.title);
   });
 
-  it('Can handle concurrent set/remove operations', async function() {
+  it('Can handle concurrent set/delete operations', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = 'v1';
@@ -250,7 +250,7 @@ describe('Yorkie', function() {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].removeByID(prev.getID());
+        root['k1'].deleteByID(prev.getID());
         assert.equal('{"k1":[1,3,4]}', root.toJSON());
       });
       d2.update((root) => {
