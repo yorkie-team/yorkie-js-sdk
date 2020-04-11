@@ -57,9 +57,7 @@ export class JSONPrimitive extends JSONElement {
       case PrimitiveType.Integer:
         return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
       case PrimitiveType.String:
-        return decodeURIComponent(escape(atob(
-          String.fromCharCode.apply(null, bytes)
-        )));
+        return new TextDecoder("utf-8").decode(bytes);
       default:
         throw new YorkieError(Code.Unimplemented, `unimplemented type: ${primitiveType}`);
     }
@@ -137,12 +135,7 @@ export class JSONPrimitive extends JSONElement {
         ]);
       }
       case PrimitiveType.String: {
-        const str = this.value as string;
-        const bytes = [];
-        for (const ch of btoa(unescape(encodeURIComponent(str)))) {
-          bytes.push(ch.charCodeAt(0));
-        }
-        return new Uint8Array(bytes);
+        return new TextEncoder().encode(this.value as string);
       }
       default:
         throw new YorkieError(Code.Unimplemented, `unimplemented type: ${this.valueType}`);

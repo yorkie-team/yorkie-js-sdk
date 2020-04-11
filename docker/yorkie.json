@@ -1,10 +1,16 @@
 {
-  "RPCPort": 9090,
-  "Mongo": {
-			"ConnectionURI":        "mongodb://mongo:27017",
-			"ConnectionTimeoutSec": 5,
-			"PingTimeoutSec":       5,
-			"YorkieDatabase":       "yorkie-meta"
-
-  }
+    "RPC": {
+        "Port": 9090,
+        "CertFile": "",
+        "KeyFile": ""
+    },
+    "Mongo": {
+        "ConnectionTimeoutSec": 5,
+        "ConnectionURI": "mongodb://mongo:27017",
+        "YorkieDatabase": "yorkie-meta",
+        "PingTimeoutSec": 5
+    },
+    "Backend": {
+        "SnapshotThreshold": 500
+    }
 }
