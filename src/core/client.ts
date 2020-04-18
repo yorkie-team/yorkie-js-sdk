@@ -111,6 +111,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.client.activateClient(req, {}, (err, res) => {
         if (err) {
+          logger.error(`[AC] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
           return;
         }
@@ -150,6 +151,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.client.deactivateClient(req, {}, (err,) => {
         if (err) {
+          logger.error(`[DC] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
           return;
         }
@@ -184,6 +186,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.client.attachDocument(req, {}, (err, res) => {
         if (err) {
+          logger.error(`[AD] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
           return;
         }
@@ -223,6 +226,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.client.detachDocument(req, {}, (err, res) => {
         if (err) {
+          logger.error(`[DD] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
           return;
         }
@@ -371,6 +375,8 @@ export class Client implements Observable<ClientEvent> {
       let isRejected = false;
       this.client.pushPull(req, {}, (err, res) => {
         if (err) {
+          logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
+
           isRejected = true;
           reject(err);
           return;

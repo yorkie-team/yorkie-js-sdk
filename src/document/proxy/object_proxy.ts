@@ -22,9 +22,12 @@ import { ChangeContext } from '../change/context';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
-import { PlainText, RGATreeSplit } from '../json/text';
+import { RGATreeSplit } from '../json/rga_tree_split';
+import { PlainText } from '../json/text';
+import { RichText } from '../json/rich_text';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
+import { RichTextProxy } from './rich_text_proxy';
 import { toProxy } from './proxy';
 
 export class ObjectProxy {
@@ -62,6 +65,13 @@ export class ObjectProxy {
               logger.trivial(`obj[${key}]=Text`);
             }
             return ObjectProxy.createText(context, target, key);
+          };
+        } else if (keyOrMethod === 'createRichText') {
+          return (key: string): RichText => {
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`obj[${key}]=Text`);
+            }
+            return ObjectProxy.createRichText(context, target, key);
           };
         }
 
@@ -126,6 +136,15 @@ export class ObjectProxy {
     context.registerElement(text);
     context.push(SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket));
     return TextProxy.create(context, text);
+  }
+
+  public static createRichText(context: ChangeContext, target: JSONObject, key: string): RichText {
+    const ticket = context.issueTimeTicket();
+    const text = RichText.create(RGATreeSplit.create(), ticket);
+    target.set(key, text);
+    context.registerElement(text);
+    context.push(SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket));
+    return RichTextProxy.create(context, text);
   }
 
   public static deleteInternal(context: ChangeContext, target: JSONObject, key: string): void {

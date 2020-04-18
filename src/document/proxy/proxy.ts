@@ -19,10 +19,12 @@ import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
+import { RichText } from '../json/rich_text';
 import { PlainText } from '../json/text';
 import { ObjectProxy } from './object_proxy';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
+import { RichTextProxy } from './rich_text_proxy';
 
 export function createProxy(context: ChangeContext, target: JSONObject): JSONObject {
   return ObjectProxy.create(context, target);
@@ -41,6 +43,9 @@ export function toProxy(context: ChangeContext, elem: JSONElement): any {
   } else if (elem instanceof PlainText) {
     const text = elem as PlainText;
     return TextProxy.create(context, text);
+  } else if (elem instanceof RichText) {
+    const text = elem as RichText;
+    return RichTextProxy.create(context, text);
   } else if (elem === null) {
     return null;
   } else {

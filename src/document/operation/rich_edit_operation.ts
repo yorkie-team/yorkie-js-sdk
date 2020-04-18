@@ -18,49 +18,66 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
 import { RichText } from '../json/rich_text';
 import { Operation } from './operation';
 
-export class SelectOperation extends Operation {
+export class RichEditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
+  private content: string;
+  private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    content: string,
+    attributes: Map<string, string>,
     executedAt: TimeTicket
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
+    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
+    this.content = content;
+    this.attributes = attributes;
   }
 
   public static create(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    content: string,
+    attributes: Map<string, string>,
     executedAt: TimeTicket
-  ): SelectOperation {
-    return new SelectOperation(
+  ): RichEditOperation {
+    return new RichEditOperation(
       parentCreatedAt,
       fromPos,
       toPos,
+      maxCreatedAtMapByActor,
+      content,
+      attributes,
       executedAt
     );
   }
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof PlainText) {
-      const text = parentObject as PlainText;
-      text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
-    } else if (parentObject instanceof RichText) {
+     if (parentObject instanceof RichText) {
       const text = parentObject as RichText;
-      text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
+      text.editInternal(
+        [this.fromPos, this.toPos],
+        this.content,
+        Object.fromEntries(this.attributes),
+        this.maxCreatedAtMapByActor,
+        this.getExecutedAt()
+      );
     } else {
-      logger.fatal(`fail to execute, only PlainText, RichText can execute select`);
+      logger.fatal(`fail to execute, only RichText can execute edit`);
     }
   }
 
@@ -68,7 +85,8 @@ export class SelectOperation extends Operation {
     const parent = this.getParentCreatedAt().getAnnotatedString();
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
-    return `${parent}.SELT(${fromPos},${toPos})`
+    const content = this.content;
+    return `${parent}.EDIT(${fromPos},${toPos},${content})`
   }
 
   public getFromPos(): RGATreeSplitNodePos {
@@ -77,5 +95,17 @@ export class SelectOperation extends Operation {
 
   public getToPos(): RGATreeSplitNodePos {
     return this.toPos;
+  }
+
+  public getContent(): string {
+    return this.content;
+  }
+
+  public getAttributes(): Map<string, string> {
+    return this.attributes || new Map();
+  }
+
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+    return this.maxCreatedAtMapByActor;
   }
 }
