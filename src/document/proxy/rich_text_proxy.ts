@@ -17,25 +17,31 @@
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
 import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
-import { EditOperation } from '../operation/edit_operation';
+import { RichText, RichTextVal, RichTextValue } from '../json/rich_text';
+import { RichEditOperation } from '../operation/rich_edit_operation';
+import { StyleOperation } from '../operation/style_operation';
 import { SelectOperation } from '../operation/select_operation';
 
-export class TextProxy {
+export class RichTextProxy {
   private context: ChangeContext;
   private handlers: any;
 
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: PlainText, method: string): any => {
+      get: (target: RichText, method: string): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${method}]`);
         }
 
         if (method === 'edit') {
-          return (fromIdx: number, toIdx: number, content: string): boolean => {
-            this.edit(target, fromIdx, toIdx, content);
+          return (fromIdx: number, toIdx: number, content: string, attributes?: { [key: string]: string; }): boolean => {
+            this.edit(target, fromIdx, toIdx, content, attributes);
+            return true;
+          };
+        } if (method === 'setStyle') {
+          return (fromIdx: number, toIdx: number, attributes: { [key: string]: string; }): boolean => {
+            this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
           };
         } else if (method === 'updateSelection') {
@@ -48,7 +54,7 @@ export class TextProxy {
             return target.getAnnotatedString();
           };
         } else if (method === 'getValue') {
-          return (): string => {
+          return (): Array<RichTextVal> => {
             return target.getValue();
           };
         } else if (method === 'createRange') {
@@ -66,12 +72,12 @@ export class TextProxy {
     };
   }
 
-  public static create(context: ChangeContext, target: PlainText): PlainText {
-    const textProxy = new TextProxy(context);
+  public static create(context: ChangeContext, target: RichText): RichText {
+    const textProxy = new RichTextProxy(context);
     return new Proxy(target, textProxy.getHandlers());
   }
 
-  public edit(target: PlainText, fromIdx: number, toIdx: number, content: string): void {
+  public edit(target: RichText, fromIdx: number, toIdx: number, content: string, attributes?: { [key: string]: string; }): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
     }
@@ -84,19 +90,44 @@ export class TextProxy {
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = target.editInternal(range, content, null, ticket);
+    const maxCreatedAtMapByActor = target.editInternal(range, content, attributes, null, ticket);
 
-    this.context.push(new EditOperation(
+    this.context.push(new RichEditOperation(
       target.getCreatedAt(),
       range[0],
       range[1],
       maxCreatedAtMapByActor,
       content,
+      attributes ? new Map(Object.entries(attributes)) : new Map(),
       ticket
     ));
   }
 
-  public updateSelection(target: PlainText, fromIdx: number, toIdx: number): void {
+  public setStyle(target: RichText, fromIdx: number, toIdx: number, attributes: { [key: string]: string; }): void {
+    if (fromIdx > toIdx) {
+      logger.fatal('from should be less than or equal to to');
+    }
+
+    const range = target.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(attributes)}`
+      );
+    }
+
+    const ticket = this.context.issueTimeTicket();
+    target.setStyleInternal(range, attributes, ticket);
+
+    this.context.push(new StyleOperation(
+      target.getCreatedAt(),
+      range[0],
+      range[1],
+      new Map(Object.entries(attributes)),
+      ticket
+    ));
+  }
+
+  public updateSelection(target: RichText, fromIdx: number, toIdx: number): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(

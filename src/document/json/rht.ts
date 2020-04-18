@@ -14,44 +14,46 @@
  * limitations under the License.
  */
 
-import { HeapNode, Heap } from '../../util/heap';
 import { TicketComparator, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
-export class RHTNode extends HeapNode<TimeTicket, JSONElement> {
-  private strKey: string;
+export class RHTNode {
+  private key: string;
+  private value: string;
+  private updatedAt: TimeTicket;
 
-  constructor(strKey: string, value: JSONElement) {
-    super(value.getCreatedAt(), value);
-    this.strKey = strKey;
+  constructor(key: string, value: string, updatedAt: TimeTicket) {
+    this.key = key;
+    this.value = value;
+    this.updatedAt = updatedAt;
   }
 
-  public static of(strKey: string, value: JSONElement): RHTNode {
-    return new RHTNode(strKey, value);
+  public static of(key: string, value: string, createdAt: TimeTicket): RHTNode {
+    return new RHTNode(key, value, createdAt);
   }
 
-  public isRemoved(): boolean {
-    return this.getValue().isRemoved();
+  public getKey(): string {
+    return this.key;
   }
 
-  public getStrKey(): string {
-    return this.strKey;
+  public getValue(): string {
+    return this.value;
   }
 
-  public remove(removedAt: TimeTicket): void {
-    this.getValue().remove(removedAt);
+  public getUpdatedAt(): TimeTicket {
+    return this.updatedAt;
   }
 }
 
 /**
- * RHT is replicated hash table.
+ * RHT is replicated hash table with priority queue by creation time.
  */
 export class RHT {
-  private elementQueueMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;
-  private nodeMapByCreatedAt: Map<string, RHTNode>;
+  private nodeMapByKey: Map<String, RHTNode>;
+  private nodeMapByCreatedAt: Map<String, RHTNode>;
 
   constructor() {
-    this.elementQueueMapByKey = new Map();
+    this.nodeMapByKey = new Map();
     this.nodeMapByCreatedAt = new Map();
   }
 
@@ -59,56 +61,48 @@ export class RHT {
     return new RHT()
   }
 
-  public set(key: string, value: JSONElement): void {
-    if (!this.elementQueueMapByKey.has(key)) {
-      this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
+  public set(key: string, value: string, updatedAt: TimeTicket): void {
+    const prev = this.nodeMapByKey.get(key);
+
+    if (prev === undefined || updatedAt.after(prev.getUpdatedAt())) {
+      const node = RHTNode.of(key, value, updatedAt);
+      this.nodeMapByKey.set(key, node);
+      this.nodeMapByCreatedAt.set(updatedAt.toIDString(), node);
     }
-
-    const node = RHTNode.of(key, value);
-    this.elementQueueMapByKey.get(key).push(node);
-    this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
-  }
-
-  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
-      return null;
-    }
-
-    this.nodeMapByCreatedAt.get(createdAt.toIDString()).remove(executedAt);
-  }
-
-  public deleteByKey(key: string, removedAt: TimeTicket): JSONElement {
-    if (!this.elementQueueMapByKey.has(key)) {
-      return null;
-    }
-
-    const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
-    node.remove(removedAt);
-    return node.getValue();
   }
 
   public has(key: string): boolean {
-    if (!this.elementQueueMapByKey.has(key)) {
-      return false;
-    }
-
-    const node = this.elementQueueMapByKey.get(key).peek() as RHTNode;
-    return !node.isRemoved();
+    return this.nodeMapByKey.has(key);
   }
 
-  public get(key: string): JSONElement {
-    if (!this.elementQueueMapByKey.has(key)) {
+  public get(key: string): string {
+    if (!this.nodeMapByKey.has(key)) {
       return null;
     }
 
-    return this.elementQueueMapByKey.get(key).peek().getValue();
+    return this.nodeMapByKey.get(key).getValue();
+  }
+
+  public toJSON(): string {
+    const items = [];
+    for (const [key, node] of this.nodeMapByKey) {
+      items.push(`"${key}":"${node.getValue()}"`);
+    }
+    return `{${items.join(",")}}`;
+  }
+
+  public toObject(): { [key: string]: string } {
+    const obj = {} as { [key: string]: string };
+    for (const [key, node] of this.nodeMapByKey) {
+      obj[key as string] = node.getValue();
+    }
+
+    return obj;
   }
 
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
-    for (const [, heap] of this.elementQueueMapByKey) {
-      for (const node of heap) {
-        yield node as RHTNode;
-      }
+    for (const [, node] of this.nodeMapByKey) {
+      yield node as RHTNode;
     }
   }
 }

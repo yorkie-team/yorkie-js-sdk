@@ -7,6 +7,7 @@ services:
       dockerfile: ./envoy.Dockerfile
     image: 'grpcweb:envoy'
     container_name: 'envoy'
+    restart: always
     ports:
       - '8080:8080'
       - '9901:9901'

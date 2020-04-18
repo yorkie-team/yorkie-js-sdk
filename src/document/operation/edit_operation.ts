@@ -17,20 +17,20 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
+import { RGATreeSplitNodePos } from '../json/rga_tree_split';
 import { PlainText } from '../json/text';
-import { TextNodePos } from '../json/text';
 import { Operation } from './operation';
 
 export class EditOperation extends Operation {
-  private fromPos: TextNodePos;
-  private toPos: TextNodePos;
+  private fromPos: RGATreeSplitNodePos;
+  private toPos: RGATreeSplitNodePos;
   private maxCreatedAtMapByActor;
   private content: string;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: TextNodePos,
-    toPos: TextNodePos,
+    fromPos: RGATreeSplitNodePos,
+    toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     executedAt: TimeTicket
@@ -44,8 +44,8 @@ export class EditOperation extends Operation {
 
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: TextNodePos,
-    toPos: TextNodePos,
+    fromPos: RGATreeSplitNodePos,
+    toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     executedAt: TimeTicket
@@ -78,11 +78,11 @@ export class EditOperation extends Operation {
     return `${parent}.EDIT(${fromPos},${toPos},${content})`
   }
 
-  public getFromPos(): TextNodePos {
+  public getFromPos(): RGATreeSplitNodePos {
     return this.fromPos;
   }
 
-  public getToPos(): TextNodePos {
+  public getToPos(): RGATreeSplitNodePos {
     return this.toPos;
   }
 

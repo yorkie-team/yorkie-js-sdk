@@ -26,6 +26,30 @@
       textLogHolder.innerText = doc.getRootObject().content.getAnnotatedString();
     }
 
+    function toDelta(doc) {
+      const obj = doc.getRootObject();
+      const deltas = [];
+      for (const val of obj.content.getValue()) {
+        deltas.push({
+          insert: val.content,
+          attributes: val.attributes,
+        });
+      }
+      return deltas;
+    }
+
+    function toAttributes(attrs) {
+      if (!attrs) {
+        return attrs;
+      }
+
+      const attributes = {};
+      for (const [k, v] of Object.entries(attrs)) {
+        attributes[k] = v ? String(v) : null;
+      }
+      return attributes;
+    }
+
     async function main() {
       try {
         // 01. create client with RPCAddr(envoy) then activate it.
@@ -38,7 +62,7 @@
 
         doc.update((root) => {
           if (!root.content) {
-            root.createText('content');
+            root.createRichText('content');
           }
         }, 'create content if not exists');
         doc.subscribe((event) => {
@@ -73,33 +97,46 @@
         // 04. bind the document with the Quill.
         // 04-1. Quill to Document.
         quill.on('text-change', (delta, oldDelta, source) => {
-          if (source === 'yorkie') {
+          if (source === 'yorkie' || !delta.ops) {
             return;
           }
 
-          console.log(JSON.stringify(delta));
-          if (delta.ops) {
-            let from = 0;
-            let to = 0;
-            let content = '';
-            for (const op of delta.ops) {
-              if (op.retain) {
-                from = op.retain;
-                to = from;
-              } else if (op.insert) {
-                content = op.insert;
-              } else if (op.delete) {
+          let from = 0, to = 0;
+          console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
+          for (const op of delta.ops) {
+            if (op.attributes !== undefined || op.insert !== undefined) {
+              if (op.retain !== undefined) {
+                to = from + op.retain;
+              }
+              console.log(
+                `%c local: ${from}-${to}: ${op.insert} ${op.attributes ? JSON.stringify(op.attributes) : '{}'}`,
+                'color: green'
+              );
+
+              doc.update((root) => {
+                if (op.attributes !== undefined && op.insert === undefined) {
+                  root.content.setStyle(from, to, toAttributes(op.attributes));
+                } else if (op.insert !== undefined) {
+                  root.content.edit(from, to, op.insert, toAttributes(op.attributes));
+                  from = to + op.insert.length;
+                }
+              }, `update style by ${client.getID()}`);
+            } else if (op.delete !== undefined) {
+              if (op.delete !== undefined) {
                 to = from + op.delete;
               }
-            }
+              console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
-            doc.update((root) => {
-              root.content.edit(from, to, content);
-            }, `update content by ${client.getID()}`);
-            console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
+              doc.update((root) => {
+                root.content.edit(from, to, '');
+              }, `update content by ${client.getID()}`);
+            } else if (op.retain !== undefined) {
+              from = to + op.retain;
+              to = from;
+            }
           }
         }).on('selection-change', (range, oldRange, source) => {
-          if (source === 'yorkie' || !range) {
+          if (source === 'yorkie' || source === 'api' || !range) {
             return;
           }
 
@@ -112,44 +149,77 @@
         const text = doc.getRootObject().content;
         text.onChanges((changes) => {
           const delta = [];
+          let prevTo = 0;
           for (const change of changes) {
-            if (change.type === 'content') {
-              const actor = change.actor;
-              const from = change.from;
-              const to = change.to;
-              const content = change.content || '';
+            const actor = change.actor;
+            if (actor === client.getID()) {
+              continue;
+            }
 
-              if (actor !== client.getID()) {
-                console.log(`%c remote: ${from}-${to}: ${content}`, 'color: skyblue');
-                if (from > 0) {
-                  delta.push({ retain: from });
+            const from = change.from;
+            const to = change.to;
+            const retainFrom = from - prevTo;
+            const retainTo = to - from;
+            if (change.type === 'content') {
+              const content = change.content || '';
+              console.log(
+                `%c remote: ${from}-${to}: ${content}`,
+                'color: skyblue'
+              );
+
+              if (retainFrom) {
+                delta.push({ retain: retainFrom });
+              }
+              if (retainTo) {
+                delta.push({ delete: retainTo });
+              }
+              if (content) {
+                const op = { insert: content };
+                if (change.attributes) {
+                  op.attributes = change.attributes;
                 }
-                if (content) {
-                  delta.push({ insert: content });
+                delta.push(op);
+              }
+            } else if (change.type === 'style') {
+              console.log(
+                `%c remote: ${from}-${to}: ${JSON.stringify(change.attributes)}`,
+                'color: skyblue'
+              );
+
+              if (retainFrom) {
+                delta.push({ retain: retainFrom });
+              }
+              if (change.attributes) {
+                const op = { attributes: change.attributes };
+                if (retainTo) {
+                  op.retain = retainTo;
                 }
-                if (to - from > 0) {
-                  delta.push({ delete: to - from });
-                }
+
+                delta.push(op);
               }
             } else if (change.type === 'selection') {
-              const actor = change.actor;
-              if (actor !== client.getID()) {
-                const cursors = quill.getModule('cursors');
-                cursors.createCursor(actor, actor, colors[0]);
-                cursors.moveCursor(actor, {
-                  index: change.from,
-                  length: change.to - change.from
-                });
-              }
+              const cursors = quill.getModule('cursors');
+              cursors.createCursor(actor, actor, colors[0]);
+              cursors.moveCursor(actor, {
+                index: from,
+                length: retainTo
+              });
             }
+
+            prevTo = to;
           }
 
-          quill.updateContents(delta, 'yorkie');
+          if (delta.length) {
+            console.log(`%c to quill: ${JSON.stringify(delta)}`, 'color: green');
+            quill.updateContents(delta, 'yorkie');
+          }
         });
 
         // 05. set initial value.
         displayLog(doc);
-        quill.setText(text.getValue(), 'yorkie');
+        quill.setContents({
+          ops: toDelta(doc)
+        }, 'yorkie');
       } catch (e) {
         console.error(e);
       }

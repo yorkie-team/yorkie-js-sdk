@@ -72,6 +72,10 @@ export class TimeTicket {
     return this.compare(other) > 0;
   }
 
+  public equals(other: TimeTicket): boolean {
+    return this.compare(other) === 0;
+  }
+
   public compare(other: TimeTicket): number {
     if (this.lamport.greaterThan(other.lamport)) {
       return 1;

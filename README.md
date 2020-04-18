@@ -27,7 +27,7 @@ For more details: https://grpc.io/blog/state-of-grpc-web/
 npm install
 
 # build
-npm run build:dev
+npm run build
 ```
 
 For generating proto messages and the service client stub classes with protoc and the protoc-gen-grpc-web.
@@ -66,5 +66,5 @@ docker-compose up
 Start the test in another terminal session.
 
 ```bash
-npm run start:dev
+npm run start
 ```

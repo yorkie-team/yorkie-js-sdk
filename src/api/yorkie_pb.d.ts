@@ -447,6 +447,16 @@ export class Operation extends jspb.Message {
   hasSelect(): boolean;
   clearSelect(): void;
 
+  getRichEdit(): Operation.RichEdit | undefined;
+  setRichEdit(value?: Operation.RichEdit): void;
+  hasRichEdit(): boolean;
+  clearRichEdit(): void;
+
+  getStyle(): Operation.Style | undefined;
+  setStyle(value?: Operation.Style): void;
+  hasStyle(): boolean;
+  clearStyle(): void;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -465,6 +475,8 @@ export namespace Operation {
     remove?: Operation.Remove.AsObject,
     edit?: Operation.Edit.AsObject,
     select?: Operation.Select.AsObject,
+    richEdit?: Operation.RichEdit.AsObject,
+    style?: Operation.Style.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -701,6 +713,100 @@ export namespace Operation {
   }
 
 
+  export class RichEdit extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): void;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): void;
+
+    getFrom(): TextNodePos | undefined;
+    setFrom(value?: TextNodePos): void;
+    hasFrom(): boolean;
+    clearFrom(): void;
+
+    getTo(): TextNodePos | undefined;
+    setTo(value?: TextNodePos): void;
+    hasTo(): boolean;
+    clearTo(): void;
+
+    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
+    clearCreatedAtMapByActorMap(): void;
+
+    getContent(): string;
+    setContent(value: string): void;
+
+    getAttributesMap(): jspb.Map<string, string>;
+    clearAttributesMap(): void;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): void;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RichEdit.AsObject;
+    static toObject(includeInstance: boolean, msg: RichEdit): RichEdit.AsObject;
+    static serializeBinaryToWriter(message: RichEdit, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RichEdit;
+    static deserializeBinaryFromReader(message: RichEdit, reader: jspb.BinaryReader): RichEdit;
+  }
+
+  export namespace RichEdit {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      from?: TextNodePos.AsObject,
+      to?: TextNodePos.AsObject,
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
+      content: string,
+      attributesMap: Array<[string, string]>,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
+  export class Style extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): void;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): void;
+
+    getFrom(): TextNodePos | undefined;
+    setFrom(value?: TextNodePos): void;
+    hasFrom(): boolean;
+    clearFrom(): void;
+
+    getTo(): TextNodePos | undefined;
+    setTo(value?: TextNodePos): void;
+    hasTo(): boolean;
+    clearTo(): void;
+
+    getAttributesMap(): jspb.Map<string, string>;
+    clearAttributesMap(): void;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): void;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Style.AsObject;
+    static toObject(includeInstance: boolean, msg: Style): Style.AsObject;
+    static serializeBinaryToWriter(message: Style, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Style;
+    static deserializeBinaryFromReader(message: Style, reader: jspb.BinaryReader): Style;
+  }
+
+  export namespace Style {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      from?: TextNodePos.AsObject,
+      to?: TextNodePos.AsObject,
+      attributesMap: Array<[string, string]>,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
@@ -709,6 +815,8 @@ export namespace Operation {
     REMOVE = 4,
     EDIT = 5,
     SELECT = 6,
+    RICH_EDIT = 7,
+    STYLE = 8,
   }
 }
 
@@ -775,6 +883,11 @@ export class JSONElement extends jspb.Message {
   hasText(): boolean;
   clearText(): void;
 
+  getRichText(): JSONElement.RichText | undefined;
+  setRichText(value?: JSONElement.RichText): void;
+  hasRichText(): boolean;
+  clearRichText(): void;
+
   getBodyCase(): JSONElement.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -791,6 +904,7 @@ export namespace JSONElement {
     array?: JSONElement.Array.AsObject,
     primitive?: JSONElement.Primitive.AsObject,
     text?: JSONElement.Text.AsObject,
+    richText?: JSONElement.RichText.AsObject,
   }
 
   export class Object extends jspb.Message {
@@ -953,12 +1067,52 @@ export namespace JSONElement {
   }
 
 
+  export class RichText extends jspb.Message {
+    getNodesList(): Array<RichTextNode>;
+    setNodesList(value: Array<RichTextNode>): void;
+    clearNodesList(): void;
+    addNodes(value?: RichTextNode, index?: number): RichTextNode;
+
+    getCreatedAt(): TimeTicket | undefined;
+    setCreatedAt(value?: TimeTicket): void;
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): void;
+
+    getUpdatedAt(): TimeTicket | undefined;
+    setUpdatedAt(value?: TimeTicket): void;
+    hasUpdatedAt(): boolean;
+    clearUpdatedAt(): void;
+
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): void;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RichText.AsObject;
+    static toObject(includeInstance: boolean, msg: RichText): RichText.AsObject;
+    static serializeBinaryToWriter(message: RichText, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RichText;
+    static deserializeBinaryFromReader(message: RichText, reader: jspb.BinaryReader): RichText;
+  }
+
+  export namespace RichText {
+    export type AsObject = {
+      nodesList: Array<RichTextNode.AsObject>,
+      createdAt?: TimeTicket.AsObject,
+      updatedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     OBJECT = 1,
     ARRAY = 2,
     PRIMITIVE = 3,
     TEXT = 4,
+    RICH_TEXT = 5,
   }
 }
 
@@ -1042,6 +1196,74 @@ export class TextNode extends jspb.Message {
 export namespace TextNode {
   export type AsObject = {
     id?: TextNodeID.AsObject,
+    value: string,
+    removedAt?: TimeTicket.AsObject,
+    insPrevId?: TextNodeID.AsObject,
+  }
+}
+
+export class RichTextNodeAttr extends jspb.Message {
+  getKey(): string;
+  setKey(value: string): void;
+
+  getValue(): string;
+  setValue(value: string): void;
+
+  getUpdatedAt(): TimeTicket | undefined;
+  setUpdatedAt(value?: TimeTicket): void;
+  hasUpdatedAt(): boolean;
+  clearUpdatedAt(): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): RichTextNodeAttr.AsObject;
+  static toObject(includeInstance: boolean, msg: RichTextNodeAttr): RichTextNodeAttr.AsObject;
+  static serializeBinaryToWriter(message: RichTextNodeAttr, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): RichTextNodeAttr;
+  static deserializeBinaryFromReader(message: RichTextNodeAttr, reader: jspb.BinaryReader): RichTextNodeAttr;
+}
+
+export namespace RichTextNodeAttr {
+  export type AsObject = {
+    key: string,
+    value: string,
+    updatedAt?: TimeTicket.AsObject,
+  }
+}
+
+export class RichTextNode extends jspb.Message {
+  getId(): TextNodeID | undefined;
+  setId(value?: TextNodeID): void;
+  hasId(): boolean;
+  clearId(): void;
+
+  getAttributesMap(): jspb.Map<string, RichTextNodeAttr>;
+  clearAttributesMap(): void;
+
+  getValue(): string;
+  setValue(value: string): void;
+
+  getRemovedAt(): TimeTicket | undefined;
+  setRemovedAt(value?: TimeTicket): void;
+  hasRemovedAt(): boolean;
+  clearRemovedAt(): void;
+
+  getInsPrevId(): TextNodeID | undefined;
+  setInsPrevId(value?: TextNodeID): void;
+  hasInsPrevId(): boolean;
+  clearInsPrevId(): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): RichTextNode.AsObject;
+  static toObject(includeInstance: boolean, msg: RichTextNode): RichTextNode.AsObject;
+  static serializeBinaryToWriter(message: RichTextNode, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): RichTextNode;
+  static deserializeBinaryFromReader(message: RichTextNode, reader: jspb.BinaryReader): RichTextNode;
+}
+
+export namespace RichTextNode {
+  export type AsObject = {
+    id?: TextNodeID.AsObject,
+    attributesMap: Array<[string, RichTextNodeAttr.AsObject]>,
     value: string,
     removedAt?: TimeTicket.AsObject,
     insPrevId?: TextNodeID.AsObject,
@@ -1182,4 +1404,5 @@ export enum ValueType {
   JSON_OBJECT = 8,
   JSON_ARRAY = 9,
   TEXT = 10,
+  RICH_TEXT = 11,
 }

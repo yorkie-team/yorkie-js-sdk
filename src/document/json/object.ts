@@ -17,26 +17,32 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
-import { RHT } from './rht';
+import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './text';
+import { RichText } from './rich_text';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  */
 export class JSONObject extends JSONContainer {
-  private memberNodes: RHT;
+  private memberNodes: RHTPQMap;
 
-  constructor(createdAt: TimeTicket, memberNodes: RHT) {
+  constructor(createdAt: TimeTicket, memberNodes: RHTPQMap) {
     super(createdAt);
     this.memberNodes = memberNodes;
   }
 
   public static create(createdAt: TimeTicket): JSONObject {
-    return new JSONObject(createdAt, RHT.create());
+    return new JSONObject(createdAt, RHTPQMap.create());
   }
 
   public createText(key: string): PlainText {
+    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    return null;
+  }
+
+  public createRichText(key: string): RichText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
   }
@@ -84,7 +90,7 @@ export class JSONObject extends JSONContainer {
     return `{${json.join(',')}}`;
   }
 
-  public getRHT(): RHT {
+  public getRHT(): RHTPQMap {
     return this.memberNodes;
   }
 

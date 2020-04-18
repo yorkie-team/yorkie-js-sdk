@@ -135,6 +135,29 @@ describe('Document', function() {
     assert.equal('{"k1":"A12D"}', doc.toSortedJSON());
   });
 
+  it('should handle edit operations', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    //           -- ins links ---
+    //           |              |
+    // [init] - [ABC] - [\n] - [D]
+    doc.update((root) => {
+      const text = root.createRichText('k1');
+      text.edit(0, 0, 'ABCD');
+      text.edit(3, 3, '\n');
+    }, 'set {"k1":"ABC\nD"}');
+
+    doc.update((root) => {
+      assert.equal(
+        '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
+        root['k1'].getAnnotatedString()
+      );
+    });
+
+    assert.equal('{"k1":[{"attrs":{},"content":ABC},{"attrs":{},"content":\n},{"attrs":{},"content":D},{"attrs":{},"content":\n}]}', doc.toSortedJSON());
+  });
+
   it('should handle type 하늘', function() {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());

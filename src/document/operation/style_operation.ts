@@ -18,49 +18,54 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
 import { RichText } from '../json/rich_text';
 import { Operation } from './operation';
 
-export class SelectOperation extends Operation {
+export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
+  private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
+    attributes: Map<string, string>,
     executedAt: TimeTicket
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
+    this.attributes = attributes;
   }
 
   public static create(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
+    attributes: Map<string, string>,
     executedAt: TimeTicket
-  ): SelectOperation {
-    return new SelectOperation(
+  ): StyleOperation {
+    return new StyleOperation(
       parentCreatedAt,
       fromPos,
       toPos,
+      attributes,
       executedAt
     );
   }
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof PlainText) {
-      const text = parentObject as PlainText;
-      text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
-    } else if (parentObject instanceof RichText) {
+    if (parentObject instanceof RichText) {
       const text = parentObject as RichText;
-      text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
+      text.setStyleInternal(
+        [this.fromPos, this.toPos],
+        this.attributes ? Object.fromEntries(this.attributes) : {},
+        this.getExecutedAt()
+      );
     } else {
-      logger.fatal(`fail to execute, only PlainText, RichText can execute select`);
+      logger.fatal(`fail to execute, only PlainText can execute edit`);
     }
   }
 
@@ -68,7 +73,8 @@ export class SelectOperation extends Operation {
     const parent = this.getParentCreatedAt().getAnnotatedString();
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
-    return `${parent}.SELT(${fromPos},${toPos})`
+    const attributes = this.attributes;
+    return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`
   }
 
   public getFromPos(): RGATreeSplitNodePos {
@@ -77,5 +83,9 @@ export class SelectOperation extends Operation {
 
   public getToPos(): RGATreeSplitNodePos {
     return this.toPos;
+  }
+
+  public getAttributes(): Map<string, string> {
+    return this.attributes;
   }
 }

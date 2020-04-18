@@ -24,18 +24,22 @@ import { AddOperation } from '../document/operation/add_operation';
 import { MoveOperation } from '../document/operation/move_operation';
 import { RemoveOperation } from '../document/operation/remove_operation';
 import { EditOperation } from '../document/operation/edit_operation';
+import { RichEditOperation } from '../document/operation/rich_edit_operation';
 import { SelectOperation } from '../document/operation/select_operation';
+import { StyleOperation } from '../document/operation/style_operation';
 import { DocumentKey } from '../document/key/document_key';
 import { ChangeID } from '../document/change/change_id';
 import { Change } from '../document/change/change';
 import { ChangePack } from '../document/change/change_pack';
 import { Checkpoint } from '../document/checkpoint/checkpoint';
-import { RHT } from '../document/json/rht';
+import { RHTPQMap } from '../document/json/rht_pq_map';
 import { RGATreeList } from '../document/json/rga_tree_list';
 import { JSONElement } from '../document/json/element';
 import { JSONObject } from '../document/json/object';
 import { JSONArray } from '../document/json/array';
-import { TextNodeID, TextNodePos, TextNode, RGATreeSplit, PlainText } from '../document/json/text';
+import { RGATreeSplitNodeID, RGATreeSplitNodePos, RGATreeSplitNode, RGATreeSplit } from '../document/json/rga_tree_split';
+import { PlainText } from '../document/json/text';
+import { RichText, RichTextValue } from '../document/json/rich_text';
 import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
   ChangePack as PbChangePack,
@@ -50,6 +54,7 @@ import {
   RHTNode as PbRHTNode,
   RGANode as PbRGANode,
   TextNode as PbTextNode,
+  RichTextNode as PbRichTextNode,
   ValueType as PbValueType,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
@@ -127,6 +132,9 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   } else if (jsonElement instanceof PlainText) {
     pbJSONElement.setType(PbValueType.TEXT);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+  } else if (jsonElement instanceof RichText) {
+    pbJSONElement.setType(PbValueType.RICH_TEXT);
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
   } else if (jsonElement instanceof JSONPrimitive) {
     const primitive = jsonElement as JSONPrimitive;
     pbJSONElement.setType(toValueType(primitive.getType()));
@@ -139,14 +147,14 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   return pbJSONElement;
 }
 
-function toTextNodeID(id: TextNodeID): PbTextNodeID {
+function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
   const pbTextNodeID = new PbTextNodeID();
   pbTextNodeID.setCreatedAt(toTimeTicket(id.getCreatedAt()));
   pbTextNodeID.setOffset(id.getOffset());
   return pbTextNodeID;
 }
 
-function toTextNodePos(pos: TextNodePos): PbTextNodePos {
+function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
   const pbTextNodePos = new PbTextNodePos();
   pbTextNodePos.setCreatedAt(toTimeTicket(pos.getID().getCreatedAt()));
   pbTextNodePos.setOffset(pos.getID().getOffset());
@@ -209,6 +217,35 @@ function toOperation(operation: Operation): PbOperation {
     pbSelectOperation.setTo(toTextNodePos(selectOperation.getToPos()));
     pbSelectOperation.setExecutedAt(toTimeTicket(selectOperation.getExecutedAt()));
     pbOperation.setSelect(pbSelectOperation);
+  } else if (operation instanceof RichEditOperation) {
+    const richEditOperation = operation as RichEditOperation;
+    const pbRichEditOperation = new PbOperation.RichEdit();
+    pbRichEditOperation.setParentCreatedAt(toTimeTicket(richEditOperation.getParentCreatedAt()));
+    pbRichEditOperation.setFrom(toTextNodePos(richEditOperation.getFromPos()));
+    pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
+    const pbCreatedAtMapByActor = pbRichEditOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of richEditOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value));
+    }
+    pbRichEditOperation.setContent(richEditOperation.getContent());
+    const pbAttributes = pbRichEditOperation.getAttributesMap()
+    for (const [key, value] of richEditOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
+    pbRichEditOperation.setExecutedAt(toTimeTicket(richEditOperation.getExecutedAt()));
+    pbOperation.setRichEdit(pbRichEditOperation);
+  } else if (operation instanceof StyleOperation) {
+    const styleOperation = operation as StyleOperation;
+    const pbStyleOperation = new PbOperation.Style();
+    pbStyleOperation.setParentCreatedAt(toTimeTicket(styleOperation.getParentCreatedAt()));
+    pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
+    pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
+    const pbAttributes = pbStyleOperation.getAttributesMap();
+    for (const [key, value] of styleOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
+    pbStyleOperation.setExecutedAt(toTimeTicket(styleOperation.getExecutedAt()));
+    pbOperation.setStyle(pbStyleOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -240,7 +277,7 @@ function toChanges(changes: Change[]): PbChange[] {
   return pbChanges;
 }
 
-function toRHTNodes(rht: RHT): PbRHTNode[] {
+function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
   const pbRHTNodes = []
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
@@ -408,6 +445,8 @@ function fromJSONElementSimple(pbJSONElement: PbJSONElementSimple): JSONElement 
       return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.TEXT:
       return PlainText.create(RGATreeSplit.create(), fromTimeTicket(pbJSONElement.getCreatedAt()));
+    case PbValueType.RICH_TEXT:
+      return RichText.create(RGATreeSplit.create(), fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.BOOLEAN:
     case PbValueType.INTEGER:
     case PbValueType.LONG:
@@ -424,9 +463,9 @@ function fromJSONElementSimple(pbJSONElement: PbJSONElementSimple): JSONElement 
   throw new YorkieError(Code.Unimplemented, `unimplemented element: ${pbJSONElement}`);
 }
 
-function fromTextNodePos(pbTextNodePos: PbTextNodePos): TextNodePos {
-  return TextNodePos.of(
-    TextNodeID.of(
+function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
+  return RGATreeSplitNodePos.of(
+    RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodePos.getCreatedAt()),
       pbTextNodePos.getOffset()
     ),
@@ -434,17 +473,26 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): TextNodePos {
   );
 }
 
-function fromTextNodeID(pbTextNodeID: PbTextNodeID): TextNodeID {
-  return TextNodeID.of(
+function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
+  return RGATreeSplitNodeID.of(
     fromTimeTicket(pbTextNodeID.getCreatedAt()),
     pbTextNodeID.getOffset()
   );
 }
 
-function fromTextNode(pbTextNode: PbTextNode): TextNode<string> {
-  const textNode = TextNode.create(
+function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
+  const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()),
     pbTextNode.getValue()
+  );
+  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
+  return textNode;
+}
+
+function fromRichTextNode(pbTextNode: PbRichTextNode): RGATreeSplitNode<RichTextValue> {
+  const textNode = RGATreeSplitNode.create(
+    fromTextNodeID(pbTextNode.getId()),
+    RichTextValue.create(pbTextNode.getValue())
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
@@ -508,6 +556,38 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTextNodePos(pbSelectOperation.getTo()),
         fromTimeTicket(pbSelectOperation.getExecutedAt()),
       );
+    } else if (pbOperation.hasRichEdit()) {
+      const pbEditOperation = pbOperation.getRichEdit();
+      const createdAtMapByActor = new Map();
+      pbEditOperation.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
+      const attributes = new Map();
+      pbEditOperation.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      operation = RichEditOperation.create(
+        fromTimeTicket(pbEditOperation.getParentCreatedAt()),
+        fromTextNodePos(pbEditOperation.getFrom()),
+        fromTextNodePos(pbEditOperation.getTo()),
+        createdAtMapByActor,
+        pbEditOperation.getContent(),
+        attributes,
+        fromTimeTicket(pbEditOperation.getExecutedAt()),
+      );
+    } else if (pbOperation.hasStyle()) {
+      const pbStyleOperation = pbOperation.getStyle();
+      const attributes = new Map();
+      pbStyleOperation.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      operation = StyleOperation.create(
+        fromTimeTicket(pbStyleOperation.getParentCreatedAt()),
+        fromTextNodePos(pbStyleOperation.getFrom()),
+        fromTextNodePos(pbStyleOperation.getTo()),
+        attributes,
+        fromTimeTicket(pbStyleOperation.getExecutedAt()),
+      );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
     }
@@ -549,7 +629,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
 }
 
 function fromJSONObject(pbObject: PbJSONElement.Object): JSONObject {
-  const rht = new RHT();
+  const rht = new RHTPQMap();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
     rht.set(pbRHTNode.getKey(), fromJSONElement(pbRHTNode.getElement()));
@@ -588,12 +668,32 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
   for (const pbNode of pbText.getNodesList()) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
     if (pbNode.hasInsPrevId()) {
-      current.setInsPrev(rgaTreeSplit.findTextNode(fromTextNodeID(pbNode.getInsPrevID())));
+      current.setInsPrev(rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId())));
     }
     prev = current;
   }
 
   const text = PlainText.create(
+    rgaTreeSplit,
+    fromTimeTicket(pbText.getCreatedAt()),
+  );
+  text.remove(fromTimeTicket(pbText.getRemovedAt()));
+  return text;
+}
+
+function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
+  const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
+
+  let prev = rgaTreeSplit.getHead();
+  for (const pbNode of pbText.getNodesList()) {
+    const current = rgaTreeSplit.insertAfter(prev, fromRichTextNode(pbNode));
+    if (pbNode.hasInsPrevId()) {
+      current.setInsPrev(rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId())));
+    }
+    prev = current;
+  }
+
+  const text = RichText.create(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt()),
   );
@@ -610,6 +710,8 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
     return fromJSONPrimitive(pbJSONElement.getPrimitive());
   } else if (pbJSONElement.hasText()) {
     return fromJSONText(pbJSONElement.getText());
+  } else if (pbJSONElement.hasRichText()) {
+    return fromJSONRichText(pbJSONElement.getRichText());
   } else {
     throw new YorkieError(Code.Unimplemented, `unimplemented element: ${pbJSONElement}`);
   }
