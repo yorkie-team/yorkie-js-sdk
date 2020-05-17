@@ -58,6 +58,8 @@ export class JSONPrimitive extends JSONElement {
         return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
       case PrimitiveType.String:
         return new TextDecoder("utf-8").decode(bytes);
+      case PrimitiveType.Long:
+        return Long.fromBytesLE(Array.from(bytes));
       default:
         throw new YorkieError(Code.Unimplemented, `unimplemented type: ${primitiveType}`);
     }
@@ -136,6 +138,11 @@ export class JSONPrimitive extends JSONElement {
       }
       case PrimitiveType.String: {
         return new TextEncoder().encode(this.value as string);
+      }
+      case PrimitiveType.Long: {
+        const longVal = this.value as Long;
+        const longToBytes = longVal.toBytesLE();
+        return Uint8Array.from(longToBytes);
       }
       default:
         throw new YorkieError(Code.Unimplemented, `unimplemented type: ${this.valueType}`);
