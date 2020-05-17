@@ -162,7 +162,7 @@ describe('Yorkie', function() {
       d1.update((root) => {
         root['k1'] = true;
         root['k2'] = 2147483647;
-        // root['k3'] = yorkie.Long.fromString('9223372036854775807');
+        root['k3'] = yorkie.Long.fromString('9223372036854775807');
         // root['k4'] = 1.79;
         root['k5'] = '4';
         // root['k6'] = new Uint8Array([65,66]);
