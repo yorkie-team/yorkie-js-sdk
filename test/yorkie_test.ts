@@ -165,8 +165,8 @@ describe('Yorkie', function() {
         root['k3'] = yorkie.Long.fromString('9223372036854775807');
         // root['k4'] = 1.79;
         root['k5'] = '4';
-        // root['k6'] = new Uint8Array([65,66]);
-        // root['k7'] = new Date();
+        root['k6'] = new Uint8Array([65,66]);
+        root['k7'] = new Date();
       });
 
       await c1.sync(); await c2.sync();
