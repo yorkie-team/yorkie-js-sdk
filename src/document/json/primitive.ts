@@ -56,6 +56,13 @@ export class JSONPrimitive extends JSONElement {
         return bytes[0] ? true : false;
       case PrimitiveType.Integer:
         return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
+      case PrimitiveType.Double: {
+        const view = new DataView(bytes.buffer);
+        bytes.forEach(function (b, i) {
+          view.setUint8(i, b);
+        });
+        return view.getFloat64(0, true);
+      }
       case PrimitiveType.String:
         return new TextDecoder("utf-8").decode(bytes);
       case PrimitiveType.Long:
@@ -139,6 +146,13 @@ export class JSONPrimitive extends JSONElement {
           (intVal >> 16) & 0xff,
           (intVal >> 24) & 0xff
         ]);
+      }
+      case PrimitiveType.Double: {
+        const doubleVal = this.value as number;
+        const uint8Array = new Uint8Array(8);
+        const view = new DataView(uint8Array.buffer);
+        view.setFloat64(0, doubleVal, true);
+        return uint8Array;
       }
       case PrimitiveType.String: {
         return new TextEncoder().encode(this.value as string);
