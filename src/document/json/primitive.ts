@@ -101,9 +101,6 @@ export class JSONPrimitive extends JSONElement {
       case 'boolean':
         return PrimitiveType.Boolean;
       case 'number':
-        if (JSONPrimitive.isInteger(value)) {
-          return PrimitiveType.Integer;
-        }
         return PrimitiveType.Double;
       case 'string':
         return PrimitiveType.String;
