@@ -158,7 +158,6 @@ describe('Yorkie', function() {
 
   it('Can handle primitive types', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      // TODO support more primitive types
       d1.update((root) => {
         root['k1'] = true;
         root['k2'] = 2147483647;
