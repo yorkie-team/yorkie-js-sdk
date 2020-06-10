@@ -47,7 +47,7 @@ interface ClientEvent {
 interface Attachment {
   doc: Document;
   isRealtimeSync: boolean;
-  remoteChangeEventReceved?: boolean;
+  remoteChangeEventReceived?: boolean;
 }
 
 export interface ClientOptions {
@@ -286,8 +286,8 @@ export class Client implements Observable<ClientEvent> {
       const promises = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync &&
-            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceved)) {
-          attachment.remoteChangeEventReceved = false;
+            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceived)) {
+          attachment.remoteChangeEventReceived = false;
           promises.push(this.syncInternal(attachment.doc));
         }
       }
@@ -346,7 +346,7 @@ export class Client implements Observable<ClientEvent> {
 
         for (const key of keys) {
           const attachment = this.attachmentMap.get(key.toIDString());
-          attachment.remoteChangeEventReceved = true;
+          attachment.remoteChangeEventReceived = true;
         }
       });
       stream.on('end', () => {
