@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
-import { Operation } from './operation';
+import {logger} from '../../util/logger';
+import {TimeTicket} from '../time/ticket';
+import {JSONRoot} from '../json/root';
+import {RGATreeSplitNodePos} from '../json/rga_tree_split';
+import {PlainText} from '../json/text';
+import {Operation} from './operation';
 
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -64,7 +64,12 @@ export class EditOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof PlainText) {
       const text = parentObject as PlainText;
-      text.editInternal([this.fromPos, this.toPos], this.content, this.maxCreatedAtMapByActor, this.getExecutedAt());
+      text.editInternal(
+        [this.fromPos, this.toPos],
+        this.content,
+        this.maxCreatedAtMapByActor,
+        this.getExecutedAt()
+      );
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);
     }
@@ -75,7 +80,7 @@ export class EditOperation extends Operation {
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
     const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`
+    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

@@ -15,10 +15,13 @@
  */
 
 import Long from 'long';
-import { Comparator } from '../../util/comparator';
-import { ActorID, InitialActorID, MaxActorID } from './actor_id';
+import {Comparator} from '../../util/comparator';
+import {ActorID, InitialActorID, MaxActorID} from './actor_id';
 
-export const TicketComparator: Comparator<TimeTicket> = (p1: TimeTicket, p2: TimeTicket) => {
+export const TicketComparator: Comparator<TimeTicket> = (
+  p1: TimeTicket,
+  p2: TimeTicket
+) => {
   return p1.compare(p2);
 };
 
@@ -34,7 +37,11 @@ export class TimeTicket {
     this.actorID = actorID;
   }
 
-  public static of(lamport: Long, delimiter: number, actorID: string): TimeTicket {
+  public static of(
+    lamport: Long,
+    delimiter: number,
+    actorID: string
+  ): TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
 
@@ -49,7 +56,9 @@ export class TimeTicket {
     if (this.actorID == null) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
-    return `${this.lamport.toString()}:${this.actorID.substring(22, 24)}:${this.delimiter}`;
+    return `${this.lamport.toString()}:${this.actorID.substring(22, 24)}:${
+      this.delimiter
+    }`;
   }
 
   public setActor(actorID: ActorID): TimeTicket {
@@ -102,5 +111,13 @@ export const InitialDelimiter = 0;
 export const MaxDelemiter = 4294967295;
 export const MaxLamport = Long.fromString('18446744073709551615', true);
 
-export const InitialTimeTicket = new TimeTicket(Long.fromNumber(0, true), InitialDelimiter, InitialActorID);
-export const MaxTimeTicket = new TimeTicket(MaxLamport, MaxDelemiter, MaxActorID);
+export const InitialTimeTicket = new TimeTicket(
+  Long.fromNumber(0, true),
+  InitialDelimiter,
+  InitialActorID
+);
+export const MaxTimeTicket = new TimeTicket(
+  MaxLamport,
+  MaxDelemiter,
+  MaxActorID
+);

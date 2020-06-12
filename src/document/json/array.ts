@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '../time/ticket';
-import { JSONContainer, JSONElement } from './element';
-import { RGATreeList } from './rga_tree_list';
+import {TimeTicket} from '../time/ticket';
+import {JSONContainer, JSONElement} from './element';
+import {RGATreeList} from './rga_tree_list';
 
 /**
  * JSONArray represents JSON array data structure including logical clock.
@@ -37,7 +37,11 @@ export class JSONArray extends JSONContainer {
     this.elements.insertAfter(prevCreatedAt, value);
   }
 
-  public moveAfter(prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket): void {
+  public moveAfter(
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+    executedAt: TimeTicket
+  ): void {
     this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
   }
 
@@ -70,7 +74,7 @@ export class JSONArray extends JSONContainer {
   }
 
   public get length(): number {
-    return this.elements.length; 
+    return this.elements.length;
   }
 
   public *[Symbol.iterator](): IterableIterator<JSONElement> {
@@ -88,14 +92,14 @@ export class JSONArray extends JSONContainer {
         for (const descendant of element.getDescendants()) {
           yield descendant;
         }
-      } 
+      }
 
       yield element;
     }
   }
 
   public toJSON(): string {
-    const json = []
+    const json = [];
     for (const value of this) {
       json.push(value.toJSON());
     }
@@ -118,7 +122,7 @@ export class JSONArray extends JSONContainer {
         node.getValue().deepcopy()
       );
     }
-    clone.remove(this.getRemovedAt())
+    clone.remove(this.getRemovedAt());
     return clone;
   }
 }

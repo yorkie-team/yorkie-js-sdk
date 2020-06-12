@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { JSONArray } from '../json/array';
-import { Operation } from './operation';
+import {logger} from '../../util/logger';
+import {TimeTicket} from '../time/ticket';
+import {JSONRoot} from '../json/root';
+import {JSONArray} from '../json/array';
+import {Operation} from './operation';
 
 export class MoveOperation extends Operation {
   private prevCreatedAt: TimeTicket;
   private createdAt: TimeTicket;
 
-  constructor(parentCreatedAt: TimeTicket, prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket) {
+  constructor(
+    parentCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+    executedAt: TimeTicket
+  ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
     this.createdAt = createdAt;
@@ -34,9 +39,14 @@ export class MoveOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt: TimeTicket
   ): MoveOperation {
-    return new MoveOperation(parentCreatedAt, prevCreatedAt, createdAt, executedAt);
+    return new MoveOperation(
+      parentCreatedAt,
+      prevCreatedAt,
+      createdAt,
+      executedAt
+    );
   }
 
   public execute(root: JSONRoot): void {
@@ -50,7 +60,7 @@ export class MoveOperation extends Operation {
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.MOV`
+    return `${this.getParentCreatedAt().getAnnotatedString()}.MOV`;
   }
 
   public getPrevCreatedAt(): TimeTicket {
