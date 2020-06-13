@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import {logger, LogLevel} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {AddOperation} from '../operation/add_operation';
-import {MoveOperation} from '../operation/move_operation';
-import {RemoveOperation} from '../operation/remove_operation';
-import {ChangeContext} from '../change/context';
-import {JSONElement} from '../json/element';
-import {JSONObject} from '../json/object';
-import {JSONArray} from '../json/array';
-import {JSONPrimitive} from '../json/primitive';
-import {ObjectProxy} from './object_proxy';
-import {toProxy} from './proxy';
+import { logger, LogLevel } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { AddOperation } from '../operation/add_operation';
+import { MoveOperation } from '../operation/move_operation';
+import { RemoveOperation } from '../operation/remove_operation';
+import { ChangeContext } from '../change/context';
+import { JSONElement } from '../json/element';
+import { JSONObject } from '../json/object';
+import { JSONArray } from '../json/array';
+import { JSONPrimitive } from '../json/primitive';
+import { ObjectProxy } from './object_proxy';
+import { toProxy } from './proxy';
 
 function isNumericString(val: any): boolean {
   if (typeof val === 'string' || val instanceof String) {
@@ -46,7 +46,7 @@ export class ArrayProxy {
       get: (
         target: JSONArray,
         method: string | symbol,
-        receiver: object
+        receiver: object,
       ): any => {
         // Yorkie extension API
         if (method === 'getID') {
@@ -74,7 +74,7 @@ export class ArrayProxy {
             const deleted = ArrayProxy.deleteInternalByID(
               context,
               target,
-              createdAt
+              createdAt,
             );
             return toProxy(context, deleted);
           };
@@ -84,7 +84,7 @@ export class ArrayProxy {
               context,
               target,
               prevID,
-              value
+              value,
             );
             return toProxy(context, inserted);
           };
@@ -104,25 +104,21 @@ export class ArrayProxy {
             return ArrayProxy.pushInternal(context, target, value);
           };
         } else if (method === 'filter') {
-          return (
-            callback: (
-              elem: JSONElement,
-              idx: number,
-              arr: Array<JSONElement>
-            ) => Array<JSONElement>
-          ): Array<JSONElement> => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .filter(callback);
+          return (callback: (
+            elem: JSONElement,
+            idx: number,
+            arr: Array<JSONElement>
+          ) => Array<JSONElement>): Array<JSONElement> => {
+            return Array.from(target).map((e) => toProxy(context, e)).filter(callback);
           };
         } else if (method === 'reduce') {
-          return (
-            callback: (accumulator: any, curr: JSONElement) => any,
-            accumulator: any
-          ) => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .reduce(callback, accumulator);
+          return (callback: (
+            accumulator: any,
+            curr: JSONElement
+          ) => any, accumulator: any) => {
+            return Array.from(target).map((e) =>
+              toProxy(context, e)
+            ).reduce(callback, accumulator);
           };
         } else if (method === 'length') {
           return target.length;
@@ -148,7 +144,7 @@ export class ArrayProxy {
 
   public static *iteratorInternal(
     change: ChangeContext,
-    target: JSONArray
+    target: JSONArray,
   ): IterableIterator<any> {
     for (const elem of target) {
       yield toProxy(change, elem);
@@ -163,13 +159,13 @@ export class ArrayProxy {
   public static pushInternal(
     context: ChangeContext,
     target: JSONArray,
-    value: any
+    value: any,
   ): number {
     ArrayProxy.insertAfterInternal(
       context,
       target,
       target.getLastCreatedAt(),
-      value
+      value,
     );
     return target.length;
   }
@@ -178,7 +174,7 @@ export class ArrayProxy {
     context: ChangeContext,
     target: JSONArray,
     nextCreatedAt: TimeTicket,
-    createdAt: TimeTicket
+    createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
@@ -188,8 +184,8 @@ export class ArrayProxy {
         target.getCreatedAt(),
         prevCreatedAt,
         createdAt,
-        ticket
-      )
+        ticket,
+      ),
     );
   }
 
@@ -197,7 +193,7 @@ export class ArrayProxy {
     context: ChangeContext,
     target: JSONArray,
     prevCreatedAt: TimeTicket,
-    value: any
+    value: any,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
@@ -209,8 +205,8 @@ export class ArrayProxy {
           target.getCreatedAt(),
           prevCreatedAt,
           primitive,
-          ticket
-        )
+          ticket,
+        ),
       );
       return primitive;
     } else if (Array.isArray(value)) {
@@ -218,7 +214,12 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, array);
       context.registerElement(array);
       context.push(
-        AddOperation.create(target.getCreatedAt(), prevCreatedAt, array, ticket)
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          array,
+          ticket,
+        ),
       );
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element);
@@ -229,7 +230,7 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj);
       context.push(
-        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket)
+        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
       );
 
       for (const [k, v] of Object.entries(value)) {
@@ -244,7 +245,7 @@ export class ArrayProxy {
   public static deleteInternalByIndex(
     context: ChangeContext,
     target: JSONArray,
-    index: number
+    index: number,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByIndex(index, ticket);
@@ -252,8 +253,8 @@ export class ArrayProxy {
       RemoveOperation.create(
         target.getCreatedAt(),
         deleted.getCreatedAt(),
-        ticket
-      )
+        ticket,
+      ),
     );
     return deleted;
   }
@@ -261,7 +262,7 @@ export class ArrayProxy {
   public static deleteInternalByID(
     context: ChangeContext,
     target: JSONArray,
-    createdAt: TimeTicket
+    createdAt: TimeTicket,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
     const deleted = target.delete(createdAt, ticket);
@@ -269,8 +270,8 @@ export class ArrayProxy {
       RemoveOperation.create(
         target.getCreatedAt(),
         deleted.getCreatedAt(),
-        ticket
-      )
+        ticket,
+      ),
     );
     return deleted;
   }

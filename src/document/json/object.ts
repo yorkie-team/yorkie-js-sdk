@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONContainer, JSONElement} from './element';
-import {RHTPQMap} from './rht_pq_map';
-import {PlainText} from './text';
-import {RichText} from './rich_text';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONContainer, JSONElement } from './element';
+import { RHTPQMap } from './rht_pq_map';
+import { PlainText } from './text';
+import { RichText } from './rich_text';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time

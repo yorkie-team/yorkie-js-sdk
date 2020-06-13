@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {ActorID} from '../time/actor_id';
-import {Comparator} from '../../util/comparator';
-import {SplayNode, SplayTree} from '../../util/splay_tree';
-import {LLRBTree} from '../../util/llrb_tree';
-import {InitialTimeTicket, MaxTimeTicket, TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
+import { logger } from '../../util/logger';
+import { ActorID } from '../time/actor_id';
+import { Comparator } from '../../util/comparator';
+import { SplayNode, SplayTree } from '../../util/splay_tree';
+import { LLRBTree } from '../../util/llrb_tree';
+import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 
 export enum ChangeType {
   Content = 'content',
@@ -34,7 +33,7 @@ export interface Change {
   from: number;
   to: number;
   content?: string;
-  attributes?: {[key: string]: string};
+  attributes?: { [key: string]: string };
 }
 
 interface RGATreeSplitValue {
@@ -96,7 +95,7 @@ export class RGATreeSplitNodePos {
 
   public static of(
     id: RGATreeSplitNodeID,
-    relativeOffset: number
+    relativeOffset: number,
   ): RGATreeSplitNodePos {
     return new RGATreeSplitNodePos(id, relativeOffset);
   }
@@ -112,7 +111,7 @@ export class RGATreeSplitNodePos {
   public getAbsoluteID(): RGATreeSplitNodeID {
     return RGATreeSplitNodeID.of(
       this.id.getCreatedAt(),
-      this.id.getOffset() + this.relativeOffset
+      this.id.getOffset() + this.relativeOffset,
     );
   }
 
@@ -142,7 +141,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<
 
   public static create<T extends RGATreeSplitValue>(
     id: RGATreeSplitNodeID,
-    value?: T
+    value?: T,
   ): RGATreeSplitNode<T> {
     return new RGATreeSplitNode(id, value);
   }
@@ -283,7 +282,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     range: RGATreeSplitNodeRange,
     value: T,
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -294,7 +293,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const [changes, latestCreatedAtMap] = this.deleteNodes(
       nodesToDelete,
       latestCreatedAtMapByActor,
-      editedAt
+      editedAt,
     );
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
@@ -306,7 +305,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       const inserted = this.insertAfter(
         fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value)
+        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
 
       changes.push({
@@ -319,7 +318,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       caretPos = RGATreeSplitNodePos.of(
         inserted.getID(),
-        inserted.getContentLength()
+        inserted.getContentLength(),
       );
     }
 
@@ -342,7 +341,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public findIdxFromNodePos(
     pos: RGATreeSplitNodePos,
-    preferToLeft: boolean
+    preferToLeft: boolean,
   ): number {
     const absoluteID = pos.getAbsoluteID();
     const node = preferToLeft
@@ -351,7 +350,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const index = this.treeByIndex.indexOf(node);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`
+        `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
       );
     }
     const offset = node.isRemoved()
@@ -428,7 +427,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public insertAfter(
     prevNode: RGATreeSplitNode<T>,
-    newNode: RGATreeSplitNode<T>
+    newNode: RGATreeSplitNode<T>,
   ): RGATreeSplitNode<T> {
     const next = prevNode.getNext();
     newNode.setPrev(prevNode);
@@ -444,7 +443,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public findNodeWithSplit(
     pos: RGATreeSplitNodePos,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
     let node = this.findFloorNodePerferToLeft(absoluteID);
@@ -460,12 +459,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   private findFloorNodePerferToLeft(
-    id: RGATreeSplitNodeID
+    id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
     let node = this.findFloorNode(id);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${id.getAnnotatedString()}`
+        `the node of the given id should be found: ${id.getAnnotatedString()}`,
       );
     }
 
@@ -494,7 +493,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public findBetween(
     fromNode: RGATreeSplitNode<T>,
-    toNode: RGATreeSplitNode<T>
+    toNode: RGATreeSplitNode<T>,
   ): Array<RGATreeSplitNode<T>> {
     const nodes = [];
 
@@ -509,7 +508,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   private splitNode(
     node: RGATreeSplitNode<T>,
-    offset: number
+    offset: number,
   ): RGATreeSplitNode<T> {
     if (offset > node.getContentLength()) {
       logger.fatal('offset should be less than or equal to length');
@@ -537,7 +536,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): [Array<Change>, Map<string, TimeTicket>] {
     const isRemote = !!latestCreatedAtMapByActor;
     const changes: Array<Change> = [];
@@ -599,7 +598,7 @@ export class Selection {
   constructor(
     from: RGATreeSplitNodePos,
     to: RGATreeSplitNodePos,
-    updatedAt: TimeTicket
+    updatedAt: TimeTicket,
   ) {
     this.from = from;
     this.to = to;
@@ -608,7 +607,7 @@ export class Selection {
 
   public static of(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket
+    updatedAt: TimeTicket,
   ): Selection {
     return new Selection(range[0], range[1], updatedAt);
   }

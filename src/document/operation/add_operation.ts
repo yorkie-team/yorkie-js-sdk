@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONElement} from '../json/element';
-import {JSONRoot} from '../json/root';
-import {JSONArray} from '../json/array';
-import {Operation} from './operation';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONElement } from '../json/element';
+import { JSONRoot } from '../json/root';
+import { JSONArray } from '../json/array';
+import { Operation } from './operation';
 
 export class AddOperation extends Operation {
   private prevCreatedAt: TimeTicket;
@@ -29,7 +29,7 @@ export class AddOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     value: JSONElement,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
@@ -40,7 +40,7 @@ export class AddOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     value: JSONElement,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): AddOperation {
     return new AddOperation(parentCreatedAt, prevCreatedAt, value, executedAt);
   }

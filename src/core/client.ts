@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {ActorID} from '../document/time/actor_id';
+import { ActorID } from '../document/time/actor_id';
 import {
   Observer,
   Observable,
@@ -29,12 +29,12 @@ import {
   PushPullRequest,
   WatchDocumentsRequest,
 } from '../api/yorkie_pb';
-import {converter} from '../api/converter';
-import {YorkieClient} from '../api/yorkie_grpc_web_pb';
-import {Code, YorkieError} from '../util/error';
-import {logger} from '../util/logger';
-import {uuid} from '../util/uuid';
-import {Document} from '../document/document';
+import { converter } from '../api/converter';
+import { YorkieClient } from '../api/yorkie_grpc_web_pb';
+import { Code, YorkieError } from '../util/error';
+import { logger } from '../util/logger';
+import { uuid } from '../util/uuid';
+import { Document } from '../document/document';
 
 export enum ClientStatus {
   Deactivated = 0,
@@ -134,7 +134,7 @@ export class Client implements Observable<ClientEvent> {
         });
 
         logger.info(
-          `[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`
+          `[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`,
         );
         resolve();
       });
@@ -210,7 +210,7 @@ export class Client implements Observable<ClientEvent> {
         this.runWatchLoop();
 
         logger.info(
-          `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`
+          `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`,
         );
         resolve(doc);
       });
@@ -250,7 +250,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         logger.info(
-          `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`
+          `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`,
         );
         resolve(doc);
       });
@@ -308,13 +308,11 @@ export class Client implements Observable<ClientEvent> {
         }
       }
 
-      Promise.all(promises)
-        .then(() => {
-          setTimeout(doLoop, this.syncLoopDuration);
-        })
-        .catch((err) => {
-          logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
-        });
+      Promise.all(promises).then(() => {
+        setTimeout(doLoop, this.syncLoopDuration);
+      }).catch((err) => {
+        logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+      });
     };
 
     logger.debug(`[SL] c:"${this.getKey()}" run sync loop`);
@@ -376,8 +374,8 @@ export class Client implements Observable<ClientEvent> {
 
       logger.info(
         `[WD] c:"${this.getKey()}" watches d:"${keys.map((key) =>
-          key.toIDString()
-        )}"`
+          key.toIDString(),
+        )}"`,
       );
     };
 
@@ -395,33 +393,29 @@ export class Client implements Observable<ClientEvent> {
       req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
-      this.client
-        .pushPull(req, {}, (err, res) => {
-          if (err) {
-            logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
+      this.client.pushPull(req, {}, (err, res) => {
+        if (err) {
+          logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
 
-            isRejected = true;
-            reject(err);
-            return;
-          }
+          isRejected = true;
+          reject(err);
+          return;
+        }
 
-          const respPack = converter.fromChangePack(res.getChangePack());
-          doc.applyChangePack(respPack);
+        const respPack = converter.fromChangePack(res.getChangePack());
+        doc.applyChangePack(respPack);
 
-          const docKey = doc.getKey().toIDString();
-          const remoteSize = respPack.getChangeSize();
-          logger.info(
-            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
-              .getCheckpoint()
-              .getAnnotatedString()}`
-          );
-        })
-        .on('end', () => {
-          if (isRejected) {
-            return;
-          }
-          resolve(doc);
-        });
+        const docKey = doc.getKey().toIDString();
+        const remoteSize = respPack.getChangeSize();
+        logger.info(
+          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack.getCheckpoint().getAnnotatedString()}`,
+        );
+      }).on('end', () => {
+        if (isRejected) {
+          return;
+        }
+        resolve(doc);
+      });
     });
   }
 }

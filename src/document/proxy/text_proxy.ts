@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger, LogLevel} from '../../util/logger';
-import {ChangeContext} from '../change/context';
-import {RGATreeSplitNodeRange, Change} from '../json/rga_tree_split';
-import {PlainText} from '../json/text';
-import {EditOperation} from '../operation/edit_operation';
-import {SelectOperation} from '../operation/select_operation';
+import { logger, LogLevel } from '../../util/logger';
+import { ChangeContext } from '../change/context';
+import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
+import { PlainText } from '../json/text';
+import { EditOperation } from '../operation/edit_operation';
+import { SelectOperation } from '../operation/select_operation';
 
 export class TextProxy {
   private context: ChangeContext;
@@ -75,7 +75,7 @@ export class TextProxy {
     target: PlainText,
     fromIdx: number,
     toIdx: number,
-    content: string
+    content: string,
   ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
@@ -84,7 +84,7 @@ export class TextProxy {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`
+        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
 
@@ -93,7 +93,7 @@ export class TextProxy {
       range,
       content,
       null,
-      ticket
+      ticket,
     );
 
     this.context.push(
@@ -103,27 +103,27 @@ export class TextProxy {
         range[1],
         maxCreatedAtMapByActor,
         content,
-        ticket
-      )
+        ticket,
+      ),
     );
   }
 
   public updateSelection(
     target: PlainText,
     fromIdx: number,
-    toIdx: number
+    toIdx: number,
   ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
     target.updateSelection(range, ticket);
 
     this.context.push(
-      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket)
+      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
     );
   }
 

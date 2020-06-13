@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {assert} from 'chai';
-import {range, shuffle} from '../helper/helper';
-import {LLRBTree} from '../../src/util/llrb_tree';
+import { assert } from 'chai';
+import { range, shuffle } from '../helper/helper';
+import { LLRBTree } from '../../src/util/llrb_tree';
 
 describe('LLRBTree', function () {
   it('Can put/remove while keeping order', function () {

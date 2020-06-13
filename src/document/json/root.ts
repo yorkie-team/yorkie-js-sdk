@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {InitialTimeTicket, TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
-import {JSONObject} from './object';
+import { InitialTimeTicket, TimeTicket } from '../time/ticket';
+import { JSONElement } from './element';
+import { JSONObject } from './object';
 
 /**
  * JSONRoot is a structure represents the root of JSON. It has a hash table of
@@ -57,7 +57,7 @@ export class JSONRoot {
   public registerElement(element: JSONElement): void {
     this.elementMapByCreatedAt.set(
       element.getCreatedAt().toIDString(),
-      element
+      element,
     );
   }
 

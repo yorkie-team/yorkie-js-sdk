@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {TimeTicket} from '../time/ticket';
+import { TimeTicket } from '../time/ticket';
 
 /**
  * JSONElement represents JSON element including logical clock.

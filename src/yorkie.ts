@@ -15,8 +15,8 @@
  */
 
 import Long from 'long';
-import {Client, ClientOptions} from './core/client';
-import {Document} from './document/document';
+import { Client, ClientOptions } from './core/client';
+import { Document } from './document/document';
 
 // yorkie namespace.
 //  e.g) yorkie.createClient(...)

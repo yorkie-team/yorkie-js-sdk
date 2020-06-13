@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Comparator, DefaultComparator} from './comparator';
+import { Comparator, DefaultComparator } from './comparator';
 
 interface Entry<K, V> {
   key: K;

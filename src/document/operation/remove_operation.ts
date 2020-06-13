@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONRoot} from '../json/root';
-import {JSONObject} from '../json/object';
-import {JSONArray} from '../json/array';
-import {Operation} from './operation';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONRoot } from '../json/root';
+import { JSONObject } from '../json/object';
+import { JSONArray } from '../json/array';
+import { Operation } from './operation';
 
 export class RemoveOperation extends Operation {
   private createdAt: TimeTicket;
@@ -27,7 +27,7 @@ export class RemoveOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
@@ -36,7 +36,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import {logger, LogLevel} from '../../util/logger';
-import {ChangeContext} from '../change/context';
-import {RGATreeSplitNodeRange, Change} from '../json/rga_tree_split';
-import {RichText, RichTextVal, RichTextValue} from '../json/rich_text';
-import {RichEditOperation} from '../operation/rich_edit_operation';
-import {StyleOperation} from '../operation/style_operation';
-import {SelectOperation} from '../operation/select_operation';
+import { logger, LogLevel } from '../../util/logger';
+import { ChangeContext } from '../change/context';
+import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
+import { RichText, RichTextVal } from '../json/rich_text';
+import { RichEditOperation } from '../operation/rich_edit_operation';
+import { StyleOperation } from '../operation/style_operation';
+import { SelectOperation } from '../operation/select_operation';
 
 export class RichTextProxy {
   private context: ChangeContext;
@@ -39,7 +39,7 @@ export class RichTextProxy {
             fromIdx: number,
             toIdx: number,
             content: string,
-            attributes?: {[key: string]: string}
+            attributes?: { [key: string]: string },
           ): boolean => {
             this.edit(target, fromIdx, toIdx, content, attributes);
             return true;
@@ -49,7 +49,7 @@ export class RichTextProxy {
           return (
             fromIdx: number,
             toIdx: number,
-            attributes: {[key: string]: string}
+            attributes: { [key: string]: string },
           ): boolean => {
             this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
@@ -92,7 +92,7 @@ export class RichTextProxy {
     fromIdx: number,
     toIdx: number,
     content: string,
-    attributes?: {[key: string]: string}
+    attributes?: { [key: string]: string },
   ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
@@ -101,7 +101,7 @@ export class RichTextProxy {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`
+        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
 
@@ -111,7 +111,7 @@ export class RichTextProxy {
       content,
       attributes,
       null,
-      ticket
+      ticket,
     );
 
     this.context.push(
@@ -122,8 +122,8 @@ export class RichTextProxy {
         maxCreatedAtMapByActor,
         content,
         attributes ? new Map(Object.entries(attributes)) : new Map(),
-        ticket
-      )
+        ticket,
+      ),
     );
   }
 
@@ -131,7 +131,7 @@ export class RichTextProxy {
     target: RichText,
     fromIdx: number,
     toIdx: number,
-    attributes: {[key: string]: string}
+    attributes: { [key: string]: string },
   ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
@@ -141,8 +141,8 @@ export class RichTextProxy {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(
-          attributes
-        )}`
+          attributes,
+        )}`,
       );
     }
 
@@ -155,27 +155,27 @@ export class RichTextProxy {
         range[0],
         range[1],
         new Map(Object.entries(attributes)),
-        ticket
-      )
+        ticket,
+      ),
     );
   }
 
   public updateSelection(
     target: RichText,
     fromIdx: number,
-    toIdx: number
+    toIdx: number,
   ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
     target.updateSelection(range, ticket);
 
     this.context.push(
-      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket)
+      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
     );
   }
 

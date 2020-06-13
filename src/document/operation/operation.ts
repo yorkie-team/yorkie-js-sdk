@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {ActorID} from '../time/actor_id';
-import {TimeTicket} from '../time/ticket';
-import {JSONRoot} from '../json/root';
+import { ActorID } from '../time/actor_id';
+import { TimeTicket } from '../time/ticket';
+import { JSONRoot } from '../json/root';
 
 export abstract class Operation {
   private parentCreatedAt: TimeTicket;

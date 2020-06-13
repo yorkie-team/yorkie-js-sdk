@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {TimeTicket} from '../time/ticket';
-import {JSONContainer, JSONElement} from './element';
-import {RGATreeList} from './rga_tree_list';
+import { TimeTicket } from '../time/ticket';
+import { JSONContainer, JSONElement } from './element';
+import { RGATreeList } from './rga_tree_list';
 
 /**
  * JSONArray represents JSON array data structure including logical clock.
@@ -40,7 +40,7 @@ export class JSONArray extends JSONContainer {
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): void {
     this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
   }
@@ -119,7 +119,7 @@ export class JSONArray extends JSONContainer {
     for (const node of this.elements) {
       clone.elements.insertAfter(
         clone.getLastCreatedAt(),
-        node.getValue().deepcopy()
+        node.getValue().deepcopy(),
       );
     }
     clone.remove(this.getRemovedAt());

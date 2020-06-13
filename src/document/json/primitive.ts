@@ -15,9 +15,9 @@
  */
 
 import Long from 'long';
-import {Code, YorkieError} from '../../util/error';
-import {TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
+import { Code, YorkieError } from '../../util/error';
+import { TimeTicket } from '../time/ticket';
+import { JSONElement } from './element';
 
 export enum PrimitiveType {
   Null = 0,
@@ -48,14 +48,14 @@ export class JSONPrimitive extends JSONElement {
 
   public static of(
     value: PrimitiveValue,
-    createdAt: TimeTicket
+    createdAt: TimeTicket,
   ): JSONPrimitive {
     return new JSONPrimitive(value, createdAt);
   }
 
   public static valueFromBytes(
     primitiveType: PrimitiveType,
-    bytes: Uint8Array
+    bytes: Uint8Array,
   ): PrimitiveValue {
     switch (primitiveType) {
       case PrimitiveType.Boolean:
@@ -80,7 +80,7 @@ export class JSONPrimitive extends JSONElement {
       default:
         throw new YorkieError(
           Code.Unimplemented,
-          `unimplemented type: ${primitiveType}`
+          `unimplemented type: ${primitiveType}`,
         );
     }
   }
@@ -180,7 +180,7 @@ export class JSONPrimitive extends JSONElement {
       default:
         throw new YorkieError(
           Code.Unimplemented,
-          `unimplemented type: ${this.valueType}`
+          `unimplemented type: ${this.valueType}`,
         );
     }
   }

@@ -15,12 +15,12 @@
  */
 
 import Long from 'long';
-import {Comparator} from '../../util/comparator';
-import {ActorID, InitialActorID, MaxActorID} from './actor_id';
+import { Comparator } from '../../util/comparator';
+import { ActorID, InitialActorID, MaxActorID } from './actor_id';
 
 export const TicketComparator: Comparator<TimeTicket> = (
   p1: TimeTicket,
-  p2: TimeTicket
+  p2: TimeTicket,
 ) => {
   return p1.compare(p2);
 };
@@ -40,7 +40,7 @@ export class TimeTicket {
   public static of(
     lamport: Long,
     delimiter: number,
-    actorID: string
+    actorID: string,
   ): TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
@@ -114,10 +114,10 @@ export const MaxLamport = Long.fromString('18446744073709551615', true);
 export const InitialTimeTicket = new TimeTicket(
   Long.fromNumber(0, true),
   InitialDelimiter,
-  InitialActorID
+  InitialActorID,
 );
 export const MaxTimeTicket = new TimeTicket(
   MaxLamport,
   MaxDelemiter,
-  MaxActorID
+  MaxActorID,
 );

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {HeapNode, Heap} from '../../util/heap';
-import {TicketComparator, TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
+import { HeapNode, Heap } from '../../util/heap';
+import { TicketComparator, TimeTicket } from '../time/ticket';
+import { JSONElement } from './element';
 
 export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
   private strKey: string;

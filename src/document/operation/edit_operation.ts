@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONRoot} from '../json/root';
-import {RGATreeSplitNodePos} from '../json/rga_tree_split';
-import {PlainText} from '../json/text';
-import {Operation} from './operation';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONRoot } from '../json/root';
+import { RGATreeSplitNodePos } from '../json/rga_tree_split';
+import { PlainText } from '../json/text';
+import { Operation } from './operation';
 
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -33,7 +33,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -48,7 +48,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -56,7 +56,7 @@ export class EditOperation extends Operation {
       toPos,
       maxCreatedAtMapByActor,
       content,
-      executedAt
+      executedAt,
     );
   }
 
@@ -68,7 +68,7 @@ export class EditOperation extends Operation {
         [this.fromPos, this.toPos],
         this.content,
         this.maxCreatedAtMapByActor,
-        this.getExecutedAt()
+        this.getExecutedAt(),
       );
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);

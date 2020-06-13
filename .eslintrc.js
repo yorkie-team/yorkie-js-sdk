@@ -7,5 +7,8 @@ module.exports = {
     'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
   ],
-  rules: {'prettier/prettier': 'error'},
+  // FIXME: We need to find a way to prevent a newline per chained call.
+  // rules: {
+  //   'prettier/prettier': 'error',
+  // },
 };

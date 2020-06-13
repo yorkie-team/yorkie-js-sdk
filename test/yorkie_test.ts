@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import {assert} from 'chai';
+import { assert } from 'chai';
 import * as sinon from 'sinon';
-import {Client} from '../src/core/client';
-import {Document} from '../src/document/document';
+import { Client } from '../src/core/client';
+import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
 const testRPCAddr = 'https://yorkie.dev/api';
@@ -29,9 +29,9 @@ async function withTwoClientsAndDocuments(
     c1: Client,
     d1: Document,
     c2: Client,
-    d2: Document
+    d2: Document,
   ) => Promise<void>,
-  title: string
+  title: string,
 ): Promise<void> {
   const client1 = yorkie.createClient(testRPCAddr);
   const client2 = yorkie.createClient(testRPCAddr);
@@ -93,7 +93,7 @@ describe('Yorkie', function () {
 
     await client1.attach(doc1, true);
     doc1.update((root) => {
-      root['k1'] = {'k1-1': 'v1'};
+      root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
     }, 'set v1, v2');
     await client1.sync();
@@ -210,7 +210,7 @@ describe('Yorkie', function () {
         root['k2'] = 'v2';
       });
       d2.update((root) => {
-        root['k2']['k2.1'] = {'k2.1.1': 'v3'};
+        root['k2']['k2.1'] = { 'k2.1.1': 'v3' };
       });
       await c1.sync();
       await c2.sync();

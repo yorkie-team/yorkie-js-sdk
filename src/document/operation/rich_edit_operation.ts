@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONRoot} from '../json/root';
-import {RGATreeSplitNodePos} from '../json/rga_tree_split';
-import {RichText} from '../json/rich_text';
-import {Operation} from './operation';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONRoot } from '../json/root';
+import { RGATreeSplitNodePos } from '../json/rga_tree_split';
+import { RichText } from '../json/rich_text';
+import { Operation } from './operation';
 
 export class RichEditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -35,7 +35,7 @@ export class RichEditOperation extends Operation {
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -52,7 +52,7 @@ export class RichEditOperation extends Operation {
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): RichEditOperation {
     return new RichEditOperation(
       parentCreatedAt,
@@ -61,7 +61,7 @@ export class RichEditOperation extends Operation {
       maxCreatedAtMapByActor,
       content,
       attributes,
-      executedAt
+      executedAt,
     );
   }
 
@@ -74,7 +74,7 @@ export class RichEditOperation extends Operation {
         this.content,
         Object.fromEntries(this.attributes),
         this.maxCreatedAtMapByActor,
-        this.getExecutedAt()
+        this.getExecutedAt(),
       );
     } else {
       logger.fatal(`fail to execute, only RichText can execute edit`);

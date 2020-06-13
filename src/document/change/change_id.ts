@@ -15,8 +15,8 @@
  */
 
 import Long from 'long';
-import {ActorID, InitialActorID} from '../time/actor_id';
-import {TimeTicket} from '../time/ticket';
+import { ActorID, InitialActorID } from '../time/actor_id';
+import { TimeTicket } from '../time/ticket';
 
 /**
  * ChangeID is for identifying the Change. This is immutable.
@@ -35,7 +35,7 @@ export class ChangeID {
   public static of(
     clientSeq: number,
     lamport: Long,
-    actor?: ActorID
+    actor?: ActorID,
   ): ChangeID {
     return new ChangeID(clientSeq, lamport, actor);
   }
@@ -89,5 +89,5 @@ export class ChangeID {
 export const InitialChangeID = new ChangeID(
   0,
   Long.fromInt(0, true),
-  InitialActorID
+  InitialActorID,
 );

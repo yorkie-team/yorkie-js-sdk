@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import {TicketComparator, TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
+import { TimeTicket } from '../time/ticket';
 
 export class RHTNode {
   private key: string;
@@ -91,8 +90,8 @@ export class RHT {
     return `{${items.join(',')}}`;
   }
 
-  public toObject(): {[key: string]: string} {
-    const obj = {} as {[key: string]: string};
+  public toObject(): { [key: string]: string } {
+    const obj = {} as { [key: string]: string };
     for (const [key, node] of this.nodeMapByKey) {
       obj[key as string] = node.getValue();
     }

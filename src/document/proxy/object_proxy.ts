@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-import {logger, LogLevel} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {SetOperation} from '../operation/set_operation';
-import {RemoveOperation} from '../operation/remove_operation';
-import {ChangeContext} from '../change/context';
-import {JSONObject} from '../json/object';
-import {JSONArray} from '../json/array';
-import {JSONPrimitive} from '../json/primitive';
-import {RGATreeSplit} from '../json/rga_tree_split';
-import {PlainText} from '../json/text';
-import {RichText} from '../json/rich_text';
-import {ArrayProxy} from './array_proxy';
-import {TextProxy} from './text_proxy';
-import {RichTextProxy} from './rich_text_proxy';
-import {toProxy} from './proxy';
+import { logger, LogLevel } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { SetOperation } from '../operation/set_operation';
+import { RemoveOperation } from '../operation/remove_operation';
+import { ChangeContext } from '../change/context';
+import { JSONObject } from '../json/object';
+import { JSONArray } from '../json/array';
+import { JSONPrimitive } from '../json/primitive';
+import { RGATreeSplit } from '../json/rga_tree_split';
+import { PlainText } from '../json/text';
+import { RichText } from '../json/rich_text';
+import { ArrayProxy } from './array_proxy';
+import { TextProxy } from './text_proxy';
+import { RichTextProxy } from './rich_text_proxy';
+import { toProxy } from './proxy';
 
 export class ObjectProxy {
   private context: ChangeContext;
@@ -98,7 +98,7 @@ export class ObjectProxy {
     context: ChangeContext,
     target: JSONObject,
     key: string,
-    value: any
+    value: any,
   ): void {
     const ticket = context.issueTimeTicket();
 
@@ -107,7 +107,7 @@ export class ObjectProxy {
       target.set(key, primitive);
       context.registerElement(primitive);
       context.push(
-        SetOperation.create(key, primitive, target.getCreatedAt(), ticket)
+        SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
       );
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
@@ -118,8 +118,8 @@ export class ObjectProxy {
           key,
           array.deepcopy(),
           target.getCreatedAt(),
-          ticket
-        )
+          ticket,
+        ),
       );
       for (const element of value) {
         ArrayProxy.pushInternal(context, array, element);
@@ -133,8 +133,8 @@ export class ObjectProxy {
             key,
             value.deepcopy(),
             target.getCreatedAt(),
-            ticket
-          )
+            ticket,
+          ),
         );
       } else {
         const obj = JSONObject.create(ticket);
@@ -145,8 +145,8 @@ export class ObjectProxy {
             key,
             obj.deepcopy(),
             target.getCreatedAt(),
-            ticket
-          )
+            ticket,
+          ),
         );
         for (const [k, v] of Object.entries(value)) {
           ObjectProxy.setInternal(context, obj, k, v);
@@ -160,14 +160,14 @@ export class ObjectProxy {
   public static createText(
     context: ChangeContext,
     target: JSONObject,
-    key: string
+    key: string,
   ): PlainText {
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text);
     context.push(
-      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket)
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
     return TextProxy.create(context, text);
   }
@@ -175,14 +175,14 @@ export class ObjectProxy {
   public static createRichText(
     context: ChangeContext,
     target: JSONObject,
-    key: string
+    key: string,
   ): RichText {
     const ticket = context.issueTimeTicket();
     const text = RichText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text);
     context.push(
-      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket)
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
     return RichTextProxy.create(context, text);
   }
@@ -190,7 +190,7 @@ export class ObjectProxy {
   public static deleteInternal(
     context: ChangeContext,
     target: JSONObject,
-    key: string
+    key: string,
   ): void {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByKey(key, ticket);
@@ -198,8 +198,8 @@ export class ObjectProxy {
       RemoveOperation.create(
         target.getCreatedAt(),
         deleted.getCreatedAt(),
-        ticket
-      )
+        ticket,
+      ),
     );
   }
 

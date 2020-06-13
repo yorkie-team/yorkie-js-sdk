@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import {assert} from 'chai';
-import {SplayNode, SplayTree} from '../../src/util/splay_tree';
+import { assert } from 'chai';
+import { SplayNode, SplayTree } from '../../src/util/splay_tree';
 
 class StringNode extends SplayNode<string> {
   constructor(value: string) {
@@ -44,13 +44,13 @@ describe('SplayTree', function () {
     const nodeD = tree.insert(StringNode.create('D2345'));
     assert.equal(
       '[2,2]A2[5,3]B23[9,4]C234[14,5]D2345',
-      tree.getAnnotatedString()
+      tree.getAnnotatedString(),
     );
 
     tree.splayNode(nodeB);
     assert.equal(
       '[2,2]A2[14,3]B23[9,4]C234[5,5]D2345',
-      tree.getAnnotatedString()
+      tree.getAnnotatedString(),
     );
 
     assert.equal(tree.indexOf(nodeA), 0);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Comparator, DefaultComparator} from './comparator';
+import { Comparator, DefaultComparator } from './comparator';
 
 export class HeapNode<K, V> {
   private key: K;
@@ -103,19 +103,11 @@ export class Heap<K, V> {
       const leftChildIndex = this.getLeftChildIndex(index);
       const rightChildIndex = this.getRightChildIndex(index);
 
-      const smallerChildIndex =
-        rightChildIndex < count &&
-        this.comparator(
-          this.nodes[leftChildIndex].getKey(),
-          this.nodes[rightChildIndex].getKey()
-        ) < 0
-          ? rightChildIndex
-          : leftChildIndex;
+      const smallerChildIndex = rightChildIndex < count &&
+        this.comparator(this.nodes[leftChildIndex].getKey(), this.nodes[rightChildIndex].getKey()) < 0 ?
+        rightChildIndex : leftChildIndex;
 
-      if (
-        this.comparator(this.nodes[smallerChildIndex].getKey(), node.getKey()) <
-        0
-      ) {
+      if (this.comparator(this.nodes[smallerChildIndex].getKey(), node.getKey()) < 0) {
         break;
       }
 

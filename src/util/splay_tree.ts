@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {logger} from './logger';
+import { logger } from './logger';
 
 export abstract class SplayNode<V> {
   protected value: V;
@@ -130,7 +130,7 @@ export class SplayTree<V> {
     }
     if (pos > node.getLength()) {
       logger.fatal(
-        `out of bound of text index: pos: ${pos} > node.length: ${node.getLength()}`
+        `out of bound of text index: pos: ${pos} > node.length: ${node.getLength()}`,
       );
     }
     return [node, pos];
@@ -171,7 +171,7 @@ export class SplayTree<V> {
 
   public insertAfter(
     target: SplayNode<V>,
-    newNode: SplayNode<V>
+    newNode: SplayNode<V>,
   ): SplayNode<V> {
     if (!target) {
       this.root = newNode;
@@ -270,11 +270,9 @@ export class SplayTree<V> {
   public getAnnotatedString(): string {
     const metaString = [];
     this.traverseInorder(this.root, metaString);
-    return metaString
-      .map(
-        (node) => `[${node.getWeight()},${node.getLength()}]${node.getValue()}`
-      )
-      .join('');
+    return metaString.map((node) =>
+      `[${node.getWeight()},${node.getLength()}]${node.getValue()}`
+    ).join('');
   }
 
   private getMaximum(): SplayNode<V> {
@@ -287,7 +285,7 @@ export class SplayTree<V> {
 
   private traverseInorder(
     node: SplayNode<V>,
-    stack: Array<SplayNode<V>>
+    stack: Array<SplayNode<V>>,
   ): void {
     if (!node) {
       return;

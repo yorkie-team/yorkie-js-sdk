@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {TimeTicket} from '../time/ticket';
-import {JSONRoot} from '../json/root';
-import {RGATreeSplitNodePos} from '../json/rga_tree_split';
-import {RichText} from '../json/rich_text';
-import {Operation} from './operation';
+import { logger } from '../../util/logger';
+import { TimeTicket } from '../time/ticket';
+import { JSONRoot } from '../json/root';
+import { RGATreeSplitNodePos } from '../json/rga_tree_split';
+import { RichText } from '../json/rich_text';
+import { Operation } from './operation';
 
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -31,7 +31,7 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -44,14 +44,14 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
       parentCreatedAt,
       fromPos,
       toPos,
       attributes,
-      executedAt
+      executedAt,
     );
   }
 
@@ -62,7 +62,7 @@ export class StyleOperation extends Operation {
       text.setStyleInternal(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},
-        this.getExecutedAt()
+        this.getExecutedAt(),
       );
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);

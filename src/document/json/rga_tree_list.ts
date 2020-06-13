@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import {logger} from '../../util/logger';
-import {SplayNode, SplayTree} from '../../util/splay_tree';
-import {InitialTimeTicket, TimeTicket} from '../time/ticket';
-import {JSONElement} from './element';
-import {JSONPrimitive} from './primitive';
+import { logger } from '../../util/logger';
+import { SplayNode, SplayTree } from '../../util/splay_tree';
+import { InitialTimeTicket, TimeTicket } from '../time/ticket';
+import { JSONElement } from './element';
+import { JSONPrimitive } from './primitive';
 
 class RGATreeListNode extends SplayNode<JSONElement> {
   private prev: RGATreeListNode;
@@ -33,7 +33,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
 
   public static createAfter(
     prev: RGATreeListNode,
-    value: JSONElement
+    value: JSONElement,
   ): RGATreeListNode {
     const newNode = new RGATreeListNode(value);
     const prevNext = prev.next;
@@ -105,7 +105,7 @@ export class RGATreeList {
     this.nodeMapByIndex.insert(this.dummyHead);
     this.nodeMapByCreatedAt.set(
       this.dummyHead.getCreatedAt().toIDString(),
-      this.dummyHead
+      this.dummyHead,
     );
   }
 
@@ -119,7 +119,7 @@ export class RGATreeList {
 
   private findByCreatedAt(
     prevCreatedAt: TimeTicket,
-    createdAt: TimeTicket
+    createdAt: TimeTicket,
   ): RGATreeListNode {
     let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!node) {
@@ -161,7 +161,7 @@ export class RGATreeList {
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): void {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
