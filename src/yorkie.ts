@@ -15,17 +15,17 @@
  */
 
 import Long from 'long';
-import { Client, ClientOptions } from './core/client';
-import { Document } from './document/document';
+import {Client, ClientOptions} from './core/client';
+import {Document} from './document/document';
 
 // yorkie namespace.
 //  e.g) yorkie.createClient(...)
 export default {
-  createClient: function(rpcAddr: string, opts?: ClientOptions): Client {
+  createClient: function (rpcAddr: string, opts?: ClientOptions): Client {
     return new Client(rpcAddr, opts);
   },
-  createDocument: function(collection: string, document: string): Document {
+  createDocument: function (collection: string, document: string): Document {
     return new Document(collection, document);
   },
   Long: Long,
-}
+};

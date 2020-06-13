@@ -14,24 +14,31 @@
  * limitations under the License.
  */
 
-import { ActorID } from '../document/time/actor_id';
-import { Observer, Observable, createObservable, Unsubscribe } from '../util/observable';
+import {ActorID} from '../document/time/actor_id';
 import {
-  ActivateClientRequest, DeactivateClientRequest,
-  AttachDocumentRequest, DetachDocumentRequest,
+  Observer,
+  Observable,
+  createObservable,
+  Unsubscribe,
+} from '../util/observable';
+import {
+  ActivateClientRequest,
+  DeactivateClientRequest,
+  AttachDocumentRequest,
+  DetachDocumentRequest,
   PushPullRequest,
-  WatchDocumentsRequest
+  WatchDocumentsRequest,
 } from '../api/yorkie_pb';
-import { converter } from '../api/converter'
-import { YorkieClient } from '../api/yorkie_grpc_web_pb';
-import { Code, YorkieError } from '../util/error';
-import { logger } from '../util/logger';
-import { uuid } from '../util/uuid';
-import { Document } from '../document/document';
+import {converter} from '../api/converter';
+import {YorkieClient} from '../api/yorkie_grpc_web_pb';
+import {Code, YorkieError} from '../util/error';
+import {logger} from '../util/logger';
+import {uuid} from '../util/uuid';
+import {Document} from '../document/document';
 
 export enum ClientStatus {
   Deactivated = 0,
-  Activated = 1
+  Activated = 1,
 }
 
 enum ClientEventType {
@@ -58,7 +65,7 @@ export interface ClientOptions {
 
 const DefaultClientOptions: ClientOptions = {
   syncLoopDuration: 50,
-  reconnectStreamDelay: 1000
+  reconnectStreamDelay: 1000,
 };
 
 /**
@@ -115,7 +122,7 @@ export class Client implements Observable<ClientEvent> {
           reject(err);
           return;
         }
-        
+
         this.id = res.getClientId();
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
@@ -123,10 +130,12 @@ export class Client implements Observable<ClientEvent> {
 
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
-          value: this.status
+          value: this.status,
         });
 
-        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`)
+        logger.info(
+          `[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`
+        );
         resolve();
       });
     });
@@ -149,20 +158,20 @@ export class Client implements Observable<ClientEvent> {
       const req = new DeactivateClientRequest();
       req.setClientId(this.id);
 
-      this.client.deactivateClient(req, {}, (err,) => {
+      this.client.deactivateClient(req, {}, (err) => {
         if (err) {
           logger.error(`[DC] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
           return;
         }
-        
+
         this.status = ClientStatus.Deactivated;
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
-          value: this.status
+          value: this.status,
         });
 
-        logger.info(`[DC] c"${this.getKey()}" deactivated`)
+        logger.info(`[DC] c"${this.getKey()}" deactivated`);
         resolve();
       });
     });
@@ -200,7 +209,9 @@ export class Client implements Observable<ClientEvent> {
         });
         this.runWatchLoop();
 
-        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`)
+        logger.info(
+          `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`
+        );
         resolve(doc);
       });
     });
@@ -238,7 +249,9 @@ export class Client implements Observable<ClientEvent> {
           this.attachmentMap.delete(doc.getKey().toIDString());
         }
 
-        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`)
+        logger.info(
+          `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`
+        );
         resolve(doc);
       });
     });
@@ -279,34 +292,39 @@ export class Client implements Observable<ClientEvent> {
   private runSyncLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
-        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`)
+        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`);
         return;
       }
 
       const promises = [];
       for (const [, attachment] of this.attachmentMap) {
-        if (attachment.isRealtimeSync &&
-            (attachment.doc.hasLocalChanges() || attachment.remoteChangeEventReceived)) {
+        if (
+          attachment.isRealtimeSync &&
+          (attachment.doc.hasLocalChanges() ||
+            attachment.remoteChangeEventReceived)
+        ) {
           attachment.remoteChangeEventReceived = false;
           promises.push(this.syncInternal(attachment.doc));
         }
       }
 
-      Promise.all(promises).then(() => {
-        setTimeout(doLoop, this.syncLoopDuration);
-      }).catch((err) => {
-        logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`)
-      });
+      Promise.all(promises)
+        .then(() => {
+          setTimeout(doLoop, this.syncLoopDuration);
+        })
+        .catch((err) => {
+          logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+        });
     };
 
-    logger.debug(`[SL] c:"${this.getKey()}" run sync loop`)
+    logger.debug(`[SL] c:"${this.getKey()}" run sync loop`);
     doLoop();
   }
 
   private runWatchLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
-        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`)
+        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
         return;
       }
 
@@ -328,7 +346,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       if (!keys.length) {
-        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`)
+        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
         return;
       }
 
@@ -356,10 +374,14 @@ export class Client implements Observable<ClientEvent> {
       });
       this.remoteChangeEventStream = stream;
 
-      logger.info(`[WD] c:"${this.getKey()}" watches d:"${keys.map(key => key.toIDString())}"`)
+      logger.info(
+        `[WD] c:"${this.getKey()}" watches d:"${keys.map((key) =>
+          key.toIDString()
+        )}"`
+      );
     };
 
-    logger.debug(`[WL] c:"${this.getKey()}" run watch loop`)
+    logger.debug(`[WL] c:"${this.getKey()}" run watch loop`);
 
     doLoop();
   }
@@ -373,29 +395,33 @@ export class Client implements Observable<ClientEvent> {
       req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
-      this.client.pushPull(req, {}, (err, res) => {
-        if (err) {
-          logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
+      this.client
+        .pushPull(req, {}, (err, res) => {
+          if (err) {
+            logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
 
-          isRejected = true;
-          reject(err);
-          return;
-        }
+            isRejected = true;
+            reject(err);
+            return;
+          }
 
-        const respPack = converter.fromChangePack(res.getChangePack());
-        doc.applyChangePack(respPack);
+          const respPack = converter.fromChangePack(res.getChangePack());
+          doc.applyChangePack(respPack);
 
-        const docKey = doc.getKey().toIDString();
-        const remoteSize = respPack.getChangeSize();
-        logger.info(
-          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack.getCheckpoint().getAnnotatedString()}`
-        );
-      }).on('end', () => {
-        if (isRejected) {
-          return;
-        }
-        resolve(doc);
-      });
+          const docKey = doc.getKey().toIDString();
+          const remoteSize = respPack.getChangeSize();
+          logger.info(
+            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
+              .getCheckpoint()
+              .getAnnotatedString()}`
+          );
+        })
+        .on('end', () => {
+          if (isRejected) {
+            return;
+          }
+          resolve(doc);
+        });
     });
   }
 }

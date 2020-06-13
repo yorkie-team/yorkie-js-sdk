@@ -20,7 +20,7 @@ export enum LogLevel {
   Info = 2,
   Warn = 3,
   Error = 4,
-  Fatal = 5
+  Fatal = 5,
 }
 
 let level = LogLevel.Debug;
@@ -101,5 +101,5 @@ export const logger = {
 
   isEnabled: (l: LogLevel): boolean => {
     return level <= l;
-  }
+  },
 };

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { SplayNode, SplayTree } from '../../util/splay_tree';
-import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
-import { JSONPrimitive } from './primitive';
+import {logger} from '../../util/logger';
+import {SplayNode, SplayTree} from '../../util/splay_tree';
+import {InitialTimeTicket, TimeTicket} from '../time/ticket';
+import {JSONElement} from './element';
+import {JSONPrimitive} from './primitive';
 
 class RGATreeListNode extends SplayNode<JSONElement> {
   private prev: RGATreeListNode;
@@ -31,7 +31,10 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     this.next = null;
   }
 
-  public static createAfter(prev: RGATreeListNode, value: JSONElement): RGATreeListNode {
+  public static createAfter(
+    prev: RGATreeListNode,
+    value: JSONElement
+  ): RGATreeListNode {
     const newNode = new RGATreeListNode(value);
     const prevNext = prev.next;
     prev.next = newNode;
@@ -111,10 +114,13 @@ export class RGATreeList {
   }
 
   public get length(): number {
-    return this.size; 
+    return this.size;
   }
 
-  private findByCreatedAt(prevCreatedAt: TimeTicket, createdAt: TimeTicket): RGATreeListNode {
+  private findByCreatedAt(
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket
+  ): RGATreeListNode {
     let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!node) {
       logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
@@ -129,7 +135,7 @@ export class RGATreeList {
 
   private release(node: RGATreeListNode): void {
     if (this.last == node) {
-      this.last = node.getPrev()
+      this.last = node.getPrev();
     }
 
     node.release();
@@ -152,7 +158,11 @@ export class RGATreeList {
     this.size += 1;
   }
 
-  public moveAfter(prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket): void {
+  public moveAfter(
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+    executedAt: TimeTicket
+  ): void {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
       logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
@@ -163,10 +173,13 @@ export class RGATreeList {
       logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
-    if (!node.getValue().getUpdatedAt() || executedAt.after(node.getValue().getUpdatedAt())) {
+    if (
+      !node.getValue().getUpdatedAt() ||
+      executedAt.after(node.getValue().getUpdatedAt())
+    ) {
       node.release();
       this.insertAfter(prevNode.getCreatedAt(), node.getValue());
-      node.getValue().setUpdatedAt(executedAt)
+      node.getValue().setUpdatedAt(executedAt);
     }
   }
 
@@ -186,11 +199,11 @@ export class RGATreeList {
     if (idx === 0 && node === this.dummyHead) {
       do {
         rgaNode = rgaNode.getNext();
-      } while(rgaNode.isRemoved());
+      } while (rgaNode.isRemoved());
     } else if (offset > 0) {
       do {
         rgaNode = rgaNode.getNext();
-      } while(rgaNode.isRemoved());
+      } while (rgaNode.isRemoved());
     }
 
     return rgaNode;
@@ -200,7 +213,7 @@ export class RGATreeList {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     do {
       node = node.getPrev();
-    } while(this.dummyHead !== node && node.isRemoved());
+    } while (this.dummyHead !== node && node.isRemoved());
     return node.getValue().getCreatedAt();
   }
 
@@ -234,7 +247,9 @@ export class RGATreeList {
     const json = [];
 
     for (const node of this) {
-      const elem = `${node.getCreatedAt().toIDString()}:${node.getValue().toJSON()}`;
+      const elem = `${node
+        .getCreatedAt()
+        .toIDString()}:${node.getValue().toJSON()}`;
       if (node.isRemoved()) {
         json.push(`{${elem}}`);
       } else {
@@ -247,7 +262,7 @@ export class RGATreeList {
 
   public *[Symbol.iterator](): IterableIterator<RGATreeListNode> {
     let node = this.dummyHead.getNext();
-    while(node) {
+    while (node) {
       yield node;
       node = node.getNext();
     }

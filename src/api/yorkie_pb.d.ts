@@ -1,4 +1,4 @@
-import * as jspb from "google-protobuf"
+import * as jspb from 'google-protobuf';
 
 export class RequestHeader extends jspb.Message {
   getVersion(): number;
@@ -6,16 +6,25 @@ export class RequestHeader extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RequestHeader.AsObject;
-  static toObject(includeInstance: boolean, msg: RequestHeader): RequestHeader.AsObject;
-  static serializeBinaryToWriter(message: RequestHeader, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: RequestHeader
+  ): RequestHeader.AsObject;
+  static serializeBinaryToWriter(
+    message: RequestHeader,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): RequestHeader;
-  static deserializeBinaryFromReader(message: RequestHeader, reader: jspb.BinaryReader): RequestHeader;
+  static deserializeBinaryFromReader(
+    message: RequestHeader,
+    reader: jspb.BinaryReader
+  ): RequestHeader;
 }
 
 export namespace RequestHeader {
   export type AsObject = {
-    version: number,
-  }
+    version: number;
+  };
 }
 
 export class ActivateClientRequest extends jspb.Message {
@@ -29,17 +38,26 @@ export class ActivateClientRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ActivateClientRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: ActivateClientRequest): ActivateClientRequest.AsObject;
-  static serializeBinaryToWriter(message: ActivateClientRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: ActivateClientRequest
+  ): ActivateClientRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: ActivateClientRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): ActivateClientRequest;
-  static deserializeBinaryFromReader(message: ActivateClientRequest, reader: jspb.BinaryReader): ActivateClientRequest;
+  static deserializeBinaryFromReader(
+    message: ActivateClientRequest,
+    reader: jspb.BinaryReader
+  ): ActivateClientRequest;
 }
 
 export namespace ActivateClientRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientKey: string,
-  }
+    header?: RequestHeader.AsObject;
+    clientKey: string;
+  };
 }
 
 export class ActivateClientResponse extends jspb.Message {
@@ -51,17 +69,26 @@ export class ActivateClientResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ActivateClientResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: ActivateClientResponse): ActivateClientResponse.AsObject;
-  static serializeBinaryToWriter(message: ActivateClientResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: ActivateClientResponse
+  ): ActivateClientResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: ActivateClientResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): ActivateClientResponse;
-  static deserializeBinaryFromReader(message: ActivateClientResponse, reader: jspb.BinaryReader): ActivateClientResponse;
+  static deserializeBinaryFromReader(
+    message: ActivateClientResponse,
+    reader: jspb.BinaryReader
+  ): ActivateClientResponse;
 }
 
 export namespace ActivateClientResponse {
   export type AsObject = {
-    clientKey: string,
-    clientId: string,
-  }
+    clientKey: string;
+    clientId: string;
+  };
 }
 
 export class DeactivateClientRequest extends jspb.Message {
@@ -75,17 +102,26 @@ export class DeactivateClientRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeactivateClientRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: DeactivateClientRequest): DeactivateClientRequest.AsObject;
-  static serializeBinaryToWriter(message: DeactivateClientRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: DeactivateClientRequest
+  ): DeactivateClientRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: DeactivateClientRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): DeactivateClientRequest;
-  static deserializeBinaryFromReader(message: DeactivateClientRequest, reader: jspb.BinaryReader): DeactivateClientRequest;
+  static deserializeBinaryFromReader(
+    message: DeactivateClientRequest,
+    reader: jspb.BinaryReader
+  ): DeactivateClientRequest;
 }
 
 export namespace DeactivateClientRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientId: string,
-  }
+    header?: RequestHeader.AsObject;
+    clientId: string;
+  };
 }
 
 export class DeactivateClientResponse extends jspb.Message {
@@ -94,16 +130,25 @@ export class DeactivateClientResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeactivateClientResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: DeactivateClientResponse): DeactivateClientResponse.AsObject;
-  static serializeBinaryToWriter(message: DeactivateClientResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: DeactivateClientResponse
+  ): DeactivateClientResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: DeactivateClientResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): DeactivateClientResponse;
-  static deserializeBinaryFromReader(message: DeactivateClientResponse, reader: jspb.BinaryReader): DeactivateClientResponse;
+  static deserializeBinaryFromReader(
+    message: DeactivateClientResponse,
+    reader: jspb.BinaryReader
+  ): DeactivateClientResponse;
 }
 
 export namespace DeactivateClientResponse {
   export type AsObject = {
-    clientId: string,
-  }
+    clientId: string;
+  };
 }
 
 export class AttachDocumentRequest extends jspb.Message {
@@ -122,18 +167,27 @@ export class AttachDocumentRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AttachDocumentRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: AttachDocumentRequest): AttachDocumentRequest.AsObject;
-  static serializeBinaryToWriter(message: AttachDocumentRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: AttachDocumentRequest
+  ): AttachDocumentRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: AttachDocumentRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): AttachDocumentRequest;
-  static deserializeBinaryFromReader(message: AttachDocumentRequest, reader: jspb.BinaryReader): AttachDocumentRequest;
+  static deserializeBinaryFromReader(
+    message: AttachDocumentRequest,
+    reader: jspb.BinaryReader
+  ): AttachDocumentRequest;
 }
 
 export namespace AttachDocumentRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientId: string,
-    changePack?: ChangePack.AsObject,
-  }
+    header?: RequestHeader.AsObject;
+    clientId: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class AttachDocumentResponse extends jspb.Message {
@@ -147,17 +201,26 @@ export class AttachDocumentResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AttachDocumentResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: AttachDocumentResponse): AttachDocumentResponse.AsObject;
-  static serializeBinaryToWriter(message: AttachDocumentResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: AttachDocumentResponse
+  ): AttachDocumentResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: AttachDocumentResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): AttachDocumentResponse;
-  static deserializeBinaryFromReader(message: AttachDocumentResponse, reader: jspb.BinaryReader): AttachDocumentResponse;
+  static deserializeBinaryFromReader(
+    message: AttachDocumentResponse,
+    reader: jspb.BinaryReader
+  ): AttachDocumentResponse;
 }
 
 export namespace AttachDocumentResponse {
   export type AsObject = {
-    clientId: string,
-    changePack?: ChangePack.AsObject,
-  }
+    clientId: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class DetachDocumentRequest extends jspb.Message {
@@ -176,18 +239,27 @@ export class DetachDocumentRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: DetachDocumentRequest): DetachDocumentRequest.AsObject;
-  static serializeBinaryToWriter(message: DetachDocumentRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: DetachDocumentRequest
+  ): DetachDocumentRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: DetachDocumentRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): DetachDocumentRequest;
-  static deserializeBinaryFromReader(message: DetachDocumentRequest, reader: jspb.BinaryReader): DetachDocumentRequest;
+  static deserializeBinaryFromReader(
+    message: DetachDocumentRequest,
+    reader: jspb.BinaryReader
+  ): DetachDocumentRequest;
 }
 
 export namespace DetachDocumentRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientId: string,
-    changePack?: ChangePack.AsObject,
-  }
+    header?: RequestHeader.AsObject;
+    clientId: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class DetachDocumentResponse extends jspb.Message {
@@ -201,17 +273,26 @@ export class DetachDocumentResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: DetachDocumentResponse): DetachDocumentResponse.AsObject;
-  static serializeBinaryToWriter(message: DetachDocumentResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: DetachDocumentResponse
+  ): DetachDocumentResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: DetachDocumentResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): DetachDocumentResponse;
-  static deserializeBinaryFromReader(message: DetachDocumentResponse, reader: jspb.BinaryReader): DetachDocumentResponse;
+  static deserializeBinaryFromReader(
+    message: DetachDocumentResponse,
+    reader: jspb.BinaryReader
+  ): DetachDocumentResponse;
 }
 
 export namespace DetachDocumentResponse {
   export type AsObject = {
-    clientKey: string,
-    changePack?: ChangePack.AsObject,
-  }
+    clientKey: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class WatchDocumentsRequest extends jspb.Message {
@@ -230,18 +311,27 @@ export class WatchDocumentsRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): WatchDocumentsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: WatchDocumentsRequest): WatchDocumentsRequest.AsObject;
-  static serializeBinaryToWriter(message: WatchDocumentsRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: WatchDocumentsRequest
+  ): WatchDocumentsRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: WatchDocumentsRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): WatchDocumentsRequest;
-  static deserializeBinaryFromReader(message: WatchDocumentsRequest, reader: jspb.BinaryReader): WatchDocumentsRequest;
+  static deserializeBinaryFromReader(
+    message: WatchDocumentsRequest,
+    reader: jspb.BinaryReader
+  ): WatchDocumentsRequest;
 }
 
 export namespace WatchDocumentsRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientId: string,
-    documentKeysList: Array<DocumentKey.AsObject>,
-  }
+    header?: RequestHeader.AsObject;
+    clientId: string;
+    documentKeysList: Array<DocumentKey.AsObject>;
+  };
 }
 
 export class WatchDocumentsResponse extends jspb.Message {
@@ -255,17 +345,26 @@ export class WatchDocumentsResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): WatchDocumentsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: WatchDocumentsResponse): WatchDocumentsResponse.AsObject;
-  static serializeBinaryToWriter(message: WatchDocumentsResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: WatchDocumentsResponse
+  ): WatchDocumentsResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: WatchDocumentsResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): WatchDocumentsResponse;
-  static deserializeBinaryFromReader(message: WatchDocumentsResponse, reader: jspb.BinaryReader): WatchDocumentsResponse;
+  static deserializeBinaryFromReader(
+    message: WatchDocumentsResponse,
+    reader: jspb.BinaryReader
+  ): WatchDocumentsResponse;
 }
 
 export namespace WatchDocumentsResponse {
   export type AsObject = {
-    clientId: string,
-    documentKeysList: Array<DocumentKey.AsObject>,
-  }
+    clientId: string;
+    documentKeysList: Array<DocumentKey.AsObject>;
+  };
 }
 
 export class PushPullRequest extends jspb.Message {
@@ -284,18 +383,27 @@ export class PushPullRequest extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PushPullRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: PushPullRequest): PushPullRequest.AsObject;
-  static serializeBinaryToWriter(message: PushPullRequest, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: PushPullRequest
+  ): PushPullRequest.AsObject;
+  static serializeBinaryToWriter(
+    message: PushPullRequest,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): PushPullRequest;
-  static deserializeBinaryFromReader(message: PushPullRequest, reader: jspb.BinaryReader): PushPullRequest;
+  static deserializeBinaryFromReader(
+    message: PushPullRequest,
+    reader: jspb.BinaryReader
+  ): PushPullRequest;
 }
 
 export namespace PushPullRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
-    clientId: string,
-    changePack?: ChangePack.AsObject,
-  }
+    header?: RequestHeader.AsObject;
+    clientId: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class PushPullResponse extends jspb.Message {
@@ -309,17 +417,26 @@ export class PushPullResponse extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PushPullResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: PushPullResponse): PushPullResponse.AsObject;
-  static serializeBinaryToWriter(message: PushPullResponse, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: PushPullResponse
+  ): PushPullResponse.AsObject;
+  static serializeBinaryToWriter(
+    message: PushPullResponse,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): PushPullResponse;
-  static deserializeBinaryFromReader(message: PushPullResponse, reader: jspb.BinaryReader): PushPullResponse;
+  static deserializeBinaryFromReader(
+    message: PushPullResponse,
+    reader: jspb.BinaryReader
+  ): PushPullResponse;
 }
 
 export namespace PushPullResponse {
   export type AsObject = {
-    clientId: string,
-    changePack?: ChangePack.AsObject,
-  }
+    clientId: string;
+    changePack?: ChangePack.AsObject;
+  };
 }
 
 export class ChangePack extends jspb.Message {
@@ -345,19 +462,28 @@ export class ChangePack extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
-  static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
-  static serializeBinaryToWriter(message: ChangePack, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: ChangePack
+  ): ChangePack.AsObject;
+  static serializeBinaryToWriter(
+    message: ChangePack,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): ChangePack;
-  static deserializeBinaryFromReader(message: ChangePack, reader: jspb.BinaryReader): ChangePack;
+  static deserializeBinaryFromReader(
+    message: ChangePack,
+    reader: jspb.BinaryReader
+  ): ChangePack;
 }
 
 export namespace ChangePack {
   export type AsObject = {
-    documentKey?: DocumentKey.AsObject,
-    checkpoint?: Checkpoint.AsObject,
-    snapshot: Uint8Array | string,
-    changesList: Array<Change.AsObject>,
-  }
+    documentKey?: DocumentKey.AsObject;
+    checkpoint?: Checkpoint.AsObject;
+    snapshot: Uint8Array | string;
+    changesList: Array<Change.AsObject>;
+  };
 }
 
 export class Change extends jspb.Message {
@@ -377,17 +503,23 @@ export class Change extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Change.AsObject;
   static toObject(includeInstance: boolean, msg: Change): Change.AsObject;
-  static serializeBinaryToWriter(message: Change, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: Change,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): Change;
-  static deserializeBinaryFromReader(message: Change, reader: jspb.BinaryReader): Change;
+  static deserializeBinaryFromReader(
+    message: Change,
+    reader: jspb.BinaryReader
+  ): Change;
 }
 
 export namespace Change {
   export type AsObject = {
-    id?: ChangeID.AsObject,
-    message: string,
-    operationsList: Array<Operation.AsObject>,
-  }
+    id?: ChangeID.AsObject;
+    message: string;
+    operationsList: Array<Operation.AsObject>;
+  };
 }
 
 export class ChangeID extends jspb.Message {
@@ -403,17 +535,23 @@ export class ChangeID extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangeID.AsObject;
   static toObject(includeInstance: boolean, msg: ChangeID): ChangeID.AsObject;
-  static serializeBinaryToWriter(message: ChangeID, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: ChangeID,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): ChangeID;
-  static deserializeBinaryFromReader(message: ChangeID, reader: jspb.BinaryReader): ChangeID;
+  static deserializeBinaryFromReader(
+    message: ChangeID,
+    reader: jspb.BinaryReader
+  ): ChangeID;
 }
 
 export namespace ChangeID {
   export type AsObject = {
-    clientSeq: number,
-    lamport: string,
-    actorId: string,
-  }
+    clientSeq: number;
+    lamport: string;
+    actorId: string;
+  };
 }
 
 export class Operation extends jspb.Message {
@@ -462,22 +600,28 @@ export class Operation extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Operation.AsObject;
   static toObject(includeInstance: boolean, msg: Operation): Operation.AsObject;
-  static serializeBinaryToWriter(message: Operation, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: Operation,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): Operation;
-  static deserializeBinaryFromReader(message: Operation, reader: jspb.BinaryReader): Operation;
+  static deserializeBinaryFromReader(
+    message: Operation,
+    reader: jspb.BinaryReader
+  ): Operation;
 }
 
 export namespace Operation {
   export type AsObject = {
-    set?: Operation.Set.AsObject,
-    add?: Operation.Add.AsObject,
-    move?: Operation.Move.AsObject,
-    remove?: Operation.Remove.AsObject,
-    edit?: Operation.Edit.AsObject,
-    select?: Operation.Select.AsObject,
-    richEdit?: Operation.RichEdit.AsObject,
-    style?: Operation.Style.AsObject,
-  }
+    set?: Operation.Set.AsObject;
+    add?: Operation.Add.AsObject;
+    move?: Operation.Move.AsObject;
+    remove?: Operation.Remove.AsObject;
+    edit?: Operation.Edit.AsObject;
+    select?: Operation.Select.AsObject;
+    richEdit?: Operation.RichEdit.AsObject;
+    style?: Operation.Style.AsObject;
+  };
 
   export class Set extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -501,20 +645,25 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Set.AsObject;
     static toObject(includeInstance: boolean, msg: Set): Set.AsObject;
-    static serializeBinaryToWriter(message: Set, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Set,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Set;
-    static deserializeBinaryFromReader(message: Set, reader: jspb.BinaryReader): Set;
+    static deserializeBinaryFromReader(
+      message: Set,
+      reader: jspb.BinaryReader
+    ): Set;
   }
 
   export namespace Set {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      key: string,
-      value?: JSONElementSimple.AsObject,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      key: string;
+      value?: JSONElementSimple.AsObject;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Add extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -540,20 +689,25 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Add.AsObject;
     static toObject(includeInstance: boolean, msg: Add): Add.AsObject;
-    static serializeBinaryToWriter(message: Add, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Add,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Add;
-    static deserializeBinaryFromReader(message: Add, reader: jspb.BinaryReader): Add;
+    static deserializeBinaryFromReader(
+      message: Add,
+      reader: jspb.BinaryReader
+    ): Add;
   }
 
   export namespace Add {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      prevCreatedAt?: TimeTicket.AsObject,
-      value?: JSONElementSimple.AsObject,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      prevCreatedAt?: TimeTicket.AsObject;
+      value?: JSONElementSimple.AsObject;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Move extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -579,20 +733,25 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Move.AsObject;
     static toObject(includeInstance: boolean, msg: Move): Move.AsObject;
-    static serializeBinaryToWriter(message: Move, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Move,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Move;
-    static deserializeBinaryFromReader(message: Move, reader: jspb.BinaryReader): Move;
+    static deserializeBinaryFromReader(
+      message: Move,
+      reader: jspb.BinaryReader
+    ): Move;
   }
 
   export namespace Move {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      prevCreatedAt?: TimeTicket.AsObject,
-      createdAt?: TimeTicket.AsObject,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      prevCreatedAt?: TimeTicket.AsObject;
+      createdAt?: TimeTicket.AsObject;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Remove extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -613,19 +772,24 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Remove.AsObject;
     static toObject(includeInstance: boolean, msg: Remove): Remove.AsObject;
-    static serializeBinaryToWriter(message: Remove, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Remove,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Remove;
-    static deserializeBinaryFromReader(message: Remove, reader: jspb.BinaryReader): Remove;
+    static deserializeBinaryFromReader(
+      message: Remove,
+      reader: jspb.BinaryReader
+    ): Remove;
   }
 
   export namespace Remove {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      createdAt?: TimeTicket.AsObject,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      createdAt?: TimeTicket.AsObject;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Edit extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -657,22 +821,27 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Edit.AsObject;
     static toObject(includeInstance: boolean, msg: Edit): Edit.AsObject;
-    static serializeBinaryToWriter(message: Edit, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Edit,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Edit;
-    static deserializeBinaryFromReader(message: Edit, reader: jspb.BinaryReader): Edit;
+    static deserializeBinaryFromReader(
+      message: Edit,
+      reader: jspb.BinaryReader
+    ): Edit;
   }
 
   export namespace Edit {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      from?: TextNodePos.AsObject,
-      to?: TextNodePos.AsObject,
-      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
-      content: string,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      from?: TextNodePos.AsObject;
+      to?: TextNodePos.AsObject;
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>;
+      content: string;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Select extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -698,20 +867,25 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Select.AsObject;
     static toObject(includeInstance: boolean, msg: Select): Select.AsObject;
-    static serializeBinaryToWriter(message: Select, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Select,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Select;
-    static deserializeBinaryFromReader(message: Select, reader: jspb.BinaryReader): Select;
+    static deserializeBinaryFromReader(
+      message: Select,
+      reader: jspb.BinaryReader
+    ): Select;
   }
 
   export namespace Select {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      from?: TextNodePos.AsObject,
-      to?: TextNodePos.AsObject,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      from?: TextNodePos.AsObject;
+      to?: TextNodePos.AsObject;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class RichEdit extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -746,23 +920,28 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RichEdit.AsObject;
     static toObject(includeInstance: boolean, msg: RichEdit): RichEdit.AsObject;
-    static serializeBinaryToWriter(message: RichEdit, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: RichEdit,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): RichEdit;
-    static deserializeBinaryFromReader(message: RichEdit, reader: jspb.BinaryReader): RichEdit;
+    static deserializeBinaryFromReader(
+      message: RichEdit,
+      reader: jspb.BinaryReader
+    ): RichEdit;
   }
 
   export namespace RichEdit {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      from?: TextNodePos.AsObject,
-      to?: TextNodePos.AsObject,
-      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
-      content: string,
-      attributesMap: Array<[string, string]>,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      from?: TextNodePos.AsObject;
+      to?: TextNodePos.AsObject;
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>;
+      content: string;
+      attributesMap: Array<[string, string]>;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Style extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
@@ -791,23 +970,28 @@ export namespace Operation {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Style.AsObject;
     static toObject(includeInstance: boolean, msg: Style): Style.AsObject;
-    static serializeBinaryToWriter(message: Style, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Style,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Style;
-    static deserializeBinaryFromReader(message: Style, reader: jspb.BinaryReader): Style;
+    static deserializeBinaryFromReader(
+      message: Style,
+      reader: jspb.BinaryReader
+    ): Style;
   }
 
   export namespace Style {
     export type AsObject = {
-      parentCreatedAt?: TimeTicket.AsObject,
-      from?: TextNodePos.AsObject,
-      to?: TextNodePos.AsObject,
-      attributesMap: Array<[string, string]>,
-      executedAt?: TimeTicket.AsObject,
-    }
+      parentCreatedAt?: TimeTicket.AsObject;
+      from?: TextNodePos.AsObject;
+      to?: TextNodePos.AsObject;
+      attributesMap: Array<[string, string]>;
+      executedAt?: TimeTicket.AsObject;
+    };
   }
 
-
-  export enum BodyCase { 
+  export enum BodyCase {
     BODY_NOT_SET = 0,
     SET = 1,
     ADD = 2,
@@ -846,20 +1030,29 @@ export class JSONElementSimple extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): JSONElementSimple.AsObject;
-  static toObject(includeInstance: boolean, msg: JSONElementSimple): JSONElementSimple.AsObject;
-  static serializeBinaryToWriter(message: JSONElementSimple, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: JSONElementSimple
+  ): JSONElementSimple.AsObject;
+  static serializeBinaryToWriter(
+    message: JSONElementSimple,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): JSONElementSimple;
-  static deserializeBinaryFromReader(message: JSONElementSimple, reader: jspb.BinaryReader): JSONElementSimple;
+  static deserializeBinaryFromReader(
+    message: JSONElementSimple,
+    reader: jspb.BinaryReader
+  ): JSONElementSimple;
 }
 
 export namespace JSONElementSimple {
   export type AsObject = {
-    createdAt?: TimeTicket.AsObject,
-    updatedAt?: TimeTicket.AsObject,
-    removedAt?: TimeTicket.AsObject,
-    type: ValueType,
-    value: Uint8Array | string,
-  }
+    createdAt?: TimeTicket.AsObject;
+    updatedAt?: TimeTicket.AsObject;
+    removedAt?: TimeTicket.AsObject;
+    type: ValueType;
+    value: Uint8Array | string;
+  };
 }
 
 export class JSONElement extends jspb.Message {
@@ -892,20 +1085,29 @@ export class JSONElement extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): JSONElement.AsObject;
-  static toObject(includeInstance: boolean, msg: JSONElement): JSONElement.AsObject;
-  static serializeBinaryToWriter(message: JSONElement, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: JSONElement
+  ): JSONElement.AsObject;
+  static serializeBinaryToWriter(
+    message: JSONElement,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): JSONElement;
-  static deserializeBinaryFromReader(message: JSONElement, reader: jspb.BinaryReader): JSONElement;
+  static deserializeBinaryFromReader(
+    message: JSONElement,
+    reader: jspb.BinaryReader
+  ): JSONElement;
 }
 
 export namespace JSONElement {
   export type AsObject = {
-    object?: JSONElement.Object.AsObject,
-    array?: JSONElement.Array.AsObject,
-    primitive?: JSONElement.Primitive.AsObject,
-    text?: JSONElement.Text.AsObject,
-    richText?: JSONElement.RichText.AsObject,
-  }
+    object?: JSONElement.Object.AsObject;
+    array?: JSONElement.Array.AsObject;
+    primitive?: JSONElement.Primitive.AsObject;
+    text?: JSONElement.Text.AsObject;
+    richText?: JSONElement.RichText.AsObject;
+  };
 
   export class Object extends jspb.Message {
     getNodesList(): Array<RHTNode>;
@@ -931,20 +1133,25 @@ export namespace JSONElement {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Object.AsObject;
     static toObject(includeInstance: boolean, msg: Object): Object.AsObject;
-    static serializeBinaryToWriter(message: Object, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Object,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Object;
-    static deserializeBinaryFromReader(message: Object, reader: jspb.BinaryReader): Object;
+    static deserializeBinaryFromReader(
+      message: Object,
+      reader: jspb.BinaryReader
+    ): Object;
   }
 
   export namespace Object {
     export type AsObject = {
-      nodesList: Array<RHTNode.AsObject>,
-      createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
-      removedAt?: TimeTicket.AsObject,
-    }
+      nodesList: Array<RHTNode.AsObject>;
+      createdAt?: TimeTicket.AsObject;
+      updatedAt?: TimeTicket.AsObject;
+      removedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Array extends jspb.Message {
     getNodesList(): Array<RGANode>;
@@ -970,20 +1177,25 @@ export namespace JSONElement {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Array.AsObject;
     static toObject(includeInstance: boolean, msg: Array): Array.AsObject;
-    static serializeBinaryToWriter(message: Array, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Array,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Array;
-    static deserializeBinaryFromReader(message: Array, reader: jspb.BinaryReader): Array;
+    static deserializeBinaryFromReader(
+      message: Array,
+      reader: jspb.BinaryReader
+    ): Array;
   }
 
   export namespace Array {
     export type AsObject = {
-      nodesList: Array<RGANode.AsObject>,
-      createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
-      removedAt?: TimeTicket.AsObject,
-    }
+      nodesList: Array<RGANode.AsObject>;
+      createdAt?: TimeTicket.AsObject;
+      updatedAt?: TimeTicket.AsObject;
+      removedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Primitive extends jspb.Message {
     getType(): ValueType;
@@ -1011,22 +1223,30 @@ export namespace JSONElement {
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Primitive.AsObject;
-    static toObject(includeInstance: boolean, msg: Primitive): Primitive.AsObject;
-    static serializeBinaryToWriter(message: Primitive, writer: jspb.BinaryWriter): void;
+    static toObject(
+      includeInstance: boolean,
+      msg: Primitive
+    ): Primitive.AsObject;
+    static serializeBinaryToWriter(
+      message: Primitive,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Primitive;
-    static deserializeBinaryFromReader(message: Primitive, reader: jspb.BinaryReader): Primitive;
+    static deserializeBinaryFromReader(
+      message: Primitive,
+      reader: jspb.BinaryReader
+    ): Primitive;
   }
 
   export namespace Primitive {
     export type AsObject = {
-      type: ValueType,
-      value: Uint8Array | string,
-      createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
-      removedAt?: TimeTicket.AsObject,
-    }
+      type: ValueType;
+      value: Uint8Array | string;
+      createdAt?: TimeTicket.AsObject;
+      updatedAt?: TimeTicket.AsObject;
+      removedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class Text extends jspb.Message {
     getNodesList(): Array<TextNode>;
@@ -1052,20 +1272,25 @@ export namespace JSONElement {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Text.AsObject;
     static toObject(includeInstance: boolean, msg: Text): Text.AsObject;
-    static serializeBinaryToWriter(message: Text, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: Text,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): Text;
-    static deserializeBinaryFromReader(message: Text, reader: jspb.BinaryReader): Text;
+    static deserializeBinaryFromReader(
+      message: Text,
+      reader: jspb.BinaryReader
+    ): Text;
   }
 
   export namespace Text {
     export type AsObject = {
-      nodesList: Array<TextNode.AsObject>,
-      createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
-      removedAt?: TimeTicket.AsObject,
-    }
+      nodesList: Array<TextNode.AsObject>;
+      createdAt?: TimeTicket.AsObject;
+      updatedAt?: TimeTicket.AsObject;
+      removedAt?: TimeTicket.AsObject;
+    };
   }
-
 
   export class RichText extends jspb.Message {
     getNodesList(): Array<RichTextNode>;
@@ -1091,22 +1316,27 @@ export namespace JSONElement {
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RichText.AsObject;
     static toObject(includeInstance: boolean, msg: RichText): RichText.AsObject;
-    static serializeBinaryToWriter(message: RichText, writer: jspb.BinaryWriter): void;
+    static serializeBinaryToWriter(
+      message: RichText,
+      writer: jspb.BinaryWriter
+    ): void;
     static deserializeBinary(bytes: Uint8Array): RichText;
-    static deserializeBinaryFromReader(message: RichText, reader: jspb.BinaryReader): RichText;
+    static deserializeBinaryFromReader(
+      message: RichText,
+      reader: jspb.BinaryReader
+    ): RichText;
   }
 
   export namespace RichText {
     export type AsObject = {
-      nodesList: Array<RichTextNode.AsObject>,
-      createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
-      removedAt?: TimeTicket.AsObject,
-    }
+      nodesList: Array<RichTextNode.AsObject>;
+      createdAt?: TimeTicket.AsObject;
+      updatedAt?: TimeTicket.AsObject;
+      removedAt?: TimeTicket.AsObject;
+    };
   }
 
-
-  export enum BodyCase { 
+  export enum BodyCase {
     BODY_NOT_SET = 0,
     OBJECT = 1,
     ARRAY = 2,
@@ -1128,16 +1358,22 @@ export class RHTNode extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RHTNode.AsObject;
   static toObject(includeInstance: boolean, msg: RHTNode): RHTNode.AsObject;
-  static serializeBinaryToWriter(message: RHTNode, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: RHTNode,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): RHTNode;
-  static deserializeBinaryFromReader(message: RHTNode, reader: jspb.BinaryReader): RHTNode;
+  static deserializeBinaryFromReader(
+    message: RHTNode,
+    reader: jspb.BinaryReader
+  ): RHTNode;
 }
 
 export namespace RHTNode {
   export type AsObject = {
-    key: string,
-    element?: JSONElement.AsObject,
-  }
+    key: string;
+    element?: JSONElement.AsObject;
+  };
 }
 
 export class RGANode extends jspb.Message {
@@ -1154,16 +1390,22 @@ export class RGANode extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RGANode.AsObject;
   static toObject(includeInstance: boolean, msg: RGANode): RGANode.AsObject;
-  static serializeBinaryToWriter(message: RGANode, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: RGANode,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): RGANode;
-  static deserializeBinaryFromReader(message: RGANode, reader: jspb.BinaryReader): RGANode;
+  static deserializeBinaryFromReader(
+    message: RGANode,
+    reader: jspb.BinaryReader
+  ): RGANode;
 }
 
 export namespace RGANode {
   export type AsObject = {
-    next?: RGANode.AsObject,
-    element?: JSONElement.AsObject,
-  }
+    next?: RGANode.AsObject;
+    element?: JSONElement.AsObject;
+  };
 }
 
 export class TextNode extends jspb.Message {
@@ -1188,18 +1430,24 @@ export class TextNode extends jspb.Message {
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNode.AsObject;
   static toObject(includeInstance: boolean, msg: TextNode): TextNode.AsObject;
-  static serializeBinaryToWriter(message: TextNode, writer: jspb.BinaryWriter): void;
+  static serializeBinaryToWriter(
+    message: TextNode,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): TextNode;
-  static deserializeBinaryFromReader(message: TextNode, reader: jspb.BinaryReader): TextNode;
+  static deserializeBinaryFromReader(
+    message: TextNode,
+    reader: jspb.BinaryReader
+  ): TextNode;
 }
 
 export namespace TextNode {
   export type AsObject = {
-    id?: TextNodeID.AsObject,
-    value: string,
-    removedAt?: TimeTicket.AsObject,
-    insPrevId?: TextNodeID.AsObject,
-  }
+    id?: TextNodeID.AsObject;
+    value: string;
+    removedAt?: TimeTicket.AsObject;
+    insPrevId?: TextNodeID.AsObject;
+  };
 }
 
 export class RichTextNodeAttr extends jspb.Message {
@@ -1216,18 +1464,27 @@ export class RichTextNodeAttr extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RichTextNodeAttr.AsObject;
-  static toObject(includeInstance: boolean, msg: RichTextNodeAttr): RichTextNodeAttr.AsObject;
-  static serializeBinaryToWriter(message: RichTextNodeAttr, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: RichTextNodeAttr
+  ): RichTextNodeAttr.AsObject;
+  static serializeBinaryToWriter(
+    message: RichTextNodeAttr,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): RichTextNodeAttr;
-  static deserializeBinaryFromReader(message: RichTextNodeAttr, reader: jspb.BinaryReader): RichTextNodeAttr;
+  static deserializeBinaryFromReader(
+    message: RichTextNodeAttr,
+    reader: jspb.BinaryReader
+  ): RichTextNodeAttr;
 }
 
 export namespace RichTextNodeAttr {
   export type AsObject = {
-    key: string,
-    value: string,
-    updatedAt?: TimeTicket.AsObject,
-  }
+    key: string;
+    value: string;
+    updatedAt?: TimeTicket.AsObject;
+  };
 }
 
 export class RichTextNode extends jspb.Message {
@@ -1254,20 +1511,29 @@ export class RichTextNode extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RichTextNode.AsObject;
-  static toObject(includeInstance: boolean, msg: RichTextNode): RichTextNode.AsObject;
-  static serializeBinaryToWriter(message: RichTextNode, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: RichTextNode
+  ): RichTextNode.AsObject;
+  static serializeBinaryToWriter(
+    message: RichTextNode,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): RichTextNode;
-  static deserializeBinaryFromReader(message: RichTextNode, reader: jspb.BinaryReader): RichTextNode;
+  static deserializeBinaryFromReader(
+    message: RichTextNode,
+    reader: jspb.BinaryReader
+  ): RichTextNode;
 }
 
 export namespace RichTextNode {
   export type AsObject = {
-    id?: TextNodeID.AsObject,
-    attributesMap: Array<[string, RichTextNodeAttr.AsObject]>,
-    value: string,
-    removedAt?: TimeTicket.AsObject,
-    insPrevId?: TextNodeID.AsObject,
-  }
+    id?: TextNodeID.AsObject;
+    attributesMap: Array<[string, RichTextNodeAttr.AsObject]>;
+    value: string;
+    removedAt?: TimeTicket.AsObject;
+    insPrevId?: TextNodeID.AsObject;
+  };
 }
 
 export class TextNodeID extends jspb.Message {
@@ -1281,17 +1547,26 @@ export class TextNodeID extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNodeID.AsObject;
-  static toObject(includeInstance: boolean, msg: TextNodeID): TextNodeID.AsObject;
-  static serializeBinaryToWriter(message: TextNodeID, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: TextNodeID
+  ): TextNodeID.AsObject;
+  static serializeBinaryToWriter(
+    message: TextNodeID,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): TextNodeID;
-  static deserializeBinaryFromReader(message: TextNodeID, reader: jspb.BinaryReader): TextNodeID;
+  static deserializeBinaryFromReader(
+    message: TextNodeID,
+    reader: jspb.BinaryReader
+  ): TextNodeID;
 }
 
 export namespace TextNodeID {
   export type AsObject = {
-    createdAt?: TimeTicket.AsObject,
-    offset: number,
-  }
+    createdAt?: TimeTicket.AsObject;
+    offset: number;
+  };
 }
 
 export class DocumentKey extends jspb.Message {
@@ -1303,17 +1578,26 @@ export class DocumentKey extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocumentKey.AsObject;
-  static toObject(includeInstance: boolean, msg: DocumentKey): DocumentKey.AsObject;
-  static serializeBinaryToWriter(message: DocumentKey, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: DocumentKey
+  ): DocumentKey.AsObject;
+  static serializeBinaryToWriter(
+    message: DocumentKey,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): DocumentKey;
-  static deserializeBinaryFromReader(message: DocumentKey, reader: jspb.BinaryReader): DocumentKey;
+  static deserializeBinaryFromReader(
+    message: DocumentKey,
+    reader: jspb.BinaryReader
+  ): DocumentKey;
 }
 
 export namespace DocumentKey {
   export type AsObject = {
-    collection: string,
-    document: string,
-  }
+    collection: string;
+    document: string;
+  };
 }
 
 export class Checkpoint extends jspb.Message {
@@ -1325,17 +1609,26 @@ export class Checkpoint extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Checkpoint.AsObject;
-  static toObject(includeInstance: boolean, msg: Checkpoint): Checkpoint.AsObject;
-  static serializeBinaryToWriter(message: Checkpoint, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: Checkpoint
+  ): Checkpoint.AsObject;
+  static serializeBinaryToWriter(
+    message: Checkpoint,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): Checkpoint;
-  static deserializeBinaryFromReader(message: Checkpoint, reader: jspb.BinaryReader): Checkpoint;
+  static deserializeBinaryFromReader(
+    message: Checkpoint,
+    reader: jspb.BinaryReader
+  ): Checkpoint;
 }
 
 export namespace Checkpoint {
   export type AsObject = {
-    serverSeq: string,
-    clientSeq: number,
-  }
+    serverSeq: string;
+    clientSeq: number;
+  };
 }
 
 export class TextNodePos extends jspb.Message {
@@ -1352,18 +1645,27 @@ export class TextNodePos extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNodePos.AsObject;
-  static toObject(includeInstance: boolean, msg: TextNodePos): TextNodePos.AsObject;
-  static serializeBinaryToWriter(message: TextNodePos, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: TextNodePos
+  ): TextNodePos.AsObject;
+  static serializeBinaryToWriter(
+    message: TextNodePos,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): TextNodePos;
-  static deserializeBinaryFromReader(message: TextNodePos, reader: jspb.BinaryReader): TextNodePos;
+  static deserializeBinaryFromReader(
+    message: TextNodePos,
+    reader: jspb.BinaryReader
+  ): TextNodePos;
 }
 
 export namespace TextNodePos {
   export type AsObject = {
-    createdAt?: TimeTicket.AsObject,
-    offset: number,
-    relativeOffset: number,
-  }
+    createdAt?: TimeTicket.AsObject;
+    offset: number;
+    relativeOffset: number;
+  };
 }
 
 export class TimeTicket extends jspb.Message {
@@ -1378,21 +1680,30 @@ export class TimeTicket extends jspb.Message {
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TimeTicket.AsObject;
-  static toObject(includeInstance: boolean, msg: TimeTicket): TimeTicket.AsObject;
-  static serializeBinaryToWriter(message: TimeTicket, writer: jspb.BinaryWriter): void;
+  static toObject(
+    includeInstance: boolean,
+    msg: TimeTicket
+  ): TimeTicket.AsObject;
+  static serializeBinaryToWriter(
+    message: TimeTicket,
+    writer: jspb.BinaryWriter
+  ): void;
   static deserializeBinary(bytes: Uint8Array): TimeTicket;
-  static deserializeBinaryFromReader(message: TimeTicket, reader: jspb.BinaryReader): TimeTicket;
+  static deserializeBinaryFromReader(
+    message: TimeTicket,
+    reader: jspb.BinaryReader
+  ): TimeTicket;
 }
 
 export namespace TimeTicket {
   export type AsObject = {
-    lamport: string,
-    delimiter: number,
-    actorId: string,
-  }
+    lamport: string;
+    delimiter: number;
+    actorId: string;
+  };
 }
 
-export enum ValueType { 
+export enum ValueType {
   NULL = 0,
   BOOLEAN = 1,
   INTEGER = 2,

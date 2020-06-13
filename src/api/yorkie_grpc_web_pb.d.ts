@@ -12,39 +12,38 @@ import {
   PushPullRequest,
   PushPullResponse,
   WatchDocumentsRequest,
-  WatchDocumentsResponse} from './yorkie_pb';
+  WatchDocumentsResponse,
+} from './yorkie_pb';
 
 export class YorkieClient {
-  constructor (hostname: string,
-               credentials?: null | { [index: string]: string; },
-               options?: null | { [index: string]: string; });
+  constructor(
+    hostname: string,
+    credentials?: null | {[index: string]: string},
+    options?: null | {[index: string]: string}
+  );
 
   activateClient(
     request: ActivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: ActivateClientResponse) => void
+    callback: (err: grpcWeb.Error, response: ActivateClientResponse) => void
   ): grpcWeb.ClientReadableStream<ActivateClientResponse>;
 
   deactivateClient(
     request: DeactivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: DeactivateClientResponse) => void
+    callback: (err: grpcWeb.Error, response: DeactivateClientResponse) => void
   ): grpcWeb.ClientReadableStream<DeactivateClientResponse>;
 
   attachDocument(
     request: AttachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: AttachDocumentResponse) => void
+    callback: (err: grpcWeb.Error, response: AttachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<AttachDocumentResponse>;
 
   detachDocument(
     request: DetachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: DetachDocumentResponse) => void
+    callback: (err: grpcWeb.Error, response: DetachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<DetachDocumentResponse>;
 
   watchDocuments(
@@ -55,16 +54,16 @@ export class YorkieClient {
   pushPull(
     request: PushPullRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: PushPullResponse) => void
+    callback: (err: grpcWeb.Error, response: PushPullResponse) => void
   ): grpcWeb.ClientReadableStream<PushPullResponse>;
-
 }
 
 export class YorkiePromiseClient {
-  constructor (hostname: string,
-               credentials?: null | { [index: string]: string; },
-               options?: null | { [index: string]: string; });
+  constructor(
+    hostname: string,
+    credentials?: null | {[index: string]: string},
+    options?: null | {[index: string]: string}
+  );
 
   activateClient(
     request: ActivateClientRequest,
@@ -95,6 +94,4 @@ export class YorkiePromiseClient {
     request: PushPullRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<PushPullResponse>;
-
 }
-

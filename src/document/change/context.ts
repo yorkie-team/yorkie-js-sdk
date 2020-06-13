@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { TimeTicket, InitialDelimiter } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { JSONElement } from '../json/element';
-import { Operation } from '../operation/operation';
-import { ChangeID } from './change_id';
-import { Change } from './change';
+import {TimeTicket, InitialDelimiter} from '../time/ticket';
+import {JSONRoot} from '../json/root';
+import {JSONElement} from '../json/element';
+import {Operation} from '../operation/operation';
+import {ChangeID} from './change_id';
+import {Change} from './change';
 
 /**
  * ChangeContext is used to record the context of modification when editing
@@ -65,7 +65,7 @@ export class ChangeContext {
   }
 
   public hasOperations(): boolean {
-    return this.operations.length > 0; 
+    return this.operations.length > 0;
   }
 
   /**
