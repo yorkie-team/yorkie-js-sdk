@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Comparator, DefaultComparator } from './comparator';
+import {Comparator, DefaultComparator} from './comparator';
 
 interface Entry<K, V> {
   key: K;
@@ -55,7 +55,7 @@ export class SortedMapIterator<K, V> {
     this.traverseInorder(node.left);
     this.stack.push({
       key: node.key,
-      value: node.value
+      value: node.value,
     });
     this.traverseInorder(node.right);
   }
@@ -78,7 +78,8 @@ export class LLRBTree<K, V> {
 
   constructor(comparator?: Comparator<K>) {
     this.root = null;
-    this.comparator = typeof comparator !== 'undefined' ? comparator : DefaultComparator;
+    this.comparator =
+      typeof comparator !== 'undefined' ? comparator : DefaultComparator;
     this.counter = 0;
   }
 

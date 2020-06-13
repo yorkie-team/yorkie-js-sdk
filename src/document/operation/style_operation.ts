@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { RichText } from '../json/rich_text';
-import { Operation } from './operation';
+import {logger} from '../../util/logger';
+import {TimeTicket} from '../time/ticket';
+import {JSONRoot} from '../json/root';
+import {RGATreeSplitNodePos} from '../json/rga_tree_split';
+import {RichText} from '../json/rich_text';
+import {Operation} from './operation';
 
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -74,7 +74,7 @@ export class StyleOperation extends Operation {
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
     const attributes = this.attributes;
-    return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`
+    return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

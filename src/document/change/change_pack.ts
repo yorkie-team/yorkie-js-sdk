@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { DocumentKey } from '../key/document_key';
-import { Checkpoint } from '../checkpoint/checkpoint';
-import { Change } from './change';
+import {DocumentKey} from '../key/document_key';
+import {Checkpoint} from '../checkpoint/checkpoint';
+import {Change} from './change';
 
 /**
  * ChangePack is a unit for delivering changes in a document to the remote.
@@ -27,7 +27,12 @@ export class ChangePack {
   private changes: Change[];
   private snapshot: Uint8Array;
 
-  constructor(key: DocumentKey, checkpoint: Checkpoint, changes: Change[], snapshot: Uint8Array) {
+  constructor(
+    key: DocumentKey,
+    checkpoint: Checkpoint,
+    changes: Change[],
+    snapshot: Uint8Array
+  ) {
     this.key = key;
     this.checkpoint = checkpoint;
     this.changes = changes;
@@ -38,14 +43,9 @@ export class ChangePack {
     key: DocumentKey,
     checkpoint: Checkpoint,
     changes: Change[],
-    snapshot?: Uint8Array,
+    snapshot?: Uint8Array
   ): ChangePack {
-    return new ChangePack(
-      key,
-      checkpoint,
-      changes,
-      snapshot,
-    );
+    return new ChangePack(key, checkpoint, changes, snapshot);
   }
 
   public getKey(): DocumentKey {

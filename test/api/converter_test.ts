@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
-import { Document } from '../../src/document/document';
-import { converter } from '../../src/api/converter';
+import {assert} from 'chai';
+import {Document} from '../../src/document/document';
+import {converter} from '../../src/api/converter';
 
-describe('Converter', function() {
-  it('should encode/decode bytes', function() {
+describe('Converter', function () {
+  it('should encode/decode bytes', function () {
     const doc = Document.create('test-col', 'test-doc');
 
     doc.update((root) => {
@@ -31,7 +31,7 @@ describe('Converter', function() {
         'k1.5': '4',
         // 'k6': new Uint8Array([65,66]),
         // 'k7': new Date(),
-      }
+      };
 
       root['k2'] = [
         true,
