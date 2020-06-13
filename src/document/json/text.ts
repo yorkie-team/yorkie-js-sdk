@@ -14,12 +14,19 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { ActorID } from '../time/actor_id';
-import { LLRBTree } from '../../util/llrb_tree';
-import { TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
-import { Change, ChangeType, RGATreeSplit, RGATreeSplitNodeRange, RGATreeSplitNodePos, Selection } from './rga_tree_split';
+import {logger} from '../../util/logger';
+import {ActorID} from '../time/actor_id';
+import {LLRBTree} from '../../util/llrb_tree';
+import {TimeTicket} from '../time/ticket';
+import {JSONElement} from './element';
+import {
+  Change,
+  ChangeType,
+  RGATreeSplit,
+  RGATreeSplitNodeRange,
+  RGATreeSplitNodePos,
+  Selection,
+} from './rga_tree_split';
 
 export class PlainText extends JSONElement {
   private onChangesHandler: (changes: Array<Change>) => void;
@@ -34,7 +41,10 @@ export class PlainText extends JSONElement {
     this.remoteChangeLock = false;
   }
 
-  public static create(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket): PlainText {
+  public static create(
+    rgaTreeSplit: RGATreeSplit<string>,
+    createdAt: TimeTicket
+  ): PlainText {
     return new PlainText(rgaTreeSplit, createdAt);
   }
 
@@ -55,10 +65,13 @@ export class PlainText extends JSONElement {
       range,
       content,
       latestCreatedAtMapByActor,
-      editedAt,
+      editedAt
     );
 
-    const selectionChange = this.updateSelectionInternal([caretPos, caretPos], editedAt);
+    const selectionChange = this.updateSelectionInternal(
+      [caretPos, caretPos],
+      editedAt
+    );
     if (selectionChange) {
       changes.push(selectionChange);
     }
@@ -72,7 +85,10 @@ export class PlainText extends JSONElement {
     return latestCreatedAtMap;
   }
 
-  public updateSelection(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): void {
+  public updateSelection(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket
+  ): void {
     if (this.remoteChangeLock) {
       return;
     }
@@ -131,15 +147,24 @@ export class PlainText extends JSONElement {
     return text;
   }
 
-  private updateSelectionInternal(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): Change {
+  private updateSelectionInternal(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket
+  ): Change {
     if (!this.selectionMap.has(updatedAt.getActorID())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt)
+      );
       return null;
     }
 
     const prevSelection = this.selectionMap.get(updatedAt.getActorID());
     if (updatedAt.after(prevSelection.getUpdatedAt())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt)
+      );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {

@@ -16,31 +16,36 @@
 
 import Long from 'long';
 
-import { Code, YorkieError } from '../util/error';
-import { TimeTicket, InitialTimeTicket } from '../document/time/ticket';
-import { Operation } from '../document/operation/operation';
-import { SetOperation } from '../document/operation/set_operation';
-import { AddOperation } from '../document/operation/add_operation';
-import { MoveOperation } from '../document/operation/move_operation';
-import { RemoveOperation } from '../document/operation/remove_operation';
-import { EditOperation } from '../document/operation/edit_operation';
-import { RichEditOperation } from '../document/operation/rich_edit_operation';
-import { SelectOperation } from '../document/operation/select_operation';
-import { StyleOperation } from '../document/operation/style_operation';
-import { DocumentKey } from '../document/key/document_key';
-import { ChangeID } from '../document/change/change_id';
-import { Change } from '../document/change/change';
-import { ChangePack } from '../document/change/change_pack';
-import { Checkpoint } from '../document/checkpoint/checkpoint';
-import { RHTPQMap } from '../document/json/rht_pq_map';
-import { RGATreeList } from '../document/json/rga_tree_list';
-import { JSONElement } from '../document/json/element';
-import { JSONObject } from '../document/json/object';
-import { JSONArray } from '../document/json/array';
-import { RGATreeSplitNodeID, RGATreeSplitNodePos, RGATreeSplitNode, RGATreeSplit } from '../document/json/rga_tree_split';
-import { PlainText } from '../document/json/text';
-import { RichText, RichTextValue } from '../document/json/rich_text';
-import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
+import {Code, YorkieError} from '../util/error';
+import {TimeTicket, InitialTimeTicket} from '../document/time/ticket';
+import {Operation} from '../document/operation/operation';
+import {SetOperation} from '../document/operation/set_operation';
+import {AddOperation} from '../document/operation/add_operation';
+import {MoveOperation} from '../document/operation/move_operation';
+import {RemoveOperation} from '../document/operation/remove_operation';
+import {EditOperation} from '../document/operation/edit_operation';
+import {RichEditOperation} from '../document/operation/rich_edit_operation';
+import {SelectOperation} from '../document/operation/select_operation';
+import {StyleOperation} from '../document/operation/style_operation';
+import {DocumentKey} from '../document/key/document_key';
+import {ChangeID} from '../document/change/change_id';
+import {Change} from '../document/change/change';
+import {ChangePack} from '../document/change/change_pack';
+import {Checkpoint} from '../document/checkpoint/checkpoint';
+import {RHTPQMap} from '../document/json/rht_pq_map';
+import {RGATreeList} from '../document/json/rga_tree_list';
+import {JSONElement} from '../document/json/element';
+import {JSONObject} from '../document/json/object';
+import {JSONArray} from '../document/json/array';
+import {
+  RGATreeSplitNodeID,
+  RGATreeSplitNodePos,
+  RGATreeSplitNode,
+  RGATreeSplit,
+} from '../document/json/rga_tree_split';
+import {PlainText} from '../document/json/text';
+import {RichText, RichTextValue} from '../document/json/rich_text';
+import {JSONPrimitive, PrimitiveType} from '../document/json/primitive';
 import {
   ChangePack as PbChangePack,
   DocumentKey as PbDocumentKey,
@@ -99,7 +104,7 @@ function toTimeTicket(ticket: TimeTicket): PbTimeTicket {
 }
 
 function toValueType(valueType: PrimitiveType): PbValueType {
-  switch(valueType) {
+  switch (valueType) {
     case PrimitiveType.Null:
       return PbValueType.NULL;
     case PrimitiveType.Boolean:
@@ -140,8 +145,11 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
     pbJSONElement.setType(toValueType(primitive.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
-  }  else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element: ${jsonElement}`);
+  } else {
+    throw new YorkieError(
+      Code.Unimplemented,
+      `unimplemented element: ${jsonElement}`
+    );
   }
 
   return pbJSONElement;
@@ -168,38 +176,56 @@ function toOperation(operation: Operation): PbOperation {
   if (operation instanceof SetOperation) {
     const setOperation = operation as SetOperation;
     const pbSetOperation = new PbOperation.Set();
-    pbSetOperation.setParentCreatedAt(toTimeTicket(setOperation.getParentCreatedAt()));
-    pbSetOperation.setKey(setOperation.getKey())
-    pbSetOperation.setValue(toJSONElementSimple(setOperation.getValue()))
+    pbSetOperation.setParentCreatedAt(
+      toTimeTicket(setOperation.getParentCreatedAt())
+    );
+    pbSetOperation.setKey(setOperation.getKey());
+    pbSetOperation.setValue(toJSONElementSimple(setOperation.getValue()));
     pbSetOperation.setExecutedAt(toTimeTicket(setOperation.getExecutedAt()));
     pbOperation.setSet(pbSetOperation);
   } else if (operation instanceof AddOperation) {
     const addOperation = operation as AddOperation;
     const pbAddOperation = new PbOperation.Add();
-    pbAddOperation.setParentCreatedAt(toTimeTicket(addOperation.getParentCreatedAt()));
-    pbAddOperation.setPrevCreatedAt(toTimeTicket(addOperation.getPrevCreatedAt()));
+    pbAddOperation.setParentCreatedAt(
+      toTimeTicket(addOperation.getParentCreatedAt())
+    );
+    pbAddOperation.setPrevCreatedAt(
+      toTimeTicket(addOperation.getPrevCreatedAt())
+    );
     pbAddOperation.setValue(toJSONElementSimple(addOperation.getValue()));
     pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
     pbOperation.setAdd(pbAddOperation);
   } else if (operation instanceof MoveOperation) {
     const moveOperation = operation as MoveOperation;
     const pbMoveOperation = new PbOperation.Move();
-    pbMoveOperation.setParentCreatedAt(toTimeTicket(moveOperation.getParentCreatedAt()));
-    pbMoveOperation.setPrevCreatedAt(toTimeTicket(moveOperation.getPrevCreatedAt()));
+    pbMoveOperation.setParentCreatedAt(
+      toTimeTicket(moveOperation.getParentCreatedAt())
+    );
+    pbMoveOperation.setPrevCreatedAt(
+      toTimeTicket(moveOperation.getPrevCreatedAt())
+    );
     pbMoveOperation.setCreatedAt(toTimeTicket(moveOperation.getCreatedAt()));
     pbMoveOperation.setExecutedAt(toTimeTicket(moveOperation.getExecutedAt()));
     pbOperation.setMove(pbMoveOperation);
   } else if (operation instanceof RemoveOperation) {
     const removeOperation = operation as RemoveOperation;
     const pbRemoveOperation = new PbOperation.Remove();
-    pbRemoveOperation.setParentCreatedAt(toTimeTicket(removeOperation.getParentCreatedAt()));
-    pbRemoveOperation.setCreatedAt(toTimeTicket(removeOperation.getCreatedAt()));
-    pbRemoveOperation.setExecutedAt(toTimeTicket(removeOperation.getExecutedAt()));
+    pbRemoveOperation.setParentCreatedAt(
+      toTimeTicket(removeOperation.getParentCreatedAt())
+    );
+    pbRemoveOperation.setCreatedAt(
+      toTimeTicket(removeOperation.getCreatedAt())
+    );
+    pbRemoveOperation.setExecutedAt(
+      toTimeTicket(removeOperation.getExecutedAt())
+    );
     pbOperation.setRemove(pbRemoveOperation);
   } else if (operation instanceof EditOperation) {
     const editOperation = operation as EditOperation;
     const pbEditOperation = new PbOperation.Edit();
-    pbEditOperation.setParentCreatedAt(toTimeTicket(editOperation.getParentCreatedAt()));
+    pbEditOperation.setParentCreatedAt(
+      toTimeTicket(editOperation.getParentCreatedAt())
+    );
     pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
     pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
     const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
@@ -212,15 +238,21 @@ function toOperation(operation: Operation): PbOperation {
   } else if (operation instanceof SelectOperation) {
     const selectOperation = operation as SelectOperation;
     const pbSelectOperation = new PbOperation.Select();
-    pbSelectOperation.setParentCreatedAt(toTimeTicket(selectOperation.getParentCreatedAt()));
+    pbSelectOperation.setParentCreatedAt(
+      toTimeTicket(selectOperation.getParentCreatedAt())
+    );
     pbSelectOperation.setFrom(toTextNodePos(selectOperation.getFromPos()));
     pbSelectOperation.setTo(toTextNodePos(selectOperation.getToPos()));
-    pbSelectOperation.setExecutedAt(toTimeTicket(selectOperation.getExecutedAt()));
+    pbSelectOperation.setExecutedAt(
+      toTimeTicket(selectOperation.getExecutedAt())
+    );
     pbOperation.setSelect(pbSelectOperation);
   } else if (operation instanceof RichEditOperation) {
     const richEditOperation = operation as RichEditOperation;
     const pbRichEditOperation = new PbOperation.RichEdit();
-    pbRichEditOperation.setParentCreatedAt(toTimeTicket(richEditOperation.getParentCreatedAt()));
+    pbRichEditOperation.setParentCreatedAt(
+      toTimeTicket(richEditOperation.getParentCreatedAt())
+    );
     pbRichEditOperation.setFrom(toTextNodePos(richEditOperation.getFromPos()));
     pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
     const pbCreatedAtMapByActor = pbRichEditOperation.getCreatedAtMapByActorMap();
@@ -228,23 +260,29 @@ function toOperation(operation: Operation): PbOperation {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value));
     }
     pbRichEditOperation.setContent(richEditOperation.getContent());
-    const pbAttributes = pbRichEditOperation.getAttributesMap()
+    const pbAttributes = pbRichEditOperation.getAttributesMap();
     for (const [key, value] of richEditOperation.getAttributes()) {
       pbAttributes.set(key, value);
     }
-    pbRichEditOperation.setExecutedAt(toTimeTicket(richEditOperation.getExecutedAt()));
+    pbRichEditOperation.setExecutedAt(
+      toTimeTicket(richEditOperation.getExecutedAt())
+    );
     pbOperation.setRichEdit(pbRichEditOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
-    pbStyleOperation.setParentCreatedAt(toTimeTicket(styleOperation.getParentCreatedAt()));
+    pbStyleOperation.setParentCreatedAt(
+      toTimeTicket(styleOperation.getParentCreatedAt())
+    );
     pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
     pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
     const pbAttributes = pbStyleOperation.getAttributesMap();
     for (const [key, value] of styleOperation.getAttributes()) {
       pbAttributes.set(key, value);
     }
-    pbStyleOperation.setExecutedAt(toTimeTicket(styleOperation.getExecutedAt()));
+    pbStyleOperation.setExecutedAt(
+      toTimeTicket(styleOperation.getExecutedAt())
+    );
     pbOperation.setStyle(pbStyleOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
@@ -270,7 +308,7 @@ function toChange(change: Change): PbChange {
 }
 
 function toChanges(changes: Change[]): PbChange[] {
-  const pbChanges = []
+  const pbChanges = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
   }
@@ -278,7 +316,7 @@ function toChanges(changes: Change[]): PbChange[] {
 }
 
 function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
-  const pbRHTNodes = []
+  const pbRHTNodes = [];
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
     pbRHTNode.setKey(rhtNode.getStrKey());
@@ -291,7 +329,7 @@ function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
 }
 
 function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
-  const pbRGANodes = []
+  const pbRGANodes = [];
   for (const rgaTreeListNode of rgaTreeList) {
     const pbRGANode = new PbRGANode();
     // eslint-disable-next-line
@@ -303,7 +341,7 @@ function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
 }
 
 function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
-  const pbTextNodes = []
+  const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
@@ -317,7 +355,7 @@ function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
 }
 
 function toJSONObject(obj: JSONObject): PbJSONElement {
-  const pbJSONObject = new PbJSONElement.Object()
+  const pbJSONObject = new PbJSONElement.Object();
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
   pbJSONObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
   pbJSONObject.setRemovedAt(toTimeTicket(obj.getRemovedAt()));
@@ -359,7 +397,7 @@ function toPlainText(text: PlainText): PbJSONElement {
   const pbJSONElement = new PbJSONElement();
   pbJSONElement.setText(pbText);
   return pbJSONElement;
-} 
+}
 
 function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   if (jsonElement instanceof JSONObject) {
@@ -371,7 +409,10 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   } else if (jsonElement instanceof PlainText) {
     return toPlainText(jsonElement);
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element: ${jsonElement}`);
+    throw new YorkieError(
+      Code.Unimplemented,
+      `unimplemented element: ${jsonElement}`
+    );
   }
 
   return null;
@@ -393,7 +434,9 @@ function fromDocumentKey(pbDocumentKey: PbDocumentKey): DocumentKey {
   );
 }
 
-function fromDocumentKeys(pbDocumentKeys: Array<PbDocumentKey>): Array<DocumentKey> {
+function fromDocumentKeys(
+  pbDocumentKeys: Array<PbDocumentKey>
+): Array<DocumentKey> {
   return pbDocumentKeys.map(fromDocumentKey);
 }
 
@@ -418,7 +461,7 @@ function fromTimeTicket(pbTimeTicket: PbTimeTicket): TimeTicket {
 }
 
 function fromValueType(pbValueType: PbValueType): PrimitiveType {
-  switch(pbValueType) {
+  switch (pbValueType) {
     case PbValueType.BOOLEAN:
       return PrimitiveType.Boolean;
     case PbValueType.INTEGER:
@@ -434,19 +477,30 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
     case PbValueType.DATE:
       return PrimitiveType.Date;
   }
-  throw new YorkieError(Code.Unimplemented, `unimplemented value type: ${pbValueType}`);
+  throw new YorkieError(
+    Code.Unimplemented,
+    `unimplemented value type: ${pbValueType}`
+  );
 }
 
-function fromJSONElementSimple(pbJSONElement: PbJSONElementSimple): JSONElement {
+function fromJSONElementSimple(
+  pbJSONElement: PbJSONElementSimple
+): JSONElement {
   switch (pbJSONElement.getType()) {
     case PbValueType.JSON_OBJECT:
       return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.JSON_ARRAY:
       return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()));
     case PbValueType.TEXT:
-      return PlainText.create(RGATreeSplit.create(), fromTimeTicket(pbJSONElement.getCreatedAt()));
+      return PlainText.create(
+        RGATreeSplit.create(),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
     case PbValueType.RICH_TEXT:
-      return RichText.create(RGATreeSplit.create(), fromTimeTicket(pbJSONElement.getCreatedAt()));
+      return RichText.create(
+        RGATreeSplit.create(),
+        fromTimeTicket(pbJSONElement.getCreatedAt())
+      );
     case PbValueType.BOOLEAN:
     case PbValueType.INTEGER:
     case PbValueType.LONG:
@@ -455,12 +509,18 @@ function fromJSONElementSimple(pbJSONElement: PbJSONElementSimple): JSONElement 
     case PbValueType.BYTES:
     case PbValueType.DATE:
       return JSONPrimitive.of(
-        JSONPrimitive.valueFromBytes(fromValueType(pbJSONElement.getType()), pbJSONElement.getValue_asU8()),
+        JSONPrimitive.valueFromBytes(
+          fromValueType(pbJSONElement.getType()),
+          pbJSONElement.getValue_asU8()
+        ),
         fromTimeTicket(pbJSONElement.getCreatedAt())
       );
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented element: ${pbJSONElement}`);
+  throw new YorkieError(
+    Code.Unimplemented,
+    `unimplemented element: ${pbJSONElement}`
+  );
 }
 
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
@@ -489,7 +549,9 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
   return textNode;
 }
 
-function fromRichTextNode(pbTextNode: PbRichTextNode): RGATreeSplitNode<RichTextValue> {
+function fromRichTextNode(
+  pbTextNode: PbRichTextNode
+): RGATreeSplitNode<RichTextValue> {
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()),
     RichTextValue.create(pbTextNode.getValue())
@@ -546,7 +608,7 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTextNodePos(pbEditOperation.getTo()),
         createdAtMapByActor,
         pbEditOperation.getContent(),
-        fromTimeTicket(pbEditOperation.getExecutedAt()),
+        fromTimeTicket(pbEditOperation.getExecutedAt())
       );
     } else if (pbOperation.hasSelect()) {
       const pbSelectOperation = pbOperation.getSelect();
@@ -554,7 +616,7 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTimeTicket(pbSelectOperation.getParentCreatedAt()),
         fromTextNodePos(pbSelectOperation.getFrom()),
         fromTextNodePos(pbSelectOperation.getTo()),
-        fromTimeTicket(pbSelectOperation.getExecutedAt()),
+        fromTimeTicket(pbSelectOperation.getExecutedAt())
       );
     } else if (pbOperation.hasRichEdit()) {
       const pbEditOperation = pbOperation.getRichEdit();
@@ -573,7 +635,7 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         createdAtMapByActor,
         pbEditOperation.getContent(),
         attributes,
-        fromTimeTicket(pbEditOperation.getExecutedAt()),
+        fromTimeTicket(pbEditOperation.getExecutedAt())
       );
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
@@ -586,13 +648,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTextNodePos(pbStyleOperation.getFrom()),
         fromTextNodePos(pbStyleOperation.getTo()),
         attributes,
-        fromTimeTicket(pbStyleOperation.getExecutedAt()),
+        fromTimeTicket(pbStyleOperation.getExecutedAt())
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
     }
 
-    operations.push(operation)
+    operations.push(operation);
   }
 
   return operations;
@@ -602,11 +664,13 @@ function fromChanges(pbChanges: PbChange[]): Change[] {
   const changes = [];
 
   for (const pbChange of pbChanges) {
-    changes.push(Change.create(
-      fromChangeID(pbChange.getId()),
-      pbChange.getMessage(),
-      fromOperations(pbChange.getOperationsList())
-    ));
+    changes.push(
+      Change.create(
+        fromChangeID(pbChange.getId()),
+        pbChange.getMessage(),
+        fromOperations(pbChange.getOperationsList())
+      )
+    );
   }
 
   return changes;
@@ -616,7 +680,7 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
   return Checkpoint.of(
     Long.fromString(pbCheckpoint.getServerSeq(), true),
     pbCheckpoint.getClientSeq()
-  )
+  );
 }
 
 function fromChangePack(pbPack: PbChangePack): ChangePack {
@@ -624,7 +688,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
     fromDocumentKey(pbPack.getDocumentKey()),
     fromCheckpoint(pbPack.getCheckpoint()),
     fromChanges(pbPack.getChangesList()),
-    pbPack.getSnapshot_asU8(),
+    pbPack.getSnapshot_asU8()
   );
 }
 
@@ -647,14 +711,22 @@ function fromJSONArray(pbArray: PbJSONElement.Array): JSONArray {
     rgaTreeList.insert(fromJSONElement(pbRGANode.getElement()));
   }
 
-  const arr = new JSONArray(fromTimeTicket(pbArray.getCreatedAt()), rgaTreeList);
+  const arr = new JSONArray(
+    fromTimeTicket(pbArray.getCreatedAt()),
+    rgaTreeList
+  );
   arr.remove(fromTimeTicket(pbArray.getRemovedAt()));
   return arr;
 }
 
-function fromJSONPrimitive(pbPrimitive: PbJSONElement.Primitive): JSONPrimitive {
+function fromJSONPrimitive(
+  pbPrimitive: PbJSONElement.Primitive
+): JSONPrimitive {
   const primitive = JSONPrimitive.of(
-    JSONPrimitive.valueFromBytes(fromValueType(pbPrimitive.getType()), pbPrimitive.getValue_asU8()),
+    JSONPrimitive.valueFromBytes(
+      fromValueType(pbPrimitive.getType()),
+      pbPrimitive.getValue_asU8()
+    ),
     fromTimeTicket(pbPrimitive.getCreatedAt())
   );
   primitive.remove(fromTimeTicket(pbPrimitive.getRemovedAt()));
@@ -668,14 +740,16 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
   for (const pbNode of pbText.getNodesList()) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
     if (pbNode.hasInsPrevId()) {
-      current.setInsPrev(rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId())));
+      current.setInsPrev(
+        rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId()))
+      );
     }
     prev = current;
   }
 
   const text = PlainText.create(
     rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt()),
+    fromTimeTicket(pbText.getCreatedAt())
   );
   text.remove(fromTimeTicket(pbText.getRemovedAt()));
   return text;
@@ -688,14 +762,16 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   for (const pbNode of pbText.getNodesList()) {
     const current = rgaTreeSplit.insertAfter(prev, fromRichTextNode(pbNode));
     if (pbNode.hasInsPrevId()) {
-      current.setInsPrev(rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId())));
+      current.setInsPrev(
+        rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId()))
+      );
     }
     prev = current;
   }
 
   const text = RichText.create(
     rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt()),
+    fromTimeTicket(pbText.getCreatedAt())
   );
   text.remove(fromTimeTicket(pbText.getRemovedAt()));
   return text;
@@ -713,7 +789,10 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   } else if (pbJSONElement.hasRichText()) {
     return fromJSONRichText(pbJSONElement.getRichText());
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element: ${pbJSONElement}`);
+    throw new YorkieError(
+      Code.Unimplemented,
+      `unimplemented element: ${pbJSONElement}`
+    );
   }
 }
 
@@ -737,4 +816,4 @@ export const converter = {
   fromDocumentKeys: fromDocumentKeys,
   objectToBytes: objectToBytes,
   bytesToObject: bytesToObject,
-}
+};

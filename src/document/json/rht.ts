@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { TicketComparator, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import {TicketComparator, TimeTicket} from '../time/ticket';
+import {JSONElement} from './element';
 
 export class RHTNode {
   private key: string;
@@ -49,8 +49,8 @@ export class RHTNode {
  * RHT is replicated hash table with priority queue by creation time.
  */
 export class RHT {
-  private nodeMapByKey: Map<String, RHTNode>;
-  private nodeMapByCreatedAt: Map<String, RHTNode>;
+  private nodeMapByKey: Map<string, RHTNode>;
+  private nodeMapByCreatedAt: Map<string, RHTNode>;
 
   constructor() {
     this.nodeMapByKey = new Map();
@@ -58,7 +58,7 @@ export class RHT {
   }
 
   public static create(): RHT {
-    return new RHT()
+    return new RHT();
   }
 
   public set(key: string, value: string, updatedAt: TimeTicket): void {
@@ -88,11 +88,11 @@ export class RHT {
     for (const [key, node] of this.nodeMapByKey) {
       items.push(`"${key}":"${node.getValue()}"`);
     }
-    return `{${items.join(",")}}`;
+    return `{${items.join(',')}}`;
   }
 
-  public toObject(): { [key: string]: string } {
-    const obj = {} as { [key: string]: string };
+  public toObject(): {[key: string]: string} {
+    const obj = {} as {[key: string]: string};
     for (const [key, node] of this.nodeMapByKey) {
       obj[key as string] = node.getValue();
     }

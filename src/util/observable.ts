@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { logger } from './logger';
+import {logger} from './logger';
 
 export type NextFn<T> = (value: T) => void;
 export type ErrorFn = (error: Error) => void;
@@ -49,11 +49,13 @@ class ObserverProxy<T> implements Observer<T> {
 
   constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
     this.onNoObservers = onNoObservers;
-    this.task.then(() => {
-      executor(this);
-    }).catch((error) => {
-      this.error(error);
-    });
+    this.task
+      .then(() => {
+        executor(this);
+      })
+      .catch((error) => {
+        this.error(error);
+      });
   }
 
   public next(value: T): void {
@@ -77,7 +79,9 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   public subscribe(
-    nextOrObserver: Observer<T> | NextFn<T>, error?: ErrorFn, complete?: CompleteFn
+    nextOrObserver: Observer<T> | NextFn<T>,
+    error?: ErrorFn,
+    complete?: CompleteFn
   ): Unsubscribe {
     let observer: Observer<T>;
 
@@ -95,7 +99,7 @@ class ObserverProxy<T> implements Observer<T> {
       observer = {
         next: (nextOrObserver as any) as NextFn<T>,
         error,
-        complete
+        complete,
       } as Observer<T>;
     }
 
@@ -198,7 +202,6 @@ export function createObservable<T>(executor: Executor<T>): Observable<T> {
     subscribe: proxy.subscribe.bind(proxy),
     getProxy: (): ObserverProxy<T> => {
       return proxy;
-    }
+    },
   };
 }
-
