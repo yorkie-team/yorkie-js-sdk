@@ -10,8 +10,8 @@
     "test": "karma start karma.conf.js --single-run",
     "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --ext .ts",
-    "prettier": "prettier --check \"./src/**/*.ts\"",
-    "prettier:fix": "prettier --write \"./src/**/*.ts\""
+    "prettier": "prettier --check \"./**/*.ts\"",
+    "prettier:fix": "prettier --write \"./**/*.ts\""
   },
   "repository": {
     "type": "git",
@@ -44,8 +44,6 @@
     "prettier": "2.0.5",
     "sinon": "^9.0.1",
     "ts-loader": "^6.2.2",
-    "tslint-config-prettier": "^1.18.0",
-    "tslint-plugin-prettier": "^2.3.0",
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",

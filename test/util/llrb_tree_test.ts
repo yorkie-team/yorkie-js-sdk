@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
-import { range, shuffle } from '../helper/helper';
-import { LLRBTree } from '../../src/util/llrb_tree';
+import {assert} from 'chai';
+import {range, shuffle} from '../helper/helper';
+import {LLRBTree} from '../../src/util/llrb_tree';
 
-describe('LLRBTree', function() {
-  it('Can put/remove while keeping order', function() {
+describe('LLRBTree', function () {
+  it('Can put/remove while keeping order', function () {
     const tree = new LLRBTree<number, number>();
     for (const idx of shuffle(range(0, 10))) {
       tree.put(idx, idx);
@@ -37,7 +37,7 @@ describe('LLRBTree', function() {
     assert.deepEqual([0, 1, 3, 4, 6, 7, 9], tree.values());
   });
 
-  it('Can floor entry', function() {
+  it('Can floor entry', function () {
     const tree = new LLRBTree<number, number>();
     for (const idx of shuffle(range(0, 10))) {
       tree.put(idx, idx);
