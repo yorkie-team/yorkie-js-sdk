@@ -18,7 +18,7 @@ import { assert } from 'chai';
 import { range, shuffle } from '../helper/helper';
 import { HeapNode, Heap } from '../../src/util/heap';
 
-describe('Heap', function() {
+describe('Heap', function () {
   it('Can push and pop', function () {
     const heap = new Heap<number, number>();
 
@@ -27,8 +27,7 @@ describe('Heap', function() {
     }
 
     for (const idx of range(0, 10).reverse()) {
-      assert.equal(idx, heap.pop().getValue())
+      assert.equal(idx, heap.pop().getValue());
     }
   });
 });
-

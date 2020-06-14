@@ -15,7 +15,12 @@
  */
 
 import { logger, LogLevel } from '../util/logger';
-import { Observer, Observable, createObservable, Unsubscribe } from '../util/observable';
+import {
+  Observer,
+  Observable,
+  createObservable,
+  Unsubscribe,
+} from '../util/observable';
 import { ActorID } from './time/actor_id';
 import { DocumentKey } from './key/document_key';
 import { Change } from './change/change';
@@ -26,7 +31,7 @@ import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
-import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
+import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
 
 export enum DocEventType {
   Snapshot = 'snapshot',
@@ -78,12 +83,12 @@ export class Document implements Observable<DocEvent> {
     const context = ChangeContext.create(
       this.changeID.next(),
       message,
-      this.clone
+      this.clone,
     );
 
     try {
       const proxy = createProxy(context, this.clone.getObject());
-      updater(proxy)
+      updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
       this.clone = null;
@@ -104,7 +109,7 @@ export class Document implements Observable<DocEvent> {
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
           name: DocEventType.LocalChange,
-          value: [change]
+          value: [change],
         });
       }
 
@@ -123,7 +128,10 @@ export class Document implements Observable<DocEvent> {
    */
   public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
-      this.applySnapshot(pack.getSnapshot(), pack.getCheckpoint().getServerSeq());
+      this.applySnapshot(
+        pack.getSnapshot(),
+        pack.getCheckpoint().getServerSeq(),
+      );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
     }
@@ -190,11 +198,7 @@ export class Document implements Observable<DocEvent> {
   public getRootObject(): JSONObject {
     this.ensureClone();
 
-    const context = ChangeContext.create(
-      this.changeID.next(),
-      '',
-      this.clone
-    );
+    const context = ChangeContext.create(this.changeID.next(), '', this.clone);
     return createProxy(context, this.clone.getObject());
   }
 
@@ -235,7 +239,7 @@ export class Document implements Observable<DocEvent> {
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(changes.map((change) =>
-        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`
+        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`,
       ).join('\n'));
     }
 
@@ -252,10 +256,10 @@ export class Document implements Observable<DocEvent> {
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         name: DocEventType.RemoteChange,
-        value: changes
+        value: changes,
       });
     }
 
-    logger.debug(`after appling ${changes.length} remote changes`)
+    logger.debug(`after appling ${changes.length} remote changes`);
   }
 }

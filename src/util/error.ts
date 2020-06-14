@@ -22,7 +22,7 @@ export const Code = {
   ClientNotActive: 'client-not-active' as Code,
   Unimplemented: 'unimplemented' as Code,
   Unsupported: 'unsupported' as Code,
-}
+};
 
 export class YorkieError extends Error {
   name = 'YorkieError';
@@ -30,6 +30,7 @@ export class YorkieError extends Error {
 
   constructor(readonly code: Code, readonly message: string) {
     super(message);
-    this.toString = (): string => `${this.name}: [code=${this.code}]: ${this.message}`;
+    this.toString = (): string =>
+      `${this.name}: [code=${this.code}]: ${this.message}`;
   }
 }

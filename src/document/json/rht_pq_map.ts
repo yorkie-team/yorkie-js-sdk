@@ -56,7 +56,7 @@ export class RHTPQMap {
   }
 
   public static create(): RHTPQMap {
-    return new RHTPQMap()
+    return new RHTPQMap();
   }
 
   public set(key: string, value: JSONElement): void {

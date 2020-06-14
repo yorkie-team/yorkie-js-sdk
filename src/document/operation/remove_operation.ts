@@ -24,7 +24,11 @@ import { Operation } from './operation';
 export class RemoveOperation extends Operation {
   private createdAt: TimeTicket;
 
-  constructor(parentCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket) {
+  constructor(
+    parentCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+    executedAt: TimeTicket,
+  ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
   }
@@ -32,7 +36,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
@@ -51,7 +55,7 @@ export class RemoveOperation extends Operation {
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`
+    return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`;
   }
 
   public getCreatedAt(): TimeTicket {

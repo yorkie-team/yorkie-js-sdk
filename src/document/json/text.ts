@@ -15,11 +15,15 @@
  */
 
 import { logger } from '../../util/logger';
-import { ActorID } from '../time/actor_id';
-import { LLRBTree } from '../../util/llrb_tree';
 import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
-import { Change, ChangeType, RGATreeSplit, RGATreeSplitNodeRange, RGATreeSplitNodePos, Selection } from './rga_tree_split';
+import {
+  Change,
+  ChangeType,
+  RGATreeSplit,
+  RGATreeSplitNodeRange,
+  Selection,
+} from './rga_tree_split';
 
 export class PlainText extends JSONElement {
   private onChangesHandler: (changes: Array<Change>) => void;
@@ -34,13 +38,16 @@ export class PlainText extends JSONElement {
     this.remoteChangeLock = false;
   }
 
-  public static create(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket): PlainText {
+  public static create(
+    rgaTreeSplit: RGATreeSplit<string>,
+    createdAt: TimeTicket,
+  ): PlainText {
     return new PlainText(rgaTreeSplit, createdAt);
   }
 
   public edit(fromIdx: number, toIdx: number, content: string): PlainText {
     logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`
+      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
     return null;
   }
@@ -49,7 +56,7 @@ export class PlainText extends JSONElement {
     range: RGATreeSplitNodeRange,
     content: string,
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): Map<string, TimeTicket> {
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
@@ -58,7 +65,10 @@ export class PlainText extends JSONElement {
       editedAt,
     );
 
-    const selectionChange = this.updateSelectionInternal([caretPos, caretPos], editedAt);
+    const selectionChange = this.updateSelectionInternal(
+      [caretPos, caretPos],
+      editedAt,
+    );
     if (selectionChange) {
       changes.push(selectionChange);
     }
@@ -72,7 +82,10 @@ export class PlainText extends JSONElement {
     return latestCreatedAtMap;
   }
 
-  public updateSelection(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): void {
+  public updateSelection(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): void {
     if (this.remoteChangeLock) {
       return;
     }
@@ -125,21 +138,30 @@ export class PlainText extends JSONElement {
   public deepcopy(): PlainText {
     const text = PlainText.create(
       this.rgaTreeSplit.deepcopy(),
-      this.getCreatedAt()
+      this.getCreatedAt(),
     );
     text.remove(this.getRemovedAt());
     return text;
   }
 
-  private updateSelectionInternal(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): Change {
+  private updateSelectionInternal(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): Change {
     if (!this.selectionMap.has(updatedAt.getActorID())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt),
+      );
       return null;
     }
 
     const prevSelection = this.selectionMap.get(updatedAt.getActorID());
     if (updatedAt.after(prevSelection.getUpdatedAt())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt),
+      );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {

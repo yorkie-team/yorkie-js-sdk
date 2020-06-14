@@ -27,7 +27,12 @@ export class ChangePack {
   private changes: Change[];
   private snapshot: Uint8Array;
 
-  constructor(key: DocumentKey, checkpoint: Checkpoint, changes: Change[], snapshot: Uint8Array) {
+  constructor(
+    key: DocumentKey,
+    checkpoint: Checkpoint,
+    changes: Change[],
+    snapshot: Uint8Array,
+  ) {
     this.key = key;
     this.checkpoint = checkpoint;
     this.changes = changes;
@@ -40,12 +45,7 @@ export class ChangePack {
     changes: Change[],
     snapshot?: Uint8Array,
   ): ChangePack {
-    return new ChangePack(
-      key,
-      checkpoint,
-      changes,
-      snapshot,
-    );
+    return new ChangePack(key, checkpoint, changes, snapshot);
   }
 
   public getKey(): DocumentKey {

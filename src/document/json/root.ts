@@ -55,7 +55,10 @@ export class JSONRoot {
    * registerElement registers the given element to hash table.
    */
   public registerElement(element: JSONElement): void {
-    this.elementMapByCreatedAt.set(element.getCreatedAt().toIDString(), element);
+    this.elementMapByCreatedAt.set(
+      element.getCreatedAt().toIDString(),
+      element,
+    );
   }
 
   public *getDescendants(): IterableIterator<JSONElement> {

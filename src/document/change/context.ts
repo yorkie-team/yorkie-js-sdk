@@ -47,7 +47,7 @@ export class ChangeContext {
   public static create(
     id: ChangeID,
     message: string,
-    root: JSONRoot
+    root: JSONRoot,
   ): ChangeContext {
     return new ChangeContext(id, message, root);
   }
@@ -65,7 +65,7 @@ export class ChangeContext {
   }
 
   public hasOperations(): boolean {
-    return this.operations.length > 0; 
+    return this.operations.length > 0;
   }
 
   /**

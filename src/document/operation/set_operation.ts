@@ -25,7 +25,12 @@ export class SetOperation extends Operation {
   private key: string;
   private value: JSONElement;
 
-  constructor(key: string, value: JSONElement, parentCreatedAt: TimeTicket, executedAt: TimeTicket) {
+  constructor(
+    key: string,
+    value: JSONElement,
+    parentCreatedAt: TimeTicket,
+    executedAt: TimeTicket,
+  ) {
     super(parentCreatedAt, executedAt);
     this.key = key;
     this.value = value;
@@ -53,7 +58,7 @@ export class SetOperation extends Operation {
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.SET`
+    return `${this.getParentCreatedAt().getAnnotatedString()}.SET`;
   }
 
   public getKey(): string {

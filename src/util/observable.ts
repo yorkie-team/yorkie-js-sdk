@@ -77,7 +77,9 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   public subscribe(
-    nextOrObserver: Observer<T> | NextFn<T>, error?: ErrorFn, complete?: CompleteFn
+    nextOrObserver: Observer<T> | NextFn<T>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
   ): Unsubscribe {
     let observer: Observer<T>;
 
@@ -95,7 +97,7 @@ class ObserverProxy<T> implements Observer<T> {
       observer = {
         next: (nextOrObserver as any) as NextFn<T>,
         error,
-        complete
+        complete,
       } as Observer<T>;
     }
 
@@ -198,7 +200,6 @@ export function createObservable<T>(executor: Executor<T>): Observable<T> {
     subscribe: proxy.subscribe.bind(proxy),
     getProxy: (): ObserverProxy<T> => {
       return proxy;
-    }
+    },
   };
 }
-

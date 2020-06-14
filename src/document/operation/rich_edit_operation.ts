@@ -35,7 +35,7 @@ export class RichEditOperation extends Operation {
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -52,7 +52,7 @@ export class RichEditOperation extends Operation {
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): RichEditOperation {
     return new RichEditOperation(
       parentCreatedAt,
@@ -61,20 +61,20 @@ export class RichEditOperation extends Operation {
       maxCreatedAtMapByActor,
       content,
       attributes,
-      executedAt
+      executedAt,
     );
   }
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-     if (parentObject instanceof RichText) {
+    if (parentObject instanceof RichText) {
       const text = parentObject as RichText;
       text.editInternal(
         [this.fromPos, this.toPos],
         this.content,
         Object.fromEntries(this.attributes),
         this.maxCreatedAtMapByActor,
-        this.getExecutedAt()
+        this.getExecutedAt(),
       );
     } else {
       logger.fatal(`fail to execute, only RichText can execute edit`);
@@ -86,7 +86,7 @@ export class RichEditOperation extends Operation {
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
     const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`
+    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

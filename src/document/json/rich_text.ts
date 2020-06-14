@@ -15,8 +15,6 @@
  */
 
 import { logger } from '../../util/logger';
-import { ActorID } from '../time/actor_id';
-import { LLRBTree } from '../../util/llrb_tree';
 import { TimeTicket } from '../time/ticket';
 import { RHT } from './rht';
 import { JSONElement } from './element';
@@ -25,13 +23,11 @@ import {
   ChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
-  RGATreeSplitNodePos,
-  RGATreeSplitNode,
-  Selection
+  Selection,
 } from './rga_tree_split';
 
 export interface RichTextVal {
-  attributes: { [key: string]: string; };
+  attributes: { [key: string]: string };
   content: string;
 }
 
@@ -53,9 +49,7 @@ export class RichTextValue {
   }
 
   public substring(indexStart, indexEnd: number): RichTextValue {
-    return new RichTextValue(
-      this.content.substring(indexStart, indexEnd)
-    );
+    return new RichTextValue(this.content.substring(indexStart, indexEnd));
   }
 
   public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
@@ -85,30 +79,46 @@ export class RichText extends JSONElement {
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
-  constructor(rgaTreeSplit: RGATreeSplit<RichTextValue>, createdAt: TimeTicket) {
+  constructor(
+    rgaTreeSplit: RGATreeSplit<RichTextValue>,
+    createdAt: TimeTicket,
+  ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
     this.remoteChangeLock = false;
   }
 
-  public static create(rgaTreeSplit: RGATreeSplit<RichTextValue>, createdAt: TimeTicket): RichText {
+  public static create(
+    rgaTreeSplit: RGATreeSplit<RichTextValue>,
+    createdAt: TimeTicket,
+  ): RichText {
     const text = new RichText(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
     text.editInternal(range, '\n', null, null, createdAt);
     return text;
   }
 
-  public edit(fromIdx: number, toIdx: number, content: string, attributes?: { [key: string]: string; }): RichText {
+  public edit(
+    fromIdx: number,
+    toIdx: number,
+    content: string,
+    attributes?: { [key: string]: string },
+  ): RichText {
     logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`
+      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
     return null;
   }
 
-  public setStyle(fromIdx: number, toIdx: number, key: string, value: string): RichText {
+  public setStyle(
+    fromIdx: number,
+    toIdx: number,
+    key: string,
+    value: string,
+  ): RichText {
     logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`
+      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`,
     );
     return null;
   }
@@ -116,11 +126,11 @@ export class RichText extends JSONElement {
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    attributes: { [key: string]: string; },
+    attributes: { [key: string]: string },
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): Map<string, TimeTicket> {
-    let value = content ? RichTextValue.create(content) : null;
+    const value = content ? RichTextValue.create(content) : null;
     if (content && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
         value.setAttr(k, v, editedAt);
@@ -138,7 +148,10 @@ export class RichText extends JSONElement {
       change.attributes = attributes;
     }
 
-    const selectionChange = this.updateSelectionInternal([caretPos, caretPos], editedAt);
+    const selectionChange = this.updateSelectionInternal(
+      [caretPos, caretPos],
+      editedAt,
+    );
     if (selectionChange) {
       changes.push(selectionChange);
     }
@@ -154,12 +167,15 @@ export class RichText extends JSONElement {
 
   public setStyleInternal(
     range: RGATreeSplitNodeRange,
-    attributes: { [key: string]: string; },
-    editedAt: TimeTicket
+    attributes: { [key: string]: string },
+    editedAt: TimeTicket,
   ): void {
     // 01. split nodes with from and to
-    const [toLeft, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
-    const [fromLeft, fromRight] = this.rgaTreeSplit.findNodeWithSplit(range[0], editedAt);
+    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
+    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+      range[0],
+      editedAt,
+    );
 
     // 02. style nodes between from and to
     const changes = [];
@@ -169,13 +185,15 @@ export class RichText extends JSONElement {
         continue;
       }
 
-      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(node.createRange());
+      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+        node.createRange(),
+      );
       changes.push({
         type: ChangeType.Style,
         actor: editedAt.getActorID(),
         from: fromIdx,
         to: toIdx,
-        attributes: attributes
+        attributes: attributes,
       });
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -190,7 +208,10 @@ export class RichText extends JSONElement {
     }
   }
 
-  public updateSelection(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): void {
+  public updateSelection(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): void {
     if (this.remoteChangeLock) {
       return;
     }
@@ -244,7 +265,7 @@ export class RichText extends JSONElement {
         const value = node.getValue();
         values.push({
           attributes: value.getAttributes(),
-          content: value.getContent()
+          content: value.getContent(),
         });
       }
     }
@@ -263,21 +284,30 @@ export class RichText extends JSONElement {
   public deepcopy(): RichText {
     const text = new RichText(
       this.rgaTreeSplit.deepcopy(),
-      this.getCreatedAt()
+      this.getCreatedAt(),
     );
     text.remove(this.getRemovedAt());
     return text;
   }
 
-  private updateSelectionInternal(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): Change {
+  private updateSelectionInternal(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): Change {
     if (!this.selectionMap.has(updatedAt.getActorID())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt),
+      );
       return null;
     }
 
     const prevSelection = this.selectionMap.get(updatedAt.getActorID());
     if (updatedAt.after(prevSelection.getUpdatedAt())) {
-      this.selectionMap.set(updatedAt.getActorID(), Selection.of(range, updatedAt));
+      this.selectionMap.set(
+        updatedAt.getActorID(),
+        Selection.of(range, updatedAt),
+      );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {

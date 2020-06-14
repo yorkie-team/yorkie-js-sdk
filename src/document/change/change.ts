@@ -42,7 +42,11 @@ export class Change {
     this.operations = operations;
   }
 
-  public static create(id: ChangeID, message: string, operations: Operation[]): Change {
+  public static create(
+    id: ChangeID,
+    message: string,
+    operations: Operation[],
+  ): Change {
     return new Change(id, message, operations);
   }
 
@@ -73,6 +77,8 @@ export class Change {
   }
 
   public getAnnotatedString(): string {
-    return `${this.operations.map((operation) => operation.getAnnotatedString()).join(',')}`;
+    return `${this.operations.map((operation) =>
+      operation.getAnnotatedString()
+    ).join(',')}`;
   }
 }
