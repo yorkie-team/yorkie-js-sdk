@@ -31,7 +31,7 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -44,14 +44,14 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
       parentCreatedAt,
       fromPos,
       toPos,
       attributes,
-      executedAt
+      executedAt,
     );
   }
 
@@ -62,7 +62,7 @@ export class StyleOperation extends Operation {
       text.setStyleInternal(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},
-        this.getExecutedAt()
+        this.getExecutedAt(),
       );
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);
@@ -74,7 +74,7 @@ export class StyleOperation extends Operation {
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
     const attributes = this.attributes;
-    return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`
+    return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

@@ -18,8 +18,8 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 
-describe('Document', function() {
-  it('should apply updates of string', function() {
+describe('Document', function () {
+  it('should apply updates of string', function () {
     const doc1 = Document.create('test-col', 'test-doc');
     const doc2 = Document.create('test-col', 'test-doc');
 
@@ -42,7 +42,7 @@ describe('Document', function() {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root['k1'] = {'k1-1': 'v1'};
+      root['k1'] = { 'k1-1': 'v1' };
       root['k1']['k1-2'] = 'v2';
     }, 'set {"k1-1":"v1","k1-2":"v2":}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
@@ -53,28 +53,40 @@ describe('Document', function() {
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root['k2'] = ["1","2"];
-      root['k2'].push("3");
+      root['k2'] = ['1', '2'];
+      root['k2'].push('3');
     }, 'set ["1","2","3"]');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      doc.toSortedJSON(),
+    );
 
     assert.throws(() => {
       doc.update((root) => {
-        root['k2'].push("4");
+        root['k2'].push('4');
         throw new Error('dummy error');
       }, 'push "4"');
     }, 'dummy error');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      doc.toSortedJSON(),
+    );
 
     doc.update((root) => {
-      root['k2'].push("4");
+      root['k2'].push('4');
     }, 'push "4"');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}',
+      doc.toSortedJSON(),
+    );
 
     doc.update((root) => {
-      root['k2'].push({"k2-5": "v4"});
+      root['k2'].push({ 'k2-5': 'v4' });
     }, 'push "{k2-5: 4}"');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}',
+      doc.toSortedJSON(),
+    );
   });
 
   it('should handle delete operations', function () {
@@ -82,10 +94,13 @@ describe('Document', function() {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root['k1'] = {'k1-1': 'v1', 'k1-2': 'v2'};
-      root['k2'] = ['1','2','3'];
+      root['k1'] = { 'k1-1': 'v1', 'k1-2': 'v2' };
+      root['k2'] = ['1', '2', '3'];
     }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}');
-    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}',
+      doc.toSortedJSON(),
+    );
 
     doc.update((root) => {
       delete root['k1']['k1-1'];
@@ -94,7 +109,10 @@ describe('Document', function() {
       delete root['k2'][1];
       root['k2'].push('4');
     }, 'set {"k1":{"k1-2":"v2"},"k2":["1","3","4"]}');
-    assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"},"k2":["1","3","4"]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":{"k1-2":"v2","k1-3":"v4"},"k2":["1","3","4"]}',
+      doc.toSortedJSON(),
+    );
   });
 
   it('should handle edit operations', function () {
@@ -113,23 +131,23 @@ describe('Document', function() {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
-        root['k1'].getAnnotatedString()
+        root['k1'].getAnnotatedString(),
       );
 
       let range = root['k1'].createRange(0, 0);
-      assert.equal('0:00:0:0:0', range[0].getAnnotatedString())
+      assert.equal('0:00:0:0:0', range[0].getAnnotatedString());
 
       range = root['k1'].createRange(1, 1);
-      assert.equal('1:00:2:0:1', range[0].getAnnotatedString())
+      assert.equal('1:00:2:0:1', range[0].getAnnotatedString());
 
       range = root['k1'].createRange(2, 2);
       assert.equal('1:00:3:0:1', range[0].getAnnotatedString());
 
-      range = root['k1'].createRange(3, 3)
-      assert.equal('1:00:3:0:2', range[0].getAnnotatedString())
+      range = root['k1'].createRange(3, 3);
+      assert.equal('1:00:3:0:2', range[0].getAnnotatedString());
 
       range = root['k1'].createRange(4, 4);
-      assert.equal('1:00:2:3:1', range[0].getAnnotatedString())
+      assert.equal('1:00:2:3:1', range[0].getAnnotatedString());
     });
 
     assert.equal('{"k1":"A12D"}', doc.toSortedJSON());
@@ -151,14 +169,17 @@ describe('Document', function() {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
-        root['k1'].getAnnotatedString()
+        root['k1'].getAnnotatedString(),
       );
     });
 
-    assert.equal('{"k1":[{"attrs":{},"content":ABC},{"attrs":{},"content":\n},{"attrs":{},"content":D},{"attrs":{},"content":\n}]}', doc.toSortedJSON());
+    assert.equal(
+      '{"k1":[{"attrs":{},"content":ABC},{"attrs":{},"content":\n},{"attrs":{},"content":D},{"attrs":{},"content":\n}]}',
+      doc.toSortedJSON(),
+    );
   });
 
-  it('should handle type 하늘', function() {
+  it('should handle type 하늘', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
@@ -175,10 +196,10 @@ describe('Document', function() {
     assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
   });
 
-  it('can push element then delete it by ID in array', function() {
+  it('can push element then delete it by ID in array', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
-  
+
     let toDelete;
     doc.update((root) => {
       root['list'] = [];
@@ -188,9 +209,9 @@ describe('Document', function() {
       assert.equal(4, root['list'].push(1));
       toDelete = root['list'].getElementByIndex(2);
     }, 'set {"list":[4,3,2,1]}');
-  
+
     assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
-  
+
     doc.update((root) => {
       root['list'].deleteByID(toDelete.getID());
     }, 'delete 2');
@@ -202,10 +223,10 @@ describe('Document', function() {
     assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
   });
 
-  it('can inster an element after the given element in array', function() {
+  it('can inster an element after the given element in array', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
-  
+
     let prev;
     doc.update((root) => {
       root['list'] = [];
@@ -214,9 +235,9 @@ describe('Document', function() {
       root['list'].push(4);
       prev = root['list'].getElementByIndex(1);
     }, 'set {"list":[1,2,4]}');
-  
+
     assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
-  
+
     doc.update((root) => {
       root['list'].insertAfter(prev.getID(), 3);
     }, 'insert 3');

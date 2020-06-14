@@ -45,7 +45,7 @@ export abstract class JSONElement {
   }
 
   public setUpdatedAt(updatedAt: TimeTicket): boolean {
-    if (!this.updatedAt || updatedAt && updatedAt.after(this.updatedAt)) {
+    if (!this.updatedAt || (updatedAt && updatedAt.after(this.updatedAt))) {
       this.updatedAt = updatedAt;
       return true;
     }
@@ -54,7 +54,7 @@ export abstract class JSONElement {
   }
 
   public remove(removedAt: TimeTicket): boolean {
-    if (!this.removedAt || removedAt && removedAt.after(this.removedAt)) {
+    if (!this.removedAt || (removedAt && removedAt.after(this.removedAt))) {
       this.removedAt = removedAt;
       return true;
     }

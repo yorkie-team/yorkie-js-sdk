@@ -20,7 +20,6 @@ import { Comparator } from '../../util/comparator';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
 import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
 
 export enum ChangeType {
   Content = 'content',
@@ -34,7 +33,7 @@ export interface Change {
   from: number;
   to: number;
   content?: string;
-  attributes?: { [key: string]: string; };
+  attributes?: { [key: string]: string };
 }
 
 interface RGATreeSplitValue {
@@ -64,8 +63,10 @@ export class RGATreeSplitNodeID {
   }
 
   public equals(other: RGATreeSplitNodeID): boolean {
-    return this.createdAt.compare(other.createdAt) === 0
-      && this.offset === other.offset;
+    return (
+      this.createdAt.compare(other.createdAt) === 0 &&
+      this.offset === other.offset
+    );
   }
 
   public hasSameCreatedAt(other: RGATreeSplitNodeID): boolean {
@@ -92,7 +93,10 @@ export class RGATreeSplitNodePos {
     this.relativeOffset = relativeOffset;
   }
 
-  public static of(id: RGATreeSplitNodeID, relativeOffset: number): RGATreeSplitNodePos {
+  public static of(
+    id: RGATreeSplitNodeID,
+    relativeOffset: number,
+  ): RGATreeSplitNodePos {
     return new RGATreeSplitNodePos(id, relativeOffset);
   }
 
@@ -118,7 +122,9 @@ export class RGATreeSplitNodePos {
 
 export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
 
-export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<T> {
+export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<
+  T
+> {
   private id: RGATreeSplitNodeID;
   private removedAt: TimeTicket;
 
@@ -133,7 +139,10 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<T> 
     this.removedAt = removedAt;
   }
 
-  public static create<T extends RGATreeSplitValue>(id: RGATreeSplitNodeID, value?: T): RGATreeSplitNode<T> {
+  public static create<T extends RGATreeSplitValue>(
+    id: RGATreeSplitNodeID,
+    value?: T,
+  ): RGATreeSplitNode<T> {
     return new RGATreeSplitNode(id, value);
   }
 
@@ -169,7 +178,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<T> 
   }
 
   public getContentLength(): number {
-    return this.value && this.value.length || 0;
+    return (this.value && this.value.length) || 0;
   }
 
   public getNext(): RGATreeSplitNode<T> {
@@ -215,15 +224,14 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<T> 
   }
 
   public split(offset: number): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(
-      this.id.split(offset),
-      this.splitValue(offset)
-    );
+    return new RGATreeSplitNode(this.id.split(offset), this.splitValue(offset));
   }
 
   public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
-    return (!this.getCreatedAt().after(latestCreatedAt) &&
-      (!this.removedAt || editedAt.after(this.removedAt)));
+    return (
+      !this.getCreatedAt().after(latestCreatedAt) &&
+      (!this.removedAt || editedAt.after(this.removedAt))
+    );
   }
 
   public remove(editedAt: TimeTicket): void {
@@ -233,16 +241,12 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<T> 
   public createRange(): RGATreeSplitNodeRange {
     return [
       RGATreeSplitNodePos.of(this.id, 0),
-      RGATreeSplitNodePos.of(this.id, this.getLength())
+      RGATreeSplitNodePos.of(this.id, this.getLength()),
     ];
   }
 
   public deepcopy(): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(
-      this.id,
-      this.value,
-      this.removedAt
-    );
+    return new RGATreeSplitNode(this.id, this.value, this.removedAt);
   }
 
   public getAnnotatedString(): string {
@@ -278,7 +282,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     range: RGATreeSplitNodeRange,
     value: T,
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -287,7 +291,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
     const [changes, latestCreatedAtMap] = this.deleteNodes(
-      nodesToDelete, latestCreatedAtMapByActor, editedAt
+      nodesToDelete,
+      latestCreatedAtMapByActor,
+      editedAt,
     );
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
@@ -299,7 +305,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       const inserted = this.insertAfter(
         fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value)
+        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
 
       changes.push({
@@ -307,10 +313,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         actor: editedAt.getActorID(),
         from: idx,
         to: idx,
-        content: value.toString()
+        content: value.toString(),
       });
 
-      caretPos = RGATreeSplitNodePos.of(inserted.getID(), inserted.getContentLength());
+      caretPos = RGATreeSplitNodePos.of(
+        inserted.getID(),
+        inserted.getContentLength(),
+      );
     }
 
     return [caretPos, latestCreatedAtMap, changes];
@@ -326,19 +335,27 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const [fromPos, toPos] = range;
     return [
       this.findIdxFromNodePos(fromPos, false),
-      this.findIdxFromNodePos(toPos, true)
+      this.findIdxFromNodePos(toPos, true),
     ];
   }
 
-  public findIdxFromNodePos(pos: RGATreeSplitNodePos, preferToLeft: boolean): number {
+  public findIdxFromNodePos(
+    pos: RGATreeSplitNodePos,
+    preferToLeft: boolean,
+  ): number {
     const absoluteID = pos.getAbsoluteID();
-    const node = preferToLeft ?
-      this.findFloorNodePerferToLeft(absoluteID) : this.findFloorNode(absoluteID);
+    const node = preferToLeft
+      ? this.findFloorNodePerferToLeft(absoluteID)
+      : this.findFloorNode(absoluteID);
     const index = this.treeByIndex.indexOf(node);
     if (!node) {
-      logger.fatal(`the node of the given id should be found: ${absoluteID.getAnnotatedString()}`);
+      logger.fatal(
+        `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
+      );
     }
-    const offset = node.isRemoved() ? 0 : absoluteID.getOffset() - node.getID().getOffset();
+    const offset = node.isRemoved()
+      ? 0
+      : absoluteID.getOffset() - node.getID().getOffset();
     return index + offset;
   }
 
@@ -360,7 +377,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public *[Symbol.iterator](): IterableIterator<RGATreeSplitNode<T>> {
     let node = this.head.getNext();
-    while(node) {
+    while (node) {
       yield node;
       node = node.getNext();
     }
@@ -376,7 +393,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     let node = this.head.getNext();
 
     let prev = clone.head;
-    let current
+    let current;
     while (node) {
       current = clone.insertAfter(prev, node.deepcopy());
       if (node.hasInsPrev()) {
@@ -395,7 +412,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const result = [];
 
     let node = this.head;
-    while(node) {
+    while (node) {
       if (node.isRemoved()) {
         result.push(`{${node.getAnnotatedString()}}`);
       } else {
@@ -408,7 +425,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return result.join('');
   }
 
-  public insertAfter(prevNode: RGATreeSplitNode<T>, newNode: RGATreeSplitNode<T>): RGATreeSplitNode<T> {
+  public insertAfter(
+    prevNode: RGATreeSplitNode<T>,
+    newNode: RGATreeSplitNode<T>,
+  ): RGATreeSplitNode<T> {
     const next = prevNode.getNext();
     newNode.setPrev(prevNode);
     if (next) {
@@ -421,31 +441,38 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return newNode;
   }
 
-  public findNodeWithSplit(pos: RGATreeSplitNodePos, editedAt: TimeTicket): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
+  public findNodeWithSplit(
+    pos: RGATreeSplitNodePos,
+    editedAt: TimeTicket,
+  ): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
     let node = this.findFloorNodePerferToLeft(absoluteID);
     const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
 
     this.splitNode(node, relativeOffset);
 
-    while(node.hasNext() && node.getNext().getCreatedAt().after(editedAt)) {
+    while (node.hasNext() && node.getNext().getCreatedAt().after(editedAt)) {
       node = node.getNext();
     }
 
     return [node, node.getNext()];
   }
 
-  private findFloorNodePerferToLeft(id: RGATreeSplitNodeID): RGATreeSplitNode<T> {
+  private findFloorNodePerferToLeft(
+    id: RGATreeSplitNodeID,
+  ): RGATreeSplitNode<T> {
     let node = this.findFloorNode(id);
     if (!node) {
-      logger.fatal(`the node of the given id should be found: ${id.getAnnotatedString()}`);
+      logger.fatal(
+        `the node of the given id should be found: ${id.getAnnotatedString()}`,
+      );
     }
 
     if (id.getOffset() > 0 && node.getID().getOffset() == id.getOffset()) {
       if (!node.hasInsPrev()) {
         logger.fatal('insPrev should be presence');
       }
-      node = node.getInsPrev()
+      node = node.getInsPrev();
     }
 
     return node;
@@ -464,7 +491,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return entry.value;
   }
 
-  public findBetween(fromNode: RGATreeSplitNode<T>, toNode: RGATreeSplitNode<T>): Array<RGATreeSplitNode<T>> {
+  public findBetween(
+    fromNode: RGATreeSplitNode<T>,
+    toNode: RGATreeSplitNode<T>,
+  ): Array<RGATreeSplitNode<T>> {
     const nodes = [];
 
     let current = fromNode;
@@ -476,7 +506,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return nodes;
   }
 
-  private splitNode(node: RGATreeSplitNode<T>, offset: number): RGATreeSplitNode<T> {
+  private splitNode(
+    node: RGATreeSplitNode<T>,
+    offset: number,
+  ): RGATreeSplitNode<T> {
     if (offset > node.getContentLength()) {
       logger.fatal('offset should be less than or equal to length');
     }
@@ -503,7 +536,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     latestCreatedAtMapByActor: Map<string, TimeTicket>,
-    editedAt: TimeTicket
+    editedAt: TimeTicket,
   ): [Array<Change>, Map<string, TimeTicket>] {
     const isRemote = !!latestCreatedAtMapByActor;
     const changes: Array<Change> = [];
@@ -514,20 +547,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
 
-      const latestCreatedAt = isRemote ? (
-        latestCreatedAtMapByActor.has(actorID) ? latestCreatedAtMapByActor.get(actorID) : InitialTimeTicket
-      ) : MaxTimeTicket;
+      const latestCreatedAt = isRemote
+        ? latestCreatedAtMapByActor.has(actorID)
+          ? latestCreatedAtMapByActor.get(actorID)
+          : InitialTimeTicket
+        : MaxTimeTicket;
 
       // Delete nodes created before the latest time remaining in the replica that performed the deletion.
       if (node.canDelete(editedAt, latestCreatedAt)) {
         nodesToDelete.push(node);
 
         const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
-        const change = { 
+        const change = {
           type: ChangeType.Content,
           actor: editedAt.getActorID(),
           from: fromIdx,
-          to: toIdx
+          to: toIdx,
         };
 
         // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
@@ -537,8 +572,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           changes.unshift(change);
         }
 
-        if (!createdAtMapByActor.has(actorID) || 
-          node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))) {
+        if (
+          !createdAtMapByActor.has(actorID) ||
+          node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
+        ) {
           createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
         }
       }
@@ -558,13 +595,20 @@ export class Selection {
   private to: RGATreeSplitNodePos;
   private updatedAt: TimeTicket;
 
-  constructor(from: RGATreeSplitNodePos, to: RGATreeSplitNodePos, updatedAt: TimeTicket) {
+  constructor(
+    from: RGATreeSplitNodePos,
+    to: RGATreeSplitNodePos,
+    updatedAt: TimeTicket,
+  ) {
     this.from = from;
     this.to = to;
     this.updatedAt = updatedAt;
   }
 
-  public static of(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): Selection {
+  public static of(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): Selection {
     return new Selection(range[0], range[1], updatedAt);
   }
 

@@ -58,11 +58,11 @@ export class TextProxy {
         } else if (method === 'onChanges') {
           return (handler: (changes: Array<Change>) => void): void => {
             target.onChanges(handler);
-          }
+          };
         }
 
         logger.fatal(`unsupported method: ${method}`);
-      }
+      },
     };
   }
 
@@ -71,7 +71,12 @@ export class TextProxy {
     return new Proxy(target, textProxy.getHandlers());
   }
 
-  public edit(target: PlainText, fromIdx: number, toIdx: number, content: string): void {
+  public edit(
+    target: PlainText,
+    fromIdx: number,
+    toIdx: number,
+    content: string,
+  ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
     }
@@ -79,41 +84,49 @@ export class TextProxy {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`
+        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = target.editInternal(range, content, null, ticket);
-
-    this.context.push(new EditOperation(
-      target.getCreatedAt(),
-      range[0],
-      range[1],
-      maxCreatedAtMapByActor,
+    const maxCreatedAtMapByActor = target.editInternal(
+      range,
       content,
-      ticket
-    ));
+      null,
+      ticket,
+    );
+
+    this.context.push(
+      new EditOperation(
+        target.getCreatedAt(),
+        range[0],
+        range[1],
+        maxCreatedAtMapByActor,
+        content,
+        ticket,
+      ),
+    );
   }
 
-  public updateSelection(target: PlainText, fromIdx: number, toIdx: number): void {
+  public updateSelection(
+    target: PlainText,
+    fromIdx: number,
+    toIdx: number,
+  ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
     target.updateSelection(range, ticket);
 
-    this.context.push(new SelectOperation(
-      target.getCreatedAt(),
-      range[0],
-      range[1],
-      ticket
-    ));
+    this.context.push(
+      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
+    );
   }
-  
+
   public getHandlers(): any {
     return this.handlers;
   }

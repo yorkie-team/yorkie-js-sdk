@@ -27,7 +27,7 @@ export enum PrimitiveType {
   Double = 4,
   String = 5,
   Bytes = 6,
-  Date = 7
+  Date = 7,
 }
 
 type PrimitiveValue = boolean | number | Long | string | Uint8Array | Date;
@@ -46,16 +46,22 @@ export class JSONPrimitive extends JSONElement {
     this.value = value;
   }
 
-  public static of(value: PrimitiveValue, createdAt: TimeTicket): JSONPrimitive {
+  public static of(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+  ): JSONPrimitive {
     return new JSONPrimitive(value, createdAt);
   }
 
-  public static valueFromBytes(primitiveType: PrimitiveType, bytes: Uint8Array): PrimitiveValue {
-    switch(primitiveType) {
+  public static valueFromBytes(
+    primitiveType: PrimitiveType,
+    bytes: Uint8Array,
+  ): PrimitiveValue {
+    switch (primitiveType) {
       case PrimitiveType.Boolean:
         return bytes[0] ? true : false;
       case PrimitiveType.Integer:
-        return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
+        return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case PrimitiveType.Double: {
         const view = new DataView(bytes.buffer);
         bytes.forEach(function (b, i) {
@@ -64,7 +70,7 @@ export class JSONPrimitive extends JSONElement {
         return view.getFloat64(0, true);
       }
       case PrimitiveType.String:
-        return new TextDecoder("utf-8").decode(bytes);
+        return new TextDecoder('utf-8').decode(bytes);
       case PrimitiveType.Long:
         return Long.fromBytesLE(Array.from(bytes));
       case PrimitiveType.Bytes:
@@ -72,7 +78,10 @@ export class JSONPrimitive extends JSONElement {
       case PrimitiveType.Date:
         return new Date(Long.fromBytesLE(Array.from(bytes)).toNumber());
       default:
-        throw new YorkieError(Code.Unimplemented, `unimplemented type: ${primitiveType}`);
+        throw new YorkieError(
+          Code.Unimplemented,
+          `unimplemented type: ${primitiveType}`,
+        );
     }
   }
 
@@ -141,7 +150,7 @@ export class JSONPrimitive extends JSONElement {
           intVal & 0xff,
           (intVal >> 8) & 0xff,
           (intVal >> 16) & 0xff,
-          (intVal >> 24) & 0xff
+          (intVal >> 24) & 0xff,
         ]);
       }
       case PrimitiveType.Double: {
@@ -169,7 +178,10 @@ export class JSONPrimitive extends JSONElement {
         return Uint8Array.from(dateToBytes);
       }
       default:
-        throw new YorkieError(Code.Unimplemented, `unimplemented type: ${this.valueType}`);
+        throw new YorkieError(
+          Code.Unimplemented,
+          `unimplemented type: ${this.valueType}`,
+        );
     }
   }
 }

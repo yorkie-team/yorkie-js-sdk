@@ -77,13 +77,13 @@ export class JSONObject extends JSONContainer {
 
   public toSortedJSON(): string {
     const keys = Array<string>();
-    for (const [key,] of this) {
+    for (const [key] of this) {
       keys.push(key);
     }
 
     const json = [];
     for (const key of keys.sort()) {
-      const node = this.memberNodes.get(key)
+      const node = this.memberNodes.get(key);
       json.push(`"${key}":${node.toSortedJSON()}`);
     }
 
@@ -97,10 +97,7 @@ export class JSONObject extends JSONContainer {
   public deepcopy(): JSONObject {
     const clone = JSONObject.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
-      clone.memberNodes.set(
-        node.getStrKey(),
-        node.getValue().deepcopy(),
-      );
+      clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
     }
     clone.remove(this.getRemovedAt());
     return clone;
@@ -113,7 +110,7 @@ export class JSONObject extends JSONContainer {
         for (const descendant of element.getDescendants()) {
           yield descendant;
         }
-      } 
+      }
 
       yield element;
     }

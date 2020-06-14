@@ -54,7 +54,7 @@ export class ObjectProxy {
         if (keyOrMethod === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
-          }; 
+          };
         } else if (keyOrMethod === 'toJSON') {
           return (): string => {
             return target.toJSON();
@@ -85,8 +85,8 @@ export class ObjectProxy {
 
         ObjectProxy.deleteInternal(context, target, key);
         return true;
-      }
-    }
+      },
+    };
   }
 
   public static create(context: ChangeContext, target: JSONObject): JSONObject {
@@ -94,32 +94,60 @@ export class ObjectProxy {
     return new Proxy(target, objectProxy.getHandlers());
   }
 
-  public static setInternal(context: ChangeContext, target: JSONObject, key: string, value: any): void {
+  public static setInternal(
+    context: ChangeContext,
+    target: JSONObject,
+    key: string,
+    value: any,
+  ): void {
     const ticket = context.issueTimeTicket();
 
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
       target.set(key, primitive);
       context.registerElement(primitive);
-      context.push(SetOperation.create(key, primitive, target.getCreatedAt(), ticket));
+      context.push(
+        SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
+      );
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.set(key, array);
       context.registerElement(array);
-      context.push(SetOperation.create(key, array.deepcopy(), target.getCreatedAt(), ticket));
+      context.push(
+        SetOperation.create(
+          key,
+          array.deepcopy(),
+          target.getCreatedAt(),
+          ticket,
+        ),
+      );
       for (const element of value) {
-        ArrayProxy.pushInternal(context, array, element)
+        ArrayProxy.pushInternal(context, array, element);
       }
     } else if (typeof value === 'object') {
       if (value instanceof PlainText) {
         target.set(key, value);
         context.registerElement(value);
-        context.push(SetOperation.create(key, value.deepcopy(), target.getCreatedAt(), ticket));
+        context.push(
+          SetOperation.create(
+            key,
+            value.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
       } else {
         const obj = JSONObject.create(ticket);
         target.set(key, obj);
         context.registerElement(obj);
-        context.push(SetOperation.create(key, obj.deepcopy(), target.getCreatedAt(), ticket));
+        context.push(
+          SetOperation.create(
+            key,
+            obj.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
         for (const [k, v] of Object.entries(value)) {
           ObjectProxy.setInternal(context, obj, k, v);
         }
@@ -129,28 +157,50 @@ export class ObjectProxy {
     }
   }
 
-  public static createText(context: ChangeContext, target: JSONObject, key: string): PlainText {
+  public static createText(
+    context: ChangeContext,
+    target: JSONObject,
+    key: string,
+  ): PlainText {
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text);
-    context.push(SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket));
+    context.push(
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+    );
     return TextProxy.create(context, text);
   }
 
-  public static createRichText(context: ChangeContext, target: JSONObject, key: string): RichText {
+  public static createRichText(
+    context: ChangeContext,
+    target: JSONObject,
+    key: string,
+  ): RichText {
     const ticket = context.issueTimeTicket();
     const text = RichText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text);
-    context.push(SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket));
+    context.push(
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+    );
     return RichTextProxy.create(context, text);
   }
 
-  public static deleteInternal(context: ChangeContext, target: JSONObject, key: string): void {
+  public static deleteInternal(
+    context: ChangeContext,
+    target: JSONObject,
+    key: string,
+  ): void {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByKey(key, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
   }
 
   public getHandlers(): any {

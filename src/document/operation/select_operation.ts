@@ -30,7 +30,7 @@ export class SelectOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -41,14 +41,9 @@ export class SelectOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): SelectOperation {
-    return new SelectOperation(
-      parentCreatedAt,
-      fromPos,
-      toPos,
-      executedAt
-    );
+    return new SelectOperation(parentCreatedAt, fromPos, toPos, executedAt);
   }
 
   public execute(root: JSONRoot): void {
@@ -60,7 +55,9 @@ export class SelectOperation extends Operation {
       const text = parentObject as RichText;
       text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
     } else {
-      logger.fatal(`fail to execute, only PlainText, RichText can execute select`);
+      logger.fatal(
+        `fail to execute, only PlainText, RichText can execute select`,
+      );
     }
   }
 
@@ -68,7 +65,7 @@ export class SelectOperation extends Operation {
     const parent = this.getParentCreatedAt().getAnnotatedString();
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
-    return `${parent}.SELT(${fromPos},${toPos})`
+    return `${parent}.SELT(${fromPos},${toPos})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

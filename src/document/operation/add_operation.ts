@@ -25,7 +25,12 @@ export class AddOperation extends Operation {
   private prevCreatedAt: TimeTicket;
   private value: JSONElement;
 
-  constructor(parentCreatedAt: TimeTicket, prevCreatedAt: TimeTicket, value: JSONElement, executedAt: TimeTicket) {
+  constructor(
+    parentCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
+    value: JSONElement,
+    executedAt: TimeTicket,
+  ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
     this.value = value;
@@ -53,7 +58,7 @@ export class AddOperation extends Operation {
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.ADD`
+    return `${this.getParentCreatedAt().getAnnotatedString()}.ADD`;
   }
 
   public getPrevCreatedAt(): TimeTicket {

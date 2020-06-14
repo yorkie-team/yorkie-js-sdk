@@ -26,7 +26,10 @@ import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
 import { RichTextProxy } from './rich_text_proxy';
 
-export function createProxy(context: ChangeContext, target: JSONObject): JSONObject {
+export function createProxy(
+  context: ChangeContext,
+  target: JSONObject,
+): JSONObject {
   return ObjectProxy.create(context, target);
 }
 

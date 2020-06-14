@@ -17,7 +17,7 @@
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
 import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
-import { RichText, RichTextVal, RichTextValue } from '../json/rich_text';
+import { RichText, RichTextVal } from '../json/rich_text';
 import { RichEditOperation } from '../operation/rich_edit_operation';
 import { StyleOperation } from '../operation/style_operation';
 import { SelectOperation } from '../operation/select_operation';
@@ -35,12 +35,22 @@ export class RichTextProxy {
         }
 
         if (method === 'edit') {
-          return (fromIdx: number, toIdx: number, content: string, attributes?: { [key: string]: string; }): boolean => {
+          return (
+            fromIdx: number,
+            toIdx: number,
+            content: string,
+            attributes?: { [key: string]: string },
+          ): boolean => {
             this.edit(target, fromIdx, toIdx, content, attributes);
             return true;
           };
-        } if (method === 'setStyle') {
-          return (fromIdx: number, toIdx: number, attributes: { [key: string]: string; }): boolean => {
+        }
+        if (method === 'setStyle') {
+          return (
+            fromIdx: number,
+            toIdx: number,
+            attributes: { [key: string]: string },
+          ): boolean => {
             this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
           };
@@ -64,11 +74,11 @@ export class RichTextProxy {
         } else if (method === 'onChanges') {
           return (handler: (changes: Array<Change>) => void): void => {
             target.onChanges(handler);
-          }
+          };
         }
 
         logger.fatal(`unsupported method: ${method}`);
-      }
+      },
     };
   }
 
@@ -77,7 +87,13 @@ export class RichTextProxy {
     return new Proxy(target, textProxy.getHandlers());
   }
 
-  public edit(target: RichText, fromIdx: number, toIdx: number, content: string, attributes?: { [key: string]: string; }): void {
+  public edit(
+    target: RichText,
+    fromIdx: number,
+    toIdx: number,
+    content: string,
+    attributes?: { [key: string]: string },
+  ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
     }
@@ -85,25 +101,38 @@ export class RichTextProxy {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`
+        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = target.editInternal(range, content, attributes, null, ticket);
-
-    this.context.push(new RichEditOperation(
-      target.getCreatedAt(),
-      range[0],
-      range[1],
-      maxCreatedAtMapByActor,
+    const maxCreatedAtMapByActor = target.editInternal(
+      range,
       content,
-      attributes ? new Map(Object.entries(attributes)) : new Map(),
-      ticket
-    ));
+      attributes,
+      null,
+      ticket,
+    );
+
+    this.context.push(
+      new RichEditOperation(
+        target.getCreatedAt(),
+        range[0],
+        range[1],
+        maxCreatedAtMapByActor,
+        content,
+        attributes ? new Map(Object.entries(attributes)) : new Map(),
+        ticket,
+      ),
+    );
   }
 
-  public setStyle(target: RichText, fromIdx: number, toIdx: number, attributes: { [key: string]: string; }): void {
+  public setStyle(
+    target: RichText,
+    fromIdx: number,
+    toIdx: number,
+    attributes: { [key: string]: string },
+  ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
     }
@@ -111,40 +140,45 @@ export class RichTextProxy {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(attributes)}`
+        `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(
+          attributes,
+        )}`,
       );
     }
 
     const ticket = this.context.issueTimeTicket();
     target.setStyleInternal(range, attributes, ticket);
 
-    this.context.push(new StyleOperation(
-      target.getCreatedAt(),
-      range[0],
-      range[1],
-      new Map(Object.entries(attributes)),
-      ticket
-    ));
+    this.context.push(
+      new StyleOperation(
+        target.getCreatedAt(),
+        range[0],
+        range[1],
+        new Map(Object.entries(attributes)),
+        ticket,
+      ),
+    );
   }
 
-  public updateSelection(target: RichText, fromIdx: number, toIdx: number): void {
+  public updateSelection(
+    target: RichText,
+    fromIdx: number,
+    toIdx: number,
+  ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
     target.updateSelection(range, ticket);
 
-    this.context.push(new SelectOperation(
-      target.getCreatedAt(),
-      range[0],
-      range[1],
-      ticket
-    ));
+    this.context.push(
+      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
+    );
   }
-  
+
   public getHandlers(): any {
     return this.handlers;
   }
