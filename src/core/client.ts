@@ -28,6 +28,7 @@ import {
   DetachDocumentRequest,
   PushPullRequest,
   WatchDocumentsRequest,
+  EventType as WatchEventType,
 } from '../api/yorkie_pb';
 import { converter } from '../api/converter';
 import { YorkieClient } from '../api/yorkie_grpc_web_pb';
@@ -44,6 +45,7 @@ export enum ClientStatus {
 enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',
+  DocumentsWatchingPeerChanged = 'documents-watching-peer-changed',
 }
 
 interface ClientEvent {
@@ -54,6 +56,7 @@ interface ClientEvent {
 interface Attachment {
   doc: Document;
   isRealtimeSync: boolean;
+  peerClients?: Map<string, boolean>;
   remoteChangeEventReceived?: boolean;
 }
 
@@ -206,6 +209,7 @@ export class Client implements Observable<ClientEvent> {
         this.attachmentMap.set(doc.getKey().toIDString(), {
           doc: doc,
           isRealtimeSync: !isManualSync,
+          peerClients: new Map(),
         });
         this.runWatchLoop();
 
@@ -353,16 +357,61 @@ export class Client implements Observable<ClientEvent> {
       req.setDocumentKeysList(converter.toDocumentKeys(keys));
 
       const stream = this.client.watchDocuments(req, {});
-      stream.on('data', (response) => {
-        const keys = converter.fromDocumentKeys(response.getDocumentKeysList());
-        this.eventStreamObserver.next({
-          name: ClientEventType.DocumentsChanged,
-          value: keys,
-        });
+      stream.on('data', (resp) => {
+        if (resp.hasInitialization()) {
+          const peersMap = resp.getInitialization().getPeersMapByDocMap();
+          peersMap.forEach((peers, docID) => {
+            const attachment = this.attachmentMap.get(docID);
+            for (const peer of peers.getClientIdsList()) {
+              attachment.peerClients.set(peer, true);
+            }
+          });
 
-        for (const key of keys) {
+          this.eventStreamObserver.next({
+            name: ClientEventType.DocumentsWatchingPeerChanged,
+            value: keys.reduce((peersMap, key) => {
+              const attachment = this.attachmentMap.get(key.toIDString());
+              peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+              return peersMap;
+            }, {}),
+          });
+          return
+        }
+
+        const watchEvent = resp.getEvent();
+        const respKeys = converter.fromDocumentKeys(watchEvent.getDocumentKeysList());
+        for (const key of respKeys) {
           const attachment = this.attachmentMap.get(key.toIDString());
-          attachment.remoteChangeEventReceived = true;
+          switch(watchEvent.getEventType()) {
+            case WatchEventType.DOCUMENTS_WATCHED:
+              attachment.peerClients.set(watchEvent.getClientId(), true);
+              break;
+            case WatchEventType.DOCUMENTS_UNWATCHED:
+              attachment.peerClients.delete(watchEvent.getClientId());
+              break;
+            case WatchEventType.DOCUMENTS_CHANGED:
+              attachment.remoteChangeEventReceived = true;
+              break;
+          }
+        }
+
+        if (watchEvent.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
+          this.eventStreamObserver.next({
+            name: ClientEventType.DocumentsChanged,
+            value: respKeys,
+          });
+        } else if (
+          watchEvent.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
+          watchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
+        ) {
+          this.eventStreamObserver.next({
+            name: ClientEventType.DocumentsWatchingPeerChanged,
+            value: respKeys.reduce((peersMap, key) => {
+              const attachment = this.attachmentMap.get(key.toIDString());
+              peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+              return peersMap;
+            }, {}),
+          });
         }
       });
       stream.on('end', () => {

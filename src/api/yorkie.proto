@@ -82,9 +82,25 @@ message WatchDocumentsRequest {
     repeated DocumentKey document_keys = 3;
 }
 
+message Clients {
+    repeated string client_ids = 1;
+}
+
 message WatchDocumentsResponse {
-    string client_id = 1;
-    repeated DocumentKey document_keys = 2;
+    message Initialization {
+        map<string, Clients> peers_map_by_doc = 1;
+    }
+
+    message Event {
+        string client_id = 1;
+        EventType event_type = 2;
+        repeated DocumentKey document_keys = 3;
+    }
+
+    oneof body {
+        Initialization initialization = 1;
+        Event event = 2;
+    }
 }
 
 message PushPullRequest {
@@ -107,6 +123,7 @@ message ChangePack {
     Checkpoint checkpoint = 2;
     bytes snapshot = 3;
     repeated Change changes = 4;
+    TimeTicket min_synced_ticket = 5;
 }
 
 message Change {
@@ -317,4 +334,10 @@ enum ValueType {
     JSON_ARRAY = 9;
     TEXT = 10;
     RICH_TEXT = 11;
+}
+
+enum EventType {
+    DOCUMENTS_CHANGED = 0;
+    DOCUMENTS_WATCHED = 1;
+    DOCUMENTS_UNWATCHED = 2;
 }
