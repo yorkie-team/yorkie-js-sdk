@@ -169,6 +169,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         this.status = ClientStatus.Deactivated;
+        this.runSyncLoop();
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status,
@@ -252,6 +253,7 @@ export class Client implements Observable<ClientEvent> {
         if (this.attachmentMap.has(doc.getKey().toIDString())) {
           this.attachmentMap.delete(doc.getKey().toIDString());
         }
+        this.runWatchLoop();
 
         logger.info(
           `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`,
@@ -325,11 +327,6 @@ export class Client implements Observable<ClientEvent> {
 
   private runWatchLoop(): void {
     const doLoop = (): void => {
-      if (!this.isActive()) {
-        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
-        return;
-      }
-
       if (this.remoteChangeEventStream) {
         this.remoteChangeEventStream.cancel();
         this.remoteChangeEventStream = null;
@@ -338,6 +335,11 @@ export class Client implements Observable<ClientEvent> {
       if (this.watchLoopTimerID) {
         clearTimeout(this.watchLoopTimerID);
         this.watchLoopTimerID = null;
+      }
+
+      if (!this.isActive()) {
+        logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
+        return;
       }
 
       const keys = [];
