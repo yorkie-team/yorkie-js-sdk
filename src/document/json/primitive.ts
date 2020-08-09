@@ -20,14 +20,14 @@ import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
 export enum PrimitiveType {
-  Null = 0,
-  Boolean = 1,
-  Integer = 2,
-  Long = 3,
-  Double = 4,
-  String = 5,
-  Bytes = 6,
-  Date = 7,
+  Null,
+  Boolean,
+  Integer,
+  Long,
+  Double,
+  String,
+  Bytes,
+  Date,
 }
 
 type PrimitiveValue = boolean | number | Long | string | Uint8Array | Date;
