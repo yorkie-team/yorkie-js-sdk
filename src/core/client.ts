@@ -38,8 +38,8 @@ import { uuid } from '../util/uuid';
 import { Document } from '../document/document';
 
 export enum ClientStatus {
-  Deactivated = 0,
-  Activated = 1,
+  Deactivated,
+  Activated,
 }
 
 enum ClientEventType {
