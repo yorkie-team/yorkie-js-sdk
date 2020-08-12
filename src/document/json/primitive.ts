@@ -98,7 +98,9 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public deepcopy(): JSONPrimitive {
-    return this;
+    const primitive = JSONPrimitive.of(this.value, this.getCreatedAt());
+    primitive.setUpdatedAt(this.getUpdatedAt());
+    return primitive;
   }
 
   public getType(): PrimitiveType {
