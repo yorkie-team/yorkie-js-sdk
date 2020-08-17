@@ -29,7 +29,7 @@ describe('Document', function () {
     doc1.update((root) => {
       root['k1'] = 'v1';
       root['k2'] = 'v2';
-      assert.equal('v1', root['k1']);
+      assert.equal('v1', root['k1'].getValue());
     }, 'set v1, v2');
     assert.equal('{"k1":"v1","k2":"v2"}', doc1.toSortedJSON());
 
@@ -256,7 +256,7 @@ describe('Document', function () {
 
     const root = doc.getRootObject();
     for (let idx = 0; idx < root['list'].length; idx++) {
-      assert.equal(idx + 1, root['list'][idx]);
+      assert.equal(idx + 1, root['list'][idx].getValue());
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
   });

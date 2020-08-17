@@ -36,7 +36,7 @@ export function createProxy(
 export function toProxy(context: ChangeContext, elem: JSONElement): any {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;
-    return primitive.getValue();
+    return primitive;
   } else if (elem instanceof JSONObject) {
     const obj = elem as JSONObject;
     return ObjectProxy.create(context, obj);
