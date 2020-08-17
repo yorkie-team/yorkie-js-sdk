@@ -304,5 +304,6 @@ describe('Document', function () {
         root['k1']['age'].increase(true);
       });
     }, 'Unsupported type of value: boolean');
+    assert.equal(`{"k1":{"age":8.5,"length":18.5}}`, doc.toSortedJSON());
   });
 });

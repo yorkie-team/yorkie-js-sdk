@@ -59,7 +59,7 @@ export class IncreaseOperation extends Operation {
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.ADD`;
+    return `${this.getParentCreatedAt().getAnnotatedString()}.INCREASE`;
   }
 
   public getValue(): JSONElement {

@@ -64,6 +64,7 @@ import {
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
 } from './yorkie_pb';
+import {IncreaseOperation} from "../document/operation/increase_operation";
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
@@ -284,6 +285,19 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(styleOperation.getExecutedAt()),
     );
     pbOperation.setStyle(pbStyleOperation);
+  } else if (operation instanceof IncreaseOperation) {
+    const increaseOperation = operation as IncreaseOperation;
+    const pbIncreaseOperation = new PbOperation.Increase();
+    pbIncreaseOperation.setParentCreatedAt(
+        toTimeTicket(increaseOperation.getParentCreatedAt())
+    );
+    pbIncreaseOperation.setValue(
+        toJSONElementSimple(increaseOperation.getValue())
+    );
+    pbIncreaseOperation.setExecutedAt(
+        toTimeTicket(increaseOperation.getExecutedAt())
+    );
+    pbOperation.setIncrease(pbIncreaseOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -649,6 +663,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         fromTextNodePos(pbStyleOperation.getTo()),
         attributes,
         fromTimeTicket(pbStyleOperation.getExecutedAt()),
+      );
+    } else if (pbOperation.hasIncrease()) {
+      const pbIncreaseOperation = pbOperation.getIncrease();
+      operation = IncreaseOperation.create(
+          fromTimeTicket(pbIncreaseOperation.getParentCreatedAt()),
+          fromJSONElementSimple(pbIncreaseOperation.getValue()),
+          fromTimeTicket(pbIncreaseOperation.getExecutedAt()),
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);

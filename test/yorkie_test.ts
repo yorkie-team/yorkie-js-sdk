@@ -430,4 +430,23 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test.title);
   });
+
+  it('can increase by numeric data', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['age'] = 1;
+        root['age'].increase(1).increase(2);
+      });
+
+      d2.update((root) => {
+        root['length'] = 2.5;
+        root['length'].increase(3.14);
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test.title);
+  });
 });

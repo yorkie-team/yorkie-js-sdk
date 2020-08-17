@@ -541,6 +541,11 @@ export class Operation extends jspb.Message {
   hasStyle(): boolean;
   clearStyle(): Operation;
 
+  getIncrease(): Operation.Increase | undefined;
+  setIncrease(value?: Operation.Increase): Operation;
+  hasIncrease(): boolean;
+  clearIncrease(): Operation;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -561,6 +566,7 @@ export namespace Operation {
     select?: Operation.Select.AsObject,
     richEdit?: Operation.RichEdit.AsObject,
     style?: Operation.Style.AsObject,
+    increase?: Operation.Increase.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -891,6 +897,39 @@ export namespace Operation {
   }
 
 
+  export class Increase extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): Increase;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): Increase;
+
+    getValue(): JSONElementSimple | undefined;
+    setValue(value?: JSONElementSimple): Increase;
+    hasValue(): boolean;
+    clearValue(): Increase;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): Increase;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): Increase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Increase.AsObject;
+    static toObject(includeInstance: boolean, msg: Increase): Increase.AsObject;
+    static serializeBinaryToWriter(message: Increase, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Increase;
+    static deserializeBinaryFromReader(message: Increase, reader: jspb.BinaryReader): Increase;
+  }
+
+  export namespace Increase {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      value?: JSONElementSimple.AsObject,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
@@ -901,6 +940,7 @@ export namespace Operation {
     SELECT = 6,
     RICH_EDIT = 7,
     STYLE = 8,
+    INCREASE = 9,
   }
 }
 
