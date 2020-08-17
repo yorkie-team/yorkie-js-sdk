@@ -256,7 +256,7 @@ describe('Document', function () {
 
     const root = doc.getRootObject();
     for (let idx = 0; idx < root['list'].length; idx++) {
-      assert.equal(idx + 1, root['list'][idx]);
+      assert.equal(idx + 1, root['list'][idx].getValue());
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
   });
@@ -277,5 +277,32 @@ describe('Document', function () {
       }, 'dummy error');
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
+  });
+
+  it('can be increased by number type', function() {
+    const doc = Document.create('test-col', 'test-doc');
+
+    doc.update(root => {
+      root['k1'] = {};
+      root['k1']['age'] = 1;
+      root['k1']['length'] = 10.5;
+
+      root['k1']['age'].increase(5);
+      root['k1']['length'].increase(3.5);
+    });
+    assert.equal(`{"k1":{"age":6,"length":14}}`, doc.toSortedJSON());
+
+    doc.update(root => {
+      root['k1']['age'].increase(1.5).increase(1);
+      root['k1']['length'].increase(3.5).increase(1);
+    });
+    assert.equal(`{"k1":{"age":8.5,"length":18.5}}`, doc.toSortedJSON());
+
+    // error test
+    assert.Throw(() => {
+      doc.update(root => {
+        root['k1']['age'].increase(true);
+      });
+    }, 'Unsupported type of value: boolean');
   });
 });

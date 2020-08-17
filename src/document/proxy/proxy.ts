@@ -25,6 +25,7 @@ import { ObjectProxy } from './object_proxy';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
 import { RichTextProxy } from './rich_text_proxy';
+import { NumberProxy } from "./number_proxy";
 
 export function createProxy(
   context: ChangeContext,
@@ -36,7 +37,11 @@ export function createProxy(
 export function toProxy(context: ChangeContext, elem: JSONElement): any {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;
-    return primitive.getValue();
+    if (JSONPrimitive.isNumericType(primitive)) {
+      return NumberProxy.create(context, primitive);
+    } else {
+      return primitive.getValue();
+    }
   } else if (elem instanceof JSONObject) {
     const obj = elem as JSONObject;
     return ObjectProxy.create(context, obj);
