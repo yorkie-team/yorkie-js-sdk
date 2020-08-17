@@ -266,8 +266,8 @@ describe('Document', function () {
 
     doc.update(root => {
       root['k1'] = {};
-      root['k1']['k1.1'] = 1
-      root['k1']['k1.2'] = 2
+      root['k1']['k1.1'] = 1;
+      root['k1']['k1.2'] = 2;
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
     assert.throws(() => {
@@ -275,7 +275,7 @@ describe('Document', function () {
         delete root['k1']['k1.1'];
         throw Error('dummy error');
       }, 'dummy error');
-    })
+    });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
   });
 });
