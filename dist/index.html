@@ -32,8 +32,8 @@
       textLogHolder.innerText = doc.getRootObject().content.getAnnotatedString();
     }
 
-    function displayPeers(peers) {
-      peersHolder.innerText = JSON.stringify(peers);
+    function displayPeers(peers, clientID) {
+      peersHolder.innerHTML = JSON.stringify(peers).replace(clientID, `<b>${clientID}</b>`);
     }
 
     // https://github.com/codemirror/CodeMirror/pull/5619
@@ -110,7 +110,7 @@
 
         client.subscribe((event) => {
           if (event.name === 'documents-watching-peer-changed') {
-            displayPeers(event.value[doc.getKey().toIDString()]);
+            displayPeers(event.value[doc.getKey().toIDString()], client.getID());
           }
         });
 

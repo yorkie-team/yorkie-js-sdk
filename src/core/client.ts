@@ -315,7 +315,9 @@ export class Client implements Observable<ClientEvent> {
       }
 
       Promise.all(promises).then(() => {
-        setTimeout(doLoop, this.syncLoopDuration);
+        const syncLoopDuration = this.remoteChangeEventStream ?
+          this.syncLoopDuration : this.reconnectStreamDelay;
+        setTimeout(doLoop, syncLoopDuration);
       }).catch((err) => {
         logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
       });
