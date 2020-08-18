@@ -46,7 +46,7 @@ export class ArrayProxy {
       get: (
         target: JSONArray,
         method: string | symbol,
-        receiver: object,
+        receiver: any,
       ): any => {
         // Yorkie extension API
         if (method === 'getID') {
