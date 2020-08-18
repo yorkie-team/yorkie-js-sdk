@@ -26,10 +26,10 @@
         let isMoved = false; 
         for (const p of shape.points) {
           if (isMoved === false) {
-            isMoved = true; 
-            context.moveTo(p.x, p.y);
+            isMoved = true;
+            context.moveTo(p.x.getValue(), p.y.getValue());
           } else {
-            context.lineTo(p.x, p.y);
+            context.lineTo(p.x.getValue(), p.y.getValue());
           }
         }
 
