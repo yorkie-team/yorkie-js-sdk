@@ -51,7 +51,6 @@
   "dependencies": {
     "google-protobuf": "^3.13.0",
     "grpc-web": "^1.2.0",
-    "long": "^4.0.0",
-    "npm-check-updates": "^7.1.1"
+    "long": "^4.0.0"
   }
 }
