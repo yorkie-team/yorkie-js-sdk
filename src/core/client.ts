@@ -320,6 +320,7 @@ export class Client implements Observable<ClientEvent> {
         setTimeout(doLoop, syncLoopDuration);
       }).catch((err) => {
         logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+        setTimeout(doLoop, this.reconnectStreamDelay);
       });
     };
 
@@ -418,11 +419,13 @@ export class Client implements Observable<ClientEvent> {
           });
         }
       });
-      stream.on('end', () => {
-        // stream end signal
+
+      const onStreamDisconnect = () => {
         this.remoteChangeEventStream = null;
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
-      });
+      };
+      stream.on('end', onStreamDisconnect);
+      stream.on('error', onStreamDisconnect);
       this.remoteChangeEventStream = stream;
 
       logger.info(
