@@ -28,13 +28,15 @@ import {
   DetachDocumentRequest,
   PushPullRequest,
   WatchDocumentsRequest,
+  WatchDocumentsResponse,
   EventType as WatchEventType,
 } from '../api/yorkie_pb';
 import { converter } from '../api/converter';
-import { YorkieClient } from '../api/yorkie_grpc_web_pb';
+import { YorkieClient as RPCClient } from '../api/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '../util/error';
 import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
+import { DocumentKey } from '../document/key/document_key';
 import { Document } from '../document/document';
 
 export enum ClientStatus {
@@ -84,7 +86,7 @@ export class Client implements Observable<ClientEvent> {
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
 
-  private client: YorkieClient;
+  private rpcClient: RPCClient;
   private watchLoopTimerID: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream: any;
   private eventStream: Observable<ClientEvent>;
@@ -99,7 +101,7 @@ export class Client implements Observable<ClientEvent> {
     this.syncLoopDuration = opts.syncLoopDuration;
     this.reconnectStreamDelay = opts.reconnectStreamDelay;
 
-    this.client = new YorkieClient(rpcAddr, null, null);
+    this.rpcClient = new RPCClient(rpcAddr, null, null);
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -119,7 +121,7 @@ export class Client implements Observable<ClientEvent> {
       const req = new ActivateClientRequest();
       req.setClientKey(this.key);
 
-      this.client.activateClient(req, {}, (err, res) => {
+      this.rpcClient.activateClient(req, {}, (err, res) => {
         if (err) {
           logger.error(`[AC] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
@@ -161,7 +163,7 @@ export class Client implements Observable<ClientEvent> {
       const req = new DeactivateClientRequest();
       req.setClientId(this.id);
 
-      this.client.deactivateClient(req, {}, (err) => {
+      this.rpcClient.deactivateClient(req, {}, (err) => {
         if (err) {
           logger.error(`[DC] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
@@ -197,7 +199,7 @@ export class Client implements Observable<ClientEvent> {
       req.setClientId(this.id);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
-      this.client.attachDocument(req, {}, (err, res) => {
+      this.rpcClient.attachDocument(req, {}, (err, res) => {
         if (err) {
           logger.error(`[AD] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
@@ -240,7 +242,7 @@ export class Client implements Observable<ClientEvent> {
       req.setClientId(this.id);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
-      this.client.detachDocument(req, {}, (err, res) => {
+      this.rpcClient.detachDocument(req, {}, (err, res) => {
         if (err) {
           logger.error(`[DD] c:"${this.getKey()}" err :"${err}"`);
           reject(err);
@@ -345,91 +347,37 @@ export class Client implements Observable<ClientEvent> {
         return;
       }
 
-      const keys = [];
+      const realtimeSyncDocKeys = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
-          keys.push(attachment.doc.getKey());
+          realtimeSyncDocKeys.push(attachment.doc.getKey());
         }
       }
 
-      if (!keys.length) {
+      if (!realtimeSyncDocKeys.length) {
         logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
         return;
       }
 
       const req = new WatchDocumentsRequest();
       req.setClientId(this.id);
-      req.setDocumentKeysList(converter.toDocumentKeys(keys));
-
-      const stream = this.client.watchDocuments(req, {});
-      stream.on('data', (resp) => {
-        if (resp.hasInitialization()) {
-          const peersMap = resp.getInitialization().getPeersMapByDocMap();
-          peersMap.forEach((peers, docID) => {
-            const attachment = this.attachmentMap.get(docID);
-            for (const peer of peers.getClientIdsList()) {
-              attachment.peerClients.set(peer, true);
-            }
-          });
-
-          this.eventStreamObserver.next({
-            name: ClientEventType.DocumentsWatchingPeerChanged,
-            value: keys.reduce((peersMap, key) => {
-              const attachment = this.attachmentMap.get(key.toIDString());
-              peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
-              return peersMap;
-            }, {}),
-          });
-          return
-        }
-
-        const watchEvent = resp.getEvent();
-        const respKeys = converter.fromDocumentKeys(watchEvent.getDocumentKeysList());
-        for (const key of respKeys) {
-          const attachment = this.attachmentMap.get(key.toIDString());
-          switch(watchEvent.getEventType()) {
-            case WatchEventType.DOCUMENTS_WATCHED:
-              attachment.peerClients.set(watchEvent.getClientId(), true);
-              break;
-            case WatchEventType.DOCUMENTS_UNWATCHED:
-              attachment.peerClients.delete(watchEvent.getClientId());
-              break;
-            case WatchEventType.DOCUMENTS_CHANGED:
-              attachment.remoteChangeEventReceived = true;
-              break;
-          }
-        }
-
-        if (watchEvent.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
-          this.eventStreamObserver.next({
-            name: ClientEventType.DocumentsChanged,
-            value: respKeys,
-          });
-        } else if (
-          watchEvent.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
-          watchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
-        ) {
-          this.eventStreamObserver.next({
-            name: ClientEventType.DocumentsWatchingPeerChanged,
-            value: respKeys.reduce((peersMap, key) => {
-              const attachment = this.attachmentMap.get(key.toIDString());
-              peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
-              return peersMap;
-            }, {}),
-          });
-        }
-      });
+      req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
 
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = null;
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
       };
+
+      const stream = this.rpcClient.watchDocuments(req, {});
+      stream.on('data', (resp) => {
+        this.handleWatchDocumentsResponse(realtimeSyncDocKeys, resp);
+      });
       stream.on('end', onStreamDisconnect);
       stream.on('error', onStreamDisconnect);
       this.remoteChangeEventStream = stream;
 
       logger.info(
-        `[WD] c:"${this.getKey()}" watches d:"${keys.map((key) =>
+        `[WD] c:"${this.getKey()}" watches d:"${realtimeSyncDocKeys.map((key) =>
           key.toIDString(),
         )}"`,
       );
@@ -438,6 +386,67 @@ export class Client implements Observable<ClientEvent> {
     logger.debug(`[WL] c:"${this.getKey()}" run watch loop`);
 
     doLoop();
+  }
+
+  private handleWatchDocumentsResponse(
+    keys: Array<DocumentKey>,
+    resp: WatchDocumentsResponse,
+  ) {
+    if (resp.hasInitialization()) {
+      const peersMap = resp.getInitialization().getPeersMapByDocMap();
+      peersMap.forEach((peers, docID) => {
+        const attachment = this.attachmentMap.get(docID);
+        for (const peer of peers.getClientIdsList()) {
+          attachment.peerClients.set(peer, true);
+        }
+      });
+
+      this.eventStreamObserver.next({
+        name: ClientEventType.DocumentsWatchingPeerChanged,
+        value: keys.reduce((peersMap, key) => {
+          const attachment = this.attachmentMap.get(key.toIDString());
+          peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+          return peersMap;
+        }, {}),
+      });
+      return
+    }
+
+    const watchEvent = resp.getEvent();
+    const respKeys = converter.fromDocumentKeys(watchEvent.getDocumentKeysList());
+    for (const key of respKeys) {
+      const attachment = this.attachmentMap.get(key.toIDString());
+      switch(watchEvent.getEventType()) {
+        case WatchEventType.DOCUMENTS_WATCHED:
+          attachment.peerClients.set(watchEvent.getClientId(), true);
+          break;
+        case WatchEventType.DOCUMENTS_UNWATCHED:
+          attachment.peerClients.delete(watchEvent.getClientId());
+          break;
+        case WatchEventType.DOCUMENTS_CHANGED:
+          attachment.remoteChangeEventReceived = true;
+          break;
+      }
+    }
+
+    if (watchEvent.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
+      this.eventStreamObserver.next({
+        name: ClientEventType.DocumentsChanged,
+        value: respKeys,
+      });
+    } else if (
+      watchEvent.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
+      watchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
+    ) {
+      this.eventStreamObserver.next({
+        name: ClientEventType.DocumentsWatchingPeerChanged,
+        value: respKeys.reduce((peersMap, key) => {
+          const attachment = this.attachmentMap.get(key.toIDString());
+          peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+          return peersMap;
+        }, {}),
+      });
+    }
   }
 
   private syncInternal(doc: Document): Promise<Document> {
@@ -449,7 +458,7 @@ export class Client implements Observable<ClientEvent> {
       req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
-      this.client.pushPull(req, {}, (err, res) => {
+      this.rpcClient.pushPull(req, {}, (err, res) => {
         if (err) {
           logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
 
