@@ -40,8 +40,8 @@ import { DocumentKey } from '../document/key/document_key';
 import { Document } from '../document/document';
 
 export enum ClientStatus {
-  Deactivated,
-  Activated,
+  Deactivated = 'deactivated',
+  Activated = 'activated',
 }
 
 enum ClientEventType {
