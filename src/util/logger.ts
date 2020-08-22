@@ -15,12 +15,12 @@
  */
 
 export enum LogLevel {
-  Trivial,
-  Debug,
-  Info,
-  Warn,
-  Error,
-  Fatal,
+  Trivial = 'trivial',
+  Debug = 'debug',
+  Info = 'info',
+  Warn = 'warn',
+  Error = 'error',
+  Fatal = 'fatal',
 }
 
 let level = LogLevel.Debug;
