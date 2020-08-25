@@ -432,6 +432,47 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
+  it('Can recover from temporary disconnect (manual sync)', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      // Normal Condition
+      d2.update((root) => {
+        root['k1'] = 'undefined';
+      });
+
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      // Simulate network error
+      const xhr = sinon.useFakeXMLHttpRequest();
+      xhr.onCreate = (req) => {
+        req.respond(400, {
+          'Content-Type': 'application/grpc-web-text+proto',
+        }, null);
+      };
+
+      d2.update((root) => {
+        root['k1'] = 'v1';
+      });
+
+      await c2.sync().catch(err => {
+        assert.equal(err.message, 'INVALID_STATE_ERR - 0');
+      });
+      await c1.sync().catch(err => {
+        assert.equal(err.message, 'INVALID_STATE_ERR - 0');
+      });
+      assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
+      assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
+
+      // Back to normal condition
+      xhr.restore();
+
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test.title);
+  });
+
   it('Can recover from temporary disconnect (realtime sync)', async function() {
     const c1 = yorkie.createClient(testRPCAddr);
     const c2 = yorkie.createClient(testRPCAddr);
