@@ -8,6 +8,7 @@
     "build": "webpack --config webpack.dev.config.js",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
+    "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
     "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --ext .ts"
   },
