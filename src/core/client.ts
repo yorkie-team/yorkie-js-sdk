@@ -44,13 +44,15 @@ export enum ClientStatus {
   Activated = 'activated',
 }
 
-enum ClientEventType {
+export enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',
   DocumentsWatchingPeerChanged = 'documents-watching-peer-changed',
+  DocumentSynced = 'document-synced',
+  SyncFailed = 'sync-failed',
 }
 
-interface ClientEvent {
+export interface ClientEvent {
   name: ClientEventType;
   value: any;
 }
@@ -278,6 +280,12 @@ export class Client implements Observable<ClientEvent> {
 
     return Promise.all(promises).then((docs) => {
       return docs;
+    }).catch((err) => {
+      this.eventStreamObserver.next({
+        name: ClientEventType.SyncFailed,
+        value: err,
+      });
+      throw err;
     });
   }
 
@@ -322,6 +330,10 @@ export class Client implements Observable<ClientEvent> {
         setTimeout(doLoop, syncLoopDuration);
       }).catch((err) => {
         logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+        this.eventStreamObserver.next({
+          name: ClientEventType.SyncFailed,
+          value: err,
+        });
         setTimeout(doLoop, this.reconnectStreamDelay);
       });
     };
@@ -469,6 +481,10 @@ export class Client implements Observable<ClientEvent> {
 
         const respPack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(respPack);
+        this.eventStreamObserver.next({
+          name: ClientEventType.DocumentSynced,
+          value: respPack,
+        });
 
         const docKey = doc.getKey().toIDString();
         const remoteSize = respPack.getChangeSize();
