@@ -39,7 +39,7 @@ export enum DocEventType {
   RemoteChange = 'remote-change',
 }
 
-interface DocEvent {
+export interface DocEvent {
   name: DocEventType;
   value: any;
 }
