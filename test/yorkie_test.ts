@@ -55,6 +55,14 @@ async function withTwoClientsAndDocuments(
   await client2.deactivate();
 }
 
+function waitFor(eventName: string, listener: EventEmitter): Promise<void> {
+  return new Promise(resolve => listener.on(eventName, resolve));
+}
+
+function createSpy(emitter: EventEmitter) {
+  return (event: ClientEvent | DocEvent) => emitter.emit(event.name);
+}
+
 // NOTE: In particular, we uses general functions, not arrow functions
 // to access test title in test codes.
 describe('Yorkie', function () {
@@ -154,14 +162,23 @@ describe('Yorkie', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
+    const listener1 = new EventEmitter();
+    const listener2 = new EventEmitter();
+    const spy1 = createSpy(listener1);
+    const spy2 = createSpy(listener2);
+    const unsub1 = d1.subscribe(spy1);
+    const unsub2 = d2.subscribe(spy2);
+
     d2.update((root) => {
       root['k1'] = 'v1';
     });
-    await c2.sync();
 
-    // NOTE: waiting for snapshot
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await waitFor(DocEventType.LocalChange, listener2);
+    await waitFor(DocEventType.RemoteChange, listener1);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    unsub1();
+    unsub2();
 
     await c1.detach(d1);
     await c2.detach(d2);
@@ -415,9 +432,6 @@ describe('Yorkie', function () {
       }
       await c1.sync();
 
-      // NOTE: waiting for snapshot.
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       // 02. Makes local changes then pull a snapshot from the agent.
       d2.update((root) => {
         root['key'] = 'value';
@@ -488,14 +502,8 @@ describe('Yorkie', function () {
 
     const listener1 = new EventEmitter();
     const listener2 = new EventEmitter();
-    const createSpy = (emitter: EventEmitter) => {
-      return (event: ClientEvent | DocEvent) => emitter.emit(event.name);
-    };
     const spy1 = createSpy(listener1);
     const spy2 = createSpy(listener2);
-    const waitFor = (eventName: string, listener: EventEmitter) => {
-      return new Promise(resolve => listener.on(eventName, resolve));
-    };
 
     const unsub1 = {
       client: c1.subscribe(spy1),
