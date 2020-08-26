@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-export type Code = string;
-
-export const Code = {
-  Ok: 'ok' as Code,
-
-  ClientNotActive: 'client-not-active' as Code,
-  Unimplemented: 'unimplemented' as Code,
-  Unsupported: 'unsupported' as Code,
-};
+export enum Code {
+  Ok = 'ok',
+  ClientNotActive = 'client-not-active',
+  Unimplemented = 'unimplemented',
+  Unsupported = 'unsupported',
+}
 
 export class YorkieError extends Error {
   name = 'YorkieError';
