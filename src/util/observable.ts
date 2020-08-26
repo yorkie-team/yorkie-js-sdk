@@ -95,7 +95,7 @@ class ObserverProxy<T> implements Observer<T> {
       observer = nextOrObserver as Observer<T>;
     } else {
       observer = {
-        next: (nextOrObserver as any) as NextFn<T>,
+        next: nextOrObserver as NextFn<T>,
         error,
         complete,
       } as Observer<T>;
