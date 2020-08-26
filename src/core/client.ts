@@ -173,7 +173,6 @@ export class Client implements Observable<ClientEvent> {
         }
 
         this.status = ClientStatus.Deactivated;
-        this.runSyncLoop();
         this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status,
