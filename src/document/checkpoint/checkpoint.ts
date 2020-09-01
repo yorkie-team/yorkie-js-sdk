@@ -41,10 +41,7 @@ export class Checkpoint {
   }
 
   public forward(other: Checkpoint): Checkpoint {
-    if (
-      this.clientSeq == other.clientSeq &&
-      this.serverSeq.equals(other.serverSeq)
-    ) {
+    if (this.equals(other)) {
       return this;
     }
 
