@@ -44,12 +44,22 @@ export enum ClientStatus {
   Activated = 'activated',
 }
 
+export enum StreamConnectionStatus {
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+}
+
+export enum DocumentSyncResultType {
+  Synced = 'synced',
+  SyncFailed = 'sync-failed',
+}
+
 export enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',
   DocumentsWatchingPeerChanged = 'documents-watching-peer-changed',
-  DocumentSynced = 'document-synced',
-  SyncFailed = 'sync-failed',
+  StreamConnectionStatusChanged = 'stream-connection-status-changed',
+  DocumentSyncResult = 'document-sync-result',
 }
 
 export interface ClientEvent {
@@ -281,8 +291,8 @@ export class Client implements Observable<ClientEvent> {
       return docs;
     }).catch((err) => {
       this.eventStreamObserver.next({
-        name: ClientEventType.SyncFailed,
-        value: err,
+        name: ClientEventType.DocumentSyncResult,
+        value: DocumentSyncResultType.SyncFailed,
       });
       throw err;
     });
@@ -330,8 +340,8 @@ export class Client implements Observable<ClientEvent> {
       }).catch((err) => {
         logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
         this.eventStreamObserver.next({
-          name: ClientEventType.SyncFailed,
-          value: err,
+          name: ClientEventType.DocumentSyncResult,
+          value: DocumentSyncResultType.SyncFailed,
         });
         setTimeout(doLoop, this.reconnectStreamDelay);
       });
@@ -377,6 +387,10 @@ export class Client implements Observable<ClientEvent> {
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = null;
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
+        this.eventStreamObserver.next({
+          name: ClientEventType.StreamConnectionStatusChanged,
+          value: StreamConnectionStatus.Disconnected,
+        });
       };
 
       const stream = this.rpcClient.watchDocuments(req, {});
@@ -481,8 +495,8 @@ export class Client implements Observable<ClientEvent> {
         const respPack = converter.fromChangePack(res.getChangePack());
         doc.applyChangePack(respPack);
         this.eventStreamObserver.next({
-          name: ClientEventType.DocumentSynced,
-          value: respPack,
+          name: ClientEventType.DocumentSyncResult,
+          value: DocumentSyncResultType.Synced,
         });
 
         const docKey = doc.getKey().toIDString();
