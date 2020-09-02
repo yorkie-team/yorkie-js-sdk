@@ -17,7 +17,7 @@
 import { assert } from 'chai';
 import { EventEmitter } from 'events';
 import * as sinon from 'sinon';
-import { Client, ClientEvent, ClientEventType } from '../src/core/client';
+import { Client, ClientEvent, ClientEventType, DocumentSyncResultType } from '../src/core/client';
 import { Document, DocEvent, DocEventType } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
@@ -502,8 +502,17 @@ describe('Yorkie', function () {
 
     const listener1 = new EventEmitter();
     const listener2 = new EventEmitter();
-    const spy1 = createSpy(listener1);
-    const spy2 = createSpy(listener2);
+    const customSpy = (emitter: EventEmitter) => {
+      return (event: ClientEvent | DocEvent) => {
+        if (event.name == ClientEventType.DocumentSyncResult) {
+          emitter.emit(event.value);
+        } else {
+          emitter.emit(event.name);
+        }
+      }
+    }
+    const spy1 = customSpy(listener1);
+    const spy2 = customSpy(listener2);
 
     const unsub1 = {
       client: c1.subscribe(spy1),
@@ -536,9 +545,9 @@ describe('Yorkie', function () {
     });
 
     await waitFor(DocEventType.LocalChange, listener2);  // d2 should be able to update
-    await waitFor(ClientEventType.SyncFailed, listener2); // c2 should fail to sync
+    await waitFor(DocumentSyncResultType.SyncFailed, listener2); // c2 should fail to sync
     c1.sync();
-    await waitFor(ClientEventType.SyncFailed, listener1); // c1 should also fail to sync
+    await waitFor(DocumentSyncResultType.SyncFailed, listener1); // c1 should also fail to sync
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
