@@ -1,0 +1,8 @@
+#network-status span {
+  display: inline-block;
+  height: 0.8rem;
+  width: 0.8rem;
+  border-radius: 0.4rem;
+}
+.green { background-color: green }
+.red { background-color: red; }
