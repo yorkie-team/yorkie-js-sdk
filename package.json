@@ -5,7 +5,7 @@
   "main": "./src/yorkie.ts",
   "scripts": {
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
-    "build": "webpack --config webpack.dev.config.js",
+    "build": "webpack --config webpack.config.js",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
     "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
