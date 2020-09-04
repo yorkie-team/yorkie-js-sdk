@@ -1,6 +1,7 @@
 // Karma configuration
 // Generated on Sun Dec 01 2019 19:51:02 GMT+0900
 
+const path = require('path');
 const webpackConfig = require('./webpack.dev.config');
 
 module.exports = function(config) {
@@ -54,7 +55,17 @@ module.exports = function(config) {
     // test results reporter to use
     // possible values: 'dots', 'progress'
     // available reporters: https://npmjs.org/browse/keyword/karma-reporter
-    reporters: ['progress'],
+    reporters: ['progress', 'coverage-istanbul'],
+
+
+    coverageIstanbulReporter: {
+      reports: [ 'html', 'text-summary', 'lcovonly' ],
+      dir: path.join(__dirname, 'coverage'),
+      fixWebpackSourcePaths: true,
+      'report-config': {
+        html: { outdir: 'html' }
+      }
+    },
 
 
     // web server port
