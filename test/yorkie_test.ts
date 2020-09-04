@@ -17,7 +17,12 @@
 import { assert } from 'chai';
 import { EventEmitter } from 'events';
 import * as sinon from 'sinon';
-import { Client, ClientEvent, ClientEventType, DocumentSyncResultType } from '../src/core/client';
+import {
+  Client,
+  ClientEvent,
+  ClientEventType,
+  DocumentSyncResultType,
+} from '../src/core/client';
 import { Document, DocEvent, DocEventType } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
@@ -56,7 +61,7 @@ async function withTwoClientsAndDocuments(
 }
 
 function waitFor(eventName: string, listener: EventEmitter): Promise<void> {
-  return new Promise(resolve => listener.on(eventName, resolve));
+  return new Promise((resolve) => listener.on(eventName, resolve));
 }
 
 function createSpy(emitter: EventEmitter) {
@@ -446,7 +451,7 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('Can recover from temporary disconnect (manual sync)', async function() {
+  it('Can recover from temporary disconnect (manual sync)', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       // Normal Condition
       d2.update((root) => {
@@ -460,19 +465,23 @@ describe('Yorkie', function () {
       // Simulate network error
       const xhr = sinon.useFakeXMLHttpRequest();
       xhr.onCreate = (req) => {
-        req.respond(400, {
-          'Content-Type': 'application/grpc-web-text+proto',
-        }, null);
+        req.respond(
+          400,
+          {
+            'Content-Type': 'application/grpc-web-text+proto',
+          },
+          null,
+        );
       };
 
       d2.update((root) => {
         root['k1'] = 'v1';
       });
 
-      await c2.sync().catch(err => {
+      await c2.sync().catch((err) => {
         assert.equal(err.message, 'INVALID_STATE_ERR - 0');
       });
-      await c1.sync().catch(err => {
+      await c1.sync().catch((err) => {
         assert.equal(err.message, 'INVALID_STATE_ERR - 0');
       });
       assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
@@ -487,7 +496,7 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('Can recover from temporary disconnect (realtime sync)', async function() {
+  it('Can recover from temporary disconnect (realtime sync)', async function () {
     const c1 = yorkie.createClient(testRPCAddr);
     const c2 = yorkie.createClient(testRPCAddr);
     await c1.activate();
@@ -509,8 +518,8 @@ describe('Yorkie', function () {
         } else {
           emitter.emit(event.name);
         }
-      }
-    }
+      };
+    };
     const spy1 = customSpy(listener1);
     const spy2 = customSpy(listener2);
 
@@ -528,23 +537,27 @@ describe('Yorkie', function () {
       root['k1'] = 'undefined';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2);  // d2 should be able to update
+    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
     await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // Simulate network error
     const xhr = sinon.useFakeXMLHttpRequest();
     xhr.onCreate = (req) => {
-      req.respond(400, {
-        'Content-Type': 'application/grpc-web-text+proto',
-      }, null);
+      req.respond(
+        400,
+        {
+          'Content-Type': 'application/grpc-web-text+proto',
+        },
+        null,
+      );
     };
 
     d2.update((root) => {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2);  // d2 should be able to update
+    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
     await waitFor(DocumentSyncResultType.SyncFailed, listener2); // c2 should fail to sync
     c1.sync();
     await waitFor(DocumentSyncResultType.SyncFailed, listener1); // c1 should also fail to sync

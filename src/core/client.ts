@@ -287,15 +287,17 @@ export class Client implements Observable<ClientEvent> {
       promises.push(this.syncInternal(attachment.doc));
     }
 
-    return Promise.all(promises).then((docs) => {
-      return docs;
-    }).catch((err) => {
-      this.eventStreamObserver.next({
-        name: ClientEventType.DocumentSyncResult,
-        value: DocumentSyncResultType.SyncFailed,
+    return Promise.all(promises)
+      .then((docs) => {
+        return docs;
+      })
+      .catch((err) => {
+        this.eventStreamObserver.next({
+          name: ClientEventType.DocumentSyncResult,
+          value: DocumentSyncResultType.SyncFailed,
+        });
+        throw err;
       });
-      throw err;
-    });
   }
 
   public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
@@ -333,18 +335,21 @@ export class Client implements Observable<ClientEvent> {
         }
       }
 
-      Promise.all(promises).then(() => {
-        const syncLoopDuration = this.remoteChangeEventStream ?
-          this.syncLoopDuration : this.reconnectStreamDelay;
-        setTimeout(doLoop, syncLoopDuration);
-      }).catch((err) => {
-        logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
-        this.eventStreamObserver.next({
-          name: ClientEventType.DocumentSyncResult,
-          value: DocumentSyncResultType.SyncFailed,
+      Promise.all(promises)
+        .then(() => {
+          const syncLoopDuration = this.remoteChangeEventStream
+            ? this.syncLoopDuration
+            : this.reconnectStreamDelay;
+          setTimeout(doLoop, syncLoopDuration);
+        })
+        .catch((err) => {
+          logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+          this.eventStreamObserver.next({
+            name: ClientEventType.DocumentSyncResult,
+            value: DocumentSyncResultType.SyncFailed,
+          });
+          setTimeout(doLoop, this.reconnectStreamDelay);
         });
-        setTimeout(doLoop, this.reconnectStreamDelay);
-      });
     };
 
     logger.debug(`[SL] c:"${this.getKey()}" run sync loop`);
@@ -430,18 +435,22 @@ export class Client implements Observable<ClientEvent> {
         name: ClientEventType.DocumentsWatchingPeerChanged,
         value: keys.reduce((peersMap, key) => {
           const attachment = this.attachmentMap.get(key.toIDString());
-          peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+          peersMap[key.toIDString()] = Array.from(
+            attachment.peerClients.keys(),
+          );
           return peersMap;
         }, {}),
       });
-      return
+      return;
     }
 
     const watchEvent = resp.getEvent();
-    const respKeys = converter.fromDocumentKeys(watchEvent.getDocumentKeysList());
+    const respKeys = converter.fromDocumentKeys(
+      watchEvent.getDocumentKeysList(),
+    );
     for (const key of respKeys) {
       const attachment = this.attachmentMap.get(key.toIDString());
-      switch(watchEvent.getEventType()) {
+      switch (watchEvent.getEventType()) {
         case WatchEventType.DOCUMENTS_WATCHED:
           attachment.peerClients.set(watchEvent.getClientId(), true);
           break;
@@ -467,7 +476,9 @@ export class Client implements Observable<ClientEvent> {
         name: ClientEventType.DocumentsWatchingPeerChanged,
         value: respKeys.reduce((peersMap, key) => {
           const attachment = this.attachmentMap.get(key.toIDString());
-          peersMap[key.toIDString()] = Array.from(attachment.peerClients.keys());
+          peersMap[key.toIDString()] = Array.from(
+            attachment.peerClients.keys(),
+          );
           return peersMap;
         }, {}),
       });
@@ -483,33 +494,37 @@ export class Client implements Observable<ClientEvent> {
       req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
-      this.rpcClient.pushPull(req, {}, (err, res) => {
-        if (err) {
-          logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
+      this.rpcClient
+        .pushPull(req, {}, (err, res) => {
+          if (err) {
+            logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
 
-          isRejected = true;
-          reject(err);
-          return;
-        }
+            isRejected = true;
+            reject(err);
+            return;
+          }
 
-        const respPack = converter.fromChangePack(res.getChangePack());
-        doc.applyChangePack(respPack);
-        this.eventStreamObserver.next({
-          name: ClientEventType.DocumentSyncResult,
-          value: DocumentSyncResultType.Synced,
+          const respPack = converter.fromChangePack(res.getChangePack());
+          doc.applyChangePack(respPack);
+          this.eventStreamObserver.next({
+            name: ClientEventType.DocumentSyncResult,
+            value: DocumentSyncResultType.Synced,
+          });
+
+          const docKey = doc.getKey().toIDString();
+          const remoteSize = respPack.getChangeSize();
+          logger.info(
+            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
+              .getCheckpoint()
+              .getAnnotatedString()}`,
+          );
+        })
+        .on('end', () => {
+          if (isRejected) {
+            return;
+          }
+          resolve(doc);
         });
-
-        const docKey = doc.getKey().toIDString();
-        const remoteSize = respPack.getChangeSize();
-        logger.info(
-          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack.getCheckpoint().getAnnotatedString()}`,
-        );
-      }).on('end', () => {
-        if (isRejected) {
-          return;
-        }
-        resolve(doc);
-      });
     });
   }
 }

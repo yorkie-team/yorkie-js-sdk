@@ -39,6 +39,12 @@ How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-genera
 npm run build:proto
 ```
 
+### Precommit Hooks
+
+As part of this repo, we use [Husky](https://github.com/typicode/husky) to implement git hooks. We leverage the prepush hook to do below things:
+
+ - Automated code styling (using [Prettier](https://github.com/prettier/prettier))
+
 ### Test yorkie-js-sdk with Envoy, Yorkie and MongoDB.
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.

@@ -77,8 +77,8 @@ export class Change {
   }
 
   public getAnnotatedString(): string {
-    return `${this.operations.map((operation) =>
-      operation.getAnnotatedString()
-    ).join(',')}`;
+    return `${this.operations
+      .map((operation) => operation.getAnnotatedString())
+      .join(',')}`;
   }
 }
