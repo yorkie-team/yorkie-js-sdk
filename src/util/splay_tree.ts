@@ -270,9 +270,11 @@ export class SplayTree<V> {
   public getAnnotatedString(): string {
     const metaString = [];
     this.traverseInorder(this.root, metaString);
-    return metaString.map((node) =>
-      `[${node.getWeight()},${node.getLength()}]${node.getValue()}`
-    ).join('');
+    return metaString
+      .map(
+        (node) => `[${node.getWeight()},${node.getLength()}]${node.getValue()}`,
+      )
+      .join('');
   }
 
   private getMaximum(): SplayNode<V> {

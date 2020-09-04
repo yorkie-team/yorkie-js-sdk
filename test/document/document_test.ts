@@ -264,18 +264,18 @@ describe('Document', function () {
   it('can rollback, primitive deepcopy', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update(root => {
+    doc.update((root) => {
       root['k1'] = {};
-      root['k1']['k1.1'] = 1
-      root['k1']['k1.2'] = 2
+      root['k1']['k1.1'] = 1;
+      root['k1']['k1.2'] = 2;
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
     assert.throws(() => {
-      doc.update(root => {
+      doc.update((root) => {
         delete root['k1']['k1.1'];
         throw Error('dummy error');
       }, 'dummy error');
-    })
+    });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
   });
 });
