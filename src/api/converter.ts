@@ -16,36 +16,36 @@
 
 import Long from 'long';
 
-import {Code, YorkieError} from '../util/error';
-import {InitialTimeTicket, TimeTicket} from '../document/time/ticket';
-import {Operation} from '../document/operation/operation';
-import {SetOperation} from '../document/operation/set_operation';
-import {AddOperation} from '../document/operation/add_operation';
-import {MoveOperation} from '../document/operation/move_operation';
-import {RemoveOperation} from '../document/operation/remove_operation';
-import {EditOperation} from '../document/operation/edit_operation';
-import {RichEditOperation} from '../document/operation/rich_edit_operation';
-import {SelectOperation} from '../document/operation/select_operation';
-import {StyleOperation} from '../document/operation/style_operation';
-import {DocumentKey} from '../document/key/document_key';
-import {ChangeID} from '../document/change/change_id';
-import {Change} from '../document/change/change';
-import {ChangePack} from '../document/change/change_pack';
-import {Checkpoint} from '../document/checkpoint/checkpoint';
-import {RHTPQMap} from '../document/json/rht_pq_map';
-import {RGATreeList} from '../document/json/rga_tree_list';
-import {JSONElement} from '../document/json/element';
-import {JSONObject} from '../document/json/object';
-import {JSONArray} from '../document/json/array';
+import { Code, YorkieError } from '../util/error';
+import { InitialTimeTicket, TimeTicket } from '../document/time/ticket';
+import { Operation } from '../document/operation/operation';
+import { SetOperation } from '../document/operation/set_operation';
+import { AddOperation } from '../document/operation/add_operation';
+import { MoveOperation } from '../document/operation/move_operation';
+import { RemoveOperation } from '../document/operation/remove_operation';
+import { EditOperation } from '../document/operation/edit_operation';
+import { RichEditOperation } from '../document/operation/rich_edit_operation';
+import { SelectOperation } from '../document/operation/select_operation';
+import { StyleOperation } from '../document/operation/style_operation';
+import { DocumentKey } from '../document/key/document_key';
+import { ChangeID } from '../document/change/change_id';
+import { Change } from '../document/change/change';
+import { ChangePack } from '../document/change/change_pack';
+import { Checkpoint } from '../document/checkpoint/checkpoint';
+import { RHTPQMap } from '../document/json/rht_pq_map';
+import { RGATreeList } from '../document/json/rga_tree_list';
+import { JSONElement } from '../document/json/element';
+import { JSONObject } from '../document/json/object';
+import { JSONArray } from '../document/json/array';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '../document/json/rga_tree_split';
-import {PlainText} from '../document/json/text';
-import {RichText, RichTextValue} from '../document/json/rich_text';
-import {JSONPrimitive, PrimitiveType} from '../document/json/primitive';
+import { PlainText } from '../document/json/text';
+import { RichText, RichTextValue } from '../document/json/rich_text';
+import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
   Change as PbChange,
   ChangeID as PbChangeID,
@@ -64,8 +64,8 @@ import {
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
 } from './yorkie_pb';
-import {IncreaseOperation} from "../document/operation/increase_operation";
-import {CounterType, Counter} from "../document/json/counter";
+import { IncreaseOperation } from '../document/operation/increase_operation';
+import { CounterType, Counter } from '../document/json/counter';
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
@@ -308,13 +308,13 @@ function toOperation(operation: Operation): PbOperation {
     const increaseOperation = operation as IncreaseOperation;
     const pbIncreaseOperation = new PbOperation.Increase();
     pbIncreaseOperation.setParentCreatedAt(
-        toTimeTicket(increaseOperation.getParentCreatedAt())
+      toTimeTicket(increaseOperation.getParentCreatedAt()),
     );
     pbIncreaseOperation.setValue(
-        toJSONElementSimple(increaseOperation.getValue())
+      toJSONElementSimple(increaseOperation.getValue()),
     );
     pbIncreaseOperation.setExecutedAt(
-        toTimeTicket(increaseOperation.getExecutedAt())
+      toTimeTicket(increaseOperation.getExecutedAt()),
     );
     pbOperation.setIncrease(pbIncreaseOperation);
   } else {
@@ -540,8 +540,8 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.DoubleCnt;
   }
   throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented value type: ${pbValueType}`,
+    Code.Unimplemented,
+    `unimplemented value type: ${pbValueType}`,
   );
 }
 
@@ -581,12 +581,12 @@ function fromJSONElementSimple(
     case PbValueType.DOUBLE_CNT:
     case PbValueType.LONG_CNT:
       return Counter.of(
-          Counter.valueFromBytes(
-              fromCounterType(pbJSONElement.getType()),
-              pbJSONElement.getValue_asU8(),
-          ),
-          fromTimeTicket(pbJSONElement.getCreatedAt())
-      )
+        Counter.valueFromBytes(
+          fromCounterType(pbJSONElement.getType()),
+          pbJSONElement.getValue_asU8(),
+        ),
+        fromTimeTicket(pbJSONElement.getCreatedAt()),
+      );
   }
 
   throw new YorkieError(
@@ -725,9 +725,9 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
     } else if (pbOperation.hasIncrease()) {
       const pbIncreaseOperation = pbOperation.getIncrease();
       operation = IncreaseOperation.create(
-          fromTimeTicket(pbIncreaseOperation.getParentCreatedAt()),
-          fromJSONElementSimple(pbIncreaseOperation.getValue()),
-          fromTimeTicket(pbIncreaseOperation.getExecutedAt()),
+        fromTimeTicket(pbIncreaseOperation.getParentCreatedAt()),
+        fromJSONElementSimple(pbIncreaseOperation.getValue()),
+        fromTimeTicket(pbIncreaseOperation.getExecutedAt()),
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
@@ -856,15 +856,13 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   return text;
 }
 
-function fromCounter(
-    pbCounter: PbJSONElement.Counter,
-): Counter {
+function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
   const counter = Counter.of(
-      Counter.valueFromBytes(
-          fromCounterType(pbCounter.getType()),
-          pbCounter.getValue_asU8(),
-      ),
-      fromTimeTicket(pbCounter.getCreatedAt()),
+    Counter.valueFromBytes(
+      fromCounterType(pbCounter.getType()),
+      pbCounter.getValue_asU8(),
+    ),
+    fromTimeTicket(pbCounter.getCreatedAt()),
   );
   counter.remove(fromTimeTicket(pbCounter.getRemovedAt()));
   return counter;

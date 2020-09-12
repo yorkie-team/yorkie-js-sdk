@@ -279,10 +279,10 @@ describe('Document', function () {
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
   });
 
-  it('can be increased by Counter type', function() {
+  it('can be increased by Counter type', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update(root => {
+    doc.update((root) => {
       root['k1'] = {};
       root['k1'].createCounter('age', 1);
       root['k1'].createCounter('length', 10.5);
@@ -292,7 +292,7 @@ describe('Document', function () {
     });
     assert.equal(`{"k1":{"age":6,"length":14}}`, doc.toSortedJSON());
 
-    doc.update(root => {
+    doc.update((root) => {
       root['k1']['age'].increase(1.5).increase(1);
       root['k1']['length'].increase(3.5).increase(1);
     });
@@ -300,7 +300,7 @@ describe('Document', function () {
 
     // error test
     assert.Throw(() => {
-      doc.update(root => {
+      doc.update((root) => {
         root['k1']['age'].increase(true);
       });
     }, 'Unsupported type of value: boolean');

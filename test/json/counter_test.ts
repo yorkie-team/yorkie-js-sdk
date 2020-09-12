@@ -17,8 +17,8 @@
 import { assert } from 'chai';
 import { InitialTimeTicket } from '../../src/document/time/ticket';
 import Long from 'long';
-import {Counter} from "../../src/document/json/counter";
-import {JSONPrimitive} from "../../src/document/json/primitive";
+import { Counter } from '../../src/document/json/counter';
+import { JSONPrimitive } from '../../src/document/json/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
@@ -26,7 +26,10 @@ describe('Counter', function () {
     const long = Counter.of(Long.fromString('100'), InitialTimeTicket);
 
     const doubleOperand = JSONPrimitive.of(10, InitialTimeTicket);
-    const longOperand = JSONPrimitive.of(Long.fromString('100'), InitialTimeTicket);
+    const longOperand = JSONPrimitive.of(
+      Long.fromString('100'),
+      InitialTimeTicket,
+    );
 
     double.increase(doubleOperand);
     double.increase(longOperand);
@@ -39,12 +42,12 @@ describe('Counter', function () {
     // error process test
     function errorTest(counter: Counter, operand: JSONPrimitive): void {
       const errValue = !counter.isNumericType()
-          ? counter.getValue()
-          : operand.getValue();
+        ? counter.getValue()
+        : operand.getValue();
 
       assert.throw(() => {
         counter.increase(operand);
-      }, `Unsupported type of value: ${typeof errValue}`)
+      }, `Unsupported type of value: ${typeof errValue}`);
     }
 
     const str = JSONPrimitive.of('hello', InitialTimeTicket);
@@ -62,7 +65,10 @@ describe('Counter', function () {
 
     // subtraction test
     const negative = JSONPrimitive.of(-50, InitialTimeTicket);
-    const negativeLong = JSONPrimitive.of(Long.fromNumber(-100), InitialTimeTicket);
+    const negativeLong = JSONPrimitive.of(
+      Long.fromNumber(-100),
+      InitialTimeTicket,
+    );
     double.increase(negative);
     double.increase(negativeLong);
     assert.equal(double.getValue(), -30);

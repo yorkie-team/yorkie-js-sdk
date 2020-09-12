@@ -20,8 +20,8 @@ import { JSONContainer, JSONElement } from './element';
 import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './text';
 import { RichText } from './rich_text';
-import {CounterType, Counter} from "./counter";
-import {CounterProxy} from "../proxy/counter_proxy";
+import { CounterType, Counter } from './counter';
+import { CounterProxy } from '../proxy/counter_proxy';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time

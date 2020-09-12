@@ -16,10 +16,10 @@
 
 import { ChangeContext } from '../change/context';
 import { JSONPrimitive } from '../json/primitive';
-import { TimeTicket } from "../time/ticket";
-import { IncreaseOperation } from "../operation/increase_operation";
+import { TimeTicket } from '../time/ticket';
+import { IncreaseOperation } from '../operation/increase_operation';
 import Long from 'long';
-import {Counter} from "../json/counter";
+import { Counter } from '../json/counter';
 
 /**
  * CounterProxy is a proxy representing Counter types.
@@ -41,11 +41,11 @@ export class CounterProxy {
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
-          }
+          };
         } else if (method === 'increase') {
           return (v: number | Long): CounterProxy => {
             return this.increase(v);
-          }
+          };
         }
 
         return Reflect.get(target, method, receiver);
@@ -66,15 +66,13 @@ export class CounterProxy {
     const ticket = this.context.issueTimeTicket();
     const value = JSONPrimitive.of(v, ticket);
     if (!value.isNumericType()) {
-      throw new TypeError(`Unsupported type of value: ${typeof value.getValue()}`);
+      throw new TypeError(
+        `Unsupported type of value: ${typeof value.getValue()}`,
+      );
     }
 
     this.context.push(
-      IncreaseOperation.create(
-        this.counter.getCreatedAt(),
-        value,
-        ticket
-      )
+      IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
     );
 
     return this;

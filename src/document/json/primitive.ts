@@ -141,9 +141,12 @@ export class JSONPrimitive extends JSONElement {
    */
   public isNumericType(): boolean {
     const t = this.valueType;
-    return t === PrimitiveType.Integer || t === PrimitiveType.Long || t === PrimitiveType.Double;
+    return (
+      t === PrimitiveType.Integer ||
+      t === PrimitiveType.Long ||
+      t === PrimitiveType.Double
+    );
   }
-
 
   public getValue(): PrimitiveValue {
     return this.value;
@@ -196,4 +199,3 @@ export class JSONPrimitive extends JSONElement {
     }
   }
 }
-

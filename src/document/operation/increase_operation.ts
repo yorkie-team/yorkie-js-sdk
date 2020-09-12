@@ -20,7 +20,7 @@ import { JSONElement } from '../json/element';
 import { JSONRoot } from '../json/root';
 import { JSONPrimitive } from '../json/primitive';
 import { logger } from '../../util/logger';
-import {Counter} from "../json/counter";
+import { Counter } from '../json/counter';
 
 /**
  * Increase can be used to increment data of numerical type.
@@ -53,9 +53,7 @@ export class IncreaseOperation extends Operation {
       const value = this.value.deepcopy() as JSONPrimitive;
       counter.increase(value);
     } else {
-      logger.fatal(
-        `fail to execute, only Counter can execute increase`,
-      );
+      logger.fatal(`fail to execute, only Counter can execute increase`);
     }
   }
 

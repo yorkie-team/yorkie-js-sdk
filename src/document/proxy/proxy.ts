@@ -25,8 +25,8 @@ import { ObjectProxy } from './object_proxy';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
 import { RichTextProxy } from './rich_text_proxy';
-import { CounterProxy } from "./counter_proxy";
-import {Counter} from "../json/counter";
+import { CounterProxy } from './counter_proxy';
+import { Counter } from '../json/counter';
 
 export function createProxy(
   context: ChangeContext,

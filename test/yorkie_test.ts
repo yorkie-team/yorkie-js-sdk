@@ -451,7 +451,7 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('Can handle increase operation', async function() {
+  it('Can handle increase operation', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createCounter('age', 0);
@@ -467,7 +467,7 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('Can handle concurrent increase operation', async function() {
+  it('Can handle concurrent increase operation', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createCounter('age', 0);
