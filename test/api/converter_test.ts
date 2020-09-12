@@ -22,7 +22,7 @@ describe('Converter', function () {
   it('should encode/decode bytes', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k1'] = {
         'k1.1': true,
         'k1.2': 2147483647,

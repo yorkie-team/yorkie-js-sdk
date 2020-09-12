@@ -54,9 +54,9 @@ export class RichTextProxy {
             this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
           };
-        } else if (method === 'updateSelection') {
+        } else if (method === 'moveSelection') {
           return (fromIdx: number, toIdx: number): boolean => {
-            this.updateSelection(target, fromIdx, toIdx);
+            this.moveSelection(target, fromIdx, toIdx);
             return true;
           };
         } else if (method === 'getAnnotatedString') {
@@ -160,11 +160,7 @@ export class RichTextProxy {
     );
   }
 
-  public updateSelection(
-    target: RichText,
-    fromIdx: number,
-    toIdx: number,
-  ): void {
+  public moveSelection(target: RichText, fromIdx: number, toIdx: number): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
@@ -172,7 +168,7 @@ export class RichTextProxy {
       );
     }
     const ticket = this.context.issueTimeTicket();
-    target.updateSelection(range, ticket);
+    target.moveSelection(range, ticket);
 
     this.context.push(
       new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),

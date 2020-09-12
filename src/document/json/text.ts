@@ -65,7 +65,7 @@ export class PlainText extends JSONElement {
       editedAt,
     );
 
-    const selectionChange = this.updateSelectionInternal(
+    const selectionChange = this.moveSelectionInternal(
       [caretPos, caretPos],
       editedAt,
     );
@@ -82,15 +82,15 @@ export class PlainText extends JSONElement {
     return latestCreatedAtMap;
   }
 
-  public updateSelection(
+  public moveSelection(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ): void {
     if (this.remoteChangeLock) {
       return;
     }
 
-    const change = this.updateSelectionInternal(range, updatedAt);
+    const change = this.moveSelectionInternal(range, movedAt);
     if (this.onChangesHandler && change) {
       this.remoteChangeLock = true;
       this.onChangesHandler([change]);
@@ -144,29 +144,23 @@ export class PlainText extends JSONElement {
     return text;
   }
 
-  private updateSelectionInternal(
+  private moveSelectionInternal(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ): Change {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
-      this.selectionMap.set(
-        updatedAt.getActorID(),
-        Selection.of(range, updatedAt),
-      );
+    if (!this.selectionMap.has(movedAt.getActorID())) {
+      this.selectionMap.set(movedAt.getActorID(), Selection.of(range, movedAt));
       return null;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
-    if (updatedAt.after(prevSelection.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID(),
-        Selection.of(range, updatedAt),
-      );
+    const prevSelection = this.selectionMap.get(movedAt.getActorID());
+    if (movedAt.after(prevSelection.getMovedAt())) {
+      this.selectionMap.set(movedAt.getActorID(), Selection.of(range, movedAt));
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: movedAt.getActorID(),
         from,
         to,
       };

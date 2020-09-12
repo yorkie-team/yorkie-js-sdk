@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Codemirror Example</title>
@@ -7,6 +8,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
 </head>
+
 <body>
   <div>
     <div>status: <span id="network-status"></span></div>
@@ -42,16 +44,26 @@
 
     // https://github.com/codemirror/CodeMirror/pull/5619
     function replaceRangeFix(cm, text, from, to, origin) {
-      const adjust = cm.listSelections().findIndex(({anchor, head}) => {
+      const adjust = cm.listSelections().findIndex(({
+        anchor,
+        head
+      }) => {
         return CodeMirror.cmpPos(anchor, head) === 0 && CodeMirror.cmpPos(anchor, from) === 0;
       });
       cm.operation(() => {
         cm.replaceRange(text, from, to, origin);
         if (adjust > -1) {
           const range = cm.listSelections()[adjust];
-          if (range && CodeMirror.cmpPos(range.head, CodeMirror.changeEnd({from, to, text})) === 0) {
+          if (range && CodeMirror.cmpPos(range.head, CodeMirror.changeEnd({
+              from,
+              to,
+              text
+            })) === 0) {
             const ranges = cm.listSelections().slice();
-            ranges[adjust] = {anchor: from, head: from};
+            ranges[adjust] = {
+              anchor: from,
+              head: from
+            };
             cm.setSelections(ranges);
           }
         }
@@ -119,7 +131,7 @@
           }
         });
 
-        doc.update((root) => {
+        doc.move((root) => {
           if (!root.content) {
             root.createText('content');
           }
@@ -145,9 +157,9 @@
           const to = cm.indexFromPos(change.to);
           const content = change.text.join('\n');
 
-          doc.update((root) => {
+          doc.move((root) => {
             root.content.edit(from, to, content);
-          }, `update content by ${client.getID()}`);
+          }, `move content by ${client.getID()}`);
 
           console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
         });
@@ -163,9 +175,9 @@
           const from = cm.indexFromPos(change.ranges[0].anchor);
           const to = cm.indexFromPos(change.ranges[0].head);
 
-          doc.update((root) => {
-            root.content.updateSelection(from, to);
-          }, `update selection by ${client.getID()}`);
+          doc.move((root) => {
+            root.content.moveSelection(from, to);
+          }, `move selection by ${client.getID()}`);
         });
 
         // 04-2. document to codemirror(remote).
@@ -204,4 +216,5 @@
     main();
   </script>
 </body>
+
 </html>

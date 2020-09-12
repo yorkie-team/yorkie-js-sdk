@@ -52,8 +52,8 @@ export class RichTextValue {
     return new RichTextValue(this.content.substring(indexStart, indexEnd));
   }
 
-  public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
-    this.attributes.set(key, value, updatedAt);
+  public setAttr(key: string, value: string, movedAt: TimeTicket): void {
+    this.attributes.set(key, value, movedAt);
   }
 
   public toString(): string {
@@ -148,7 +148,7 @@ export class RichText extends JSONElement {
       change.attributes = attributes;
     }
 
-    const selectionChange = this.updateSelectionInternal(
+    const selectionChange = this.moveSelectionInternal(
       [caretPos, caretPos],
       editedAt,
     );
@@ -208,15 +208,15 @@ export class RichText extends JSONElement {
     }
   }
 
-  public updateSelection(
+  public moveSelection(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ): void {
     if (this.remoteChangeLock) {
       return;
     }
 
-    const change = this.updateSelectionInternal(range, updatedAt);
+    const change = this.moveSelectionInternal(range, movedAt);
     if (this.onChangesHandler && change) {
       this.remoteChangeLock = true;
       this.onChangesHandler([change]);
@@ -290,29 +290,23 @@ export class RichText extends JSONElement {
     return text;
   }
 
-  private updateSelectionInternal(
+  private moveSelectionInternal(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ): Change {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
-      this.selectionMap.set(
-        updatedAt.getActorID(),
-        Selection.of(range, updatedAt),
-      );
+    if (!this.selectionMap.has(movedAt.getActorID())) {
+      this.selectionMap.set(movedAt.getActorID(), Selection.of(range, movedAt));
       return null;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
-    if (updatedAt.after(prevSelection.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID(),
-        Selection.of(range, updatedAt),
-      );
+    const prevSelection = this.selectionMap.get(movedAt.getActorID());
+    if (movedAt.after(prevSelection.getMovedAt())) {
+      this.selectionMap.set(movedAt.getActorID(), Selection.of(range, movedAt));
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: movedAt.getActorID(),
         from,
         to,
       };

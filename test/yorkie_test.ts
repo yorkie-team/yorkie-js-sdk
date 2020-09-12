@@ -106,7 +106,7 @@ describe('Yorkie', function () {
     await client2.activate();
 
     await client1.attach(doc1, true);
-    doc1.update((root) => {
+    doc1.move((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
     }, 'set v1, v2');
@@ -130,14 +130,14 @@ describe('Yorkie', function () {
 
       assert.equal(0, spy.callCount);
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = 'v1';
       });
       await c1.sync();
       await c2.sync();
       assert.equal(1, spy.callCount);
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k2'] = 'v2';
       });
       await c1.sync();
@@ -146,7 +146,7 @@ describe('Yorkie', function () {
 
       unsub();
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k3'] = 'v3';
       });
       await c1.sync();
@@ -174,7 +174,7 @@ describe('Yorkie', function () {
     const unsub1 = d1.subscribe(spy1);
     const unsub2 = d2.subscribe(spy2);
 
-    d2.update((root) => {
+    d2.move((root) => {
       root['k1'] = 'v1';
     });
 
@@ -193,7 +193,7 @@ describe('Yorkie', function () {
 
   it('Can handle primitive types', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = true;
         root['k2'] = 2147483647;
         root['k3'] = yorkie.Long.fromString('9223372036854775807');
@@ -211,10 +211,10 @@ describe('Yorkie', function () {
 
   it('Can handle concurrent set/delete operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = 'v1';
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'] = 'v2';
       });
       await c1.sync();
@@ -222,17 +222,17 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k2'] = {};
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k2'] = 'v2';
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k2']['k2.1'] = { 'k2.1.1': 'v3' };
       });
       await c1.sync();
@@ -240,10 +240,10 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k3'] = 'v4';
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k4'] = 'v5';
       });
       await c1.sync();
@@ -251,10 +251,10 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         delete root['k3'];
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k3'] = 'v6';
       });
       await c1.sync();
@@ -266,17 +266,17 @@ describe('Yorkie', function () {
 
   it('Can handle concurrent add operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = ['1'];
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'].push('2');
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'].push('3');
       });
       await c1.sync();
@@ -289,7 +289,7 @@ describe('Yorkie', function () {
   it('Can handle concurrent insertAfter operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       let prev;
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = [1, 2, 3, 4];
         prev = root['k1'].getElementByIndex(1);
       });
@@ -297,11 +297,11 @@ describe('Yorkie', function () {
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'].deleteByID(prev.getID());
         assert.equal('{"k1":[1,3,4]}', root.toJSON());
       });
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'].insertAfter(prev.getID(), 2);
         assert.equal('{"k1":[1,2,2,3,4]}', root.toJSON());
       });
@@ -311,12 +311,12 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
       assert.equal('{"k1":[1,2,3,4]}', d1.toJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         const prev = root['k1'].getElementByIndex(1);
         root['k1'].insertAfter(prev.getID(), '2.1');
         assert.equal('{"k1":[1,2,"2.1",3,4]}', root.toJSON());
       });
-      d2.update((root) => {
+      d2.move((root) => {
         const prev = root['k1'].getElementByIndex(1);
         root['k1'].insertAfter(prev.getID(), '2.2');
         assert.equal('{"k1":[1,2,"2.2",3,4]}', root.toJSON());
@@ -330,7 +330,7 @@ describe('Yorkie', function () {
 
   it('Can handle concurrent moveBefore operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'] = [0, 1, 2];
         assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
@@ -338,13 +338,13 @@ describe('Yorkie', function () {
       await c2.sync();
       assert.equal(d1.toJSON(), d2.toJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         const next = root['k1'].getElementByIndex(0);
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveBefore(next.getID(), item.getID());
         assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
-      d2.update((root) => {
+      d2.move((root) => {
         const next = root['k1'].getElementByIndex(1);
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveBefore(next.getID(), item.getID());
@@ -358,7 +358,7 @@ describe('Yorkie', function () {
 
   it('should handle edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root.createText('k1');
         root['k1'].edit(0, 0, 'ABCD');
       }, 'set new text by c1');
@@ -367,7 +367,7 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root.createText('k1');
         root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c1');
@@ -381,7 +381,7 @@ describe('Yorkie', function () {
 
   it('should handle concurrent edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
+      d1.move((root) => {
         root.createText('k1');
       }, 'set new text by c1');
       await c1.sync();
@@ -389,11 +389,11 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), `{"k1":""}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
       assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
       assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
@@ -402,10 +402,10 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'].edit(2, 3, 'XX');
       }, 'edit 2,3 XX by c1');
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'].edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
       await c1.sync();
@@ -413,10 +413,10 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
+      d1.move((root) => {
         root['k1'].edit(4, 5, 'ZZ');
       }, 'edit 4,5 ZZ by c1');
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'].edit(2, 3, 'TT');
       }, 'edit 2,3 TT by c1');
 
@@ -431,14 +431,14 @@ describe('Yorkie', function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       // 01. Updates 700 changes over snapshot threshold.
       for (let idx = 0; idx < 700; idx++) {
-        d1.update((root) => {
+        d1.move((root) => {
           root[`${idx}`] = idx;
         });
       }
       await c1.sync();
 
       // 02. Makes local changes then pull a snapshot from the agent.
-      d2.update((root) => {
+      d2.move((root) => {
         root['key'] = 'value';
       });
       await c2.sync();
@@ -454,7 +454,7 @@ describe('Yorkie', function () {
   it('Can recover from temporary disconnect (manual sync)', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       // Normal Condition
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'] = 'undefined';
       });
 
@@ -474,7 +474,7 @@ describe('Yorkie', function () {
         );
       };
 
-      d2.update((root) => {
+      d2.move((root) => {
         root['k1'] = 'v1';
       });
 
@@ -533,12 +533,12 @@ describe('Yorkie', function () {
     };
 
     // Normal Condition
-    d2.update((root) => {
+    d2.move((root) => {
       root['k1'] = 'undefined';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
-    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's update
+    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to move
+    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's move
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // Simulate network error
@@ -553,11 +553,11 @@ describe('Yorkie', function () {
       );
     };
 
-    d2.update((root) => {
+    d2.move((root) => {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
+    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to move
     await waitFor(DocumentSyncResultType.SyncFailed, listener2); // c2 should fail to sync
     c1.sync();
     await waitFor(DocumentSyncResultType.SyncFailed, listener1); // c1 should also fail to sync
@@ -567,7 +567,7 @@ describe('Yorkie', function () {
     // Back to normal condition
     xhr.restore();
 
-    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's update
+    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's move
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1.client();

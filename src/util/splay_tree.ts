@@ -187,13 +187,13 @@ export class SplayTree<V> {
     newNode.setLeft(target);
     target.setParent(newNode);
     target.setRight(null);
-    this.updateSubtree(target);
-    this.updateSubtree(newNode);
+    this.moveSubtree(target);
+    this.moveSubtree(newNode);
 
     return newNode;
   }
 
-  public updateSubtree(node: SplayNode<V>): void {
+  public moveSubtree(node: SplayNode<V>): void {
     node.initWeight();
 
     if (node.hasLeft()) {
@@ -319,8 +319,8 @@ export class SplayTree<V> {
     pivot.setLeft(root);
     pivot.getLeft().setParent(pivot);
 
-    this.updateSubtree(root);
-    this.updateSubtree(pivot);
+    this.moveSubtree(root);
+    this.moveSubtree(pivot);
   }
 
   private rotateRight(pivot: SplayNode<V>): void {
@@ -344,8 +344,8 @@ export class SplayTree<V> {
     pivot.setRight(root);
     pivot.getRight().setParent(pivot);
 
-    this.updateSubtree(root);
-    this.updateSubtree(pivot);
+    this.moveSubtree(root);
+    this.moveSubtree(pivot);
   }
 
   private isLeftChild(node: SplayNode<V>): boolean {

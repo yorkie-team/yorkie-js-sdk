@@ -76,9 +76,9 @@ export class Document implements Observable<DocEvent> {
   }
 
   /**
-   * update executes the given updater to update this document.
+   * move executes the given mover to move this document.
    */
-  public update(updater: (root: JSONObject) => void, message?: string): void {
+  public move(mover: (root: JSONObject) => void, message?: string): void {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
@@ -88,7 +88,7 @@ export class Document implements Observable<DocEvent> {
 
     try {
       const proxy = createProxy(context, this.clone.getObject());
-      updater(proxy);
+      mover(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
       this.clone = null;
@@ -98,7 +98,7 @@ export class Document implements Observable<DocEvent> {
 
     if (context.hasOperations()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
-        logger.trivial(`trying to update a local change: ${this.toJSON()}`);
+        logger.trivial(`trying to move a local change: ${this.toJSON()}`);
       }
 
       const change = context.getChange();
@@ -114,7 +114,7 @@ export class Document implements Observable<DocEvent> {
       }
 
       if (logger.isEnabled(LogLevel.Trivial)) {
-        logger.trivial(`after update a local change: ${this.toJSON()}`);
+        logger.trivial(`after move a local change: ${this.toJSON()}`);
       }
     }
   }

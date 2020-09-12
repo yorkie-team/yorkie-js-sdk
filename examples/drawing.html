@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Drawing Example</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div>
     <div>status: <span id="network-status"></span></div>
@@ -27,10 +29,10 @@
 
       for (const shape of shapes) {
         context.beginPath();
-        let isMoved = false; 
+        let isMoved = false;
         for (const p of shape.points) {
           if (isMoved === false) {
-            isMoved = true; 
+            isMoved = true;
             context.moveTo(p.x, p.y);
           } else {
             context.lineTo(p.x, p.y);
@@ -62,7 +64,7 @@
         const doc = yorkie.createDocument('examples', 'drawing-panel-3');
         await client.attach(doc);
 
-        doc.update((root) => {
+        doc.move((root) => {
           if (!root['shapes']) {
             root['shapes'] = [];
           }
@@ -75,20 +77,20 @@
 
         document.addEventListener('mousedown', (e) => {
           if (!window.isMouseDown) {
-            window.isMouseDown = true; 
+            window.isMouseDown = true;
             const point = getPoint(e);
             if (point.x < 0 || point.y < 0 ||
-                point.x > 500 || point.y > 500) {
+              point.x > 500 || point.y > 500) {
               return;
             }
 
-            doc.update((root) => {
+            doc.move((root) => {
               root.shapes.push({
                 points: [point]
               });
               const shape = root.shapes.getLast();
               window.currentID = shape.getID();
-            }, `update content by ${client.getID()}`);
+            }, `move content by ${client.getID()}`);
           }
         });
 
@@ -96,21 +98,21 @@
           if (window.isMouseDown) {
             const point = getPoint(e);
             if (point.x < 0 || point.y < 0 ||
-                point.x > 500 || point.y > 500) {
+              point.x > 500 || point.y > 500) {
               return;
             }
 
-            doc.update((root) => {
+            doc.move((root) => {
               const shape = root.shapes.getElementByID(window.currentID);
               shape.points.push(point);
               paintCanvas(root.shapes);
-            }, `update content by ${client.getID()}`);
+            }, `move content by ${client.getID()}`);
           }
         });
 
         document.addEventListener('mouseup', (e) => {
           if (window.isMouseDown) {
-            window.isMouseDown = false;   
+            window.isMouseDown = false;
           }
         });
 
@@ -124,4 +126,5 @@
     main();
   </script>
 </body>
+
 </html>

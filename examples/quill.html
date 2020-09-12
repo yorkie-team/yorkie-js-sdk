@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Quill Example</title>
@@ -8,6 +9,7 @@
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.js"></script>
 </head>
+
 <body>
   <div>status: <span id="network-status"></span></div>
   <div id="toolbar"></div>
@@ -65,7 +67,7 @@
         const doc = yorkie.createDocument('examples', 'quill');
         await client.attach(doc);
 
-        doc.update((root) => {
+        doc.move((root) => {
           if (!root.content) {
             root.createRichText('content');
           }
@@ -82,16 +84,46 @@
             toolbar: [
               ['bold', 'italic', 'underline', 'strike'],
               ['blockquote', 'code-block'],
-              [{ 'header': 1 }, { 'header': 2 }],
-              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-              [{ 'script': 'sub'}, { 'script': 'super' }],
-              [{ 'indent': '-1'}, { 'indent': '+1' }],
-              [{ 'direction': 'rtl' }],
-              [{ 'size': ['small', false, 'large', 'huge'] }],
-              [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-              [{ 'color': [] }, { 'background': [] }],
-              [{ 'font': [] }],
-              [{ 'align': [] }],
+              [{
+                'header': 1
+              }, {
+                'header': 2
+              }],
+              [{
+                'list': 'ordered'
+              }, {
+                'list': 'bullet'
+              }],
+              [{
+                'script': 'sub'
+              }, {
+                'script': 'super'
+              }],
+              [{
+                'indent': '-1'
+              }, {
+                'indent': '+1'
+              }],
+              [{
+                'direction': 'rtl'
+              }],
+              [{
+                'size': ['small', false, 'large', 'huge']
+              }],
+              [{
+                'header': [1, 2, 3, 4, 5, 6, false]
+              }],
+              [{
+                'color': []
+              }, {
+                'background': []
+              }],
+              [{
+                'font': []
+              }],
+              [{
+                'align': []
+              }],
               ['clean']
             ],
             cursors: true
@@ -106,7 +138,8 @@
             return;
           }
 
-          let from = 0, to = 0;
+          let from = 0,
+            to = 0;
           console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
           for (const op of delta.ops) {
             if (op.attributes !== undefined || op.insert !== undefined) {
@@ -118,23 +151,23 @@
                 'color: green'
               );
 
-              doc.update((root) => {
+              doc.move((root) => {
                 if (op.attributes !== undefined && op.insert === undefined) {
                   root.content.setStyle(from, to, toAttributes(op.attributes));
                 } else if (op.insert !== undefined) {
                   root.content.edit(from, to, op.insert, toAttributes(op.attributes));
                   from = to + op.insert.length;
                 }
-              }, `update style by ${client.getID()}`);
+              }, `move style by ${client.getID()}`);
             } else if (op.delete !== undefined) {
               if (op.delete !== undefined) {
                 to = from + op.delete;
               }
               console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
-              doc.update((root) => {
+              doc.move((root) => {
                 root.content.edit(from, to, '');
-              }, `update content by ${client.getID()}`);
+              }, `move content by ${client.getID()}`);
             } else if (op.retain !== undefined) {
               from = to + op.retain;
               to = from;
@@ -145,9 +178,9 @@
             return;
           }
 
-          doc.update((root) => {
-            root.content.updateSelection(range.index, range.index + range.length);
-          }, `update selection by ${client.getID()}`);
+          doc.move((root) => {
+            root.content.moveSelection(range.index, range.index + range.length);
+          }, `move selection by ${client.getID()}`);
         });
 
         // 04-2. document to codemirror(remote).
@@ -173,13 +206,19 @@
               );
 
               if (retainFrom) {
-                delta.push({ retain: retainFrom });
+                delta.push({
+                  retain: retainFrom
+                });
               }
               if (retainTo) {
-                delta.push({ delete: retainTo });
+                delta.push({
+                  delete: retainTo
+                });
               }
               if (content) {
-                const op = { insert: content };
+                const op = {
+                  insert: content
+                };
                 if (change.attributes) {
                   op.attributes = change.attributes;
                 }
@@ -192,10 +231,14 @@
               );
 
               if (retainFrom) {
-                delta.push({ retain: retainFrom });
+                delta.push({
+                  retain: retainFrom
+                });
               }
               if (change.attributes) {
-                const op = { attributes: change.attributes };
+                const op = {
+                  attributes: change.attributes
+                };
                 if (retainTo) {
                   op.retain = retainTo;
                 }
@@ -216,7 +259,7 @@
 
           if (delta.length) {
             console.log(`%c to quill: ${JSON.stringify(delta)}`, 'color: green');
-            quill.updateContents(delta, 'yorkie');
+            quill.moveContents(delta, 'yorkie');
           }
         });
 
@@ -232,4 +275,5 @@
     main();
   </script>
 </body>
+
 </html>

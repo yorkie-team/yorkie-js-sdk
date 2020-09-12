@@ -521,7 +521,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     const splitNode = node.split(offset);
-    this.treeByIndex.updateSubtree(splitNode);
+    this.treeByIndex.moveSubtree(splitNode);
     this.insertAfter(node, splitNode);
 
     const insNext = node.getInsNext();
@@ -593,26 +593,26 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 export class Selection {
   private from: RGATreeSplitNodePos;
   private to: RGATreeSplitNodePos;
-  private updatedAt: TimeTicket;
+  private movedAt: TimeTicket;
 
   constructor(
     from: RGATreeSplitNodePos,
     to: RGATreeSplitNodePos,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ) {
     this.from = from;
     this.to = to;
-    this.updatedAt = updatedAt;
+    this.movedAt = movedAt;
   }
 
   public static of(
     range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
+    movedAt: TimeTicket,
   ): Selection {
-    return new Selection(range[0], range[1], updatedAt);
+    return new Selection(range[0], range[1], movedAt);
   }
 
-  public getUpdatedAt(): TimeTicket {
-    return this.updatedAt;
+  public getMovedAt(): TimeTicket {
+    return this.movedAt;
   }
 }

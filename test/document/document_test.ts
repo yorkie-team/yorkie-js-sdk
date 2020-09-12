@@ -19,14 +19,14 @@ import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 
 describe('Document', function () {
-  it('should apply updates of string', function () {
+  it('should apply moves of string', function () {
     const doc1 = Document.create('test-col', 'test-doc');
     const doc2 = Document.create('test-col', 'test-doc');
 
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
     assert.isFalse(doc1.hasLocalChanges());
 
-    doc1.update((root) => {
+    doc1.move((root) => {
       root['k1'] = 'v1';
       root['k2'] = 'v2';
       assert.equal('v1', root['k1']);
@@ -37,22 +37,22 @@ describe('Document', function () {
     assert.notEqual(doc1, doc2);
   });
 
-  it('should apply updates inside nested map', function () {
+  it('should apply moves inside nested map', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k1']['k1-2'] = 'v2';
     }, 'set {"k1-1":"v1","k1-2":"v2":}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k1']['k1-2'] = 'v3';
     }, 'set {"k1-2":"v3"}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k2'] = ['1', '2'];
       root['k2'].push('3');
     }, 'set ["1","2","3"]');
@@ -62,7 +62,7 @@ describe('Document', function () {
     );
 
     assert.throws(() => {
-      doc.update((root) => {
+      doc.move((root) => {
         root['k2'].push('4');
         throw new Error('dummy error');
       }, 'push "4"');
@@ -72,7 +72,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k2'].push('4');
     }, 'push "4"');
     assert.equal(
@@ -80,7 +80,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k2'].push({ 'k2-5': 'v4' });
     }, 'push "{k2-5: 4}"');
     assert.equal(
@@ -93,7 +93,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k1'] = { 'k1-1': 'v1', 'k1-2': 'v2' };
       root['k2'] = ['1', '2', '3'];
     }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}');
@@ -102,7 +102,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root) => {
+    doc.move((root) => {
       delete root['k1']['k1-1'];
       root['k1']['k1-3'] = 'v4';
 
@@ -122,13 +122,13 @@ describe('Document', function () {
     //           ------ ins links ----
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
-    doc.update((root) => {
+    doc.move((root) => {
       const text = root.createText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
 
-    doc.update((root) => {
+    doc.move((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
         root['k1'].getAnnotatedString(),
@@ -160,13 +160,13 @@ describe('Document', function () {
     //           -- ins links ---
     //           |              |
     // [init] - [ABC] - [\n] - [D]
-    doc.update((root) => {
+    doc.move((root) => {
       const text = root.createRichText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
-    doc.update((root) => {
+    doc.move((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
         root['k1'].getAnnotatedString(),
@@ -183,7 +183,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       const text = root.createText('k1');
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
@@ -201,7 +201,7 @@ describe('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     let toDelete;
-    doc.update((root) => {
+    doc.move((root) => {
       root['list'] = [];
       assert.equal(1, root['list'].push(4));
       assert.equal(2, root['list'].push(3));
@@ -212,12 +212,12 @@ describe('Document', function () {
 
     assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['list'].deleteByID(toDelete.getID());
     }, 'delete 2');
     assert.equal('{"list":[4,3,1]}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       assert.equal(4, root['list'].push(2));
     }, 'push 2');
     assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
@@ -228,7 +228,7 @@ describe('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     let prev;
-    doc.update((root) => {
+    doc.move((root) => {
       root['list'] = [];
       root['list'].push(1);
       root['list'].push(2);
@@ -238,17 +238,17 @@ describe('Document', function () {
 
     assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['list'].insertAfter(prev.getID(), 3);
     }, 'insert 3');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       delete root['list'][1];
     }, 'remove 2');
     assert.equal('{"list":[1,3,4]}', doc.toSortedJSON());
 
-    doc.update((root) => {
+    doc.move((root) => {
       prev = root['list'].getElementByIndex(0);
       root['list'].insertAfter(prev.getID(), 2);
     }, 'insert 2');
@@ -264,14 +264,14 @@ describe('Document', function () {
   it('can rollback, primitive deepcopy', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update((root) => {
+    doc.move((root) => {
       root['k1'] = {};
       root['k1']['k1.1'] = 1;
       root['k1']['k1.2'] = 2;
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
     assert.throws(() => {
-      doc.update((root) => {
+      doc.move((root) => {
         delete root['k1']['k1.1'];
         throw Error('dummy error');
       }, 'dummy error');
