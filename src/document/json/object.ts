@@ -20,6 +20,7 @@ import { JSONContainer, JSONElement } from './element';
 import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './text';
 import { RichText } from './rich_text';
+import {CounterType, Counter} from "./counter";
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
@@ -43,6 +44,11 @@ export class JSONObject extends JSONContainer {
   }
 
   public createRichText(key: string): RichText {
+    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    return null;
+  }
+
+  public createCounter(key: string, value: CounterType): Counter {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
   }

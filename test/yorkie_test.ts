@@ -20,8 +20,8 @@ import { Client } from '../src/core/client';
 import { Document } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
-const testRPCAddr = 'https://yorkie.dev/api';
-// const testRPCAddr = 'http://localhost:8080';
+// const testRPCAddr = 'https://yorkie.dev/api';
+const testRPCAddr = 'http://localhost:8080';
 const testCollection = 'test-col';
 
 async function withTwoClientsAndDocuments(
@@ -431,15 +431,15 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('can increase by numeric data', async function() {
+  it('can increase by Counter', async function() {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root['age'] = 1;
+        root.createCounter('age', 1);
         root['age'].increase(1).increase(2);
       });
 
       d2.update((root) => {
-        root['length'] = 2.5;
+        root.createCounter('length', 2.5);
         root['length'].increase(3.14);
       });
       await c1.sync();

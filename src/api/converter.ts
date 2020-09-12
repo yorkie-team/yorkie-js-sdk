@@ -16,55 +16,56 @@
 
 import Long from 'long';
 
-import { Code, YorkieError } from '../util/error';
-import { TimeTicket, InitialTimeTicket } from '../document/time/ticket';
-import { Operation } from '../document/operation/operation';
-import { SetOperation } from '../document/operation/set_operation';
-import { AddOperation } from '../document/operation/add_operation';
-import { MoveOperation } from '../document/operation/move_operation';
-import { RemoveOperation } from '../document/operation/remove_operation';
-import { EditOperation } from '../document/operation/edit_operation';
-import { RichEditOperation } from '../document/operation/rich_edit_operation';
-import { SelectOperation } from '../document/operation/select_operation';
-import { StyleOperation } from '../document/operation/style_operation';
-import { DocumentKey } from '../document/key/document_key';
-import { ChangeID } from '../document/change/change_id';
-import { Change } from '../document/change/change';
-import { ChangePack } from '../document/change/change_pack';
-import { Checkpoint } from '../document/checkpoint/checkpoint';
-import { RHTPQMap } from '../document/json/rht_pq_map';
-import { RGATreeList } from '../document/json/rga_tree_list';
-import { JSONElement } from '../document/json/element';
-import { JSONObject } from '../document/json/object';
-import { JSONArray } from '../document/json/array';
+import {Code, YorkieError} from '../util/error';
+import {InitialTimeTicket, TimeTicket} from '../document/time/ticket';
+import {Operation} from '../document/operation/operation';
+import {SetOperation} from '../document/operation/set_operation';
+import {AddOperation} from '../document/operation/add_operation';
+import {MoveOperation} from '../document/operation/move_operation';
+import {RemoveOperation} from '../document/operation/remove_operation';
+import {EditOperation} from '../document/operation/edit_operation';
+import {RichEditOperation} from '../document/operation/rich_edit_operation';
+import {SelectOperation} from '../document/operation/select_operation';
+import {StyleOperation} from '../document/operation/style_operation';
+import {DocumentKey} from '../document/key/document_key';
+import {ChangeID} from '../document/change/change_id';
+import {Change} from '../document/change/change';
+import {ChangePack} from '../document/change/change_pack';
+import {Checkpoint} from '../document/checkpoint/checkpoint';
+import {RHTPQMap} from '../document/json/rht_pq_map';
+import {RGATreeList} from '../document/json/rga_tree_list';
+import {JSONElement} from '../document/json/element';
+import {JSONObject} from '../document/json/object';
+import {JSONArray} from '../document/json/array';
 import {
+  RGATreeSplit,
+  RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
-  RGATreeSplitNode,
-  RGATreeSplit,
 } from '../document/json/rga_tree_split';
-import { PlainText } from '../document/json/text';
-import { RichText, RichTextValue } from '../document/json/rich_text';
-import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
+import {PlainText} from '../document/json/text';
+import {RichText, RichTextValue} from '../document/json/rich_text';
+import {JSONPrimitive, PrimitiveType} from '../document/json/primitive';
 import {
-  ChangePack as PbChangePack,
-  DocumentKey as PbDocumentKey,
-  Checkpoint as PbCheckpoint,
-  Operation as PbOperation,
-  TimeTicket as PbTimeTicket,
   Change as PbChange,
   ChangeID as PbChangeID,
-  JSONElementSimple as PbJSONElementSimple,
+  ChangePack as PbChangePack,
+  Checkpoint as PbCheckpoint,
+  DocumentKey as PbDocumentKey,
   JSONElement as PbJSONElement,
-  RHTNode as PbRHTNode,
+  JSONElementSimple as PbJSONElementSimple,
+  Operation as PbOperation,
   RGANode as PbRGANode,
-  TextNode as PbTextNode,
+  RHTNode as PbRHTNode,
   RichTextNode as PbRichTextNode,
-  ValueType as PbValueType,
+  TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TimeTicket as PbTimeTicket,
+  ValueType as PbValueType,
 } from './yorkie_pb';
 import {IncreaseOperation} from "../document/operation/increase_operation";
+import {CounterType, Counter} from "../document/json/counter";
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
@@ -127,6 +128,19 @@ function toValueType(valueType: PrimitiveType): PbValueType {
   }
 }
 
+function toCounterType(valueType: CounterType): PbValueType {
+  switch (valueType) {
+    case CounterType.IntegerCnt:
+      return PbValueType.INTEGER_CNT;
+    case CounterType.LongCnt:
+      return PbValueType.LONG_CNT;
+    case CounterType.DoubleCnt:
+      return PbValueType.DOUBLE_CNT;
+    default:
+      throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
+  }
+}
+
 function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   const pbJSONElement = new PbJSONElementSimple();
   if (jsonElement instanceof JSONObject) {
@@ -144,6 +158,11 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   } else if (jsonElement instanceof JSONPrimitive) {
     const primitive = jsonElement as JSONPrimitive;
     pbJSONElement.setType(toValueType(primitive.getType()));
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+    pbJSONElement.setValue(jsonElement.toBytes());
+  } else if (jsonElement instanceof Counter) {
+    const counter = jsonElement as Counter;
+    pbJSONElement.setType(toCounterType(counter.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
   } else {
@@ -413,6 +432,18 @@ function toPlainText(text: PlainText): PbJSONElement {
   return pbJSONElement;
 }
 
+function toCounter(counter: Counter): PbJSONElement {
+  const pbJSONCounter = new PbJSONElement.Counter();
+  pbJSONCounter.setType(toCounterType(counter.getType()));
+  pbJSONCounter.setValue(counter.toBytes());
+  pbJSONCounter.setCreatedAt(toTimeTicket(counter.getCreatedAt()));
+  pbJSONCounter.setRemovedAt(toTimeTicket(counter.getRemovedAt()));
+
+  const pbJSONElement = new PbJSONElement();
+  pbJSONElement.setCounter(pbJSONCounter);
+  return pbJSONElement;
+}
+
 function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   if (jsonElement instanceof JSONObject) {
     return toJSONObject(jsonElement);
@@ -422,6 +453,8 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
     return toJSONPrimitive(jsonElement);
   } else if (jsonElement instanceof PlainText) {
     return toPlainText(jsonElement);
+  } else if (jsonElement instanceof Counter) {
+    return toCounter(jsonElement);
   } else {
     throw new YorkieError(
       Code.Unimplemented,
@@ -497,6 +530,21 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
   );
 }
 
+function fromCounterType(pbValueType: PbValueType): CounterType {
+  switch (pbValueType) {
+    case PbValueType.INTEGER_CNT:
+      return CounterType.IntegerCnt;
+    case PbValueType.LONG_CNT:
+      return CounterType.LongCnt;
+    case PbValueType.DOUBLE_CNT:
+      return CounterType.DoubleCnt;
+  }
+  throw new YorkieError(
+      Code.Unimplemented,
+      `unimplemented value type: ${pbValueType}`,
+  );
+}
+
 function fromJSONElementSimple(
   pbJSONElement: PbJSONElementSimple,
 ): JSONElement {
@@ -529,6 +577,16 @@ function fromJSONElementSimple(
         ),
         fromTimeTicket(pbJSONElement.getCreatedAt()),
       );
+    case PbValueType.INTEGER_CNT:
+    case PbValueType.DOUBLE_CNT:
+    case PbValueType.LONG_CNT:
+      return Counter.of(
+          Counter.valueFromBytes(
+              fromCounterType(pbJSONElement.getType()),
+              pbJSONElement.getValue_asU8(),
+          ),
+          fromTimeTicket(pbJSONElement.getCreatedAt())
+      )
   }
 
   throw new YorkieError(
@@ -798,6 +856,20 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   return text;
 }
 
+function fromCounter(
+    pbCounter: PbJSONElement.Counter,
+): Counter {
+  const counter = Counter.of(
+      Counter.valueFromBytes(
+          fromCounterType(pbCounter.getType()),
+          pbCounter.getValue_asU8(),
+      ),
+      fromTimeTicket(pbCounter.getCreatedAt()),
+  );
+  counter.remove(fromTimeTicket(pbCounter.getRemovedAt()));
+  return counter;
+}
+
 function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   if (pbJSONElement.hasObject()) {
     return fromJSONObject(pbJSONElement.getObject());
@@ -809,6 +881,8 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
     return fromJSONText(pbJSONElement.getText());
   } else if (pbJSONElement.hasRichText()) {
     return fromJSONRichText(pbJSONElement.getRichText());
+  } else if (pbJSONElement.hasCounter()) {
+    return fromCounter(pbJSONElement.getCounter());
   } else {
     throw new YorkieError(
       Code.Unimplemented,

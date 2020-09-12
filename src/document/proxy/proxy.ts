@@ -25,7 +25,8 @@ import { ObjectProxy } from './object_proxy';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
 import { RichTextProxy } from './rich_text_proxy';
-import { NumberProxy } from "./number_proxy";
+import { CounterProxy } from "./counter_proxy";
+import {Counter} from "../json/counter";
 
 export function createProxy(
   context: ChangeContext,
@@ -37,11 +38,7 @@ export function createProxy(
 export function toProxy(context: ChangeContext, elem: JSONElement): any {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;
-    if (JSONPrimitive.isNumericType(primitive)) {
-      return NumberProxy.create(context, primitive);
-    } else {
-      return primitive.getValue();
-    }
+    return primitive.getValue();
   } else if (elem instanceof JSONObject) {
     const obj = elem as JSONObject;
     return ObjectProxy.create(context, obj);
@@ -54,6 +51,9 @@ export function toProxy(context: ChangeContext, elem: JSONElement): any {
   } else if (elem instanceof RichText) {
     const text = elem as RichText;
     return RichTextProxy.create(context, text);
+  } else if (elem instanceof Counter) {
+    const counter = elem as Counter;
+    return CounterProxy.create(context, counter);
   } else if (elem === null) {
     return null;
   } else {

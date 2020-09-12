@@ -19,18 +19,19 @@ import { JSONPrimitive } from '../json/primitive';
 import { TimeTicket } from "../time/ticket";
 import { IncreaseOperation } from "../operation/increase_operation";
 import Long from 'long';
+import {Counter} from "../json/counter";
 
 /**
- * NumberProxy is a proxy representing number types.
+ * CounterProxy is a proxy representing number types.
  */
-export class NumberProxy {
+export class CounterProxy {
   private context: ChangeContext;
   private handlers: any;
-  private primitive: JSONPrimitive;
+  private counter: Counter;
 
-  constructor(context: ChangeContext, primitive: JSONPrimitive) {
+  constructor(context: ChangeContext, counter: Counter) {
     this.context = context;
-    this.primitive = primitive;
+    this.counter = counter;
     this.handlers = {
       get: (
         target: JSONPrimitive,
@@ -42,7 +43,7 @@ export class NumberProxy {
             return target.getCreatedAt();
           }
         } else if (method === 'increase') {
-          return (v: number | Long): NumberProxy => {
+          return (v: number | Long): CounterProxy => {
             return this.increase(v);
           }
         }
@@ -52,21 +53,21 @@ export class NumberProxy {
     };
   }
 
-  public static create(context: ChangeContext, target: JSONPrimitive): JSONPrimitive {
-    const numberProxy = new NumberProxy(context, target);
+  public static create(context: ChangeContext, target: Counter): Counter {
+    const numberProxy = new CounterProxy(context, target);
     return new Proxy(target, numberProxy.getHandlers());
   }
 
-  public increase(v: number | Long): NumberProxy {
+  public increase(v: number | Long): CounterProxy {
     const ticket = this.context.issueTimeTicket();
     const value = JSONPrimitive.of(v, ticket);
-    if (!JSONPrimitive.isNumericType(value)) {
+    if (!value.isNumericType()) {
       throw new TypeError(`Unsupported type of value: ${typeof value.getValue()}`);
     }
 
     this.context.push(
       IncreaseOperation.create(
-        this.primitive.getCreatedAt(),
+        this.counter.getCreatedAt(),
         value,
         ticket
       )

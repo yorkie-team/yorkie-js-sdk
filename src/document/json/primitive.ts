@@ -139,8 +139,8 @@ export class JSONPrimitive extends JSONElement {
   /**
    * isNumericType check numeric type by JSONPrimitive
    */
-  public static isNumericType(v: JSONPrimitive): boolean {
-    const t = v.getType();
+  public isNumericType(): boolean {
+    const t = this.valueType;
     return t === PrimitiveType.Integer || t === PrimitiveType.Long || t === PrimitiveType.Double;
   }
 
@@ -194,29 +194,6 @@ export class JSONPrimitive extends JSONElement {
           `unimplemented type: ${this.valueType}`,
         );
     }
-  }
-
-  /**
-   * increase increase numeric data.
-   */
-  public increase(v: JSONPrimitive): JSONPrimitive {
-    function checkNumericType(target: JSONPrimitive): void {
-      if (!JSONPrimitive.isNumericType(target)) {
-        throw new TypeError(`Unsupported type of value: ${typeof target.value}`);
-      }
-    }
-    checkNumericType(this);
-    checkNumericType(v);
-
-    if (this.valueType === PrimitiveType.Long) {
-      this.value = (this.value as Long).add(v.value as number | Long);
-    } else {
-      (this.value as number) += v.valueType === PrimitiveType.Long
-          ? (v.value as Long).toNumber()
-          : v.value as number;
-    }
-
-    return this;
   }
 }
 

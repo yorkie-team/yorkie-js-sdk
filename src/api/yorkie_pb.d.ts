@@ -1012,6 +1012,11 @@ export class JSONElement extends jspb.Message {
   hasRichText(): boolean;
   clearRichText(): JSONElement;
 
+  getCounter(): JSONElement.Counter | undefined;
+  setCounter(value?: JSONElement.Counter): JSONElement;
+  hasCounter(): boolean;
+  clearCounter(): JSONElement;
+
   getBodyCase(): JSONElement.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -1029,6 +1034,7 @@ export namespace JSONElement {
     primitive?: JSONElement.Primitive.AsObject,
     text?: JSONElement.Text.AsObject,
     richText?: JSONElement.RichText.AsObject,
+    counter?: JSONElement.Counter.AsObject,
   }
 
   export class Object extends jspb.Message {
@@ -1230,6 +1236,49 @@ export namespace JSONElement {
   }
 
 
+  export class Counter extends jspb.Message {
+    getType(): ValueType;
+    setType(value: ValueType): Counter;
+
+    getValue(): Uint8Array | string;
+    getValue_asU8(): Uint8Array;
+    getValue_asB64(): string;
+    setValue(value: Uint8Array | string): Counter;
+
+    getCreatedAt(): TimeTicket | undefined;
+    setCreatedAt(value?: TimeTicket): Counter;
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): Counter;
+
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Counter;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Counter;
+
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): Counter;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): Counter;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Counter.AsObject;
+    static toObject(includeInstance: boolean, msg: Counter): Counter.AsObject;
+    static serializeBinaryToWriter(message: Counter, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Counter;
+    static deserializeBinaryFromReader(message: Counter, reader: jspb.BinaryReader): Counter;
+  }
+
+  export namespace Counter {
+    export type AsObject = {
+      type: ValueType,
+      value: Uint8Array | string,
+      createdAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     OBJECT = 1,
@@ -1237,6 +1286,7 @@ export namespace JSONElement {
     PRIMITIVE = 3,
     TEXT = 4,
     RICH_TEXT = 5,
+    COUNTER = 6,
   }
 }
 
@@ -1529,6 +1579,9 @@ export enum ValueType {
   JSON_ARRAY = 9,
   TEXT = 10,
   RICH_TEXT = 11,
+  INTEGER_CNT = 12,
+  LONG_CNT = 13,
+  DOUBLE_CNT = 14,
 }
 export enum EventType { 
   DOCUMENTS_CHANGED = 0,

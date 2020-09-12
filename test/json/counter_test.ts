@@ -15,17 +15,18 @@
  */
 
 import { assert } from 'chai';
-import { JSONPrimitive } from '../../src/document/json/primitive'
 import { InitialTimeTicket } from '../../src/document/time/ticket';
 import Long from 'long';
+import {Counter} from "../../src/document/json/counter";
+import {JSONPrimitive} from "../../src/document/json/primitive";
 
-describe('Primitive', function () {
-  it('Can increase numeric data of primitive', function () {
-    const double = JSONPrimitive.of(10, InitialTimeTicket);
-    const long = JSONPrimitive.of(Long.fromString('100'), InitialTimeTicket);
+describe('Counter', function () {
+  it('Can increase numeric data of Counter', function () {
+    const double = Counter.of(10, InitialTimeTicket);
+    const long = Counter.of(Long.fromString('100'), InitialTimeTicket);
 
-    const doubleOperand = double.deepcopy();
-    const longOperand = long.deepcopy();
+    const doubleOperand = JSONPrimitive.of(10, InitialTimeTicket);
+    const longOperand = JSONPrimitive.of(Long.fromString('100'), InitialTimeTicket);
 
     double.increase(doubleOperand);
     double.increase(longOperand);
@@ -36,13 +37,13 @@ describe('Primitive', function () {
     assert.equal((long.getValue() as Long).toNumber(), 210);
 
     // error process test
-    function errorTest(primitive: JSONPrimitive, operand: JSONPrimitive): void {
-      const errValue = !JSONPrimitive.isNumericType(primitive)
-          ? primitive.getValue()
+    function errorTest(counter: Counter, operand: JSONPrimitive): void {
+      const errValue = !counter.isNumericType()
+          ? counter.getValue()
           : operand.getValue();
 
       assert.throw(() => {
-        primitive.increase(operand);
+        counter.increase(operand);
       }, `Unsupported type of value: ${typeof errValue}`)
     }
 
@@ -55,11 +56,6 @@ describe('Primitive', function () {
     errorTest(double, bool);
     errorTest(double, uint8arr);
     errorTest(double, date);
-
-    errorTest(str, bool);
-    errorTest(bool, double);
-    errorTest(uint8arr, double);
-    errorTest(date, double);
 
     assert.equal(double.getValue(), 120);
     assert.equal((long.getValue() as Long).toNumber(), 210);

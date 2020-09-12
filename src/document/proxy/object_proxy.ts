@@ -29,6 +29,8 @@ import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
 import { RichTextProxy } from './rich_text_proxy';
 import { toProxy } from './proxy';
+import {CounterType, Counter} from "../json/counter";
+import {CounterProxy} from "./counter_proxy";
 
 export class ObjectProxy {
   private context: ChangeContext;
@@ -73,6 +75,13 @@ export class ObjectProxy {
             }
             return ObjectProxy.createRichText(context, target, key);
           };
+        } else if (keyOrMethod === 'createCounter') {
+          return (key: string, value: CounterType): Counter => {
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`obj[${key}]=Text`);
+            }
+            return ObjectProxy.createCounter(context, target, key, value);
+          }
         }
 
         return toProxy(context, target.get(keyOrMethod));
@@ -185,6 +194,22 @@ export class ObjectProxy {
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
     return RichTextProxy.create(context, text);
+  }
+
+  public static createCounter(
+      context: ChangeContext,
+      target: JSONObject,
+      key: string,
+      value: CounterType,
+  ): Counter {
+    const ticket = context.issueTimeTicket();
+    const counter = Counter.of(value, ticket);
+    target.set(key, counter);
+    context.registerElement(counter);
+    context.push(
+        SetOperation.create(key, counter.deepcopy(), target.getCreatedAt(), ticket),
+    );
+    return CounterProxy.create(context, counter);
   }
 
   public static deleteInternal(

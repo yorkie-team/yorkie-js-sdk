@@ -20,10 +20,11 @@ import { JSONElement } from '../json/element';
 import { JSONRoot } from '../json/root';
 import { JSONPrimitive } from '../json/primitive';
 import { logger } from '../../util/logger';
+import {Counter} from "../json/counter";
 
 /**
  * Increase can be used to increment data of numerical type.
- * It can be used in primitive type Integer, Long, and Double data.
+ * It can be used in Counter type.
  */
 export class IncreaseOperation extends Operation {
   private value: JSONElement;
@@ -47,13 +48,13 @@ export class IncreaseOperation extends Operation {
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof JSONPrimitive) {
-      const primitive = parentObject as JSONPrimitive;
+    if (parentObject instanceof Counter) {
+      const counter = parentObject as Counter;
       const value = this.value.deepcopy() as JSONPrimitive;
-      primitive.increase(value);
+      counter.increase(value);
     } else {
       logger.fatal(
-        `fail to execute, only primitive number can execute increase`,
+        `fail to execute, only Counter can execute increase`,
       );
     }
   }

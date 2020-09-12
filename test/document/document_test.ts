@@ -256,7 +256,7 @@ describe('Document', function () {
 
     const root = doc.getRootObject();
     for (let idx = 0; idx < root['list'].length; idx++) {
-      assert.equal(idx + 1, root['list'][idx].getValue());
+      assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
   });
@@ -279,13 +279,13 @@ describe('Document', function () {
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
   });
 
-  it('can be increased by number type', function() {
+  it('can be increased by Counter type', function() {
     const doc = Document.create('test-col', 'test-doc');
 
     doc.update(root => {
       root['k1'] = {};
-      root['k1']['age'] = 1;
-      root['k1']['length'] = 10.5;
+      root['k1'].createCounter('age', 1);
+      root['k1'].createCounter('length', 10.5);
 
       root['k1']['age'].increase(5);
       root['k1']['length'].increase(3.5);
