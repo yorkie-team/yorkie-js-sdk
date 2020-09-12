@@ -43,11 +43,7 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (
-        target: JSONArray,
-        method: string | symbol,
-        receiver: object,
-      ): any => {
+      get: (target: JSONArray, method: string | symbol, receiver: any): any => {
         // Yorkie extension API
         if (method === 'getID') {
           return (): TimeTicket => {
@@ -104,21 +100,25 @@ export class ArrayProxy {
             return ArrayProxy.pushInternal(context, target, value);
           };
         } else if (method === 'filter') {
-          return (callback: (
-            elem: JSONElement,
-            idx: number,
-            arr: Array<JSONElement>
-          ) => Array<JSONElement>): Array<JSONElement> => {
-            return Array.from(target).map((e) => toProxy(context, e)).filter(callback);
+          return (
+            callback: (
+              elem: JSONElement,
+              idx: number,
+              arr: Array<JSONElement>,
+            ) => Array<JSONElement>,
+          ): Array<JSONElement> => {
+            return Array.from(target)
+              .map((e) => toProxy(context, e))
+              .filter(callback);
           };
         } else if (method === 'reduce') {
-          return (callback: (
+          return (
+            callback: (accumulator: any, curr: JSONElement) => any,
             accumulator: any,
-            curr: JSONElement
-          ) => any, accumulator: any) => {
-            return Array.from(target).map((e) =>
-              toProxy(context, e)
-            ).reduce(callback, accumulator);
+          ) => {
+            return Array.from(target)
+              .map((e) => toProxy(context, e))
+              .reduce(callback, accumulator);
           };
         } else if (method === 'length') {
           return target.length;

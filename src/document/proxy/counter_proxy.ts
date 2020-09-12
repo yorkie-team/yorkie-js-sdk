@@ -36,7 +36,7 @@ export class CounterProxy {
       get: (
         target: JSONPrimitive,
         method: string | symbol,
-        receiver: object,
+        receiver: any,
       ): any => {
         if (method === 'getID') {
           return (): TimeTicket => {

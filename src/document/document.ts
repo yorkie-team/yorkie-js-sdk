@@ -39,7 +39,7 @@ export enum DocEventType {
   RemoteChange = 'remote-change',
 }
 
-interface DocEvent {
+export interface DocEvent {
   name: DocEventType;
   value: any;
 }
@@ -238,9 +238,16 @@ export class Document implements Observable<DocEvent> {
     logger.debug(`trying to apply ${changes.length} remote changes`);
 
     if (logger.isEnabled(LogLevel.Trivial)) {
-      logger.trivial(changes.map((change) =>
-        `${change.getID().getAnnotatedString()}\t${change.getAnnotatedString()}`,
-      ).join('\n'));
+      logger.trivial(
+        changes
+          .map(
+            (change) =>
+              `${change
+                .getID()
+                .getAnnotatedString()}\t${change.getAnnotatedString()}`,
+          )
+          .join('\n'),
+      );
     }
 
     this.ensureClone();

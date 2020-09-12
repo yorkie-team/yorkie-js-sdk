@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-export enum Code {
-  Ok = 'ok',
-  ClientNotActive = 'client-not-active',
-  Unimplemented = 'unimplemented',
-  Unsupported = 'unsupported',
-}
+import { assert } from 'chai';
+import { logger, setLogLevel, LogLevel } from '../../src/util/logger';
 
-export class YorkieError extends Error {
-  name = 'YorkieError';
-  stack?: string;
-
-  constructor(readonly code: Code, readonly message: string) {
-    super(message);
-    this.toString = (): string =>
-      `${this.name}: [code=${this.code}]: ${this.message}`;
-  }
-}
+describe('logger', function () {
+  it('Can log according to the level.', function () {
+    setLogLevel(LogLevel.Info);
+    assert.isFalse(logger.isEnabled(LogLevel.Debug));
+    assert.isTrue(logger.isEnabled(LogLevel.Error));
+  });
+});
