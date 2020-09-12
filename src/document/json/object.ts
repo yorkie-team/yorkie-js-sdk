@@ -21,6 +21,7 @@ import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './text';
 import { RichText } from './rich_text';
 import {CounterType, Counter} from "./counter";
+import {CounterProxy} from "../proxy/counter_proxy";
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
@@ -48,7 +49,12 @@ export class JSONObject extends JSONContainer {
     return null;
   }
 
-  public createCounter(key: string, value: CounterType): Counter {
+  /**
+   * Don't use createCounter directly. Be sure to use it through a proxy.
+   * The reason for setting the CounterProxy type as the return value
+   * is to provide the CounterProxy interface to the user.
+   */
+  public createCounter(key: string, value: CounterType): CounterProxy {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
   }

@@ -22,7 +22,7 @@ import Long from 'long';
 import {Counter} from "../json/counter";
 
 /**
- * CounterProxy is a proxy representing number types.
+ * CounterProxy is a proxy representing Counter types.
  */
 export class CounterProxy {
   private context: ChangeContext;
@@ -58,6 +58,10 @@ export class CounterProxy {
     return new Proxy(target, numberProxy.getHandlers());
   }
 
+  /**
+   * Increase adds an increase operation.
+   * Only numeric types are allowed as operand values.
+   */
   public increase(v: number | Long): CounterProxy {
     const ticket = this.context.issueTimeTicket();
     const value = JSONPrimitive.of(v, ticket);

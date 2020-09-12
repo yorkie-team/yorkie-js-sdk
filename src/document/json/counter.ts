@@ -28,6 +28,9 @@ export enum CounterType {
 
 type CounterValue =  number | Long;
 
+/**
+ * Counter represents changeable number data type.
+ */
 export class Counter extends JSONElement {
     private valueType: CounterType;
     private value: CounterValue;
