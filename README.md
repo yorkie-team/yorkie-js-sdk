@@ -18,7 +18,7 @@ yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
 For more details: https://grpc.io/blog/state-of-grpc-web/
 
-## For contributing
+## Getting started
 
 ### Build yorkie-js-sdk
 
@@ -38,12 +38,6 @@ How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-genera
 # generate proto messages and the service client stub classes
 npm run build:proto
 ```
-
-### Precommit Hooks
-
-As part of this repo, we use [Husky](https://github.com/typicode/husky) to implement git hooks. We leverage the prepush hook to do below things:
-
- - Automated code styling (using [Prettier](https://github.com/prettier/prettier))
 
 ### Test yorkie-js-sdk with Envoy, Yorkie and MongoDB.
 
@@ -74,3 +68,7 @@ Start the test in another terminal session.
 ```bash
 npm run start
 ```
+
+## Contributing
+
+See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
