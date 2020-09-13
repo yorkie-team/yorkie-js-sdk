@@ -27,9 +27,7 @@ Thanks for contributing!
 
 ### Code style
 
-As part of this repo, we use [Husky](https://github.com/typicode/husky) to implement git hooks. We leverage the prepush hook to do below things:
-
- - Automated code styling (using [Prettier](https://github.com/prettier/prettier))
+In order to format the code, we use [Husky](https://github.com/typicode/husky) to implement git hooks and [Prettier](https://github.com/prettier/prettier)
 
 ### Format of the commit message
 
