@@ -117,13 +117,18 @@ export class RGATreeList {
     return this.size;
   }
 
-  private findByPrevCreatedAt(
-    prevCreatedAt: TimeTicket,
+  /**
+   * findNextBeforeExecutedAt returns the node by the given createdAt and
+   * executedAt. It passes through nodes created after executedAt from the
+   * given node and returns the next node.
+   */
+  private findNextBeforeExecutedAt(
+    createdAt: TimeTicket,
     executedAt: TimeTicket,
   ): RGATreeListNode {
-    let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
+    let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
+      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
     while (node.getNext() && node.getNext().getCreatedAt().after(executedAt)) {
@@ -150,7 +155,7 @@ export class RGATreeList {
     value: JSONElement,
     executedAt: TimeTicket = value.getCreatedAt(),
   ): void {
-    const prevNode = this.findByPrevCreatedAt(prevCreatedAt, executedAt);
+    const prevNode = this.findNextBeforeExecutedAt(prevCreatedAt, executedAt);
     const newNode = RGATreeListNode.createAfter(prevNode, value);
     if (prevNode === this.last) {
       this.last = newNode;
