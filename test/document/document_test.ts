@@ -223,7 +223,7 @@ describe('Document', function () {
     assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
   });
 
-  it('can inster an element after the given element in array', function () {
+  it('can insert an element after the given element in array', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
@@ -259,6 +259,29 @@ describe('Document', function () {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
+  });
+
+  it('can insert an element after the given element in array', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+    }, 'set {"list":[0,1,2]}');
+
+    doc.update((root) => {
+      const next = root['list'].getElementByIndex(0);
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveBefore(next.getID(), item.getID());
+      assert.equal('{"list":[2,0,1]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const next = root['list'].getElementByIndex(0);
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveBefore(next.getID(), item.getID());
+      assert.equal('{"list":[1,2,0]}', root.toJSON());
+    });
   });
 
   it('can rollback, primitive deepcopy', function () {
