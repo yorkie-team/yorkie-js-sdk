@@ -344,12 +344,28 @@ describe('Yorkie', function () {
         root['k1'].moveBefore(next.getID(), item.getID());
         assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
+      });
+
       d2.update((root) => {
         const next = root['k1'].getElementByIndex(1);
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveBefore(next.getID(), item.getID());
         assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(1);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+
       await c1.sync();
       await c2.sync();
       await c1.sync();
