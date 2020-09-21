@@ -50,6 +50,9 @@ describe('Converter', function () {
       text.edit(0, 1, '하');
       text.edit(1, 1, '느');
       text.edit(1, 2, '늘');
+
+      const counter = root.createCounter('k4', 0);
+      counter.increase(1).increase(2).increase(3);
     });
 
     const bytes = converter.objectToBytes(doc.getRoot());

@@ -17,7 +17,7 @@
 import Long from 'long';
 
 import { Code, YorkieError } from '../util/error';
-import { TimeTicket, InitialTimeTicket } from '../document/time/ticket';
+import { InitialTimeTicket, TimeTicket } from '../document/time/ticket';
 import { Operation } from '../document/operation/operation';
 import { SetOperation } from '../document/operation/set_operation';
 import { AddOperation } from '../document/operation/add_operation';
@@ -38,32 +38,34 @@ import { JSONElement } from '../document/json/element';
 import { JSONObject } from '../document/json/object';
 import { JSONArray } from '../document/json/array';
 import {
+  RGATreeSplit,
+  RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
-  RGATreeSplitNode,
-  RGATreeSplit,
 } from '../document/json/rga_tree_split';
 import { PlainText } from '../document/json/text';
 import { RichText, RichTextValue } from '../document/json/rich_text';
 import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
-  ChangePack as PbChangePack,
-  DocumentKey as PbDocumentKey,
-  Checkpoint as PbCheckpoint,
-  Operation as PbOperation,
-  TimeTicket as PbTimeTicket,
   Change as PbChange,
   ChangeID as PbChangeID,
-  JSONElementSimple as PbJSONElementSimple,
+  ChangePack as PbChangePack,
+  Checkpoint as PbCheckpoint,
+  DocumentKey as PbDocumentKey,
   JSONElement as PbJSONElement,
-  RHTNode as PbRHTNode,
+  JSONElementSimple as PbJSONElementSimple,
+  Operation as PbOperation,
   RGANode as PbRGANode,
-  TextNode as PbTextNode,
+  RHTNode as PbRHTNode,
   RichTextNode as PbRichTextNode,
-  ValueType as PbValueType,
+  TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TimeTicket as PbTimeTicket,
+  ValueType as PbValueType,
 } from './yorkie_pb';
+import { IncreaseOperation } from '../document/operation/increase_operation';
+import { CounterType, Counter } from '../document/json/counter';
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
@@ -126,6 +128,19 @@ function toValueType(valueType: PrimitiveType): PbValueType {
   }
 }
 
+function toCounterType(valueType: CounterType): PbValueType {
+  switch (valueType) {
+    case CounterType.IntegerCnt:
+      return PbValueType.INTEGER_CNT;
+    case CounterType.LongCnt:
+      return PbValueType.LONG_CNT;
+    case CounterType.DoubleCnt:
+      return PbValueType.DOUBLE_CNT;
+    default:
+      throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
+  }
+}
+
 function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   const pbJSONElement = new PbJSONElementSimple();
   if (jsonElement instanceof JSONObject) {
@@ -143,6 +158,11 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   } else if (jsonElement instanceof JSONPrimitive) {
     const primitive = jsonElement as JSONPrimitive;
     pbJSONElement.setType(toValueType(primitive.getType()));
+    pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
+    pbJSONElement.setValue(jsonElement.toBytes());
+  } else if (jsonElement instanceof Counter) {
+    const counter = jsonElement as Counter;
+    pbJSONElement.setType(toCounterType(counter.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
   } else {
@@ -284,6 +304,19 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(styleOperation.getExecutedAt()),
     );
     pbOperation.setStyle(pbStyleOperation);
+  } else if (operation instanceof IncreaseOperation) {
+    const increaseOperation = operation as IncreaseOperation;
+    const pbIncreaseOperation = new PbOperation.Increase();
+    pbIncreaseOperation.setParentCreatedAt(
+      toTimeTicket(increaseOperation.getParentCreatedAt()),
+    );
+    pbIncreaseOperation.setValue(
+      toJSONElementSimple(increaseOperation.getValue()),
+    );
+    pbIncreaseOperation.setExecutedAt(
+      toTimeTicket(increaseOperation.getExecutedAt()),
+    );
+    pbOperation.setIncrease(pbIncreaseOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -399,6 +432,18 @@ function toPlainText(text: PlainText): PbJSONElement {
   return pbJSONElement;
 }
 
+function toCounter(counter: Counter): PbJSONElement {
+  const pbJSONCounter = new PbJSONElement.Counter();
+  pbJSONCounter.setType(toCounterType(counter.getType()));
+  pbJSONCounter.setValue(counter.toBytes());
+  pbJSONCounter.setCreatedAt(toTimeTicket(counter.getCreatedAt()));
+  pbJSONCounter.setRemovedAt(toTimeTicket(counter.getRemovedAt()));
+
+  const pbJSONElement = new PbJSONElement();
+  pbJSONElement.setCounter(pbJSONCounter);
+  return pbJSONElement;
+}
+
 function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   if (jsonElement instanceof JSONObject) {
     return toJSONObject(jsonElement);
@@ -408,6 +453,8 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
     return toJSONPrimitive(jsonElement);
   } else if (jsonElement instanceof PlainText) {
     return toPlainText(jsonElement);
+  } else if (jsonElement instanceof Counter) {
+    return toCounter(jsonElement);
   } else {
     throw new YorkieError(
       Code.Unimplemented,
@@ -483,6 +530,21 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
   );
 }
 
+function fromCounterType(pbValueType: PbValueType): CounterType {
+  switch (pbValueType) {
+    case PbValueType.INTEGER_CNT:
+      return CounterType.IntegerCnt;
+    case PbValueType.LONG_CNT:
+      return CounterType.LongCnt;
+    case PbValueType.DOUBLE_CNT:
+      return CounterType.DoubleCnt;
+  }
+  throw new YorkieError(
+    Code.Unimplemented,
+    `unimplemented value type: ${pbValueType}`,
+  );
+}
+
 function fromJSONElementSimple(
   pbJSONElement: PbJSONElementSimple,
 ): JSONElement {
@@ -511,6 +573,16 @@ function fromJSONElementSimple(
       return JSONPrimitive.of(
         JSONPrimitive.valueFromBytes(
           fromValueType(pbJSONElement.getType()),
+          pbJSONElement.getValue_asU8(),
+        ),
+        fromTimeTicket(pbJSONElement.getCreatedAt()),
+      );
+    case PbValueType.INTEGER_CNT:
+    case PbValueType.DOUBLE_CNT:
+    case PbValueType.LONG_CNT:
+      return Counter.of(
+        Counter.valueFromBytes(
+          fromCounterType(pbJSONElement.getType()),
           pbJSONElement.getValue_asU8(),
         ),
         fromTimeTicket(pbJSONElement.getCreatedAt()),
@@ -650,6 +722,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         attributes,
         fromTimeTicket(pbStyleOperation.getExecutedAt()),
       );
+    } else if (pbOperation.hasIncrease()) {
+      const pbIncreaseOperation = pbOperation.getIncrease();
+      operation = IncreaseOperation.create(
+        fromTimeTicket(pbIncreaseOperation.getParentCreatedAt()),
+        fromJSONElementSimple(pbIncreaseOperation.getValue()),
+        fromTimeTicket(pbIncreaseOperation.getExecutedAt()),
+      );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
     }
@@ -777,6 +856,18 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   return text;
 }
 
+function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
+  const counter = Counter.of(
+    Counter.valueFromBytes(
+      fromCounterType(pbCounter.getType()),
+      pbCounter.getValue_asU8(),
+    ),
+    fromTimeTicket(pbCounter.getCreatedAt()),
+  );
+  counter.remove(fromTimeTicket(pbCounter.getRemovedAt()));
+  return counter;
+}
+
 function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   if (pbJSONElement.hasObject()) {
     return fromJSONObject(pbJSONElement.getObject());
@@ -788,6 +879,8 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
     return fromJSONText(pbJSONElement.getText());
   } else if (pbJSONElement.hasRichText()) {
     return fromJSONRichText(pbJSONElement.getRichText());
+  } else if (pbJSONElement.hasCounter()) {
+    return fromCounter(pbJSONElement.getCounter());
   } else {
     throw new YorkieError(
       Code.Unimplemented,

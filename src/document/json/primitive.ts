@@ -136,6 +136,18 @@ export class JSONPrimitive extends JSONElement {
     return num % 1 === 0;
   }
 
+  /**
+   * isNumericType check numeric type by JSONPrimitive
+   */
+  public isNumericType(): boolean {
+    const t = this.valueType;
+    return (
+      t === PrimitiveType.Integer ||
+      t === PrimitiveType.Long ||
+      t === PrimitiveType.Double
+    );
+  }
+
   public getValue(): PrimitiveValue {
     return this.value;
   }
