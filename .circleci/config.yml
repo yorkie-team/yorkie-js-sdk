@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.2
 jobs:
   build:
     docker:
@@ -12,4 +14,5 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
-      - run: npm run codecov
+      - codecov/upload:
+          file: coverage/lcov.info
