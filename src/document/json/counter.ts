@@ -79,7 +79,7 @@ export class Counter extends JSONElement {
 
   public deepcopy(): Counter {
     const counter = Counter.of(this.value, this.getCreatedAt());
-    counter.setUpdatedAt(this.getUpdatedAt());
+    counter.setMovedAt(this.getMovedAt());
     return counter;
   }
 
