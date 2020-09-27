@@ -950,10 +950,10 @@ export class JSONElementSimple extends jspb.Message {
   hasCreatedAt(): boolean;
   clearCreatedAt(): JSONElementSimple;
 
-  getUpdatedAt(): TimeTicket | undefined;
-  setUpdatedAt(value?: TimeTicket): JSONElementSimple;
-  hasUpdatedAt(): boolean;
-  clearUpdatedAt(): JSONElementSimple;
+  getMovedAt(): TimeTicket | undefined;
+  setMovedAt(value?: TimeTicket): JSONElementSimple;
+  hasMovedAt(): boolean;
+  clearMovedAt(): JSONElementSimple;
 
   getRemovedAt(): TimeTicket | undefined;
   setRemovedAt(value?: TimeTicket): JSONElementSimple;
@@ -979,7 +979,7 @@ export class JSONElementSimple extends jspb.Message {
 export namespace JSONElementSimple {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
-    updatedAt?: TimeTicket.AsObject,
+    movedAt?: TimeTicket.AsObject,
     removedAt?: TimeTicket.AsObject,
     type: ValueType,
     value: Uint8Array | string,
@@ -1029,12 +1029,12 @@ export class JSONElement extends jspb.Message {
 
 export namespace JSONElement {
   export type AsObject = {
-    object?: JSONElement.Object.AsObject,
-    array?: JSONElement.Array.AsObject,
-    primitive?: JSONElement.Primitive.AsObject,
-    text?: JSONElement.Text.AsObject,
-    richText?: JSONElement.RichText.AsObject,
-    counter?: JSONElement.Counter.AsObject,
+    object?: Object.AsObject,
+    array?: Array.AsObject,
+    primitive?: Primitive.AsObject,
+    text?: Text.AsObject,
+    richText?: RichText.AsObject,
+    counter?: Counter.AsObject,
   }
 
   export class Object extends jspb.Message {
@@ -1048,10 +1048,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Object;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Object;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Object;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Object;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Object;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Object;
@@ -1070,7 +1070,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RHTNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1087,10 +1087,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Array;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Array;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Array;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Array;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Array;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Array;
@@ -1109,7 +1109,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RGANode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1129,10 +1129,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Primitive;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Primitive;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Primitive;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Primitive;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Primitive;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Primitive;
@@ -1152,7 +1152,7 @@ export namespace JSONElement {
       type: ValueType,
       value: Uint8Array | string,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1169,10 +1169,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Text;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Text;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Text;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Text;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Text;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Text;
@@ -1191,7 +1191,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<TextNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1208,10 +1208,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): RichText;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): RichText;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): RichText;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): RichText;
+    hasMovedAt(): boolean;
+    clearMovedAt(): RichText;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): RichText;
@@ -1230,7 +1230,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RichTextNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
