@@ -183,12 +183,12 @@ export class RGATreeList {
     }
 
     if (
-      !node.getValue().getUpdatedAt() ||
-      executedAt.after(node.getValue().getUpdatedAt())
+      !node.getValue().getMovedAt() ||
+      executedAt.after(node.getValue().getMovedAt())
     ) {
       node.release();
       this.insertAfter(prevNode.getCreatedAt(), node.getValue(), executedAt);
-      node.getValue().setUpdatedAt(executedAt);
+      node.getValue().setMovedAt(executedAt);
     }
   }
 

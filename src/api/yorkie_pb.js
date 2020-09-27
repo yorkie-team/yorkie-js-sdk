@@ -8278,7 +8278,7 @@ proto.api.JSONElementSimple.prototype.toObject = function(opt_includeInstance) {
 proto.api.JSONElementSimple.toObject = function(includeInstance, msg) {
   var f, obj = {
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     type: jspb.Message.getFieldWithDefault(msg, 4, 0),
     value: msg.getValue_asB64()
@@ -8326,7 +8326,7 @@ proto.api.JSONElementSimple.deserializeBinaryFromReader = function(msg, reader) 
     case 2:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 3:
       var value = new proto.api.TimeTicket;
@@ -8378,7 +8378,7 @@ proto.api.JSONElementSimple.serializeBinaryToWriter = function(message, writer) 
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       2,
@@ -8449,10 +8449,10 @@ proto.api.JSONElementSimple.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 2;
+ * optional TimeTicket moved_at = 2;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElementSimple.prototype.getUpdatedAt = function() {
+proto.api.JSONElementSimple.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 2));
 };
@@ -8462,7 +8462,7 @@ proto.api.JSONElementSimple.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElementSimple} returns this
 */
-proto.api.JSONElementSimple.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElementSimple.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
@@ -8471,8 +8471,8 @@ proto.api.JSONElementSimple.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElementSimple} returns this
  */
-proto.api.JSONElementSimple.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElementSimple.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -8480,7 +8480,7 @@ proto.api.JSONElementSimple.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElementSimple.prototype.hasUpdatedAt = function() {
+proto.api.JSONElementSimple.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -8838,7 +8838,7 @@ proto.api.JSONElement.Object.toObject = function(includeInstance, msg) {
     nodesList: jspb.Message.toObjectList(msg.getNodesList(),
     proto.api.RHTNode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -8889,7 +8889,7 @@ proto.api.JSONElement.Object.deserializeBinaryFromReader = function(msg, reader)
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 4:
       var value = new proto.api.TimeTicket;
@@ -8941,7 +8941,7 @@ proto.api.JSONElement.Object.serializeBinaryToWriter = function(message, writer)
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -9036,10 +9036,10 @@ proto.api.JSONElement.Object.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 3;
+ * optional TimeTicket moved_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Object.prototype.getUpdatedAt = function() {
+proto.api.JSONElement.Object.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -9049,7 +9049,7 @@ proto.api.JSONElement.Object.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Object} returns this
 */
-proto.api.JSONElement.Object.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElement.Object.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -9058,8 +9058,8 @@ proto.api.JSONElement.Object.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Object} returns this
  */
-proto.api.JSONElement.Object.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElement.Object.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -9067,7 +9067,7 @@ proto.api.JSONElement.Object.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Object.prototype.hasUpdatedAt = function() {
+proto.api.JSONElement.Object.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 
@@ -9151,7 +9151,7 @@ proto.api.JSONElement.Array.toObject = function(includeInstance, msg) {
     nodesList: jspb.Message.toObjectList(msg.getNodesList(),
     proto.api.RGANode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -9202,7 +9202,7 @@ proto.api.JSONElement.Array.deserializeBinaryFromReader = function(msg, reader) 
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 4:
       var value = new proto.api.TimeTicket;
@@ -9254,7 +9254,7 @@ proto.api.JSONElement.Array.serializeBinaryToWriter = function(message, writer) 
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -9349,10 +9349,10 @@ proto.api.JSONElement.Array.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 3;
+ * optional TimeTicket moved_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Array.prototype.getUpdatedAt = function() {
+proto.api.JSONElement.Array.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -9362,7 +9362,7 @@ proto.api.JSONElement.Array.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Array} returns this
 */
-proto.api.JSONElement.Array.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElement.Array.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -9371,8 +9371,8 @@ proto.api.JSONElement.Array.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Array} returns this
  */
-proto.api.JSONElement.Array.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElement.Array.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -9380,7 +9380,7 @@ proto.api.JSONElement.Array.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Array.prototype.hasUpdatedAt = function() {
+proto.api.JSONElement.Array.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 
@@ -9457,7 +9457,7 @@ proto.api.JSONElement.Primitive.toObject = function(includeInstance, msg) {
     type: jspb.Message.getFieldWithDefault(msg, 1, 0),
     value: msg.getValue_asB64(),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -9511,7 +9511,7 @@ proto.api.JSONElement.Primitive.deserializeBinaryFromReader = function(msg, read
     case 4:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 5:
       var value = new proto.api.TimeTicket;
@@ -9569,7 +9569,7 @@ proto.api.JSONElement.Primitive.serializeBinaryToWriter = function(message, writ
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       4,
@@ -9686,10 +9686,10 @@ proto.api.JSONElement.Primitive.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 4;
+ * optional TimeTicket moved_at = 4;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Primitive.prototype.getUpdatedAt = function() {
+proto.api.JSONElement.Primitive.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 4));
 };
@@ -9699,7 +9699,7 @@ proto.api.JSONElement.Primitive.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Primitive} returns this
 */
-proto.api.JSONElement.Primitive.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElement.Primitive.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 4, value);
 };
 
@@ -9708,8 +9708,8 @@ proto.api.JSONElement.Primitive.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Primitive} returns this
  */
-proto.api.JSONElement.Primitive.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElement.Primitive.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -9717,7 +9717,7 @@ proto.api.JSONElement.Primitive.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Primitive.prototype.hasUpdatedAt = function() {
+proto.api.JSONElement.Primitive.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 4) != null;
 };
 
@@ -9801,7 +9801,7 @@ proto.api.JSONElement.Text.toObject = function(includeInstance, msg) {
     nodesList: jspb.Message.toObjectList(msg.getNodesList(),
     proto.api.TextNode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -9852,7 +9852,7 @@ proto.api.JSONElement.Text.deserializeBinaryFromReader = function(msg, reader) {
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 4:
       var value = new proto.api.TimeTicket;
@@ -9904,7 +9904,7 @@ proto.api.JSONElement.Text.serializeBinaryToWriter = function(message, writer) {
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -9999,10 +9999,10 @@ proto.api.JSONElement.Text.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 3;
+ * optional TimeTicket moved_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.Text.prototype.getUpdatedAt = function() {
+proto.api.JSONElement.Text.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -10012,7 +10012,7 @@ proto.api.JSONElement.Text.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.Text} returns this
 */
-proto.api.JSONElement.Text.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElement.Text.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -10021,8 +10021,8 @@ proto.api.JSONElement.Text.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.Text} returns this
  */
-proto.api.JSONElement.Text.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElement.Text.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -10030,7 +10030,7 @@ proto.api.JSONElement.Text.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.Text.prototype.hasUpdatedAt = function() {
+proto.api.JSONElement.Text.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 
@@ -10114,7 +10114,7 @@ proto.api.JSONElement.RichText.toObject = function(includeInstance, msg) {
     nodesList: jspb.Message.toObjectList(msg.getNodesList(),
     proto.api.RichTextNode.toObject, includeInstance),
     createdAt: (f = msg.getCreatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
-    updatedAt: (f = msg.getUpdatedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
+    movedAt: (f = msg.getMovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f),
     removedAt: (f = msg.getRemovedAt()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -10165,7 +10165,7 @@ proto.api.JSONElement.RichText.deserializeBinaryFromReader = function(msg, reade
     case 3:
       var value = new proto.api.TimeTicket;
       reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
-      msg.setUpdatedAt(value);
+      msg.setMovedAt(value);
       break;
     case 4:
       var value = new proto.api.TimeTicket;
@@ -10217,7 +10217,7 @@ proto.api.JSONElement.RichText.serializeBinaryToWriter = function(message, write
       proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getUpdatedAt();
+  f = message.getMovedAt();
   if (f != null) {
     writer.writeMessage(
       3,
@@ -10312,10 +10312,10 @@ proto.api.JSONElement.RichText.prototype.hasCreatedAt = function() {
 
 
 /**
- * optional TimeTicket updated_at = 3;
+ * optional TimeTicket moved_at = 3;
  * @return {?proto.api.TimeTicket}
  */
-proto.api.JSONElement.RichText.prototype.getUpdatedAt = function() {
+proto.api.JSONElement.RichText.prototype.getMovedAt = function() {
   return /** @type{?proto.api.TimeTicket} */ (
     jspb.Message.getWrapperField(this, proto.api.TimeTicket, 3));
 };
@@ -10325,7 +10325,7 @@ proto.api.JSONElement.RichText.prototype.getUpdatedAt = function() {
  * @param {?proto.api.TimeTicket|undefined} value
  * @return {!proto.api.JSONElement.RichText} returns this
 */
-proto.api.JSONElement.RichText.prototype.setUpdatedAt = function(value) {
+proto.api.JSONElement.RichText.prototype.setMovedAt = function(value) {
   return jspb.Message.setWrapperField(this, 3, value);
 };
 
@@ -10334,8 +10334,8 @@ proto.api.JSONElement.RichText.prototype.setUpdatedAt = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.api.JSONElement.RichText} returns this
  */
-proto.api.JSONElement.RichText.prototype.clearUpdatedAt = function() {
-  return this.setUpdatedAt(undefined);
+proto.api.JSONElement.RichText.prototype.clearMovedAt = function() {
+  return this.setMovedAt(undefined);
 };
 
 
@@ -10343,7 +10343,7 @@ proto.api.JSONElement.RichText.prototype.clearUpdatedAt = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.api.JSONElement.RichText.prototype.hasUpdatedAt = function() {
+proto.api.JSONElement.RichText.prototype.hasMovedAt = function() {
   return jspb.Message.getField(this, 3) != null;
 };
 
