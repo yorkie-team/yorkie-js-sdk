@@ -60,13 +60,13 @@ export class RHT {
     return new RHT();
   }
 
-  public set(key: string, value: string, updatedAt: TimeTicket): void {
+  public set(key: string, value: string, executedAt: TimeTicket): void {
     const prev = this.nodeMapByKey.get(key);
 
-    if (prev === undefined || updatedAt.after(prev.getUpdatedAt())) {
-      const node = RHTNode.of(key, value, updatedAt);
+    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
+      const node = RHTNode.of(key, value, executedAt);
       this.nodeMapByKey.set(key, node);
-      this.nodeMapByCreatedAt.set(updatedAt.toIDString(), node);
+      this.nodeMapByCreatedAt.set(executedAt.toIDString(), node);
     }
   }
 
