@@ -2,10 +2,16 @@
   "compilerOptions": {
     "sourceMap": true,
     "target": "esnext",
+    "module": "commonjs",
+    "outDir": "build",
+    "declaration": true,
+    "esModuleInterop": true,
     "removeComments": false,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "allowJs": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "src/**/*.d.ts"],
   "typeRoots": ["node_modules/@types"]
 }

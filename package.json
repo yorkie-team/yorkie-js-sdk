@@ -2,15 +2,21 @@
   "name": "yorkie-js-sdk",
   "version": "0.0.10",
   "description": "Yorkie JS SDK",
-  "main": "./src/yorkie.ts",
+  "main": "build/yorkie.js",
+  "types": "build/yorkie.d.ts",
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
+    "build:publish": "tsc",
     "build": "webpack --config webpack.config.js",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
     "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
     "test:watch": "karma start karma.conf.js",
-    "lint": "eslint . --fix --ext .ts"
+    "lint": "eslint . --fix --ext .ts",
+    "prepare": "npm run build:publish"
   },
   "repository": {
     "type": "git",

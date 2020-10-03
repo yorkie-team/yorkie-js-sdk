@@ -95,6 +95,9 @@ public/
 # DynamoDB Local files
 .dynamodb/
 
+# Publish
+build/
+
 ### Vim ###
 # Swap
 [._]*.s[a-v][a-z]
