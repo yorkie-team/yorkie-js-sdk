@@ -23,7 +23,7 @@ import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
 import { RGATreeSplit } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
+import { PlainText } from '../json/plain_text';
 import { RichText } from '../json/rich_text';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';
