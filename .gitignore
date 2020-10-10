@@ -119,3 +119,6 @@ tags
 
 # Webstorm
 .idea
+
+# Dist files
+dist/

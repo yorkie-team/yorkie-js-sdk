@@ -3,7 +3,9 @@
     "sourceMap": true,
     "target": "esnext",
     "removeComments": false,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "outDir": "dist"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],

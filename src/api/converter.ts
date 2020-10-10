@@ -43,7 +43,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '../document/json/rga_tree_split';
-import { PlainText } from '../document/json/text';
+import { PlainText } from '../document/json/plain_text';
 import { RichText, RichTextValue } from '../document/json/rich_text';
 import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
