@@ -18,8 +18,7 @@ import Long from 'long';
 import { Client, ClientOptions } from './core/client';
 import { Document } from './document/document';
 
-export { Client } from './core/client';
-export { Document } from './document/document';
+export { Client, Document };
 export { JSONElement } from './document/json/element';
 export { JSONObject } from './document/json/object';
 export { JSONArray } from './document/json/array';
