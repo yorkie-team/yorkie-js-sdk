@@ -2,7 +2,11 @@
   "name": "yorkie-js-sdk",
   "version": "0.0.10",
   "description": "Yorkie JS SDK",
-  "main": "./src/yorkie.ts",
+  "main": "./dist/yorkie.js",
+  "types": "./dist/yorkie.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "build": "webpack --config webpack.config.js",
@@ -10,7 +14,8 @@
     "test": "karma start karma.conf.js --single-run",
     "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
     "test:watch": "karma start karma.conf.js",
-    "lint": "eslint . --fix --ext .ts"
+    "lint": "eslint . --fix --ext .ts",
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -27,7 +32,6 @@
   "homepage": "https://github.com/yorkie-team/yorkie-js-sdk#readme",
   "devDependencies": {
     "@types/chai": "^4.2.12",
-    "@types/long": "^4.0.1",
     "@types/mocha": "^8.0.3",
     "@types/sinon": "^9.0.4",
     "@typescript-eslint/eslint-plugin": "^3.9.1",
@@ -54,6 +58,7 @@
     "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
+    "@types/long": "^4.0.1",
     "google-protobuf": "^3.13.0",
     "grpc-web": "^1.2.0",
     "long": "^4.0.0"

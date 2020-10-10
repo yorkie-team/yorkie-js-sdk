@@ -20,7 +20,7 @@ import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive } from '../json/primitive';
 import { RichText } from '../json/rich_text';
-import { PlainText } from '../json/text';
+import { PlainText } from '../json/plain_text';
 import { ObjectProxy } from './object_proxy';
 import { ArrayProxy } from './array_proxy';
 import { TextProxy } from './text_proxy';

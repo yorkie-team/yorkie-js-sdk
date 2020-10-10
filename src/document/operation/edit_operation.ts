@@ -18,7 +18,7 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
+import { PlainText } from '../json/plain_text';
 import { Operation } from './operation';
 
 export class EditOperation extends Operation {
