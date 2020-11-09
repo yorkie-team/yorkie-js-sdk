@@ -17,6 +17,7 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
+import { MaxTimeTicket } from '../../src/document/time/ticket';
 
 describe('Document', function() {
   it('should apply updates of string', function() {
@@ -238,5 +239,37 @@ describe('Document', function() {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
+  });
+
+  it("garbage collection test", function() {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root["1"] = 1
+      root["2"] = [1, 2, 3]
+      root["3"] = 3
+    }, 'set 1, 2, 3')
+    assert.equal('{"1":1,"2":[1,2,3],"3":3}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root["2"]
+    }, 'deletes 2')
+    assert.equal('{"1":1,"3":3}', doc.toSortedJSON())
+    assert.equal(4, doc.garbageCollect(MaxTimeTicket))
+  });
+
+  it("garbage collection test 2", function() {
+    const size = 10000;
+    const doc = Document.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root["1"] = [...Array(size).keys()]
+    }, 'sets big array');
+
+    doc.update((root) => {
+      delete root["1"]
+    }, 'deletes the array');
+
+    assert.equal(size+1, doc.garbageCollect(MaxTimeTicket))
   });
 });

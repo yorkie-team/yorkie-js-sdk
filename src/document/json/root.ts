@@ -15,7 +15,8 @@
  */
 
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { JSONArray } from './array';
+import { JSONContainer, JSONElement } from './element';
 import { JSONObject } from './object';
 
 /**
@@ -35,9 +36,10 @@ export class JSONRoot {
     this.elementMapByCreatedAt = new Map();
 
     this.registerElement(this.rootObject);
-    for (const elem of this.getDescendants()) {
+    rootObject.getDescendants((elem: JSONElement): boolean => {
       this.registerElement(elem);
-    }
+      return false;
+    })
   }
 
   public static create(): JSONRoot {
@@ -58,10 +60,11 @@ export class JSONRoot {
     this.elementMapByCreatedAt.set(element.getCreatedAt().toIDString(), element);
   }
 
-  public *getDescendants(): IterableIterator<JSONElement> {
-    for (const descendant of this.rootObject.getDescendants()) {
-      yield descendant;
-    }
+  /**
+   * deregisterElement deregister the given element from hash table.
+   */
+  public deregisterElement(element: JSONElement): void {
+    this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString())
   }
 
   public getElementMapSize(): number {
@@ -74,6 +77,42 @@ export class JSONRoot {
 
   public deepcopy(): JSONRoot {
     return new JSONRoot(this.rootObject.deepcopy());
+  }
+
+  public garbageCollect(ticket: TimeTicket): number {
+    let count = 0;
+
+    this.rootObject.getDescendants((elem: JSONElement, parent: JSONContainer): boolean => {
+      const shouldGC = elem.getRemovedAt() !== undefined && ticket.after(elem.getRemovedAt());
+      if (shouldGC) {
+        parent.purge(elem);
+        count += this._garbageCollect(elem)
+      }
+
+      return shouldGC;
+    })
+
+    return count;
+  }
+
+  private _garbageCollect(element: JSONElement): number {
+    let count = 0;
+
+    const callback = (elem: JSONElement, parent: JSONContainer): boolean => {
+      this.deregisterElement(elem);
+      count++;
+      return false;
+    };
+
+    callback(element, null);
+
+    if (element instanceof JSONObject) {
+      element.getDescendants(callback)
+    } else if (element instanceof JSONArray) {
+      element.getDescendants(callback)
+    }
+
+    return count;
   }
 
   public toJSON(): string {

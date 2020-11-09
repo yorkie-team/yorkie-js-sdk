@@ -27,6 +27,7 @@ import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from  './checkpoint/checkpoint';
+import { TimeTicket } from './time/ticket';
 
 export enum DocEventType {
   Snapshot = 'snapshot',
@@ -196,6 +197,10 @@ export class Document implements Observable<DocEvent> {
       this.clone
     );
     return createProxy(context, this.clone.getObject());
+  }
+
+  public garbageCollect(ticket: TimeTicket): number {
+    return this.root.garbageCollect(ticket)
   }
 
   public getRoot(): JSONObject {

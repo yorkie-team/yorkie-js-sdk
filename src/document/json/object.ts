@@ -17,6 +17,7 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
+import { JSONArray } from './array';
 import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './text';
 import { RichText } from './rich_text';
@@ -45,6 +46,10 @@ export class JSONObject extends JSONContainer {
   public createRichText(key: string): RichText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
+  }
+
+  public purge(value: JSONElement): void {
+    this.memberNodes.purge(value);
   }
 
   public set(key: string, value: JSONElement): void {
@@ -106,16 +111,18 @@ export class JSONObject extends JSONContainer {
     return clone;
   }
 
-  public *getDescendants(): IterableIterator<JSONElement> {
+  public getDescendants(callback: (elem: JSONElement, parent: JSONContainer) => boolean): IterableIterator<JSONElement> {
     for (const node of this.memberNodes) {
       const element = node.getValue();
-      if (element instanceof JSONContainer) {
-        for (const descendant of element.getDescendants()) {
-          yield descendant;
-        }
-      } 
+      if(callback(element, this)) {
+        return
+      }
 
-      yield element;
+      if (element instanceof JSONObject) {
+        element.getDescendants(callback)
+      } else if (element instanceof JSONArray) {
+        element.getDescendants(callback)
+      }
     }
   }
 

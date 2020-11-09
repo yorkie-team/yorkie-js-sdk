@@ -51,6 +51,14 @@ export class Heap<K, V> {
     return this.nodes[0];
   }
 
+  public release(node: HeapNode<K, V>): void {
+    for(const _node of this.nodes) {
+      if(_node.getValue() !== node.getValue()) {
+        this.nodes.push(node)
+      }
+    }
+  }
+
   public push(node: HeapNode<K, V>): void {
     this.nodes.push(node);
     this.moveUp(this.nodes.length - 1);

@@ -76,5 +76,7 @@ export abstract class JSONContainer extends JSONElement {
     super(createdAt);
   }
 
-  abstract getDescendants(): IterableIterator<JSONElement>;
+  abstract purge(element: JSONElement): void;
+
+  abstract getDescendants(callback: (elem: JSONElement, parent: JSONContainer) => boolean): IterableIterator<JSONElement>;
 }
