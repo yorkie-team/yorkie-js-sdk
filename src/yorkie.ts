@@ -18,14 +18,22 @@ import Long from 'long';
 import { Client, ClientOptions } from './core/client';
 import { Document } from './document/document';
 
+export { Client, Document };
+export { JSONElement } from './document/json/element';
+export { JSONObject } from './document/json/object';
+export { JSONArray } from './document/json/array';
+export { PlainText } from './document/json/plain_text';
+export { RichText } from './document/json/rich_text';
+export { Change, ChangeType } from './document/json/rga_tree_split';
+
 // yorkie namespace.
 //  e.g) yorkie.createClient(...)
 export default {
-  createClient: function(rpcAddr: string, opts?: ClientOptions): Client {
+  createClient: function (rpcAddr: string, opts?: ClientOptions): Client {
     return new Client(rpcAddr, opts);
   },
-  createDocument: function(collection: string, document: string): Document {
+  createDocument: function (collection: string, document: string): Document {
     return new Document(collection, document);
   },
   Long: Long,
-}
+};

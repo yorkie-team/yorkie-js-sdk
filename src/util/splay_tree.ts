@@ -32,7 +32,7 @@ export abstract class SplayNode<V> {
   abstract getLength(): number;
 
   public getNodeString(): string {
-    return `${this.weight}${this.value}`
+    return `${this.weight}${this.value}`;
   }
 
   public getValue(): V {
@@ -117,7 +117,10 @@ export class SplayTree<V> {
     for (;;) {
       if (node.hasLeft() && pos <= node.getLeftWeight()) {
         node = node.getLeft();
-      } else if (node.hasRight() && node.getLeftWeight() + node.getLength() < pos) {
+      } else if (
+        node.hasRight() &&
+        node.getLeftWeight() + node.getLength() < pos
+      ) {
         pos -= node.getLeftWeight() + node.getLength();
         node = node.getRight();
       } else {
@@ -126,7 +129,9 @@ export class SplayTree<V> {
       }
     }
     if (pos > node.getLength()) {
-      logger.fatal(`out of bound of text index: pos: ${pos} > node.length: ${node.getLength()}`);
+      logger.fatal(
+        `out of bound of text index: pos: ${pos} > node.length: ${node.getLength()}`,
+      );
     }
     return [node, pos];
   }
@@ -146,7 +151,9 @@ export class SplayTree<V> {
     let prev = null;
     while (current) {
       if (!prev || prev === current.getRight()) {
-        index += current.getLength() + (current.hasLeft() ? current.getLeftWeight() : 0);
+        index +=
+          current.getLength() +
+          (current.hasLeft() ? current.getLeftWeight() : 0);
       }
       prev = current;
       current = current.getParent();
@@ -162,7 +169,10 @@ export class SplayTree<V> {
     return this.insertAfter(this.root, newNode);
   }
 
-  public insertAfter(target: SplayNode<V>, newNode: SplayNode<V>): SplayNode<V> {
+  public insertAfter(
+    target: SplayNode<V>,
+    newNode: SplayNode<V>,
+  ): SplayNode<V> {
     if (!target) {
       this.root = newNode;
       return newNode;
@@ -204,7 +214,10 @@ export class SplayTree<V> {
         // zig-zag
         this.rotateLeft(node);
         this.rotateRight(node);
-      } else if (this.isRightChild(node.getParent()) && this.isLeftChild(node)) {
+      } else if (
+        this.isRightChild(node.getParent()) &&
+        this.isLeftChild(node)
+      ) {
         // zig-zag
         this.rotateRight(node);
         this.rotateLeft(node);
@@ -212,7 +225,10 @@ export class SplayTree<V> {
         // zig-zig
         this.rotateRight(node.getParent());
         this.rotateRight(node);
-      } else if (this.isRightChild(node.getParent()) && this.isRightChild(node)) {
+      } else if (
+        this.isRightChild(node.getParent()) &&
+        this.isRightChild(node)
+      ) {
         // zig-zig
         this.rotateLeft(node.getParent());
         this.rotateLeft(node);
@@ -229,7 +245,7 @@ export class SplayTree<V> {
   }
 
   public delete(node: SplayNode<V>): void {
-    this.splayNode(node)
+    this.splayNode(node);
 
     const leftTree = new SplayTree(node.getLeft());
     if (leftTree.root) {
@@ -254,9 +270,11 @@ export class SplayTree<V> {
   public getAnnotatedString(): string {
     const metaString = [];
     this.traverseInorder(this.root, metaString);
-    return metaString.map((node) =>
-      `[${node.getWeight()},${node.getLength()}]${node.getValue()}`
-    ).join('');
+    return metaString
+      .map(
+        (node) => `[${node.getWeight()},${node.getLength()}]${node.getValue()}`,
+      )
+      .join('');
   }
 
   private getMaximum(): SplayNode<V> {
@@ -267,7 +285,10 @@ export class SplayTree<V> {
     return node;
   }
 
-  private traverseInorder(node: SplayNode<V>, stack: Array<SplayNode<V>>): void {
+  private traverseInorder(
+    node: SplayNode<V>,
+    stack: Array<SplayNode<V>>,
+  ): void {
     if (!node) {
       return;
     }

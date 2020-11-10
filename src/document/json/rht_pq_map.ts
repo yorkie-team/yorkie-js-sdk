@@ -57,7 +57,7 @@ export class RHTPQMap {
   }
 
   public static create(): RHTPQMap {
-    return new RHTPQMap()
+    return new RHTPQMap();
   }
 
   public set(key: string, value: JSONElement): void {
@@ -77,18 +77,22 @@ export class RHTPQMap {
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     node.remove(executedAt);
-    return node.getValue()
+    return node.getValue();
   }
 
   public purge(element: JSONElement): void {
-    const node = this.nodeMapByCreatedAt.get(element.getCreatedAt().toIDString());
+    const node = this.nodeMapByCreatedAt.get(
+      element.getCreatedAt().toIDString(),
+    );
     if (!node) {
       logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
     }
 
-    const queue = this.elementQueueMapByKey.get(node.getStrKey())
+    const queue = this.elementQueueMapByKey.get(node.getStrKey());
     if (!queue) {
-      logger.fatal(`fail to find queue of ${element.getCreatedAt().toIDString()}`);
+      logger.fatal(
+        `fail to find queue of ${element.getCreatedAt().toIDString()}`,
+      );
     }
 
     queue.release(node);

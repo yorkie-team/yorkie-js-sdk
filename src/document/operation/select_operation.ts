@@ -18,7 +18,7 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { PlainText } from '../json/text';
+import { PlainText } from '../json/plain_text';
 import { RichText } from '../json/rich_text';
 import { Operation } from './operation';
 
@@ -30,7 +30,7 @@ export class SelectOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -41,14 +41,9 @@ export class SelectOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    executedAt: TimeTicket
+    executedAt: TimeTicket,
   ): SelectOperation {
-    return new SelectOperation(
-      parentCreatedAt,
-      fromPos,
-      toPos,
-      executedAt
-    );
+    return new SelectOperation(parentCreatedAt, fromPos, toPos, executedAt);
   }
 
   public execute(root: JSONRoot): void {
@@ -60,7 +55,9 @@ export class SelectOperation extends Operation {
       const text = parentObject as RichText;
       text.updateSelection([this.fromPos, this.toPos], this.getExecutedAt());
     } else {
-      logger.fatal(`fail to execute, only PlainText, RichText can execute select`);
+      logger.fatal(
+        `fail to execute, only PlainText, RichText can execute select`,
+      );
     }
   }
 
@@ -68,7 +65,7 @@ export class SelectOperation extends Operation {
     const parent = this.getParentCreatedAt().getAnnotatedString();
     const fromPos = this.fromPos.getAnnotatedString();
     const toPos = this.toPos.getAnnotatedString();
-    return `${parent}.SELT(${fromPos},${toPos})`
+    return `${parent}.SELT(${fromPos},${toPos})`;
   }
 
   public getFromPos(): RGATreeSplitNodePos {

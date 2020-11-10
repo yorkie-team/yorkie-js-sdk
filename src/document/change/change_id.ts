@@ -32,7 +32,11 @@ export class ChangeID {
     this.actor = typeof actor !== 'undefined' ? actor : null;
   }
 
-  public static of(clientSeq: number, lamport: Long, actor?: ActorID): ChangeID {
+  public static of(
+    clientSeq: number,
+    lamport: Long,
+    actor?: ActorID,
+  ): ChangeID {
     return new ChangeID(clientSeq, lamport, actor);
   }
 
@@ -42,7 +46,7 @@ export class ChangeID {
 
   public syncLamport(otherLamport: Long): ChangeID {
     if (otherLamport.greaterThan(this.lamport)) {
-      return new ChangeID(this.clientSeq, otherLamport, this.actor)
+      return new ChangeID(this.clientSeq, otherLamport, this.actor);
     }
 
     return new ChangeID(this.clientSeq, this.lamport.add(1), this.actor);
@@ -76,8 +80,14 @@ export class ChangeID {
     if (this.actor == null) {
       return `${this.lamport.toString()}:nil:${this.clientSeq}`;
     }
-    return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${this.clientSeq}`;
+    return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${
+      this.clientSeq
+    }`;
   }
 }
 
-export const InitialChangeID = new ChangeID(0, Long.fromInt(0, true), InitialActorID);
+export const InitialChangeID = new ChangeID(
+  0,
+  Long.fromInt(0, true),
+  InitialActorID,
+);

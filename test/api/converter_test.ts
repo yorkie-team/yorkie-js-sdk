@@ -18,8 +18,8 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { converter } from '../../src/api/converter';
 
-describe('Converter', function() {
-  it('should encode/decode bytes', function() {
+describe('Converter', function () {
+  it('should encode/decode bytes', function () {
     const doc = Document.create('test-col', 'test-doc');
 
     doc.update((root) => {
@@ -31,7 +31,7 @@ describe('Converter', function() {
         'k1.5': '4',
         // 'k6': new Uint8Array([65,66]),
         // 'k7': new Date(),
-      }
+      };
 
       root['k2'] = [
         true,
@@ -50,6 +50,9 @@ describe('Converter', function() {
       text.edit(0, 1, '하');
       text.edit(1, 1, '느');
       text.edit(1, 2, '늘');
+
+      const counter = root.createCounter('k4', 0);
+      counter.increase(1).increase(2).increase(3);
     });
 
     const bytes = converter.objectToBytes(doc.getRoot());

@@ -20,14 +20,14 @@ import { TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
 export enum PrimitiveType {
-  Null = 0,
-  Boolean = 1,
-  Integer = 2,
-  Long = 3,
-  Double = 4,
-  String = 5,
-  Bytes = 6,
-  Date = 7
+  Null,
+  Boolean,
+  Integer,
+  Long,
+  Double,
+  String,
+  Bytes,
+  Date,
 }
 
 type PrimitiveValue = boolean | number | Long | string | Uint8Array | Date;
@@ -46,20 +46,42 @@ export class JSONPrimitive extends JSONElement {
     this.value = value;
   }
 
-  public static of(value: PrimitiveValue, createdAt: TimeTicket): JSONPrimitive {
+  public static of(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+  ): JSONPrimitive {
     return new JSONPrimitive(value, createdAt);
   }
 
-  public static valueFromBytes(primitiveType: PrimitiveType, bytes: Uint8Array): PrimitiveValue {
-    switch(primitiveType) {
+  public static valueFromBytes(
+    primitiveType: PrimitiveType,
+    bytes: Uint8Array,
+  ): PrimitiveValue {
+    switch (primitiveType) {
       case PrimitiveType.Boolean:
         return bytes[0] ? true : false;
       case PrimitiveType.Integer:
-        return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
+        return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+      case PrimitiveType.Double: {
+        const view = new DataView(bytes.buffer);
+        bytes.forEach(function (b, i) {
+          view.setUint8(i, b);
+        });
+        return view.getFloat64(0, true);
+      }
       case PrimitiveType.String:
-        return new TextDecoder("utf-8").decode(bytes);
+        return new TextDecoder('utf-8').decode(bytes);
+      case PrimitiveType.Long:
+        return Long.fromBytesLE(Array.from(bytes));
+      case PrimitiveType.Bytes:
+        return bytes;
+      case PrimitiveType.Date:
+        return new Date(Long.fromBytesLE(Array.from(bytes)).toNumber());
       default:
-        throw new YorkieError(Code.Unimplemented, `unimplemented type: ${primitiveType}`);
+        throw new YorkieError(
+          Code.Unimplemented,
+          `unimplemented type: ${primitiveType}`,
+        );
     }
   }
 
@@ -76,7 +98,9 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public deepcopy(): JSONPrimitive {
-    return this;
+    const primitive = JSONPrimitive.of(this.value, this.getCreatedAt());
+    primitive.setMovedAt(this.getMovedAt());
+    return primitive;
   }
 
   public getType(): PrimitiveType {
@@ -88,9 +112,6 @@ export class JSONPrimitive extends JSONElement {
       case 'boolean':
         return PrimitiveType.Boolean;
       case 'number':
-        if (JSONPrimitive.isInteger(value)) {
-          return PrimitiveType.Integer;
-        }
         return PrimitiveType.Double;
       case 'string':
         return PrimitiveType.String;
@@ -115,6 +136,18 @@ export class JSONPrimitive extends JSONElement {
     return num % 1 === 0;
   }
 
+  /**
+   * isNumericType check numeric type by JSONPrimitive
+   */
+  public isNumericType(): boolean {
+    const t = this.valueType;
+    return (
+      t === PrimitiveType.Integer ||
+      t === PrimitiveType.Long ||
+      t === PrimitiveType.Double
+    );
+  }
+
   public getValue(): PrimitiveValue {
     return this.value;
   }
@@ -131,14 +164,38 @@ export class JSONPrimitive extends JSONElement {
           intVal & 0xff,
           (intVal >> 8) & 0xff,
           (intVal >> 16) & 0xff,
-          (intVal >> 24) & 0xff
+          (intVal >> 24) & 0xff,
         ]);
+      }
+      case PrimitiveType.Double: {
+        const doubleVal = this.value as number;
+        const uint8Array = new Uint8Array(8);
+        const view = new DataView(uint8Array.buffer);
+        view.setFloat64(0, doubleVal, true);
+        return uint8Array;
       }
       case PrimitiveType.String: {
         return new TextEncoder().encode(this.value as string);
       }
+      case PrimitiveType.Long: {
+        const longVal = this.value as Long;
+        const longToBytes = longVal.toBytesLE();
+        return Uint8Array.from(longToBytes);
+      }
+      case PrimitiveType.Bytes: {
+        const bytesVal = this.value as Uint8Array;
+        return bytesVal;
+      }
+      case PrimitiveType.Date: {
+        const dateVal = this.value as Date;
+        const dateToBytes = Long.fromNumber(dateVal.getTime()).toBytesLE();
+        return Uint8Array.from(dateToBytes);
+      }
       default:
-        throw new YorkieError(Code.Unimplemented, `unimplemented type: ${this.valueType}`);
+        throw new YorkieError(
+          Code.Unimplemented,
+          `unimplemented type: ${this.valueType}`,
+        );
     }
   }
 }

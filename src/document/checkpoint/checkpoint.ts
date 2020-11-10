@@ -41,15 +41,15 @@ export class Checkpoint {
   }
 
   public forward(other: Checkpoint): Checkpoint {
-    if (this.clientSeq == other.clientSeq &&
-      this.serverSeq.equals(other.serverSeq)) {
+    if (this.equals(other)) {
       return this;
     }
 
     const serverSeq = this.serverSeq.greaterThan(other.serverSeq)
-      ? this.serverSeq : other.serverSeq;
+      ? this.serverSeq
+      : other.serverSeq;
     const clientSeq = Math.max(this.clientSeq, other.clientSeq);
-    return Checkpoint.of(serverSeq, clientSeq)
+    return Checkpoint.of(serverSeq, clientSeq);
   }
 
   public getServerSeqAsString(): string {
@@ -65,8 +65,10 @@ export class Checkpoint {
   }
 
   public equals(other: Checkpoint): boolean {
-    return this.clientSeq === other.clientSeq &&
-      this.serverSeq.equals(other.serverSeq);
+    return (
+      this.clientSeq === other.clientSeq &&
+      this.serverSeq.equals(other.serverSeq)
+    );
   }
 
   public getAnnotatedString(): string {

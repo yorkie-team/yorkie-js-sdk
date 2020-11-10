@@ -14,53 +14,54 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { JSONObject } from '../json/object';
-import { JSONArray } from '../json/array';
 import { Operation } from './operation';
+import { TimeTicket } from '../time/ticket';
+import { JSONElement } from '../json/element';
+import { JSONRoot } from '../json/root';
+import { JSONPrimitive } from '../json/primitive';
+import { logger } from '../../util/logger';
+import { Counter } from '../json/counter';
 
-export class RemoveOperation extends Operation {
-  private createdAt: TimeTicket;
+/**
+ * Increase can be used to increment data of numerical type.
+ * It can be used in Counter type.
+ */
+export class IncreaseOperation extends Operation {
+  private value: JSONElement;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    createdAt: TimeTicket,
+    value: JSONElement,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
-    this.createdAt = createdAt;
+    this.value = value;
   }
 
   public static create(
     parentCreatedAt: TimeTicket,
-    createdAt: TimeTicket,
+    value: JSONElement,
     executedAt: TimeTicket,
-  ): RemoveOperation {
-    return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
+  ): IncreaseOperation {
+    return new IncreaseOperation(parentCreatedAt, value, executedAt);
   }
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof JSONObject) {
-      const obj = parentObject as JSONObject;
-      const elem = obj.delete(this.createdAt, this.getExecutedAt());
-      root.registerRemovedElementPair(parentObject, elem);
-    } else if (parentObject instanceof JSONArray) {
-      const array = parentObject as JSONArray;
-      const elem = array.delete(this.createdAt, this.getExecutedAt());
-      root.registerRemovedElementPair(parentObject, elem);
+    if (parentObject instanceof Counter) {
+      const counter = parentObject as Counter;
+      const value = this.value.deepcopy() as JSONPrimitive;
+      counter.increase(value);
     } else {
-      logger.fatal(`only object and array can execute remove: ${parentObject}`);
+      logger.fatal(`fail to execute, only Counter can execute increase`);
     }
   }
 
   public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`;
+    return `${this.getParentCreatedAt().getAnnotatedString()}.INCREASE`;
   }
 
-  public getCreatedAt(): TimeTicket {
-    return this.createdAt;
+  public getValue(): JSONElement {
+    return this.value;
   }
 }

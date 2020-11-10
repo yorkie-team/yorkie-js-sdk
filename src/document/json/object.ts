@@ -19,8 +19,10 @@ import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
 import { JSONArray } from './array';
 import { RHTPQMap } from './rht_pq_map';
-import { PlainText } from './text';
+import { PlainText } from './plain_text';
 import { RichText } from './rich_text';
+import { CounterType, Counter } from './counter';
+import { CounterProxy } from '../proxy/counter_proxy';
 
 /**
  * JSONObject represents a JSON object, but unlike regular JSON, it has time
@@ -50,6 +52,15 @@ export class JSONObject extends JSONContainer {
 
   public purge(value: JSONElement): void {
     this.memberNodes.purge(value);
+  }
+  /**
+   * Don't use createCounter directly. Be sure to use it through a proxy.
+   * The reason for setting the CounterProxy type as the return value
+   * is to provide the CounterProxy interface to the user.
+   */
+  public createCounter(key: string, value: CounterType): CounterProxy {
+    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    return null;
   }
 
   public set(key: string, value: JSONElement): void {
@@ -82,13 +93,13 @@ export class JSONObject extends JSONContainer {
 
   public toSortedJSON(): string {
     const keys = Array<string>();
-    for (const [key,] of this) {
+    for (const [key] of this) {
       keys.push(key);
     }
 
     const json = [];
     for (const key of keys.sort()) {
-      const node = this.memberNodes.get(key)
+      const node = this.memberNodes.get(key);
       json.push(`"${key}":${node.toSortedJSON()}`);
     }
 
@@ -102,26 +113,25 @@ export class JSONObject extends JSONContainer {
   public deepcopy(): JSONObject {
     const clone = JSONObject.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
-      clone.memberNodes.set(
-        node.getStrKey(),
-        node.getValue().deepcopy(),
-      );
+      clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
     }
     clone.remove(this.getRemovedAt());
     return clone;
   }
 
-  public getDescendants(callback: (elem: JSONElement, parent: JSONContainer) => boolean): IterableIterator<JSONElement> {
+  public getDescendants(
+    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  ): IterableIterator<JSONElement> {
     for (const node of this.memberNodes) {
       const element = node.getValue();
-      if(callback(element, this)) {
-        return
+      if (callback(element, this)) {
+        return;
       }
 
       if (element instanceof JSONObject) {
-        element.getDescendants(callback)
+        element.getDescendants(callback);
       } else if (element instanceof JSONArray) {
-        element.getDescendants(callback)
+        element.getDescendants(callback);
       }
     }
   }

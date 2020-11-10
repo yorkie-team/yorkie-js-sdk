@@ -1,10 +1,14 @@
 # Yorkie JavaScript SDK
 
+[![codecov](https://codecov.io/gh/yorkie-team/yorkie-js-sdk/branch/master/graph/badge.svg)](https://codecov.io/gh/yorkie-team/yorkie-js-sdk)
+
 The Yorkie JavaScript SDK implements the client-side libraries.
+
+## How to use JS SDK
 
 To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/master/js-sdk
 
-### How yorkie-js-sdk works
+## How yorkie-js-sdk works
 
 yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
@@ -18,9 +22,9 @@ yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
 
 For more details: https://grpc.io/blog/state-of-grpc-web/
 
-## For contributing
+## Building and Testing the SDK
 
-### Build yorkie-js-sdk
+### Building yorkie-js-sdk
 
 ```bash
 # install packages
@@ -39,7 +43,7 @@ How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-genera
 npm run build:proto
 ```
 
-### Test yorkie-js-sdk with Envoy, Yorkie and MongoDB.
+### Testing yorkie-js-sdk with Envoy, Yorkie and MongoDB.
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
@@ -54,7 +58,7 @@ Start the test in another terminal session.
 npm run test
 ```
 
-### Test co-editing example with CodeMirror
+### Testing co-editing example with CodeMirror
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
@@ -68,3 +72,7 @@ Start the test in another terminal session.
 ```bash
 npm run start
 ```
+
+## Contributing
+
+See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.

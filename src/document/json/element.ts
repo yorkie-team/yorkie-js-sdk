@@ -21,7 +21,7 @@ import { TimeTicket } from '../time/ticket';
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
-  private updatedAt: TimeTicket;
+  private movedAt: TimeTicket;
   private removedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
@@ -36,17 +36,17 @@ export abstract class JSONElement {
     return this.createdAt;
   }
 
-  public getUpdatedAt(): TimeTicket {
-    return this.updatedAt;
+  public getMovedAt(): TimeTicket {
+    return this.movedAt;
   }
 
   public getRemovedAt(): TimeTicket {
     return this.removedAt;
   }
 
-  public setUpdatedAt(updatedAt: TimeTicket): boolean {
-    if (!this.updatedAt || updatedAt && updatedAt.after(this.updatedAt)) {
-      this.updatedAt = updatedAt;
+  public setMovedAt(movedAt: TimeTicket): boolean {
+    if (!this.movedAt || (movedAt && movedAt.after(this.movedAt))) {
+      this.movedAt = movedAt;
       return true;
     }
 
@@ -54,7 +54,7 @@ export abstract class JSONElement {
   }
 
   public remove(removedAt: TimeTicket): boolean {
-    if (!this.removedAt || removedAt && removedAt.after(this.removedAt)) {
+    if (!this.removedAt || (removedAt && removedAt.after(this.removedAt))) {
       this.removedAt = removedAt;
       return true;
     }
@@ -78,5 +78,7 @@ export abstract class JSONContainer extends JSONElement {
 
   abstract purge(element: JSONElement): void;
 
-  abstract getDescendants(callback: (elem: JSONElement, parent: JSONContainer) => boolean): IterableIterator<JSONElement>;
+  abstract getDescendants(
+    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  ): IterableIterator<JSONElement>;
 }

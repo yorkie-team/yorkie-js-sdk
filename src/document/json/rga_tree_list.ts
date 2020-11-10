@@ -31,7 +31,10 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     this.next = null;
   }
 
-  public static createAfter(prev: RGATreeListNode, value: JSONElement): RGATreeListNode {
+  public static createAfter(
+    prev: RGATreeListNode,
+    value: JSONElement,
+  ): RGATreeListNode {
     const newNode = new RGATreeListNode(value);
     const prevNext = prev.next;
     prev.next = newNode;
@@ -102,7 +105,7 @@ export class RGATreeList {
     this.nodeMapByIndex.insert(this.dummyHead);
     this.nodeMapByCreatedAt.set(
       this.dummyHead.getCreatedAt().toIDString(),
-      this.dummyHead
+      this.dummyHead,
     );
   }
 
@@ -111,16 +114,24 @@ export class RGATreeList {
   }
 
   public get length(): number {
-    return this.size; 
+    return this.size;
   }
 
-  private findByCreatedAt(prevCreatedAt: TimeTicket, createdAt: TimeTicket): RGATreeListNode {
-    let node = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
+  /**
+   * findNextBeforeExecutedAt returns the node by the given createdAt and
+   * executedAt. It passes through nodes created after executedAt from the
+   * given node and returns the next node.
+   */
+  private findNextBeforeExecutedAt(
+    createdAt: TimeTicket,
+    executedAt: TimeTicket,
+  ): RGATreeListNode {
+    let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
+      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
-    while (node.getNext() && node.getNext().getCreatedAt().after(createdAt)) {
+    while (node.getNext() && node.getNext().getCreatedAt().after(executedAt)) {
       node = node.getNext();
     }
 
@@ -129,7 +140,7 @@ export class RGATreeList {
 
   private release(node: RGATreeListNode): void {
     if (this.last == node) {
-      this.last = node.getPrev()
+      this.last = node.getPrev();
     }
 
     node.release();
@@ -141,8 +152,12 @@ export class RGATreeList {
     }
   }
 
-  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
-    const prevNode = this.findByCreatedAt(prevCreatedAt, value.getCreatedAt());
+  public insertAfter(
+    prevCreatedAt: TimeTicket,
+    value: JSONElement,
+    executedAt: TimeTicket = value.getCreatedAt(),
+  ): void {
+    const prevNode = this.findNextBeforeExecutedAt(prevCreatedAt, executedAt);
     const newNode = RGATreeListNode.createAfter(prevNode, value);
     if (prevNode === this.last) {
       this.last = newNode;
@@ -154,7 +169,11 @@ export class RGATreeList {
     this.size += 1;
   }
 
-  public moveAfter(prevCreatedAt: TimeTicket, createdAt: TimeTicket, executedAt: TimeTicket): void {
+  public moveAfter(
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+    executedAt: TimeTicket,
+  ): void {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
       logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
@@ -165,10 +184,13 @@ export class RGATreeList {
       logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
-    if (!node.getValue().getUpdatedAt() || executedAt.after(node.getValue().getUpdatedAt())) {
+    if (
+      !node.getValue().getMovedAt() ||
+      executedAt.after(node.getValue().getMovedAt())
+    ) {
       node.release();
-      this.insertAfter(prevNode.getCreatedAt(), node.getValue());
-      node.getValue().setUpdatedAt(executedAt)
+      this.insertAfter(prevNode.getCreatedAt(), node.getValue(), executedAt);
+      node.getValue().setMovedAt(executedAt);
     }
   }
 
@@ -182,9 +204,15 @@ export class RGATreeList {
   }
 
   public purge(element: JSONElement): void {
-    const node = this.nodeMapByCreatedAt.get(element.getCreatedAt().toIDString());
+    const node = this.nodeMapByCreatedAt.get(
+      element.getCreatedAt().toIDString(),
+    );
     if (!node) {
-      logger.fatal(`fail to find the given createdAt: ${element.getCreatedAt().toIDString()}`);
+      logger.fatal(
+        `fail to find the given createdAt: ${element
+          .getCreatedAt()
+          .toIDString()}`,
+      );
     }
     this.release(node);
   }
@@ -196,11 +224,11 @@ export class RGATreeList {
     if (idx === 0 && node === this.dummyHead) {
       do {
         rgaNode = rgaNode.getNext();
-      } while(rgaNode.isRemoved());
+      } while (rgaNode.isRemoved());
     } else if (offset > 0) {
       do {
         rgaNode = rgaNode.getNext();
-      } while(rgaNode.isRemoved());
+      } while (rgaNode.isRemoved());
     }
 
     return rgaNode;
@@ -210,7 +238,7 @@ export class RGATreeList {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     do {
       node = node.getPrev();
-    } while(this.dummyHead !== node && node.isRemoved());
+    } while (this.dummyHead !== node && node.isRemoved());
     return node.getValue().getCreatedAt();
   }
 
@@ -244,7 +272,9 @@ export class RGATreeList {
     const json = [];
 
     for (const node of this) {
-      const elem = `${node.getCreatedAt().toIDString()}:${node.getValue().toJSON()}`;
+      const elem = `${node
+        .getCreatedAt()
+        .toIDString()}:${node.getValue().toJSON()}`;
       if (node.isRemoved()) {
         json.push(`{${elem}}`);
       } else {
@@ -257,7 +287,7 @@ export class RGATreeList {
 
   public *[Symbol.iterator](): IterableIterator<RGATreeListNode> {
     let node = this.dummyHead.getNext();
-    while(node) {
+    while (node) {
       yield node;
       node = node.getNext();
     }

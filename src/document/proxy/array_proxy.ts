@@ -28,7 +28,7 @@ import { ObjectProxy } from './object_proxy';
 import { toProxy } from './proxy';
 
 function isNumericString(val: any): boolean {
-  if (typeof(val) === 'string' || val instanceof String) {
+  if (typeof val === 'string' || val instanceof String) {
     return !isNaN(val as any);
   }
   return false;
@@ -43,16 +43,16 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string|symbol, receiver: object): any => {
+      get: (target: JSONArray, method: string | symbol, receiver: any): any => {
         // Yorkie extension API
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
-          }; 
+          };
         } else if (method === 'getElementByID') {
           return (createdAt: TimeTicket): JSONElement => {
             return toProxy(context, target.get(createdAt));
-          }; 
+          };
         } else if (method === 'getElementByIndex') {
           return (index: number): JSONElement => {
             const elem = target.getByIndex(index);
@@ -60,28 +60,37 @@ export class ArrayProxy {
               return elem;
             }
             return toProxy(context, elem);
-          }; 
+          };
         } else if (method === 'getLast') {
           return (): JSONElement => {
             return toProxy(context, target.getLast());
           };
         } else if (method === 'deleteByID') {
           return (createdAt: TimeTicket): JSONElement => {
-            const deleted = ArrayProxy.deleteInternalByID(context, target, createdAt);
+            const deleted = ArrayProxy.deleteInternalByID(
+              context,
+              target,
+              createdAt,
+            );
             return toProxy(context, deleted);
           };
         } else if (method === 'insertAfter') {
           return (prevID: TimeTicket, value: any): JSONElement => {
-            const inserted = ArrayProxy.insertAfterInternal(context, target, prevID, value);
+            const inserted = ArrayProxy.insertAfterInternal(
+              context,
+              target,
+              prevID,
+              value,
+            );
             return toProxy(context, inserted);
           };
         } else if (method === 'moveBefore') {
           return (prevID: TimeTicket, itemID: TimeTicket): void => {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
           };
-        // JavaScript Native API
+          // JavaScript Native API
         } else if (isNumericString(method)) {
-            return toProxy(context, target.getByIndex(+(method as string)));
+          return toProxy(context, target.getByIndex(+(method as string)));
         } else if (method === 'push') {
           return (value: any): number => {
             if (logger.isEnabled(LogLevel.Trivial)) {
@@ -91,12 +100,25 @@ export class ArrayProxy {
             return ArrayProxy.pushInternal(context, target, value);
           };
         } else if (method === 'filter') {
-          return (callback: (elem: JSONElement, idx: number, arr: Array<JSONElement>) => Array<JSONElement>): Array<JSONElement> => {
-            return Array.from(target).map((e) => toProxy(context, e)).filter(callback);
+          return (
+            callback: (
+              elem: JSONElement,
+              idx: number,
+              arr: Array<JSONElement>,
+            ) => Array<JSONElement>,
+          ): Array<JSONElement> => {
+            return Array.from(target)
+              .map((e) => toProxy(context, e))
+              .filter(callback);
           };
         } else if (method === 'reduce') {
-          return (callback: (accumulator: any, curr: JSONElement) => any, accumulator: any) => {
-            return Array.from(target).map((e) => toProxy(context, e)).reduce(callback, accumulator);
+          return (
+            callback: (accumulator: any, curr: JSONElement) => any,
+            accumulator: any,
+          ) => {
+            return Array.from(target)
+              .map((e) => toProxy(context, e))
+              .reduce(callback, accumulator);
           };
         } else if (method === 'length') {
           return target.length;
@@ -116,11 +138,14 @@ export class ArrayProxy {
 
         ArrayProxy.deleteInternalByIndex(context, target, key);
         return true;
-      }
-    }
+      },
+    };
   }
 
-  public static *iteratorInternal(change: ChangeContext, target: JSONArray): IterableIterator<any> {
+  public static *iteratorInternal(
+    change: ChangeContext,
+    target: JSONArray,
+  ): IterableIterator<any> {
     for (const elem of target) {
       yield toProxy(change, elem);
     }
@@ -131,8 +156,17 @@ export class ArrayProxy {
     return new Proxy(target, arrayProxy.getHandlers());
   }
 
-  public static pushInternal(context: ChangeContext, target: JSONArray, value: any): number {
-    ArrayProxy.insertAfterInternal(context, target, target.getLastCreatedAt(), value);
+  public static pushInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    value: any,
+  ): number {
+    ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      target.getLastCreatedAt(),
+      value,
+    );
     return target.length;
   }
 
@@ -140,62 +174,105 @@ export class ArrayProxy {
     context: ChangeContext,
     target: JSONArray,
     nextCreatedAt: TimeTicket,
-    createdAt: TimeTicket
+    createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
     target.moveAfter(prevCreatedAt, createdAt, ticket);
-    context.push(MoveOperation.create(target.getCreatedAt(), prevCreatedAt, createdAt, ticket));
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        prevCreatedAt,
+        createdAt,
+        ticket,
+      ),
+    );
   }
 
   public static insertAfterInternal(
     context: ChangeContext,
     target: JSONArray,
     prevCreatedAt: TimeTicket,
-    value: any
+    value: any,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value, ticket);
       target.insertAfter(prevCreatedAt, primitive);
       context.registerElement(primitive);
-      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, primitive, ticket));
+      context.push(
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          primitive,
+          ticket,
+        ),
+      );
       return primitive;
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
       context.registerElement(array);
-      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, array, ticket));
+      context.push(
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          array,
+          ticket,
+        ),
+      );
       for (const element of value) {
-        ArrayProxy.pushInternal(context, array, element)
+        ArrayProxy.pushInternal(context, array, element);
       }
       return array;
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj);
-      context.push(AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket));
+      context.push(
+        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
+      );
 
       for (const [k, v] of Object.entries(value)) {
         ObjectProxy.setInternal(context, obj, k, v);
       }
       return obj;
     } else {
-      throw new TypeError(`Unsupported type of value: ${typeof value}`)
+      throw new TypeError(`Unsupported type of value: ${typeof value}`);
     }
   }
 
-  public static deleteInternalByIndex(context: ChangeContext, target: JSONArray, index: number): JSONElement {
+  public static deleteInternalByIndex(
+    context: ChangeContext,
+    target: JSONArray,
+    index: number,
+  ): JSONElement {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByIndex(index, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
     return deleted;
   }
 
-  public static deleteInternalByID(context: ChangeContext, target: JSONArray, createdAt: TimeTicket): JSONElement {
+  public static deleteInternalByID(
+    context: ChangeContext,
+    target: JSONArray,
+    createdAt: TimeTicket,
+  ): JSONElement {
     const ticket = context.issueTimeTicket();
     const deleted = target.delete(createdAt, ticket);
-    context.push(RemoveOperation.create(target.getCreatedAt(), deleted.getCreatedAt(), ticket));
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
     return deleted;
   }
 

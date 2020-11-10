@@ -52,9 +52,9 @@ export class Heap<K, V> {
   }
 
   public release(node: HeapNode<K, V>): void {
-    for(const _node of this.nodes) {
-      if(_node.getValue() !== node.getValue()) {
-        this.nodes.push(node)
+    for (const _node of this.nodes) {
+      if (_node.getValue() !== node.getValue()) {
+        this.nodes.push(node);
       }
     }
   }
@@ -82,7 +82,7 @@ export class Heap<K, V> {
 
   public *[Symbol.iterator](): IterableIterator<HeapNode<K, V>> {
     for (const node of this.nodes) {
-        yield node;
+      yield node;
     }
   }
 
@@ -91,7 +91,9 @@ export class Heap<K, V> {
 
     while (index > 0) {
       const parentIndex = this.getParentIndex(index);
-      if (this.comparator(this.nodes[parentIndex].getKey(), node.getKey()) < 0) {
+      if (
+        this.comparator(this.nodes[parentIndex].getKey(), node.getKey()) < 0
+      ) {
         this.nodes[index] = this.nodes[parentIndex];
         index = parentIndex;
       } else {
@@ -105,15 +107,23 @@ export class Heap<K, V> {
     const count = this.nodes.length;
 
     const node = this.nodes[index];
-    while (index < (count >> 1)) {
+    while (index < count >> 1) {
       const leftChildIndex = this.getLeftChildIndex(index);
       const rightChildIndex = this.getRightChildIndex(index);
 
-      const smallerChildIndex = rightChildIndex < count &&
-        this.comparator(this.nodes[leftChildIndex].getKey(), this.nodes[rightChildIndex].getKey()) < 0 ?
-        rightChildIndex : leftChildIndex;
+      const smallerChildIndex =
+        rightChildIndex < count &&
+        this.comparator(
+          this.nodes[leftChildIndex].getKey(),
+          this.nodes[rightChildIndex].getKey(),
+        ) < 0
+          ? rightChildIndex
+          : leftChildIndex;
 
-      if (this.comparator(this.nodes[smallerChildIndex].getKey(), node.getKey()) < 0) {
+      if (
+        this.comparator(this.nodes[smallerChildIndex].getKey(), node.getKey()) <
+        0
+      ) {
         break;
       }
 

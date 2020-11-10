@@ -50,7 +50,7 @@ export class JSONRoot {
     rootObject.getDescendants((elem: JSONElement): boolean => {
       this.registerElement(elem);
       return false;
-    })
+    });
   }
 
   public static create(): JSONRoot {
@@ -68,22 +68,33 @@ export class JSONRoot {
    * registerElement registers the given element to hash table.
    */
   public registerElement(element: JSONElement): void {
-    this.elementMapByCreatedAt.set(element.getCreatedAt().toIDString(), element);
+    this.elementMapByCreatedAt.set(
+      element.getCreatedAt().toIDString(),
+      element,
+    );
   }
 
   /**
    * deregisterElement deregister the given element from hash table.
    */
   public deregisterElement(element: JSONElement): void {
-    this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString())
-    this.removedElementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString())
+    this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    this.removedElementPairMapByCreatedAt.delete(
+      element.getCreatedAt().toIDString(),
+    );
   }
 
   /**
    * deregisterElementPair register the given element pair to hash table.
    */
-  public registerRemovedElementPair(parent: JSONContainer, element: JSONElement): void {
-    this.removedElementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), new JSONElementPair(parent, element))
+  public registerRemovedElementPair(
+    parent: JSONContainer,
+    element: JSONElement,
+  ): void {
+    this.removedElementPairMapByCreatedAt.set(
+      element.getCreatedAt().toIDString(),
+      new JSONElementPair(parent, element),
+    );
   }
 
   public getElementMapSize(): number {
@@ -97,13 +108,13 @@ export class JSONRoot {
   public getGarbageLen(): number {
     let count = 0;
 
-    for(const [ , pair] of this.removedElementPairMapByCreatedAt) {
-      count++
+    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+      count++;
       if (pair.element instanceof JSONContainer) {
         pair.element.getDescendants(() => {
-          count++
+          count++;
           return false;
-        })
+        });
       }
     }
 
@@ -117,11 +128,14 @@ export class JSONRoot {
   public garbageCollect(ticket: TimeTicket): number {
     let count = 0;
 
-    for(const [ , pair] of this.removedElementPairMapByCreatedAt) {
-      if(pair.element.getRemovedAt() && ticket.compare(pair.element.getRemovedAt()) >= 0) {
+    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+      if (
+        pair.element.getRemovedAt() &&
+        ticket.compare(pair.element.getRemovedAt()) >= 0
+      ) {
         pair.parent.purge(pair.element);
         count += this._garbageCollect(pair.element);
-      } 
+      }
     }
 
     return count;
@@ -139,9 +153,9 @@ export class JSONRoot {
     callback(element, null);
 
     if (element instanceof JSONObject) {
-      element.getDescendants(callback)
+      element.getDescendants(callback);
     } else if (element instanceof JSONArray) {
-      element.getDescendants(callback)
+      element.getDescendants(callback);
     }
 
     return count;

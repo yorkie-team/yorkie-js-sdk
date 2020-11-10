@@ -246,14 +246,38 @@ export namespace WatchDocumentsRequest {
   }
 }
 
-export class WatchDocumentsResponse extends jspb.Message {
-  getClientId(): string;
-  setClientId(value: string): WatchDocumentsResponse;
+export class Clients extends jspb.Message {
+  getClientIdsList(): Array<string>;
+  setClientIdsList(value: Array<string>): Clients;
+  clearClientIdsList(): Clients;
+  addClientIds(value: string, index?: number): Clients;
 
-  getDocumentKeysList(): Array<DocumentKey>;
-  setDocumentKeysList(value: Array<DocumentKey>): WatchDocumentsResponse;
-  clearDocumentKeysList(): WatchDocumentsResponse;
-  addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Clients.AsObject;
+  static toObject(includeInstance: boolean, msg: Clients): Clients.AsObject;
+  static serializeBinaryToWriter(message: Clients, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Clients;
+  static deserializeBinaryFromReader(message: Clients, reader: jspb.BinaryReader): Clients;
+}
+
+export namespace Clients {
+  export type AsObject = {
+    clientIdsList: Array<string>,
+  }
+}
+
+export class WatchDocumentsResponse extends jspb.Message {
+  getInitialization(): WatchDocumentsResponse.Initialization | undefined;
+  setInitialization(value?: WatchDocumentsResponse.Initialization): WatchDocumentsResponse;
+  hasInitialization(): boolean;
+  clearInitialization(): WatchDocumentsResponse;
+
+  getEvent(): WatchDocumentsResponse.Event | undefined;
+  setEvent(value?: WatchDocumentsResponse.Event): WatchDocumentsResponse;
+  hasEvent(): boolean;
+  clearEvent(): WatchDocumentsResponse;
+
+  getBodyCase(): WatchDocumentsResponse.BodyCase;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): WatchDocumentsResponse.AsObject;
@@ -265,8 +289,62 @@ export class WatchDocumentsResponse extends jspb.Message {
 
 export namespace WatchDocumentsResponse {
   export type AsObject = {
-    clientId: string,
-    documentKeysList: Array<DocumentKey.AsObject>,
+    initialization?: WatchDocumentsResponse.Initialization.AsObject,
+    event?: WatchDocumentsResponse.Event.AsObject,
+  }
+
+  export class Initialization extends jspb.Message {
+    getPeersMapByDocMap(): jspb.Map<string, Clients>;
+    clearPeersMapByDocMap(): Initialization;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Initialization.AsObject;
+    static toObject(includeInstance: boolean, msg: Initialization): Initialization.AsObject;
+    static serializeBinaryToWriter(message: Initialization, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Initialization;
+    static deserializeBinaryFromReader(message: Initialization, reader: jspb.BinaryReader): Initialization;
+  }
+
+  export namespace Initialization {
+    export type AsObject = {
+      peersMapByDocMap: Array<[string, Clients.AsObject]>,
+    }
+  }
+
+
+  export class Event extends jspb.Message {
+    getClientId(): string;
+    setClientId(value: string): Event;
+
+    getEventType(): EventType;
+    setEventType(value: EventType): Event;
+
+    getDocumentKeysList(): Array<DocumentKey>;
+    setDocumentKeysList(value: Array<DocumentKey>): Event;
+    clearDocumentKeysList(): Event;
+    addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Event.AsObject;
+    static toObject(includeInstance: boolean, msg: Event): Event.AsObject;
+    static serializeBinaryToWriter(message: Event, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Event;
+    static deserializeBinaryFromReader(message: Event, reader: jspb.BinaryReader): Event;
+  }
+
+  export namespace Event {
+    export type AsObject = {
+      clientId: string,
+      eventType: EventType,
+      documentKeysList: Array<DocumentKey.AsObject>,
+    }
+  }
+
+
+  export enum BodyCase { 
+    BODY_NOT_SET = 0,
+    INITIALIZATION = 1,
+    EVENT = 2,
   }
 }
 
@@ -465,6 +543,11 @@ export class Operation extends jspb.Message {
   hasStyle(): boolean;
   clearStyle(): Operation;
 
+  getIncrease(): Operation.Increase | undefined;
+  setIncrease(value?: Operation.Increase): Operation;
+  hasIncrease(): boolean;
+  clearIncrease(): Operation;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -485,6 +568,7 @@ export namespace Operation {
     select?: Operation.Select.AsObject,
     richEdit?: Operation.RichEdit.AsObject,
     style?: Operation.Style.AsObject,
+    increase?: Operation.Increase.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -815,6 +899,39 @@ export namespace Operation {
   }
 
 
+  export class Increase extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): Increase;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): Increase;
+
+    getValue(): JSONElementSimple | undefined;
+    setValue(value?: JSONElementSimple): Increase;
+    hasValue(): boolean;
+    clearValue(): Increase;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): Increase;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): Increase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Increase.AsObject;
+    static toObject(includeInstance: boolean, msg: Increase): Increase.AsObject;
+    static serializeBinaryToWriter(message: Increase, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Increase;
+    static deserializeBinaryFromReader(message: Increase, reader: jspb.BinaryReader): Increase;
+  }
+
+  export namespace Increase {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      value?: JSONElementSimple.AsObject,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
@@ -825,6 +942,7 @@ export namespace Operation {
     SELECT = 6,
     RICH_EDIT = 7,
     STYLE = 8,
+    INCREASE = 9,
   }
 }
 
@@ -834,10 +952,10 @@ export class JSONElementSimple extends jspb.Message {
   hasCreatedAt(): boolean;
   clearCreatedAt(): JSONElementSimple;
 
-  getUpdatedAt(): TimeTicket | undefined;
-  setUpdatedAt(value?: TimeTicket): JSONElementSimple;
-  hasUpdatedAt(): boolean;
-  clearUpdatedAt(): JSONElementSimple;
+  getMovedAt(): TimeTicket | undefined;
+  setMovedAt(value?: TimeTicket): JSONElementSimple;
+  hasMovedAt(): boolean;
+  clearMovedAt(): JSONElementSimple;
 
   getRemovedAt(): TimeTicket | undefined;
   setRemovedAt(value?: TimeTicket): JSONElementSimple;
@@ -863,7 +981,7 @@ export class JSONElementSimple extends jspb.Message {
 export namespace JSONElementSimple {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
-    updatedAt?: TimeTicket.AsObject,
+    movedAt?: TimeTicket.AsObject,
     removedAt?: TimeTicket.AsObject,
     type: ValueType,
     value: Uint8Array | string,
@@ -896,6 +1014,11 @@ export class JSONElement extends jspb.Message {
   hasRichText(): boolean;
   clearRichText(): JSONElement;
 
+  getCounter(): JSONElement.Counter | undefined;
+  setCounter(value?: JSONElement.Counter): JSONElement;
+  hasCounter(): boolean;
+  clearCounter(): JSONElement;
+
   getBodyCase(): JSONElement.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -913,6 +1036,7 @@ export namespace JSONElement {
     primitive?: JSONElement.Primitive.AsObject,
     text?: JSONElement.Text.AsObject,
     richText?: JSONElement.RichText.AsObject,
+    counter?: JSONElement.Counter.AsObject,
   }
 
   export class Object extends jspb.Message {
@@ -926,10 +1050,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Object;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Object;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Object;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Object;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Object;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Object;
@@ -948,7 +1072,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RHTNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -965,10 +1089,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Array;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Array;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Array;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Array;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Array;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Array;
@@ -987,7 +1111,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RGANode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1007,10 +1131,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Primitive;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Primitive;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Primitive;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Primitive;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Primitive;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Primitive;
@@ -1030,7 +1154,7 @@ export namespace JSONElement {
       type: ValueType,
       value: Uint8Array | string,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1047,10 +1171,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): Text;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): Text;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): Text;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Text;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Text;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): Text;
@@ -1069,7 +1193,7 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<TextNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1086,10 +1210,10 @@ export namespace JSONElement {
     hasCreatedAt(): boolean;
     clearCreatedAt(): RichText;
 
-    getUpdatedAt(): TimeTicket | undefined;
-    setUpdatedAt(value?: TimeTicket): RichText;
-    hasUpdatedAt(): boolean;
-    clearUpdatedAt(): RichText;
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): RichText;
+    hasMovedAt(): boolean;
+    clearMovedAt(): RichText;
 
     getRemovedAt(): TimeTicket | undefined;
     setRemovedAt(value?: TimeTicket): RichText;
@@ -1108,7 +1232,50 @@ export namespace JSONElement {
     export type AsObject = {
       nodesList: Array<RichTextNode.AsObject>,
       createdAt?: TimeTicket.AsObject,
-      updatedAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
+  export class Counter extends jspb.Message {
+    getType(): ValueType;
+    setType(value: ValueType): Counter;
+
+    getValue(): Uint8Array | string;
+    getValue_asU8(): Uint8Array;
+    getValue_asB64(): string;
+    setValue(value: Uint8Array | string): Counter;
+
+    getCreatedAt(): TimeTicket | undefined;
+    setCreatedAt(value?: TimeTicket): Counter;
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): Counter;
+
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Counter;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Counter;
+
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): Counter;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): Counter;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Counter.AsObject;
+    static toObject(includeInstance: boolean, msg: Counter): Counter.AsObject;
+    static serializeBinaryToWriter(message: Counter, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Counter;
+    static deserializeBinaryFromReader(message: Counter, reader: jspb.BinaryReader): Counter;
+  }
+
+  export namespace Counter {
+    export type AsObject = {
+      type: ValueType,
+      value: Uint8Array | string,
+      createdAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
       removedAt?: TimeTicket.AsObject,
     }
   }
@@ -1121,6 +1288,7 @@ export namespace JSONElement {
     PRIMITIVE = 3,
     TEXT = 4,
     RICH_TEXT = 5,
+    COUNTER = 6,
   }
 }
 
@@ -1413,4 +1581,12 @@ export enum ValueType {
   JSON_ARRAY = 9,
   TEXT = 10,
   RICH_TEXT = 11,
+  INTEGER_CNT = 12,
+  LONG_CNT = 13,
+  DOUBLE_CNT = 14,
+}
+export enum EventType { 
+  DOCUMENTS_CHANGED = 0,
+  DOCUMENTS_WATCHED = 1,
+  DOCUMENTS_UNWATCHED = 2,
 }
