@@ -27,13 +27,24 @@ import { JSONObject } from './object';
  * Every element has a unique time ticket at creation, which allows us to find
  * a particular element.
  */
+class JSONElementPair {
+  public parent: JSONContainer;
+  public element: JSONElement;
+
+  constructor(parent: JSONContainer, element: JSONElement) {
+    this.parent = parent;
+    this.element = element;
+  }
+}
 export class JSONRoot {
   private rootObject: JSONObject;
   private elementMapByCreatedAt: Map<string, JSONElement>;
+  private removedElementPairMapByCreatedAt: Map<string, JSONElementPair>;
 
   constructor(rootObject: JSONObject) {
     this.rootObject = rootObject;
     this.elementMapByCreatedAt = new Map();
+    this.removedElementPairMapByCreatedAt = new Map();
 
     this.registerElement(this.rootObject);
     rootObject.getDescendants((elem: JSONElement): boolean => {
@@ -65,6 +76,14 @@ export class JSONRoot {
    */
   public deregisterElement(element: JSONElement): void {
     this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString())
+    this.removedElementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString())
+  }
+
+  /**
+   * deregisterElementPair register the given element pair to hash table.
+   */
+  public registerRemovedElementPair(parent: JSONContainer, element: JSONElement): void {
+    this.removedElementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), new JSONElementPair(parent, element))
   }
 
   public getElementMapSize(): number {
@@ -75,6 +94,22 @@ export class JSONRoot {
     return this.rootObject;
   }
 
+  public getGarbageLen(): number {
+    let count = 0;
+
+    for(const [ , pair] of this.removedElementPairMapByCreatedAt) {
+      count++
+      if (pair.element instanceof JSONContainer) {
+        pair.element.getDescendants(() => {
+          count++
+          return false;
+        })
+      }
+    }
+
+    return count;
+  }
+
   public deepcopy(): JSONRoot {
     return new JSONRoot(this.rootObject.deepcopy());
   }
@@ -82,15 +117,12 @@ export class JSONRoot {
   public garbageCollect(ticket: TimeTicket): number {
     let count = 0;
 
-    this.rootObject.getDescendants((elem: JSONElement, parent: JSONContainer): boolean => {
-      const shouldGC = elem.getRemovedAt() !== undefined && ticket.after(elem.getRemovedAt());
-      if (shouldGC) {
-        parent.purge(elem);
-        count += this._garbageCollect(elem)
-      }
-
-      return shouldGC;
-    })
+    for(const [ , pair] of this.removedElementPairMapByCreatedAt) {
+      if(pair.element.getRemovedAt() && ticket.compare(pair.element.getRemovedAt()) >= 0) {
+        pair.parent.purge(pair.element);
+        count += this._garbageCollect(pair.element);
+      } 
+    }
 
     return count;
   }

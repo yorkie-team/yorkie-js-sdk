@@ -141,6 +141,9 @@ export class Document implements Observable<DocEvent> {
     // 03. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
+    // 04. Do Garbage collection.
+    this.garbageCollect(pack.getMinSyncedTicket());
+
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
     }
@@ -205,6 +208,10 @@ export class Document implements Observable<DocEvent> {
 
   public getRoot(): JSONObject {
     return this.root.getObject();
+  }
+
+  public getGarbageLen(): number {
+    return this.root.getGarbageLen();
   }
 
   public toJSON(): string {

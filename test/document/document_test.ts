@@ -256,7 +256,9 @@ describe('Document', function() {
       delete root["2"]
     }, 'deletes 2')
     assert.equal('{"1":1,"3":3}', doc.toSortedJSON())
+    assert.equal(4, doc.getGarbageLen())
     assert.equal(4, doc.garbageCollect(MaxTimeTicket))
+    assert.equal(0, doc.getGarbageLen())
   });
 
   it("garbage collection test 2", function() {

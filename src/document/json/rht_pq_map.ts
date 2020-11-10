@@ -75,7 +75,9 @@ export class RHTPQMap {
       return null;
     }
 
-    this.nodeMapByCreatedAt.get(createdAt.toIDString()).remove(executedAt);
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    node.remove(executedAt);
+    return node.getValue()
   }
 
   public purge(element: JSONElement): void {

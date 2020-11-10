@@ -3434,7 +3434,8 @@ proto.api.ChangePack.toObject = function(includeInstance, msg) {
     checkpoint: (f = msg.getCheckpoint()) && proto.api.Checkpoint.toObject(includeInstance, f),
     snapshot: msg.getSnapshot_asB64(),
     changesList: jspb.Message.toObjectList(msg.getChangesList(),
-    proto.api.Change.toObject, includeInstance)
+    proto.api.Change.toObject, includeInstance),
+    minSyncedTicket: (f = msg.getMinSyncedTicket()) && proto.api.TimeTicket.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -3489,6 +3490,11 @@ proto.api.ChangePack.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.api.Change;
       reader.readMessage(value,proto.api.Change.deserializeBinaryFromReader);
       msg.addChanges(value);
+      break;
+    case 5:
+      var value = new proto.api.TimeTicket;
+      reader.readMessage(value,proto.api.TimeTicket.deserializeBinaryFromReader);
+      msg.setMinSyncedTicket(value);
       break;
     default:
       reader.skipField();
@@ -3548,6 +3554,14 @@ proto.api.ChangePack.serializeBinaryToWriter = function(message, writer) {
       4,
       f,
       proto.api.Change.serializeBinaryToWriter
+    );
+  }
+  f = message.getMinSyncedTicket();
+  if (f != null) {
+    writer.writeMessage(
+      5,
+      f,
+      proto.api.TimeTicket.serializeBinaryToWriter
     );
   }
 };
@@ -3704,6 +3718,43 @@ proto.api.ChangePack.prototype.addChanges = function(opt_value, opt_index) {
  */
 proto.api.ChangePack.prototype.clearChangesList = function() {
   return this.setChangesList([]);
+};
+
+
+/**
+ * optional TimeTicket min_synced_ticket = 5;
+ * @return {?proto.api.TimeTicket}
+ */
+proto.api.ChangePack.prototype.getMinSyncedTicket = function() {
+  return /** @type{?proto.api.TimeTicket} */ (
+    jspb.Message.getWrapperField(this, proto.api.TimeTicket, 5));
+};
+
+
+/**
+ * @param {?proto.api.TimeTicket|undefined} value
+ * @return {!proto.api.ChangePack} returns this
+*/
+proto.api.ChangePack.prototype.setMinSyncedTicket = function(value) {
+  return jspb.Message.setWrapperField(this, 5, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.api.ChangePack} returns this
+ */
+proto.api.ChangePack.prototype.clearMinSyncedTicket = function() {
+  return this.setMinSyncedTicket(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.api.ChangePack.prototype.hasMinSyncedTicket = function() {
+  return jspb.Message.getField(this, 5) != null;
 };
 
 

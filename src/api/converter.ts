@@ -383,6 +383,7 @@ function toChangePack(pack: ChangePack): PbChangePack {
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot());
+  pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
   return pbChangePack;
 }
 
@@ -625,6 +626,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
     fromCheckpoint(pbPack.getCheckpoint()),
     fromChanges(pbPack.getChangesList()),
     pbPack.getSnapshot_asU8(),
+    fromTimeTicket(pbPack.getMinSyncedTicket()),
   );
 }
 
