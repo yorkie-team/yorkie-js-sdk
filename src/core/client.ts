@@ -135,7 +135,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.rpcClient.activateClient(req, {}, (err, res) => {
         if (err) {
-          logger.error(`[AC] c:"${this.getKey()}" err :"${err}"`);
+          logger.error(`[AC] c:"${this.getKey()}" err :`, err);
           reject(err);
           return;
         }
@@ -177,7 +177,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.rpcClient.deactivateClient(req, {}, (err) => {
         if (err) {
-          logger.error(`[DC] c:"${this.getKey()}" err :"${err}"`);
+          logger.error(`[DC] c:"${this.getKey()}" err :`, err);
           reject(err);
           return;
         }
@@ -212,7 +212,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.rpcClient.attachDocument(req, {}, (err, res) => {
         if (err) {
-          logger.error(`[AD] c:"${this.getKey()}" err :"${err}"`);
+          logger.error(`[AD] c:"${this.getKey()}" err :`, err);
           reject(err);
           return;
         }
@@ -255,7 +255,7 @@ export class Client implements Observable<ClientEvent> {
 
       this.rpcClient.detachDocument(req, {}, (err, res) => {
         if (err) {
-          logger.error(`[DD] c:"${this.getKey()}" err :"${err}"`);
+          logger.error(`[DD] c:"${this.getKey()}" err :`, err);
           reject(err);
           return;
         }
@@ -343,7 +343,7 @@ export class Client implements Observable<ClientEvent> {
           setTimeout(doLoop, syncLoopDuration);
         })
         .catch((err) => {
-          logger.error(`[SL] c:"${this.getKey()}" sync failed: ${err.message}`);
+          logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
           this.eventStreamObserver.next({
             name: ClientEventType.DocumentSyncResult,
             value: DocumentSyncResultType.SyncFailed,
@@ -497,7 +497,7 @@ export class Client implements Observable<ClientEvent> {
       this.rpcClient
         .pushPull(req, {}, (err, res) => {
           if (err) {
-            logger.error(`[PP] c:"${this.getKey()}" err :"${err}"`);
+            logger.error(`[PP] c:"${this.getKey()}" err :`, err);
 
             isRejected = true;
             reject(err);
