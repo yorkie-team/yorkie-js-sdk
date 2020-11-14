@@ -18,10 +18,10 @@ import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
 import { RGATreeList } from './rga_tree_list';
 import { JSONObject } from './object';
+
 /**
  * JSONArray represents JSON array data structure including logical clock.
  */
-
 export class JSONArray extends JSONContainer {
   private elements: RGATreeList;
 
@@ -92,7 +92,7 @@ export class JSONArray extends JSONContainer {
 
   public getDescendants(
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
-  ): IterableIterator<JSONElement> {
+  ): void {
     for (const node of this.elements) {
       const element = node.getValue();
       if (callback(element, this)) {

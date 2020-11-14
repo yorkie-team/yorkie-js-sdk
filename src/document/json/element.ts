@@ -80,5 +80,5 @@ export abstract class JSONContainer extends JSONElement {
 
   abstract getDescendants(
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
-  ): IterableIterator<JSONElement>;
+  ): void;
 }

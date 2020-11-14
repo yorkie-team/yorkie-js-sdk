@@ -121,7 +121,7 @@ export class JSONObject extends JSONContainer {
 
   public getDescendants(
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
-  ): IterableIterator<JSONElement> {
+  ): void {
     for (const node of this.memberNodes) {
       const element = node.getValue();
       if (callback(element, this)) {

@@ -18,7 +18,7 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
-import { JSONArray } from '../../src/document/json/array'
+import { JSONArray } from '../../src/document/json/array';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
