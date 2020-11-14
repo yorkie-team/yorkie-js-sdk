@@ -18,7 +18,6 @@ import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
 import { RGATreeList } from './rga_tree_list';
 import { JSONObject } from './object';
-
 /**
  * JSONArray represents JSON array data structure including logical clock.
  */

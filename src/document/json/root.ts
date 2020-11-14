@@ -85,7 +85,7 @@ export class JSONRoot {
   }
 
   /**
-   * deregisterElementPair register the given element pair to hash table.
+   * registerRemovedElementPair register the given element pair to hash table.
    */
   public registerRemovedElementPair(
     parent: JSONContainer,

@@ -207,6 +207,9 @@ export class Document implements Observable<DocEvent> {
   }
 
   public garbageCollect(ticket: TimeTicket): number {
+    if (this.clone) {
+      this.clone.garbageCollect(ticket);
+    }
     return this.root.garbageCollect(ticket);
   }
 
