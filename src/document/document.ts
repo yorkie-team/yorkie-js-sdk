@@ -199,6 +199,10 @@ export class Document implements Observable<DocEvent> {
     return this.key;
   }
 
+  public getClone(): JSONObject {
+    return this.clone.getObject();
+  }
+
   public getRootObject(): JSONObject {
     this.ensureClone();
 

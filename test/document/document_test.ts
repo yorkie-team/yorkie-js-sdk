@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { JSONArray } from '../../src/document/json/array'
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -294,6 +295,34 @@ describe('Document', function () {
     }, 'deletes the array');
 
     assert.equal(size + 1, doc.garbageCollect(MaxTimeTicket));
+  });
+
+  it('garbage collection test3', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [1, 2, 3];
+    }, 'set 1, 2, 3');
+    assert.equal('{"list":[1,2,3]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['list'][1];
+    }, 'deletes 2');
+    assert.equal('{"list":[1,3]}', doc.toSortedJSON());
+
+    assert.equal(1, doc.getGarbageLen());
+    assert.equal(1, doc.garbageCollect(MaxTimeTicket));
+    assert.equal(0, doc.getGarbageLen());
+
+    const root = (doc.getRoot().get('list') as JSONArray)
+      .getElements()
+      .getAnnotatedString();
+    const clone = (doc.getClone().get('list') as JSONArray)
+      .getElements()
+      .getAnnotatedString();
+
+    assert.equal(root, clone);
   });
 
   it('can insert an element after the given element in array', function () {
