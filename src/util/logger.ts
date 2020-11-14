@@ -29,70 +29,70 @@ export function setLogLevel(l: LogLevel): void {
 }
 
 export const logger = {
-  trivial: (message: string): void => {
+  trivial: (...messages: unknown[]): void => {
     if (level > LogLevel.Trivial) {
       return;
     }
 
     if (typeof console != 'undefined') {
-      console.log(`YORKIE T: ${message}`);
+      console.log('YORKIE T:', ...messages);
     }
   },
 
-  debug: (message: string): void => {
+  debug: (...messages: unknown[]): void => {
     if (level > LogLevel.Debug) {
       return;
     }
 
     if (typeof console != 'undefined') {
-      console.log(`YORKIE D: ${message}`);
+      console.log('YORKIE D:', ...messages);
     }
   },
 
-  info: (message: string): void => {
+  info: (...messages: unknown[]): void => {
     if (level > LogLevel.Info) {
       return;
     }
 
     if (typeof console != 'undefined') {
-      console.log(`YORKIE I: ${message}`);
+      console.log('YORKIE I:', ...messages);
     }
   },
 
-  warn: (message: string): void => {
+  warn: (...messages: unknown[]): void => {
     if (level > LogLevel.Warn) {
       return;
     }
 
     if (typeof console != 'undefined') {
       if (typeof console.warn !== 'undefined') {
-        console.warn(`YORKIE W: ${message}`);
+        console.warn('YORKIE W:', ...messages);
       } else {
-        console.log(`YORKIE W: ${message}`);
+        console.log('YORKIE W:', ...messages);
       }
     }
   },
 
-  error: (message: string): void => {
+  error: (...messages: unknown[]): void => {
     if (level > LogLevel.Error) {
       return;
     }
 
     if (typeof console != 'undefined') {
       if (typeof console.error !== 'undefined') {
-        console.error(`YORKIE E: ${message}`);
+        console.error('YORKIE E:', ...messages);
       } else {
-        console.log(`YORKIE E: ${message}`);
+        console.log('YORKIE E:', ...messages);
       }
     }
   },
 
-  fatal: (message: string): void => {
+  fatal: (message: string, ...messages: unknown[]): void => {
     if (typeof console != 'undefined') {
       if (typeof console.error !== 'undefined') {
-        console.error(`YORKIE F: ${message}`);
+        console.error('YORKIE F:', ...messages);
       } else {
-        console.log(`YORKIE F: ${message}`);
+        console.log('YORKIE F:', ...messages);
       }
     }
 
