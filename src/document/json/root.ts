@@ -15,7 +15,6 @@
  */
 
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONArray } from './array';
 import { JSONContainer, JSONElement } from './element';
 import { JSONObject } from './object';
 
@@ -152,9 +151,7 @@ export class JSONRoot {
 
     callback(element, null);
 
-    if (element instanceof JSONObject) {
-      element.getDescendants(callback);
-    } else if (element instanceof JSONArray) {
+    if (element instanceof JSONContainer) {
       element.getDescendants(callback);
     }
 

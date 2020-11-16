@@ -17,7 +17,6 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
-import { JSONArray } from './array';
 import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './plain_text';
 import { RichText } from './rich_text';
@@ -128,9 +127,7 @@ export class JSONObject extends JSONContainer {
         return;
       }
 
-      if (element instanceof JSONObject) {
-        element.getDescendants(callback);
-      } else if (element instanceof JSONArray) {
+      if (element instanceof JSONContainer) {
         element.getDescendants(callback);
       }
     }

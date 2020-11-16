@@ -17,7 +17,6 @@
 import { TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement } from './element';
 import { RGATreeList } from './rga_tree_list';
-import { JSONObject } from './object';
 
 /**
  * JSONArray represents JSON array data structure including logical clock.
@@ -99,9 +98,7 @@ export class JSONArray extends JSONContainer {
         return;
       }
 
-      if (element instanceof JSONObject) {
-        element.getDescendants(callback);
-      } else if (element instanceof JSONArray) {
+      if (element instanceof JSONContainer) {
         element.getDescendants(callback);
       }
     }
