@@ -541,7 +541,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const isRemote = !!latestCreatedAtMapByActor;
     const changes: Array<Change> = [];
     const createdAtMapByActor = new Map();
-    const nodesToDelete = [];
+    const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
     for (const node of candidates) {
