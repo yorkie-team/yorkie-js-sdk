@@ -52,13 +52,13 @@ export class Heap<K, V> {
   }
 
   public release(node: HeapNode<K, V>): void {
-    const nodes = [];
-    for (const _node of this.nodes) {
-      if (_node.getValue() !== node.getValue()) {
-        nodes.push(node);
-      }
+    const idx = this.nodes.findIndex((_node) => {
+      return _node.getValue() === node.getValue();
+    });
+
+    if (idx > -1) {
+      this.nodes.splice(idx, 1);
     }
-    this.nodes = nodes;
   }
 
   public push(node: HeapNode<K, V>): void {
