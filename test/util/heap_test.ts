@@ -30,4 +30,61 @@ describe('Heap', function () {
       assert.equal(idx, heap.pop().getValue());
     }
   });
+  describe('Can release', function () {
+    it('if root node is deleted', function () {
+      const heap = new Heap<number, number>();
+      const root = new HeapNode(9, 9);
+      for (const idx of range(0, 10)) {
+        heap.push(new HeapNode(idx, idx));
+      }
+
+      heap.release(root);
+
+      const expected = [8, 7, 5, 6, 2, 1, 4, 0, 3];
+      for (const node of heap) {
+        assert.equal(expected.shift(), node.getValue());
+      }
+    });
+
+    it('if parent node is deleted', function () {
+      const heap = new Heap<number, number>();
+      const parentNode = new HeapNode(5, 5);
+      for (const idx of range(0, 10)) {
+        heap.push(new HeapNode(idx, idx));
+      }
+
+      heap.release(parentNode);
+
+      const expected = [9, 8, 4, 6, 7, 1, 2, 0, 3];
+      for (const node of heap) {
+        assert.equal(expected.shift(), node.getValue());
+      }
+    });
+
+    it('if leaf node is deleted', function () {
+      const heap = new Heap<number, number>();
+      const leaf = new HeapNode(3, 3);
+      for (const idx of range(0, 10)) {
+        heap.push(new HeapNode(idx, idx));
+      }
+
+      heap.release(leaf);
+
+      const expected = [9, 8, 5, 6, 7, 1, 4, 0, 2];
+
+      for (const node of heap) {
+        assert.equal(expected.shift(), node.getValue());
+      }
+    });
+
+    it('if a heap has one node', function () {
+      const heap = new Heap<number, number>();
+      const node = new HeapNode(0, 0);
+      heap.push(node);
+
+      heap.release(node);
+
+      assert.equal(0, heap.len());
+    });
+  });
 });

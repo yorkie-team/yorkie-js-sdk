@@ -51,12 +51,27 @@ export class Heap<K, V> {
     return this.nodes[0];
   }
 
+  public len(): number {
+    return this.nodes.length;
+  }
+
   public release(node: HeapNode<K, V>): void {
-    for (const _node of this.nodes) {
-      if (_node.getValue() !== node.getValue()) {
-        this.nodes.push(node);
-      }
+    const targetIndex = this.nodes.findIndex(
+      (_node) => _node.getValue() === node.getValue(),
+    );
+
+    if (targetIndex < 0) {
+      return;
     }
+
+    const lastNode = this.nodes.pop();
+    if (!this.len()) {
+      this.nodes = [];
+      return;
+    }
+    this.nodes[targetIndex] = lastNode;
+
+    this.heapify(this.getParentIndex(targetIndex), targetIndex);
   }
 
   public push(node: HeapNode<K, V>): void {
@@ -83,6 +98,20 @@ export class Heap<K, V> {
   public *[Symbol.iterator](): IterableIterator<HeapNode<K, V>> {
     for (const node of this.nodes) {
       yield node;
+    }
+  }
+
+  private heapify(parentIndex: number, targetIndex: number): void {
+    if (
+      parentIndex > -1 &&
+      this.comparator(
+        this.nodes[parentIndex].getKey(),
+        this.nodes[targetIndex].getKey(),
+      ) < 0
+    ) {
+      this.moveUp(targetIndex);
+    } else {
+      this.moveDown(targetIndex);
     }
   }
 
