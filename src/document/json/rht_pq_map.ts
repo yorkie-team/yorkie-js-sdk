@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { logger } from '../../util/logger';
 import { HeapNode, Heap } from '../../util/heap';
 import { TicketComparator, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
@@ -74,7 +75,29 @@ export class RHTPQMap {
       return null;
     }
 
-    this.nodeMapByCreatedAt.get(createdAt.toIDString()).remove(executedAt);
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    node.remove(executedAt);
+    return node.getValue();
+  }
+
+  public purge(element: JSONElement): void {
+    const node = this.nodeMapByCreatedAt.get(
+      element.getCreatedAt().toIDString(),
+    );
+    if (!node) {
+      logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
+    }
+
+    const queue = this.elementQueueMapByKey.get(node.getStrKey());
+    if (!queue) {
+      logger.fatal(
+        `fail to find queue of ${element.getCreatedAt().toIDString()}`,
+      );
+    }
+
+    queue.release(node);
+
+    this.nodeMapByCreatedAt.delete(element.getCreatedAt().toIDString());
   }
 
   public deleteByKey(key: string, removedAt: TimeTicket): JSONElement {

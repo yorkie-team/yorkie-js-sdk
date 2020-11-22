@@ -231,6 +231,7 @@ export class ObjectProxy {
         ticket,
       ),
     );
+    context.registerRemovedElementPair(target, deleted);
   }
 
   public getHandlers(): any {
