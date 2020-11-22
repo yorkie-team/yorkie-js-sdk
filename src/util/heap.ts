@@ -59,16 +59,12 @@ export class Heap<K, V> {
     const targetIndex = this.nodes.findIndex(
       (_node) => _node.getValue() === node.getValue(),
     );
-
-    if (targetIndex < 0) {
-      return;
-    }
-
     const lastNode = this.nodes.pop();
-    if (!this.len()) {
-      this.nodes = [];
+
+    if (targetIndex < 0 || !this.len()) {
       return;
     }
+
     this.nodes[targetIndex] = lastNode;
 
     this.heapify(this.getParentIndex(targetIndex), targetIndex);
