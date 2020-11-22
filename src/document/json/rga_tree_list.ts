@@ -147,7 +147,9 @@ export class RGATreeList {
     this.nodeMapByIndex.delete(node);
     this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
 
-    this.size -= 1;
+    if (!node.isRemoved()) {
+      this.size -= 1;
+    }
   }
 
   public insertAfter(
@@ -199,6 +201,20 @@ export class RGATreeList {
   public get(createdAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     return node.getValue();
+  }
+
+  public purge(element: JSONElement): void {
+    const node = this.nodeMapByCreatedAt.get(
+      element.getCreatedAt().toIDString(),
+    );
+    if (!node) {
+      logger.fatal(
+        `fail to find the given createdAt: ${element
+          .getCreatedAt()
+          .toIDString()}`,
+      );
+    }
+    this.release(node);
   }
 
   public getByIndex(idx: number): RGATreeListNode {
