@@ -138,7 +138,7 @@ proto.api.YorkieClient.prototype.activateClient =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.api.ActivateClientResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.api.YorkiePromiseClient.prototype.activateClient =
     function(request, metadata) {
@@ -218,7 +218,7 @@ proto.api.YorkieClient.prototype.deactivateClient =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.api.DeactivateClientResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.api.YorkiePromiseClient.prototype.deactivateClient =
     function(request, metadata) {
@@ -298,7 +298,7 @@ proto.api.YorkieClient.prototype.attachDocument =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.api.AttachDocumentResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.api.YorkiePromiseClient.prototype.attachDocument =
     function(request, metadata) {
@@ -378,7 +378,7 @@ proto.api.YorkieClient.prototype.detachDocument =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.api.DetachDocumentResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.api.YorkiePromiseClient.prototype.detachDocument =
     function(request, metadata) {
@@ -533,7 +533,7 @@ proto.api.YorkieClient.prototype.pushPull =
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.api.PushPullResponse>}
- *     A native promise that resolves to the response
+ *     Promise that resolves to the response
  */
 proto.api.YorkiePromiseClient.prototype.pushPull =
     function(request, metadata) {

@@ -256,6 +256,7 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    context.registerRemovedElementPair(target, deleted);
     return deleted;
   }
 
@@ -273,6 +274,7 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    context.registerRemovedElementPair(target, deleted);
     return deleted;
   }
 

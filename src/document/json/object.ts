@@ -49,6 +49,9 @@ export class JSONObject extends JSONContainer {
     return null;
   }
 
+  public purge(value: JSONElement): void {
+    this.memberNodes.purge(value);
+  }
   /**
    * Don't use createCounter directly. Be sure to use it through a proxy.
    * The reason for setting the CounterProxy type as the return value
@@ -115,16 +118,18 @@ export class JSONObject extends JSONContainer {
     return clone;
   }
 
-  public *getDescendants(): IterableIterator<JSONElement> {
+  public getDescendants(
+    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  ): void {
     for (const node of this.memberNodes) {
       const element = node.getValue();
-      if (element instanceof JSONContainer) {
-        for (const descendant of element.getDescendants()) {
-          yield descendant;
-        }
+      if (callback(element, this)) {
+        return;
       }
 
-      yield element;
+      if (element instanceof JSONContainer) {
+        element.getDescendants(callback);
+      }
     }
   }
 

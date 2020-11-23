@@ -1,4 +1,6 @@
-import * as jspb from "google-protobuf"
+import * as jspb from 'google-protobuf'
+
+
 
 export class RequestHeader extends jspb.Message {
   getVersion(): number;
@@ -1029,12 +1031,12 @@ export class JSONElement extends jspb.Message {
 
 export namespace JSONElement {
   export type AsObject = {
-    object?: Object.AsObject,
-    array?: Array.AsObject,
-    primitive?: Primitive.AsObject,
-    text?: Text.AsObject,
-    richText?: RichText.AsObject,
-    counter?: Counter.AsObject,
+    object?: JSONElement.Object.AsObject,
+    array?: JSONElement.Array.AsObject,
+    primitive?: JSONElement.Primitive.AsObject,
+    text?: JSONElement.Text.AsObject,
+    richText?: JSONElement.RichText.AsObject,
+    counter?: JSONElement.Counter.AsObject,
   }
 
   export class Object extends jspb.Message {

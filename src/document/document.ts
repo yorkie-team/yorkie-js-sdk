@@ -32,6 +32,7 @@ import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
 import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
+import { TimeTicket } from './time/ticket';
 
 export enum DocEventType {
   Snapshot = 'snapshot',
@@ -148,6 +149,9 @@ export class Document implements Observable<DocEvent> {
     // 03. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
+    // 04. Do Garbage collection.
+    this.garbageCollect(pack.getMinSyncedTicket());
+
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
     }
@@ -195,6 +199,10 @@ export class Document implements Observable<DocEvent> {
     return this.key;
   }
 
+  public getClone(): JSONObject {
+    return this.clone.getObject();
+  }
+
   public getRootObject(): JSONObject {
     this.ensureClone();
 
@@ -202,8 +210,19 @@ export class Document implements Observable<DocEvent> {
     return createProxy(context, this.clone.getObject());
   }
 
+  public garbageCollect(ticket: TimeTicket): number {
+    if (this.clone) {
+      this.clone.garbageCollect(ticket);
+    }
+    return this.root.garbageCollect(ticket);
+  }
+
   public getRoot(): JSONObject {
     return this.root.getObject();
+  }
+
+  public getGarbageLen(): number {
+    return this.root.getGarbageLen();
   }
 
   public toJSON(): string {
