@@ -15,7 +15,7 @@
  */
 
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { JSONContainer, JSONElement } from './element';
 import { JSONObject } from './object';
 
 /**
@@ -26,18 +26,30 @@ import { JSONObject } from './object';
  * Every element has a unique time ticket at creation, which allows us to find
  * a particular element.
  */
+class JSONElementPair {
+  public parent: JSONContainer;
+  public element: JSONElement;
+
+  constructor(parent: JSONContainer, element: JSONElement) {
+    this.parent = parent;
+    this.element = element;
+  }
+}
 export class JSONRoot {
   private rootObject: JSONObject;
   private elementMapByCreatedAt: Map<string, JSONElement>;
+  private removedElementPairMapByCreatedAt: Map<string, JSONElementPair>;
 
   constructor(rootObject: JSONObject) {
     this.rootObject = rootObject;
     this.elementMapByCreatedAt = new Map();
+    this.removedElementPairMapByCreatedAt = new Map();
 
     this.registerElement(this.rootObject);
-    for (const elem of this.getDescendants()) {
+    rootObject.getDescendants((elem: JSONElement): boolean => {
       this.registerElement(elem);
-    }
+      return false;
+    });
   }
 
   public static create(): JSONRoot {
@@ -61,10 +73,27 @@ export class JSONRoot {
     );
   }
 
-  public *getDescendants(): IterableIterator<JSONElement> {
-    for (const descendant of this.rootObject.getDescendants()) {
-      yield descendant;
-    }
+  /**
+   * deregisterElement deregister the given element from hash table.
+   */
+  public deregisterElement(element: JSONElement): void {
+    this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    this.removedElementPairMapByCreatedAt.delete(
+      element.getCreatedAt().toIDString(),
+    );
+  }
+
+  /**
+   * registerRemovedElementPair register the given element pair to hash table.
+   */
+  public registerRemovedElementPair(
+    parent: JSONContainer,
+    element: JSONElement,
+  ): void {
+    this.removedElementPairMapByCreatedAt.set(
+      element.getCreatedAt().toIDString(),
+      new JSONElementPair(parent, element),
+    );
   }
 
   public getElementMapSize(): number {
@@ -75,8 +104,58 @@ export class JSONRoot {
     return this.rootObject;
   }
 
+  public getGarbageLen(): number {
+    let count = 0;
+
+    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+      count++;
+      if (pair.element instanceof JSONContainer) {
+        pair.element.getDescendants(() => {
+          count++;
+          return false;
+        });
+      }
+    }
+
+    return count;
+  }
+
   public deepcopy(): JSONRoot {
     return new JSONRoot(this.rootObject.deepcopy());
+  }
+
+  public garbageCollect(ticket: TimeTicket): number {
+    let count = 0;
+
+    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+      if (
+        pair.element.getRemovedAt() &&
+        ticket.compare(pair.element.getRemovedAt()) >= 0
+      ) {
+        pair.parent.purge(pair.element);
+        count += this._garbageCollect(pair.element);
+      }
+    }
+
+    return count;
+  }
+
+  private _garbageCollect(element: JSONElement): number {
+    let count = 0;
+
+    const callback = (elem: JSONElement, parent: JSONContainer): boolean => {
+      this.deregisterElement(elem);
+      count++;
+      return false;
+    };
+
+    callback(element, null);
+
+    if (element instanceof JSONContainer) {
+      element.getDescendants(callback);
+    }
+
+    return count;
   }
 
   public toJSON(): string {

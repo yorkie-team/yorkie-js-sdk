@@ -33,6 +33,10 @@ export class JSONArray extends JSONContainer {
     return new JSONArray(createdAt, RGATreeList.create());
   }
 
+  public purge(element: JSONElement): void {
+    this.elements.purge(element);
+  }
+
   public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
     this.elements.insertAfter(prevCreatedAt, value);
   }
@@ -85,16 +89,18 @@ export class JSONArray extends JSONContainer {
     }
   }
 
-  public *getDescendants(): IterableIterator<JSONElement> {
+  public getDescendants(
+    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  ): void {
     for (const node of this.elements) {
       const element = node.getValue();
-      if (element instanceof JSONContainer) {
-        for (const descendant of element.getDescendants()) {
-          yield descendant;
-        }
+      if (callback(element, this)) {
+        return;
       }
 
-      yield element;
+      if (element instanceof JSONContainer) {
+        element.getDescendants(callback);
+      }
     }
   }
 

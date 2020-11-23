@@ -17,6 +17,7 @@
 import { DocumentKey } from '../key/document_key';
 import { Checkpoint } from '../checkpoint/checkpoint';
 import { Change } from './change';
+import { TimeTicket } from '../time/ticket';
 
 /**
  * ChangePack is a unit for delivering changes in a document to the remote.
@@ -26,17 +27,20 @@ export class ChangePack {
   private checkpoint: Checkpoint;
   private changes: Change[];
   private snapshot: Uint8Array;
+  private minSyncedTicket: TimeTicket;
 
   constructor(
     key: DocumentKey,
     checkpoint: Checkpoint,
     changes: Change[],
     snapshot: Uint8Array,
+    minSyncedTicket: TimeTicket,
   ) {
     this.key = key;
     this.checkpoint = checkpoint;
     this.changes = changes;
     this.snapshot = snapshot;
+    this.minSyncedTicket = minSyncedTicket;
   }
 
   public static create(
@@ -44,8 +48,9 @@ export class ChangePack {
     checkpoint: Checkpoint,
     changes: Change[],
     snapshot?: Uint8Array,
+    minSyncedTicket?: TimeTicket,
   ): ChangePack {
-    return new ChangePack(key, checkpoint, changes, snapshot);
+    return new ChangePack(key, checkpoint, changes, snapshot, minSyncedTicket);
   }
 
   public getKey(): DocumentKey {
@@ -74,5 +79,9 @@ export class ChangePack {
 
   public getSnapshot(): Uint8Array {
     return this.snapshot;
+  }
+
+  public getMinSyncedTicket(): TimeTicket {
+    return this.minSyncedTicket;
   }
 }

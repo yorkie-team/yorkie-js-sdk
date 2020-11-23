@@ -17,9 +17,8 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
-import { JSONObject } from '../json/object';
-import { JSONArray } from '../json/array';
 import { Operation } from './operation';
+import { JSONContainer } from '../json/element';
 
 export class RemoveOperation extends Operation {
   private createdAt: TimeTicket;
@@ -43,12 +42,10 @@ export class RemoveOperation extends Operation {
 
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof JSONObject) {
-      const obj = parentObject as JSONObject;
-      obj.delete(this.createdAt, this.getExecutedAt());
-    } else if (parentObject instanceof JSONArray) {
-      const array = parentObject as JSONArray;
-      array.delete(this.createdAt, this.getExecutedAt());
+    if (parentObject instanceof JSONContainer) {
+      const obj = parentObject;
+      const elem = obj.delete(this.createdAt, this.getExecutedAt());
+      root.registerRemovedElementPair(parentObject, elem);
     } else {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }

@@ -17,6 +17,8 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
+import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { JSONArray } from '../../src/document/json/array';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -259,6 +261,68 @@ describe('Document', function () {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
     }
+  });
+
+  it('garbage collection test', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['1'] = 1;
+      root['2'] = [1, 2, 3];
+      root['3'] = 3;
+    }, 'set 1, 2, 3');
+    assert.equal('{"1":1,"2":[1,2,3],"3":3}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['2'];
+    }, 'deletes 2');
+    assert.equal('{"1":1,"3":3}', doc.toSortedJSON());
+    assert.equal(4, doc.getGarbageLen());
+    assert.equal(4, doc.garbageCollect(MaxTimeTicket));
+    assert.equal(0, doc.getGarbageLen());
+  });
+
+  it('garbage collection test2', function () {
+    const size = 10000;
+    const doc = Document.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root['1'] = [...Array(size).keys()];
+    }, 'sets big array');
+
+    doc.update((root) => {
+      delete root['1'];
+    }, 'deletes the array');
+
+    assert.equal(size + 1, doc.garbageCollect(MaxTimeTicket));
+  });
+
+  it('garbage collection test3', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [1, 2, 3];
+    }, 'set 1, 2, 3');
+    assert.equal('{"list":[1,2,3]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['list'][1];
+    }, 'deletes 2');
+    assert.equal('{"list":[1,3]}', doc.toSortedJSON());
+
+    assert.equal(1, doc.getGarbageLen());
+    assert.equal(1, doc.garbageCollect(MaxTimeTicket));
+    assert.equal(0, doc.getGarbageLen());
+
+    const root = (doc.getRoot().get('list') as JSONArray)
+      .getElements()
+      .getAnnotatedString();
+    const clone = (doc.getClone().get('list') as JSONArray)
+      .getElements()
+      .getAnnotatedString();
+
+    assert.equal(root, clone);
   });
 
   it('can insert an element after the given element in array', function () {
