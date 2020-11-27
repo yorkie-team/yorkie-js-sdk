@@ -122,3 +122,6 @@ tags
 
 # Dist files
 dist/
+
+# Docs files
+docs/

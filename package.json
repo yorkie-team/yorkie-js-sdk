@@ -8,8 +8,9 @@
     "dist"
   ],
   "scripts": {
-    "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "build": "webpack --config webpack.config.js",
+    "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
+    "build:docs": "typedoc --includeVersion --ignoreCompilerErrors --excludeExternals --out docs src",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
     "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
@@ -52,6 +53,7 @@
     "prettier": "^2.2.0",
     "sinon": "^9.2.1",
     "ts-loader": "^8.0.11",
+    "typedoc": "^0.19.2",
     "typescript": "^3.9.7",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
