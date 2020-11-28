@@ -26,9 +26,15 @@ export { PlainText } from './document/json/plain_text';
 export { RichText } from './document/json/rich_text';
 export { Change, ChangeType } from './document/json/rga_tree_split';
 
-// yorkie namespace.
-//  e.g) yorkie.createClient(...)
-export default {
+/**
+ * The top-level yorkie namespace with additional properties.
+ *
+ * In production, this will be called exactly once and the result
+ * assigned to the `yorkie` global.
+ *
+ * e.g) `yorkie.createClient(...);`
+ */
+const yorkie = {
   createClient: function (rpcAddr: string, opts?: ClientOptions): Client {
     return new Client(rpcAddr, opts);
   },
@@ -36,4 +42,6 @@ export default {
     return new Document(collection, document);
   },
   Long: Long,
-};
+}
+
+export default yorkie;
