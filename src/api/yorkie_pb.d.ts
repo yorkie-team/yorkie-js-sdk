@@ -225,6 +225,9 @@ export class WatchDocumentsRequest extends jspb.Message {
   getClientId(): string;
   setClientId(value: string): WatchDocumentsRequest;
 
+  getClientMetaMap(): jspb.Map<string, string>;
+  clearClientMetaMap(): WatchDocumentsRequest;
+
   getDocumentKeysList(): Array<DocumentKey>;
   setDocumentKeysList(value: Array<DocumentKey>): WatchDocumentsRequest;
   clearDocumentKeysList(): WatchDocumentsRequest;
@@ -242,15 +245,38 @@ export namespace WatchDocumentsRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
     clientId: string,
+    clientMetaMap: Array<[string, string]>,
     documentKeysList: Array<DocumentKey.AsObject>,
   }
 }
 
+export class Client extends jspb.Message {
+  getClientId(): string;
+  setClientId(value: string): Client;
+
+  getClientMetaMap(): jspb.Map<string, string>;
+  clearClientMetaMap(): Client;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Client.AsObject;
+  static toObject(includeInstance: boolean, msg: Client): Client.AsObject;
+  static serializeBinaryToWriter(message: Client, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Client;
+  static deserializeBinaryFromReader(message: Client, reader: jspb.BinaryReader): Client;
+}
+
+export namespace Client {
+  export type AsObject = {
+    clientId: string,
+    clientMetaMap: Array<[string, string]>,
+  }
+}
+
 export class Clients extends jspb.Message {
-  getClientIdsList(): Array<string>;
-  setClientIdsList(value: Array<string>): Clients;
-  clearClientIdsList(): Clients;
-  addClientIds(value: string, index?: number): Clients;
+  getClientsList(): Array<Client>;
+  setClientsList(value: Array<Client>): Clients;
+  clearClientsList(): Clients;
+  addClients(value?: Client, index?: number): Client;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Clients.AsObject;
@@ -262,7 +288,7 @@ export class Clients extends jspb.Message {
 
 export namespace Clients {
   export type AsObject = {
-    clientIdsList: Array<string>,
+    clientsList: Array<Client.AsObject>,
   }
 }
 
@@ -316,6 +342,9 @@ export namespace WatchDocumentsResponse {
     getClientId(): string;
     setClientId(value: string): Event;
 
+    getClientMetaMap(): jspb.Map<string, string>;
+    clearClientMetaMap(): Event;
+
     getEventType(): EventType;
     setEventType(value: EventType): Event;
 
@@ -335,6 +364,7 @@ export namespace WatchDocumentsResponse {
   export namespace Event {
     export type AsObject = {
       clientId: string,
+      clientMetaMap: Array<[string, string]>,
       eventType: EventType,
       documentKeysList: Array<DocumentKey.AsObject>,
     }

@@ -18,7 +18,7 @@
     <div>text:</div>
     <pre style="white-space: pre-wrap;"><code id="text-log-holder"></code></pre>
   </div>
-  <script src="./yorkie.js"></script>
+  <script src="../dist/yorkie.js"></script>
   <script src="./util.js"></script>
   <script>
     const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
@@ -37,7 +37,13 @@
     }
 
     function displayPeers(peers, clientID) {
-      peersHolder.innerHTML = JSON.stringify(peers).replace(clientID, `<b>${clientID}</b>`);
+      const clientIDs = [];
+
+      peers.forEach((_, clientID) => {
+        clientIDs.push(clientID);
+      })
+
+      peersHolder.innerHTML = JSON.stringify(clientIDs).replace(clientID, `<b>${clientID}</b>`);
     }
 
     // https://github.com/codemirror/CodeMirror/pull/5619

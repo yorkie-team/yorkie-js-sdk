@@ -76,6 +76,7 @@ interface Attachment {
 
 export interface ClientOptions {
   key?: string;
+  meta?: Map<string, string>;
   syncLoopDuration: number;
   reconnectStreamDelay: number;
 }
@@ -93,6 +94,7 @@ const DefaultClientOptions: ClientOptions = {
 export class Client implements Observable<ClientEvent> {
   private id: ActorID;
   private key: string;
+  private meta: Map<string, string>;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private syncLoopDuration: number;
@@ -108,6 +110,7 @@ export class Client implements Observable<ClientEvent> {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
+    this.meta = opts.meta ? opts.meta : new Map();
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.syncLoopDuration = opts.syncLoopDuration;
@@ -388,6 +391,9 @@ export class Client implements Observable<ClientEvent> {
       const req = new WatchDocumentsRequest();
       req.setClientId(this.id);
       req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
+      this.meta.forEach((value, key) => {
+        req.getClientMetaMap().set(key, value);
+      });
 
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = null;
@@ -422,24 +428,25 @@ export class Client implements Observable<ClientEvent> {
     keys: Array<DocumentKey>,
     resp: WatchDocumentsResponse,
   ) {
+    const getPeers = (peersMap, key) => {
+      const attachment = this.attachmentMap.get(key.toIDString());
+      peersMap[key.toIDString()] = attachment.peerClients;
+
+      return peersMap;
+    }
+
     if (resp.hasInitialization()) {
       const peersMap = resp.getInitialization().getPeersMapByDocMap();
       peersMap.forEach((peers, docID) => {
         const attachment = this.attachmentMap.get(docID);
-        for (const peer of peers.getClientIdsList()) {
-          attachment.peerClients.set(peer, true);
+        for (const peer of peers.getClientsList()) {
+          attachment.peerClients.set(peer.getClientId(), peer.getClientMetaMap());
         }
       });
 
       this.eventStreamObserver.next({
         name: ClientEventType.DocumentsWatchingPeerChanged,
-        value: keys.reduce((peersMap, key) => {
-          const attachment = this.attachmentMap.get(key.toIDString());
-          peersMap[key.toIDString()] = Array.from(
-            attachment.peerClients.keys(),
-          );
-          return peersMap;
-        }, {}),
+        value: keys.reduce(getPeers, {}),
       });
       return;
     }
@@ -452,7 +459,7 @@ export class Client implements Observable<ClientEvent> {
       const attachment = this.attachmentMap.get(key.toIDString());
       switch (watchEvent.getEventType()) {
         case WatchEventType.DOCUMENTS_WATCHED:
-          attachment.peerClients.set(watchEvent.getClientId(), true);
+          attachment.peerClients.set(watchEvent.getClientId(), watchEvent.getClientMetaMap());
           break;
         case WatchEventType.DOCUMENTS_UNWATCHED:
           attachment.peerClients.delete(watchEvent.getClientId());
@@ -474,13 +481,7 @@ export class Client implements Observable<ClientEvent> {
     ) {
       this.eventStreamObserver.next({
         name: ClientEventType.DocumentsWatchingPeerChanged,
-        value: respKeys.reduce((peersMap, key) => {
-          const attachment = this.attachmentMap.get(key.toIDString());
-          peersMap[key.toIDString()] = Array.from(
-            attachment.peerClients.keys(),
-          );
-          return peersMap;
-        }, {}),
+        value: respKeys.reduce(getPeers, {}),
       });
     }
   }
