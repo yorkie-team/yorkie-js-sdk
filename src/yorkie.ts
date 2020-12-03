@@ -42,6 +42,6 @@ const yorkie = {
     return new Document(collection, document);
   },
   Long: Long,
-}
+};
 
 export default yorkie;
