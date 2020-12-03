@@ -13,7 +13,7 @@
     "build:docs": "typedoc --includeVersion --ignoreCompilerErrors --excludeExternals --out docs src",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
-    "test:local": "karma start karma.conf.js --single-run --testRPCAddr=http://localhost:8080",
+    "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
     "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --ext .ts",
     "prepare": "npm run build"
