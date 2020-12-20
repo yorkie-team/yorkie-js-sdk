@@ -345,7 +345,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   ): number {
     const absoluteID = pos.getAbsoluteID();
     const node = preferToLeft
-      ? this.findFloorNodePerferToLeft(absoluteID)
+      ? this.findFloorNodePreferToLeft(absoluteID)
       : this.findFloorNode(absoluteID);
     const index = this.treeByIndex.indexOf(node);
     if (!node) {
@@ -446,7 +446,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
   ): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
-    let node = this.findFloorNodePerferToLeft(absoluteID);
+    let node = this.findFloorNodePreferToLeft(absoluteID);
     const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
 
     this.splitNode(node, relativeOffset);
@@ -458,7 +458,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [node, node.getNext()];
   }
 
-  private findFloorNodePerferToLeft(
+  private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
     let node = this.findFloorNode(id);
