@@ -27,7 +27,7 @@ import { Document, DocEvent, DocEventType } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
 const __karma__ = (global as any).__karma__;
-const testRPCAddr = __karma__.config.testRPCAddr || 'https://yorkie.dev/api';
+const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';
 const testCollection = 'test-col';
 
 async function withTwoClientsAndDocuments(
