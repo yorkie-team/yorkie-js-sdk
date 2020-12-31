@@ -58,7 +58,7 @@ Start the test in another terminal session.
 npm run test
 ```
 
-### Testing co-editing example with CodeMirror
+### Starting co-editing example with CodeMirror
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
@@ -67,10 +67,16 @@ cd docker
 docker-compose up
 ```
 
-Start the test in another terminal session.
+Start the webpack-dev-server in another terminal session.
 
 ```bash
 npm run start
+```
+
+Open the co-editing example page served by webpack-dev-server in your browser.
+
+```bash
+open http://0.0.0.0:9000/
 ```
 
 ## Contributing
