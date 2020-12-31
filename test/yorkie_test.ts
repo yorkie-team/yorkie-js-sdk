@@ -119,6 +119,12 @@ describe('Yorkie', function () {
     await client1.detach(doc1);
     await client2.detach(doc2);
 
+    await client1.attach(doc1, true);
+    await client2.attach(doc2, true);
+
+    await client1.detach(doc1);
+    await client2.detach(doc2);
+
     await client1.deactivate();
     await client2.deactivate();
   });
