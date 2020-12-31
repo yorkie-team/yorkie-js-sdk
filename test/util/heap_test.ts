@@ -15,14 +15,14 @@
  */
 
 import { assert } from 'chai';
-import { range, shuffle } from '../helper/helper';
+import { range } from '../helper/helper';
 import { HeapNode, Heap } from '../../src/util/heap';
 
 describe('Heap', function () {
   it('Can push and pop', function () {
     const heap = new Heap<number, number>();
 
-    for (const idx of shuffle(range(0, 10))) {
+    for (const idx of [8, 7, 5, 6, 2, 1, 9, 4, 0, 3]) {
       heap.push(new HeapNode(idx, idx));
     }
 
@@ -30,6 +30,7 @@ describe('Heap', function () {
       assert.equal(idx, heap.pop().getValue());
     }
   });
+
   describe('Can release', function () {
     it('if root node is deleted', function () {
       const heap = new Heap<number, number>();
@@ -71,7 +72,6 @@ describe('Heap', function () {
       heap.release(leaf);
 
       const expected = [9, 8, 5, 6, 7, 1, 4, 0, 2];
-
       for (const node of heap) {
         assert.equal(expected.shift(), node.getValue());
       }
