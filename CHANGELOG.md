@@ -7,7 +7,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [0.1.1] - 2020-12-20
+## [0.1.1] - 2021-01-01
 
 ### Added
  - Add garbage collect for Container type: #101
