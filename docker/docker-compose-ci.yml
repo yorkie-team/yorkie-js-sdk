@@ -11,7 +11,7 @@ services:
     ports:
       - '8080:8080'
       - '9901:9901'
-    command: ['/etc/envoy/envoy.yaml']
+    command: ['/etc/envoy/envoy-ci.yaml']
     depends_on:
       - yorkie
   yorkie:

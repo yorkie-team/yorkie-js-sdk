@@ -1,6 +1,4 @@
-import * as jspb from 'google-protobuf'
-
-
+import * as jspb from "google-protobuf"
 
 export class RequestHeader extends jspb.Message {
   getVersion(): number;
@@ -222,11 +220,10 @@ export class WatchDocumentsRequest extends jspb.Message {
   hasHeader(): boolean;
   clearHeader(): WatchDocumentsRequest;
 
-  getClientId(): string;
-  setClientId(value: string): WatchDocumentsRequest;
-
-  getClientMetaMap(): jspb.Map<string, string>;
-  clearClientMetaMap(): WatchDocumentsRequest;
+  getClient(): Client | undefined;
+  setClient(value?: Client): WatchDocumentsRequest;
+  hasClient(): boolean;
+  clearClient(): WatchDocumentsRequest;
 
   getDocumentKeysList(): Array<DocumentKey>;
   setDocumentKeysList(value: Array<DocumentKey>): WatchDocumentsRequest;
@@ -244,51 +241,8 @@ export class WatchDocumentsRequest extends jspb.Message {
 export namespace WatchDocumentsRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
-    clientId: string,
-    clientMetaMap: Array<[string, string]>,
+    client?: Client.AsObject,
     documentKeysList: Array<DocumentKey.AsObject>,
-  }
-}
-
-export class Client extends jspb.Message {
-  getClientId(): string;
-  setClientId(value: string): Client;
-
-  getClientMetaMap(): jspb.Map<string, string>;
-  clearClientMetaMap(): Client;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Client.AsObject;
-  static toObject(includeInstance: boolean, msg: Client): Client.AsObject;
-  static serializeBinaryToWriter(message: Client, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Client;
-  static deserializeBinaryFromReader(message: Client, reader: jspb.BinaryReader): Client;
-}
-
-export namespace Client {
-  export type AsObject = {
-    clientId: string,
-    clientMetaMap: Array<[string, string]>,
-  }
-}
-
-export class Clients extends jspb.Message {
-  getClientsList(): Array<Client>;
-  setClientsList(value: Array<Client>): Clients;
-  clearClientsList(): Clients;
-  addClients(value?: Client, index?: number): Client;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Clients.AsObject;
-  static toObject(includeInstance: boolean, msg: Clients): Clients.AsObject;
-  static serializeBinaryToWriter(message: Clients, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Clients;
-  static deserializeBinaryFromReader(message: Clients, reader: jspb.BinaryReader): Clients;
-}
-
-export namespace Clients {
-  export type AsObject = {
-    clientsList: Array<Client.AsObject>,
   }
 }
 
@@ -339,11 +293,10 @@ export namespace WatchDocumentsResponse {
 
 
   export class Event extends jspb.Message {
-    getClientId(): string;
-    setClientId(value: string): Event;
-
-    getClientMetaMap(): jspb.Map<string, string>;
-    clearClientMetaMap(): Event;
+    getClient(): Client | undefined;
+    setClient(value?: Client): Event;
+    hasClient(): boolean;
+    clearClient(): Event;
 
     getEventType(): EventType;
     setEventType(value: EventType): Event;
@@ -363,8 +316,7 @@ export namespace WatchDocumentsResponse {
 
   export namespace Event {
     export type AsObject = {
-      clientId: string,
-      clientMetaMap: Array<[string, string]>,
+      client?: Client.AsObject,
       eventType: EventType,
       documentKeysList: Array<DocumentKey.AsObject>,
     }
@@ -1497,6 +1449,48 @@ export namespace TextNodeID {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     offset: number,
+  }
+}
+
+export class Client extends jspb.Message {
+  getId(): string;
+  setId(value: string): Client;
+
+  getMetaMap(): jspb.Map<string, string>;
+  clearMetaMap(): Client;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Client.AsObject;
+  static toObject(includeInstance: boolean, msg: Client): Client.AsObject;
+  static serializeBinaryToWriter(message: Client, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Client;
+  static deserializeBinaryFromReader(message: Client, reader: jspb.BinaryReader): Client;
+}
+
+export namespace Client {
+  export type AsObject = {
+    id: string,
+    metaMap: Array<[string, string]>,
+  }
+}
+
+export class Clients extends jspb.Message {
+  getClientsList(): Array<Client>;
+  setClientsList(value: Array<Client>): Clients;
+  clearClientsList(): Clients;
+  addClients(value?: Client, index?: number): Client;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Clients.AsObject;
+  static toObject(includeInstance: boolean, msg: Clients): Clients.AsObject;
+  static serializeBinaryToWriter(message: Clients, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Clients;
+  static deserializeBinaryFromReader(message: Clients, reader: jspb.BinaryReader): Clients;
+}
+
+export namespace Clients {
+  export type AsObject = {
+    clientsList: Array<Client.AsObject>,
   }
 }
 

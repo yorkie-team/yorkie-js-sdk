@@ -78,18 +78,8 @@ message DetachDocumentResponse {
 
 message WatchDocumentsRequest {
     RequestHeader header = 1;
-    string client_id = 2;
-    map<string, string> client_meta = 3;
-    repeated DocumentKey document_keys = 4;
-}
-
-message Client {
-    string client_id = 1;
-    map<string, string> client_meta = 2;
-}
-
-message Clients {
-    repeated Client clients = 1;
+    Client client = 2;
+    repeated DocumentKey document_keys = 3;
 }
 
 message WatchDocumentsResponse {
@@ -98,10 +88,9 @@ message WatchDocumentsResponse {
     }
 
     message Event {
-        string client_id = 1;
-        map<string, string> client_meta = 2;
-        EventType event_type = 3;
-        repeated DocumentKey document_keys = 4;
+        Client client = 1;
+        EventType event_type = 2;
+        repeated DocumentKey document_keys = 3;
     }
 
     oneof body {
@@ -319,6 +308,15 @@ message TextNodeID {
 /////////////////////////////////////////
 // Messages for Common                 //
 /////////////////////////////////////////
+
+message Client {
+    string id = 1;
+    map<string, string> meta = 2;
+}
+
+message Clients {
+    repeated Client clients = 1;
+}
 
 message DocumentKey {
     string collection = 1;

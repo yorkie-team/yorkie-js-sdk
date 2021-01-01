@@ -21,18 +21,15 @@
   <div>text:</div>
   <pre style="white-space: pre-wrap;"><code id="text-log-holder"></code></pre>
 
-  <script src="../dist/yorkie.js"></script>
+  <script src="./yorkie.js"></script>
   <script src="./util.js"></script>
   <script>
-    const uid = new ShortUniqueId();
+    const shortUniqueID = new ShortUniqueId();
     const statusHolder = document.getElementById('network-status');
     const peersHolder = document.getElementById('peers-holder');
     const logHolder = document.getElementById('log-holder');
     const textLogHolder = document.getElementById('text-log-holder');
     const colorHash = new ColorHash();
-    const params = new URLSearchParams(window.location.search);
-    const username = params.get('username') || `anon-${uid()}`;
-    const meta = (new Map()).set('username', username);
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
@@ -76,16 +73,10 @@
     async function main() {
       try {
         let peers;
+        const meta = new Map([['username', `username-${shortUniqueID()}`]]);
 
         // 01. create client with RPCAddr(envoy) then activate it.
-        const client = yorkie.createClient(
-          'http://localhost:8080', 
-          {
-            meta: meta,
-            syncLoopDuration: 50,
-            reconnectStreamDelay: 1000,
-          }
-        );
+        const client = yorkie.createClient('http://localhost:8080', { meta });
         client.subscribe(network.statusListener(statusHolder));
         await client.activate();
 

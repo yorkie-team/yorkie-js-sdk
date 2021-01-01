@@ -51,6 +51,7 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
+  Client as PbClient,
   DocumentKey as PbDocumentKey,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
@@ -66,6 +67,17 @@ import {
 } from './yorkie_pb';
 import { IncreaseOperation } from '../document/operation/increase_operation';
 import { CounterType, Counter } from '../document/json/counter';
+
+function toClient(id: string, meta: Map<string, string>): PbClient {
+  const pbClient = new PbClient();
+  pbClient.setId(id);
+  const pbMetaMap = pbClient.getMetaMap();
+  for (const [key, value] of meta) {
+    pbMetaMap.set(key, value);
+  }
+
+  return pbClient;
+}
 
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
@@ -905,6 +917,7 @@ function objectToBytes(obj: JSONObject): Uint8Array {
 }
 
 export const converter = {
+  toClient: toClient,
   toChangePack: toChangePack,
   fromChangePack: fromChangePack,
   toDocumentKeys: toDocumentKeys,

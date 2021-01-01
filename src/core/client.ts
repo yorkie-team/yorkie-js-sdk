@@ -389,11 +389,8 @@ export class Client implements Observable<ClientEvent> {
       }
 
       const req = new WatchDocumentsRequest();
-      req.setClientId(this.id);
+      req.setClient(converter.toClient(this.id, this.meta));
       req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
-      this.meta.forEach((value, key) => {
-        req.getClientMetaMap().set(key, value);
-      });
 
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = null;
@@ -433,14 +430,14 @@ export class Client implements Observable<ClientEvent> {
       peersMap[key.toIDString()] = attachment.peerClients;
 
       return peersMap;
-    }
+    };
 
     if (resp.hasInitialization()) {
       const peersMap = resp.getInitialization().getPeersMapByDocMap();
       peersMap.forEach((peers, docID) => {
         const attachment = this.attachmentMap.get(docID);
-        for (const peer of peers.getClientsList()) {
-          attachment.peerClients.set(peer.getClientId(), peer.getClientMetaMap());
+        for (const pbClient of peers.getClientsList()) {
+          attachment.peerClients.set(pbClient.getId(), pbClient.getMetaMap());
         }
       });
 
@@ -459,10 +456,13 @@ export class Client implements Observable<ClientEvent> {
       const attachment = this.attachmentMap.get(key.toIDString());
       switch (watchEvent.getEventType()) {
         case WatchEventType.DOCUMENTS_WATCHED:
-          attachment.peerClients.set(watchEvent.getClientId(), watchEvent.getClientMetaMap());
+          attachment.peerClients.set(
+            watchEvent.getClient().getId(),
+            watchEvent.getClient().getMetaMap()
+          );
           break;
         case WatchEventType.DOCUMENTS_UNWATCHED:
-          attachment.peerClients.delete(watchEvent.getClientId());
+          attachment.peerClients.delete(watchEvent.getClient().getId());
           break;
         case WatchEventType.DOCUMENTS_CHANGED:
           attachment.remoteChangeEventReceived = true;
