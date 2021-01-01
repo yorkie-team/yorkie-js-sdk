@@ -27,7 +27,7 @@ import { Document, DocEvent, DocEventType } from '../src/document/document';
 import yorkie from '../src/yorkie';
 
 const __karma__ = (global as any).__karma__;
-const testRPCAddr = __karma__.config.testRPCAddr || 'https://yorkie.dev/api';
+const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';
 const testCollection = 'test-col';
 
 async function withTwoClientsAndDocuments(
@@ -115,6 +115,12 @@ describe('Yorkie', function () {
 
     await client2.attach(doc2, true);
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
+
+    await client1.detach(doc1);
+    await client2.detach(doc2);
+
+    await client1.attach(doc1, true);
+    await client2.attach(doc2, true);
 
     await client1.detach(doc1);
     await client2.detach(doc2);
