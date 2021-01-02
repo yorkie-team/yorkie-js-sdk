@@ -311,7 +311,7 @@ message TextNodeID {
 
 message Client {
     string id = 1;
-    map<string, string> meta = 2;
+    map<string, string> metadata = 2;
 }
 
 message Clients {

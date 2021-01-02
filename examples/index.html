@@ -39,9 +39,9 @@
     function displayPeers(peers, clientID) {
       const clientIDs = [];
 
-      peers.forEach((_, clientID) => {
+      for (const [clientID, _] of Object.entries(peers)) {
         clientIDs.push(clientID);
-      })
+      }
 
       peersHolder.innerHTML = JSON.stringify(clientIDs).replace(clientID, `<b>${clientID}</b>`);
     }

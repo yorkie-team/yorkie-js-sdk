@@ -70,13 +70,13 @@ export interface ClientEvent {
 interface Attachment {
   doc: Document;
   isRealtimeSync: boolean;
-  peerClients?: Map<string, boolean>;
+  peerClients?: Map<string, { [key: string]: string }>;
   remoteChangeEventReceived?: boolean;
 }
 
 export interface ClientOptions {
   key?: string;
-  meta?: Map<string, string>;
+  metadata?: { [key: string]: string };
   syncLoopDuration: number;
   reconnectStreamDelay: number;
 }
@@ -94,7 +94,7 @@ const DefaultClientOptions: ClientOptions = {
 export class Client implements Observable<ClientEvent> {
   private id: ActorID;
   private key: string;
-  private meta: Map<string, string>;
+  private metadata: { [key: string]: string };
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private syncLoopDuration: number;
@@ -110,7 +110,7 @@ export class Client implements Observable<ClientEvent> {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
-    this.meta = opts.meta ? opts.meta : new Map();
+    this.metadata = opts.metadata ? opts.metadata : {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.syncLoopDuration = opts.syncLoopDuration;
@@ -389,7 +389,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       const req = new WatchDocumentsRequest();
-      req.setClient(converter.toClient(this.id, this.meta));
+      req.setClient(converter.toClient(this.id, this.metadata));
       req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
 
       const onStreamDisconnect = () => {
@@ -427,17 +427,23 @@ export class Client implements Observable<ClientEvent> {
   ) {
     const getPeers = (peersMap, key) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      peersMap[key.toIDString()] = attachment.peerClients;
-
+      const peers = {};
+      for (const [key, value] of attachment.peerClients) {
+        peers[key] = value;
+      }
+      peersMap[key.toIDString()] = peers;
       return peersMap;
     };
 
     if (resp.hasInitialization()) {
-      const peersMap = resp.getInitialization().getPeersMapByDocMap();
-      peersMap.forEach((peers, docID) => {
+      const pbPeersMap = resp.getInitialization().getPeersMapByDocMap();
+      pbPeersMap.forEach((pbPeers, docID) => {
         const attachment = this.attachmentMap.get(docID);
-        for (const pbClient of peers.getClientsList()) {
-          attachment.peerClients.set(pbClient.getId(), pbClient.getMetaMap());
+        for (const pbClient of pbPeers.getClientsList()) {
+          attachment.peerClients.set(
+            pbClient.getId(),
+            converter.fromMetadataMap(pbClient.getMetadataMap()),
+          );
         }
       });
 
@@ -448,21 +454,23 @@ export class Client implements Observable<ClientEvent> {
       return;
     }
 
-    const watchEvent = resp.getEvent();
+    const pbWatchEvent = resp.getEvent();
     const respKeys = converter.fromDocumentKeys(
-      watchEvent.getDocumentKeysList(),
+      pbWatchEvent.getDocumentKeysList(),
     );
     for (const key of respKeys) {
       const attachment = this.attachmentMap.get(key.toIDString());
-      switch (watchEvent.getEventType()) {
+      switch (pbWatchEvent.getEventType()) {
         case WatchEventType.DOCUMENTS_WATCHED:
           attachment.peerClients.set(
-            watchEvent.getClient().getId(),
-            watchEvent.getClient().getMetaMap()
+            pbWatchEvent.getClient().getId(),
+            converter.fromMetadataMap(
+              pbWatchEvent.getClient().getMetadataMap(),
+            ),
           );
           break;
         case WatchEventType.DOCUMENTS_UNWATCHED:
-          attachment.peerClients.delete(watchEvent.getClient().getId());
+          attachment.peerClients.delete(pbWatchEvent.getClient().getId());
           break;
         case WatchEventType.DOCUMENTS_CHANGED:
           attachment.remoteChangeEventReceived = true;
@@ -470,14 +478,14 @@ export class Client implements Observable<ClientEvent> {
       }
     }
 
-    if (watchEvent.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
+    if (pbWatchEvent.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
       this.eventStreamObserver.next({
         name: ClientEventType.DocumentsChanged,
         value: respKeys,
       });
     } else if (
-      watchEvent.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
-      watchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
+      pbWatchEvent.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
+      pbWatchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
     ) {
       this.eventStreamObserver.next({
         name: ClientEventType.DocumentsWatchingPeerChanged,

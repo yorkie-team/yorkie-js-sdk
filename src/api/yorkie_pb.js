@@ -12259,7 +12259,7 @@ proto.api.Client.prototype.toObject = function(opt_includeInstance) {
 proto.api.Client.toObject = function(includeInstance, msg) {
   var f, obj = {
     id: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    metaMap: (f = msg.getMetaMap()) ? f.toObject(includeInstance, undefined) : []
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -12301,7 +12301,7 @@ proto.api.Client.deserializeBinaryFromReader = function(msg, reader) {
       msg.setId(value);
       break;
     case 2:
-      var value = msg.getMetaMap();
+      var value = msg.getMetadataMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
          });
@@ -12342,7 +12342,7 @@ proto.api.Client.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getMetaMap(true);
+  f = message.getMetadataMap(true);
   if (f && f.getLength() > 0) {
     f.serializeBinary(2, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
@@ -12368,12 +12368,12 @@ proto.api.Client.prototype.setId = function(value) {
 
 
 /**
- * map<string, string> meta = 2;
+ * map<string, string> metadata = 2;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,string>}
  */
-proto.api.Client.prototype.getMetaMap = function(opt_noLazyCreate) {
+proto.api.Client.prototype.getMetadataMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,string>} */ (
       jspb.Message.getMapField(this, 2, opt_noLazyCreate,
       null));
@@ -12384,8 +12384,8 @@ proto.api.Client.prototype.getMetaMap = function(opt_noLazyCreate) {
  * Clears values from the map. The map will be non-null.
  * @return {!proto.api.Client} returns this
  */
-proto.api.Client.prototype.clearMetaMap = function() {
-  this.getMetaMap().clear();
+proto.api.Client.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
   return this;};
 
 

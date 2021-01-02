@@ -63,9 +63,9 @@
     function displayPeers(peers, username) {
       const usernames = [];
 
-      peers.forEach(peer => {
-        usernames.push(peer.get('username'));
-      })
+      for (const [_, peer] of Object.entries(peers)) {
+        usernames.push(peer['username']);
+      }
 
       peersHolder.innerHTML = JSON.stringify(usernames).replace(username, `<b>${username}</b>`);
     }
@@ -73,10 +73,14 @@
     async function main() {
       try {
         let peers;
-        const meta = new Map([['username', `username-${shortUniqueID()}`]]);
+        const metadata = {username: `username-${shortUniqueID()}`};
 
         // 01. create client with RPCAddr(envoy) then activate it.
-        const client = yorkie.createClient('http://localhost:8080', { meta });
+        const client = yorkie.createClient('http://localhost:8080', {
+          metadata,
+          syncLoopDuration: 50,
+          reconnectStreamDelay: 1000,
+        });
         client.subscribe(network.statusListener(statusHolder));
         await client.activate();
 
@@ -87,7 +91,7 @@
         client.subscribe((event) => {
           if (event.name === 'documents-watching-peer-changed') {
             peers = event.value[doc.getKey().toIDString()];
-            displayPeers(peers, meta.get('username'));
+            displayPeers(peers, metadata['username']);
           }
         });
 
@@ -190,7 +194,7 @@
               continue;
             }
 
-            const actorName = peers.get(actor).get('username');
+            const actorName = peers[actor]['username'];
             const from = change.from;
             const to = change.to;
             const retainFrom = from - prevTo;

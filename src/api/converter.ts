@@ -68,12 +68,20 @@ import {
 import { IncreaseOperation } from '../document/operation/increase_operation';
 import { CounterType, Counter } from '../document/json/counter';
 
-function toClient(id: string, meta: Map<string, string>): PbClient {
+function fromMetadataMap(pbMetadataMap): { [key: string]: string } {
+  const metadata = {};
+  pbMetadataMap.forEach((value, key) => {
+    metadata[key] = value;
+  });
+  return metadata;
+}
+
+function toClient(id: string, metadata: { [key: string]: string }): PbClient {
   const pbClient = new PbClient();
   pbClient.setId(id);
-  const pbMetaMap = pbClient.getMetaMap();
-  for (const [key, value] of meta) {
-    pbMetaMap.set(key, value);
+  const pbMetadataMap = pbClient.getMetadataMap();
+  for (const [key, value] of Object.entries(metadata)) {
+    pbMetadataMap.set(key, value);
   }
 
   return pbClient;
@@ -917,6 +925,7 @@ function objectToBytes(obj: JSONObject): Uint8Array {
 }
 
 export const converter = {
+  fromMetadataMap: fromMetadataMap,
   toClient: toClient,
   toChangePack: toChangePack,
   fromChangePack: fromChangePack,

@@ -1456,8 +1456,8 @@ export class Client extends jspb.Message {
   getId(): string;
   setId(value: string): Client;
 
-  getMetaMap(): jspb.Map<string, string>;
-  clearMetaMap(): Client;
+  getMetadataMap(): jspb.Map<string, string>;
+  clearMetadataMap(): Client;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Client.AsObject;
@@ -1470,7 +1470,7 @@ export class Client extends jspb.Message {
 export namespace Client {
   export type AsObject = {
     id: string,
-    metaMap: Array<[string, string]>,
+    metadataMap: Array<[string, string]>,
   }
 }
 
