@@ -20,7 +20,7 @@ const network = {
         event.name == 'status-changed' && event.value == 'activated' ||
         event.name == 'stream-connection-status-changed' && event.value == 'connected' ||
         event.name == 'document-sync-result' && event.value == 'synced' ||
-        event.name == 'documents-watching-peer-changed' ||
+        event.name == 'peers-changed' ||
         event.name == 'documents-changed'
       )) {
         network.showOnline(elem);

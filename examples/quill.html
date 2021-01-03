@@ -7,11 +7,15 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.js"></script>
+  <script src="https://zenozeng.github.io/color-hash/dist/color-hash.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/short-unique-id@latest/dist/short-unique-id.min.js"></script>
 </head>
 <body>
   <div>status: <span id="network-status"></span></div>
   <div id="toolbar"></div>
   <div id="editor"></div>
+  <div>peers:</div>
+  <pre style="white-space: pre-wrap;"><code id="peers-holder"></code></pre>
   <div>document:</div>
   <pre style="white-space: pre-wrap;"><code id="log-holder"></code></pre>
   <div>text:</div>
@@ -20,10 +24,12 @@
   <script src="./yorkie.js"></script>
   <script src="./util.js"></script>
   <script>
-    const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
+    const shortUniqueID = new ShortUniqueId();
     const statusHolder = document.getElementById('network-status');
+    const peersHolder = document.getElementById('peers-holder');
     const logHolder = document.getElementById('log-holder');
     const textLogHolder = document.getElementById('text-log-holder');
+    const colorHash = new ColorHash();
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
@@ -54,16 +60,40 @@
       return attributes;
     }
 
+    function displayPeers(peers, username) {
+      const usernames = [];
+
+      for (const [_, peer] of Object.entries(peers)) {
+        usernames.push(peer['username']);
+      }
+
+      peersHolder.innerHTML = JSON.stringify(usernames).replace(username, `<b>${username}</b>`);
+    }
+
     async function main() {
       try {
+        let peers;
+        const metadata = {username: `username-${shortUniqueID()}`};
+
         // 01. create client with RPCAddr(envoy) then activate it.
-        const client = yorkie.createClient('http://localhost:8080');
+        const client = yorkie.createClient('http://localhost:8080', {
+          metadata,
+          syncLoopDuration: 50,
+          reconnectStreamDelay: 1000,
+        });
         client.subscribe(network.statusListener(statusHolder));
         await client.activate();
 
         // 02. create a document then attach it into the client.
         const doc = yorkie.createDocument('examples', 'quill');
         await client.attach(doc);
+
+        client.subscribe((event) => {
+          if (event.name === 'peers-changed') {
+            peers = event.value[doc.getKey().toIDString()];
+            displayPeers(peers, metadata['username']);
+          }
+        });
 
         doc.update((root) => {
           if (!root.content) {
@@ -164,6 +194,7 @@
               continue;
             }
 
+            const actorName = peers[actor]['username'];
             const from = change.from;
             const to = change.to;
             const retainFrom = from - prevTo;
@@ -207,8 +238,8 @@
               }
             } else if (change.type === 'selection') {
               const cursors = quill.getModule('cursors');
-              cursors.createCursor(actor, actor, colors[0]);
-              cursors.moveCursor(actor, {
+              cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
+              cursors.moveCursor(actorName, {
                 index: from,
                 length: retainTo
               });

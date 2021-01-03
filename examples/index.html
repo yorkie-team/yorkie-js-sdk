@@ -37,7 +37,13 @@
     }
 
     function displayPeers(peers, clientID) {
-      peersHolder.innerHTML = JSON.stringify(peers).replace(clientID, `<b>${clientID}</b>`);
+      const clientIDs = [];
+
+      for (const [clientID, _] of Object.entries(peers)) {
+        clientIDs.push(clientID);
+      }
+
+      peersHolder.innerHTML = JSON.stringify(clientIDs).replace(clientID, `<b>${clientID}</b>`);
     }
 
     // https://github.com/codemirror/CodeMirror/pull/5619
@@ -114,7 +120,7 @@
         await client.attach(doc);
 
         client.subscribe((event) => {
-          if (event.name === 'documents-watching-peer-changed') {
+          if (event.name === 'peers-changed') {
             displayPeers(event.value[doc.getKey().toIDString()], client.getID());
           }
         });
