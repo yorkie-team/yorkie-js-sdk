@@ -122,9 +122,9 @@ export class RGATreeSplitNodePos {
 
 export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
 
-export class RGATreeSplitNode<T extends RGATreeSplitValue> extends SplayNode<
-  T
-> {
+export class RGATreeSplitNode<
+  T extends RGATreeSplitValue
+> extends SplayNode<T> {
   private id: RGATreeSplitNodeID;
   private removedAt: TimeTicket;
 

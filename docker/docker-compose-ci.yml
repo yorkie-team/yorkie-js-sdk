@@ -22,7 +22,7 @@ services:
     command: ['/app/bin/yorkie', 'agent', '-c', '/app/yorkie.json']
     restart: always
     ports:
-      - '9090:9090'
+      - '11101:11101'
     depends_on:
       - mongo
   mongo:
