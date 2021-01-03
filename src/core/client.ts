@@ -57,7 +57,7 @@ export enum DocumentSyncResultType {
 export enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',
-  DocumentsWatchingPeerChanged = 'documents-watching-peer-changed',
+  PeersChanged = 'peers-changed',
   StreamConnectionStatusChanged = 'stream-connection-status-changed',
   DocumentSyncResult = 'document-sync-result',
 }
@@ -448,7 +448,7 @@ export class Client implements Observable<ClientEvent> {
       });
 
       this.eventStreamObserver.next({
-        name: ClientEventType.DocumentsWatchingPeerChanged,
+        name: ClientEventType.PeersChanged,
         value: keys.reduce(getPeers, {}),
       });
       return;
@@ -488,7 +488,7 @@ export class Client implements Observable<ClientEvent> {
       pbWatchEvent.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
     ) {
       this.eventStreamObserver.next({
-        name: ClientEventType.DocumentsWatchingPeerChanged,
+        name: ClientEventType.PeersChanged,
         value: respKeys.reduce(getPeers, {}),
       });
     }

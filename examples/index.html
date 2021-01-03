@@ -120,7 +120,7 @@
         await client.attach(doc);
 
         client.subscribe((event) => {
-          if (event.name === 'documents-watching-peer-changed') {
+          if (event.name === 'peers-changed') {
             displayPeers(event.value[doc.getKey().toIDString()], client.getID());
           }
         });
