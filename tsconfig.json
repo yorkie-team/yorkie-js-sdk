@@ -5,7 +5,9 @@
     "removeComments": false,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "strict": true,
+    "strictNullChecks": false,
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],

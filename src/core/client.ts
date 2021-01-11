@@ -20,6 +20,9 @@ import {
   Observable,
   createObservable,
   Unsubscribe,
+  ErrorFn,
+  CompleteFn,
+  NextFn,
 } from '../util/observable';
 import {
   ActivateClientRequest,
@@ -303,8 +306,16 @@ export class Client implements Observable<ClientEvent> {
       });
   }
 
-  public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
-    return this.eventStream.subscribe(nextOrObserver, error, complete);
+  public subscribe(
+    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe {
+    return this.eventStream.subscribe(
+      nextOrObserver as NextFn<ClientEvent>,
+      error,
+      complete,
+    );
   }
 
   public getID(): string {
@@ -376,7 +387,7 @@ export class Client implements Observable<ClientEvent> {
         return;
       }
 
-      const realtimeSyncDocKeys = [];
+      const realtimeSyncDocKeys: Array<DocumentKey> = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
           realtimeSyncDocKeys.push(attachment.doc.getKey());
@@ -402,7 +413,7 @@ export class Client implements Observable<ClientEvent> {
       };
 
       const stream = this.rpcClient.watchDocuments(req, {});
-      stream.on('data', (resp) => {
+      stream.on('data', (resp: WatchDocumentsResponse) => {
         this.handleWatchDocumentsResponse(realtimeSyncDocKeys, resp);
       });
       stream.on('end', onStreamDisconnect);
@@ -425,9 +436,12 @@ export class Client implements Observable<ClientEvent> {
     keys: Array<DocumentKey>,
     resp: WatchDocumentsResponse,
   ) {
-    const getPeers = (peersMap, key) => {
+    const getPeers = (
+      peersMap: { [key: string]: { [key: string]: { [key: string]: string } } },
+      key: DocumentKey,
+    ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers = {};
+      const peers: { [key: string]: { [key: string]: string } } = {};
       for (const [key, value] of attachment.peerClients) {
         peers[key] = value;
       }

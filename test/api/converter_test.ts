@@ -17,12 +17,13 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { converter } from '../../src/api/converter';
+import { Indexable } from '../helper/helper';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update((root) => {
+    doc.update((root: Indexable) => {
       root['k1'] = {
         'k1.1': true,
         'k1.2': 2147483647,

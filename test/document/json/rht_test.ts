@@ -17,6 +17,7 @@
 import { assert } from 'chai';
 import { RHT } from '../../../src/document/json/rht';
 import { InitialTimeTicket } from '../../../src/document/time/ticket';
+import { Indexable } from '../../helper/helper';
 
 describe('RHT', function () {
   it('should set and get a value', function () {
@@ -66,7 +67,7 @@ describe('RHT', function () {
   });
 
   it('should handle toJSON', function () {
-    const testData = {
+    const testData: Indexable = {
       testKey1: 'testValue1',
       testKey2: 'testValue2',
       testKey3: 'testValue3',
@@ -86,7 +87,7 @@ describe('RHT', function () {
   });
 
   it('should handle toObject', function () {
-    const testData = {
+    const testData: Indexable = {
       testKey1: 'testValue1',
       testKey2: 'testValue2',
       testKey3: 'testValue3',

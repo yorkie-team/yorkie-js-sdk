@@ -20,6 +20,9 @@ import {
   Observable,
   createObservable,
   Unsubscribe,
+  ErrorFn,
+  CompleteFn,
+  NextFn,
 } from '../util/observable';
 import { ActorID } from './time/actor_id';
 import { DocumentKey } from './key/document_key';
@@ -120,8 +123,16 @@ export class Document implements Observable<DocEvent> {
     }
   }
 
-  public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
-    return this.eventStream.subscribe(nextOrObserver, error, complete);
+  public subscribe(
+    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe {
+    return this.eventStream.subscribe(
+      nextOrObserver as NextFn<DocEvent>,
+      error,
+      complete,
+    );
   }
 
   /**

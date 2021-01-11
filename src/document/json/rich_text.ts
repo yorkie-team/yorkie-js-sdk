@@ -48,7 +48,7 @@ export class RichTextValue {
     return this.content.length;
   }
 
-  public substring(indexStart, indexEnd: number): RichTextValue {
+  public substring(indexStart: number, indexEnd: number): RichTextValue {
     return new RichTextValue(this.content.substring(indexStart, indexEnd));
   }
 
