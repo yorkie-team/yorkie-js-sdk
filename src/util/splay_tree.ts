@@ -268,7 +268,7 @@ export class SplayTree<V> {
   }
 
   public getAnnotatedString(): string {
-    const metaString = [];
+    const metaString: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root, metaString);
     return metaString
       .map(
