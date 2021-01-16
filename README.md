@@ -1,12 +1,12 @@
 # Yorkie JavaScript SDK
 
-[![codecov](https://codecov.io/gh/yorkie-team/yorkie-js-sdk/branch/master/graph/badge.svg)](https://codecov.io/gh/yorkie-team/yorkie-js-sdk)
+[![codecov](https://codecov.io/gh/yorkie-team/yorkie-js-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/yorkie-team/yorkie-js-sdk)
 
 The Yorkie JavaScript SDK implements the client-side libraries.
 
 ## How to use JS SDK
 
-To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/master/js-sdk
+To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/main/js-sdk
 
 ## How yorkie-js-sdk works
 
