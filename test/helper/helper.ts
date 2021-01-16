@@ -21,3 +21,7 @@ export function range(from: number, to: number): Array<number> {
   }
   return list;
 }
+
+export type Indexable = {
+  [index: string]: any;
+};

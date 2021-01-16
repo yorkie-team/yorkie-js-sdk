@@ -24,6 +24,7 @@ import {
   DocumentSyncResultType,
 } from '../src/core/client';
 import { Document, DocEvent, DocEventType } from '../src/document/document';
+import { JSONElement } from '../src/document/json/element';
 import yorkie from '../src/yorkie';
 
 const __karma__ = (global as any).__karma__;
@@ -294,7 +295,7 @@ describe('Yorkie', function () {
 
   it('Can handle concurrent insertAfter operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
-      let prev;
+      let prev: JSONElement;
       d1.update((root) => {
         root['k1'] = [1, 2, 3, 4];
         prev = root['k1'].getElementByIndex(1);

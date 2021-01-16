@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
 
 describe('Document', function () {
@@ -202,7 +203,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let toDelete;
+    let toDelete: JSONElement;
     doc.update((root) => {
       root['list'] = [];
       assert.equal(1, root['list'].push(4));
@@ -229,7 +230,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let prev;
+    let prev: JSONElement;
     doc.update((root) => {
       root['list'] = [];
       root['list'].push(1);

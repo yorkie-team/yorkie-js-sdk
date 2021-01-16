@@ -28,10 +28,14 @@ import { RichTextProxy } from './rich_text_proxy';
 import { CounterProxy } from './counter_proxy';
 import { Counter } from '../json/counter';
 
+export type Indexable = {
+  [index: string]: any;
+};
+
 export function createProxy(
   context: ChangeContext,
   target: JSONObject,
-): JSONObject {
+): JSONObject & Indexable {
   return ObjectProxy.create(context, target);
 }
 

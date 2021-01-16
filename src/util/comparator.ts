@@ -16,7 +16,7 @@
 
 export type Comparator<K> = (keyA: K, keyB: K) => number;
 
-export const DefaultComparator = (a, b): number => {
+export const DefaultComparator = (a: unknown, b: unknown): number => {
   if (a === b) {
     return 0;
   } else if (a < b) {

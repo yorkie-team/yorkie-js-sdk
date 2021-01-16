@@ -60,6 +60,7 @@
     "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
+    "@types/google-protobuf": "^3.7.4",
     "@types/long": "^4.0.1",
     "google-protobuf": "^3.14.0",
     "grpc-web": "^1.2.1",

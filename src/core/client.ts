@@ -20,6 +20,9 @@ import {
   Observable,
   createObservable,
   Unsubscribe,
+  ErrorFn,
+  CompleteFn,
+  NextFn,
 } from '../util/observable';
 import {
   ActivateClientRequest,
@@ -74,9 +77,11 @@ interface Attachment {
   remoteChangeEventReceived?: boolean;
 }
 
+export type Metadata = { [key: string]: string };
+
 export interface ClientOptions {
   key?: string;
-  metadata?: { [key: string]: string };
+  metadata?: Metadata;
   syncLoopDuration: number;
   reconnectStreamDelay: number;
 }
@@ -94,7 +99,7 @@ const DefaultClientOptions: ClientOptions = {
 export class Client implements Observable<ClientEvent> {
   private id: ActorID;
   private key: string;
-  private metadata: { [key: string]: string };
+  private metadata: Metadata;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private syncLoopDuration: number;
@@ -303,8 +308,16 @@ export class Client implements Observable<ClientEvent> {
       });
   }
 
-  public subscribe(nextOrObserver, error?, complete?): Unsubscribe {
-    return this.eventStream.subscribe(nextOrObserver, error, complete);
+  public subscribe(
+    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe {
+    return this.eventStream.subscribe(
+      nextOrObserver as NextFn<ClientEvent>,
+      error,
+      complete,
+    );
   }
 
   public getID(): string {
@@ -376,7 +389,7 @@ export class Client implements Observable<ClientEvent> {
         return;
       }
 
-      const realtimeSyncDocKeys = [];
+      const realtimeSyncDocKeys: Array<DocumentKey> = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
           realtimeSyncDocKeys.push(attachment.doc.getKey());
@@ -402,7 +415,7 @@ export class Client implements Observable<ClientEvent> {
       };
 
       const stream = this.rpcClient.watchDocuments(req, {});
-      stream.on('data', (resp) => {
+      stream.on('data', (resp: WatchDocumentsResponse) => {
         this.handleWatchDocumentsResponse(realtimeSyncDocKeys, resp);
       });
       stream.on('end', onStreamDisconnect);
@@ -425,9 +438,12 @@ export class Client implements Observable<ClientEvent> {
     keys: Array<DocumentKey>,
     resp: WatchDocumentsResponse,
   ) {
-    const getPeers = (peersMap, key) => {
+    const getPeers = (
+      peersMap: { [key: string]: { [key: string]: Metadata } },
+      key: DocumentKey,
+    ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers = {};
+      const peers: { [key: string]: Metadata } = {};
       for (const [key, value] of attachment.peerClients) {
         peers[key] = value;
       }

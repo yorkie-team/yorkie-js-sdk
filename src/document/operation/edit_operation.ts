@@ -24,7 +24,7 @@ import { Operation } from './operation';
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
-  private maxCreatedAtMapByActor;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private content: string;
 
   constructor(
