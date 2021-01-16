@@ -18,8 +18,8 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
-import { Indexable } from '../helper/helper';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -29,7 +29,7 @@ describe('Document', function () {
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
     assert.isFalse(doc1.hasLocalChanges());
 
-    doc1.update((root: Indexable) => {
+    doc1.update((root) => {
       root['k1'] = 'v1';
       root['k2'] = 'v2';
       assert.equal('v1', root['k1']);
@@ -44,18 +44,18 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k1']['k1-2'] = 'v2';
     }, 'set {"k1-1":"v1","k1-2":"v2":}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1']['k1-2'] = 'v3';
     }, 'set {"k1-2":"v3"}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k2'] = ['1', '2'];
       root['k2'].push('3');
     }, 'set ["1","2","3"]');
@@ -65,7 +65,7 @@ describe('Document', function () {
     );
 
     assert.throws(() => {
-      doc.update((root: Indexable) => {
+      doc.update((root) => {
         root['k2'].push('4');
         throw new Error('dummy error');
       }, 'push "4"');
@@ -75,7 +75,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k2'].push('4');
     }, 'push "4"');
     assert.equal(
@@ -83,7 +83,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k2'].push({ 'k2-5': 'v4' });
     }, 'push "{k2-5: 4}"');
     assert.equal(
@@ -96,7 +96,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1'] = { 'k1-1': 'v1', 'k1-2': 'v2' };
       root['k2'] = ['1', '2', '3'];
     }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"},"k2":["1","2","3"]}');
@@ -105,7 +105,7 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       delete root['k1']['k1-1'];
       root['k1']['k1-3'] = 'v4';
 
@@ -125,13 +125,13 @@ describe('Document', function () {
     //           ------ ins links ----
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       const text = root.createText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
         root['k1'].getAnnotatedString(),
@@ -163,13 +163,13 @@ describe('Document', function () {
     //           -- ins links ---
     //           |              |
     // [init] - [ABC] - [\n] - [D]
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       const text = root.createRichText('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
         root['k1'].getAnnotatedString(),
@@ -186,7 +186,7 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       const text = root.createText('k1');
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
@@ -203,8 +203,8 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let toDelete: any;
-    doc.update((root: Indexable) => {
+    let toDelete: JSONElement;
+    doc.update((root) => {
       root['list'] = [];
       assert.equal(1, root['list'].push(4));
       assert.equal(2, root['list'].push(3));
@@ -215,12 +215,12 @@ describe('Document', function () {
 
     assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['list'].deleteByID(toDelete.getID());
     }, 'delete 2');
     assert.equal('{"list":[4,3,1]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       assert.equal(4, root['list'].push(2));
     }, 'push 2');
     assert.equal('{"list":[4,3,1,2]}', doc.toSortedJSON());
@@ -230,8 +230,8 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let prev: any;
-    doc.update((root: Indexable) => {
+    let prev: JSONElement;
+    doc.update((root) => {
       root['list'] = [];
       root['list'].push(1);
       root['list'].push(2);
@@ -241,23 +241,23 @@ describe('Document', function () {
 
     assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['list'].insertAfter(prev.getID(), 3);
     }, 'insert 3');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       delete root['list'][1];
     }, 'remove 2');
     assert.equal('{"list":[1,3,4]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       prev = root['list'].getElementByIndex(0);
       root['list'].insertAfter(prev.getID(), 2);
     }, 'insert 2');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
-    const root: Indexable = doc.getRootObject();
+    const root = doc.getRootObject();
     for (let idx = 0; idx < root['list'].length; idx++) {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
@@ -268,14 +268,14 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
     }, 'set 1, 2, 3');
     assert.equal('{"1":1,"2":[1,2,3],"3":3}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       delete root['2'];
     }, 'deletes 2');
     assert.equal('{"1":1,"3":3}', doc.toSortedJSON());
@@ -287,11 +287,11 @@ describe('Document', function () {
   it('garbage collection test2', function () {
     const size = 10000;
     const doc = Document.create('test-col', 'test-doc');
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['1'] = [...Array(size).keys()];
     }, 'sets big array');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       delete root['1'];
     }, 'deletes the array');
 
@@ -302,12 +302,12 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['list'] = [1, 2, 3];
     }, 'set 1, 2, 3');
     assert.equal('{"list":[1,2,3]}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       delete root['list'][1];
     }, 'deletes 2');
     assert.equal('{"list":[1,3]}', doc.toSortedJSON());
@@ -330,18 +330,18 @@ describe('Document', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['list'] = [0, 1, 2];
     }, 'set {"list":[0,1,2]}');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       const next = root['list'].getElementByIndex(0);
       const item = root['list'].getElementByIndex(2);
       root['list'].moveBefore(next.getID(), item.getID());
       assert.equal('{"list":[2,0,1]}', root.toJSON());
     });
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       const next = root['list'].getElementByIndex(0);
       const item = root['list'].getElementByIndex(2);
       root['list'].moveBefore(next.getID(), item.getID());
@@ -352,14 +352,14 @@ describe('Document', function () {
   it('can rollback, primitive deepcopy', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1'] = {};
       root['k1']['k1.1'] = 1;
       root['k1']['k1.2'] = 2;
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
     assert.throws(() => {
-      doc.update((root: Indexable) => {
+      doc.update((root) => {
         delete root['k1']['k1.1'];
         throw Error('dummy error');
       }, 'dummy error');
@@ -370,7 +370,7 @@ describe('Document', function () {
   it('can be increased by Counter type', function () {
     const doc = Document.create('test-col', 'test-doc');
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1'] = {};
       root['k1'].createCounter('age', 1);
       root['k1'].createCounter('length', 10.5);
@@ -380,7 +380,7 @@ describe('Document', function () {
     });
     assert.equal(`{"k1":{"age":6,"length":14}}`, doc.toSortedJSON());
 
-    doc.update((root: Indexable) => {
+    doc.update((root) => {
       root['k1']['age'].increase(1.5).increase(1);
       root['k1']['length'].increase(3.5).increase(1);
     });
@@ -388,7 +388,7 @@ describe('Document', function () {
 
     // error test
     assert.Throw(() => {
-      doc.update((root: Indexable) => {
+      doc.update((root) => {
         root['k1']['age'].increase(true);
       });
     }, 'Unsupported type of value: boolean');

@@ -33,7 +33,7 @@ import { converter } from '../api/converter';
 import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
-import { createProxy } from './proxy/proxy';
+import { createProxy, Indexable } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
 import { TimeTicket } from './time/ticket';
 
@@ -82,7 +82,10 @@ export class Document implements Observable<DocEvent> {
   /**
    * update executes the given updater to update this document.
    */
-  public update(updater: (root: JSONObject) => void, message?: string): void {
+  public update(
+    updater: (root: JSONObject & Indexable) => void,
+    message?: string,
+  ): void {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
@@ -214,7 +217,7 @@ export class Document implements Observable<DocEvent> {
     return this.clone.getObject();
   }
 
-  public getRootObject(): JSONObject {
+  public getRootObject(): JSONObject & Indexable {
     this.ensureClone();
 
     const context = ChangeContext.create(this.changeID.next(), '', this.clone);

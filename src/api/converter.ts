@@ -17,6 +17,7 @@
 import Long from 'long';
 import * as jspb from 'google-protobuf';
 import { Code, YorkieError } from '../util/error';
+import { Metadata } from '../core/client';
 import { InitialTimeTicket, TimeTicket } from '../document/time/ticket';
 import { Operation } from '../document/operation/operation';
 import { SetOperation } from '../document/operation/set_operation';
@@ -70,15 +71,15 @@ import { CounterType, Counter } from '../document/json/counter';
 
 function fromMetadataMap(
   pbMetadataMap: jspb.Map<string, string>,
-): { [key: string]: string } {
-  const metadata: { [key: string]: string } = {};
+): Metadata {
+  const metadata: Metadata = {};
   pbMetadataMap.forEach((value: string, key: string) => {
     metadata[key] = value;
   });
   return metadata;
 }
 
-function toClient(id: string, metadata: { [key: string]: string }): PbClient {
+function toClient(id: string, metadata: Metadata): PbClient {
   const pbClient = new PbClient();
   pbClient.setId(id);
   const pbMetadataMap = pbClient.getMetadataMap();

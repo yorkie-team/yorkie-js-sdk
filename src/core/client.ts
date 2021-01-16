@@ -77,9 +77,11 @@ interface Attachment {
   remoteChangeEventReceived?: boolean;
 }
 
+export type Metadata = { [key: string]: string };
+
 export interface ClientOptions {
   key?: string;
-  metadata?: { [key: string]: string };
+  metadata?: Metadata;
   syncLoopDuration: number;
   reconnectStreamDelay: number;
 }
@@ -97,7 +99,7 @@ const DefaultClientOptions: ClientOptions = {
 export class Client implements Observable<ClientEvent> {
   private id: ActorID;
   private key: string;
-  private metadata: { [key: string]: string };
+  private metadata: Metadata;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private syncLoopDuration: number;
@@ -437,11 +439,11 @@ export class Client implements Observable<ClientEvent> {
     resp: WatchDocumentsResponse,
   ) {
     const getPeers = (
-      peersMap: { [key: string]: { [key: string]: { [key: string]: string } } },
+      peersMap: { [key: string]: { [key: string]: Metadata } },
       key: DocumentKey,
     ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers: { [key: string]: { [key: string]: string } } = {};
+      const peers: { [key: string]: Metadata } = {};
       for (const [key, value] of attachment.peerClients) {
         peers[key] = value;
       }
