@@ -138,8 +138,9 @@ export class SplayTree<V> {
 
   /**
    * Find the index of the given node in BST.
-   * @param node the given node
-   * @return the index of given node
+   *
+   * @param node - the given node
+   * @returns the index of given node
    */
   public indexOf(node: SplayNode<V>): number {
     if (!node) {
