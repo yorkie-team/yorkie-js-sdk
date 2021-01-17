@@ -69,9 +69,7 @@ import {
 import { IncreaseOperation } from '../document/operation/increase_operation';
 import { CounterType, Counter } from '../document/json/counter';
 
-function fromMetadataMap(
-  pbMetadataMap: jspb.Map<string, string>,
-): Metadata {
+function fromMetadataMap(pbMetadataMap: jspb.Map<string, string>): Metadata {
   const metadata: Metadata = {};
   pbMetadataMap.forEach((value: string, key: string) => {
     metadata[key] = value;
