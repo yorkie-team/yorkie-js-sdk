@@ -926,12 +926,12 @@ function objectToBytes(obj: JSONObject): Uint8Array {
 }
 
 export const converter = {
-  fromMetadataMap: fromMetadataMap,
-  toClient: toClient,
-  toChangePack: toChangePack,
-  fromChangePack: fromChangePack,
-  toDocumentKeys: toDocumentKeys,
-  fromDocumentKeys: fromDocumentKeys,
-  objectToBytes: objectToBytes,
-  bytesToObject: bytesToObject,
+  fromMetadataMap,
+  toClient,
+  toChangePack,
+  fromChangePack,
+  toDocumentKeys,
+  fromDocumentKeys,
+  objectToBytes,
+  bytesToObject,
 };
