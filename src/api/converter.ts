@@ -482,8 +482,6 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
       `unimplemented element: ${jsonElement}`,
     );
   }
-
-  return null;
 }
 
 function toChangePack(pack: ChangePack): PbChangePack {
