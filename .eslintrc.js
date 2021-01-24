@@ -17,5 +17,6 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
     'tsdoc/syntax': 'error',
     'object-shorthand': ['error', 'always'],
+    'no-unreachable': 'error',
   },
 };
