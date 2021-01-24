@@ -35,13 +35,13 @@ export { Change, ChangeType } from './document/json/rga_tree_split';
  * e.g) `yorkie.createClient(...);`
  */
 const yorkie = {
-  createClient: function (rpcAddr: string, opts?: ClientOptions): Client {
+  createClient(rpcAddr: string, opts?: ClientOptions): Client {
     return new Client(rpcAddr, opts);
   },
-  createDocument: function (collection: string, document: string): Document {
+  createDocument(collection: string, document: string): Document {
     return new Document(collection, document);
   },
-  Long: Long,
+  Long,
 };
 
 export default yorkie;

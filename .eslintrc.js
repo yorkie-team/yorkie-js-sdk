@@ -16,5 +16,7 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     'tsdoc/syntax': 'error',
+    'object-shorthand': ['error', 'always'],
+    'no-unreachable': 'error',
   },
 };

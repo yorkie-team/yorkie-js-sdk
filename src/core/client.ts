@@ -229,7 +229,7 @@ export class Client implements Observable<ClientEvent> {
         doc.applyChangePack(pack);
 
         this.attachmentMap.set(doc.getKey().toIDString(), {
-          doc: doc,
+          doc,
           isRealtimeSync: !isManualSync,
           peerClients: new Map(),
         });
