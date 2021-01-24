@@ -193,7 +193,7 @@ export class RichText extends JSONElement {
         actor: editedAt.getActorID(),
         from: fromIdx,
         to: toIdx,
-        attributes: attributes,
+        attributes,
       });
 
       for (const [key, value] of Object.entries(attributes)) {
