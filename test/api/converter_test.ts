@@ -59,4 +59,11 @@ describe('Converter', function () {
     const obj = converter.bytesToObject(bytes);
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
   });
+
+  it('convert hex string <-> byte array', function () {
+    const hex_str = '0123456789abcdef01234567';
+    const bytes = converter.toUint8Array(hex_str);
+    assert.equal(bytes.length, 12);
+    assert.equal(converter.toHexString(bytes), hex_str);
+  });
 });
