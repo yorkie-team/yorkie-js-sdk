@@ -510,7 +510,7 @@ function fromDocumentKeys(
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   return ChangeID.of(
     pbChangeID.getClientSeq(),
-    Long.fromString(`${pbChangeID.getLamport()}`, true),
+    Long.fromString(pbChangeID.getLamport(), true),
     toHexString(pbChangeID.getActorId_asU8()),
   );
 }
@@ -521,7 +521,7 @@ function fromTimeTicket(pbTimeTicket: PbTimeTicket): TimeTicket {
   }
 
   return TimeTicket.of(
-    Long.fromString(`${pbTimeTicket.getLamport()}`, true),
+    Long.fromString(pbTimeTicket.getLamport(), true),
     pbTimeTicket.getDelimiter(),
     toHexString(pbTimeTicket.getActorId_asU8()),
   );
@@ -777,7 +777,7 @@ function fromChanges(pbChanges: PbChange[]): Change[] {
 
 function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
   return Checkpoint.of(
-    Long.fromString(`${pbCheckpoint.getServerSeq()}`, true),
+    Long.fromString(pbCheckpoint.getServerSeq(), true),
     pbCheckpoint.getClientSeq(),
   );
 }
