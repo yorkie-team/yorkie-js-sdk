@@ -7,10 +7,6 @@
 // GENERATED CODE -- DO NOT EDIT!
 
 
-/* eslint-disable */
-// @ts-nocheck
-
-
 
 const grpc = {};
 grpc.web = require('grpc-web');
