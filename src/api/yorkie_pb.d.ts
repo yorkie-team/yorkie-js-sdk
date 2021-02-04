@@ -2,7 +2,7 @@ import * as jspb from "google-protobuf"
 
 export class RequestHeader extends jspb.Message {
   getVersion(): number;
-  setVersion(value: number): RequestHeader;
+  setVersion(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RequestHeader.AsObject;
@@ -20,12 +20,12 @@ export namespace RequestHeader {
 
 export class ActivateClientRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): ActivateClientRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): ActivateClientRequest;
+  clearHeader(): void;
 
   getClientKey(): string;
-  setClientKey(value: string): ActivateClientRequest;
+  setClientKey(value: string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ActivateClientRequest.AsObject;
@@ -44,10 +44,12 @@ export namespace ActivateClientRequest {
 
 export class ActivateClientResponse extends jspb.Message {
   getClientKey(): string;
-  setClientKey(value: string): ActivateClientResponse;
+  setClientKey(value: string): void;
 
-  getClientId(): string;
-  setClientId(value: string): ActivateClientResponse;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ActivateClientResponse.AsObject;
@@ -60,18 +62,20 @@ export class ActivateClientResponse extends jspb.Message {
 export namespace ActivateClientResponse {
   export type AsObject = {
     clientKey: string,
-    clientId: string,
+    clientId: Uint8Array | string,
   }
 }
 
 export class DeactivateClientRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): DeactivateClientRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): DeactivateClientRequest;
+  clearHeader(): void;
 
-  getClientId(): string;
-  setClientId(value: string): DeactivateClientRequest;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeactivateClientRequest.AsObject;
@@ -84,13 +88,15 @@ export class DeactivateClientRequest extends jspb.Message {
 export namespace DeactivateClientRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
-    clientId: string,
+    clientId: Uint8Array | string,
   }
 }
 
 export class DeactivateClientResponse extends jspb.Message {
-  getClientId(): string;
-  setClientId(value: string): DeactivateClientResponse;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeactivateClientResponse.AsObject;
@@ -102,23 +108,25 @@ export class DeactivateClientResponse extends jspb.Message {
 
 export namespace DeactivateClientResponse {
   export type AsObject = {
-    clientId: string,
+    clientId: Uint8Array | string,
   }
 }
 
 export class AttachDocumentRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): AttachDocumentRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): AttachDocumentRequest;
+  clearHeader(): void;
 
-  getClientId(): string;
-  setClientId(value: string): AttachDocumentRequest;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): AttachDocumentRequest;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): AttachDocumentRequest;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AttachDocumentRequest.AsObject;
@@ -131,19 +139,21 @@ export class AttachDocumentRequest extends jspb.Message {
 export namespace AttachDocumentRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
-    clientId: string,
+    clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
 }
 
 export class AttachDocumentResponse extends jspb.Message {
-  getClientId(): string;
-  setClientId(value: string): AttachDocumentResponse;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): AttachDocumentResponse;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): AttachDocumentResponse;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): AttachDocumentResponse.AsObject;
@@ -155,24 +165,26 @@ export class AttachDocumentResponse extends jspb.Message {
 
 export namespace AttachDocumentResponse {
   export type AsObject = {
-    clientId: string,
+    clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
 }
 
 export class DetachDocumentRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): DetachDocumentRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): DetachDocumentRequest;
+  clearHeader(): void;
 
-  getClientId(): string;
-  setClientId(value: string): DetachDocumentRequest;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): DetachDocumentRequest;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): DetachDocumentRequest;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentRequest.AsObject;
@@ -185,19 +197,19 @@ export class DetachDocumentRequest extends jspb.Message {
 export namespace DetachDocumentRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
-    clientId: string,
+    clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
 }
 
 export class DetachDocumentResponse extends jspb.Message {
   getClientKey(): string;
-  setClientKey(value: string): DetachDocumentResponse;
+  setClientKey(value: string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): DetachDocumentResponse;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): DetachDocumentResponse;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentResponse.AsObject;
@@ -216,18 +228,18 @@ export namespace DetachDocumentResponse {
 
 export class WatchDocumentsRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): WatchDocumentsRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): WatchDocumentsRequest;
+  clearHeader(): void;
 
   getClient(): Client | undefined;
-  setClient(value?: Client): WatchDocumentsRequest;
+  setClient(value?: Client): void;
   hasClient(): boolean;
-  clearClient(): WatchDocumentsRequest;
+  clearClient(): void;
 
   getDocumentKeysList(): Array<DocumentKey>;
-  setDocumentKeysList(value: Array<DocumentKey>): WatchDocumentsRequest;
-  clearDocumentKeysList(): WatchDocumentsRequest;
+  setDocumentKeysList(value: Array<DocumentKey>): void;
+  clearDocumentKeysList(): void;
   addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
 
   serializeBinary(): Uint8Array;
@@ -248,14 +260,14 @@ export namespace WatchDocumentsRequest {
 
 export class WatchDocumentsResponse extends jspb.Message {
   getInitialization(): WatchDocumentsResponse.Initialization | undefined;
-  setInitialization(value?: WatchDocumentsResponse.Initialization): WatchDocumentsResponse;
+  setInitialization(value?: WatchDocumentsResponse.Initialization): void;
   hasInitialization(): boolean;
-  clearInitialization(): WatchDocumentsResponse;
+  clearInitialization(): void;
 
   getEvent(): WatchDocumentsResponse.Event | undefined;
-  setEvent(value?: WatchDocumentsResponse.Event): WatchDocumentsResponse;
+  setEvent(value?: WatchDocumentsResponse.Event): void;
   hasEvent(): boolean;
-  clearEvent(): WatchDocumentsResponse;
+  clearEvent(): void;
 
   getBodyCase(): WatchDocumentsResponse.BodyCase;
 
@@ -275,7 +287,7 @@ export namespace WatchDocumentsResponse {
 
   export class Initialization extends jspb.Message {
     getPeersMapByDocMap(): jspb.Map<string, Clients>;
-    clearPeersMapByDocMap(): Initialization;
+    clearPeersMapByDocMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Initialization.AsObject;
@@ -294,16 +306,16 @@ export namespace WatchDocumentsResponse {
 
   export class Event extends jspb.Message {
     getClient(): Client | undefined;
-    setClient(value?: Client): Event;
+    setClient(value?: Client): void;
     hasClient(): boolean;
-    clearClient(): Event;
+    clearClient(): void;
 
     getEventType(): EventType;
-    setEventType(value: EventType): Event;
+    setEventType(value: EventType): void;
 
     getDocumentKeysList(): Array<DocumentKey>;
-    setDocumentKeysList(value: Array<DocumentKey>): Event;
-    clearDocumentKeysList(): Event;
+    setDocumentKeysList(value: Array<DocumentKey>): void;
+    clearDocumentKeysList(): void;
     addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
 
     serializeBinary(): Uint8Array;
@@ -332,17 +344,19 @@ export namespace WatchDocumentsResponse {
 
 export class PushPullRequest extends jspb.Message {
   getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): PushPullRequest;
+  setHeader(value?: RequestHeader): void;
   hasHeader(): boolean;
-  clearHeader(): PushPullRequest;
+  clearHeader(): void;
 
-  getClientId(): string;
-  setClientId(value: string): PushPullRequest;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): PushPullRequest;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): PushPullRequest;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PushPullRequest.AsObject;
@@ -355,19 +369,21 @@ export class PushPullRequest extends jspb.Message {
 export namespace PushPullRequest {
   export type AsObject = {
     header?: RequestHeader.AsObject,
-    clientId: string,
+    clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
 }
 
 export class PushPullResponse extends jspb.Message {
-  getClientId(): string;
-  setClientId(value: string): PushPullResponse;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): void;
 
   getChangePack(): ChangePack | undefined;
-  setChangePack(value?: ChangePack): PushPullResponse;
+  setChangePack(value?: ChangePack): void;
   hasChangePack(): boolean;
-  clearChangePack(): PushPullResponse;
+  clearChangePack(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PushPullResponse.AsObject;
@@ -379,36 +395,36 @@ export class PushPullResponse extends jspb.Message {
 
 export namespace PushPullResponse {
   export type AsObject = {
-    clientId: string,
+    clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
 }
 
 export class ChangePack extends jspb.Message {
   getDocumentKey(): DocumentKey | undefined;
-  setDocumentKey(value?: DocumentKey): ChangePack;
+  setDocumentKey(value?: DocumentKey): void;
   hasDocumentKey(): boolean;
-  clearDocumentKey(): ChangePack;
+  clearDocumentKey(): void;
 
   getCheckpoint(): Checkpoint | undefined;
-  setCheckpoint(value?: Checkpoint): ChangePack;
+  setCheckpoint(value?: Checkpoint): void;
   hasCheckpoint(): boolean;
-  clearCheckpoint(): ChangePack;
+  clearCheckpoint(): void;
 
   getSnapshot(): Uint8Array | string;
   getSnapshot_asU8(): Uint8Array;
   getSnapshot_asB64(): string;
-  setSnapshot(value: Uint8Array | string): ChangePack;
+  setSnapshot(value: Uint8Array | string): void;
 
   getChangesList(): Array<Change>;
-  setChangesList(value: Array<Change>): ChangePack;
-  clearChangesList(): ChangePack;
+  setChangesList(value: Array<Change>): void;
+  clearChangesList(): void;
   addChanges(value?: Change, index?: number): Change;
 
   getMinSyncedTicket(): TimeTicket | undefined;
-  setMinSyncedTicket(value?: TimeTicket): ChangePack;
+  setMinSyncedTicket(value?: TimeTicket): void;
   hasMinSyncedTicket(): boolean;
-  clearMinSyncedTicket(): ChangePack;
+  clearMinSyncedTicket(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
@@ -430,16 +446,16 @@ export namespace ChangePack {
 
 export class Change extends jspb.Message {
   getId(): ChangeID | undefined;
-  setId(value?: ChangeID): Change;
+  setId(value?: ChangeID): void;
   hasId(): boolean;
-  clearId(): Change;
+  clearId(): void;
 
   getMessage(): string;
-  setMessage(value: string): Change;
+  setMessage(value: string): void;
 
   getOperationsList(): Array<Operation>;
-  setOperationsList(value: Array<Operation>): Change;
-  clearOperationsList(): Change;
+  setOperationsList(value: Array<Operation>): void;
+  clearOperationsList(): void;
   addOperations(value?: Operation, index?: number): Operation;
 
   serializeBinary(): Uint8Array;
@@ -460,13 +476,15 @@ export namespace Change {
 
 export class ChangeID extends jspb.Message {
   getClientSeq(): number;
-  setClientSeq(value: number): ChangeID;
+  setClientSeq(value: number): void;
 
   getLamport(): string;
-  setLamport(value: string): ChangeID;
+  setLamport(value: string): void;
 
-  getActorId(): string;
-  setActorId(value: string): ChangeID;
+  getActorId(): Uint8Array | string;
+  getActorId_asU8(): Uint8Array;
+  getActorId_asB64(): string;
+  setActorId(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangeID.AsObject;
@@ -480,55 +498,55 @@ export namespace ChangeID {
   export type AsObject = {
     clientSeq: number,
     lamport: string,
-    actorId: string,
+    actorId: Uint8Array | string,
   }
 }
 
 export class Operation extends jspb.Message {
   getSet(): Operation.Set | undefined;
-  setSet(value?: Operation.Set): Operation;
+  setSet(value?: Operation.Set): void;
   hasSet(): boolean;
-  clearSet(): Operation;
+  clearSet(): void;
 
   getAdd(): Operation.Add | undefined;
-  setAdd(value?: Operation.Add): Operation;
+  setAdd(value?: Operation.Add): void;
   hasAdd(): boolean;
-  clearAdd(): Operation;
+  clearAdd(): void;
 
   getMove(): Operation.Move | undefined;
-  setMove(value?: Operation.Move): Operation;
+  setMove(value?: Operation.Move): void;
   hasMove(): boolean;
-  clearMove(): Operation;
+  clearMove(): void;
 
   getRemove(): Operation.Remove | undefined;
-  setRemove(value?: Operation.Remove): Operation;
+  setRemove(value?: Operation.Remove): void;
   hasRemove(): boolean;
-  clearRemove(): Operation;
+  clearRemove(): void;
 
   getEdit(): Operation.Edit | undefined;
-  setEdit(value?: Operation.Edit): Operation;
+  setEdit(value?: Operation.Edit): void;
   hasEdit(): boolean;
-  clearEdit(): Operation;
+  clearEdit(): void;
 
   getSelect(): Operation.Select | undefined;
-  setSelect(value?: Operation.Select): Operation;
+  setSelect(value?: Operation.Select): void;
   hasSelect(): boolean;
-  clearSelect(): Operation;
+  clearSelect(): void;
 
   getRichEdit(): Operation.RichEdit | undefined;
-  setRichEdit(value?: Operation.RichEdit): Operation;
+  setRichEdit(value?: Operation.RichEdit): void;
   hasRichEdit(): boolean;
-  clearRichEdit(): Operation;
+  clearRichEdit(): void;
 
   getStyle(): Operation.Style | undefined;
-  setStyle(value?: Operation.Style): Operation;
+  setStyle(value?: Operation.Style): void;
   hasStyle(): boolean;
-  clearStyle(): Operation;
+  clearStyle(): void;
 
   getIncrease(): Operation.Increase | undefined;
-  setIncrease(value?: Operation.Increase): Operation;
+  setIncrease(value?: Operation.Increase): void;
   hasIncrease(): boolean;
-  clearIncrease(): Operation;
+  clearIncrease(): void;
 
   getBodyCase(): Operation.BodyCase;
 
@@ -555,22 +573,22 @@ export namespace Operation {
 
   export class Set extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Set;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Set;
+    clearParentCreatedAt(): void;
 
     getKey(): string;
-    setKey(value: string): Set;
+    setKey(value: string): void;
 
     getValue(): JSONElementSimple | undefined;
-    setValue(value?: JSONElementSimple): Set;
+    setValue(value?: JSONElementSimple): void;
     hasValue(): boolean;
-    clearValue(): Set;
+    clearValue(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Set;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Set;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Set.AsObject;
@@ -592,24 +610,24 @@ export namespace Operation {
 
   export class Add extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Add;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Add;
+    clearParentCreatedAt(): void;
 
     getPrevCreatedAt(): TimeTicket | undefined;
-    setPrevCreatedAt(value?: TimeTicket): Add;
+    setPrevCreatedAt(value?: TimeTicket): void;
     hasPrevCreatedAt(): boolean;
-    clearPrevCreatedAt(): Add;
+    clearPrevCreatedAt(): void;
 
     getValue(): JSONElementSimple | undefined;
-    setValue(value?: JSONElementSimple): Add;
+    setValue(value?: JSONElementSimple): void;
     hasValue(): boolean;
-    clearValue(): Add;
+    clearValue(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Add;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Add;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Add.AsObject;
@@ -631,24 +649,24 @@ export namespace Operation {
 
   export class Move extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Move;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Move;
+    clearParentCreatedAt(): void;
 
     getPrevCreatedAt(): TimeTicket | undefined;
-    setPrevCreatedAt(value?: TimeTicket): Move;
+    setPrevCreatedAt(value?: TimeTicket): void;
     hasPrevCreatedAt(): boolean;
-    clearPrevCreatedAt(): Move;
+    clearPrevCreatedAt(): void;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Move;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Move;
+    clearCreatedAt(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Move;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Move;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Move.AsObject;
@@ -670,19 +688,19 @@ export namespace Operation {
 
   export class Remove extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Remove;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Remove;
+    clearParentCreatedAt(): void;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Remove;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Remove;
+    clearCreatedAt(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Remove;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Remove;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Remove.AsObject;
@@ -703,30 +721,30 @@ export namespace Operation {
 
   export class Edit extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Edit;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Edit;
+    clearParentCreatedAt(): void;
 
     getFrom(): TextNodePos | undefined;
-    setFrom(value?: TextNodePos): Edit;
+    setFrom(value?: TextNodePos): void;
     hasFrom(): boolean;
-    clearFrom(): Edit;
+    clearFrom(): void;
 
     getTo(): TextNodePos | undefined;
-    setTo(value?: TextNodePos): Edit;
+    setTo(value?: TextNodePos): void;
     hasTo(): boolean;
-    clearTo(): Edit;
+    clearTo(): void;
 
     getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
-    clearCreatedAtMapByActorMap(): Edit;
+    clearCreatedAtMapByActorMap(): void;
 
     getContent(): string;
-    setContent(value: string): Edit;
+    setContent(value: string): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Edit;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Edit;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Edit.AsObject;
@@ -750,24 +768,24 @@ export namespace Operation {
 
   export class Select extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Select;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Select;
+    clearParentCreatedAt(): void;
 
     getFrom(): TextNodePos | undefined;
-    setFrom(value?: TextNodePos): Select;
+    setFrom(value?: TextNodePos): void;
     hasFrom(): boolean;
-    clearFrom(): Select;
+    clearFrom(): void;
 
     getTo(): TextNodePos | undefined;
-    setTo(value?: TextNodePos): Select;
+    setTo(value?: TextNodePos): void;
     hasTo(): boolean;
-    clearTo(): Select;
+    clearTo(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Select;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Select;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Select.AsObject;
@@ -789,33 +807,33 @@ export namespace Operation {
 
   export class RichEdit extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): RichEdit;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): RichEdit;
+    clearParentCreatedAt(): void;
 
     getFrom(): TextNodePos | undefined;
-    setFrom(value?: TextNodePos): RichEdit;
+    setFrom(value?: TextNodePos): void;
     hasFrom(): boolean;
-    clearFrom(): RichEdit;
+    clearFrom(): void;
 
     getTo(): TextNodePos | undefined;
-    setTo(value?: TextNodePos): RichEdit;
+    setTo(value?: TextNodePos): void;
     hasTo(): boolean;
-    clearTo(): RichEdit;
+    clearTo(): void;
 
     getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
-    clearCreatedAtMapByActorMap(): RichEdit;
+    clearCreatedAtMapByActorMap(): void;
 
     getContent(): string;
-    setContent(value: string): RichEdit;
+    setContent(value: string): void;
 
     getAttributesMap(): jspb.Map<string, string>;
-    clearAttributesMap(): RichEdit;
+    clearAttributesMap(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): RichEdit;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): RichEdit;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RichEdit.AsObject;
@@ -840,27 +858,27 @@ export namespace Operation {
 
   export class Style extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Style;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Style;
+    clearParentCreatedAt(): void;
 
     getFrom(): TextNodePos | undefined;
-    setFrom(value?: TextNodePos): Style;
+    setFrom(value?: TextNodePos): void;
     hasFrom(): boolean;
-    clearFrom(): Style;
+    clearFrom(): void;
 
     getTo(): TextNodePos | undefined;
-    setTo(value?: TextNodePos): Style;
+    setTo(value?: TextNodePos): void;
     hasTo(): boolean;
-    clearTo(): Style;
+    clearTo(): void;
 
     getAttributesMap(): jspb.Map<string, string>;
-    clearAttributesMap(): Style;
+    clearAttributesMap(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Style;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Style;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Style.AsObject;
@@ -883,19 +901,19 @@ export namespace Operation {
 
   export class Increase extends jspb.Message {
     getParentCreatedAt(): TimeTicket | undefined;
-    setParentCreatedAt(value?: TimeTicket): Increase;
+    setParentCreatedAt(value?: TimeTicket): void;
     hasParentCreatedAt(): boolean;
-    clearParentCreatedAt(): Increase;
+    clearParentCreatedAt(): void;
 
     getValue(): JSONElementSimple | undefined;
-    setValue(value?: JSONElementSimple): Increase;
+    setValue(value?: JSONElementSimple): void;
     hasValue(): boolean;
-    clearValue(): Increase;
+    clearValue(): void;
 
     getExecutedAt(): TimeTicket | undefined;
-    setExecutedAt(value?: TimeTicket): Increase;
+    setExecutedAt(value?: TimeTicket): void;
     hasExecutedAt(): boolean;
-    clearExecutedAt(): Increase;
+    clearExecutedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Increase.AsObject;
@@ -930,27 +948,27 @@ export namespace Operation {
 
 export class JSONElementSimple extends jspb.Message {
   getCreatedAt(): TimeTicket | undefined;
-  setCreatedAt(value?: TimeTicket): JSONElementSimple;
+  setCreatedAt(value?: TimeTicket): void;
   hasCreatedAt(): boolean;
-  clearCreatedAt(): JSONElementSimple;
+  clearCreatedAt(): void;
 
   getMovedAt(): TimeTicket | undefined;
-  setMovedAt(value?: TimeTicket): JSONElementSimple;
+  setMovedAt(value?: TimeTicket): void;
   hasMovedAt(): boolean;
-  clearMovedAt(): JSONElementSimple;
+  clearMovedAt(): void;
 
   getRemovedAt(): TimeTicket | undefined;
-  setRemovedAt(value?: TimeTicket): JSONElementSimple;
+  setRemovedAt(value?: TimeTicket): void;
   hasRemovedAt(): boolean;
-  clearRemovedAt(): JSONElementSimple;
+  clearRemovedAt(): void;
 
   getType(): ValueType;
-  setType(value: ValueType): JSONElementSimple;
+  setType(value: ValueType): void;
 
   getValue(): Uint8Array | string;
   getValue_asU8(): Uint8Array;
   getValue_asB64(): string;
-  setValue(value: Uint8Array | string): JSONElementSimple;
+  setValue(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): JSONElementSimple.AsObject;
@@ -972,34 +990,34 @@ export namespace JSONElementSimple {
 
 export class JSONElement extends jspb.Message {
   getObject(): JSONElement.Object | undefined;
-  setObject(value?: JSONElement.Object): JSONElement;
+  setObject(value?: JSONElement.Object): void;
   hasObject(): boolean;
-  clearObject(): JSONElement;
+  clearObject(): void;
 
   getArray(): JSONElement.Array | undefined;
-  setArray(value?: JSONElement.Array): JSONElement;
+  setArray(value?: JSONElement.Array): void;
   hasArray(): boolean;
-  clearArray(): JSONElement;
+  clearArray(): void;
 
   getPrimitive(): JSONElement.Primitive | undefined;
-  setPrimitive(value?: JSONElement.Primitive): JSONElement;
+  setPrimitive(value?: JSONElement.Primitive): void;
   hasPrimitive(): boolean;
-  clearPrimitive(): JSONElement;
+  clearPrimitive(): void;
 
   getText(): JSONElement.Text | undefined;
-  setText(value?: JSONElement.Text): JSONElement;
+  setText(value?: JSONElement.Text): void;
   hasText(): boolean;
-  clearText(): JSONElement;
+  clearText(): void;
 
   getRichText(): JSONElement.RichText | undefined;
-  setRichText(value?: JSONElement.RichText): JSONElement;
+  setRichText(value?: JSONElement.RichText): void;
   hasRichText(): boolean;
-  clearRichText(): JSONElement;
+  clearRichText(): void;
 
   getCounter(): JSONElement.Counter | undefined;
-  setCounter(value?: JSONElement.Counter): JSONElement;
+  setCounter(value?: JSONElement.Counter): void;
   hasCounter(): boolean;
-  clearCounter(): JSONElement;
+  clearCounter(): void;
 
   getBodyCase(): JSONElement.BodyCase;
 
@@ -1023,24 +1041,24 @@ export namespace JSONElement {
 
   export class Object extends jspb.Message {
     getNodesList(): Array<RHTNode>;
-    setNodesList(value: Array<RHTNode>): Object;
-    clearNodesList(): Object;
+    setNodesList(value: Array<RHTNode>): void;
+    clearNodesList(): void;
     addNodes(value?: RHTNode, index?: number): RHTNode;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Object;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Object;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): Object;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): Object;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): Object;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): Object;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Object.AsObject;
@@ -1062,24 +1080,24 @@ export namespace JSONElement {
 
   export class Array extends jspb.Message {
     getNodesList(): Array<RGANode>;
-    setNodesList(value: Array<RGANode>): Array;
-    clearNodesList(): Array;
+    setNodesList(value: Array<RGANode>): void;
+    clearNodesList(): void;
     addNodes(value?: RGANode, index?: number): RGANode;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Array;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Array;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): Array;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): Array;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): Array;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): Array;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Array.AsObject;
@@ -1101,27 +1119,27 @@ export namespace JSONElement {
 
   export class Primitive extends jspb.Message {
     getType(): ValueType;
-    setType(value: ValueType): Primitive;
+    setType(value: ValueType): void;
 
     getValue(): Uint8Array | string;
     getValue_asU8(): Uint8Array;
     getValue_asB64(): string;
-    setValue(value: Uint8Array | string): Primitive;
+    setValue(value: Uint8Array | string): void;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Primitive;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Primitive;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): Primitive;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): Primitive;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): Primitive;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): Primitive;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Primitive.AsObject;
@@ -1144,24 +1162,24 @@ export namespace JSONElement {
 
   export class Text extends jspb.Message {
     getNodesList(): Array<TextNode>;
-    setNodesList(value: Array<TextNode>): Text;
-    clearNodesList(): Text;
+    setNodesList(value: Array<TextNode>): void;
+    clearNodesList(): void;
     addNodes(value?: TextNode, index?: number): TextNode;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Text;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Text;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): Text;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): Text;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): Text;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): Text;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Text.AsObject;
@@ -1183,24 +1201,24 @@ export namespace JSONElement {
 
   export class RichText extends jspb.Message {
     getNodesList(): Array<RichTextNode>;
-    setNodesList(value: Array<RichTextNode>): RichText;
-    clearNodesList(): RichText;
+    setNodesList(value: Array<RichTextNode>): void;
+    clearNodesList(): void;
     addNodes(value?: RichTextNode, index?: number): RichTextNode;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): RichText;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): RichText;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): RichText;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): RichText;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): RichText;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): RichText;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RichText.AsObject;
@@ -1222,27 +1240,27 @@ export namespace JSONElement {
 
   export class Counter extends jspb.Message {
     getType(): ValueType;
-    setType(value: ValueType): Counter;
+    setType(value: ValueType): void;
 
     getValue(): Uint8Array | string;
     getValue_asU8(): Uint8Array;
     getValue_asB64(): string;
-    setValue(value: Uint8Array | string): Counter;
+    setValue(value: Uint8Array | string): void;
 
     getCreatedAt(): TimeTicket | undefined;
-    setCreatedAt(value?: TimeTicket): Counter;
+    setCreatedAt(value?: TimeTicket): void;
     hasCreatedAt(): boolean;
-    clearCreatedAt(): Counter;
+    clearCreatedAt(): void;
 
     getMovedAt(): TimeTicket | undefined;
-    setMovedAt(value?: TimeTicket): Counter;
+    setMovedAt(value?: TimeTicket): void;
     hasMovedAt(): boolean;
-    clearMovedAt(): Counter;
+    clearMovedAt(): void;
 
     getRemovedAt(): TimeTicket | undefined;
-    setRemovedAt(value?: TimeTicket): Counter;
+    setRemovedAt(value?: TimeTicket): void;
     hasRemovedAt(): boolean;
-    clearRemovedAt(): Counter;
+    clearRemovedAt(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Counter.AsObject;
@@ -1276,12 +1294,12 @@ export namespace JSONElement {
 
 export class RHTNode extends jspb.Message {
   getKey(): string;
-  setKey(value: string): RHTNode;
+  setKey(value: string): void;
 
   getElement(): JSONElement | undefined;
-  setElement(value?: JSONElement): RHTNode;
+  setElement(value?: JSONElement): void;
   hasElement(): boolean;
-  clearElement(): RHTNode;
+  clearElement(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RHTNode.AsObject;
@@ -1300,14 +1318,14 @@ export namespace RHTNode {
 
 export class RGANode extends jspb.Message {
   getNext(): RGANode | undefined;
-  setNext(value?: RGANode): RGANode;
+  setNext(value?: RGANode): void;
   hasNext(): boolean;
-  clearNext(): RGANode;
+  clearNext(): void;
 
   getElement(): JSONElement | undefined;
-  setElement(value?: JSONElement): RGANode;
+  setElement(value?: JSONElement): void;
   hasElement(): boolean;
-  clearElement(): RGANode;
+  clearElement(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RGANode.AsObject;
@@ -1326,22 +1344,22 @@ export namespace RGANode {
 
 export class TextNode extends jspb.Message {
   getId(): TextNodeID | undefined;
-  setId(value?: TextNodeID): TextNode;
+  setId(value?: TextNodeID): void;
   hasId(): boolean;
-  clearId(): TextNode;
+  clearId(): void;
 
   getValue(): string;
-  setValue(value: string): TextNode;
+  setValue(value: string): void;
 
   getRemovedAt(): TimeTicket | undefined;
-  setRemovedAt(value?: TimeTicket): TextNode;
+  setRemovedAt(value?: TimeTicket): void;
   hasRemovedAt(): boolean;
-  clearRemovedAt(): TextNode;
+  clearRemovedAt(): void;
 
   getInsPrevId(): TextNodeID | undefined;
-  setInsPrevId(value?: TextNodeID): TextNode;
+  setInsPrevId(value?: TextNodeID): void;
   hasInsPrevId(): boolean;
-  clearInsPrevId(): TextNode;
+  clearInsPrevId(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNode.AsObject;
@@ -1362,15 +1380,15 @@ export namespace TextNode {
 
 export class RichTextNodeAttr extends jspb.Message {
   getKey(): string;
-  setKey(value: string): RichTextNodeAttr;
+  setKey(value: string): void;
 
   getValue(): string;
-  setValue(value: string): RichTextNodeAttr;
+  setValue(value: string): void;
 
   getUpdatedAt(): TimeTicket | undefined;
-  setUpdatedAt(value?: TimeTicket): RichTextNodeAttr;
+  setUpdatedAt(value?: TimeTicket): void;
   hasUpdatedAt(): boolean;
-  clearUpdatedAt(): RichTextNodeAttr;
+  clearUpdatedAt(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RichTextNodeAttr.AsObject;
@@ -1390,25 +1408,25 @@ export namespace RichTextNodeAttr {
 
 export class RichTextNode extends jspb.Message {
   getId(): TextNodeID | undefined;
-  setId(value?: TextNodeID): RichTextNode;
+  setId(value?: TextNodeID): void;
   hasId(): boolean;
-  clearId(): RichTextNode;
+  clearId(): void;
 
   getAttributesMap(): jspb.Map<string, RichTextNodeAttr>;
-  clearAttributesMap(): RichTextNode;
+  clearAttributesMap(): void;
 
   getValue(): string;
-  setValue(value: string): RichTextNode;
+  setValue(value: string): void;
 
   getRemovedAt(): TimeTicket | undefined;
-  setRemovedAt(value?: TimeTicket): RichTextNode;
+  setRemovedAt(value?: TimeTicket): void;
   hasRemovedAt(): boolean;
-  clearRemovedAt(): RichTextNode;
+  clearRemovedAt(): void;
 
   getInsPrevId(): TextNodeID | undefined;
-  setInsPrevId(value?: TextNodeID): RichTextNode;
+  setInsPrevId(value?: TextNodeID): void;
   hasInsPrevId(): boolean;
-  clearInsPrevId(): RichTextNode;
+  clearInsPrevId(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): RichTextNode.AsObject;
@@ -1430,12 +1448,12 @@ export namespace RichTextNode {
 
 export class TextNodeID extends jspb.Message {
   getCreatedAt(): TimeTicket | undefined;
-  setCreatedAt(value?: TimeTicket): TextNodeID;
+  setCreatedAt(value?: TimeTicket): void;
   hasCreatedAt(): boolean;
-  clearCreatedAt(): TextNodeID;
+  clearCreatedAt(): void;
 
   getOffset(): number;
-  setOffset(value: number): TextNodeID;
+  setOffset(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNodeID.AsObject;
@@ -1453,11 +1471,13 @@ export namespace TextNodeID {
 }
 
 export class Client extends jspb.Message {
-  getId(): string;
-  setId(value: string): Client;
+  getId(): Uint8Array | string;
+  getId_asU8(): Uint8Array;
+  getId_asB64(): string;
+  setId(value: Uint8Array | string): void;
 
   getMetadataMap(): jspb.Map<string, string>;
-  clearMetadataMap(): Client;
+  clearMetadataMap(): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Client.AsObject;
@@ -1469,15 +1489,15 @@ export class Client extends jspb.Message {
 
 export namespace Client {
   export type AsObject = {
-    id: string,
+    id: Uint8Array | string,
     metadataMap: Array<[string, string]>,
   }
 }
 
 export class Clients extends jspb.Message {
   getClientsList(): Array<Client>;
-  setClientsList(value: Array<Client>): Clients;
-  clearClientsList(): Clients;
+  setClientsList(value: Array<Client>): void;
+  clearClientsList(): void;
   addClients(value?: Client, index?: number): Client;
 
   serializeBinary(): Uint8Array;
@@ -1496,10 +1516,10 @@ export namespace Clients {
 
 export class DocumentKey extends jspb.Message {
   getCollection(): string;
-  setCollection(value: string): DocumentKey;
+  setCollection(value: string): void;
 
   getDocument(): string;
-  setDocument(value: string): DocumentKey;
+  setDocument(value: string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocumentKey.AsObject;
@@ -1518,10 +1538,10 @@ export namespace DocumentKey {
 
 export class Checkpoint extends jspb.Message {
   getServerSeq(): string;
-  setServerSeq(value: string): Checkpoint;
+  setServerSeq(value: string): void;
 
   getClientSeq(): number;
-  setClientSeq(value: number): Checkpoint;
+  setClientSeq(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Checkpoint.AsObject;
@@ -1540,15 +1560,15 @@ export namespace Checkpoint {
 
 export class TextNodePos extends jspb.Message {
   getCreatedAt(): TimeTicket | undefined;
-  setCreatedAt(value?: TimeTicket): TextNodePos;
+  setCreatedAt(value?: TimeTicket): void;
   hasCreatedAt(): boolean;
-  clearCreatedAt(): TextNodePos;
+  clearCreatedAt(): void;
 
   getOffset(): number;
-  setOffset(value: number): TextNodePos;
+  setOffset(value: number): void;
 
   getRelativeOffset(): number;
-  setRelativeOffset(value: number): TextNodePos;
+  setRelativeOffset(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNodePos.AsObject;
@@ -1568,13 +1588,15 @@ export namespace TextNodePos {
 
 export class TimeTicket extends jspb.Message {
   getLamport(): string;
-  setLamport(value: string): TimeTicket;
+  setLamport(value: string): void;
 
   getDelimiter(): number;
-  setDelimiter(value: number): TimeTicket;
+  setDelimiter(value: number): void;
 
-  getActorId(): string;
-  setActorId(value: string): TimeTicket;
+  getActorId(): Uint8Array | string;
+  getActorId_asU8(): Uint8Array;
+  getActorId_asB64(): string;
+  setActorId(value: Uint8Array | string): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TimeTicket.AsObject;
@@ -1588,7 +1610,7 @@ export namespace TimeTicket {
   export type AsObject = {
     lamport: string,
     delimiter: number,
-    actorId: string,
+    actorId: Uint8Array | string,
   }
 }
 

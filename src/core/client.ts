@@ -148,7 +148,7 @@ export class Client implements Observable<ClientEvent> {
           return;
         }
 
-        this.id = res.getClientId();
+        this.id = converter.toHexString(res.getClientId_asU8());
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
         this.runWatchLoop();
@@ -158,9 +158,7 @@ export class Client implements Observable<ClientEvent> {
           value: this.status,
         });
 
-        logger.info(
-          `[AC] c:"${this.getKey()}" activated, id:"${res.getClientId()}"`,
-        );
+        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
         resolve();
       });
     });
@@ -181,7 +179,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
-      req.setClientId(this.id);
+      req.setClientId(converter.toUint8Array(this.id));
 
       this.rpcClient.deactivateClient(req, {}, (err) => {
         if (err) {
@@ -215,7 +213,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
-      req.setClientId(this.id);
+      req.setClientId(converter.toUint8Array(this.id));
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.rpcClient.attachDocument(req, {}, (err, res) => {
@@ -258,7 +256,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
-      req.setClientId(this.id);
+      req.setClientId(converter.toUint8Array(this.id));
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.rpcClient.detachDocument(req, {}, (err, res) => {
@@ -457,7 +455,7 @@ export class Client implements Observable<ClientEvent> {
         const attachment = this.attachmentMap.get(docID);
         for (const pbClient of pbPeers.getClientsList()) {
           attachment.peerClients.set(
-            pbClient.getId(),
+            converter.toHexString(pbClient.getId_asU8()),
             converter.fromMetadataMap(pbClient.getMetadataMap()),
           );
         }
@@ -479,14 +477,16 @@ export class Client implements Observable<ClientEvent> {
       switch (pbWatchEvent.getEventType()) {
         case WatchEventType.DOCUMENTS_WATCHED:
           attachment.peerClients.set(
-            pbWatchEvent.getClient().getId(),
+            converter.toHexString(pbWatchEvent.getClient().getId_asU8()),
             converter.fromMetadataMap(
               pbWatchEvent.getClient().getMetadataMap(),
             ),
           );
           break;
         case WatchEventType.DOCUMENTS_UNWATCHED:
-          attachment.peerClients.delete(pbWatchEvent.getClient().getId());
+          attachment.peerClients.delete(
+            converter.toHexString(pbWatchEvent.getClient().getId_asU8()),
+          );
           break;
         case WatchEventType.DOCUMENTS_CHANGED:
           attachment.remoteChangeEventReceived = true;
@@ -513,7 +513,7 @@ export class Client implements Observable<ClientEvent> {
   private syncInternal(doc: Document): Promise<Document> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
-      req.setClientId(this.id);
+      req.setClientId(converter.toUint8Array(this.id));
       const reqPack = doc.createChangePack();
       const localSize = reqPack.getChangeSize();
       req.setChangePack(converter.toChangePack(reqPack));

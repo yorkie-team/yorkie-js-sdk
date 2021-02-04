@@ -79,7 +79,7 @@ function fromMetadataMap(pbMetadataMap: jspb.Map<string, string>): Metadata {
 
 function toClient(id: string, metadata: Metadata): PbClient {
   const pbClient = new PbClient();
-  pbClient.setId(id);
+  pbClient.setId(toUint8Array(id));
   const pbMetadataMap = pbClient.getMetadataMap();
   for (const [key, value] of Object.entries(metadata)) {
     pbMetadataMap.set(key, value);
@@ -110,7 +110,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
   const pbChangeID = new PbChangeID();
   pbChangeID.setClientSeq(changeID.getClientSeq());
   pbChangeID.setLamport(changeID.getLamportAsString());
-  pbChangeID.setActorId(changeID.getActorID());
+  pbChangeID.setActorId(toUint8Array(changeID.getActorID()));
   return pbChangeID;
 }
 
@@ -122,7 +122,7 @@ function toTimeTicket(ticket: TimeTicket): PbTimeTicket {
   const pbTimeTicket = new PbTimeTicket();
   pbTimeTicket.setLamport(ticket.getLamportAsString());
   pbTimeTicket.setDelimiter(ticket.getDelimiter());
-  pbTimeTicket.setActorId(ticket.getActorID());
+  pbTimeTicket.setActorId(toUint8Array(ticket.getActorID()));
   return pbTimeTicket;
 }
 
@@ -511,7 +511,7 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   return ChangeID.of(
     pbChangeID.getClientSeq(),
     Long.fromString(pbChangeID.getLamport(), true),
-    pbChangeID.getActorId(),
+    toHexString(pbChangeID.getActorId_asU8()),
   );
 }
 
@@ -523,7 +523,7 @@ function fromTimeTicket(pbTimeTicket: PbTimeTicket): TimeTicket {
   return TimeTicket.of(
     Long.fromString(pbTimeTicket.getLamport(), true),
     pbTimeTicket.getDelimiter(),
-    pbTimeTicket.getActorId(),
+    toHexString(pbTimeTicket.getActorId_asU8()),
   );
 }
 
@@ -923,6 +923,14 @@ function objectToBytes(obj: JSONObject): Uint8Array {
   return toJSONElement(obj).serializeBinary();
 }
 
+function toHexString(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('hex');
+}
+
+function toUint8Array(hex: string): Uint8Array {
+  return Uint8Array.from(Buffer.from(hex, 'hex'));
+}
+
 export const converter = {
   fromMetadataMap,
   toClient,
@@ -932,4 +940,6 @@ export const converter = {
   fromDocumentKeys,
   objectToBytes,
   bytesToObject,
+  toHexString,
+  toUint8Array,
 };

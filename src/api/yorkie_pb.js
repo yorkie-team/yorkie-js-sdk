@@ -7,6 +7,8 @@
  * @public
  */
 // GENERATED CODE -- DO NOT EDIT!
+/* eslint-disable */
+// @ts-nocheck
 
 var jspb = require('google-protobuf');
 var goog = jspb;
@@ -1417,7 +1419,7 @@ proto.api.ActivateClientResponse.prototype.toObject = function(opt_includeInstan
 proto.api.ActivateClientResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     clientKey: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    clientId: jspb.Message.getFieldWithDefault(msg, 2, "")
+    clientId: msg.getClientId_asB64()
   };
 
   if (includeInstance) {
@@ -1459,7 +1461,7 @@ proto.api.ActivateClientResponse.deserializeBinaryFromReader = function(msg, rea
       msg.setClientKey(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     default:
@@ -1498,9 +1500,9 @@ proto.api.ActivateClientResponse.serializeBinaryToWriter = function(message, wri
       f
     );
   }
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       2,
       f
     );
@@ -1527,7 +1529,7 @@ proto.api.ActivateClientResponse.prototype.setClientKey = function(value) {
 
 
 /**
- * optional string client_id = 2;
+ * optional bytes client_id = 2;
  * @return {string}
  */
 proto.api.ActivateClientResponse.prototype.getClientId = function() {
@@ -1536,11 +1538,35 @@ proto.api.ActivateClientResponse.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 2;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.ActivateClientResponse.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.ActivateClientResponse.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.ActivateClientResponse} returns this
  */
 proto.api.ActivateClientResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3BytesField(this, 2, value);
 };
 
 
@@ -1577,7 +1603,7 @@ proto.api.DeactivateClientRequest.prototype.toObject = function(opt_includeInsta
 proto.api.DeactivateClientRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     header: (f = msg.getHeader()) && proto.api.RequestHeader.toObject(includeInstance, f),
-    clientId: jspb.Message.getFieldWithDefault(msg, 2, "")
+    clientId: msg.getClientId_asB64()
   };
 
   if (includeInstance) {
@@ -1620,7 +1646,7 @@ proto.api.DeactivateClientRequest.deserializeBinaryFromReader = function(msg, re
       msg.setHeader(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     default:
@@ -1660,9 +1686,9 @@ proto.api.DeactivateClientRequest.serializeBinaryToWriter = function(message, wr
       proto.api.RequestHeader.serializeBinaryToWriter
     );
   }
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       2,
       f
     );
@@ -1708,7 +1734,7 @@ proto.api.DeactivateClientRequest.prototype.hasHeader = function() {
 
 
 /**
- * optional string client_id = 2;
+ * optional bytes client_id = 2;
  * @return {string}
  */
 proto.api.DeactivateClientRequest.prototype.getClientId = function() {
@@ -1717,11 +1743,35 @@ proto.api.DeactivateClientRequest.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 2;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.DeactivateClientRequest.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.DeactivateClientRequest.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.DeactivateClientRequest} returns this
  */
 proto.api.DeactivateClientRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3BytesField(this, 2, value);
 };
 
 
@@ -1757,7 +1807,7 @@ proto.api.DeactivateClientResponse.prototype.toObject = function(opt_includeInst
  */
 proto.api.DeactivateClientResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: jspb.Message.getFieldWithDefault(msg, 1, "")
+    clientId: msg.getClientId_asB64()
   };
 
   if (includeInstance) {
@@ -1795,7 +1845,7 @@ proto.api.DeactivateClientResponse.deserializeBinaryFromReader = function(msg, r
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     default:
@@ -1827,9 +1877,9 @@ proto.api.DeactivateClientResponse.prototype.serializeBinary = function() {
  */
 proto.api.DeactivateClientResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       1,
       f
     );
@@ -1838,7 +1888,7 @@ proto.api.DeactivateClientResponse.serializeBinaryToWriter = function(message, w
 
 
 /**
- * optional string client_id = 1;
+ * optional bytes client_id = 1;
  * @return {string}
  */
 proto.api.DeactivateClientResponse.prototype.getClientId = function() {
@@ -1847,11 +1897,35 @@ proto.api.DeactivateClientResponse.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 1;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.DeactivateClientResponse.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.DeactivateClientResponse.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.DeactivateClientResponse} returns this
  */
 proto.api.DeactivateClientResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
+  return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
 
@@ -1888,7 +1962,7 @@ proto.api.AttachDocumentRequest.prototype.toObject = function(opt_includeInstanc
 proto.api.AttachDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     header: (f = msg.getHeader()) && proto.api.RequestHeader.toObject(includeInstance, f),
-    clientId: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && proto.api.ChangePack.toObject(includeInstance, f)
   };
 
@@ -1932,7 +2006,7 @@ proto.api.AttachDocumentRequest.deserializeBinaryFromReader = function(msg, read
       msg.setHeader(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     case 3:
@@ -1977,9 +2051,9 @@ proto.api.AttachDocumentRequest.serializeBinaryToWriter = function(message, writ
       proto.api.RequestHeader.serializeBinaryToWriter
     );
   }
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       2,
       f
     );
@@ -2033,7 +2107,7 @@ proto.api.AttachDocumentRequest.prototype.hasHeader = function() {
 
 
 /**
- * optional string client_id = 2;
+ * optional bytes client_id = 2;
  * @return {string}
  */
 proto.api.AttachDocumentRequest.prototype.getClientId = function() {
@@ -2042,11 +2116,35 @@ proto.api.AttachDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 2;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.AttachDocumentRequest.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.AttachDocumentRequest.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.AttachDocumentRequest} returns this
  */
 proto.api.AttachDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3BytesField(this, 2, value);
 };
 
 
@@ -2119,7 +2217,7 @@ proto.api.AttachDocumentResponse.prototype.toObject = function(opt_includeInstan
  */
 proto.api.AttachDocumentResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && proto.api.ChangePack.toObject(includeInstance, f)
   };
 
@@ -2158,7 +2256,7 @@ proto.api.AttachDocumentResponse.deserializeBinaryFromReader = function(msg, rea
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     case 2:
@@ -2195,9 +2293,9 @@ proto.api.AttachDocumentResponse.prototype.serializeBinary = function() {
  */
 proto.api.AttachDocumentResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       1,
       f
     );
@@ -2214,7 +2312,7 @@ proto.api.AttachDocumentResponse.serializeBinaryToWriter = function(message, wri
 
 
 /**
- * optional string client_id = 1;
+ * optional bytes client_id = 1;
  * @return {string}
  */
 proto.api.AttachDocumentResponse.prototype.getClientId = function() {
@@ -2223,11 +2321,35 @@ proto.api.AttachDocumentResponse.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 1;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.AttachDocumentResponse.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.AttachDocumentResponse.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.AttachDocumentResponse} returns this
  */
 proto.api.AttachDocumentResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
+  return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
 
@@ -2301,7 +2423,7 @@ proto.api.DetachDocumentRequest.prototype.toObject = function(opt_includeInstanc
 proto.api.DetachDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     header: (f = msg.getHeader()) && proto.api.RequestHeader.toObject(includeInstance, f),
-    clientId: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && proto.api.ChangePack.toObject(includeInstance, f)
   };
 
@@ -2345,7 +2467,7 @@ proto.api.DetachDocumentRequest.deserializeBinaryFromReader = function(msg, read
       msg.setHeader(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     case 3:
@@ -2390,9 +2512,9 @@ proto.api.DetachDocumentRequest.serializeBinaryToWriter = function(message, writ
       proto.api.RequestHeader.serializeBinaryToWriter
     );
   }
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       2,
       f
     );
@@ -2446,7 +2568,7 @@ proto.api.DetachDocumentRequest.prototype.hasHeader = function() {
 
 
 /**
- * optional string client_id = 2;
+ * optional bytes client_id = 2;
  * @return {string}
  */
 proto.api.DetachDocumentRequest.prototype.getClientId = function() {
@@ -2455,11 +2577,35 @@ proto.api.DetachDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 2;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.DetachDocumentRequest.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.DetachDocumentRequest.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.DetachDocumentRequest} returns this
  */
 proto.api.DetachDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3BytesField(this, 2, value);
 };
 
 
@@ -3578,7 +3724,7 @@ proto.api.PushPullRequest.prototype.toObject = function(opt_includeInstance) {
 proto.api.PushPullRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     header: (f = msg.getHeader()) && proto.api.RequestHeader.toObject(includeInstance, f),
-    clientId: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && proto.api.ChangePack.toObject(includeInstance, f)
   };
 
@@ -3622,7 +3768,7 @@ proto.api.PushPullRequest.deserializeBinaryFromReader = function(msg, reader) {
       msg.setHeader(value);
       break;
     case 2:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     case 3:
@@ -3667,9 +3813,9 @@ proto.api.PushPullRequest.serializeBinaryToWriter = function(message, writer) {
       proto.api.RequestHeader.serializeBinaryToWriter
     );
   }
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       2,
       f
     );
@@ -3723,7 +3869,7 @@ proto.api.PushPullRequest.prototype.hasHeader = function() {
 
 
 /**
- * optional string client_id = 2;
+ * optional bytes client_id = 2;
  * @return {string}
  */
 proto.api.PushPullRequest.prototype.getClientId = function() {
@@ -3732,11 +3878,35 @@ proto.api.PushPullRequest.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 2;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.PushPullRequest.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 2;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.PushPullRequest.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.PushPullRequest} returns this
  */
 proto.api.PushPullRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3BytesField(this, 2, value);
 };
 
 
@@ -3809,7 +3979,7 @@ proto.api.PushPullResponse.prototype.toObject = function(opt_includeInstance) {
  */
 proto.api.PushPullResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && proto.api.ChangePack.toObject(includeInstance, f)
   };
 
@@ -3848,7 +4018,7 @@ proto.api.PushPullResponse.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     case 2:
@@ -3885,9 +4055,9 @@ proto.api.PushPullResponse.prototype.serializeBinary = function() {
  */
 proto.api.PushPullResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId();
+  f = message.getClientId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       1,
       f
     );
@@ -3904,7 +4074,7 @@ proto.api.PushPullResponse.serializeBinaryToWriter = function(message, writer) {
 
 
 /**
- * optional string client_id = 1;
+ * optional bytes client_id = 1;
  * @return {string}
  */
 proto.api.PushPullResponse.prototype.getClientId = function() {
@@ -3913,11 +4083,35 @@ proto.api.PushPullResponse.prototype.getClientId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes client_id = 1;
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {string}
+ */
+proto.api.PushPullResponse.prototype.getClientId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getClientId()));
+};
+
+
+/**
+ * optional bytes client_id = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getClientId()`
+ * @return {!Uint8Array}
+ */
+proto.api.PushPullResponse.prototype.getClientId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getClientId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.PushPullResponse} returns this
  */
 proto.api.PushPullResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
+  return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
 
@@ -4600,7 +4794,7 @@ proto.api.ChangeID.toObject = function(includeInstance, msg) {
   var f, obj = {
     clientSeq: jspb.Message.getFieldWithDefault(msg, 1, 0),
     lamport: jspb.Message.getFieldWithDefault(msg, 2, "0"),
-    actorId: jspb.Message.getFieldWithDefault(msg, 3, "")
+    actorId: msg.getActorId_asB64()
   };
 
   if (includeInstance) {
@@ -4646,7 +4840,7 @@ proto.api.ChangeID.deserializeBinaryFromReader = function(msg, reader) {
       msg.setLamport(value);
       break;
     case 3:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setActorId(value);
       break;
     default:
@@ -4692,9 +4886,9 @@ proto.api.ChangeID.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getActorId();
+  f = message.getActorId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       3,
       f
     );
@@ -4739,7 +4933,7 @@ proto.api.ChangeID.prototype.setLamport = function(value) {
 
 
 /**
- * optional string actor_id = 3;
+ * optional bytes actor_id = 3;
  * @return {string}
  */
 proto.api.ChangeID.prototype.getActorId = function() {
@@ -4748,11 +4942,35 @@ proto.api.ChangeID.prototype.getActorId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes actor_id = 3;
+ * This is a type-conversion wrapper around `getActorId()`
+ * @return {string}
+ */
+proto.api.ChangeID.prototype.getActorId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getActorId()));
+};
+
+
+/**
+ * optional bytes actor_id = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getActorId()`
+ * @return {!Uint8Array}
+ */
+proto.api.ChangeID.prototype.getActorId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getActorId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.ChangeID} returns this
  */
 proto.api.ChangeID.prototype.setActorId = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
+  return jspb.Message.setProto3BytesField(this, 3, value);
 };
 
 
@@ -12258,7 +12476,7 @@ proto.api.Client.prototype.toObject = function(opt_includeInstance) {
  */
 proto.api.Client.toObject = function(includeInstance, msg) {
   var f, obj = {
-    id: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    id: msg.getId_asB64(),
     metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
@@ -12297,7 +12515,7 @@ proto.api.Client.deserializeBinaryFromReader = function(msg, reader) {
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setId(value);
       break;
     case 2:
@@ -12335,9 +12553,9 @@ proto.api.Client.prototype.serializeBinary = function() {
  */
 proto.api.Client.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getId();
+  f = message.getId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       1,
       f
     );
@@ -12350,7 +12568,7 @@ proto.api.Client.serializeBinaryToWriter = function(message, writer) {
 
 
 /**
- * optional string id = 1;
+ * optional bytes id = 1;
  * @return {string}
  */
 proto.api.Client.prototype.getId = function() {
@@ -12359,11 +12577,35 @@ proto.api.Client.prototype.getId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes id = 1;
+ * This is a type-conversion wrapper around `getId()`
+ * @return {string}
+ */
+proto.api.Client.prototype.getId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getId()));
+};
+
+
+/**
+ * optional bytes id = 1;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getId()`
+ * @return {!Uint8Array}
+ */
+proto.api.Client.prototype.getId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.Client} returns this
  */
 proto.api.Client.prototype.setId = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
+  return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
 
@@ -13114,7 +13356,7 @@ proto.api.TimeTicket.toObject = function(includeInstance, msg) {
   var f, obj = {
     lamport: jspb.Message.getFieldWithDefault(msg, 1, "0"),
     delimiter: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    actorId: jspb.Message.getFieldWithDefault(msg, 3, "")
+    actorId: msg.getActorId_asB64()
   };
 
   if (includeInstance) {
@@ -13160,7 +13402,7 @@ proto.api.TimeTicket.deserializeBinaryFromReader = function(msg, reader) {
       msg.setDelimiter(value);
       break;
     case 3:
-      var value = /** @type {string} */ (reader.readString());
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setActorId(value);
       break;
     default:
@@ -13206,9 +13448,9 @@ proto.api.TimeTicket.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getActorId();
+  f = message.getActorId_asU8();
   if (f.length > 0) {
-    writer.writeString(
+    writer.writeBytes(
       3,
       f
     );
@@ -13253,7 +13495,7 @@ proto.api.TimeTicket.prototype.setDelimiter = function(value) {
 
 
 /**
- * optional string actor_id = 3;
+ * optional bytes actor_id = 3;
  * @return {string}
  */
 proto.api.TimeTicket.prototype.getActorId = function() {
@@ -13262,11 +13504,35 @@ proto.api.TimeTicket.prototype.getActorId = function() {
 
 
 /**
- * @param {string} value
+ * optional bytes actor_id = 3;
+ * This is a type-conversion wrapper around `getActorId()`
+ * @return {string}
+ */
+proto.api.TimeTicket.prototype.getActorId_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getActorId()));
+};
+
+
+/**
+ * optional bytes actor_id = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getActorId()`
+ * @return {!Uint8Array}
+ */
+proto.api.TimeTicket.prototype.getActorId_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getActorId()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
  * @return {!proto.api.TimeTicket} returns this
  */
 proto.api.TimeTicket.prototype.setActorId = function(value) {
-  return jspb.Message.setProto3StringField(this, 3, value);
+  return jspb.Message.setProto3BytesField(this, 3, value);
 };
 
 
