@@ -82,8 +82,8 @@ export type Metadata = { [key: string]: string };
 export interface ClientOptions {
   key?: string;
   metadata?: Metadata;
-  syncLoopDuration: number;
-  reconnectStreamDelay: number;
+  syncLoopDuration?: number;
+  reconnectStreamDelay?: number;
 }
 
 const DefaultClientOptions: ClientOptions = {
@@ -118,8 +118,8 @@ export class Client implements Observable<ClientEvent> {
     this.metadata = opts.metadata ? opts.metadata : {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
-    this.syncLoopDuration = opts.syncLoopDuration;
-    this.reconnectStreamDelay = opts.reconnectStreamDelay;
+    this.syncLoopDuration = opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
+    this.reconnectStreamDelay = opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
 
     this.rpcClient = new RPCClient(rpcAddr, null, null);
     this.eventStream = createObservable<ClientEvent>((observer) => {
