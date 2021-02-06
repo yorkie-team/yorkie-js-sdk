@@ -48,8 +48,7 @@ npm run build:proto
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
 ```bash
-cd docker
-docker-compose up
+docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
 Start the test in another terminal session.
@@ -63,8 +62,7 @@ npm run test
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
 
 ```bash
-cd docker
-docker-compose up
+docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
 Start the webpack-dev-server in another terminal session.
