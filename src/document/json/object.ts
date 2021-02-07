@@ -20,7 +20,7 @@ import { JSONContainer, JSONElement } from './element';
 import { RHTPQMap } from './rht_pq_map';
 import { PlainText } from './plain_text';
 import { RichText } from './rich_text';
-import { CounterType, Counter } from './counter';
+import { CounterType } from './counter';
 import { CounterProxy } from '../proxy/counter_proxy';
 
 /**
@@ -52,11 +52,13 @@ export class JSONObject extends JSONContainer {
   public purge(value: JSONElement): void {
     this.memberNodes.purge(value);
   }
+
   /**
    * Don't use createCounter directly. Be sure to use it through a proxy.
    * The reason for setting the CounterProxy type as the return value
    * is to provide the CounterProxy interface to the user.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public createCounter(key: string, value: CounterType): CounterProxy {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     return null;
