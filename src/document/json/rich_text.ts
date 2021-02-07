@@ -49,7 +49,11 @@ export class RichTextValue {
   }
 
   public substring(indexStart: number, indexEnd: number): RichTextValue {
-    return new RichTextValue(this.content.substring(indexStart, indexEnd));
+    const value = new RichTextValue(
+      this.content.substring(indexStart, indexEnd),
+    );
+    value.attributes = this.attributes.deepcopy();
+    return value;
   }
 
   public setAttr(key: string, value: string, updatedAt: TimeTicket): void {

@@ -156,16 +156,13 @@ describe('Document', function () {
     assert.equal('{"k1":"A12D"}', doc.toSortedJSON());
   });
 
-  it('should handle edit operations', function () {
+  it('should handle rich text edit operations', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    //           -- ins links ---
-    //           |              |
-    // [init] - [ABC] - [\n] - [D]
     doc.update((root) => {
       const text = root.createRichText('k1');
-      text.edit(0, 0, 'ABCD');
+      text.edit(0, 0, 'ABCD', { b: '1' });
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
@@ -177,9 +174,32 @@ describe('Document', function () {
     });
 
     assert.equal(
-      '{"k1":[{"attrs":{},"content":ABC},{"attrs":{},"content":\n},{"attrs":{},"content":D},{"attrs":{},"content":\n}]}',
+      '{"k1":[{"attrs":{"b":"1"},"content":ABC},{"attrs":{},"content":\n},{"attrs":{"b":"1"},"content":D},{"attrs":{},"content":\n}]}',
       doc.toSortedJSON(),
     );
+  });
+
+  it('should handle edit operations', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    //           -- ins links ---
+    //           |              |
+    // [init] - [ABC] - [\n] - [D]
+    doc.update((root) => {
+      const text = root.createText('k1');
+      text.edit(0, 0, 'ABCD');
+      text.edit(3, 3, '\n');
+    }, 'set {"k1":"ABC\nD"}');
+
+    doc.update((root) => {
+      assert.equal(
+        '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D]',
+        root['k1'].getAnnotatedString(),
+      );
+    });
+
+    assert.equal('{"k1":"ABC\nD"}', doc.toSortedJSON());
   });
 
   it('should handle type 하늘', function () {
@@ -288,7 +308,7 @@ describe('Document', function () {
     const size = 10000;
     const doc = Document.create('test-col', 'test-doc');
     doc.update((root) => {
-      root['1'] = [...Array(size).keys()];
+      root['1'] = Array.from(Array(size).keys());
     }, 'sets big array');
 
     doc.update((root) => {
