@@ -107,6 +107,7 @@ export class RichText extends JSONElement {
     fromIdx: number,
     toIdx: number,
     content: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     attributes?: { [key: string]: string },
   ): RichText {
     logger.fatal(

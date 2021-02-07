@@ -143,6 +143,7 @@ export class JSONRoot {
   private _garbageCollect(element: JSONElement): number {
     let count = 0;
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const callback = (elem: JSONElement, parent: JSONContainer): boolean => {
       this.deregisterElement(elem);
       count++;

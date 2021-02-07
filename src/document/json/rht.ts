@@ -84,7 +84,7 @@ export class RHT {
 
   public deepcopy(): RHT {
     const rht = new RHT();
-    for (const [key, node] of this.nodeMapByKey) {
+    for (const [, node] of this.nodeMapByKey) {
       rht.set(node.getKey(), node.getValue(), node.getUpdatedAt());
     }
     return rht;
