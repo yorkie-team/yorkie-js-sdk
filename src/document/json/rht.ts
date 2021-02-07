@@ -82,6 +82,14 @@ export class RHT {
     return this.nodeMapByKey.get(key).getValue();
   }
 
+  public deepcopy(): RHT {
+    const rht = new RHT();
+    for (const [, node] of this.nodeMapByKey) {
+      rht.set(node.getKey(), node.getValue(), node.getUpdatedAt());
+    }
+    return rht;
+  }
+
   public toJSON(): string {
     const items = [];
     for (const [key, node] of this.nodeMapByKey) {
