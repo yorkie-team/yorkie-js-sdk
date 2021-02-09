@@ -60,6 +60,8 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     if (this.next) {
       this.next.prev = this.prev;
     }
+    this.prev = null;
+    this.next = null;
   }
 
   public getLength(): number {

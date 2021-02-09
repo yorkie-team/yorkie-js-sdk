@@ -135,6 +135,14 @@ export class PlainText extends JSONElement {
     return this.rgaTreeSplit.getAnnotatedString();
   }
 
+  public getRemovedNodesLen(): number {
+    return this.rgaTreeSplit.getRemovedNodesLen();
+  }
+
+  public getCleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.getCleanupRemovedNodes(ticket);
+  }
+
   public deepcopy(): PlainText {
     const text = PlainText.create(
       this.rgaTreeSplit.deepcopy(),

@@ -16,7 +16,7 @@
 
 import { TimeTicket, InitialDelimiter } from '../time/ticket';
 import { JSONRoot } from '../json/root';
-import { JSONContainer, JSONElement } from '../json/element';
+import { JSONContainer, JSONElement, TextElement } from '../json/element';
 import { Operation } from '../operation/operation';
 import { ChangeID } from './change_id';
 import { Change } from './change';
@@ -65,6 +65,10 @@ export class ChangeContext {
     deleted: JSONElement,
   ): void {
     this.root.registerRemovedElementPair(parent, deleted);
+  }
+
+  public registerRemovedNodeTextElement(textType: TextElement): void {
+    this.root.registerRemovedNodeTextElement(textType);
   }
 
   public getChange(): Change {

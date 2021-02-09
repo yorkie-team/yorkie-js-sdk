@@ -286,6 +286,17 @@ export class RichText extends JSONElement {
     return this.rgaTreeSplit.getAnnotatedString();
   }
 
+  //removedNodesLen returns length of removed nodes
+  public getRemovedNodesLen(): number {
+    return this.rgaTreeSplit.getRemovedNodesLen();
+  }
+
+  //cleanupRemovedNodes cleans up nodes that have been removed.
+  //The cleaned nodes are subject to garbage collector collection.
+  public getCleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.getCleanupRemovedNodes(ticket);
+  }
+
   public deepcopy(): RichText {
     const text = new RichText(
       this.rgaTreeSplit.deepcopy(),
