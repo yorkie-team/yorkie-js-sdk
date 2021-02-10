@@ -21,7 +21,7 @@ import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
-import { JSONPrimitive } from '../json/primitive';
+import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
 import { RGATreeSplit } from '../json/rga_tree_split';
 import { PlainText } from '../json/plain_text';
 import { RichText } from '../json/rich_text';
@@ -107,12 +107,12 @@ export class ObjectProxy {
     context: ChangeContext,
     target: JSONObject,
     key: string,
-    value: any,
+    value: unknown,
   ): void {
     const ticket = context.issueTimeTicket();
 
     if (JSONPrimitive.isSupport(value)) {
-      const primitive = JSONPrimitive.of(value, ticket);
+      const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
       target.set(key, primitive);
       context.registerElement(primitive);
       context.push(
