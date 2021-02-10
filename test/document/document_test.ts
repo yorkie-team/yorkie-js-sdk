@@ -409,7 +409,7 @@ describe('Document', function () {
   });
 
   it('garbage collection test for large size text 1', function (done) {
-    const size = 1000;
+    const size = 100;
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
@@ -421,13 +421,13 @@ describe('Document', function () {
       }
     }, 'initial');
 
-    // 02. 1000 nodes modified
+    // 02. 100 nodes modified
     doc.update((root) => {
       const text = root['k1'];
       for (let i = 0; i < size; i++) {
         text.edit(i, i + 1, 'b');
       }
-    }, 'modify 1000 nodes');
+    }, 'modify 100 nodes');
 
     // 03. GC
     assert.equal(size, doc.getGarbageLen());

@@ -655,7 +655,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return count;
   }
 
-  // purge physically purge the given node from RGATreeSplit.
+  /**
+   * purge physically purge the given node from RGATreeSplit.
+   */
   public purge(node: RGATreeSplitNode<T>): void {
     const prev = node.getPrev();
     const next = node.getNext();
