@@ -17,7 +17,7 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { RHT } from './rht';
-import { JSONElement } from './element';
+import { TextElement } from './element';
 import {
   Change,
   ChangeType,
@@ -77,7 +77,7 @@ export class RichTextValue {
   }
 }
 
-export class RichText extends JSONElement {
+export class RichText extends TextElement {
   private onChangesHandler: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
