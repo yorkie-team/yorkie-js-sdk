@@ -1,9 +1,6 @@
 <!--  Thanks for sending a pull request! -->
 
-#### What does this PR do?
-
-
-#### How should this be manually tested?
+#### What this PR does / why we need it?
 
 
 #### Any background context you want to provide?
