@@ -30,7 +30,13 @@ export enum PrimitiveType {
   Date,
 }
 
-type PrimitiveValue = boolean | number | Long | string | Uint8Array | Date;
+export type PrimitiveValue =
+  | boolean
+  | number
+  | Long
+  | string
+  | Uint8Array
+  | Date;
 
 /**
  * Primitive represents JSON primitive data type including logical lock.
@@ -107,7 +113,7 @@ export class JSONPrimitive extends JSONElement {
     return this.valueType;
   }
 
-  public static getPrimitiveType(value: PrimitiveValue): PrimitiveType {
+  public static getPrimitiveType(value: unknown): PrimitiveType {
     switch (typeof value) {
       case 'boolean':
         return PrimitiveType.Boolean;
@@ -128,7 +134,7 @@ export class JSONPrimitive extends JSONElement {
     return null;
   }
 
-  public static isSupport(value: PrimitiveValue): boolean {
+  public static isSupport(value: unknown): boolean {
     return !!JSONPrimitive.getPrimitiveType(value);
   }
 

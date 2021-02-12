@@ -23,7 +23,7 @@ import { ChangeContext } from '../change/context';
 import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
-import { JSONPrimitive } from '../json/primitive';
+import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
 import { ObjectProxy } from './object_proxy';
 import { toProxy } from './proxy';
 
@@ -159,7 +159,7 @@ export class ArrayProxy {
   public static pushInternal(
     context: ChangeContext,
     target: JSONArray,
-    value: any,
+    value: unknown,
   ): number {
     ArrayProxy.insertAfterInternal(
       context,
@@ -193,11 +193,11 @@ export class ArrayProxy {
     context: ChangeContext,
     target: JSONArray,
     prevCreatedAt: TimeTicket,
-    value: any,
+    value: unknown,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
-      const primitive = JSONPrimitive.of(value, ticket);
+      const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
       target.insertAfter(prevCreatedAt, primitive);
       context.registerElement(primitive);
       context.push(
