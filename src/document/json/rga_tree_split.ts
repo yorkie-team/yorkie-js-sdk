@@ -637,7 +637,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return this.removedNodeMap.size;
   }
 
-  public getCleanupRemovedNodes(ticket: TimeTicket): number {
+  public cleanupRemovedNodes(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
       if (

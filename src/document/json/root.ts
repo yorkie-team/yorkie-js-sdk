@@ -151,7 +151,7 @@ export class JSONRoot {
     }
 
     for (const [, text] of this.removedNodeTextElementMapByCreatedAt) {
-      const removedNodeCnt = text.getCleanupRemovedNodes(ticket);
+      const removedNodeCnt = text.cleanupRemovedNodes(ticket);
       if (removedNodeCnt > 0) {
         this.removedNodeTextElementMapByCreatedAt.delete(
           text.getCreatedAt().toIDString(),

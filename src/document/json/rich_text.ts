@@ -297,8 +297,8 @@ export class RichText extends TextElement {
    * cleanupRemovedNodes cleans up nodes that have been removed.
    * The cleaned nodes are subject to garbage collector collection.
    */
-  public getCleanupRemovedNodes(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.getCleanupRemovedNodes(ticket);
+  public cleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
   public deepcopy(): RichText {

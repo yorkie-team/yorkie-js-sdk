@@ -139,8 +139,8 @@ export class PlainText extends TextElement {
     return this.rgaTreeSplit.getRemovedNodesLen();
   }
 
-  public getCleanupRemovedNodes(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.getCleanupRemovedNodes(ticket);
+  public cleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
   public deepcopy(): PlainText {
