@@ -374,6 +374,9 @@ describe('Document', function () {
     const expectedGarbageLen = 4;
     assert.equal(expectedGarbageLen, doc.getGarbageLen());
     assert.equal(expectedGarbageLen, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
   });
 
   it('garbage collection test for rich text', function () {
@@ -406,9 +409,12 @@ describe('Document', function () {
     const expectedGarbageLen = 4;
     assert.equal(expectedGarbageLen, doc.getGarbageLen());
     assert.equal(expectedGarbageLen, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
   });
 
-  it('garbage collection test for large size text 1', function (done) {
+  it('garbage collection test for large size text 1', function () {
     const size = 100;
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -432,10 +438,12 @@ describe('Document', function () {
     // 03. GC
     assert.equal(size, doc.getGarbageLen());
     assert.equal(size, doc.garbageCollect(MaxTimeTicket));
-    done();
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
   });
 
-  it('garbage collection test for large size text 2', function (done) {
+  it('garbage collection test for large size text 2', function () {
     const size = 100;
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -463,7 +471,9 @@ describe('Document', function () {
     // 03. GC
     assert.equal(size, doc.getGarbageLen());
     assert.equal(size, doc.garbageCollect(MaxTimeTicket));
-    done();
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
   });
 
   it('can insert an element after the given element in array', function () {
