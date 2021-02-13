@@ -106,6 +106,10 @@ export class TextProxy {
         ticket,
       ),
     );
+
+    if (range[0].compare(range[1]) !== 0) {
+      this.context.registerRemovedNodeTextElement(target);
+    }
   }
 
   public updateSelection(
