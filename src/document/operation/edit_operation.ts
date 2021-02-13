@@ -70,6 +70,9 @@ export class EditOperation extends Operation {
         this.maxCreatedAtMapByActor,
         this.getExecutedAt(),
       );
+      if (this.fromPos.compare(this.toPos) !== 0) {
+        root.registerRemovedNodeTextElement(text);
+      }
     } else {
       logger.fatal(`fail to execute, only PlainText can execute edit`);
     }

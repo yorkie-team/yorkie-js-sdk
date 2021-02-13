@@ -346,6 +346,136 @@ describe('Document', function () {
     assert.equal(root, clone);
   });
 
+  it('garbage collection test for text', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    let expected_msg = '{"k1":"Hello mario"}';
+    doc.update((root) => {
+      const text = root.createText('k1');
+      text.edit(0, 0, 'Hello world');
+      text.edit(6, 11, 'mario');
+      assert.equal(expected_msg, root.toJSON());
+    }, 'edit text k1');
+    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(1, doc.getGarbageLen());
+
+    expected_msg = '{"k1":"Hi jane"}';
+
+    doc.update((root) => {
+      const text = root['k1'];
+      text.edit(0, 5, 'Hi');
+      text.edit(3, 4, 'j');
+      text.edit(4, 8, 'ane');
+      assert.equal(expected_msg, root.toJSON());
+    }, 'deletes 2');
+    assert.equal(expected_msg, doc.toSortedJSON());
+
+    const expectedGarbageLen = 4;
+    assert.equal(expectedGarbageLen, doc.getGarbageLen());
+    assert.equal(expectedGarbageLen, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
+  });
+
+  it('garbage collection test for rich text', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    let expected_msg =
+      '{"k1":[{"attrs":{"b":"1"},"content":Hello },{"attrs":{},"content":mario},{"attrs":{},"content":\n}]}';
+    doc.update((root) => {
+      const text = root.createRichText('k1');
+      text.edit(0, 0, 'Hello world', { b: '1' });
+      text.edit(6, 11, 'mario');
+      assert.equal(expected_msg, root.toJSON());
+    }, 'edit rich text k1');
+    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(1, doc.getGarbageLen());
+
+    expected_msg =
+      '{"k1":[{"attrs":{"b":"1"},"content":Hi},{"attrs":{"b":"1"},"content": },{"attrs":{},"content":j},{"attrs":{"b":"1"},"content":ane},{"attrs":{},"content":\n}]}';
+
+    doc.update((root) => {
+      const text = root['k1'];
+      text.edit(0, 5, 'Hi', { b: '1' });
+      text.edit(3, 4, 'j', null);
+      text.edit(4, 8, 'ane', { b: '1' });
+      assert.equal(expected_msg, root.toJSON());
+    }, 'edit rich text k1');
+    assert.equal(expected_msg, doc.toSortedJSON());
+
+    const expectedGarbageLen = 4;
+    assert.equal(expectedGarbageLen, doc.getGarbageLen());
+    assert.equal(expectedGarbageLen, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
+  });
+
+  it('garbage collection test for large size text 1', function () {
+    const size = 100;
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    // 01. initial
+    doc.update((root) => {
+      const text = root.createText('k1');
+      for (let i = 0; i < size; i++) {
+        text.edit(i, i, 'a');
+      }
+    }, 'initial');
+
+    // 02. 100 nodes modified
+    doc.update((root) => {
+      const text = root['k1'];
+      for (let i = 0; i < size; i++) {
+        text.edit(i, i + 1, 'b');
+      }
+    }, 'modify 100 nodes');
+
+    // 03. GC
+    assert.equal(size, doc.getGarbageLen());
+    assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
+  });
+
+  it('garbage collection test for large size text 2', function () {
+    const size = 100;
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    // 01. long text by one node
+    doc.update((root) => {
+      const text = root.createText('k1');
+      let str = '';
+      for (let i = 0; i < size; i++) {
+        str += 'a';
+      }
+      text.edit(0, 0, str);
+    }, 'initial large size');
+
+    // 02. Modify one node multiple times
+    doc.update((root) => {
+      const text = root['k1'];
+      for (let i = 0; i < size; i++) {
+        if (i !== size) {
+          text.edit(i, i + 1, 'b');
+        }
+      }
+    }, 'modify one node multiple times');
+
+    // 03. GC
+    assert.equal(size, doc.getGarbageLen());
+    assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+
+    const empty = 0;
+    assert.equal(empty, doc.getGarbageLen());
+  });
+
   it('can insert an element after the given element in array', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());

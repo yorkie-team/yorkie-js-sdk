@@ -17,7 +17,7 @@
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { RHT } from './rht';
-import { JSONElement } from './element';
+import { TextElement } from './element';
 import {
   Change,
   ChangeType,
@@ -77,7 +77,7 @@ export class RichTextValue {
   }
 }
 
-export class RichText extends JSONElement {
+export class RichText extends TextElement {
   private onChangesHandler: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
@@ -284,6 +284,21 @@ export class RichText extends JSONElement {
 
   public getAnnotatedString(): string {
     return this.rgaTreeSplit.getAnnotatedString();
+  }
+
+  /**
+   * removedNodesLen returns length of removed nodes
+   */
+  public getRemovedNodesLen(): number {
+    return this.rgaTreeSplit.getRemovedNodesLen();
+  }
+
+  /**
+   * cleanupRemovedNodes cleans up nodes that have been removed.
+   * The cleaned nodes are subject to garbage collector collection.
+   */
+  public cleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
   public deepcopy(): RichText {

@@ -125,6 +125,10 @@ export class RichTextProxy {
         ticket,
       ),
     );
+
+    if (range[0].compare(range[1]) !== 0) {
+      this.context.registerRemovedNodeTextElement(target);
+    }
   }
 
   public setStyle(
