@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.2] - 2021-02-14
+
+### Added
+- Add customizable metadata for peer awareness: #123
+- Add garbage collection for Text and RichText: #137
+
+### Changed
+- Replace the type of client_id to a byte array to reduce payload: #133
+
+### Fixed
+- Fix a bug that attributes were lost when splitting RichText nodes: #136
+
 ## [0.1.1] - 2021-01-01
 
 ### Added
