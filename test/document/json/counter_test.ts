@@ -15,10 +15,10 @@
  */
 
 import { assert } from 'chai';
-import { InitialTimeTicket } from '../../src/document/time/ticket';
+import { InitialTimeTicket } from '../../../src/document/time/ticket';
 import Long from 'long';
-import { Counter } from '../../src/document/json/counter';
-import { JSONPrimitive } from '../../src/document/json/primitive';
+import { Counter } from '../../../src/document/json/counter';
+import { JSONPrimitive } from '../../../src/document/json/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
