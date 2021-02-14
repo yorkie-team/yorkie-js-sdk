@@ -76,6 +76,9 @@ export class RichEditOperation extends Operation {
         this.maxCreatedAtMapByActor,
         this.getExecutedAt(),
       );
+      if (this.fromPos.compare(this.toPos) !== 0) {
+        root.registerRemovedNodeTextElement(text);
+      }
     } else {
       logger.fatal(`fail to execute, only RichText can execute edit`);
     }

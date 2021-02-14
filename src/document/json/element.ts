@@ -84,3 +84,8 @@ export abstract class JSONContainer extends JSONElement {
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
   ): void;
 }
+
+export abstract class TextElement extends JSONElement {
+  abstract getRemovedNodesLen(): number;
+  abstract cleanupRemovedNodes(ticket: TimeTicket): number;
+}

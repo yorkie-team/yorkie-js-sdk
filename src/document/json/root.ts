@@ -15,7 +15,7 @@
  */
 
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONContainer, JSONElement } from './element';
+import { JSONContainer, JSONElement, TextElement } from './element';
 import { JSONObject } from './object';
 
 /**
@@ -39,11 +39,13 @@ export class JSONRoot {
   private rootObject: JSONObject;
   private elementMapByCreatedAt: Map<string, JSONElement>;
   private removedElementPairMapByCreatedAt: Map<string, JSONElementPair>;
+  private removedNodeTextElementMapByCreatedAt: Map<string, TextElement>;
 
   constructor(rootObject: JSONObject) {
     this.rootObject = rootObject;
     this.elementMapByCreatedAt = new Map();
     this.removedElementPairMapByCreatedAt = new Map();
+    this.removedNodeTextElementMapByCreatedAt = new Map();
 
     this.registerElement(this.rootObject);
     rootObject.getDescendants((elem: JSONElement): boolean => {
@@ -96,6 +98,13 @@ export class JSONRoot {
     );
   }
 
+  public registerRemovedNodeTextElement(textType: TextElement): void {
+    this.removedNodeTextElementMapByCreatedAt.set(
+      textType.getCreatedAt().toIDString(),
+      textType,
+    );
+  }
+
   public getElementMapSize(): number {
     return this.elementMapByCreatedAt.size;
   }
@@ -117,6 +126,10 @@ export class JSONRoot {
       }
     }
 
+    for (const [, text] of this.removedNodeTextElementMapByCreatedAt) {
+      count += text.getRemovedNodesLen();
+    }
+
     return count;
   }
 
@@ -135,6 +148,16 @@ export class JSONRoot {
         pair.parent.purge(pair.element);
         count += this._garbageCollect(pair.element);
       }
+    }
+
+    for (const [, text] of this.removedNodeTextElementMapByCreatedAt) {
+      const removedNodeCnt = text.cleanupRemovedNodes(ticket);
+      if (removedNodeCnt > 0) {
+        this.removedNodeTextElementMapByCreatedAt.delete(
+          text.getCreatedAt().toIDString(),
+        );
+      }
+      count += removedNodeCnt;
     }
 
     return count;
