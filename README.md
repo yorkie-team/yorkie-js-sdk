@@ -42,6 +42,7 @@ How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-genera
 # generate proto messages and the service client stub classes
 npm run build:proto
 ```
+> Primary "source of truth" location of protobuf message is in [yorkie](https://github.com/yorkie-team/yorkie/tree/main/api). We manage the messages in the repository.
 
 ### Testing yorkie-js-sdk with Envoy, Yorkie and MongoDB.
 
