@@ -474,7 +474,7 @@ describe('Yorkie', function () {
     }, this.test.title);
   });
 
-  it('Can handle garbage collection', async function () {
+  it('Can handle garbage collection for container type', async function () {
     const docKey = `${this.test.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
@@ -541,6 +541,76 @@ describe('Yorkie', function () {
     await client2.deactivate();
   });
 
+  it('Can handle garbage collection for text type', async function () {
+    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const doc1 = yorkie.createDocument(testCollection, docKey);
+    const doc2 = yorkie.createDocument(testCollection, docKey);
+
+    const client1 = yorkie.createClient(testRPCAddr);
+    const client2 = yorkie.createClient(testRPCAddr);
+
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1);
+    await client2.attach(doc2);
+
+    doc1.update((root) => {
+      const text = root.createText('text');
+      text.edit(0, 0, 'Hello World');
+      const richText = root.createRichText('richText');
+      richText.edit(0, 0, 'Hello World');
+    }, 'sets test and richText');
+
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(0, doc2.getGarbageLen());
+
+    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
+    await client1.sync();
+
+    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
+    await client2.sync();
+
+    doc2.update((root) => {
+      root['text'].edit(0, 1, 'a');
+      root['text'].edit(1, 2, 'b');
+      root['richText'].edit(0, 1, 'a', { b: '1' });
+    }, 'edit text type elements');
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(3, doc2.getGarbageLen());
+
+    // (1, 1) -> (1, 2): syncedseqs:(0, 1)
+    await client2.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(3, doc2.getGarbageLen());
+
+    // (1, 2) -> (2, 2): syncedseqs:(1, 1)
+    await client1.sync();
+    assert.equal(3, doc1.getGarbageLen());
+    assert.equal(3, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(1, 2)
+    await client2.sync();
+    assert.equal(3, doc1.getGarbageLen());
+    assert.equal(3, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
+    await client1.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(3, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
+    await client2.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(0, doc2.getGarbageLen());
+
+    await client1.detach(doc1);
+    await client2.detach(doc2);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
+
   it('Can handle garbage collection with detached document test', async function () {
     const docKey = `${this.test.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
@@ -559,7 +629,11 @@ describe('Yorkie', function () {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
-    }, 'sets 1, 2, 3');
+      const text = root.createText('4');
+      text.edit(0, 0, 'hi');
+      const richText = root.createRichText('5');
+      richText.edit(0, 0, 'hi');
+    }, 'sets 1, 2, 3, 4, 5');
 
     assert.equal(0, doc1.getGarbageLen());
     assert.equal(0, doc2.getGarbageLen());
@@ -572,26 +646,28 @@ describe('Yorkie', function () {
 
     doc1.update((root) => {
       delete root['2'];
-    }, 'removes 2');
-    assert.equal(4, doc1.getGarbageLen());
+      root['4'].edit(0, 1, 'h');
+      root['5'].edit(0, 1, 'h', { b: '1' });
+    }, 'removes 2 and edit text type elements');
+    assert.equal(6, doc1.getGarbageLen());
     assert.equal(0, doc2.getGarbageLen());
 
     // (1, 1) -> (2, 1): syncedseqs:(1, 0)
     await client1.sync();
-    assert.equal(4, doc1.getGarbageLen());
+    assert.equal(6, doc1.getGarbageLen());
     assert.equal(0, doc2.getGarbageLen());
 
     await client2.detach(doc2);
 
     // (2, 1) -> (2, 2): syncedseqs:(1, x)
     await client2.sync();
-    assert.equal(4, doc1.getGarbageLen());
-    assert.equal(4, doc2.getGarbageLen());
+    assert.equal(6, doc1.getGarbageLen());
+    assert.equal(6, doc2.getGarbageLen());
 
     // (2, 2) -> (2, 2): syncedseqs:(2, x): meet GC condition
     await client1.sync();
     assert.equal(0, doc1.getGarbageLen());
-    assert.equal(4, doc2.getGarbageLen());
+    assert.equal(6, doc2.getGarbageLen());
 
     await client1.detach(doc1);
 

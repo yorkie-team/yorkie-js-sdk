@@ -409,24 +409,24 @@ function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
 }
 
 function toJSONObject(obj: JSONObject): PbJSONElement {
-  const pbJSONObject = new PbJSONElement.Object();
+  const pbJSONObject = new PbJSONElement.JSONObject();
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
   pbJSONObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
   pbJSONObject.setRemovedAt(toTimeTicket(obj.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
-  pbJSONElement.setObject(pbJSONObject);
+  pbJSONElement.setJsonObject(pbJSONObject);
   return pbJSONElement;
 }
 
 function toJSONArray(arr: JSONArray): PbJSONElement {
-  const pbJSONArray = new PbJSONElement.Array();
+  const pbJSONArray = new PbJSONElement.JSONArray();
   pbJSONArray.setNodesList(toRGANodes(arr.getElements()));
   pbJSONArray.setCreatedAt(toTimeTicket(arr.getCreatedAt()));
   pbJSONArray.setRemovedAt(toTimeTicket(arr.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
-  pbJSONElement.setArray(pbJSONArray);
+  pbJSONElement.setJsonArray(pbJSONArray);
   return pbJSONElement;
 }
 
@@ -792,7 +792,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
   );
 }
 
-function fromJSONObject(pbObject: PbJSONElement.Object): JSONObject {
+function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
   const rht = new RHTPQMap();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
@@ -804,7 +804,7 @@ function fromJSONObject(pbObject: PbJSONElement.Object): JSONObject {
   return obj;
 }
 
-function fromJSONArray(pbArray: PbJSONElement.Array): JSONArray {
+function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.getNodesList()) {
     // eslint-disable-next-line
@@ -890,10 +890,10 @@ function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
 }
 
 function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
-  if (pbJSONElement.hasObject()) {
-    return fromJSONObject(pbJSONElement.getObject());
-  } else if (pbJSONElement.hasArray()) {
-    return fromJSONArray(pbJSONElement.getArray());
+  if (pbJSONElement.hasJsonObject()) {
+    return fromJSONObject(pbJSONElement.getJsonObject());
+  } else if (pbJSONElement.hasJsonArray()) {
+    return fromJSONArray(pbJSONElement.getJsonArray());
   } else if (pbJSONElement.hasPrimitive()) {
     return fromJSONPrimitive(pbJSONElement.getPrimitive());
   } else if (pbJSONElement.hasText()) {
@@ -916,7 +916,7 @@ function bytesToObject(bytes: Uint8Array): JSONObject {
   }
 
   const pbJSONElement = PbJSONElement.deserializeBinary(bytes);
-  return fromJSONObject(pbJSONElement.getObject());
+  return fromJSONObject(pbJSONElement.getJsonObject());
 }
 
 function objectToBytes(obj: JSONObject): Uint8Array {

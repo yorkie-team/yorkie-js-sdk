@@ -16,7 +16,7 @@
 
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { TextElement } from './element';
 import {
   Change,
   ChangeType,
@@ -25,7 +25,7 @@ import {
   Selection,
 } from './rga_tree_split';
 
-export class PlainText extends JSONElement {
+export class PlainText extends TextElement {
   private onChangesHandler: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
@@ -133,6 +133,14 @@ export class PlainText extends JSONElement {
 
   public getAnnotatedString(): string {
     return this.rgaTreeSplit.getAnnotatedString();
+  }
+
+  public getRemovedNodesLen(): number {
+    return this.rgaTreeSplit.getRemovedNodesLen();
+  }
+
+  public cleanupRemovedNodes(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
   public deepcopy(): PlainText {
