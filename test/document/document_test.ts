@@ -20,6 +20,8 @@ import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
+import { PlainText } from '../../src/document/json/plain_text';
+import { RichText } from '../../src/document/json/rich_text';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -126,7 +128,7 @@ describe('Document', function () {
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
@@ -161,7 +163,7 @@ describe('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      const text = root.createRichText('k1');
+      const text = root.createRichText('k1') as RichText;
       text.edit(0, 0, 'ABCD', { b: '1' });
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
@@ -187,7 +189,7 @@ describe('Document', function () {
     //           |              |
     // [init] - [ABC] - [\n] - [D]
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       text.edit(0, 0, 'ABCD');
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
@@ -207,7 +209,7 @@ describe('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
       text.edit(0, 1, '한');
@@ -352,7 +354,7 @@ describe('Document', function () {
 
     let expected_msg = '{"k1":"Hello mario"}';
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       text.edit(0, 0, 'Hello world');
       text.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON());
@@ -386,7 +388,7 @@ describe('Document', function () {
     let expected_msg =
       '{"k1":[{"attrs":{"b":"1"},"content":Hello },{"attrs":{},"content":mario},{"attrs":{},"content":\n}]}';
     doc.update((root) => {
-      const text = root.createRichText('k1');
+      const text = root.createRichText('k1') as RichText;
       text.edit(0, 0, 'Hello world', { b: '1' });
       text.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON());
@@ -421,7 +423,7 @@ describe('Document', function () {
 
     // 01. initial
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       for (let i = 0; i < size; i++) {
         text.edit(i, i, 'a');
       }
@@ -450,7 +452,7 @@ describe('Document', function () {
 
     // 01. long text by one node
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText('k1') as PlainText;
       let str = '';
       for (let i = 0; i < size; i++) {
         str += 'a';

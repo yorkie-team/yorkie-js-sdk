@@ -21,8 +21,8 @@ import { TimeTicket } from '../time/ticket';
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
-  private movedAt: TimeTicket;
-  private removedAt: TimeTicket;
+  private movedAt?: TimeTicket;
+  private removedAt?: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
@@ -37,11 +37,11 @@ export abstract class JSONElement {
   }
 
   public getMovedAt(): TimeTicket {
-    return this.movedAt;
+    return this.movedAt!;
   }
 
   public getRemovedAt(): TimeTicket {
-    return this.removedAt;
+    return this.removedAt!;
   }
 
   public setMovedAt(movedAt: TimeTicket): boolean {

@@ -135,15 +135,15 @@ export class RGATreeSplitNode<
   T extends RGATreeSplitValue
 > extends SplayNode<T> {
   private id: RGATreeSplitNodeID;
-  private removedAt: TimeTicket;
+  private removedAt?: TimeTicket;
 
-  private prev: RGATreeSplitNode<T>;
-  private next: RGATreeSplitNode<T>;
-  private insPrev: RGATreeSplitNode<T>;
-  private insNext: RGATreeSplitNode<T>;
+  private prev?: RGATreeSplitNode<T>;
+  private next?: RGATreeSplitNode<T>;
+  private insPrev?: RGATreeSplitNode<T>;
+  private insNext?: RGATreeSplitNode<T>;
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
-    super(value);
+    super(value!);
     this.id = id;
     this.removedAt = removedAt;
   }
@@ -191,47 +191,47 @@ export class RGATreeSplitNode<
   }
 
   public getPrev(): RGATreeSplitNode<T> {
-    return this.prev;
+    return this.prev!;
   }
 
   public getNext(): RGATreeSplitNode<T> {
-    return this.next;
+    return this.next!;
   }
 
   public getInsPrev(): RGATreeSplitNode<T> {
-    return this.insPrev;
+    return this.insPrev!;
   }
 
   public getInsNext(): RGATreeSplitNode<T> {
-    return this.insNext;
+    return this.insNext!;
   }
 
   public getInsPrevID(): RGATreeSplitNodeID {
-    return this.insPrev.getID();
+    return this.insPrev!.getID();
   }
 
-  public setPrev(node: RGATreeSplitNode<T>): void {
+  public setPrev(node?: RGATreeSplitNode<T>): void {
     this.prev = node;
     if (node) {
       node.next = this;
     }
   }
 
-  public setNext(node: RGATreeSplitNode<T>): void {
+  public setNext(node?: RGATreeSplitNode<T>): void {
     this.next = node;
     if (node) {
       node.prev = this;
     }
   }
 
-  public setInsPrev(node: RGATreeSplitNode<T>): void {
+  public setInsPrev(node?: RGATreeSplitNode<T>): void {
     this.insPrev = node;
     if (node) {
       node.insNext = this;
     }
   }
 
-  public setInsNext(node: RGATreeSplitNode<T>): void {
+  public setInsNext(node?: RGATreeSplitNode<T>): void {
     this.insNext = node;
     if (node) {
       node.insPrev = this;
@@ -251,7 +251,7 @@ export class RGATreeSplitNode<
   }
 
   public getRemovedAt(): TimeTicket {
-    return this.removedAt;
+    return this.removedAt!;
   }
 
   public split(offset: number): RGATreeSplitNode<T> {
@@ -313,8 +313,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public edit(
     range: RGATreeSplitNodeRange,
-    value: T,
-    latestCreatedAtMapByActor: Map<string, TimeTicket>,
+    value: T | undefined,
+    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
   ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>] {
     // 01. split nodes with from and to
@@ -385,20 +385,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const node = preferToLeft
       ? this.findFloorNodePreferToLeft(absoluteID)
       : this.findFloorNode(absoluteID);
-    const index = this.treeByIndex.indexOf(node);
+    const index = this.treeByIndex.indexOf(node!);
     if (!node) {
       logger.fatal(
         `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
       );
     }
-    const offset = node.isRemoved()
+    const offset = node!.isRemoved()
       ? 0
-      : absoluteID.getOffset() - node.getID().getOffset();
+      : absoluteID.getOffset() - node!.getID().getOffset();
     return index + offset;
   }
 
   public findNode(id: RGATreeSplitNodeID): RGATreeSplitNode<T> {
-    return this.findFloorNode(id);
+    return this.findFloorNode(id)!;
   }
 
   public toJSON(): string {
@@ -506,24 +506,26 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       );
     }
 
-    if (id.getOffset() > 0 && node.getID().getOffset() == id.getOffset()) {
-      if (!node.hasInsPrev()) {
+    if (id.getOffset() > 0 && node!.getID().getOffset() == id.getOffset()) {
+      if (!node!.hasInsPrev()) {
         logger.fatal('insPrev should be presence');
       }
-      node = node.getInsPrev();
+      node = node!.getInsPrev();
     }
 
-    return node;
+    return node!;
   }
 
-  private findFloorNode(id: RGATreeSplitNodeID): RGATreeSplitNode<T> {
+  private findFloorNode(
+    id: RGATreeSplitNodeID,
+  ): RGATreeSplitNode<T> | undefined {
     const entry = this.treeByID.floorEntry(id);
     if (!entry) {
-      return null;
+      return;
     }
 
     if (!entry.key.equals(id) && !entry.key.hasSameCreatedAt(id)) {
-      return null;
+      return;
     }
 
     return entry.value;
@@ -573,7 +575,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
-    latestCreatedAtMapByActor: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
   ): [
     Array<Change>,
@@ -591,13 +593,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor.has(actorID)
-          ? latestCreatedAtMapByActor.get(actorID)
+        ? latestCreatedAtMapByActor!.has(actorID)
+          ? latestCreatedAtMapByActor!.get(actorID)
           : InitialTimeTicket
         : MaxTimeTicket;
 
       // Delete nodes created before the latest time remaining in the replica that performed the deletion.
-      if (node.canDelete(editedAt, latestCreatedAt)) {
+      if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
 
         const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
@@ -671,8 +673,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       next.setPrev(prev);
     }
 
-    node.setPrev(null);
-    node.setNext(null);
+    node.setPrev(undefined);
+    node.setNext(undefined);
 
     if (insPrev) {
       insPrev.setInsNext(insNext);
@@ -682,8 +684,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       insNext.setInsPrev(insPrev);
     }
 
-    node.setInsPrev(null);
-    node.setInsNext(null);
+    node.setInsPrev(undefined);
+    node.setInsNext(undefined);
   }
 }
 

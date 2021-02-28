@@ -17,6 +17,8 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { converter } from '../../src/api/converter';
+import { PlainText } from '../../src/document/json/plain_text';
+import { CounterProxy } from '../../src/document/proxy/counter_proxy';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -43,7 +45,7 @@ describe('Converter', function () {
         // new Date(),
       ];
 
-      const text = root.createText('k3');
+      const text = root.createText('k3') as PlainText;
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
       text.edit(0, 1, '한');
@@ -51,7 +53,7 @@ describe('Converter', function () {
       text.edit(1, 1, '느');
       text.edit(1, 2, '늘');
 
-      const counter = root.createCounter('k4', 0);
+      const counter = root.createCounter('k4', 0) as CounterProxy;
       counter.increase(1).increase(2).increase(3);
     });
 

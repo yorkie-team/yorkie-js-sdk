@@ -19,10 +19,10 @@ import { logger } from './logger';
 export abstract class SplayNode<V> {
   protected value: V;
 
-  private left: SplayNode<V>;
-  private right: SplayNode<V>;
-  private parent: SplayNode<V>;
-  private weight: number;
+  private left?: SplayNode<V>;
+  private right?: SplayNode<V>;
+  private parent?: SplayNode<V>;
+  private weight?: number;
 
   constructor(value: V) {
     this.value = value;
@@ -40,26 +40,26 @@ export abstract class SplayNode<V> {
   }
 
   public getLeftWeight(): number {
-    return !this.hasLeft() ? 0 : this.left.getWeight();
+    return !this.hasLeft() ? 0 : this.left!.getWeight();
   }
 
   public getRightWeight(): number {
-    return !this.hasRight() ? 0 : this.right.getWeight();
+    return !this.hasRight() ? 0 : this.right!.getWeight();
   }
 
   public getWeight(): number {
-    return this.weight;
+    return this.weight!;
   }
 
   public getLeft(): SplayNode<V> {
-    return this.left;
+    return this.left!;
   }
 
   public getRight(): SplayNode<V> {
-    return this.right;
+    return this.right!;
   }
 
-  public setRight(right: SplayNode<V>): void {
+  public setRight(right?: SplayNode<V>): void {
     this.right = right;
   }
 
@@ -75,7 +75,7 @@ export abstract class SplayNode<V> {
     return !!this.parent;
   }
 
-  public setParent(parent: SplayNode<V>): void {
+  public setParent(parent?: SplayNode<V>): void {
     this.parent = parent;
   }
 
@@ -84,11 +84,11 @@ export abstract class SplayNode<V> {
   }
 
   public getParent(): SplayNode<V> {
-    return this.parent;
+    return this.parent!;
   }
 
   public increaseWeight(weight: number): void {
-    this.weight += weight;
+    this.weight! += weight;
   }
 
   public initWeight(): void {
@@ -102,15 +102,15 @@ export abstract class SplayNode<V> {
  *  - https://www.cs.cmu.edu/~sleator/papers/self-adjusting.pdf
  */
 export class SplayTree<V> {
-  private root: SplayNode<V>;
+  private root?: SplayNode<V>;
 
   constructor(root?: SplayNode<V>) {
     this.root = root;
   }
 
-  public find(pos: number): [SplayNode<V>, number] {
+  public find(pos: number): [SplayNode<V> | undefined, number] {
     if (!this.root) {
-      return [null, 0];
+      return [undefined, 0];
     }
 
     let node = this.root;
@@ -163,11 +163,11 @@ export class SplayTree<V> {
   }
 
   public getRoot(): SplayNode<V> {
-    return this.root;
+    return this.root!;
   }
 
   public insert(newNode: SplayNode<V>): SplayNode<V> {
-    return this.insertAfter(this.root, newNode);
+    return this.insertAfter(this.root!, newNode);
   }
 
   public insertAfter(
@@ -187,7 +187,7 @@ export class SplayTree<V> {
     }
     newNode.setLeft(target);
     target.setParent(newNode);
-    target.setRight(null);
+    target.setRight(undefined);
     this.updateSubtree(target);
     this.updateSubtree(newNode);
 
@@ -250,12 +250,12 @@ export class SplayTree<V> {
 
     const leftTree = new SplayTree(node.getLeft());
     if (leftTree.root) {
-      leftTree.root.setParent(null);
+      leftTree.root.setParent(undefined);
     }
 
     const rightTree = new SplayTree(node.getRight());
     if (rightTree.root) {
-      rightTree.root.setParent(null);
+      rightTree.root.setParent(undefined);
     }
 
     if (leftTree.root) {
@@ -270,7 +270,7 @@ export class SplayTree<V> {
 
   public getAnnotatedString(): string {
     const metaString: Array<SplayNode<V>> = [];
-    this.traverseInorder(this.root, metaString);
+    this.traverseInorder(this.root!, metaString);
     return metaString
       .map(
         (node) => `[${node.getWeight()},${node.getLength()}]${node.getValue()}`,
@@ -279,7 +279,7 @@ export class SplayTree<V> {
   }
 
   private getMaximum(): SplayNode<V> {
-    let node = this.root;
+    let node = this.root!;
     while (node.hasRight()) {
       node = node.getRight();
     }

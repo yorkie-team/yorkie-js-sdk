@@ -24,12 +24,12 @@ import { TimeTicket } from '../time/ticket';
 export class ChangeID {
   private clientSeq: number;
   private lamport: Long;
-  private actor: ActorID;
+  private actor?: ActorID;
 
   constructor(clientSeq: number, lamport: Long, actor?: ActorID) {
     this.clientSeq = clientSeq;
     this.lamport = lamport;
-    this.actor = typeof actor !== 'undefined' ? actor : null;
+    this.actor = typeof actor !== 'undefined' ? actor : undefined;
   }
 
   public static of(
@@ -53,7 +53,7 @@ export class ChangeID {
   }
 
   public createTimeTicket(delimiter: number): TimeTicket {
-    return TimeTicket.of(this.lamport, delimiter, this.actor);
+    return TimeTicket.of(this.lamport, delimiter, this.actor!);
   }
 
   public setActor(actorID: ActorID): ChangeID {
@@ -73,7 +73,7 @@ export class ChangeID {
   }
 
   public getActorID(): string {
-    return this.actor;
+    return this.actor!;
   }
 
   public getAnnotatedString(): string {

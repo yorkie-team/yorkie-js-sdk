@@ -39,14 +39,14 @@ export class JSONObject extends JSONContainer {
     return new JSONObject(createdAt, RHTPQMap.create());
   }
 
-  public createText(key: string): PlainText {
+  public createText(key: string): PlainText | undefined {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    return;
   }
 
-  public createRichText(key: string): RichText {
+  public createRichText(key: string): RichText | undefined {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    return;
   }
 
   public purge(value: JSONElement): void {
@@ -58,10 +58,13 @@ export class JSONObject extends JSONContainer {
    * The reason for setting the CounterProxy type as the return value
    * is to provide the CounterProxy interface to the user.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public createCounter(key: string, value: CounterType): CounterProxy {
+  public createCounter(
+    key: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    value: CounterType,
+  ): CounterProxy | undefined {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    return;
   }
 
   public set(key: string, value: JSONElement): void {
@@ -69,15 +72,15 @@ export class JSONObject extends JSONContainer {
   }
 
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.delete(createdAt, executedAt);
+    return this.memberNodes.delete(createdAt, executedAt)!;
   }
 
   public deleteByKey(key: string, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.deleteByKey(key, executedAt);
+    return this.memberNodes.deleteByKey(key, executedAt)!;
   }
 
   public get(key: string): JSONElement {
-    return this.memberNodes.get(key);
+    return this.memberNodes.get(key)!;
   }
 
   public has(key: string): boolean {
@@ -101,7 +104,7 @@ export class JSONObject extends JSONContainer {
     const json = [];
     for (const key of keys.sort()) {
       const node = this.memberNodes.get(key);
-      json.push(`"${key}":${node.toSortedJSON()}`);
+      json.push(`"${key}":${node!.toSortedJSON()}`);
     }
 
     return `{${json.join(',')}}`;

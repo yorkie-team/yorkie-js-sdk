@@ -43,7 +43,7 @@ export type PrimitiveValue =
  * This is immutable.
  */
 export class JSONPrimitive extends JSONElement {
-  private valueType: PrimitiveType;
+  private valueType?: PrimitiveType;
   private value: PrimitiveValue;
 
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
@@ -110,10 +110,10 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public getType(): PrimitiveType {
-    return this.valueType;
+    return this.valueType!;
   }
 
-  public static getPrimitiveType(value: unknown): PrimitiveType {
+  public static getPrimitiveType(value: unknown): PrimitiveType | undefined {
     switch (typeof value) {
       case 'boolean':
         return PrimitiveType.Boolean;
@@ -131,7 +131,7 @@ export class JSONPrimitive extends JSONElement {
         }
     }
 
-    return null;
+    return;
   }
 
   public static isSupport(value: unknown): boolean {

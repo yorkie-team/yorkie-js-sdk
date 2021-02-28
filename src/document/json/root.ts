@@ -62,7 +62,7 @@ export class JSONRoot {
    * findByCreatedAt returns the element of given creation time.
    */
   public findByCreatedAt(createdAt: TimeTicket): JSONElement {
-    return this.elementMapByCreatedAt.get(createdAt.toIDString());
+    return this.elementMapByCreatedAt.get(createdAt.toIDString())!;
   }
 
   /**
@@ -167,13 +167,13 @@ export class JSONRoot {
     let count = 0;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const callback = (elem: JSONElement, parent: JSONContainer): boolean => {
+    const callback = (elem: JSONElement, parent?: JSONContainer): boolean => {
       this.deregisterElement(elem);
       count++;
       return false;
     };
 
-    callback(element, null);
+    callback(element, undefined);
 
     if (element instanceof JSONContainer) {
       element.getDescendants(callback);

@@ -26,6 +26,8 @@ import {
 import { Document, DocEvent, DocEventType } from '../src/document/document';
 import { JSONElement } from '../src/document/json/element';
 import yorkie from '../src/yorkie';
+import { PlainText } from '../src/document/json/plain_text';
+import { RichText } from '../src/document/json/rich_text';
 
 const __karma__ = (global as any).__karma__;
 const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';
@@ -73,7 +75,7 @@ function createSpy(emitter: EventEmitter) {
 // to access test title in test codes.
 describe('Yorkie', function () {
   it('Can be activated, deactivated', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const clientWithKey = yorkie.createClient(testRPCAddr, {
       key: docKey,
       syncLoopDuration: 50,
@@ -97,7 +99,7 @@ describe('Yorkie', function () {
   });
 
   it('Can attach/detach documents', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -159,7 +161,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(2, spy.callCount);
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can watch documents', async function () {
@@ -168,7 +170,7 @@ describe('Yorkie', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = yorkie.createDocument(testCollection, docKey);
     const d2 = yorkie.createDocument(testCollection, docKey);
     await c1.attach(d1);
@@ -213,7 +215,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent set/delete operations', async function () {
@@ -268,7 +270,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent add operations', async function () {
@@ -290,7 +292,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent insertAfter operations', async function () {
@@ -332,7 +334,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent moveBefore operations', async function () {
@@ -376,14 +378,14 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle edit operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createText('k1');
-        root['k1'].edit(0, 0, 'ABCD');
+        (root['k1'] as PlainText).edit(0, 0, 'ABCD');
       }, 'set new text by c1');
       await c1.sync();
       await c2.sync();
@@ -392,14 +394,14 @@ describe('Yorkie', function () {
 
       d1.update((root) => {
         root.createText('k1');
-        root['k1'].edit(0, 0, '1234');
+        (root['k1'] as PlainText).edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c1');
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle concurrent edit operations', async function () {
@@ -413,11 +415,11 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit(0, 0, 'ABCD');
+        (root['k1'] as PlainText).edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
       assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
       d2.update((root) => {
-        root['k1'].edit(0, 0, '1234');
+        (root['k1'] as PlainText).edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
       assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
       await c1.sync();
@@ -426,10 +428,10 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit(2, 3, 'XX');
+        (root['k1'] as PlainText).edit(2, 3, 'XX');
       }, 'edit 2,3 XX by c1');
       d2.update((root) => {
-        root['k1'].edit(2, 3, 'YY');
+        (root['k1'] as PlainText).edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
       await c1.sync();
       await c2.sync();
@@ -437,17 +439,17 @@ describe('Yorkie', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit(4, 5, 'ZZ');
+        (root['k1'] as PlainText).edit(4, 5, 'ZZ');
       }, 'edit 4,5 ZZ by c1');
       d2.update((root) => {
-        root['k1'].edit(2, 3, 'TT');
+        (root['k1'] as PlainText).edit(2, 3, 'TT');
       }, 'edit 2,3 TT by c1');
 
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle snapshot', async function () {
@@ -471,11 +473,11 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle garbage collection for container type', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -542,7 +544,7 @@ describe('Yorkie', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -556,9 +558,9 @@ describe('Yorkie', function () {
     await client2.attach(doc2);
 
     doc1.update((root) => {
-      const text = root.createText('text');
+      const text = root.createText('text') as PlainText;
       text.edit(0, 0, 'Hello World');
-      const richText = root.createRichText('richText');
+      const richText = root.createRichText('richText') as RichText;
       richText.edit(0, 0, 'Hello World');
     }, 'sets test and richText');
 
@@ -572,9 +574,9 @@ describe('Yorkie', function () {
     await client2.sync();
 
     doc2.update((root) => {
-      root['text'].edit(0, 1, 'a');
-      root['text'].edit(1, 2, 'b');
-      root['richText'].edit(0, 1, 'a', { b: '1' });
+      (root['text'] as PlainText).edit(0, 1, 'a');
+      (root['text'] as PlainText).edit(1, 2, 'b');
+      (root['richText'] as RichText).edit(0, 1, 'a', { b: '1' });
     }, 'edit text type elements');
     assert.equal(0, doc1.getGarbageLen());
     assert.equal(3, doc2.getGarbageLen());
@@ -612,7 +614,7 @@ describe('Yorkie', function () {
   });
 
   it('Can handle garbage collection with detached document test', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -629,9 +631,9 @@ describe('Yorkie', function () {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
-      const text = root.createText('4');
+      const text = root.createText('4') as PlainText;
       text.edit(0, 0, 'hi');
-      const richText = root.createRichText('5');
+      const richText = root.createRichText('5') as RichText;
       richText.edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
 
@@ -646,8 +648,8 @@ describe('Yorkie', function () {
 
     doc1.update((root) => {
       delete root['2'];
-      root['4'].edit(0, 1, 'h');
-      root['5'].edit(0, 1, 'h', { b: '1' });
+      (root['4'] as PlainText).edit(0, 1, 'h');
+      (root['5'] as RichText).edit(0, 1, 'h', { b: '1' });
     }, 'removes 2 and edit text type elements');
     assert.equal(6, doc1.getGarbageLen());
     assert.equal(0, doc2.getGarbageLen());
@@ -688,7 +690,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent increase operation', async function () {
@@ -715,7 +717,7 @@ describe('Yorkie', function () {
       await c1.sync();
 
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can recover from temporary disconnect (manual sync)', async function () {
@@ -737,7 +739,7 @@ describe('Yorkie', function () {
           {
             'Content-Type': 'application/grpc-web-text+proto',
           },
-          null,
+          '',
         );
       };
 
@@ -760,7 +762,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can recover from temporary disconnect (realtime sync)', async function () {
@@ -769,7 +771,7 @@ describe('Yorkie', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = yorkie.createDocument(testCollection, docKey);
     const d2 = yorkie.createDocument(testCollection, docKey);
 
@@ -816,7 +818,7 @@ describe('Yorkie', function () {
         {
           'Content-Type': 'application/grpc-web-text+proto',
         },
-        null,
+        '',
       );
     };
 

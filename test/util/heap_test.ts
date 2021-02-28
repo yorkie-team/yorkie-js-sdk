@@ -27,7 +27,7 @@ describe('Heap', function () {
     }
 
     for (const idx of range(0, 10).reverse()) {
-      assert.equal(idx, heap.pop().getValue());
+      assert.equal(idx, heap.pop()!.getValue());
     }
   });
 

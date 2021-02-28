@@ -74,12 +74,12 @@ export class RHT {
     return this.nodeMapByKey.has(key);
   }
 
-  public get(key: string): string {
+  public get(key: string): string | undefined {
     if (!this.nodeMapByKey.has(key)) {
-      return null;
+      return;
     }
 
-    return this.nodeMapByKey.get(key).getValue();
+    return this.nodeMapByKey.get(key)!.getValue();
   }
 
   public deepcopy(): RHT {

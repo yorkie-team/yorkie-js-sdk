@@ -45,7 +45,7 @@ class ObserverProxy<T> implements Observer<T> {
   private unsubscribes: Unsubscribe[] = [];
   private observerCount = 0;
   private task = Promise.resolve();
-  private finalError: Error;
+  private finalError?: Error;
 
   constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
     this.onNoObservers = onNoObservers;
@@ -60,26 +60,26 @@ class ObserverProxy<T> implements Observer<T> {
 
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
-      observer.next(value);
+      observer.next!(value);
     });
   }
 
   public error(error: Error): void {
     this.forEachObserver((observer: Observer<T>) => {
-      observer.error(error);
+      observer.error!(error);
     });
     this.close(error);
   }
 
   public complete(): void {
     this.forEachObserver((observer: Observer<T>) => {
-      observer.complete();
+      observer.complete!();
     });
     this.close();
   }
 
   public subscribe(
-    nextOrObserver: Observer<T> | NextFn<T>,
+    nextOrObserver?: Observer<T> | NextFn<T>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
@@ -119,9 +119,9 @@ class ObserverProxy<T> implements Observer<T> {
       this.task.then(() => {
         try {
           if (this.finalError) {
-            observer.error(this.finalError);
+            observer.error!(this.finalError);
           } else {
-            observer.complete();
+            observer.complete!();
           }
         } catch (err) {
           // nothing

@@ -26,15 +26,15 @@ export class ChangePack {
   private key: DocumentKey;
   private checkpoint: Checkpoint;
   private changes: Change[];
-  private snapshot: Uint8Array;
-  private minSyncedTicket: TimeTicket;
+  private snapshot?: Uint8Array;
+  private minSyncedTicket?: TimeTicket;
 
   constructor(
     key: DocumentKey,
     checkpoint: Checkpoint,
     changes: Change[],
-    snapshot: Uint8Array,
-    minSyncedTicket: TimeTicket,
+    snapshot?: Uint8Array,
+    minSyncedTicket?: TimeTicket,
   ) {
     this.key = key;
     this.checkpoint = checkpoint;
@@ -78,10 +78,10 @@ export class ChangePack {
   }
 
   public getSnapshot(): Uint8Array {
-    return this.snapshot;
+    return this.snapshot!;
   }
 
   public getMinSyncedTicket(): TimeTicket {
-    return this.minSyncedTicket;
+    return this.minSyncedTicket!;
   }
 }

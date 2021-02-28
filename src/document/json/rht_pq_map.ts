@@ -66,18 +66,21 @@ export class RHTPQMap {
     }
 
     const node = RHTPQMapNode.of(key, value);
-    this.elementQueueMapByKey.get(key).push(node);
+    this.elementQueueMapByKey.get(key)!.push(node);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
   }
 
-  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
+  public delete(
+    createdAt: TimeTicket,
+    executedAt: TimeTicket,
+  ): JSONElement | undefined {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
-      return null;
+      return;
     }
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    node.remove(executedAt);
-    return node.getValue();
+    node!.remove(executedAt);
+    return node!.getValue();
   }
 
   public purge(element: JSONElement): void {
@@ -88,24 +91,27 @@ export class RHTPQMap {
       logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
     }
 
-    const queue = this.elementQueueMapByKey.get(node.getStrKey());
+    const queue = this.elementQueueMapByKey.get(node!.getStrKey());
     if (!queue) {
       logger.fatal(
         `fail to find queue of ${element.getCreatedAt().toIDString()}`,
       );
     }
 
-    queue.release(node);
+    queue!.release(node!);
 
     this.nodeMapByCreatedAt.delete(element.getCreatedAt().toIDString());
   }
 
-  public deleteByKey(key: string, removedAt: TimeTicket): JSONElement {
+  public deleteByKey(
+    key: string,
+    removedAt: TimeTicket,
+  ): JSONElement | undefined {
     if (!this.elementQueueMapByKey.has(key)) {
-      return null;
+      return;
     }
 
-    const node = this.elementQueueMapByKey.get(key).peek() as RHTPQMapNode;
+    const node = this.elementQueueMapByKey.get(key)!.peek() as RHTPQMapNode;
     node.remove(removedAt);
     return node.getValue();
   }
@@ -115,16 +121,16 @@ export class RHTPQMap {
       return false;
     }
 
-    const node = this.elementQueueMapByKey.get(key).peek() as RHTPQMapNode;
+    const node = this.elementQueueMapByKey.get(key)!.peek() as RHTPQMapNode;
     return !node.isRemoved();
   }
 
-  public get(key: string): JSONElement {
+  public get(key: string): JSONElement | undefined {
     if (!this.elementQueueMapByKey.has(key)) {
-      return null;
+      return;
     }
 
-    return this.elementQueueMapByKey.get(key).peek().getValue();
+    return this.elementQueueMapByKey!.get(key)!.peek()!.getValue();
   }
 
   public *[Symbol.iterator](): IterableIterator<RHTPQMapNode> {

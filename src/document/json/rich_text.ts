@@ -78,7 +78,7 @@ export class RichTextValue {
 }
 
 export class RichText extends TextElement {
-  private onChangesHandler: (changes: Array<Change>) => void;
+  private onChangesHandler?: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -99,7 +99,7 @@ export class RichText extends TextElement {
   ): RichText {
     const text = new RichText(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
-    text.editInternal(range, '\n', null, null, createdAt);
+    text.editInternal(range, '\n', undefined, undefined, createdAt);
     return text;
   }
 
@@ -109,11 +109,11 @@ export class RichText extends TextElement {
     content: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     attributes?: { [key: string]: string },
-  ): RichText {
+  ): RichText | undefined {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
-    return null;
+    return;
   }
 
   public setStyle(
@@ -121,24 +121,24 @@ export class RichText extends TextElement {
     toIdx: number,
     key: string,
     value: string,
-  ): RichText {
+  ): RichText | undefined {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`,
     );
-    return null;
+    return;
   }
 
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    attributes: { [key: string]: string },
-    latestCreatedAtMapByActor: Map<string, TimeTicket>,
+    attributes: { [key: string]: string } | undefined,
+    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
   ): Map<string, TimeTicket> {
-    const value = content ? RichTextValue.create(content) : null;
+    const value = content ? RichTextValue.create(content) : undefined;
     if (content && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
-        value.setAttr(k, v, editedAt);
+        value!.setAttr(k, v, editedAt);
       }
     }
 
@@ -313,17 +313,17 @@ export class RichText extends TextElement {
   private updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): Change {
+  ): Change | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID())) {
       this.selectionMap.set(
         updatedAt.getActorID(),
         Selection.of(range, updatedAt),
       );
-      return null;
+      return;
     }
 
     const prevSelection = this.selectionMap.get(updatedAt.getActorID());
-    if (updatedAt.after(prevSelection.getUpdatedAt())) {
+    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
         updatedAt.getActorID(),
         Selection.of(range, updatedAt),
