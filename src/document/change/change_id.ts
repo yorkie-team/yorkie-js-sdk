@@ -29,7 +29,7 @@ export class ChangeID {
   constructor(clientSeq: number, lamport: Long, actor?: ActorID) {
     this.clientSeq = clientSeq;
     this.lamport = lamport;
-    this.actor = typeof actor !== 'undefined' ? actor : undefined;
+    this.actor = actor;
   }
 
   public static of(
@@ -53,7 +53,7 @@ export class ChangeID {
   }
 
   public createTimeTicket(delimiter: number): TimeTicket {
-    return TimeTicket.of(this.lamport, delimiter, this.actor!);
+    return TimeTicket.of(this.lamport, delimiter, this.actor);
   }
 
   public setActor(actorID: ActorID): ChangeID {
@@ -77,7 +77,7 @@ export class ChangeID {
   }
 
   public getAnnotatedString(): string {
-    if (this.actor == null) {
+    if (!this.actor) {
       return `${this.lamport.toString()}:nil:${this.clientSeq}`;
     }
     return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${

@@ -25,13 +25,12 @@ export const TicketComparator: Comparator<TimeTicket> = (
   return p1.compare(p2);
 };
 
-// Immutable
 export class TimeTicket {
   private lamport: Long;
   private delimiter: number;
-  private actorID: ActorID;
+  private actorID?: ActorID;
 
-  constructor(lamport: Long, delimiter: number, actorID: string) {
+  constructor(lamport: Long, delimiter: number, actorID?: string) {
     this.lamport = lamport;
     this.delimiter = delimiter;
     this.actorID = actorID;
@@ -40,20 +39,20 @@ export class TimeTicket {
   public static of(
     lamport: Long,
     delimiter: number,
-    actorID: string,
+    actorID?: string,
   ): TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
 
   public toIDString(): string {
-    if (this.actorID == null) {
+    if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
     return `${this.lamport.toString()}:${this.actorID}:${this.delimiter}`;
   }
 
   public getAnnotatedString(): string {
-    if (this.actorID == null) {
+    if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
     return `${this.lamport.toString()}:${this.actorID.substring(22, 24)}:${
@@ -73,7 +72,7 @@ export class TimeTicket {
     return this.delimiter;
   }
 
-  public getActorID(): string {
+  public getActorID(): string | undefined {
     return this.actorID;
   }
 
@@ -92,7 +91,7 @@ export class TimeTicket {
       return -1;
     }
 
-    const compare = this.actorID.localeCompare(other.actorID);
+    const compare = this.actorID!.localeCompare(other.actorID!);
     if (compare !== 0) {
       return compare;
     }

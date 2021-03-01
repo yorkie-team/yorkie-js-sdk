@@ -77,11 +77,11 @@ export class ChangePack {
     return !!this.snapshot && !!this.snapshot.length;
   }
 
-  public getSnapshot(): Uint8Array {
-    return this.snapshot!;
+  public getSnapshot(): Uint8Array | undefined {
+    return this.snapshot;
   }
 
-  public getMinSyncedTicket(): TimeTicket {
-    return this.minSyncedTicket!;
+  public getMinSyncedTicket(): TimeTicket | undefined {
+    return this.minSyncedTicket;
   }
 }

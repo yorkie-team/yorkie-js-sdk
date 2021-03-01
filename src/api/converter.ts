@@ -114,7 +114,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
   return pbChangeID;
 }
 
-function toTimeTicket(ticket: TimeTicket): PbTimeTicket | undefined {
+function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   if (!ticket) {
     return;
   }
@@ -122,7 +122,7 @@ function toTimeTicket(ticket: TimeTicket): PbTimeTicket | undefined {
   const pbTimeTicket = new PbTimeTicket();
   pbTimeTicket.setLamport(ticket.getLamportAsString());
   pbTimeTicket.setDelimiter(ticket.getDelimiter());
-  pbTimeTicket.setActorId(toUint8Array(ticket.getActorID()));
+  pbTimeTicket.setActorId(toUint8Array(ticket.getActorID()!));
   return pbTimeTicket;
 }
 
@@ -489,7 +489,7 @@ function toChangePack(pack: ChangePack): PbChangePack {
   pbChangePack.setDocumentKey(toDocumentKey(pack.getKey()));
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
-  pbChangePack.setSnapshot(pack.getSnapshot());
+  pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
   return pbChangePack;
 }
@@ -515,7 +515,7 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   );
 }
 
-function fromTimeTicket(pbTimeTicket: PbTimeTicket): TimeTicket | undefined {
+function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   if (!pbTimeTicket) {
     return;
   }
@@ -570,18 +570,18 @@ function fromJSONElementSimple(
 ): JSONElement {
   switch (pbJSONElement.getType()) {
     case PbValueType.JSON_OBJECT:
-      return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt()!)!);
+      return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt())!);
     case PbValueType.JSON_ARRAY:
-      return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt()!)!);
+      return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt())!);
     case PbValueType.TEXT:
       return PlainText.create(
         RGATreeSplit.create(),
-        fromTimeTicket(pbJSONElement.getCreatedAt()!)!,
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
     case PbValueType.RICH_TEXT:
       return RichText.create(
         RGATreeSplit.create(),
-        fromTimeTicket(pbJSONElement.getCreatedAt()!)!,
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
     case PbValueType.BOOLEAN:
     case PbValueType.INTEGER:
@@ -595,7 +595,7 @@ function fromJSONElementSimple(
           fromValueType(pbJSONElement.getType()),
           pbJSONElement.getValue_asU8(),
         ),
-        fromTimeTicket(pbJSONElement.getCreatedAt()!)!,
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
     case PbValueType.INTEGER_CNT:
     case PbValueType.DOUBLE_CNT:
@@ -605,7 +605,7 @@ function fromJSONElementSimple(
           fromCounterType(pbJSONElement.getType()),
           pbJSONElement.getValue_asU8(),
         ),
-        fromTimeTicket(pbJSONElement.getCreatedAt()!)!,
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
   }
 
@@ -618,7 +618,7 @@ function fromJSONElementSimple(
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
   return RGATreeSplitNodePos.of(
     RGATreeSplitNodeID.of(
-      fromTimeTicket(pbTextNodePos.getCreatedAt()!)!,
+      fromTimeTicket(pbTextNodePos.getCreatedAt())!,
       pbTextNodePos.getOffset(),
     ),
     pbTextNodePos.getRelativeOffset(),
@@ -627,7 +627,7 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
 
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
-    fromTimeTicket(pbTextNodeID.getCreatedAt()!)!,
+    fromTimeTicket(pbTextNodeID.getCreatedAt())!,
     pbTextNodeID.getOffset(),
   );
 }
@@ -637,7 +637,7 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
     fromTextNodeID(pbTextNode.getId()!),
     pbTextNode.getValue(),
   );
-  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()!)!);
+  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
 }
 
@@ -648,7 +648,7 @@ function fromRichTextNode(
     fromTextNodeID(pbTextNode.getId()!),
     RichTextValue.create(pbTextNode.getValue()),
   );
-  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()!)!);
+  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
 }
 
@@ -662,31 +662,31 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
       operation = SetOperation.create(
         pbSetOperation!.getKey(),
         fromJSONElementSimple(pbSetOperation!.getValue()!),
-        fromTimeTicket(pbSetOperation!.getParentCreatedAt()!)!,
-        fromTimeTicket(pbSetOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbSetOperation!.getParentCreatedAt())!,
+        fromTimeTicket(pbSetOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasAdd()) {
       const pbAddOperation = pbOperation.getAdd();
       operation = AddOperation.create(
-        fromTimeTicket(pbAddOperation!.getParentCreatedAt()!)!,
-        fromTimeTicket(pbAddOperation!.getPrevCreatedAt()!)!,
+        fromTimeTicket(pbAddOperation!.getParentCreatedAt())!,
+        fromTimeTicket(pbAddOperation!.getPrevCreatedAt())!,
         fromJSONElementSimple(pbAddOperation!.getValue()!),
-        fromTimeTicket(pbAddOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbAddOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasMove()) {
       const pbMoveOperation = pbOperation.getMove();
       operation = MoveOperation.create(
-        fromTimeTicket(pbMoveOperation!.getParentCreatedAt()!)!,
-        fromTimeTicket(pbMoveOperation!.getPrevCreatedAt()!)!,
-        fromTimeTicket(pbMoveOperation!.getCreatedAt()!)!,
-        fromTimeTicket(pbMoveOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbMoveOperation!.getParentCreatedAt())!,
+        fromTimeTicket(pbMoveOperation!.getPrevCreatedAt())!,
+        fromTimeTicket(pbMoveOperation!.getCreatedAt())!,
+        fromTimeTicket(pbMoveOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasRemove()) {
       const pbRemoveOperation = pbOperation.getRemove();
       operation = RemoveOperation.create(
-        fromTimeTicket(pbRemoveOperation!.getParentCreatedAt()!)!,
-        fromTimeTicket(pbRemoveOperation!.getCreatedAt()!)!,
-        fromTimeTicket(pbRemoveOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbRemoveOperation!.getParentCreatedAt())!,
+        fromTimeTicket(pbRemoveOperation!.getCreatedAt())!,
+        fromTimeTicket(pbRemoveOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasEdit()) {
       const pbEditOperation = pbOperation.getEdit();
@@ -695,20 +695,20 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         createdAtMapByActor.set(key, fromTimeTicket(value));
       });
       operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt()!)!,
+        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbEditOperation!.getFrom()!),
         fromTextNodePos(pbEditOperation!.getTo()!),
         createdAtMapByActor,
         pbEditOperation!.getContent(),
-        fromTimeTicket(pbEditOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasSelect()) {
       const pbSelectOperation = pbOperation.getSelect();
       operation = SelectOperation.create(
-        fromTimeTicket(pbSelectOperation!.getParentCreatedAt()!)!,
+        fromTimeTicket(pbSelectOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbSelectOperation!.getFrom()!),
         fromTextNodePos(pbSelectOperation!.getTo()!),
-        fromTimeTicket(pbSelectOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbSelectOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasRichEdit()) {
       const pbEditOperation = pbOperation.getRichEdit();
@@ -721,13 +721,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         attributes.set(key, value);
       });
       operation = RichEditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt()!)!,
+        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbEditOperation!.getFrom()!),
         fromTextNodePos(pbEditOperation!.getTo()!),
         createdAtMapByActor,
         pbEditOperation!.getContent(),
         attributes,
-        fromTimeTicket(pbEditOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
@@ -736,18 +736,18 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
         attributes.set(key, value);
       });
       operation = StyleOperation.create(
-        fromTimeTicket(pbStyleOperation!.getParentCreatedAt()!)!,
+        fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbStyleOperation!.getFrom()!),
         fromTextNodePos(pbStyleOperation!.getTo()!),
         attributes,
-        fromTimeTicket(pbStyleOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasIncrease()) {
       const pbIncreaseOperation = pbOperation.getIncrease();
       operation = IncreaseOperation.create(
-        fromTimeTicket(pbIncreaseOperation!.getParentCreatedAt()!)!,
+        fromTimeTicket(pbIncreaseOperation!.getParentCreatedAt())!,
         fromJSONElementSimple(pbIncreaseOperation!.getValue()!),
-        fromTimeTicket(pbIncreaseOperation!.getExecutedAt()!)!,
+        fromTimeTicket(pbIncreaseOperation!.getExecutedAt())!,
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
@@ -788,7 +788,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
     fromCheckpoint(pbPack.getCheckpoint()!),
     fromChanges(pbPack.getChangesList()),
     pbPack.getSnapshot_asU8(),
-    fromTimeTicket(pbPack.getMinSyncedTicket()!),
+    fromTimeTicket(pbPack.getMinSyncedTicket()),
   );
 }
 
@@ -799,8 +799,8 @@ function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
     rht.set(pbRHTNode.getKey(), fromJSONElement(pbRHTNode.getElement()!));
   }
 
-  const obj = new JSONObject(fromTimeTicket(pbObject.getCreatedAt()!)!, rht);
-  obj.remove(fromTimeTicket(pbObject.getRemovedAt()!)!);
+  const obj = new JSONObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
+  obj.remove(fromTimeTicket(pbObject.getRemovedAt()));
   return obj;
 }
 
@@ -812,10 +812,10 @@ function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
   }
 
   const arr = new JSONArray(
-    fromTimeTicket(pbArray.getCreatedAt()!)!,
+    fromTimeTicket(pbArray.getCreatedAt())!,
     rgaTreeList,
   );
-  arr.remove(fromTimeTicket(pbArray.getRemovedAt()!)!);
+  arr.remove(fromTimeTicket(pbArray.getRemovedAt()));
   return arr;
 }
 
@@ -827,9 +827,9 @@ function fromJSONPrimitive(
       fromValueType(pbPrimitive.getType()),
       pbPrimitive.getValue_asU8(),
     ),
-    fromTimeTicket(pbPrimitive.getCreatedAt()!)!,
+    fromTimeTicket(pbPrimitive.getCreatedAt())!,
   );
-  primitive.remove(fromTimeTicket(pbPrimitive.getRemovedAt()!)!);
+  primitive.remove(fromTimeTicket(pbPrimitive.getRemovedAt()));
   return primitive;
 }
 
@@ -849,9 +849,9 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
 
   const text = PlainText.create(
     rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt()!)!,
+    fromTimeTicket(pbText.getCreatedAt())!,
   );
-  text.remove(fromTimeTicket(pbText.getRemovedAt()!)!);
+  text.remove(fromTimeTicket(pbText.getRemovedAt()));
   return text;
 }
 
@@ -871,9 +871,9 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
 
   const text = RichText.create(
     rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt()!)!,
+    fromTimeTicket(pbText.getCreatedAt())!,
   );
-  text.remove(fromTimeTicket(pbText.getRemovedAt()!)!);
+  text.remove(fromTimeTicket(pbText.getRemovedAt()));
   return text;
 }
 
@@ -883,9 +883,9 @@ function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
       fromCounterType(pbCounter.getType()),
       pbCounter.getValue_asU8(),
     ),
-    fromTimeTicket(pbCounter.getCreatedAt()!)!,
+    fromTimeTicket(pbCounter.getCreatedAt())!,
   );
-  counter.remove(fromTimeTicket(pbCounter.getRemovedAt()!)!);
+  counter.remove(fromTimeTicket(pbCounter.getRemovedAt()));
   return counter;
 }
 
@@ -910,7 +910,7 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   }
 }
 
-function bytesToObject(bytes: Uint8Array): JSONObject {
+function bytesToObject(bytes?: Uint8Array): JSONObject {
   if (!bytes) {
     return JSONObject.create(InitialTimeTicket);
   }

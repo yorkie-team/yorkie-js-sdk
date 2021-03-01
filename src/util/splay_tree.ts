@@ -22,7 +22,7 @@ export abstract class SplayNode<V> {
   private left?: SplayNode<V>;
   private right?: SplayNode<V>;
   private parent?: SplayNode<V>;
-  private weight?: number;
+  private weight!: number;
 
   constructor(value: V) {
     this.value = value;
@@ -48,15 +48,15 @@ export abstract class SplayNode<V> {
   }
 
   public getWeight(): number {
-    return this.weight!;
+    return this.weight;
   }
 
-  public getLeft(): SplayNode<V> {
-    return this.left!;
+  public getLeft(): SplayNode<V> | undefined {
+    return this.left;
   }
 
-  public getRight(): SplayNode<V> {
-    return this.right!;
+  public getRight(): SplayNode<V> | undefined {
+    return this.right;
   }
 
   public setRight(right?: SplayNode<V>): void {
@@ -79,12 +79,12 @@ export abstract class SplayNode<V> {
     this.parent = parent;
   }
 
-  public setLeft(left: SplayNode<V>): void {
+  public setLeft(left?: SplayNode<V>): void {
     this.left = left;
   }
 
-  public getParent(): SplayNode<V> {
-    return this.parent!;
+  public getParent(): SplayNode<V> | undefined {
+    return this.parent;
   }
 
   public increaseWeight(weight: number): void {
@@ -116,13 +116,13 @@ export class SplayTree<V> {
     let node = this.root;
     for (;;) {
       if (node.hasLeft() && pos <= node.getLeftWeight()) {
-        node = node.getLeft();
+        node = node.getLeft()!;
       } else if (
         node.hasRight() &&
         node.getLeftWeight() + node.getLength() < pos
       ) {
         pos -= node.getLeftWeight() + node.getLength();
-        node = node.getRight();
+        node = node.getRight()!;
       } else {
         pos -= node.getLeftWeight();
         break;
@@ -148,7 +148,7 @@ export class SplayTree<V> {
     }
 
     let index = 0;
-    let current = node;
+    let current: SplayNode<V> | undefined = node;
     let prev = null;
     while (current) {
       if (!prev || prev === current.getRight()) {
@@ -183,11 +183,11 @@ export class SplayTree<V> {
     this.root = newNode;
     newNode.setRight(target.getRight());
     if (target.hasRight()) {
-      target.getRight().setParent(newNode);
+      target.getRight()!.setParent(newNode);
     }
     newNode.setLeft(target);
     target.setParent(newNode);
-    target.setRight(undefined);
+    target.setRight();
     this.updateSubtree(target);
     this.updateSubtree(newNode);
 
@@ -224,14 +224,14 @@ export class SplayTree<V> {
         this.rotateLeft(node);
       } else if (this.isLeftChild(node.getParent()) && this.isLeftChild(node)) {
         // zig-zig
-        this.rotateRight(node.getParent());
+        this.rotateRight(node.getParent()!);
         this.rotateRight(node);
       } else if (
         this.isRightChild(node.getParent()) &&
         this.isRightChild(node)
       ) {
         // zig-zig
-        this.rotateLeft(node.getParent());
+        this.rotateLeft(node.getParent()!);
         this.rotateLeft(node);
       } else {
         // zig
@@ -250,12 +250,12 @@ export class SplayTree<V> {
 
     const leftTree = new SplayTree(node.getLeft());
     if (leftTree.root) {
-      leftTree.root.setParent(undefined);
+      leftTree.root.setParent();
     }
 
     const rightTree = new SplayTree(node.getRight());
     if (rightTree.root) {
-      rightTree.root.setParent(undefined);
+      rightTree.root.setParent();
     }
 
     if (leftTree.root) {
@@ -281,13 +281,13 @@ export class SplayTree<V> {
   private getMaximum(): SplayNode<V> {
     let node = this.root!;
     while (node.hasRight()) {
-      node = node.getRight();
+      node = node.getRight()!;
     }
     return node;
   }
 
   private traverseInorder(
-    node: SplayNode<V>,
+    node: SplayNode<V> | undefined,
     stack: Array<SplayNode<V>>,
   ): void {
     if (!node) {
@@ -300,12 +300,12 @@ export class SplayTree<V> {
   }
 
   private rotateLeft(pivot: SplayNode<V>): void {
-    const root = pivot.getParent();
+    const root = pivot.getParent()!;
     if (root.hasParent()) {
-      if (root === root.getParent().getLeft()) {
-        root.getParent().setLeft(pivot);
+      if (root === root.getParent()!.getLeft()) {
+        root.getParent()!.setLeft(pivot);
       } else {
-        root.getParent().setRight(pivot);
+        root.getParent()!.setRight(pivot);
       }
     } else {
       this.root = pivot;
@@ -314,23 +314,23 @@ export class SplayTree<V> {
 
     root.setRight(pivot.getLeft());
     if (root.hasRight()) {
-      root.getRight().setParent(root);
+      root.getRight()!.setParent(root);
     }
 
     pivot.setLeft(root);
-    pivot.getLeft().setParent(pivot);
+    pivot.getLeft()!.setParent(pivot);
 
     this.updateSubtree(root);
     this.updateSubtree(pivot);
   }
 
   private rotateRight(pivot: SplayNode<V>): void {
-    const root = pivot.getParent();
+    const root = pivot.getParent()!;
     if (root.hasParent()) {
-      if (root === root.getParent().getLeft()) {
-        root.getParent().setLeft(pivot);
+      if (root === root.getParent()!.getLeft()) {
+        root.getParent()!.setLeft(pivot);
       } else {
-        root.getParent().setRight(pivot);
+        root.getParent()!.setRight(pivot);
       }
     } else {
       this.root = pivot;
@@ -339,21 +339,27 @@ export class SplayTree<V> {
 
     root.setLeft(pivot.getRight());
     if (root.hasLeft()) {
-      root.getLeft().setParent(root);
+      root.getLeft()!.setParent(root);
     }
 
     pivot.setRight(root);
-    pivot.getRight().setParent(pivot);
+    pivot.getRight()!.setParent(pivot);
 
     this.updateSubtree(root);
     this.updateSubtree(pivot);
   }
 
-  private isLeftChild(node: SplayNode<V>): boolean {
-    return node && node.hasParent() && node.getParent().getLeft() === node;
+  private isLeftChild(node?: SplayNode<V>): boolean {
+    if (node && node.hasParent()) {
+      return node.getParent()!.getLeft() === node;
+    }
+    return false;
   }
 
-  private isRightChild(node: SplayNode<V>): boolean {
-    return node && node.hasParent() && node.getParent().getRight() === node;
+  private isRightChild(node?: SplayNode<V>): boolean {
+    if (node && node.hasParent()) {
+      return node.getParent()!.getRight() === node;
+    }
+    return false;
   }
 }

@@ -68,12 +68,12 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     return this.value.isRemoved() ? 0 : 1;
   }
 
-  public getPrev(): RGATreeListNode {
-    return this.prev!;
+  public getPrev(): RGATreeListNode | undefined {
+    return this.prev;
   }
 
-  public getNext(): RGATreeListNode {
-    return this.next!;
+  public getNext(): RGATreeListNode | undefined {
+    return this.next;
   }
 
   public getValue(): JSONElement {
@@ -135,7 +135,7 @@ export class RGATreeList {
 
     while (
       node!.getNext() &&
-      node!.getNext().getCreatedAt().after(executedAt)
+      node!.getNext()!.getCreatedAt().after(executedAt)
     ) {
       node = node!.getNext();
     }
@@ -144,8 +144,8 @@ export class RGATreeList {
   }
 
   private release(node: RGATreeListNode): void {
-    if (this.last == node) {
-      this.last = node.getPrev();
+    if (this.last === node) {
+      this.last = node.getPrev()!;
     }
 
     node.release();
@@ -191,7 +191,7 @@ export class RGATreeList {
 
     if (
       !node!.getValue().getMovedAt() ||
-      executedAt.after(node!.getValue().getMovedAt())
+      executedAt.after(node!.getValue().getMovedAt()!)
     ) {
       node!.release();
       this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
@@ -228,11 +228,11 @@ export class RGATreeList {
 
     if (idx === 0 && node === this.dummyHead) {
       do {
-        rgaNode = rgaNode.getNext();
+        rgaNode = rgaNode.getNext()!;
       } while (rgaNode.isRemoved());
     } else if (offset > 0) {
       do {
-        rgaNode = rgaNode.getNext();
+        rgaNode = rgaNode.getNext()!;
       } while (rgaNode.isRemoved());
     }
 
@@ -242,7 +242,7 @@ export class RGATreeList {
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     do {
-      node = node!.getPrev();
+      node = node!.getPrev()!;
     } while (this.dummyHead !== node && node.isRemoved());
     return node.getValue().getCreatedAt();
   }

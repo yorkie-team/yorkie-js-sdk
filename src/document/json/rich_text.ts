@@ -109,10 +109,11 @@ export class RichText extends TextElement {
     content: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     attributes?: { [key: string]: string },
-  ): RichText | undefined {
+  ): RichText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
+    // @ts-ignore
     return;
   }
 
@@ -121,10 +122,11 @@ export class RichText extends TextElement {
     toIdx: number,
     key: string,
     value: string,
-  ): RichText | undefined {
+  ): RichText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`,
     );
+    // @ts-ignore
     return;
   }
 
@@ -195,7 +197,7 @@ export class RichText extends TextElement {
       );
       changes.push({
         type: ChangeType.Style,
-        actor: editedAt.getActorID(),
+        actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
         attributes,
@@ -314,25 +316,25 @@ export class RichText extends TextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): Change | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
+    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
       return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
+    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
     if (updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: updatedAt.getActorID()!,
         from,
         to,
       };

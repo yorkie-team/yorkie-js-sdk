@@ -190,20 +190,20 @@ export class RGATreeSplitNode<
     return (this.value && this.value.length) || 0;
   }
 
-  public getPrev(): RGATreeSplitNode<T> {
-    return this.prev!;
+  public getPrev(): RGATreeSplitNode<T> | undefined {
+    return this.prev;
   }
 
-  public getNext(): RGATreeSplitNode<T> {
-    return this.next!;
+  public getNext(): RGATreeSplitNode<T> | undefined {
+    return this.next;
   }
 
-  public getInsPrev(): RGATreeSplitNode<T> {
-    return this.insPrev!;
+  public getInsPrev(): RGATreeSplitNode<T> | undefined {
+    return this.insPrev;
   }
 
-  public getInsNext(): RGATreeSplitNode<T> {
-    return this.insNext!;
+  public getInsNext(): RGATreeSplitNode<T> | undefined {
+    return this.insNext;
   }
 
   public getInsPrevID(): RGATreeSplitNodeID {
@@ -250,8 +250,8 @@ export class RGATreeSplitNode<
     return !!this.removedAt;
   }
 
-  public getRemovedAt(): TimeTicket {
-    return this.removedAt!;
+  public getRemovedAt(): TimeTicket | undefined {
+    return this.removedAt;
   }
 
   public split(offset: number): RGATreeSplitNode<T> {
@@ -265,7 +265,7 @@ export class RGATreeSplitNode<
     );
   }
 
-  public remove(editedAt: TimeTicket): void {
+  public remove(editedAt?: TimeTicket): void {
     this.removedAt = editedAt;
   }
 
@@ -343,7 +343,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       changes.push({
         type: ChangeType.Content,
-        actor: editedAt.getActorID(),
+        actor: editedAt.getActorID()!,
         from: idx,
         to: idx,
         content: value.toString(),
@@ -385,12 +385,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const node = preferToLeft
       ? this.findFloorNodePreferToLeft(absoluteID)
       : this.findFloorNode(absoluteID);
-    const index = this.treeByIndex.indexOf(node!);
     if (!node) {
       logger.fatal(
         `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
       );
     }
+    const index = this.treeByIndex.indexOf(node!);
     const offset = node!.isRemoved()
       ? 0
       : absoluteID.getOffset() - node!.getID().getOffset();
@@ -449,7 +449,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   public getAnnotatedString(): string {
     const result = [];
 
-    let node = this.head;
+    let node: RGATreeSplitNode<T> | undefined = this.head;
     while (node) {
       if (node.isRemoved()) {
         result.push(`{${node.getAnnotatedString()}}`);
@@ -489,11 +489,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     this.splitNode(node, relativeOffset);
 
-    while (node.hasNext() && node.getNext().getCreatedAt().after(editedAt)) {
-      node = node.getNext();
+    while (node.hasNext() && node.getNext()!.getCreatedAt().after(editedAt)) {
+      node = node.getNext()!;
     }
 
-    return [node, node.getNext()];
+    return [node, node.getNext()!];
   }
 
   private findFloorNodePreferToLeft(
@@ -537,7 +537,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   ): Array<RGATreeSplitNode<T>> {
     const nodes = [];
 
-    let current = fromNode;
+    let current: RGATreeSplitNode<T> | undefined = fromNode;
     while (current && current !== toNode) {
       nodes.push(current);
       current = current.getNext();
@@ -549,7 +549,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private splitNode(
     node: RGATreeSplitNode<T>,
     offset: number,
-  ): RGATreeSplitNode<T> {
+  ): RGATreeSplitNode<T> | undefined {
     if (offset > node.getContentLength()) {
       logger.fatal('offset should be less than or equal to length');
     }
@@ -593,8 +593,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor!.has(actorID)
-          ? latestCreatedAtMapByActor!.get(actorID)
+        ? latestCreatedAtMapByActor!.has(actorID!)
+          ? latestCreatedAtMapByActor!.get(actorID!)
           : InitialTimeTicket
         : MaxTimeTicket;
 
@@ -605,7 +605,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
         const change = {
           type: ChangeType.Content,
-          actor: editedAt.getActorID(),
+          actor: editedAt.getActorID()!,
           from: fromIdx,
           to: toIdx,
         };
@@ -642,10 +642,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   public cleanupRemovedNodes(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
-      if (
-        node.getRemovedAt() !== null &&
-        ticket.compare(node.getRemovedAt()) >= 0
-      ) {
+      if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
         this.treeByIndex.delete(node);
         this.purge(node);
         this.treeByID.remove(node.getID());

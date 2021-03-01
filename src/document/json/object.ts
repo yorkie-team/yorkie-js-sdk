@@ -39,13 +39,15 @@ export class JSONObject extends JSONContainer {
     return new JSONObject(createdAt, RHTPQMap.create());
   }
 
-  public createText(key: string): PlainText | undefined {
+  public createText(key: string): PlainText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    // @ts-ignore
     return;
   }
 
-  public createRichText(key: string): RichText | undefined {
+  public createRichText(key: string): RichText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    // @ts-ignore
     return;
   }
 
@@ -62,8 +64,9 @@ export class JSONObject extends JSONContainer {
     key: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     value: CounterType,
-  ): CounterProxy | undefined {
+  ): CounterProxy {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
+    // @ts-ignore
     return;
   }
 

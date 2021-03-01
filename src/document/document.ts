@@ -144,8 +144,8 @@ export class Document implements Observable<DocEvent> {
   public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
-        pack.getSnapshot(),
         pack.getCheckpoint().getServerSeq(),
+        pack.getSnapshot(),
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
@@ -164,7 +164,7 @@ export class Document implements Observable<DocEvent> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket());
+    this.garbageCollect(pack.getMinSyncedTicket()!);
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
@@ -247,7 +247,7 @@ export class Document implements Observable<DocEvent> {
     return this.root.toSortedJSON();
   }
 
-  private applySnapshot(snapshot: Uint8Array, serverSeq: Long): void {
+  private applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
     const obj = converter.bytesToObject(snapshot);
     this.root = new JSONRoot(obj);
 

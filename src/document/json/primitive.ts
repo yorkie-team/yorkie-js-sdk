@@ -43,12 +43,12 @@ export type PrimitiveValue =
  * This is immutable.
  */
 export class JSONPrimitive extends JSONElement {
-  private valueType?: PrimitiveType;
+  private valueType: PrimitiveType;
   private value: PrimitiveValue;
 
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
     super(createdAt);
-    this.valueType = JSONPrimitive.getPrimitiveType(value);
+    this.valueType = JSONPrimitive.getPrimitiveType(value)!;
     this.value = value;
   }
 

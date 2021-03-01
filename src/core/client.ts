@@ -107,7 +107,7 @@ export class Client implements Observable<ClientEvent> {
 
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
-  private remoteChangeEventStream: any;
+  private remoteChangeEventStream?: any;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver!: Observer<ClientEvent>;
 
@@ -123,7 +123,7 @@ export class Client implements Observable<ClientEvent> {
     this.reconnectStreamDelay =
       opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
 
-    this.rpcClient = new RPCClient(rpcAddr, null, null);
+    this.rpcClient = new RPCClient(rpcAddr);
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -176,7 +176,7 @@ export class Client implements Observable<ClientEvent> {
 
     if (this.remoteChangeEventStream) {
       this.remoteChangeEventStream.cancel();
-      this.remoteChangeEventStream = null;
+      this.remoteChangeEventStream = undefined;
     }
 
     return new Promise((resolve, reject) => {
@@ -376,7 +376,7 @@ export class Client implements Observable<ClientEvent> {
     const doLoop = (): void => {
       if (this.remoteChangeEventStream) {
         this.remoteChangeEventStream.cancel();
-        this.remoteChangeEventStream = null;
+        this.remoteChangeEventStream = undefined;
       }
 
       if (this.watchLoopTimerID) {
@@ -406,7 +406,7 @@ export class Client implements Observable<ClientEvent> {
       req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
 
       const onStreamDisconnect = () => {
-        this.remoteChangeEventStream = null;
+        this.remoteChangeEventStream = undefined;
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay!);
         this.eventStreamObserver.next!({
           name: ClientEventType.StreamConnectionStatusChanged,

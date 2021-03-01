@@ -143,7 +143,7 @@ export class JSONRoot {
     for (const [, pair] of this.removedElementPairMapByCreatedAt) {
       if (
         pair.element.getRemovedAt() &&
-        ticket.compare(pair.element.getRemovedAt()) >= 0
+        ticket.compare(pair.element.getRemovedAt()!) >= 0
       ) {
         pair.parent.purge(pair.element);
         count += this._garbageCollect(pair.element);
@@ -173,7 +173,7 @@ export class JSONRoot {
       return false;
     };
 
-    callback(element, undefined);
+    callback(element);
 
     if (element instanceof JSONContainer) {
       element.getDescendants(callback);

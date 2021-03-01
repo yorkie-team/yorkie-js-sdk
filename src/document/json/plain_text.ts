@@ -45,14 +45,11 @@ export class PlainText extends TextElement {
     return new PlainText(rgaTreeSplit, createdAt);
   }
 
-  public edit(
-    fromIdx: number,
-    toIdx: number,
-    content: string,
-  ): PlainText | undefined {
+  public edit(fromIdx: number, toIdx: number, content: string): PlainText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
+    // @ts-ignore
     return;
   }
 
@@ -160,25 +157,25 @@ export class PlainText extends TextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): Change | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
+    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
       return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
+    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
     if (updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: updatedAt.getActorID()!,
         from,
         to,
       };
