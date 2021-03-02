@@ -59,7 +59,7 @@ export function toProxy(context: ChangeContext, elem?: JSONElement): any {
     const counter = elem as Counter;
     return CounterProxy.create(context, counter);
   } else if (!elem) {
-    return undefined;
+    return;
   } else {
     throw new TypeError(`Unsupported type of element: ${typeof elem}`);
   }
