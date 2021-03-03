@@ -43,9 +43,9 @@ export class Heap<K, V> {
     this.nodes = [];
   }
 
-  public peek(): HeapNode<K, V> {
+  public peek(): HeapNode<K, V> | undefined {
     if (!this.nodes.length) {
-      return null;
+      return;
     }
 
     return this.nodes[0];
@@ -59,7 +59,7 @@ export class Heap<K, V> {
     const targetIndex = this.nodes.findIndex(
       (_node) => _node.getValue() === node.getValue(),
     );
-    const lastNode = this.nodes.pop();
+    const lastNode = this.nodes.pop()!;
 
     if (targetIndex < 0 || !this.len()) {
       return;
@@ -75,16 +75,16 @@ export class Heap<K, V> {
     this.moveUp(this.nodes.length - 1);
   }
 
-  public pop(): HeapNode<K, V> {
+  public pop(): HeapNode<K, V> | undefined {
     const count = this.nodes.length;
     const head = this.nodes[0];
     if (count <= 0) {
-      return undefined;
+      return;
     } else if (count == 1) {
       // clear array
       this.nodes.length = 0;
     } else {
-      this.nodes[0] = this.nodes.pop();
+      this.nodes[0] = this.nodes.pop()!;
       this.moveDown(0);
     }
 

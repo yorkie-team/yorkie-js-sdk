@@ -24,17 +24,15 @@ interface Entry<K, V> {
 class LLRBNode<K, V> {
   public key: K;
   public value: V;
-  public parent: LLRBNode<K, V>;
-  public left: LLRBNode<K, V>;
-  public right: LLRBNode<K, V>;
+  public parent?: LLRBNode<K, V>;
+  public left?: LLRBNode<K, V>;
+  public right?: LLRBNode<K, V>;
   public isRed: boolean;
 
   constructor(key: K, value: V, isRed: boolean) {
     this.key = key;
     this.value = value;
     this.isRed = isRed;
-    this.left;
-    this.right;
   }
 }
 
@@ -52,12 +50,12 @@ export class SortedMapIterator<K, V> {
       return;
     }
 
-    this.traverseInorder(node.left);
+    this.traverseInorder(node.left!);
     this.stack.push({
       key: node.key,
       value: node.value,
     });
-    this.traverseInorder(node.right);
+    this.traverseInorder(node.right!);
   }
 }
 
@@ -72,12 +70,11 @@ export class SortedMapIterator<K, V> {
  * Invariant 3: Only the left child can be red (left leaning)
  */
 export class LLRBTree<K, V> {
-  private root: LLRBNode<K, V>;
+  private root?: LLRBNode<K, V>;
   private comparator: Comparator<K>;
   private counter: number;
 
   constructor(comparator?: Comparator<K>) {
-    this.root = null;
     this.comparator =
       typeof comparator !== 'undefined' ? comparator : DefaultComparator;
     this.counter = 0;
@@ -89,24 +86,24 @@ export class LLRBTree<K, V> {
     return value;
   }
 
-  public get(key: K): V {
+  public get(key: K): V | undefined {
     const node = this.getInternal(this.root, key);
-    return node ? node.value : null;
+    return node ? node.value : undefined;
   }
 
   public remove(key: K): void {
-    if (!this.isRed(this.root.left) && !this.isRed(this.root.right)) {
-      this.root.isRed = true;
+    if (!this.isRed(this.root!.left!) && !this.isRed(this.root!.right!)) {
+      this.root!.isRed = true;
     }
 
-    this.root = this.removeInternal(this.root, key);
+    this.root = this.removeInternal(this.root!, key);
     if (this.root) {
       this.root.isRed = false;
     }
   }
 
   public getIterator(): SortedMapIterator<K, V> {
-    return new SortedMapIterator(this.root);
+    return new SortedMapIterator(this.root!);
   }
 
   public values(): Array<V> {
@@ -117,7 +114,7 @@ export class LLRBTree<K, V> {
     return values;
   }
 
-  public floorEntry(key: K): Entry<K, V> {
+  public floorEntry(key: K): Entry<K, V> | undefined {
     let node = this.root;
     while (node) {
       const compare = this.comparator(key, node.key);
@@ -139,16 +136,16 @@ export class LLRBTree<K, V> {
             childNode = parent;
             parent = parent.parent;
           }
-          return parent;
+          return parent!;
         }
       } else {
         return node;
       }
     }
-    return null;
+    return;
   }
 
-  public lastEntry(): Entry<K, V> {
+  public lastEntry(): Entry<K, V> | undefined {
     if (!this.root) {
       return this.root;
     }
@@ -168,22 +165,29 @@ export class LLRBTree<K, V> {
     return this.counter === 0;
   }
 
-  private getInternal(node: LLRBNode<K, V>, key: K): LLRBNode<K, V> {
+  private getInternal(
+    node: LLRBNode<K, V> | undefined,
+    key: K,
+  ): LLRBNode<K, V> | undefined {
     while (node) {
       const compare = this.comparator(key, node.key);
       if (compare === 0) {
         return node;
       } else if (compare < 0) {
-        node = node.left;
+        node = node.left!;
       } else if (compare > 0) {
-        node = node.right;
+        node = node.right!;
       }
     }
 
-    return null;
+    return;
   }
 
-  private putInternal(node: LLRBNode<K, V>, key: K, value: V): LLRBNode<K, V> {
+  private putInternal(
+    node: LLRBNode<K, V> | undefined,
+    key: K,
+    value: V,
+  ): LLRBNode<K, V> {
     if (!node) {
       this.counter += 1;
       return new LLRBNode(key, value, true);
@@ -198,49 +202,52 @@ export class LLRBTree<K, V> {
       node.value = value;
     }
 
-    if (this.isRed(node.right) && !this.isRed(node.left)) {
+    if (this.isRed(node.right!) && !this.isRed(node.left!)) {
       node = this.rotateLeft(node);
     }
 
-    if (this.isRed(node.left) && this.isRed(node.left.left)) {
+    if (this.isRed(node.left!) && this.isRed(node.left!.left!)) {
       node = this.rotateRight(node);
     }
 
-    if (this.isRed(node.left) && this.isRed(node.right)) {
+    if (this.isRed(node.left!) && this.isRed(node.right!)) {
       this.flipColors(node);
     }
 
     return node;
   }
 
-  private removeInternal(node: LLRBNode<K, V>, key: K): LLRBNode<K, V> {
+  private removeInternal(
+    node: LLRBNode<K, V>,
+    key: K,
+  ): LLRBNode<K, V> | undefined {
     if (this.comparator(key, node.key) < 0) {
-      if (!this.isRed(node.left) && !this.isRed(node.left.left)) {
+      if (!this.isRed(node.left!) && !this.isRed(node.left!.left!)) {
         node = this.moveRedLeft(node);
       }
-      node.left = this.removeInternal(node.left, key);
+      node.left = this.removeInternal(node.left!, key);
     } else {
-      if (this.isRed(node.left)) {
+      if (this.isRed(node.left!)) {
         node = this.rotateRight(node);
       }
 
       if (this.comparator(key, node.key) === 0 && !node.right) {
         this.counter -= 1;
-        return null;
+        return;
       }
 
-      if (!this.isRed(node.right) && !this.isRed(node.right.left)) {
+      if (!this.isRed(node.right!) && !this.isRed(node.right!.left!)) {
         node = this.moveRedRight(node);
       }
 
       if (this.comparator(key, node.key) === 0) {
         this.counter -= 1;
-        const smallest = this.min(node.right);
+        const smallest = this.min(node.right!);
         node.value = smallest.value;
         node.key = smallest.key;
-        node.right = this.removeMin(node.right);
+        node.right = this.removeMin(node.right!);
       } else {
-        node.right = this.removeInternal(node.right, key);
+        node.right = this.removeInternal(node.right!, key);
       }
     }
 
@@ -255,29 +262,29 @@ export class LLRBTree<K, V> {
     }
   }
 
-  private removeMin(node: LLRBNode<K, V>): LLRBNode<K, V> {
+  private removeMin(node: LLRBNode<K, V>): LLRBNode<K, V> | undefined {
     if (!node.left) {
-      return null;
+      return;
     }
 
-    if (!this.isRed(node.left) && !this.isRed(node.left.left)) {
+    if (!this.isRed(node.left) && !this.isRed(node.left!.left!)) {
       node = this.moveRedLeft(node);
     }
 
-    node.left = this.removeMin(node.left);
+    node.left = this.removeMin(node.left!);
     return this.fixUp(node);
   }
 
   private fixUp(node: LLRBNode<K, V>): LLRBNode<K, V> {
-    if (this.isRed(node.right)) {
+    if (this.isRed(node.right!)) {
       node = this.rotateLeft(node);
     }
 
-    if (this.isRed(node.left) && this.isRed(node.left.left)) {
+    if (this.isRed(node.left!) && this.isRed(node.left!.left!)) {
       node = this.rotateRight(node);
     }
 
-    if (this.isRed(node.left) && this.isRed(node.right)) {
+    if (this.isRed(node.left!) && this.isRed(node.right!)) {
       this.flipColors(node);
     }
 
@@ -286,8 +293,8 @@ export class LLRBTree<K, V> {
 
   private moveRedLeft(node: LLRBNode<K, V>): LLRBNode<K, V> {
     this.flipColors(node);
-    if (this.isRed(node.right.left)) {
-      node.right = this.rotateRight(node.right);
+    if (this.isRed(node.right!.left!)) {
+      node.right = this.rotateRight(node.right!);
       node = this.rotateLeft(node);
       this.flipColors(node);
     }
@@ -296,7 +303,7 @@ export class LLRBTree<K, V> {
 
   private moveRedRight(node: LLRBNode<K, V>): LLRBNode<K, V> {
     this.flipColors(node);
-    if (this.isRed(node.left.left)) {
+    if (this.isRed(node.left!.left!)) {
       node = this.rotateRight(node);
       this.flipColors(node);
     }
@@ -308,7 +315,7 @@ export class LLRBTree<K, V> {
   }
 
   private rotateLeft(node: LLRBNode<K, V>): LLRBNode<K, V> {
-    const x = node.right;
+    const x = node.right!;
     node.right = x.left;
     x.left = node;
     x.isRed = x.left.isRed;
@@ -317,7 +324,7 @@ export class LLRBTree<K, V> {
   }
 
   private rotateRight(node: LLRBNode<K, V>): LLRBNode<K, V> {
-    const x = node.left;
+    const x = node.left!;
     node.left = x.right;
     x.right = node;
     x.isRed = x.right.isRed;
@@ -326,8 +333,8 @@ export class LLRBTree<K, V> {
   }
 
   private flipColors(node: LLRBNode<K, V>): void {
-    node.isRed = !node.isRed;
-    node.left.isRed = !node.left.isRed;
-    node.right.isRed = !node.right.isRed;
+    node.isRed = !node.isRed!;
+    node.left!.isRed = !node.left!.isRed;
+    node.right!.isRed = !node.right!.isRed;
   }
 }

@@ -41,12 +41,14 @@ export class JSONObject extends JSONContainer {
 
   public createText(key: string): PlainText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public createRichText(key: string): RichText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public purge(value: JSONElement): void {
@@ -58,10 +60,14 @@ export class JSONObject extends JSONContainer {
    * The reason for setting the CounterProxy type as the return value
    * is to provide the CounterProxy interface to the user.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public createCounter(key: string, value: CounterType): CounterProxy {
+  public createCounter(
+    key: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    value: CounterType,
+  ): CounterProxy {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public set(key: string, value: JSONElement): void {
@@ -69,15 +75,15 @@ export class JSONObject extends JSONContainer {
   }
 
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.delete(createdAt, executedAt);
+    return this.memberNodes.delete(createdAt, executedAt)!;
   }
 
   public deleteByKey(key: string, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.deleteByKey(key, executedAt);
+    return this.memberNodes.deleteByKey(key, executedAt)!;
   }
 
   public get(key: string): JSONElement {
-    return this.memberNodes.get(key);
+    return this.memberNodes.get(key)!;
   }
 
   public has(key: string): boolean {
@@ -101,7 +107,7 @@ export class JSONObject extends JSONContainer {
     const json = [];
     for (const key of keys.sort()) {
       const node = this.memberNodes.get(key);
-      json.push(`"${key}":${node.toSortedJSON()}`);
+      json.push(`"${key}":${node!.toSortedJSON()}`);
     }
 
     return `{${json.join(',')}}`;

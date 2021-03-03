@@ -39,7 +39,7 @@ export function createProxy(
   return ObjectProxy.create(context, target);
 }
 
-export function toProxy(context: ChangeContext, elem: JSONElement): any {
+export function toProxy(context: ChangeContext, elem?: JSONElement): any {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;
     return primitive.getValue();
@@ -58,8 +58,8 @@ export function toProxy(context: ChangeContext, elem: JSONElement): any {
   } else if (elem instanceof Counter) {
     const counter = elem as Counter;
     return CounterProxy.create(context, counter);
-  } else if (elem === null) {
-    return null;
+  } else if (!elem) {
+    return;
   } else {
     throw new TypeError(`Unsupported type of element: ${typeof elem}`);
   }

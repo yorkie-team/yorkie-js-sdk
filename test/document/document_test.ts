@@ -400,7 +400,7 @@ describe('Document', function () {
     doc.update((root) => {
       const text = root['k1'];
       text.edit(0, 5, 'Hi', { b: '1' });
-      text.edit(3, 4, 'j', null);
+      text.edit(3, 4, 'j');
       text.edit(4, 8, 'ane', { b: '1' });
       assert.equal(expected_msg, root.toJSON());
     }, 'edit rich text k1');

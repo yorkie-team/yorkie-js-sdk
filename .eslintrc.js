@@ -15,6 +15,7 @@ module.exports = {
     'prettier/prettier': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/ban-ts-comment': 'off',
     'tsdoc/syntax': 'error',
     'object-shorthand': ['error', 'always'],
     'no-unreachable': 'error',
