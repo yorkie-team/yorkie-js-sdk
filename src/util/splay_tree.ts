@@ -149,7 +149,7 @@ export class SplayTree<V> {
 
     let index = 0;
     let current: SplayNode<V> | undefined = node;
-    let prev = null;
+    let prev: SplayNode<V> | undefined;
     while (current) {
       if (!prev || prev === current.getRight()) {
         index +=
