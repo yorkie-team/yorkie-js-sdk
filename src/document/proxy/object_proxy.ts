@@ -157,7 +157,7 @@ export class ObjectProxy {
             ticket,
           ),
         );
-        for (const [k, v] of Object.entries(value)) {
+        for (const [k, v] of Object.entries(value!)) {
           ObjectProxy.setInternal(context, obj, k, v);
         }
       }

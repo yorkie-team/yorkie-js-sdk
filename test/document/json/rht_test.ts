@@ -36,10 +36,10 @@ describe('RHT', function () {
     assert.equal(actualValue, testValue);
 
     const notExistsValue = rht.get(notExistsKey);
-    assert.equal(notExistsValue, null);
+    assert.equal(notExistsValue, undefined);
   });
 
-  it('should return null when a key does not exist', function () {
+  it('should return undefined when a key does not exist', function () {
     const notExistsKey = 'not-exists-key';
 
     const rht = RHT.create();
@@ -48,7 +48,7 @@ describe('RHT', function () {
     assert.equal(rht.toJSON(), '{}');
 
     const notExistsValue = rht.get(notExistsKey);
-    assert.equal(notExistsValue, null);
+    assert.equal(notExistsValue, undefined);
   });
 
   it('should check if a key exists', function () {

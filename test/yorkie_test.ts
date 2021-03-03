@@ -73,7 +73,7 @@ function createSpy(emitter: EventEmitter) {
 // to access test title in test codes.
 describe('Yorkie', function () {
   it('Can be activated, deactivated', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const clientWithKey = yorkie.createClient(testRPCAddr, {
       key: docKey,
       syncLoopDuration: 50,
@@ -97,7 +97,7 @@ describe('Yorkie', function () {
   });
 
   it('Can attach/detach documents', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -159,7 +159,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(2, spy.callCount);
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can watch documents', async function () {
@@ -168,7 +168,7 @@ describe('Yorkie', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = yorkie.createDocument(testCollection, docKey);
     const d2 = yorkie.createDocument(testCollection, docKey);
     await c1.attach(d1);
@@ -213,7 +213,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent set/delete operations', async function () {
@@ -268,7 +268,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent add operations', async function () {
@@ -290,7 +290,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent insertAfter operations', async function () {
@@ -332,7 +332,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent moveBefore operations', async function () {
@@ -376,7 +376,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle edit operations', async function () {
@@ -399,7 +399,7 @@ describe('Yorkie', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle concurrent edit operations', async function () {
@@ -447,7 +447,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('should handle snapshot', async function () {
@@ -471,11 +471,11 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle garbage collection for container type', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -542,7 +542,7 @@ describe('Yorkie', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -612,7 +612,7 @@ describe('Yorkie', function () {
   });
 
   it('Can handle garbage collection with detached document test', async function () {
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument(testCollection, docKey);
     const doc2 = yorkie.createDocument(testCollection, docKey);
 
@@ -688,7 +688,7 @@ describe('Yorkie', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can handle concurrent increase operation', async function () {
@@ -715,7 +715,7 @@ describe('Yorkie', function () {
       await c1.sync();
 
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can recover from temporary disconnect (manual sync)', async function () {
@@ -737,7 +737,7 @@ describe('Yorkie', function () {
           {
             'Content-Type': 'application/grpc-web-text+proto',
           },
-          null,
+          '',
         );
       };
 
@@ -760,7 +760,7 @@ describe('Yorkie', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test.title);
+    }, this.test!.title);
   });
 
   it('Can recover from temporary disconnect (realtime sync)', async function () {
@@ -769,7 +769,7 @@ describe('Yorkie', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test.title}-${new Date().getTime()}`;
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = yorkie.createDocument(testCollection, docKey);
     const d2 = yorkie.createDocument(testCollection, docKey);
 
@@ -816,7 +816,7 @@ describe('Yorkie', function () {
         {
           'Content-Type': 'application/grpc-web-text+proto',
         },
-        null,
+        '',
       );
     };
 

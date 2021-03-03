@@ -92,7 +92,7 @@ export class TextProxy {
     const maxCreatedAtMapByActor = target.editInternal(
       range,
       content,
-      null,
+      undefined,
       ticket,
     );
 

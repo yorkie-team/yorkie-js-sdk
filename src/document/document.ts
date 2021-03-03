@@ -54,12 +54,12 @@ export interface DocEvent {
 export class Document implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
-  private clone: JSONRoot;
+  private clone?: JSONRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Change[];
   private eventStream: Observable<DocEvent>;
-  private eventStreamObserver: Observer<DocEvent>;
+  private eventStreamObserver!: Observer<DocEvent>;
 
   constructor(collection: string, document: string) {
     this.key = DocumentKey.of(collection, document);
@@ -89,16 +89,16 @@ export class Document implements Observable<DocEvent> {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
-      message,
-      this.clone,
+      message!,
+      this.clone!,
     );
 
     try {
-      const proxy = createProxy(context, this.clone.getObject());
+      const proxy = createProxy(context, this.clone!.getObject());
       updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
-      this.clone = null;
+      this.clone = undefined;
       logger.error(err);
       throw err;
     }
@@ -114,7 +114,7 @@ export class Document implements Observable<DocEvent> {
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
-        this.eventStreamObserver.next({
+        this.eventStreamObserver.next!({
           name: DocEventType.LocalChange,
           value: [change],
         });
@@ -127,7 +127,7 @@ export class Document implements Observable<DocEvent> {
   }
 
   public subscribe(
-    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
+    nextOrObserver?: Observer<DocEvent> | NextFn<DocEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
@@ -144,8 +144,8 @@ export class Document implements Observable<DocEvent> {
   public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
-        pack.getSnapshot(),
         pack.getCheckpoint().getServerSeq(),
+        pack.getSnapshot(),
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
@@ -164,7 +164,7 @@ export class Document implements Observable<DocEvent> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket());
+    this.garbageCollect(pack.getMinSyncedTicket()!);
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
@@ -214,14 +214,14 @@ export class Document implements Observable<DocEvent> {
   }
 
   public getClone(): JSONObject {
-    return this.clone.getObject();
+    return this.clone!.getObject();
   }
 
   public getRootObject(): JSONObject & Indexable {
     this.ensureClone();
 
-    const context = ChangeContext.create(this.changeID.next(), '', this.clone);
-    return createProxy(context, this.clone.getObject());
+    const context = ChangeContext.create(this.changeID.next(), '', this.clone!);
+    return createProxy(context, this.clone!.getObject());
   }
 
   public garbageCollect(ticket: TimeTicket): number {
@@ -247,7 +247,7 @@ export class Document implements Observable<DocEvent> {
     return this.root.toSortedJSON();
   }
 
-  private applySnapshot(snapshot: Uint8Array, serverSeq: Long): void {
+  private applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
     const obj = converter.bytesToObject(snapshot);
     this.root = new JSONRoot(obj);
 
@@ -257,10 +257,10 @@ export class Document implements Observable<DocEvent> {
     this.changeID = this.changeID.syncLamport(serverSeq);
 
     // drop clone because it is contaminated.
-    this.clone = null;
+    this.clone = undefined;
 
     if (this.eventStreamObserver) {
-      this.eventStreamObserver.next({
+      this.eventStreamObserver.next!({
         name: DocEventType.Snapshot,
         value: snapshot,
       });
@@ -285,7 +285,7 @@ export class Document implements Observable<DocEvent> {
 
     this.ensureClone();
     for (const change of changes) {
-      change.execute(this.clone);
+      change.execute(this.clone!);
     }
 
     for (const change of changes) {
@@ -294,7 +294,7 @@ export class Document implements Observable<DocEvent> {
     }
 
     if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next({
+      this.eventStreamObserver.next!({
         name: DocEventType.RemoteChange,
         value: changes,
       });

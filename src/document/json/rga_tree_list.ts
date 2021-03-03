@@ -21,14 +21,12 @@ import { JSONElement } from './element';
 import { JSONPrimitive } from './primitive';
 
 class RGATreeListNode extends SplayNode<JSONElement> {
-  private prev: RGATreeListNode;
-  private next: RGATreeListNode;
+  private prev?: RGATreeListNode;
+  private next?: RGATreeListNode;
 
   constructor(value: JSONElement) {
     super(value);
     this.value = value;
-    this.prev = null;
-    this.next = null;
   }
 
   public static createAfter(
@@ -56,23 +54,25 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   }
 
   public release(): void {
-    this.prev.next = this.next;
+    if (this.prev) {
+      this.prev.next = this.next;
+    }
     if (this.next) {
       this.next.prev = this.prev;
     }
-    this.prev = null;
-    this.next = null;
+    this.prev = undefined;
+    this.next = undefined;
   }
 
   public getLength(): number {
     return this.value.isRemoved() ? 0 : 1;
   }
 
-  public getPrev(): RGATreeListNode {
+  public getPrev(): RGATreeListNode | undefined {
     return this.prev;
   }
 
-  public getNext(): RGATreeListNode {
+  public getNext(): RGATreeListNode | undefined {
     return this.next;
   }
 
@@ -133,16 +133,19 @@ export class RGATreeList {
       logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
-    while (node.getNext() && node.getNext().getCreatedAt().after(executedAt)) {
-      node = node.getNext();
+    while (
+      node!.getNext() &&
+      node!.getNext()!.getCreatedAt().after(executedAt)
+    ) {
+      node = node!.getNext();
     }
 
-    return node;
+    return node!;
   }
 
   private release(node: RGATreeListNode): void {
-    if (this.last == node) {
-      this.last = node.getPrev();
+    if (this.last === node) {
+      this.last = node.getPrev()!;
     }
 
     node.release();
@@ -187,12 +190,12 @@ export class RGATreeList {
     }
 
     if (
-      !node.getValue().getMovedAt() ||
-      executedAt.after(node.getValue().getMovedAt())
+      !node!.getValue().getMovedAt() ||
+      executedAt.after(node!.getValue().getMovedAt()!)
     ) {
-      node.release();
-      this.insertAfter(prevNode.getCreatedAt(), node.getValue(), executedAt);
-      node.getValue().setMovedAt(executedAt);
+      node!.release();
+      this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
+      node!.getValue().setMovedAt(executedAt);
     }
   }
 
@@ -202,7 +205,7 @@ export class RGATreeList {
 
   public get(createdAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    return node.getValue();
+    return node!.getValue();
   }
 
   public purge(element: JSONElement): void {
@@ -216,7 +219,7 @@ export class RGATreeList {
           .toIDString()}`,
       );
     }
-    this.release(node);
+    this.release(node!);
   }
 
   public getByIndex(idx: number): RGATreeListNode {
@@ -225,11 +228,11 @@ export class RGATreeList {
 
     if (idx === 0 && node === this.dummyHead) {
       do {
-        rgaNode = rgaNode.getNext();
+        rgaNode = rgaNode.getNext()!;
       } while (rgaNode.isRemoved());
     } else if (offset > 0) {
       do {
-        rgaNode = rgaNode.getNext();
+        rgaNode = rgaNode.getNext()!;
       } while (rgaNode.isRemoved());
     }
 
@@ -239,18 +242,18 @@ export class RGATreeList {
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     do {
-      node = node.getPrev();
+      node = node!.getPrev()!;
     } while (this.dummyHead !== node && node.isRemoved());
     return node.getValue().getCreatedAt();
   }
 
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (node.remove(editedAt)) {
-      this.nodeMapByIndex.splayNode(node);
+    if (node!.remove(editedAt)) {
+      this.nodeMapByIndex.splayNode(node!);
       this.size -= 1;
     }
-    return node.getValue();
+    return node!.getValue();
   }
 
   public deleteByIndex(index: number, editedAt: TimeTicket): JSONElement {

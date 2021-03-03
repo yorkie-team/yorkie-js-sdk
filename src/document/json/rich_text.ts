@@ -78,7 +78,7 @@ export class RichTextValue {
 }
 
 export class RichText extends TextElement {
-  private onChangesHandler: (changes: Array<Change>) => void;
+  private onChangesHandler?: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -99,7 +99,7 @@ export class RichText extends TextElement {
   ): RichText {
     const text = new RichText(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
-    text.editInternal(range, '\n', null, null, createdAt);
+    text.editInternal(range, '\n', undefined, undefined, createdAt);
     return text;
   }
 
@@ -113,7 +113,8 @@ export class RichText extends TextElement {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public setStyle(
@@ -125,20 +126,21 @@ export class RichText extends TextElement {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`,
     );
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    attributes: { [key: string]: string },
-    latestCreatedAtMapByActor: Map<string, TimeTicket>,
+    attributes: { [key: string]: string } | undefined,
+    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
   ): Map<string, TimeTicket> {
-    const value = content ? RichTextValue.create(content) : null;
+    const value = content ? RichTextValue.create(content) : undefined;
     if (content && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
-        value.setAttr(k, v, editedAt);
+        value!.setAttr(k, v, editedAt);
       }
     }
 
@@ -195,7 +197,7 @@ export class RichText extends TextElement {
       );
       changes.push({
         type: ChangeType.Style,
-        actor: editedAt.getActorID(),
+        actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
         attributes,
@@ -313,26 +315,26 @@ export class RichText extends TextElement {
   private updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): Change {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
+  ): Change | undefined {
+    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
-      return null;
+      return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
-    if (updatedAt.after(prevSelection.getUpdatedAt())) {
+    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
+    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: updatedAt.getActorID()!,
         from,
         to,
       };

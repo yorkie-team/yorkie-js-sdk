@@ -32,7 +32,7 @@ type CounterValue = number | Long;
  * Counter represents changeable number data type.
  */
 export class Counter extends JSONElement {
-  private valueType: CounterType;
+  private valueType?: CounterType;
   private value: CounterValue;
 
   constructor(value: CounterValue, createdAt: TimeTicket) {
@@ -84,10 +84,10 @@ export class Counter extends JSONElement {
   }
 
   public getType(): CounterType {
-    return this.valueType;
+    return this.valueType!;
   }
 
-  public static getCounterType(value: CounterValue): CounterType {
+  public static getCounterType(value: CounterValue): CounterType | undefined {
     switch (typeof value) {
       case 'number':
         return CounterType.DoubleCnt;
@@ -97,7 +97,7 @@ export class Counter extends JSONElement {
         }
     }
 
-    return null;
+    return;
   }
 
   public static isSupport(value: CounterValue): boolean {

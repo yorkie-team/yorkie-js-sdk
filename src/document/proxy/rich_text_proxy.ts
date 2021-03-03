@@ -110,7 +110,7 @@ export class RichTextProxy {
       range,
       content,
       attributes,
-      null,
+      undefined,
       ticket,
     );
 

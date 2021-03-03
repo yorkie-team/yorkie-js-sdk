@@ -26,7 +26,7 @@ import {
 } from './rga_tree_split';
 
 export class PlainText extends TextElement {
-  private onChangesHandler: (changes: Array<Change>) => void;
+  private onChangesHandler?: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -49,13 +49,14 @@ export class PlainText extends TextElement {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
     );
-    return null;
+    // @ts-ignore
+    return;
   }
 
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    latestCreatedAtMapByActor: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
   ): Map<string, TimeTicket> {
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
@@ -155,26 +156,26 @@ export class PlainText extends TextElement {
   private updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): Change {
-    if (!this.selectionMap.has(updatedAt.getActorID())) {
+  ): Change | undefined {
+    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
-      return null;
+      return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID());
-    if (updatedAt.after(prevSelection.getUpdatedAt())) {
+    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
+    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
-        updatedAt.getActorID(),
+        updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: ChangeType.Selection,
-        actor: updatedAt.getActorID(),
+        actor: updatedAt.getActorID()!,
         from,
         to,
       };

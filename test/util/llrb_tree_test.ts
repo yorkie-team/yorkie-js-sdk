@@ -55,13 +55,13 @@ describe('LLRBTree', function () {
         tree.put(idx, idx);
       }
 
-      assert.equal(8, tree.floorEntry(8).value);
+      assert.equal(8, tree.floorEntry(8)!.value);
 
       tree.remove(8);
-      assert.equal(7, tree.floorEntry(8).value);
+      assert.equal(7, tree.floorEntry(8)!.value);
 
       tree.remove(7);
-      assert.equal(6, tree.floorEntry(8).value);
+      assert.equal(6, tree.floorEntry(8)!.value);
     }
   });
 });
