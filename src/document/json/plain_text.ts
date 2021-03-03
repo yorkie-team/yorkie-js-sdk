@@ -56,8 +56,8 @@ export class PlainText extends TextElement {
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,

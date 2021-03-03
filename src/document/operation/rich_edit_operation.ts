@@ -72,9 +72,9 @@ export class RichEditOperation extends Operation {
       text.editInternal(
         [this.fromPos, this.toPos],
         this.content,
+        this.getExecutedAt(),
         Object.fromEntries(this.attributes),
         this.maxCreatedAtMapByActor,
-        this.getExecutedAt(),
       );
       if (this.fromPos.compare(this.toPos) !== 0) {
         root.registerRemovedNodeTextElement(text);

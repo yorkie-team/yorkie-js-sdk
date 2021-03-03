@@ -67,8 +67,8 @@ export class EditOperation extends Operation {
       text.editInternal(
         [this.fromPos, this.toPos],
         this.content,
-        this.maxCreatedAtMapByActor,
         this.getExecutedAt(),
+        this.maxCreatedAtMapByActor,
       );
       if (this.fromPos.compare(this.toPos) !== 0) {
         root.registerRemovedNodeTextElement(text);
