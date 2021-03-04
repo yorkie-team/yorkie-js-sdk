@@ -313,9 +313,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   public edit(
     range: RGATreeSplitNodeRange,
-    value: T | undefined,
-    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
+    value?: T,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -327,7 +327,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       changes,
       latestCreatedAtMap,
       removedNodeMapByNodeKey,
-    ] = this.deleteNodes(nodesToDelete, latestCreatedAtMapByActor, editedAt);
+    ] = this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitNodePos.of(caretID, 0);
@@ -575,8 +575,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
-    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
     Array<Change>,
     Map<string, TimeTicket>,
