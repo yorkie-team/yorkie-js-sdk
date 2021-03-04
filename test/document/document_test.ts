@@ -544,4 +544,34 @@ describe('Document', function () {
     }, 'Unsupported type of value: boolean');
     assert.equal(`{"k1":{"age":8.5,"length":18.5}}`, doc.toSortedJSON());
   });
+
+  it('generic type parameter test', function () {
+    type Todos = { todos: Array<{ title: string; done: boolean }> };
+
+    const doc = Document.create<Todos>('test-col', 'test-doc');
+    doc.update((root) => {
+      root.todos = [
+        {
+          title: 'buy milk',
+          done: false,
+        },
+      ];
+    });
+    assert.equal(
+      `{"todos":[{"title":"buy milk","done":false}]}`,
+      doc.toSortedJSON(),
+    );
+
+    doc.update((root) => {
+      root.todos.push({
+        title: 'drink water',
+        done: true,
+      });
+    });
+    const expectedTodos = [
+      '{"title":"buy milk","done":false}',
+      '{"title":"drink water","done":true}',
+    ];
+    assert.equal(`{"todos":[${expectedTodos.join(',')}]}`, doc.toSortedJSON());
+  });
 });

@@ -33,7 +33,7 @@ import { converter } from '../api/converter';
 import { ChangePack } from './change/change_pack';
 import { JSONRoot } from './json/root';
 import { JSONObject } from './json/object';
-import { createProxy, Indexable } from './proxy/proxy';
+import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
 import { TimeTicket } from './time/ticket';
 
@@ -48,10 +48,14 @@ export interface DocEvent {
   value: any;
 }
 
+export type Indexable = {
+  [index: string]: any;
+};
+
 /**
  * Document represents a document in MongoDB and contains logical clocks.
  */
-export class Document implements Observable<DocEvent> {
+export class Document<T = Indexable> implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
   private clone?: JSONRoot;
@@ -75,15 +79,18 @@ export class Document implements Observable<DocEvent> {
   /**
    * create creates a new instance of Document.
    */
-  public static create(collection: string, document: string): Document {
-    return new Document(collection, document);
+  public static create<T = Indexable>(
+    collection: string,
+    document: string,
+  ): Document<T> {
+    return new Document<T>(collection, document);
   }
 
   /**
    * update executes the given updater to update this document.
    */
   public update(
-    updater: (root: JSONObject & Indexable) => void,
+    updater: (root: T & JSONObject) => void,
     message?: string,
   ): void {
     this.ensureClone();
@@ -94,7 +101,7 @@ export class Document implements Observable<DocEvent> {
     );
 
     try {
-      const proxy = createProxy(context, this.clone!.getObject());
+      const proxy = createProxy<T>(context, this.clone!.getObject());
       updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
@@ -188,7 +195,8 @@ export class Document implements Observable<DocEvent> {
   }
 
   /**
-   * createChangePack create change pack of the local changes to send to the remote server.
+   * createChangePack create change pack of the local changes to send to the
+   * remote server.
    */
   public createChangePack(): ChangePack {
     const changes = this.localChanges;
@@ -217,11 +225,11 @@ export class Document implements Observable<DocEvent> {
     return this.clone!.getObject();
   }
 
-  public getRootObject(): JSONObject & Indexable {
+  public getRootObject(): T {
     this.ensureClone();
 
     const context = ChangeContext.create(this.changeID.next(), '', this.clone!);
-    return createProxy(context, this.clone!.getObject());
+    return createProxy<T>(context, this.clone!.getObject());
   }
 
   public garbageCollect(ticket: TimeTicket): number {
