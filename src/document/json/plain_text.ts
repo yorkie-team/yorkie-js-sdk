@@ -61,9 +61,9 @@ export class PlainText extends TextElement {
   ): Map<string, TimeTicket> {
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
+      editedAt,
       content,
       latestCreatedAtMapByActor,
-      editedAt,
     );
 
     const selectionChange = this.updateSelectionInternal(

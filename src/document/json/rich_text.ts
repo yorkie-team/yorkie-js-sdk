@@ -146,9 +146,9 @@ export class RichText extends TextElement {
 
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
+      editedAt,
       value,
       latestCreatedAtMapByActor,
-      editedAt,
     );
     if (content && attributes) {
       const change = changes[changes.length - 1];

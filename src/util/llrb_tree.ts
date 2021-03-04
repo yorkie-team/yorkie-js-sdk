@@ -81,13 +81,13 @@ export class LLRBTree<K, V> {
   }
 
   public put(key: K, value: V): V {
-    this.root = this.putInternal(this.root, key, value);
+    this.root = this.putInternal(key, value, this.root);
     this.root.isRed = false;
     return value;
   }
 
   public get(key: K): V | undefined {
-    const node = this.getInternal(this.root, key);
+    const node = this.getInternal(key, this.root);
     return node ? node.value : undefined;
   }
 
@@ -166,8 +166,8 @@ export class LLRBTree<K, V> {
   }
 
   private getInternal(
-    node: LLRBNode<K, V> | undefined,
     key: K,
+    node?: LLRBNode<K, V>,
   ): LLRBNode<K, V> | undefined {
     while (node) {
       const compare = this.comparator(key, node.key);
@@ -183,11 +183,7 @@ export class LLRBTree<K, V> {
     return;
   }
 
-  private putInternal(
-    node: LLRBNode<K, V> | undefined,
-    key: K,
-    value: V,
-  ): LLRBNode<K, V> {
+  private putInternal(key: K, value: V, node?: LLRBNode<K, V>): LLRBNode<K, V> {
     if (!node) {
       this.counter += 1;
       return new LLRBNode(key, value, true);
@@ -195,9 +191,9 @@ export class LLRBTree<K, V> {
 
     const compare = this.comparator(key, node.key);
     if (compare < 0) {
-      node.left = this.putInternal(node.left, key, value);
+      node.left = this.putInternal(key, value, node.left);
     } else if (compare > 0) {
-      node.right = this.putInternal(node.right, key, value);
+      node.right = this.putInternal(key, value, node.right);
     } else {
       node.value = value;
     }
