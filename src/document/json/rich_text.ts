@@ -99,7 +99,7 @@ export class RichText extends TextElement {
   ): RichText {
     const text = new RichText(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
-    text.editInternal(range, '\n', undefined, undefined, createdAt);
+    text.editInternal(range, '\n', createdAt);
     return text;
   }
 
@@ -133,9 +133,9 @@ export class RichText extends TextElement {
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
-    attributes: { [key: string]: string } | undefined,
-    latestCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
     editedAt: TimeTicket,
+    attributes?: { [key: string]: string },
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
     const value = content ? RichTextValue.create(content) : undefined;
     if (content && attributes) {
@@ -146,9 +146,9 @@ export class RichText extends TextElement {
 
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
+      editedAt,
       value,
       latestCreatedAtMapByActor,
-      editedAt,
     );
     if (content && attributes) {
       const change = changes[changes.length - 1];

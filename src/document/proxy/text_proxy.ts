@@ -89,12 +89,7 @@ export class TextProxy {
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = target.editInternal(
-      range,
-      content,
-      undefined,
-      ticket,
-    );
+    const maxCreatedAtMapByActor = target.editInternal(range, content, ticket);
 
     this.context.push(
       new EditOperation(
