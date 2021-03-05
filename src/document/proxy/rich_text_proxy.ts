@@ -109,9 +109,8 @@ export class RichTextProxy {
     const maxCreatedAtMapByActor = target.editInternal(
       range,
       content,
-      attributes,
-      undefined,
       ticket,
+      attributes,
     );
 
     this.context.push(
