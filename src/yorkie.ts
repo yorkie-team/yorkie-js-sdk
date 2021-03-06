@@ -16,7 +16,7 @@
 
 import Long from 'long';
 import { Client, ClientOptions } from './core/client';
-import { Document } from './document/document';
+import { Document, Indexable } from './document/document';
 
 export { Client, Document };
 export { ActorID } from './document/time/actor_id';
@@ -39,8 +39,11 @@ const yorkie = {
   createClient(rpcAddr: string, opts?: ClientOptions): Client {
     return new Client(rpcAddr, opts);
   },
-  createDocument(collection: string, document: string): Document {
-    return new Document(collection, document);
+  createDocument<T = Indexable>(
+    collection: string,
+    document: string,
+  ): Document<T> {
+    return new Document<T>(collection, document);
   },
   Long,
 };
