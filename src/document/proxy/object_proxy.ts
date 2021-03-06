@@ -87,6 +87,17 @@ export class ObjectProxy {
         return toProxy(context, target.get(keyOrMethod));
       },
 
+      ownKeys: (target: JSONObject): Array<string> => {
+        return target.getKeys();
+      },
+
+      getOwnPropertyDescriptor: () => {
+        return {
+          enumerable: true,
+          configurable: true,
+        };
+      },
+
       deleteProperty: (target: JSONObject, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${key}]`);

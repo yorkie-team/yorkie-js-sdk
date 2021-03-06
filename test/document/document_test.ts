@@ -284,6 +284,21 @@ describe('Document', function () {
     }
   });
 
+  it('Object.keys, Object.values and Object.entries test', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.content = { a: 1, b: 2, c: 3 };
+    }, 'set a, b, c');
+    assert.equal('{"content":{"a":1,"b":2,"c":3}}', doc.toSortedJSON());
+
+    const content = doc.getRootObject().content;
+    assert.equal('a,b,c', Object.keys(content).join(','));
+    assert.equal('1,2,3', Object.values(content).join(','));
+    assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
+  });
+
   it('garbage collection test', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());

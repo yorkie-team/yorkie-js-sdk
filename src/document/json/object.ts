@@ -98,6 +98,15 @@ export class JSONObject extends JSONContainer {
     return `{${json.join(',')}}`;
   }
 
+  public getKeys(): Array<string> {
+    const keys = Array<string>();
+    for (const [key] of this) {
+      keys.push(key);
+    }
+
+    return keys;
+  }
+
   public toSortedJSON(): string {
     const keys = Array<string>();
     for (const [key] of this) {
