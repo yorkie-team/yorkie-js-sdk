@@ -53,8 +53,13 @@ export class JSONArray extends JSONContainer {
     return this.elements.get(createdAt);
   }
 
-  public getByIndex(index: number): JSONElement {
-    return this.elements.getByIndex(index).getValue();
+  public getByIndex(index: number): JSONElement | undefined {
+    const node = this.elements.getByIndex(index);
+    if (!node) {
+      return;
+    }
+
+    return node.getValue();
   }
 
   public getLast(): JSONElement {
@@ -69,7 +74,10 @@ export class JSONArray extends JSONContainer {
     return this.elements.delete(createdAt, editedAt);
   }
 
-  public deleteByIndex(index: number, editedAt: TimeTicket): JSONElement {
+  public deleteByIndex(
+    index: number,
+    editedAt: TimeTicket,
+  ): JSONElement | undefined {
     return this.elements.deleteByIndex(index, editedAt);
   }
 
