@@ -110,7 +110,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
   const pbChangeID = new PbChangeID();
   pbChangeID.setClientSeq(changeID.getClientSeq());
   pbChangeID.setLamport(changeID.getLamportAsString());
-  pbChangeID.setActorId(toUint8Array(changeID.getActorID()));
+  pbChangeID.setActorId(toUint8Array(changeID.getActorID()!));
   return pbChangeID;
 }
 
@@ -356,7 +356,7 @@ function toOperations(operations: Operation[]): PbOperation[] {
 function toChange(change: Change): PbChange {
   const pbChange = new PbChange();
   pbChange.setId(toChangeID(change.getID()));
-  pbChange.setMessage(change.getMessage());
+  pbChange.setMessage(change.getMessage()!);
   pbChange.setOperationsList(toOperations(change.getOperations()));
   return pbChange;
 }

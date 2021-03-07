@@ -28,7 +28,7 @@ export class Change {
   private id: ChangeID;
 
   // message is used to save a description of the change.
-  private message: string;
+  private message?: string;
 
   // operations represent a series of user edits.
   private operations: Operation[];
@@ -36,7 +36,11 @@ export class Change {
   // serverSeq is optional and only present for changes stored on the server.
   private serverSeq?: Long;
 
-  constructor(id: ChangeID, message: string, operations: Operation[]) {
+  constructor(
+    id: ChangeID,
+    message: string | undefined,
+    operations: Operation[],
+  ) {
     this.id = id;
     this.message = message;
     this.operations = operations;
@@ -44,7 +48,7 @@ export class Change {
 
   public static create(
     id: ChangeID,
-    message: string,
+    message: string | undefined,
     operations: Operation[],
   ): Change {
     return new Change(id, message, operations);
@@ -54,7 +58,7 @@ export class Change {
     return this.id;
   }
 
-  public getMessage(): string {
+  public getMessage(): string | undefined {
     return this.message;
   }
 

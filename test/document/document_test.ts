@@ -354,7 +354,7 @@ describe('Document', function () {
     const root = (doc.getRoot().get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
-    const clone = (doc.getClone().get('list') as JSONArray)
+    const clone = (doc.getClone()!.get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
 
