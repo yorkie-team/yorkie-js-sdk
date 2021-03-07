@@ -766,8 +766,8 @@ function fromChanges(pbChanges: PbChange[]): Change[] {
     changes.push(
       Change.create(
         fromChangeID(pbChange.getId()!),
-        pbChange.getMessage(),
         fromOperations(pbChange.getOperationsList()),
+        pbChange.getMessage(),
       ),
     );
   }

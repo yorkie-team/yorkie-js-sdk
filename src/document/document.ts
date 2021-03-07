@@ -96,8 +96,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
-      message,
       this.clone!,
+      message,
     );
 
     try {
@@ -230,7 +230,6 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
     const context = ChangeContext.create(
       this.changeID.next(),
-      undefined,
       this.clone!,
     );
     return createProxy<T>(context, this.clone!.getObject());

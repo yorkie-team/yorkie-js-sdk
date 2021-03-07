@@ -29,11 +29,11 @@ import { Change } from './change';
 export class ChangeContext {
   private id: ChangeID;
   private root: JSONRoot;
-  private message?: string;
   private operations: Operation[];
+  private message?: string;
   private delimiter: number;
 
-  constructor(id: ChangeID, message: string | undefined, root: JSONRoot) {
+  constructor(id: ChangeID, root: JSONRoot, message?: string) {
     this.id = id;
     this.root = root;
     this.message = message;
@@ -46,10 +46,10 @@ export class ChangeContext {
    */
   public static create(
     id: ChangeID,
-    message: string | undefined,
     root: JSONRoot,
+    message?: string,
   ): ChangeContext {
-    return new ChangeContext(id, message, root);
+    return new ChangeContext(id, root, message);
   }
 
   public push(operation: Operation): void {
@@ -72,7 +72,7 @@ export class ChangeContext {
   }
 
   public getChange(): Change {
-    return Change.create(this.id, this.message, this.operations);
+    return Change.create(this.id, this.operations, this.message);
   }
 
   public hasOperations(): boolean {
