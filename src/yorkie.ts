@@ -19,6 +19,7 @@ import { Client, ClientOptions } from './core/client';
 import { Document, Indexable } from './document/document';
 
 export { Client, Document };
+export { TimeTicket } from './document/time/ticket';
 export { ActorID } from './document/time/actor_id';
 export { JSONElement } from './document/json/element';
 export { JSONObject } from './document/json/object';

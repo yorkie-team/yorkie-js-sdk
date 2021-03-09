@@ -228,10 +228,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   public getRootObject(): T {
     this.ensureClone();
 
-    const context = ChangeContext.create(
-      this.changeID.next(),
-      this.clone!,
-    );
+    const context = ChangeContext.create(this.changeID.next(), this.clone!);
     return createProxy<T>(context, this.clone!.getObject());
   }
 
