@@ -86,7 +86,7 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 }
 
-const DefaultClientOptions: ClientOptions = {
+const DefaultClientOptions = {
   syncLoopDuration: 50,
   reconnectStreamDelay: 1000,
 };
@@ -102,8 +102,8 @@ export class Client implements Observable<ClientEvent> {
   private metadata: Metadata;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
-  private syncLoopDuration?: number;
-  private reconnectStreamDelay?: number;
+  private syncLoopDuration: number;
+  private reconnectStreamDelay: number;
 
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
@@ -155,7 +155,7 @@ export class Client implements Observable<ClientEvent> {
         this.runSyncLoop();
         this.runWatchLoop();
 
-        this.eventStreamObserver.next!({
+        this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status,
         });
@@ -191,7 +191,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         this.status = ClientStatus.Deactivated;
-        this.eventStreamObserver.next!({
+        this.eventStreamObserver.next({
           name: ClientEventType.StatusChanged,
           value: this.status,
         });
@@ -303,7 +303,7 @@ export class Client implements Observable<ClientEvent> {
         return docs;
       })
       .catch((err) => {
-        this.eventStreamObserver.next!({
+        this.eventStreamObserver.next({
           name: ClientEventType.DocumentSyncResult,
           value: DocumentSyncResultType.SyncFailed,
         });
@@ -312,7 +312,7 @@ export class Client implements Observable<ClientEvent> {
   }
 
   public subscribe(
-    nextOrObserver?: Observer<ClientEvent> | NextFn<ClientEvent>,
+    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
@@ -323,8 +323,8 @@ export class Client implements Observable<ClientEvent> {
     );
   }
 
-  public getID(): string {
-    return this.id!;
+  public getID(): string | undefined {
+    return this.id;
   }
 
   public getKey(): string {
@@ -363,7 +363,7 @@ export class Client implements Observable<ClientEvent> {
         })
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-          this.eventStreamObserver.next!({
+          this.eventStreamObserver.next({
             name: ClientEventType.DocumentSyncResult,
             value: DocumentSyncResultType.SyncFailed,
           });
@@ -410,8 +410,8 @@ export class Client implements Observable<ClientEvent> {
 
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = undefined;
-        this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay!);
-        this.eventStreamObserver.next!({
+        this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
+        this.eventStreamObserver.next({
           name: ClientEventType.StreamConnectionStatusChanged,
           value: StreamConnectionStatus.Disconnected,
         });
@@ -466,7 +466,7 @@ export class Client implements Observable<ClientEvent> {
         }
       });
 
-      this.eventStreamObserver.next!({
+      this.eventStreamObserver.next({
         name: ClientEventType.PeersChanged,
         value: keys.reduce(getPeers, {}),
       });
@@ -500,7 +500,7 @@ export class Client implements Observable<ClientEvent> {
     }
 
     if (pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
-      this.eventStreamObserver.next!({
+      this.eventStreamObserver.next({
         name: ClientEventType.DocumentsChanged,
         value: respKeys,
       });
@@ -508,7 +508,7 @@ export class Client implements Observable<ClientEvent> {
       pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
       pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
     ) {
-      this.eventStreamObserver.next!({
+      this.eventStreamObserver.next({
         name: ClientEventType.PeersChanged,
         value: respKeys.reduce(getPeers, {}),
       });
@@ -536,7 +536,7 @@ export class Client implements Observable<ClientEvent> {
 
           const respPack = converter.fromChangePack(res.getChangePack()!);
           doc.applyChangePack(respPack);
-          this.eventStreamObserver.next!({
+          this.eventStreamObserver.next({
             name: ClientEventType.DocumentSyncResult,
             value: DocumentSyncResultType.Synced,
           });
