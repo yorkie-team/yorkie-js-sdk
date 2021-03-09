@@ -66,7 +66,7 @@ export class PlainText extends TextElement {
       latestCreatedAtMapByActor,
     );
 
-    const selectionChange = this.updateSelectionInternal(
+    const selectionChange = this.updateSelectionPriv(
       [caretPos, caretPos],
       editedAt,
     );
@@ -83,7 +83,15 @@ export class PlainText extends TextElement {
     return latestCreatedAtMap;
   }
 
-  public updateSelection(
+  public updateSelection(fromIdx: number, toIdx: number): void {
+    logger.fatal(
+      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
+    );
+    // @ts-ignore
+    return;
+  }
+
+  public updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): void {
@@ -91,7 +99,7 @@ export class PlainText extends TextElement {
       return;
     }
 
-    const change = this.updateSelectionInternal(range, updatedAt);
+    const change = this.updateSelectionPriv(range, updatedAt);
     if (this.onChangesHandler && change) {
       this.remoteChangeLock = true;
       this.onChangesHandler([change]);
@@ -153,7 +161,7 @@ export class PlainText extends TextElement {
     return text;
   }
 
-  private updateSelectionInternal(
+  private updateSelectionPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): Change | undefined {
