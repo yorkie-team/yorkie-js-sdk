@@ -119,7 +119,7 @@ export class TextProxy {
       );
     }
     const ticket = this.context.issueTimeTicket();
-    target.updateSelection(range, ticket);
+    target.updateSelectionInternal(range, ticket);
 
     this.context.push(
       new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
