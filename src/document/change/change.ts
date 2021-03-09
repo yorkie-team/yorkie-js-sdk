@@ -36,11 +36,7 @@ export class Change {
   // serverSeq is optional and only present for changes stored on the server.
   private serverSeq?: Long;
 
-  constructor(
-    id: ChangeID,
-    operations: Operation[],
-    message?: string,
-  ) {
+  constructor(id: ChangeID, operations: Operation[], message?: string) {
     this.id = id;
     this.operations = operations;
     this.message = message;
