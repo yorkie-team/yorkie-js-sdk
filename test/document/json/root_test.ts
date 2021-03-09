@@ -18,14 +18,14 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const arr = new JSONArray(InitialTimeTicket, RGATreeList.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
 
     ArrayProxy.pushInternal(change, arr, 0);
     ArrayProxy.pushInternal(change, arr, 1);
     ArrayProxy.pushInternal(change, arr, 2);
     assert.equal('[0,1,2]', arr.toJSON());
 
-    const targetElement = arr.getByIndex(1);
+    const targetElement = arr.getByIndex(1)!;
     arr.delete(targetElement.getCreatedAt(), change.issueTimeTicket());
     root.registerRemovedElementPair(arr, targetElement);
     assert.equal('[0,2]', arr.toJSON());
@@ -40,7 +40,7 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');
@@ -62,7 +62,7 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createRichText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');

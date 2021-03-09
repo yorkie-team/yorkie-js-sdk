@@ -222,18 +222,16 @@ export class RGATreeList {
     this.release(node!);
   }
 
-  public getByIndex(idx: number): RGATreeListNode {
+  public getByIndex(idx: number): RGATreeListNode | undefined {
     const [node, offset] = this.nodeMapByIndex.find(idx);
-    let rgaNode = node as RGATreeListNode;
+    let rgaNode = node as RGATreeListNode | undefined;
 
-    if (idx === 0 && node === this.dummyHead) {
+    if ((idx === 0 && node === this.dummyHead) || offset > 0) {
       do {
-        rgaNode = rgaNode.getNext()!;
-      } while (rgaNode.isRemoved());
-    } else if (offset > 0) {
-      do {
-        rgaNode = rgaNode.getNext()!;
-      } while (rgaNode.isRemoved());
+        if (rgaNode) {
+          rgaNode = rgaNode.getNext();
+        }
+      } while (rgaNode && rgaNode.isRemoved());
     }
 
     return rgaNode;
@@ -256,8 +254,15 @@ export class RGATreeList {
     return node!.getValue();
   }
 
-  public deleteByIndex(index: number, editedAt: TimeTicket): JSONElement {
+  public deleteByIndex(
+    index: number,
+    editedAt: TimeTicket,
+  ): JSONElement | undefined {
     const node = this.getByIndex(index);
+    if (!node) {
+      return;
+    }
+
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);
       this.size -= 1;

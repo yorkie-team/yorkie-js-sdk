@@ -118,6 +118,22 @@ describe('Document', function () {
     );
   });
 
+  it('doesnt return error when trying to delete a missing key', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.k1 = '1';
+      root.k2 = '2';
+      root.k3 = [1, 2];
+    });
+
+    doc.update((root) => {
+      delete root.k1;
+      delete root.k3[0];
+      delete root.k4; // missing key
+      delete root.k3[2]; // missing index
+    });
+  });
+
   it('should handle edit operations', function () {
     const doc = Document.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -354,7 +370,7 @@ describe('Document', function () {
     const root = (doc.getRoot().get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
-    const clone = (doc.getClone().get('list') as JSONArray)
+    const clone = (doc.getClone()!.get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
 
