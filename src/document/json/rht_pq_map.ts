@@ -70,17 +70,14 @@ export class RHTPQMap {
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
   }
 
-  public delete(
-    createdAt: TimeTicket,
-    executedAt: TimeTicket,
-  ): JSONElement | undefined {
+  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
-      return;
+      logger.fatal(`fail to find ${createdAt.toIDString()}`);
     }
 
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    node!.remove(executedAt);
-    return node!.getValue();
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString())!;
+    node.remove(executedAt);
+    return node.getValue();
   }
 
   public purge(element: JSONElement): void {

@@ -246,9 +246,13 @@ export class ArrayProxy {
     context: ChangeContext,
     target: JSONArray,
     index: number,
-  ): JSONElement {
+  ): JSONElement | undefined {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByIndex(index, ticket);
+    if (!deleted) {
+      return;
+    }
+
     context.push(
       RemoveOperation.create(
         target.getCreatedAt(),
