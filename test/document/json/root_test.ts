@@ -18,7 +18,7 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const arr = new JSONArray(InitialTimeTicket, RGATreeList.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
 
     ArrayProxy.pushInternal(change, arr, 0);
     ArrayProxy.pushInternal(change, arr, 1);
@@ -40,7 +40,7 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');
@@ -62,7 +62,7 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
-    const change = ChangeContext.create(InitialChangeID, '', root);
+    const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createRichText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');

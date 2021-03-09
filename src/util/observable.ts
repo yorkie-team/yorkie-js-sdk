@@ -21,7 +21,7 @@ export type ErrorFn = (error: Error) => void;
 export type CompleteFn = () => void;
 
 export interface Observer<T> {
-  next?: NextFn<T>;
+  next: NextFn<T>;
   error?: ErrorFn;
   complete?: CompleteFn;
 }
@@ -29,7 +29,11 @@ export interface Observer<T> {
 export type Unsubscribe = () => void;
 
 export interface SubscribeFn<T> {
-  (next?: NextFn<T>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+  (
+    next: Observer<T> | NextFn<T>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
   (observer: Observer<T>): Unsubscribe;
 }
 
@@ -60,7 +64,7 @@ class ObserverProxy<T> implements Observer<T> {
 
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
-      observer.next!(value);
+      observer.next(value);
     });
   }
 
@@ -79,7 +83,7 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   public subscribe(
-    nextOrObserver?: Observer<T> | NextFn<T>,
+    nextOrObserver: Observer<T> | NextFn<T>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {

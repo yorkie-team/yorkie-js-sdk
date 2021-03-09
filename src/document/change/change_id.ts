@@ -72,8 +72,8 @@ export class ChangeID {
     return this.lamport.toString();
   }
 
-  public getActorID(): string {
-    return this.actor!;
+  public getActorID(): string | undefined {
+    return this.actor;
   }
 
   public getAnnotatedString(): string {

@@ -96,8 +96,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
-      message!,
       this.clone!,
+      message,
     );
 
     try {
@@ -121,7 +121,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
-        this.eventStreamObserver.next!({
+        this.eventStreamObserver.next({
           name: DocEventType.LocalChange,
           value: [change],
         });
@@ -134,15 +134,11 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   public subscribe(
-    nextOrObserver?: Observer<DocEvent> | NextFn<DocEvent>,
+    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
-    return this.eventStream.subscribe(
-      nextOrObserver as NextFn<DocEvent>,
-      error,
-      complete,
-    );
+    return this.eventStream.subscribe(nextOrObserver, error, complete);
   }
 
   /**
@@ -221,14 +217,21 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return this.key;
   }
 
-  public getClone(): JSONObject {
-    return this.clone!.getObject();
+  public getClone(): JSONObject | undefined {
+    if (!this.clone) {
+      return;
+    }
+
+    return this.clone.getObject();
   }
 
   public getRootObject(): T {
     this.ensureClone();
 
-    const context = ChangeContext.create(this.changeID.next(), '', this.clone!);
+    const context = ChangeContext.create(
+      this.changeID.next(),
+      this.clone!,
+    );
     return createProxy<T>(context, this.clone!.getObject());
   }
 
@@ -268,7 +271,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     this.clone = undefined;
 
     if (this.eventStreamObserver) {
-      this.eventStreamObserver.next!({
+      this.eventStreamObserver.next({
         name: DocEventType.Snapshot,
         value: snapshot,
       });
@@ -302,7 +305,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     }
 
     if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next!({
+      this.eventStreamObserver.next({
         name: DocEventType.RemoteChange,
         value: changes,
       });
