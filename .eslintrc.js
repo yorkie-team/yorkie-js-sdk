@@ -1,11 +1,8 @@
+// eslint-disable-next-line no-undef
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  plugins: [
-    '@typescript-eslint',
-    'prettier',
-    'eslint-plugin-tsdoc',
-  ],
+  plugins: ['@typescript-eslint', 'prettier', 'eslint-plugin-tsdoc'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
@@ -16,6 +13,14 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/ban-ts-comment': 'off',
+    '@typescript-eslint/ban-types': [
+      'error',
+      {
+        types: {
+          null: 'Use undefined instead of null',
+        },
+      },
+    ],
     'tsdoc/syntax': 'error',
     'object-shorthand': ['error', 'always'],
     'no-unreachable': 'error',
