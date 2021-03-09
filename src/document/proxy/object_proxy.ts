@@ -235,6 +235,10 @@ export class ObjectProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const deleted = target.deleteByKey(key, ticket);
+    if (!deleted) {
+      return;
+    }
+
     context.push(
       RemoveOperation.create(
         target.getCreatedAt(),

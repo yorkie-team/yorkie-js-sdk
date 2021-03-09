@@ -75,15 +75,18 @@ export class JSONObject extends JSONContainer {
   }
 
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.delete(createdAt, executedAt)!;
+    return this.memberNodes.delete(createdAt, executedAt);
   }
 
-  public deleteByKey(key: string, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.deleteByKey(key, executedAt)!;
+  public deleteByKey(
+    key: string,
+    executedAt: TimeTicket,
+  ): JSONElement | undefined {
+    return this.memberNodes.deleteByKey(key, executedAt);
   }
 
-  public get(key: string): JSONElement {
-    return this.memberNodes.get(key)!;
+  public get(key: string): JSONElement | undefined {
+    return this.memberNodes.get(key);
   }
 
   public has(key: string): boolean {

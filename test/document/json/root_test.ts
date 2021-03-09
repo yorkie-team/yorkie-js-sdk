@@ -25,7 +25,7 @@ describe('ROOT', function () {
     ArrayProxy.pushInternal(change, arr, 2);
     assert.equal('[0,1,2]', arr.toJSON());
 
-    const targetElement = arr.getByIndex(1);
+    const targetElement = arr.getByIndex(1)!;
     arr.delete(targetElement.getCreatedAt(), change.issueTimeTicket());
     root.registerRemovedElementPair(arr, targetElement);
     assert.equal('[0,2]', arr.toJSON());
