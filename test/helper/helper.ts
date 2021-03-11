@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+import { EventEmitter } from 'events';
+import { NextFn } from '../../src/util/observable';
+
+import { ClientEvent } from '../../src/core/client';
+import { DocEvent } from '../../src/document/document';
+
 export function range(from: number, to: number): Array<number> {
   const list = [];
   for (let idx = from; idx < to; idx++) {
@@ -25,3 +31,21 @@ export function range(from: number, to: number): Array<number> {
 export type Indexable = {
   [index: string]: any;
 };
+
+export function waitFor(
+  eventName: string,
+  listener: EventEmitter,
+): Promise<void> {
+  return new Promise((resolve) => listener.on(eventName, resolve));
+}
+
+export function createEmitterAndSpy(
+  fn?: (event: ClientEvent | DocEvent) => string,
+): [EventEmitter, NextFn<ClientEvent | DocEvent>] {
+  const emitter = new EventEmitter();
+  return [
+    emitter,
+    (event: ClientEvent | DocEvent) =>
+      emitter.emit(fn ? fn(event) : event.type),
+  ];
+}

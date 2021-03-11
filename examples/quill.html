@@ -89,7 +89,7 @@
         await client.attach(doc);
 
         client.subscribe((event) => {
-          if (event.name === 'peers-changed') {
+          if (event.type === 'peers-changed') {
             peers = event.value[doc.getKey().toIDString()];
             displayPeers(peers, metadata['username']);
           }

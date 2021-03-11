@@ -15,8 +15,8 @@
  */
 
 import Long from 'long';
-import { Client, ClientOptions } from './core/client';
-import { Document, Indexable } from './document/document';
+import { Client, ClientOptions, ClientEventType } from './core/client';
+import { Document, Indexable, DocEventType } from './document/document';
 
 export { Client, Document };
 export { TimeTicket } from './document/time/ticket';
@@ -27,6 +27,8 @@ export { JSONArray } from './document/json/array';
 export { PlainText } from './document/json/plain_text';
 export { RichText } from './document/json/rich_text';
 export { Change, ChangeType } from './document/json/rga_tree_split';
+
+export type EventType = ClientEventType | DocEventType;
 
 /**
  * The top-level yorkie namespace with additional properties.

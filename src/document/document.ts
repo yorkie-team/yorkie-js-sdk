@@ -43,9 +43,25 @@ export enum DocEventType {
   RemoteChange = 'remote-change',
 }
 
-export interface DocEvent {
-  name: DocEventType;
-  value: any;
+export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
+
+export interface AbstractDocEvent {
+  type: DocEventType;
+}
+
+export interface SnapshotEvent extends AbstractDocEvent {
+  type: DocEventType.Snapshot;
+  value: Uint8Array | undefined;
+}
+
+export interface LocalChangeEvent extends AbstractDocEvent {
+  type: DocEventType.LocalChange;
+  value: Array<Change>;
+}
+
+export interface RemoteChangeEvent extends AbstractDocEvent {
+  type: DocEventType.RemoteChange;
+  value: Array<Change>;
 }
 
 export type Indexable = {
@@ -122,7 +138,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
-          name: DocEventType.LocalChange,
+          type: DocEventType.LocalChange,
           value: [change],
         });
       }
@@ -269,7 +285,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next({
-        name: DocEventType.Snapshot,
+        type: DocEventType.Snapshot,
         value: snapshot,
       });
     }
@@ -303,7 +319,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
-        name: DocEventType.RemoteChange,
+        type: DocEventType.RemoteChange,
         value: changes,
       });
     }
