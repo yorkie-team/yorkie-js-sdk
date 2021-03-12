@@ -87,6 +87,16 @@ export abstract class SplayNode<V> {
     return this.parent;
   }
 
+  public unlink(): void {
+    this.parent = undefined;
+    this.right = undefined;
+    this.left = undefined;
+  }
+
+  public hasLinks(): boolean {
+    return this.hasParent() || this.hasLeft() || this.hasRight();
+  }
+
   public increaseWeight(weight: number): void {
     this.weight! += weight;
   }
@@ -143,7 +153,7 @@ export class SplayTree<V> {
    * @returns the index of given node
    */
   public indexOf(node: SplayNode<V>): number {
-    if (!node) {
+    if (!node || !node.hasLinks()) {
       return -1;
     }
 
@@ -262,9 +272,17 @@ export class SplayTree<V> {
       const maxNode = leftTree.getMaximum();
       leftTree.splayNode(maxNode);
       leftTree.root.setRight(rightTree.root);
+      if (rightTree.root) {
+        rightTree.root.setParent(leftTree.root);
+      }
       this.root = leftTree.root;
     } else {
       this.root = rightTree.root;
+    }
+
+    node.unlink();
+    if (this.root) {
+      this.updateSubtree(this.root);
     }
   }
 
