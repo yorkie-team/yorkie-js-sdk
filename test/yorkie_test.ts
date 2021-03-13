@@ -454,7 +454,7 @@ describe('Yorkie', function () {
         root['key'] = 'value';
       });
       await c2.sync();
-      assert.equal(d2.getRootObject()['key'], 'value');
+      assert.equal(d2.getRoot()['key'], 'value');
 
       await c1.sync();
       await c2.sync();
