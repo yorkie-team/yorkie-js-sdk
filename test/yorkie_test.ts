@@ -15,17 +15,16 @@
  */
 
 import { assert } from 'chai';
-import { EventEmitter } from 'events';
 import * as sinon from 'sinon';
 import {
   Client,
-  ClientEvent,
   ClientEventType,
   DocumentSyncResultType,
 } from '../src/core/client';
-import { Document, DocEvent, DocEventType } from '../src/document/document';
+import { Document, DocEventType } from '../src/document/document';
 import { JSONElement } from '../src/document/json/element';
 import yorkie from '../src/yorkie';
+import { createEmitterAndSpy, waitFor } from './helper/helper';
 
 const __karma__ = (global as any).__karma__;
 const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';
@@ -59,14 +58,6 @@ async function withTwoClientsAndDocuments(
 
   await client1.deactivate();
   await client2.deactivate();
-}
-
-function waitFor(eventName: string, listener: EventEmitter): Promise<void> {
-  return new Promise((resolve) => listener.on(eventName, resolve));
-}
-
-function createSpy(emitter: EventEmitter) {
-  return (event: ClientEvent | DocEvent) => emitter.emit(event.name);
 }
 
 // NOTE: In particular, we uses general functions, not arrow functions
@@ -174,10 +165,8 @@ describe('Yorkie', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    const listener1 = new EventEmitter();
-    const listener2 = new EventEmitter();
-    const spy1 = createSpy(listener1);
-    const spy2 = createSpy(listener2);
+    const [emitter1, spy1] = createEmitterAndSpy();
+    const [emitter2, spy2] = createEmitterAndSpy();
     const unsub1 = d1.subscribe(spy1);
     const unsub2 = d2.subscribe(spy2);
 
@@ -185,8 +174,8 @@ describe('Yorkie', function () {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2);
-    await waitFor(DocEventType.RemoteChange, listener1);
+    await waitFor(DocEventType.LocalChange, emitter2);
+    await waitFor(DocEventType.RemoteChange, emitter1);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1();
@@ -776,19 +765,16 @@ describe('Yorkie', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    const listener1 = new EventEmitter();
-    const listener2 = new EventEmitter();
-    const customSpy = (emitter: EventEmitter) => {
-      return (event: ClientEvent | DocEvent) => {
-        if (event.name == ClientEventType.DocumentSyncResult) {
-          emitter.emit(event.value);
-        } else {
-          emitter.emit(event.name);
-        }
-      };
-    };
-    const spy1 = customSpy(listener1);
-    const spy2 = customSpy(listener2);
+    const [emitter1, spy1] = createEmitterAndSpy((event) =>
+      event.type === ClientEventType.DocumentSyncResult
+        ? event.value
+        : event.type,
+    );
+    const [emitter2, spy2] = createEmitterAndSpy((event) =>
+      event.type === ClientEventType.DocumentSyncResult
+        ? event.value
+        : event.type,
+    );
 
     const unsub1 = {
       client: c1.subscribe(spy1),
@@ -804,8 +790,8 @@ describe('Yorkie', function () {
       root['k1'] = 'undefined';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
-    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's update
+    await waitFor(DocEventType.LocalChange, emitter2); // d2 should be able to update
+    await waitFor(DocEventType.RemoteChange, emitter1); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // Simulate network error
@@ -824,17 +810,17 @@ describe('Yorkie', function () {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, listener2); // d2 should be able to update
-    await waitFor(DocumentSyncResultType.SyncFailed, listener2); // c2 should fail to sync
+    await waitFor(DocEventType.LocalChange, emitter2); // d2 should be able to update
+    await waitFor(DocumentSyncResultType.SyncFailed, emitter2); // c2 should fail to sync
     c1.sync();
-    await waitFor(DocumentSyncResultType.SyncFailed, listener1); // c1 should also fail to sync
+    await waitFor(DocumentSyncResultType.SyncFailed, emitter1); // c1 should also fail to sync
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
     // Back to normal condition
     xhr.restore();
 
-    await waitFor(DocEventType.RemoteChange, listener1); // d1 should be able to receive d2's update
+    await waitFor(DocEventType.RemoteChange, emitter1); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1.client();
