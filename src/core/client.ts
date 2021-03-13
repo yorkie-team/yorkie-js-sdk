@@ -66,7 +66,7 @@ export enum ClientEventType {
 }
 
 export interface ClientEvent {
-  name: ClientEventType;
+  type: ClientEventType;
   value: any;
 }
 
@@ -156,7 +156,7 @@ export class Client implements Observable<ClientEvent> {
         this.runWatchLoop();
 
         this.eventStreamObserver.next({
-          name: ClientEventType.StatusChanged,
+          type: ClientEventType.StatusChanged,
           value: this.status,
         });
 
@@ -192,7 +192,7 @@ export class Client implements Observable<ClientEvent> {
 
         this.status = ClientStatus.Deactivated;
         this.eventStreamObserver.next({
-          name: ClientEventType.StatusChanged,
+          type: ClientEventType.StatusChanged,
           value: this.status,
         });
 
@@ -304,7 +304,7 @@ export class Client implements Observable<ClientEvent> {
       })
       .catch((err) => {
         this.eventStreamObserver.next({
-          name: ClientEventType.DocumentSyncResult,
+          type: ClientEventType.DocumentSyncResult,
           value: DocumentSyncResultType.SyncFailed,
         });
         throw err;
@@ -364,7 +364,7 @@ export class Client implements Observable<ClientEvent> {
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
           this.eventStreamObserver.next({
-            name: ClientEventType.DocumentSyncResult,
+            type: ClientEventType.DocumentSyncResult,
             value: DocumentSyncResultType.SyncFailed,
           });
           setTimeout(doLoop, this.reconnectStreamDelay);
@@ -412,7 +412,7 @@ export class Client implements Observable<ClientEvent> {
         this.remoteChangeEventStream = undefined;
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
         this.eventStreamObserver.next({
-          name: ClientEventType.StreamConnectionStatusChanged,
+          type: ClientEventType.StreamConnectionStatusChanged,
           value: StreamConnectionStatus.Disconnected,
         });
       };
@@ -467,7 +467,7 @@ export class Client implements Observable<ClientEvent> {
       });
 
       this.eventStreamObserver.next({
-        name: ClientEventType.PeersChanged,
+        type: ClientEventType.PeersChanged,
         value: keys.reduce(getPeers, {}),
       });
       return;
@@ -501,7 +501,7 @@ export class Client implements Observable<ClientEvent> {
 
     if (pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
       this.eventStreamObserver.next({
-        name: ClientEventType.DocumentsChanged,
+        type: ClientEventType.DocumentsChanged,
         value: respKeys,
       });
     } else if (
@@ -509,7 +509,7 @@ export class Client implements Observable<ClientEvent> {
       pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
     ) {
       this.eventStreamObserver.next({
-        name: ClientEventType.PeersChanged,
+        type: ClientEventType.PeersChanged,
         value: respKeys.reduce(getPeers, {}),
       });
     }
@@ -537,7 +537,7 @@ export class Client implements Observable<ClientEvent> {
           const respPack = converter.fromChangePack(res.getChangePack()!);
           doc.applyChangePack(respPack);
           this.eventStreamObserver.next({
-            name: ClientEventType.DocumentSyncResult,
+            type: ClientEventType.DocumentSyncResult,
             value: DocumentSyncResultType.Synced,
           });
 
