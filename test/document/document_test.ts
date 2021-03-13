@@ -605,4 +605,14 @@ describe('Document', function () {
     ];
     assert.equal(`{"todos":[${expectedTodos.join(',')}]}`, doc.toSortedJSON());
   });
+
+  it('null value test', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = {
+        null: null,
+      };
+    });
+    assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
+  });
 });

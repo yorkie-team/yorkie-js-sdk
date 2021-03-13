@@ -529,6 +529,8 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
 
 function fromValueType(pbValueType: PbValueType): PrimitiveType {
   switch (pbValueType) {
+    case PbValueType.NULL:
+      return PrimitiveType.Null;
     case PbValueType.BOOLEAN:
       return PrimitiveType.Boolean;
     case PbValueType.INTEGER:
@@ -583,6 +585,7 @@ function fromJSONElementSimple(
         RGATreeSplit.create(),
         fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
+    case PbValueType.NULL:
     case PbValueType.BOOLEAN:
     case PbValueType.INTEGER:
     case PbValueType.LONG:

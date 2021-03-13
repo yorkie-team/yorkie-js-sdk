@@ -31,12 +31,8 @@ export enum PrimitiveType {
 }
 
 export type PrimitiveValue =
-  | boolean
-  | number
-  | Long
-  | string
-  | Uint8Array
-  | Date;
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  null | boolean | number | Long | string | Uint8Array | Date;
 
 /**
  * Primitive represents JSON primitive data type including logical lock.
@@ -64,6 +60,8 @@ export class JSONPrimitive extends JSONElement {
     bytes: Uint8Array,
   ): PrimitiveValue {
     switch (primitiveType) {
+      case PrimitiveType.Null:
+        return null;
       case PrimitiveType.Boolean:
         return bytes[0] ? true : false;
       case PrimitiveType.Integer:
@@ -122,6 +120,9 @@ export class JSONPrimitive extends JSONElement {
       case 'string':
         return PrimitiveType.String;
       case 'object':
+        if (value === null) {
+          return PrimitiveType.Null;
+        }
         if (value instanceof Long) {
           return PrimitiveType.Long;
         } else if (value instanceof Uint8Array) {
@@ -135,7 +136,11 @@ export class JSONPrimitive extends JSONElement {
   }
 
   public static isSupport(value: unknown): boolean {
-    return !!JSONPrimitive.getPrimitiveType(value);
+    const primitiveType = JSONPrimitive.getPrimitiveType(value);
+    if (primitiveType === undefined) {
+      return false;
+    }
+    return true;
   }
 
   public static isInteger(num: number): boolean {
@@ -160,6 +165,9 @@ export class JSONPrimitive extends JSONElement {
 
   public toBytes(): Uint8Array {
     switch (this.valueType) {
+      case PrimitiveType.Null: {
+        return new Uint8Array();
+      }
       case PrimitiveType.Boolean: {
         const boolVal = this.value as boolean;
         return boolVal ? new Uint8Array([1]) : new Uint8Array([0]);
