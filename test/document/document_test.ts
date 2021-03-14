@@ -293,7 +293,7 @@ describe('Document', function () {
     }, 'insert 2');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
-    const root = doc.getRootObject();
+    const root = doc.getRoot();
     for (let idx = 0; idx < root['list'].length; idx++) {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
@@ -309,7 +309,7 @@ describe('Document', function () {
     }, 'set a, b, c');
     assert.equal('{"content":{"a":1,"b":2,"c":3}}', doc.toSortedJSON());
 
-    const content = doc.getRootObject().content;
+    const content = doc.getRoot().content;
     assert.equal('a,b,c', Object.keys(content).join(','));
     assert.equal('1,2,3', Object.values(content).join(','));
     assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
@@ -367,7 +367,7 @@ describe('Document', function () {
     assert.equal(1, doc.garbageCollect(MaxTimeTicket));
     assert.equal(0, doc.getGarbageLen());
 
-    const root = (doc.getRoot().get('list') as JSONArray)
+    const root = (doc.getRootObject().get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
     const clone = (doc.getClone()!.get('list') as JSONArray)

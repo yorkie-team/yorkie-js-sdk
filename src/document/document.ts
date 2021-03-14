@@ -241,7 +241,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return this.clone.getObject();
   }
 
-  public getRootObject(): T {
+  public getRoot(): T {
     this.ensureClone();
 
     const context = ChangeContext.create(this.changeID.next(), this.clone!);
@@ -255,7 +255,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return this.root.garbageCollect(ticket);
   }
 
-  public getRoot(): JSONObject {
+  public getRootObject(): JSONObject {
     return this.root.getObject();
   }
 
