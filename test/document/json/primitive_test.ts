@@ -20,13 +20,58 @@ import {
   JSONPrimitive,
   PrimitiveType,
 } from '../../../src/document/json/primitive';
+import yorkie from '../../../src/yorkie';
 
 describe('Primitive', function () {
-  it('null test', function () {
-    const primNum = JSONPrimitive.of(0, InitialTimeTicket);
-    assert.equal(PrimitiveType.Double, primNum.getType());
+  const primitiveTypes = [
+    {
+      type: PrimitiveType.Null,
+      value: null,
+    },
+    {
+      type: PrimitiveType.Boolean,
+      value: false,
+    },
+    {
+      type: PrimitiveType.Double,
+      value: 2147483647,
+    },
+    {
+      type: PrimitiveType.Double,
+      value: 1.79,
+    },
+    {
+      type: PrimitiveType.String,
+      value: '4',
+    },
+    {
+      type: PrimitiveType.Long,
+      value: yorkie.Long.fromString('9223372036854775807'),
+    },
+    {
+      type: PrimitiveType.Bytes,
+      value: new Uint8Array([65, 66]),
+    },
+    {
+      type: PrimitiveType.Date,
+      value: new Date('December 17, 1995 03:24:00'),
+    },
+  ];
+  it('primitive test', function () {
+    for (const { type, value } of primitiveTypes) {
+      const primVal = JSONPrimitive.of(value, InitialTimeTicket);
+      assert.equal(type, primVal.getType());
+    }
+  });
 
-    const primNull = JSONPrimitive.of(null, InitialTimeTicket);
-    assert.equal(PrimitiveType.Null, primNull.getType());
+  it('valueFromBytes test', function () {
+    for (const { type, value } of primitiveTypes) {
+      const primVal = JSONPrimitive.of(value, InitialTimeTicket);
+      const valFromBytes = JSONPrimitive.valueFromBytes(
+        type,
+        primVal.toBytes(),
+      );
+      assert.deepEqual(valFromBytes, value);
+    }
   });
 });
