@@ -69,7 +69,7 @@
         }, 'create points if not exists');
 
         doc.subscribe((event) => {
-          paintCanvas(doc.getRootObject().shapes);
+          paintCanvas(doc.getRoot().shapes);
         });
         await client.sync();
 
@@ -115,7 +115,7 @@
         });
 
         // 05. set initial value.
-        paintCanvas(doc.getRootObject().shapes);
+        paintCanvas(doc.getRoot().shapes);
       } catch (e) {
         console.error(e);
       }

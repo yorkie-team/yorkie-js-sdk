@@ -33,7 +33,7 @@
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
-      textLogHolder.innerText = doc.getRootObject().content.getAnnotatedString();
+      textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
     function displayPeers(peers, clientID) {
@@ -175,7 +175,7 @@
         });
 
         // 04-2. document to codemirror(remote).
-        const text = doc.getRootObject().content;
+        const text = doc.getRoot().content;
         text.onChanges((changes) => {
           for (const change of changes) {
             if (change.type === 'content') {
