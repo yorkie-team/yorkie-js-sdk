@@ -190,6 +190,7 @@ describe('Yorkie', function () {
   it('Can handle primitive types', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
+        root['k0'] = null;
         root['k1'] = true;
         root['k2'] = 2147483647;
         root['k3'] = yorkie.Long.fromString('9223372036854775807');
