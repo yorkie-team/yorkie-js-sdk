@@ -199,7 +199,7 @@ export class ArrayProxy {
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
       target.insertAfter(prevCreatedAt, primitive);
-      context.registerElement(primitive);
+      context.registerElement(primitive, target);
       context.push(
         AddOperation.create(
           target.getCreatedAt(),
@@ -212,7 +212,7 @@ export class ArrayProxy {
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.insertAfter(prevCreatedAt, array);
-      context.registerElement(array);
+      context.registerElement(array, target);
       context.push(
         AddOperation.create(
           target.getCreatedAt(),
@@ -228,7 +228,7 @@ export class ArrayProxy {
     } else if (typeof value === 'object') {
       const obj = JSONObject.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
-      context.registerElement(obj);
+      context.registerElement(obj, target);
       context.push(
         AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
       );
@@ -260,7 +260,7 @@ export class ArrayProxy {
         ticket,
       ),
     );
-    context.registerRemovedElementPair(target, deleted);
+    context.registerRemovedElement(deleted);
     return deleted;
   }
 
@@ -278,7 +278,7 @@ export class ArrayProxy {
         ticket,
       ),
     );
-    context.registerRemovedElementPair(target, deleted);
+    context.registerRemovedElement(deleted);
     return deleted;
   }
 

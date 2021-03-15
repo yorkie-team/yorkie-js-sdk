@@ -51,7 +51,7 @@ export class SetOperation extends Operation {
       const obj = parentObject as JSONObject;
       const value = this.value.deepcopy();
       obj.set(this.key, value);
-      root.registerElement(value);
+      root.registerElement(value, obj);
     } else {
       logger.fatal(`fail to execute, only object can execute set`);
     }
