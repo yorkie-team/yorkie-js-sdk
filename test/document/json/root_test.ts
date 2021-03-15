@@ -10,9 +10,31 @@ import { ArrayProxy } from '../../../src/document/proxy/array_proxy';
 import { InitialTimeTicket } from '../../../src/document/time/ticket';
 import { MaxTimeTicket } from '../../../src/document/time/ticket';
 import { RGATreeList } from '../../../src/document/json/rga_tree_list';
+import { JSONPrimitive } from '../../../src/document/json/primitive';
 import { JSONArray } from '../../../src/yorkie';
 
 describe('ROOT', function () {
+  it('basic test', function () {
+    const root = new JSONRoot(
+      new JSONObject(InitialTimeTicket, RHTPQMap.create()),
+    );
+    const cc = ChangeContext.create(InitialChangeID, root);
+
+    // set k1
+    const k1 = JSONPrimitive.of('k1', cc.issueTimeTicket());
+    root.getObject().set('k1', k1);
+    root.registerElement(k1, root.getObject());
+    assert.equal(root.getElementMapSize(), 2);
+    assert.equal(root.findByCreatedAt(k1.getCreatedAt()), k1);
+    assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
+
+    // delete k1
+    root.getObject().deleteByKey('k1', cc.issueTimeTicket());
+    root.deregisterElement(k1);
+    assert.equal(root.getElementMapSize(), 1);
+    assert.isUndefined(root.findByCreatedAt(k1.getCreatedAt()));
+  });
+
   it('garbage collection test for array', function () {
     const root = new JSONRoot(
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
@@ -27,7 +49,7 @@ describe('ROOT', function () {
 
     const targetElement = arr.getByIndex(1)!;
     arr.delete(targetElement.getCreatedAt(), change.issueTimeTicket());
-    root.registerRemovedElementPair(arr, targetElement);
+    root.registerRemovedElement(targetElement);
     assert.equal('[0,2]', arr.toJSON());
     assert.equal(1, root.getGarbageLen());
 

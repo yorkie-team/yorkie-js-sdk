@@ -56,19 +56,16 @@ export class ChangeContext {
     this.operations.push(operation);
   }
 
-  public registerElement(element: JSONElement): void {
-    this.root.registerElement(element);
+  public registerElement(element: JSONElement, parent: JSONContainer): void {
+    this.root.registerElement(element, parent);
   }
 
-  public registerRemovedElementPair(
-    parent: JSONContainer,
-    deleted: JSONElement,
-  ): void {
-    this.root.registerRemovedElementPair(parent, deleted);
+  public registerRemovedElement(deleted: JSONElement): void {
+    this.root.registerRemovedElement(deleted);
   }
 
-  public registerRemovedNodeTextElement(textType: TextElement): void {
-    this.root.registerRemovedNodeTextElement(textType);
+  public registerRemovedNodeTextElement(text: TextElement): void {
+    this.root.registerTextWithGarbage(text);
   }
 
   public getChange(): Change {

@@ -77,7 +77,7 @@ export class RichEditOperation extends Operation {
         this.maxCreatedAtMapByActor,
       );
       if (this.fromPos.compare(this.toPos) !== 0) {
-        root.registerRemovedNodeTextElement(text);
+        root.registerTextWithGarbage(text);
       }
     } else {
       logger.fatal(`fail to execute, only RichText can execute edit`);
