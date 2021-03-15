@@ -45,7 +45,7 @@ export class RemoveOperation extends Operation {
     if (parentObject instanceof JSONContainer) {
       const obj = parentObject;
       const elem = obj.delete(this.createdAt, this.getExecutedAt());
-      root.registerRemovedElementPair(parentObject, elem);
+      root.registerRemovedElement(elem);
     } else {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }

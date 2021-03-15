@@ -51,7 +51,7 @@ export class AddOperation extends Operation {
       const array = parentObject as JSONArray;
       const value = this.value.deepcopy();
       array.insertAfter(this.prevCreatedAt, value);
-      root.registerElement(value);
+      root.registerElement(value, array);
     } else {
       logger.fatal(`fail to execute, only array can execute add`);
     }
