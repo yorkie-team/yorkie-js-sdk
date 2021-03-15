@@ -19,20 +19,53 @@ describe('ROOT', function () {
       new JSONObject(InitialTimeTicket, RHTPQMap.create()),
     );
     const cc = ChangeContext.create(InitialChangeID, root);
+    assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
 
-    // set k1
+    // set '$.k1'
     const k1 = JSONPrimitive.of('k1', cc.issueTimeTicket());
     root.getObject().set('k1', k1);
     root.registerElement(k1, root.getObject());
     assert.equal(root.getElementMapSize(), 2);
     assert.equal(root.findByCreatedAt(k1.getCreatedAt()), k1);
-    assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
+    assert.equal(root.getJSONPath(k1.getCreatedAt()), '$.k1');
 
-    // delete k1
+    // delete '$.k1'
     root.getObject().deleteByKey('k1', cc.issueTimeTicket());
     root.deregisterElement(k1);
     assert.equal(root.getElementMapSize(), 1);
     assert.isUndefined(root.findByCreatedAt(k1.getCreatedAt()));
+
+    // set '$.k2'
+    const k2 = JSONObject.create(cc.issueTimeTicket());
+    root.getObject().set('k2', k2);
+    root.registerElement(k2, root.getObject());
+    assert.equal(root.getElementMapSize(), 2);
+    assert.equal(root.findByCreatedAt(k2.getCreatedAt()), k2);
+    assert.equal(root.getJSONPath(k2.getCreatedAt()), '$.k2');
+
+    // set '$.k2.1'
+    const k2_1 = JSONArray.create(cc.issueTimeTicket());
+    k2.set('1', k2_1);
+    root.registerElement(k2_1, k2);
+    assert.equal(root.getElementMapSize(), 3);
+    assert.equal(root.findByCreatedAt(k2_1.getCreatedAt()), k2_1);
+    assert.equal(root.getJSONPath(k2_1.getCreatedAt()), '$.k2.1');
+
+    // set '$.k2.1[0]'
+    const k2_1_0 = JSONPrimitive.of('0', cc.issueTimeTicket());
+    k2_1.insertAfter(k2_1.getLastCreatedAt(), k2_1_0);
+    root.registerElement(k2_1_0, k2_1);
+    assert.equal(root.getElementMapSize(), 4);
+    assert.equal(root.findByCreatedAt(k2_1_0.getCreatedAt()), k2_1_0);
+    assert.equal(root.getJSONPath(k2_1_0.getCreatedAt()), '$.k2.1.0');
+
+    // set '$.k2.1[1]'
+    const k2_1_1 = JSONPrimitive.of('1', cc.issueTimeTicket());
+    k2_1.insertAfter(k2_1_0.getCreatedAt(), k2_1_1);
+    root.registerElement(k2_1_1, k2_1);
+    assert.equal(root.getElementMapSize(), 5);
+    assert.equal(root.findByCreatedAt(k2_1_1.getCreatedAt()), k2_1_1);
+    assert.equal(root.getJSONPath(k2_1_1.getCreatedAt()), '$.k2.1.1');
   });
 
   it('garbage collection test for array', function () {

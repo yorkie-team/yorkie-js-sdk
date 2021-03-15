@@ -33,6 +33,10 @@ export class JSONArray extends JSONContainer {
     return new JSONArray(createdAt, RGATreeList.create());
   }
 
+  public keyOf(createdAt: TimeTicket): string | undefined {
+    return this.elements.keyOf(createdAt);
+  }
+
   public purge(element: JSONElement): void {
     this.elements.purge(element);
   }

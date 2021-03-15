@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { Document, DocEventType } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 import { JSONElement } from '../../src/document/json/element';
@@ -614,5 +614,22 @@ describe('Document', function () {
       };
     });
     assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
+  });
+
+  it('json path test', async function () {
+    const doc = Document.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    doc.subscribe((event) => {
+      console.log(event);
+      assert.equal(event.type, DocEventType.LocalChange);
+      // event.paths
+    });
+
+    doc.update((root) => {
+      root.content = { a: 0, b: 0 };
+      root.content.a = 1;
+      root.content.b = 2;
+    });
   });
 });
