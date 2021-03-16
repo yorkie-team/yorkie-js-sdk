@@ -616,20 +616,39 @@ describe('Document', function () {
     assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
   });
 
-  it('json path test', async function () {
+  it('change paths test', async function () {
     const doc = Document.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
 
     doc.subscribe((event) => {
-      console.log(event);
       assert.equal(event.type, DocEventType.LocalChange);
-      // event.paths
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
     });
 
     doc.update((root) => {
-      root.content = { a: 0, b: 0 };
-      root.content.a = 1;
-      root.content.b = 2;
+      root.obj = {}; paths.push('$.obj');
+      root.obj.a = 1; paths.push('$.obj.a');
+      delete root.obj.a; paths.push('$.obj');
+      delete root.obj; paths.push('$');
+
+      root.arr = []; paths.push('$.arr');
+      root.arr.push(0); paths.push('$.arr.0');
+      root.arr.push(1); paths.push('$.arr.1');
+      delete root.arr[1]; paths.push('$.arr');
+
+      const counter = root.createCounter('cnt', 0); paths.push('$.cnt');
+      counter.increase(1); paths.push('$.cnt');
+
+      const text = root.createText('text'); paths.push('$.text');
+      text.edit(0, 0, 'hello world'); paths.push('$.text');
+      text.updateSelection(0, 2); paths.push('$.text');
+
+      const rich = root.createRichText('rich'); paths.push('$.rich');
+      rich.edit(0, 0, 'hello world'); paths.push('$.rich');
+      rich.setStyle(0, 1, 'bold', 'true'); paths.push('$.rich');
     });
   });
 });

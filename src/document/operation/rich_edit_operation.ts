@@ -84,6 +84,10 @@ export class RichEditOperation extends Operation {
     }
   }
 
+  public getEffectedCreatedAt(): TimeTicket {
+    return this.getParentCreatedAt();
+  }
+
   public getAnnotatedString(): string {
     const parent = this.getParentCreatedAt().getAnnotatedString();
     const fromPos = this.fromPos.getAnnotatedString();

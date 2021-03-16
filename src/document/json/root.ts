@@ -74,9 +74,9 @@ export class JSONRoot {
   }
 
   /**
-   * getJSONPath returns JSONPath of the given element.
+   * createPath creates path of the given element.
    */
-  public getJSONPath(createdAt: TimeTicket): string | undefined {
+  public createPath(createdAt: TimeTicket): string | undefined {
     let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
     if (!pair) {
       return;
@@ -88,15 +88,17 @@ export class JSONRoot {
       const key = pair.parent.keyOf(createdAt);
       if (!key) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
+        return;
       }
 
-      keys.unshift(key!);
+      keys.unshift(key);
       pair = this.elementPairMapByCreatedAt.get(
         pair.parent.getCreatedAt().toIDString()
       )!;
     }
 
-    return '$.' + keys.join('.');
+    keys.unshift('$');
+    return keys.join('.');
   }
 
   /**
