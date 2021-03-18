@@ -629,26 +629,42 @@ describe('Document', function () {
     });
 
     doc.update((root) => {
-      root.obj = {}; paths.push('$.obj');
-      root.obj.a = 1; paths.push('$.obj.a');
-      delete root.obj.a; paths.push('$.obj');
-      delete root.obj; paths.push('$');
+      root.obj = {};
+      paths.push('$.obj');
+      root.obj.a = 1;
+      paths.push('$.obj.a');
+      delete root.obj.a;
+      paths.push('$.obj');
+      delete root.obj;
+      paths.push('$');
 
-      root.arr = []; paths.push('$.arr');
-      root.arr.push(0); paths.push('$.arr.0');
-      root.arr.push(1); paths.push('$.arr.1');
-      delete root.arr[1]; paths.push('$.arr');
+      root.arr = [];
+      paths.push('$.arr');
+      root.arr.push(0);
+      paths.push('$.arr.0');
+      root.arr.push(1);
+      paths.push('$.arr.1');
+      delete root.arr[1];
+      paths.push('$.arr');
 
-      const counter = root.createCounter('cnt', 0); paths.push('$.cnt');
-      counter.increase(1); paths.push('$.cnt');
+      const counter = root.createCounter('cnt', 0);
+      paths.push('$.cnt');
+      counter.increase(1);
+      paths.push('$.cnt');
 
-      const text = root.createText('text'); paths.push('$.text');
-      text.edit(0, 0, 'hello world'); paths.push('$.text');
-      text.updateSelection(0, 2); paths.push('$.text');
+      const text = root.createText('text');
+      paths.push('$.text');
+      text.edit(0, 0, 'hello world');
+      paths.push('$.text');
+      text.updateSelection(0, 2);
+      paths.push('$.text');
 
-      const rich = root.createRichText('rich'); paths.push('$.rich');
-      rich.edit(0, 0, 'hello world'); paths.push('$.rich');
-      rich.setStyle(0, 1, 'bold', 'true'); paths.push('$.rich');
+      const rich = root.createRichText('rich');
+      paths.push('$.rich');
+      rich.edit(0, 0, 'hello world');
+      paths.push('$.rich');
+      rich.setStyle(0, 1, 'bold', 'true');
+      paths.push('$.rich');
     });
   });
 });

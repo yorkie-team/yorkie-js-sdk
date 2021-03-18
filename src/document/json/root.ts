@@ -83,17 +83,16 @@ export class JSONRoot {
     }
 
     const keys: Array<string> = [];
-    while(pair.parent) {
+    while (pair.parent) {
       const createdAt = pair.element.getCreatedAt();
       const key = pair.parent.keyOf(createdAt);
       if (!key) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
-        return;
       }
 
-      keys.unshift(key);
+      keys.unshift(key!);
       pair = this.elementPairMapByCreatedAt.get(
-        pair.parent.getCreatedAt().toIDString()
+        pair.parent.getCreatedAt().toIDString(),
       )!;
     }
 

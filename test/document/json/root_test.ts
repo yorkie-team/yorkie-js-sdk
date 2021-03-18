@@ -20,6 +20,7 @@ describe('ROOT', function () {
     );
     const cc = ChangeContext.create(InitialChangeID, root);
     assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
+    assert.isUndefined(root.createPath(MaxTimeTicket));
 
     // set '$.k1'
     const k1 = JSONPrimitive.of('k1', cc.issueTimeTicket());
@@ -30,6 +31,7 @@ describe('ROOT', function () {
     assert.equal(root.createPath(k1.getCreatedAt()), '$.k1');
 
     // delete '$.k1'
+    assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
     root.getObject().deleteByKey('k1', cc.issueTimeTicket());
     root.deregisterElement(k1);
     assert.equal(root.getElementMapSize(), 1);

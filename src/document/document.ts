@@ -144,10 +144,12 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
           type: DocEventType.LocalChange,
-          value: [{
-            change,
-            paths: this.createPaths(change),
-          }],
+          value: [
+            {
+              change,
+              paths: this.createPaths(change),
+            },
+          ],
         });
       }
 
