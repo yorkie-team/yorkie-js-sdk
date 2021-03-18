@@ -507,6 +507,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     if (id.getOffset() > 0 && node!.getID().getOffset() == id.getOffset()) {
+      // TODO(hackerwins): InsPrev may not be present due to GC. We have to check the GC algorithm.
       if (!node!.hasInsPrev()) {
         logger.fatal('insPrev should be presence');
       }
@@ -602,19 +603,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
 
-        const [fromIdx, toIdx] = this.findIndexesFromRange(node.createRange());
-        const change = {
-          type: ChangeType.Content,
-          actor: editedAt.getActorID()!,
-          from: fromIdx,
-          to: toIdx,
-        };
+        if (!node.isRemoved()) {
+          const [fromIdx, toIdx] = this.findIndexesFromRange(
+            node.createRange(),
+          );
+          const change = {
+            type: ChangeType.Content,
+            actor: editedAt.getActorID()!,
+            from: fromIdx,
+            to: toIdx,
+          };
 
-        // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
-        if (changes.length && changes[0].to === change.from) {
-          changes[0].to = change.to;
-        } else {
-          changes.unshift(change);
+          // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
+          if (changes.length && changes[0].to === change.from) {
+            changes[0].to = change.to;
+          } else {
+            changes.unshift(change);
+          }
         }
 
         if (

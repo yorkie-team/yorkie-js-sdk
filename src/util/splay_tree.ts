@@ -290,9 +290,7 @@ export class SplayTree<V> {
     const metaString: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root!, metaString);
     return metaString
-      .map(
-        (node) => `[${node.getWeight()},${node.getLength()}]${node.getValue()}`,
-      )
+      .map((n) => `[${n.getWeight()},${n.getLength()}]${n.getValue() || ''}`)
       .join('');
   }
 
