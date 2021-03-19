@@ -59,6 +59,10 @@ export class MoveOperation extends Operation {
     }
   }
 
+  public getEffectedCreatedAt(): TimeTicket {
+    return this.createdAt;
+  }
+
   public getAnnotatedString(): string {
     return `${this.getParentCreatedAt().getAnnotatedString()}.MOV`;
   }

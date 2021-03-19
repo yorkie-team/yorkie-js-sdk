@@ -208,6 +208,14 @@ export class RGATreeList {
     return node!.getValue();
   }
 
+  public keyOf(createdAt: TimeTicket): string | undefined {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    if (!node) {
+      return;
+    }
+    return String(this.nodeMapByIndex.indexOf(node));
+  }
+
   public purge(element: JSONElement): void {
     const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),

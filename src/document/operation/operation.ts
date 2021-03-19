@@ -39,6 +39,7 @@ export abstract class Operation {
     this.executedAt = this.executedAt.setActor(actorID);
   }
 
+  public abstract getEffectedCreatedAt(): TimeTicket;
   public abstract getAnnotatedString(): string;
   public abstract execute(root: JSONRoot): void;
 }

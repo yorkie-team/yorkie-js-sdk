@@ -76,6 +76,8 @@ export abstract class JSONContainer extends JSONElement {
     super(createdAt);
   }
 
+  abstract keyOf(createdAt: TimeTicket): string | undefined;
+
   abstract purge(element: JSONElement): void;
 
   abstract delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement;
