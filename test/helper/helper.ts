@@ -62,8 +62,8 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(changes: Array<Change>): void {
-    // const oldValue = this.value;
+  public applyChanges(changes: Array<Change>, enableLog = false): void {
+    const oldValue = this.value;
     const changeLogs = [];
     for (const change of changes) {
       if (change.type === ChangeType.Content) {
@@ -77,7 +77,10 @@ export class TextView {
         );
       }
     }
-    // console.log(`apply: ${oldValue}->${this.value} [${changeLogs.join(',')}]`);
+
+    if (enableLog) {
+      console.log(`apply: ${oldValue}->${this.value} [${changeLogs.join(',')}]`);
+    }
   }
 
   public getValue(): string {
