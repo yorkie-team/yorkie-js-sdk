@@ -51,6 +51,10 @@ export class JSONObject extends JSONContainer {
     return;
   }
 
+  public keyOf(createdAt: TimeTicket): string | undefined {
+    return this.memberNodes.keyOf(createdAt);
+  }
+
   public purge(value: JSONElement): void {
     this.memberNodes.purge(value);
   }

@@ -68,4 +68,8 @@ export class SetOperation extends Operation {
   public getValue(): JSONElement {
     return this.value;
   }
+
+  public getEffectedCreatedAt(): TimeTicket {
+    return this.value.getCreatedAt();
+  }
 }

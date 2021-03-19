@@ -57,6 +57,10 @@ export class AddOperation extends Operation {
     }
   }
 
+  public getEffectedCreatedAt(): TimeTicket {
+    return this.value.getCreatedAt();
+  }
+
   public getAnnotatedString(): string {
     return `${this.getParentCreatedAt().getAnnotatedString()}.ADD`;
   }

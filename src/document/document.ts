@@ -54,14 +54,19 @@ export interface SnapshotEvent extends AbstractDocEvent {
   value: Uint8Array | undefined;
 }
 
+export interface ChangeInfo {
+  change: Change;
+  paths: Array<string>;
+}
+
 export interface LocalChangeEvent extends AbstractDocEvent {
   type: DocEventType.LocalChange;
-  value: Array<Change>;
+  value: Array<ChangeInfo>;
 }
 
 export interface RemoteChangeEvent extends AbstractDocEvent {
   type: DocEventType.RemoteChange;
-  value: Array<Change>;
+  value: Array<ChangeInfo>;
 }
 
 export type Indexable = {
@@ -139,7 +144,12 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
           type: DocEventType.LocalChange,
-          value: [change],
+          value: [
+            {
+              change,
+              paths: this.createPaths(change),
+            },
+          ],
         });
       }
 
@@ -320,10 +330,26 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
-        value: changes,
+        value: changes.map((change) => {
+          return {
+            change,
+            paths: this.createPaths(change),
+          };
+        }),
       });
     }
 
     logger.debug(`after appling ${changes.length} remote changes`);
+  }
+
+  private createPaths(change: Change): Array<string> {
+    const paths: Array<string> = [];
+    for (const op of change.getOperations()) {
+      const createdAt = op.getEffectedCreatedAt();
+      if (createdAt) {
+        paths.push(this.root.createPath(createdAt)!);
+      }
+    }
+    return paths;
   }
 }

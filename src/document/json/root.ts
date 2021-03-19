@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { logger } from '../../util/logger';
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement, TextElement } from './element';
 import { JSONObject } from './object';
@@ -70,6 +71,33 @@ export class JSONRoot {
     }
 
     return pair.element;
+  }
+
+  /**
+   * createPath creates path of the given element.
+   */
+  public createPath(createdAt: TimeTicket): string | undefined {
+    let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+    if (!pair) {
+      return;
+    }
+
+    const keys: Array<string> = [];
+    while (pair.parent) {
+      const createdAt = pair.element.getCreatedAt();
+      const key = pair.parent.keyOf(createdAt);
+      if (!key) {
+        logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
+      }
+
+      keys.unshift(key!);
+      pair = this.elementPairMapByCreatedAt.get(
+        pair.parent.getCreatedAt().toIDString(),
+      )!;
+    }
+
+    keys.unshift('$');
+    return keys.join('.');
   }
 
   /**
