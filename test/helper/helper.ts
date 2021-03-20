@@ -19,6 +19,7 @@ import { NextFn } from '../../src/util/observable';
 
 import { ClientEvent } from '../../src/core/client';
 import { DocEvent } from '../../src/document/document';
+import { Change, ChangeType } from '../../src/document/json/rga_tree_split';
 
 export function range(from: number, to: number): Array<number> {
   const list = [];
@@ -48,4 +49,41 @@ export function createEmitterAndSpy(
     (event: ClientEvent | DocEvent) =>
       emitter.emit(fn ? fn(event) : event.type),
   ];
+}
+
+/**
+ * TextView emulates an external editor like CodeMirror to test whether change
+ * events are delivered properly.
+ */
+export class TextView {
+  private value: string;
+
+  constructor() {
+    this.value = '';
+  }
+
+  public applyChanges(changes: Array<Change>, enableLog = false): void {
+    const oldValue = this.value;
+    const changeLogs = [];
+    for (const change of changes) {
+      if (change.type === ChangeType.Content) {
+        this.value = [
+          this.value.substring(0, change.from),
+          change.content,
+          this.value.substring(change.to),
+        ].join('');
+        changeLogs.push(
+          `{f:${change.from}, t:${change.to}, c:${change.content || ''}}`,
+        );
+      }
+    }
+
+    if (enableLog) {
+      console.log(`apply: ${oldValue}->${this.value} [${changeLogs.join(',')}]`);
+    }
+  }
+
+  public getValue(): string {
+    return this.value;
+  }
 }

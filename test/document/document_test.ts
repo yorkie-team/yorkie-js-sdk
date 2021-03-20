@@ -20,6 +20,9 @@ import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
+import { PlainText } from '../../src/document/json/plain_text';
+
+import { TextView } from '../helper/helper';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -614,6 +617,25 @@ describe('Document', function () {
       };
     });
     assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
+  });
+
+  it('should handle deletion of nested nodes', function () {
+    const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
+    const view = new TextView();
+    doc.update((root) => root.createText('text'));
+    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+
+    const commands = [
+      { from: 0, to: 0, content: 'ABC' },
+      { from: 3, to: 3, content: 'DEF' },
+      { from: 2, to: 4, content: '1' },
+      { from: 1, to: 4, content: '2' },
+    ];
+
+    for (const cmd of commands) {
+      doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content));
+      assert.equal(view.getValue(), doc.getRoot().text.getValue());
+    }
   });
 
   it('change paths test', async function () {
