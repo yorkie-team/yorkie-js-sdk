@@ -125,14 +125,14 @@ export class ObjectProxy {
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
       target.set(key, primitive);
-      context.registerElement(primitive);
+      context.registerElement(primitive, target);
       context.push(
         SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
       );
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
       target.set(key, array);
-      context.registerElement(array);
+      context.registerElement(array, target);
       context.push(
         SetOperation.create(
           key,
@@ -147,7 +147,7 @@ export class ObjectProxy {
     } else if (typeof value === 'object') {
       if (value instanceof PlainText) {
         target.set(key, value);
-        context.registerElement(value);
+        context.registerElement(value, target);
         context.push(
           SetOperation.create(
             key,
@@ -159,7 +159,7 @@ export class ObjectProxy {
       } else {
         const obj = JSONObject.create(ticket);
         target.set(key, obj);
-        context.registerElement(obj);
+        context.registerElement(obj, target);
         context.push(
           SetOperation.create(
             key,
@@ -185,7 +185,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
     const text = PlainText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
-    context.registerElement(text);
+    context.registerElement(text, target);
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
@@ -200,7 +200,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
     const text = RichText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
-    context.registerElement(text);
+    context.registerElement(text, target);
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
@@ -216,7 +216,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
     const counter = Counter.of(value, ticket);
     target.set(key, counter);
-    context.registerElement(counter);
+    context.registerElement(counter, target);
     context.push(
       SetOperation.create(
         key,
@@ -246,7 +246,7 @@ export class ObjectProxy {
         ticket,
       ),
     );
-    context.registerRemovedElementPair(target, deleted);
+    context.registerRemovedElement(deleted);
   }
 
   public getHandlers(): any {

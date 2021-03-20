@@ -55,7 +55,7 @@ describe('Converter', function () {
       counter.increase(1).increase(2).increase(3);
     });
 
-    const bytes = converter.objectToBytes(doc.getRoot());
+    const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
   });

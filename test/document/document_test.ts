@@ -15,11 +15,14 @@
  */
 
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { Document, DocEventType } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
+import { PlainText } from '../../src/document/json/plain_text';
+
+import { TextView } from '../helper/helper';
 
 describe('Document', function () {
   it('should apply updates of string', function () {
@@ -293,7 +296,7 @@ describe('Document', function () {
     }, 'insert 2');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
-    const root = doc.getRootObject();
+    const root = doc.getRoot();
     for (let idx = 0; idx < root['list'].length; idx++) {
       assert.equal(idx + 1, root['list'][idx]);
       assert.equal(idx + 1, root['list'].getElementByIndex(idx).getValue());
@@ -309,7 +312,7 @@ describe('Document', function () {
     }, 'set a, b, c');
     assert.equal('{"content":{"a":1,"b":2,"c":3}}', doc.toSortedJSON());
 
-    const content = doc.getRootObject().content;
+    const content = doc.getRoot().content;
     assert.equal('a,b,c', Object.keys(content).join(','));
     assert.equal('1,2,3', Object.values(content).join(','));
     assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
@@ -367,7 +370,7 @@ describe('Document', function () {
     assert.equal(1, doc.garbageCollect(MaxTimeTicket));
     assert.equal(0, doc.getGarbageLen());
 
-    const root = (doc.getRoot().get('list') as JSONArray)
+    const root = (doc.getRootObject().get('list') as JSONArray)
       .getElements()
       .getAnnotatedString();
     const clone = (doc.getClone()!.get('list') as JSONArray)
@@ -604,5 +607,86 @@ describe('Document', function () {
       '{"title":"drink water","done":true}',
     ];
     assert.equal(`{"todos":[${expectedTodos.join(',')}]}`, doc.toSortedJSON());
+  });
+
+  it('null value test', function () {
+    const doc = Document.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = {
+        null: null,
+      };
+    });
+    assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
+  });
+
+  it('should handle deletion of nested nodes', function () {
+    const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
+    const view = new TextView();
+    doc.update((root) => root.createText('text'));
+    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+
+    const commands = [
+      { from: 0, to: 0, content: 'ABC' },
+      { from: 3, to: 3, content: 'DEF' },
+      { from: 2, to: 4, content: '1' },
+      { from: 1, to: 4, content: '2' },
+    ];
+
+    for (const cmd of commands) {
+      doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content));
+      assert.equal(view.getValue(), doc.getRoot().text.getValue());
+    }
+  });
+
+  it('change paths test', async function () {
+    const doc = Document.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
+
+    doc.subscribe((event) => {
+      assert.equal(event.type, DocEventType.LocalChange);
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
+    });
+
+    doc.update((root) => {
+      root.obj = {};
+      paths.push('$.obj');
+      root.obj.a = 1;
+      paths.push('$.obj.a');
+      delete root.obj.a;
+      paths.push('$.obj');
+      delete root.obj;
+      paths.push('$');
+
+      root.arr = [];
+      paths.push('$.arr');
+      root.arr.push(0);
+      paths.push('$.arr.0');
+      root.arr.push(1);
+      paths.push('$.arr.1');
+      delete root.arr[1];
+      paths.push('$.arr');
+
+      const counter = root.createCounter('cnt', 0);
+      paths.push('$.cnt');
+      counter.increase(1);
+      paths.push('$.cnt');
+
+      const text = root.createText('text');
+      paths.push('$.text');
+      text.edit(0, 0, 'hello world');
+      paths.push('$.text');
+      text.updateSelection(0, 2);
+      paths.push('$.text');
+
+      const rich = root.createRichText('rich');
+      paths.push('$.rich');
+      rich.edit(0, 0, 'hello world');
+      paths.push('$.rich');
+      rich.setStyle(0, 1, 'bold', 'true');
+      paths.push('$.rich');
+    });
   });
 });

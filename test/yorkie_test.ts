@@ -21,7 +21,7 @@ import {
   ClientEventType,
   DocumentSyncResultType,
 } from '../src/core/client';
-import { Document, DocEventType } from '../src/document/document';
+import { Document, DocEventType, Indexable } from '../src/document/document';
 import { JSONElement } from '../src/document/json/element';
 import yorkie from '../src/yorkie';
 import { createEmitterAndSpy, waitFor } from './helper/helper';
@@ -30,12 +30,12 @@ const __karma__ = (global as any).__karma__;
 const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';
 const testCollection = 'test-col';
 
-async function withTwoClientsAndDocuments(
+async function withTwoClientsAndDocuments<T = Indexable>(
   callback: (
     c1: Client,
-    d1: Document,
+    d1: Document<T>,
     c2: Client,
-    d2: Document,
+    d2: Document<T>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
@@ -45,8 +45,8 @@ async function withTwoClientsAndDocuments(
   await client2.activate();
 
   const docKey = `${title}-${new Date().getTime()}`;
-  const doc1 = yorkie.createDocument(testCollection, docKey);
-  const doc2 = yorkie.createDocument(testCollection, docKey);
+  const doc1 = yorkie.createDocument<T>(testCollection, docKey);
+  const doc2 = yorkie.createDocument<T>(testCollection, docKey);
 
   await client1.attach(doc1, true);
   await client2.attach(doc2, true);
@@ -190,6 +190,7 @@ describe('Yorkie', function () {
   it('Can handle primitive types', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
+        root['k0'] = null;
         root['k1'] = true;
         root['k2'] = 2147483647;
         root['k3'] = yorkie.Long.fromString('9223372036854775807');
@@ -454,7 +455,7 @@ describe('Yorkie', function () {
         root['key'] = 'value';
       });
       await c2.sync();
-      assert.equal(d2.getRootObject()['key'], 'value');
+      assert.equal(d2.getRoot()['key'], 'value');
 
       await c1.sync();
       await c2.sync();

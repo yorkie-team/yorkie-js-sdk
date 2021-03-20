@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
+import { logger } from '../../util/logger';
 import { InitialTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONContainer, JSONElement, TextElement } from './element';
 import { JSONObject } from './object';
+
+interface JSONElementPair {
+  element: JSONElement;
+  parent?: JSONContainer;
+}
 
 /**
  * JSONRoot is a structure represents the root of JSON. It has a hash table of
@@ -26,32 +32,29 @@ import { JSONObject } from './object';
  * Every element has a unique time ticket at creation, which allows us to find
  * a particular element.
  */
-class JSONElementPair {
-  public parent: JSONContainer;
-  public element: JSONElement;
-
-  constructor(parent: JSONContainer, element: JSONElement) {
-    this.parent = parent;
-    this.element = element;
-  }
-}
 export class JSONRoot {
   private rootObject: JSONObject;
-  private elementMapByCreatedAt: Map<string, JSONElement>;
-  private removedElementPairMapByCreatedAt: Map<string, JSONElementPair>;
-  private removedNodeTextElementMapByCreatedAt: Map<string, TextElement>;
+  private elementPairMapByCreatedAt: Map<string, JSONElementPair>;
+  private removedElementSetByCreatedAt: Set<string>;
+  private textWithGarbageSetByCreatedAt: Set<string>;
 
   constructor(rootObject: JSONObject) {
     this.rootObject = rootObject;
-    this.elementMapByCreatedAt = new Map();
-    this.removedElementPairMapByCreatedAt = new Map();
-    this.removedNodeTextElementMapByCreatedAt = new Map();
+    this.elementPairMapByCreatedAt = new Map();
+    this.removedElementSetByCreatedAt = new Set();
+    this.textWithGarbageSetByCreatedAt = new Set();
 
-    this.registerElement(this.rootObject);
-    rootObject.getDescendants((elem: JSONElement): boolean => {
-      this.registerElement(elem);
-      return false;
-    });
+    this.elementPairMapByCreatedAt.set(
+      this.rootObject.getCreatedAt().toIDString(),
+      { element: this.rootObject },
+    );
+
+    rootObject.getDescendants(
+      (elem: JSONElement, parent: JSONContainer): boolean => {
+        this.registerElement(elem, parent);
+        return false;
+      },
+    );
   }
 
   public static create(): JSONRoot {
@@ -61,52 +64,75 @@ export class JSONRoot {
   /**
    * findByCreatedAt returns the element of given creation time.
    */
-  public findByCreatedAt(createdAt: TimeTicket): JSONElement {
-    return this.elementMapByCreatedAt.get(createdAt.toIDString())!;
+  public findByCreatedAt(createdAt: TimeTicket): JSONElement | undefined {
+    const pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+    if (!pair) {
+      return;
+    }
+
+    return pair.element;
+  }
+
+  /**
+   * createPath creates path of the given element.
+   */
+  public createPath(createdAt: TimeTicket): string | undefined {
+    let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+    if (!pair) {
+      return;
+    }
+
+    const keys: Array<string> = [];
+    while (pair.parent) {
+      const createdAt = pair.element.getCreatedAt();
+      const key = pair.parent.keyOf(createdAt);
+      if (!key) {
+        logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
+      }
+
+      keys.unshift(key!);
+      pair = this.elementPairMapByCreatedAt.get(
+        pair.parent.getCreatedAt().toIDString(),
+      )!;
+    }
+
+    keys.unshift('$');
+    return keys.join('.');
   }
 
   /**
    * registerElement registers the given element to hash table.
    */
-  public registerElement(element: JSONElement): void {
-    this.elementMapByCreatedAt.set(
-      element.getCreatedAt().toIDString(),
+  public registerElement(element: JSONElement, parent: JSONContainer): void {
+    this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
+      parent,
       element,
-    );
+    });
   }
 
   /**
    * deregisterElement deregister the given element from hash table.
    */
   public deregisterElement(element: JSONElement): void {
-    this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString());
-    this.removedElementPairMapByCreatedAt.delete(
+    this.elementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    this.removedElementSetByCreatedAt.delete(
       element.getCreatedAt().toIDString(),
     );
   }
 
   /**
-   * registerRemovedElementPair register the given element pair to hash table.
+   * registerRemovedElement register the given element pair to hash table.
    */
-  public registerRemovedElementPair(
-    parent: JSONContainer,
-    element: JSONElement,
-  ): void {
-    this.removedElementPairMapByCreatedAt.set(
-      element.getCreatedAt().toIDString(),
-      new JSONElementPair(parent, element),
-    );
+  public registerRemovedElement(element: JSONElement): void {
+    this.removedElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
   }
 
-  public registerRemovedNodeTextElement(textType: TextElement): void {
-    this.removedNodeTextElementMapByCreatedAt.set(
-      textType.getCreatedAt().toIDString(),
-      textType,
-    );
+  public registerTextWithGarbage(text: TextElement): void {
+    this.textWithGarbageSetByCreatedAt.add(text.getCreatedAt().toIDString());
   }
 
   public getElementMapSize(): number {
-    return this.elementMapByCreatedAt.size;
+    return this.elementPairMapByCreatedAt.size;
   }
 
   public getObject(): JSONObject {
@@ -116,8 +142,9 @@ export class JSONRoot {
   public getGarbageLen(): number {
     let count = 0;
 
-    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+    for (const createdAt of this.removedElementSetByCreatedAt) {
       count++;
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (pair.element instanceof JSONContainer) {
         pair.element.getDescendants(() => {
           count++;
@@ -126,7 +153,9 @@ export class JSONRoot {
       }
     }
 
-    for (const [, text] of this.removedNodeTextElementMapByCreatedAt) {
+    for (const createdAt of this.textWithGarbageSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const text = pair.element as TextElement;
       count += text.getRemovedNodesLen();
     }
 
@@ -140,20 +169,24 @@ export class JSONRoot {
   public garbageCollect(ticket: TimeTicket): number {
     let count = 0;
 
-    for (const [, pair] of this.removedElementPairMapByCreatedAt) {
+    for (const createdAt of this.removedElementSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (
         pair.element.getRemovedAt() &&
         ticket.compare(pair.element.getRemovedAt()!) >= 0
       ) {
-        pair.parent.purge(pair.element);
-        count += this._garbageCollect(pair.element);
+        pair.parent!.purge(pair.element);
+        count += this.garbageCollectInternal(pair.element);
       }
     }
 
-    for (const [, text] of this.removedNodeTextElementMapByCreatedAt) {
+    for (const createdAt of this.textWithGarbageSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const text = pair.element as TextElement;
+
       const removedNodeCnt = text.cleanupRemovedNodes(ticket);
       if (removedNodeCnt > 0) {
-        this.removedNodeTextElementMapByCreatedAt.delete(
+        this.textWithGarbageSetByCreatedAt.delete(
           text.getCreatedAt().toIDString(),
         );
       }
@@ -163,7 +196,7 @@ export class JSONRoot {
     return count;
   }
 
-  private _garbageCollect(element: JSONElement): number {
+  private garbageCollectInternal(element: JSONElement): number {
     let count = 0;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

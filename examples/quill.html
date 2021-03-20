@@ -33,11 +33,11 @@
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
-      textLogHolder.innerText = doc.getRootObject().content.getAnnotatedString();
+      textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
     function toDelta(doc) {
-      const obj = doc.getRootObject();
+      const obj = doc.getRoot();
       const deltas = [];
       for (const val of obj.content.getValue()) {
         deltas.push({
@@ -184,7 +184,7 @@
         });
 
         // 04-2. document to codemirror(remote).
-        const text = doc.getRootObject().content;
+        const text = doc.getRoot().content;
         text.onChanges((changes) => {
           const delta = [];
           let prevTo = 0;
