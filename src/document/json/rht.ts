@@ -45,7 +45,7 @@ export class RHTNode {
 }
 
 /**
- * RHT is replicated hash table with priority queue by creation time.
+ * RHT is replicated hash table by creation time.
  */
 export class RHT {
   private nodeMapByKey: Map<string, RHTNode>;
