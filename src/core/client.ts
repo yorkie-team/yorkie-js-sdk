@@ -311,6 +311,9 @@ export class Client implements Observable<ClientEvent> {
       });
   }
 
+  /**
+   * `subscribe` subscribes to the given topics.
+   */
   public subscribe(
     nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
     error?: ErrorFn,
@@ -323,14 +326,23 @@ export class Client implements Observable<ClientEvent> {
     );
   }
 
+  /**
+   * `getID` returns a ActorID of client.
+   */
   public getID(): string | undefined {
     return this.id;
   }
 
+  /**
+   * `getKey` returns a key of client.
+   */
   public getKey(): string {
     return this.key;
   }
 
+  /**
+   * `isActive` checks if the client is active.
+   */
   public isActive(): boolean {
     return this.status === ClientStatus.Activated;
   }
