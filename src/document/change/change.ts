@@ -68,7 +68,7 @@ export class Change {
   }
 
   /**
-   * Operations returns the operations of this change.
+   * `getOperations` returns the operations of this change.
    */
   public getOperations(): Operation[] {
     return this.operations;
