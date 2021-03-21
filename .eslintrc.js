@@ -35,4 +35,12 @@ module.exports = {
       },
     ],
   },
+  overrides: [
+    {
+      files: ['test/**/*'],
+      rules: {
+        'jsdoc/require-jsdoc': 'off',
+      },
+    },
+  ],
 };
