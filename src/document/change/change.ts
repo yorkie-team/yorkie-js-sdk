@@ -75,7 +75,7 @@ export class Change {
   }
 
   /**
-   * SetActor sets the given actor.
+   * `setActor` sets the given actor.
    */
   public setActor(actorID: ActorID): void {
     for (const operation of this.operations) {
