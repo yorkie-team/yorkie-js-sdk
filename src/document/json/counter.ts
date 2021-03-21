@@ -29,7 +29,7 @@ export enum CounterType {
 type CounterValue = number | Long;
 
 /**
- * Counter represents changeable number data type.
+ * `Counter` represents changeable number data type.
  */
 export class Counter extends JSONElement {
   private valueType?: CounterType;
@@ -41,10 +41,15 @@ export class Counter extends JSONElement {
     this.value = value;
   }
 
+  /**
+   * `of` creates a new instance of Counter.
+   */
   public static of(value: CounterValue, createdAt: TimeTicket): Counter {
     return new Counter(value, createdAt);
   }
-
+  /**
+   * `valueFromBytes` parses the given bytes into value.
+   */
   public static valueFromBytes(
     counterType: CounterType,
     bytes: Uint8Array,
@@ -69,24 +74,39 @@ export class Counter extends JSONElement {
     }
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of the value.
+   */
   public toJSON(): string {
     return `${this.value}`;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of the value.
+   */
   public toSortedJSON(): string {
     return this.toJSON();
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): Counter {
     const counter = Counter.of(this.value, this.getCreatedAt());
     counter.setMovedAt(this.getMovedAt());
     return counter;
   }
 
+  /**
+   * `getType` returns the type of the value.
+   */
   public getType(): CounterType {
     return this.valueType!;
   }
 
+  /**
+   * `getCounterType` returns counter type of given value.
+   */
   public static getCounterType(value: CounterValue): CounterType | undefined {
     switch (typeof value) {
       case 'number':
@@ -99,17 +119,22 @@ export class Counter extends JSONElement {
 
     return;
   }
-
+  /**
+   * `isSupport` check if there is a counter type of given value.
+   */
   public static isSupport(value: CounterValue): boolean {
     return !!Counter.getCounterType(value);
   }
 
+  /**
+   * `isInteger` checks if the num is integer.
+   */
   public static isInteger(num: number): boolean {
     return num % 1 === 0;
   }
 
   /**
-   * isNumericType check numeric type by JSONCounter
+   * `isNumericType` check numeric type by JSONCounter.
    */
   public isNumericType(): boolean {
     const t = this.valueType;
@@ -120,10 +145,16 @@ export class Counter extends JSONElement {
     );
   }
 
+  /**
+   * `getValue` get counter value.
+   */
   public getValue(): CounterValue {
     return this.value;
   }
 
+  /**
+   * `toBytes` creates an array representing the value.
+   */
   public toBytes(): Uint8Array {
     switch (this.valueType) {
       case CounterType.IntegerCnt: {
@@ -156,9 +187,12 @@ export class Counter extends JSONElement {
   }
 
   /**
-   * increase increase numeric data.
+   * `increase` increases numeric data.
    */
   public increase(v: JSONPrimitive): Counter {
+    /**
+     * `checkNumericType` checks if the given target is a numeric type.
+     */
     function checkNumericType(target: JSONPrimitive | Counter): void {
       if (!target.isNumericType()) {
         throw new TypeError(

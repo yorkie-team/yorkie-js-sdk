@@ -16,6 +16,9 @@
 
 import { TimeTicket } from '../time/ticket';
 
+/**
+ * `RHTNode` is a node of RHT(Replicated Hashtable).
+ */
 export class RHTNode {
   private key: string;
   private value: string;
@@ -27,18 +30,30 @@ export class RHTNode {
     this.updatedAt = updatedAt;
   }
 
+  /**
+   * `of` creates a new instance of RHTNode.
+   */
   public static of(key: string, value: string, createdAt: TimeTicket): RHTNode {
     return new RHTNode(key, value, createdAt);
   }
 
+  /**
+   * `getKey` returns a key of node.
+   */
   public getKey(): string {
     return this.key;
   }
 
+  /**
+   * `getValue` returns a value of node.
+   */
   public getValue(): string {
     return this.value;
   }
 
+  /**
+   * `getUpdatedAt `returns updated time of node.
+   */
   public getUpdatedAt(): TimeTicket {
     return this.updatedAt;
   }
@@ -46,6 +61,7 @@ export class RHTNode {
 
 /**
  * RHT is replicated hash table by creation time.
+ * For more details about RHT: @see http://csl.skku.edu/papers/jpdc11.pdf
  */
 export class RHT {
   private nodeMapByKey: Map<string, RHTNode>;
@@ -56,10 +72,16 @@ export class RHT {
     this.nodeMapByCreatedAt = new Map();
   }
 
+  /**
+   * `create` creates a new instance of RHT.
+   */
   public static create(): RHT {
     return new RHT();
   }
 
+  /**
+   * `set` sets the value of the given key.
+   */
   public set(key: string, value: string, executedAt: TimeTicket): void {
     const prev = this.nodeMapByKey.get(key);
 
@@ -70,10 +92,16 @@ export class RHT {
     }
   }
 
+  /**
+   * `has` returns whether the element exists of the given key or not.
+   */
   public has(key: string): boolean {
     return this.nodeMapByKey.has(key);
   }
 
+  /**
+   * `get` returns the value of the given key.
+   */
   public get(key: string): string | undefined {
     if (!this.nodeMapByKey.has(key)) {
       return;
@@ -82,6 +110,9 @@ export class RHT {
     return this.nodeMapByKey.get(key)!.getValue();
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): RHT {
     const rht = new RHT();
     for (const [, node] of this.nodeMapByKey) {
@@ -90,6 +121,9 @@ export class RHT {
     return rht;
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this hashtable.
+   */
   public toJSON(): string {
     const items = [];
     for (const [key, node] of this.nodeMapByKey) {
@@ -98,6 +132,9 @@ export class RHT {
     return `{${items.join(',')}}`;
   }
 
+  /**
+   * `toObject` returns the object of this hashtable.
+   */
   public toObject(): { [key: string]: string } {
     const obj = {} as { [key: string]: string };
     for (const [key, node] of this.nodeMapByKey) {
@@ -107,6 +144,7 @@ export class RHT {
     return obj;
   }
 
+  //eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
     for (const [, node] of this.nodeMapByKey) {
       yield node as RHTNode;
