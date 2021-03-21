@@ -54,7 +54,7 @@ export class Change {
   }
 
   /**
-   * getID returns the ID of this change.
+   * `getID` returns the ID of this change.
    */
   public getID(): ChangeID {
     return this.id;
