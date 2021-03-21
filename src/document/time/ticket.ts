@@ -27,7 +27,7 @@ export const TicketComparator: Comparator<TimeTicket> = (
 
 /**
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
- * It is created by change.ID.
+ * It is created by `ChangeID`.
  */
 export class TimeTicket {
   private lamport: Long;
