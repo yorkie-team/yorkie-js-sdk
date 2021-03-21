@@ -19,7 +19,7 @@ import { ActorID, InitialActorID } from '../time/actor_id';
 import { TimeTicket } from '../time/ticket';
 
 /**
- * ChangeID is for identifying the Change. This is immutable.
+ * `ChangeID` is for identifying the Change. This is immutable.
  */
 export class ChangeID {
   private clientSeq: number;
@@ -33,7 +33,7 @@ export class ChangeID {
   }
 
   /**
-   * of creates a new instance of ChangeID.
+   * `of` creates a new instance of ChangeID.
    */
   public static of(
     clientSeq: number,
@@ -44,14 +44,14 @@ export class ChangeID {
   }
 
   /**
-   * next creates a next ID of this ID.
+   * `next` creates a next ID of this ID.
    */
   public next(): ChangeID {
     return new ChangeID(this.clientSeq + 1, this.lamport.add(1), this.actor);
   }
 
   /**
-   * syncLamport syncs lamport timestamp with the given ID.
+   * `syncLamport` syncs lamport timestamp with the given ID.
    *
    * @see {@link https://en.wikipedia.org/wiki/Lamport_timestamps#Algorithm}
    */
@@ -64,49 +64,49 @@ export class ChangeID {
   }
 
   /**
-   * createTimeTicket creates a ticket of the given delimiter.
+   * `createTimeTicket` creates a ticket of the given delimiter.
    */
   public createTimeTicket(delimiter: number): TimeTicket {
     return TimeTicket.of(this.lamport, delimiter, this.actor);
   }
 
   /**
-   * setActor sets the given actor.
+   * `setActor` sets the given actor.
    */
   public setActor(actorID: ActorID): ChangeID {
     return new ChangeID(this.clientSeq, this.lamport, actorID);
   }
 
   /**
-   * getClientSeq returns the client sequence of this ID.
+   * `getClientSeq` returns the client sequence of this ID.
    */
   public getClientSeq(): number {
     return this.clientSeq;
   }
 
   /**
-   * getLamport returns the lamport clock of this ID.
+   * `getLamport` returns the lamport clock of this ID.
    */
   public getLamport(): Long {
     return this.lamport;
   }
 
   /**
-   * getLamportAsString returns the lamport clock of this ID as a string.
+   * `getLamportAsString` returns the lamport clock of this ID as a string.
    */
   public getLamportAsString(): string {
     return this.lamport.toString();
   }
 
   /**
-   * getActorID returns the actor of this ID.
+   * `getActorID` returns the actor of this ID.
    */
   public getActorID(): string | undefined {
     return this.actor;
   }
 
   /**
-   * getAnnotatedString returns a string containing the meta data of this ID.
+   * `getAnnotatedString` returns a string containing the meta data of this ID.
    */
   public getAnnotatedString(): string {
     if (!this.actor) {
@@ -119,7 +119,7 @@ export class ChangeID {
 }
 
 /**
- * InitialChangeID represents the initial state ID. Usually this is used to
+ * `InitialChangeID` represents the initial state ID. Usually this is used to
  * represent a state where nothing has been edited.
  */
 export const InitialChangeID = new ChangeID(
