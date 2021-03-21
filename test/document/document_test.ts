@@ -638,6 +638,34 @@ describe('Document', function () {
     }
   });
 
+  it('text garbage collection test', function () {
+    const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
+    doc.update((root) => root.createText('text'));
+    doc.update((root) => root.text.edit(0, 0, 'ABCD'));
+    doc.update((root) => root.text.edit(0, 2, '12'));
+
+    assert.equal(
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 AB}[2:00:1:2 CD]',
+      doc.getRoot().text.getAnnotatedString(),
+    );
+
+    assert.equal(1, doc.getGarbageLen());
+    doc.garbageCollect(MaxTimeTicket);
+    assert.equal(0, doc.getGarbageLen());
+
+    assert.equal(
+      '[0:00:0:0 ][3:00:1:0 12][2:00:1:2 CD]',
+      doc.getRoot().text.getAnnotatedString(),
+    );
+
+    doc.update((root) => root.text.edit(2, 4, ''));
+
+    assert.equal(
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:2 CD}',
+      doc.getRoot().text.getAnnotatedString(),
+    );
+  });
+
   it('change paths test', async function () {
     const doc = Document.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
