@@ -18,6 +18,9 @@ import { ActorID } from '../time/actor_id';
 import { TimeTicket } from '../time/ticket';
 import { JSONRoot } from '../json/root';
 
+/**
+ * `Operation` represents an operation to be executed on a document.
+ */
 export abstract class Operation {
   private parentCreatedAt: TimeTicket;
   private executedAt: TimeTicket;
@@ -27,19 +30,40 @@ export abstract class Operation {
     this.executedAt = executedAt;
   }
 
+  /**
+   * `getParentCreatedAt` returns the creation time of the target element to
+   * execute the operation.
+   */
   public getParentCreatedAt(): TimeTicket {
     return this.parentCreatedAt;
   }
 
+  /**
+   * `getExecutedAt` returns execution time of this operation.
+   */
   public getExecutedAt(): TimeTicket {
     return this.executedAt;
   }
 
+  /**
+   * `setActor` sets the given actor to this operation.
+   */
   public setActor(actorID: ActorID): void {
     this.executedAt = this.executedAt.setActor(actorID);
   }
 
+  /**
+   * `getEffectedCreatedAt` returns the time of the effected element.
+   */
   public abstract getEffectedCreatedAt(): TimeTicket;
+
+  /**
+   * `getAnnotatedString` returns a string containing the meta data.
+   */
   public abstract getAnnotatedString(): string;
+
+  /**
+   * `execute` executes this operation on the given document(`root`).
+   */
   public abstract execute(root: JSONRoot): void;
 }

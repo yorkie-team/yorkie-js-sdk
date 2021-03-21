@@ -21,6 +21,10 @@ import { JSONRoot } from '../json/root';
 import { JSONObject } from '../json/object';
 import { Operation } from './operation';
 
+/**
+ * `SetOperation` represents an operation that stores the value corresponding to the
+ * given key in the Object.
+ */
 export class SetOperation extends Operation {
   private key: string;
   private value: JSONElement;
@@ -36,6 +40,9 @@ export class SetOperation extends Operation {
     this.value = value;
   }
 
+  /**
+   * `create` creates a new instance of SetOperation.
+   */
   public static create(
     key: string,
     value: JSONElement,
@@ -45,6 +52,9 @@ export class SetOperation extends Operation {
     return new SetOperation(key, value, parentCreatedAt, executedAt);
   }
 
+  /**
+   * `execute` executes this operation on the given document(`root`).
+   */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONObject) {
@@ -57,19 +67,31 @@ export class SetOperation extends Operation {
     }
   }
 
+  /**
+   * `getEffectedCreatedAt` returns the time of the effected element.
+   */
+  public getEffectedCreatedAt(): TimeTicket {
+    return this.value.getCreatedAt();
+  }
+
+  /**
+   * `getAnnotatedString` returns a string containing the meta data.
+   */
   public getAnnotatedString(): string {
     return `${this.getParentCreatedAt().getAnnotatedString()}.SET`;
   }
 
+  /**
+   * `getKey` returns the key of this operation.
+   */
   public getKey(): string {
     return this.key;
   }
 
+  /**
+   * `getValue` returns the value of this operation.
+   */
   public getValue(): JSONElement {
     return this.value;
-  }
-
-  public getEffectedCreatedAt(): TimeTicket {
-    return this.value.getCreatedAt();
   }
 }
