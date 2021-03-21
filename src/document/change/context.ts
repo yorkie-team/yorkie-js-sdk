@@ -52,26 +52,45 @@ export class ChangeContext {
     return new ChangeContext(id, root, message);
   }
 
+  /**
+   * push pushes the given operation to this context.
+   */
   public push(operation: Operation): void {
     this.operations.push(operation);
   }
 
+  /**
+   * registerElement registers the given element to the root.
+   */
   public registerElement(element: JSONElement, parent: JSONContainer): void {
     this.root.registerElement(element, parent);
   }
 
+  /**
+   * registerRemovedElement register removed element for garbage collection.
+   */
   public registerRemovedElement(deleted: JSONElement): void {
     this.root.registerRemovedElement(deleted);
   }
 
+  /**
+   * registerRemovedNodeTextElement register text element has removed node for
+   * garbage collection.
+   */
   public registerRemovedNodeTextElement(text: TextElement): void {
     this.root.registerTextWithGarbage(text);
   }
 
+  /**
+   * getChange creates a new instance of Change in this context.
+   */
   public getChange(): Change {
     return Change.create(this.id, this.operations, this.message);
   }
 
+  /**
+   * hasOperations returns the whether this context has operations or not.
+   */
   public hasOperations(): boolean {
     return this.operations.length > 0;
   }

@@ -42,6 +42,9 @@ export class Change {
     this.message = message;
   }
 
+  /**
+   * create creates a new instance of Change.
+   */
   public static create(
     id: ChangeID,
     operations: Operation[],
@@ -50,18 +53,30 @@ export class Change {
     return new Change(id, operations, message);
   }
 
+  /**
+   * getID returns the ID of this change.
+   */
   public getID(): ChangeID {
     return this.id;
   }
 
+  /**
+   * getMessage returns the message of this change.
+   */
   public getMessage(): string | undefined {
     return this.message;
   }
 
+  /**
+   * Operations returns the operations of this change.
+   */
   public getOperations(): Operation[] {
     return this.operations;
   }
 
+  /**
+   * SetActor sets the given actor.
+   */
   public setActor(actorID: ActorID): void {
     for (const operation of this.operations) {
       operation.setActor(actorID);
@@ -70,12 +85,18 @@ export class Change {
     this.id = this.id.setActor(actorID);
   }
 
+  /**
+   * execute executes the operations of this change to the given root.
+   */
   public execute(root: JSONRoot): void {
     for (const operation of this.operations) {
       operation.execute(root);
     }
   }
 
+  /**
+   * getAnnotatedString returns a string containing the meta data of this change.
+   */
   public getAnnotatedString(): string {
     return `${this.operations
       .map((operation) => operation.getAnnotatedString())
