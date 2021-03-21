@@ -53,13 +53,16 @@ export class CounterProxy {
     };
   }
 
+  /**
+   * `create` creates a new instance of CounterProxy.
+   */
   public static create(context: ChangeContext, target: Counter): Counter {
     const numberProxy = new CounterProxy(context, target);
     return new Proxy(target, numberProxy.getHandlers());
   }
 
   /**
-   * Increase adds an increase operation.
+   * `increase` adds an increase operation.
    * Only numeric types are allowed as operand values.
    */
   public increase(v: number | Long): CounterProxy {
@@ -78,6 +81,9 @@ export class CounterProxy {
     return this;
   }
 
+  /**
+   * `getHandlers` gets handlers.
+   */
   public getHandlers(): any {
     return this.handlers;
   }

@@ -28,6 +28,9 @@ import { RichTextProxy } from './rich_text_proxy';
 import { CounterProxy } from './counter_proxy';
 import { Counter } from '../json/counter';
 
+/**
+ * `createProxy` create a new instance of ObjectProxy.
+ */
 export function createProxy<T>(
   context: ChangeContext,
   target: JSONObject,
@@ -35,6 +38,9 @@ export function createProxy<T>(
   return ObjectProxy.create(context, target) as T & JSONObject;
 }
 
+/**
+ * `toProxy` returns a proxy based on element.
+ */
 export function toProxy(context: ChangeContext, elem?: JSONElement): any {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;

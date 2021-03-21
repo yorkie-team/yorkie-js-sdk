@@ -25,6 +25,10 @@ export const TicketComparator: Comparator<TimeTicket> = (
   return p1.compare(p2);
 };
 
+/**
+ * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
+ * It is created by change.ID.
+ */
 export class TimeTicket {
   private lamport: Long;
   private delimiter: number;
@@ -36,6 +40,9 @@ export class TimeTicket {
     this.actorID = actorID;
   }
 
+  /**
+   * `of` creates an instance of Ticket.
+   */
   public static of(
     lamport: Long,
     delimiter: number,
@@ -44,6 +51,9 @@ export class TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
 
+  /**
+   * `toIDString` returns the lamport string for this Ticket.
+   */
   public toIDString(): string {
     if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
@@ -51,6 +61,10 @@ export class TimeTicket {
     return `${this.lamport.toString()}:${this.actorID}:${this.delimiter}`;
   }
 
+  /**
+   * `getAnnotatedString` returns a string containing the meta data of the ticket
+   * for debugging purpose.
+   */
   public getAnnotatedString(): string {
     if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
@@ -60,30 +74,53 @@ export class TimeTicket {
     }`;
   }
 
+  /**
+   * `setActor` creates a new instance of Ticket with the given actorID.
+   */
   public setActor(actorID: ActorID): TimeTicket {
     return new TimeTicket(this.lamport, this.delimiter, actorID);
   }
 
+  /**
+   * `getLamportAsString` returns the lamport string.
+   */
   public getLamportAsString(): string {
     return this.lamport.toString();
   }
 
+  /**
+   * `getDelimiter` returns delimiter.
+   */
   public getDelimiter(): number {
     return this.delimiter;
   }
 
+  /**
+   * `getActorID` returns actorID.
+   */
   public getActorID(): string | undefined {
     return this.actorID;
   }
 
+  /**
+   * `after` returns whether the given ticket was created later.
+   */
   public after(other: TimeTicket): boolean {
     return this.compare(other) > 0;
   }
 
+  /**
+   * `equals` returns whether the given ticket was created.
+   */
   public equals(other: TimeTicket): boolean {
     return this.compare(other) === 0;
   }
 
+  /**
+   * `compare` returns an integer comparing two Ticket.
+   *  The result will be 0 if id==other, -1 if `id < other`, and +1 if `id > other`.
+   *  If the receiver or argument is nil, it would panic at runtime.
+   */
   public compare(other: TimeTicket): number {
     if (this.lamport.greaterThan(other.lamport)) {
       return 1;

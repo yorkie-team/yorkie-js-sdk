@@ -27,6 +27,9 @@ import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
 import { ObjectProxy } from './object_proxy';
 import { toProxy } from './proxy';
 
+/**
+ * `isNumericString` checks if value is numeric string.
+ */
 function isNumericString(val: any): boolean {
   if (typeof val === 'string' || val instanceof String) {
     return !isNaN(val as any);
@@ -34,6 +37,9 @@ function isNumericString(val: any): boolean {
   return false;
 }
 
+/**
+ * `ArrayProxy` is a proxy representing Array.
+ */
 export class ArrayProxy {
   private context: ChangeContext;
   private handlers: any;
@@ -142,6 +148,7 @@ export class ArrayProxy {
     };
   }
 
+  //eslint-disable-next-line jsdoc/require-jsdoc
   public static *iteratorInternal(
     change: ChangeContext,
     target: JSONArray,
@@ -151,11 +158,17 @@ export class ArrayProxy {
     }
   }
 
+  /**
+   * `create` creates a new instance of ArrayProxy.
+   */
   public static create(context: ChangeContext, target: JSONArray): JSONArray {
     const arrayProxy = new ArrayProxy(context, target);
     return new Proxy(target, arrayProxy.getHandlers());
   }
 
+  /**
+   * `pushInternal` pushes the value to the target array.
+   */
   public static pushInternal(
     context: ChangeContext,
     target: JSONArray,
@@ -170,6 +183,10 @@ export class ArrayProxy {
     return target.length;
   }
 
+  /**
+   * `moveBeforeInternal` moves the given `createdAt` element
+   * after the previously created element.
+   */
   public static moveBeforeInternal(
     context: ChangeContext,
     target: JSONArray,
@@ -189,6 +206,9 @@ export class ArrayProxy {
     );
   }
 
+  /**
+   * `insertAfterInternal` inserts the value after the previously created element.
+   */
   public static insertAfterInternal(
     context: ChangeContext,
     target: JSONArray,
@@ -242,6 +262,9 @@ export class ArrayProxy {
     }
   }
 
+  /**
+   * `deleteInternalByIndex` deletes target element of given index.
+   */
   public static deleteInternalByIndex(
     context: ChangeContext,
     target: JSONArray,
@@ -264,6 +287,9 @@ export class ArrayProxy {
     return deleted;
   }
 
+  /**
+   * `deleteInternalByID` deletes the element of the given index.
+   */
   public static deleteInternalByID(
     context: ChangeContext,
     target: JSONArray,
@@ -282,6 +308,9 @@ export class ArrayProxy {
     return deleted;
   }
 
+  /**
+   * `getHandlers` gets handlers.
+   */
   public getHandlers(): any {
     return this.handlers;
   }

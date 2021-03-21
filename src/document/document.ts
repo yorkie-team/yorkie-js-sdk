@@ -74,7 +74,7 @@ export type Indexable = {
 };
 
 /**
- * Document represents a document in MongoDB and contains logical clocks.
+ * `Document` represents a document in MongoDB and contains logical clocks.
  */
 export class Document<T = Indexable> implements Observable<DocEvent> {
   private key: DocumentKey;
@@ -98,7 +98,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * create creates a new instance of Document.
+   * `create` creates a new instance of Document.
    */
   public static create<T = Indexable>(
     collection: string,
@@ -108,7 +108,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * update executes the given updater to update this document.
+   * `update` executes the given updater to update this document.
    */
   public update(
     updater: (root: T & JSONObject) => void,
@@ -159,6 +159,9 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     }
   }
 
+  /**
+   * `subscribe` returns document event observer.
+   */
   public subscribe(
     nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
     error?: ErrorFn,
@@ -169,6 +172,10 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * applyChangePack applies the given change pack into this document.
+   * 1. Remove local changes applied to server.
+   * 2. Update the checkpoint.
+   * 3. Do Garbage collection.
+   * @param pack - change pack
    */
   public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
@@ -200,14 +207,23 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     }
   }
 
+  /**
+   * `getCheckpoint` returns the checkpoint of this document.
+   */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
   }
 
+  /**
+   * `hasLocalChanges` returns whether this document has local changes or not.
+   */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
   }
 
+  /**
+   * `ensureClone` make a clone of root.
+   */
   public ensureClone(): void {
     if (this.clone) {
       return;
@@ -217,7 +233,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * createChangePack create change pack of the local changes to send to the
+   * `createChangePack` create change pack of the local changes to send to the
    * remote server.
    */
   public createChangePack(): ChangePack {
@@ -227,7 +243,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * setActor sets actor into this document. This is also applied in the local
+   * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
    */
   public setActor(actorID: ActorID): void {
@@ -239,10 +255,16 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     // TODO also apply into root.
   }
 
+  /**
+   * `getKey` returns the key of this document.
+   */
   public getKey(): DocumentKey {
     return this.key;
   }
 
+  /**
+   * `getClone` return clone object.
+   */
   public getClone(): JSONObject | undefined {
     if (!this.clone) {
       return;
@@ -251,6 +273,9 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return this.clone.getObject();
   }
 
+  /**
+   * `getRoot` returns a new proxy of cloned root.
+   */
   public getRoot(): T {
     this.ensureClone();
 
@@ -258,6 +283,9 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return createProxy<T>(context, this.clone!.getObject());
   }
 
+  /**
+   * `garbageCollect` purges elements that were removed before the given time.
+   */
   public garbageCollect(ticket: TimeTicket): number {
     if (this.clone) {
       this.clone.garbageCollect(ticket);
@@ -265,18 +293,30 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
     return this.root.garbageCollect(ticket);
   }
 
+  /**
+   * `getRootObject` returns root object.
+   */
   public getRootObject(): JSONObject {
     return this.root.getObject();
   }
 
+  /**
+   * `getGarbageLen` returns the length of elements should be purged.
+   */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this array.
+   */
   public toJSON(): string {
     return this.root.toJSON();
   }
 
+  /**
+   * `toJSON` returns the sorted JSON encoding of this array.
+   */
   public toSortedJSON(): string {
     return this.root.toSortedJSON();
   }
