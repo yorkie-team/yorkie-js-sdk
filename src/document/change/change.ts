@@ -95,7 +95,7 @@ export class Change {
   }
 
   /**
-   * getAnnotatedString returns a string containing the meta data of this change.
+   * `getAnnotatedString` returns a string containing the meta data of this change.
    */
   public getAnnotatedString(): string {
     return `${this.operations
