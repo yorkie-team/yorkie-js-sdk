@@ -61,7 +61,7 @@ export class Change {
   }
 
   /**
-   * getMessage returns the message of this change.
+   * `getMessage` returns the message of this change.
    */
   public getMessage(): string | undefined {
     return this.message;
