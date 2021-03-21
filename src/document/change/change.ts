@@ -86,7 +86,7 @@ export class Change {
   }
 
   /**
-   * execute executes the operations of this change to the given root.
+   * `execute` executes the operations of this change to the given root.
    */
   public execute(root: JSONRoot): void {
     for (const operation of this.operations) {
