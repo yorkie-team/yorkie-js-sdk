@@ -133,7 +133,7 @@ export class JSONArray extends JSONContainer {
     return this.elements.length;
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<JSONElement> {
     for (const node of this.elements) {
       if (!node.isRemoved()) {
