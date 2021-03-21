@@ -43,7 +43,7 @@ export class Change {
   }
 
   /**
-   * create creates a new instance of Change.
+   * `create` creates a new instance of Change.
    */
   public static create(
     id: ChangeID,
