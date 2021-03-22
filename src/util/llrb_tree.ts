@@ -136,7 +136,8 @@ export class LLRBTree<K, V> {
   }
 
   /**
-   * `floorEntry`
+   * `floorEntry` returns the entry for the greatest key less than or equal to the
+   *  given key. If there is no such key, returns `undefined`.
    */
   public floorEntry(key: K): Entry<K, V> | undefined {
     let node = this.root;
