@@ -575,7 +575,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return json.join('');
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RGATreeSplitNode<T>> {
     let node = this.head.getNext();
     while (node) {

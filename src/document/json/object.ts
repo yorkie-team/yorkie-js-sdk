@@ -209,7 +209,7 @@ export class JSONObject extends JSONContainer {
     }
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     const keySet = new Set<string>();
     for (const node of this.memberNodes) {

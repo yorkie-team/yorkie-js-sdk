@@ -144,7 +144,7 @@ export class RHT {
     return obj;
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
     for (const [, node] of this.nodeMapByKey) {
       yield node as RHTNode;

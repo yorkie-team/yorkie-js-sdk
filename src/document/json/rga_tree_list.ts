@@ -383,7 +383,7 @@ export class RGATreeList {
     return json.join('');
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RGATreeListNode> {
     let node = this.dummyHead.getNext();
     while (node) {

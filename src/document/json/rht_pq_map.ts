@@ -178,7 +178,7 @@ export class RHTPQMap {
     return this.elementQueueMapByKey!.get(key)!.peek()!.getValue();
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTPQMapNode> {
     for (const [, heap] of this.elementQueueMapByKey) {
       for (const node of heap) {

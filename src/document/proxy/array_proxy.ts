@@ -148,7 +148,7 @@ export class ArrayProxy {
     };
   }
 
-  //eslint-disable-next-line jsdoc/require-jsdoc
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public static *iteratorInternal(
     change: ChangeContext,
     target: JSONArray,
