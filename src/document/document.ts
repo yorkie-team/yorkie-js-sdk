@@ -171,7 +171,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * applyChangePack applies the given change pack into this document.
+   * `applyChangePack` applies the given change pack into this document.
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
    * 3. Do Garbage collection.

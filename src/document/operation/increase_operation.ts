@@ -23,8 +23,8 @@ import { logger } from '../../util/logger';
 import { Counter } from '../json/counter';
 
 /**
- * Increase can be used to increment data of numerical type.
- * It can be used in Counter type.
+ * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
+ * Among Primitives, numeric types Integer, Long, and Double are used as values.
  */
 export class IncreaseOperation extends Operation {
   private value: JSONElement;
@@ -38,6 +38,9 @@ export class IncreaseOperation extends Operation {
     this.value = value;
   }
 
+  /**
+   * `create` creates a new instance of IncreaseOperation.
+   */
   public static create(
     parentCreatedAt: TimeTicket,
     value: JSONElement,
@@ -46,6 +49,9 @@ export class IncreaseOperation extends Operation {
     return new IncreaseOperation(parentCreatedAt, value, executedAt);
   }
 
+  /**
+   * `execute` executes this operation on the given document(`root`).
+   */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof Counter) {
@@ -57,14 +63,23 @@ export class IncreaseOperation extends Operation {
     }
   }
 
+  /**
+   * `getEffectedCreatedAt` returns the time of the effected element.
+   */
   public getEffectedCreatedAt(): TimeTicket {
     return this.getParentCreatedAt();
   }
 
+  /**
+   * `getAnnotatedString` returns a string containing the meta data.
+   */
   public getAnnotatedString(): string {
     return `${this.getParentCreatedAt().getAnnotatedString()}.INCREASE`;
   }
 
+  /**
+   * `getValue` returns the value of this operation.
+   */
   public getValue(): JSONElement {
     return this.value;
   }
