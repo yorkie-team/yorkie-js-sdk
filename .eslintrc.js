@@ -32,6 +32,7 @@ module.exports = {
           ClassDeclaration: true,
         },
         checkConstructors: false,
+        enableFixer: false,
       },
     ],
   },
