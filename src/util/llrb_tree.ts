@@ -21,6 +21,9 @@ interface Entry<K, V> {
   value: V;
 }
 
+/**
+ * `LLRBNode` is node of LLRBTree
+ */
 class LLRBNode<K, V> {
   public key: K;
   public value: V;
@@ -36,6 +39,9 @@ class LLRBNode<K, V> {
   }
 }
 
+/**
+ * `SortedMapIterator` is a interator for traversing LLRBTree.
+ */
 export class SortedMapIterator<K, V> {
   public stack: Array<Entry<K, V>>;
 
@@ -63,7 +69,7 @@ export class SortedMapIterator<K, V> {
  * LLRBTree is an implementation of Left-learning Red-Black Tree.
  *
  * Original paper on Left-leaning Red-Black Trees:
- * - http://www.cs.princeton.edu/~rs/talks/LLRB/LLRB.pdf
+ * @see http://www.cs.princeton.edu/~rs/talks/LLRB/LLRB.pdf
  *
  * Invariant 1: No red node has a red child
  * Invariant 2: Every leaf path has the same number of black nodes
@@ -80,17 +86,26 @@ export class LLRBTree<K, V> {
     this.counter = 0;
   }
 
+  /**
+   * `put` puts the value of the given key.
+   */
   public put(key: K, value: V): V {
     this.root = this.putInternal(key, value, this.root);
     this.root.isRed = false;
     return value;
   }
 
+  /**
+   * `get` gets a value of the given key.
+   */
   public get(key: K): V | undefined {
     const node = this.getInternal(key, this.root);
     return node ? node.value : undefined;
   }
 
+  /**
+   * `remove` removes a element of key.
+   */
   public remove(key: K): void {
     if (!this.isRed(this.root!.left!) && !this.isRed(this.root!.right!)) {
       this.root!.isRed = true;
@@ -102,10 +117,16 @@ export class LLRBTree<K, V> {
     }
   }
 
+  /**
+   * `getIterator` returns a new instance of SortedMapIterator.
+   */
   public getIterator(): SortedMapIterator<K, V> {
     return new SortedMapIterator(this.root!);
   }
 
+  /**
+   * `values` returns value array of LLRBTree.
+   */
   public values(): Array<V> {
     const values = [];
     for (const entry of this.getIterator().stack) {
@@ -114,6 +135,9 @@ export class LLRBTree<K, V> {
     return values;
   }
 
+  /**
+   * `floorEntry`
+   */
   public floorEntry(key: K): Entry<K, V> | undefined {
     let node = this.root;
     while (node) {
@@ -145,6 +169,9 @@ export class LLRBTree<K, V> {
     return;
   }
 
+  /**
+   * `lastEntry` returns last entry of LLRBTree.
+   */
   public lastEntry(): Entry<K, V> | undefined {
     if (!this.root) {
       return this.root;
@@ -157,10 +184,16 @@ export class LLRBTree<K, V> {
     return node;
   }
 
+  /**
+   * `size` is a size of LLRBTree.
+   */
   public size(): number {
     return this.counter;
   }
 
+  /**
+   * `isEmpty` checks if size is empty.
+   */
   public isEmpty(): boolean {
     return this.counter === 0;
   }

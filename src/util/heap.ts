@@ -16,6 +16,9 @@
 
 import { Comparator, DefaultComparator } from './comparator';
 
+/**
+ * `HeapNode` is a node of `Heap`.
+ */
 export class HeapNode<K, V> {
   private key: K;
   private value: V;
@@ -25,15 +28,24 @@ export class HeapNode<K, V> {
     this.value = value;
   }
 
+  /**
+   * `getKey` returns a key of HeapNode.
+   */
   public getKey(): K {
     return this.key;
   }
 
+  /**
+   * `getValue` returns a value of HeapNode.
+   */
   public getValue(): V {
     return this.value;
   }
 }
 
+/**
+ * `Heap` is a heap implemented with max heap.
+ */
 export class Heap<K, V> {
   private nodes: HeapNode<K, V>[];
   private comparator: Comparator<K>;
@@ -43,6 +55,9 @@ export class Heap<K, V> {
     this.nodes = [];
   }
 
+  /**
+   * `peek` returns the maximum element from this Heap.
+   */
   public peek(): HeapNode<K, V> | undefined {
     if (!this.nodes.length) {
       return;
@@ -51,10 +66,16 @@ export class Heap<K, V> {
     return this.nodes[0];
   }
 
+  /**
+   * `len` is the number of elements in this Heap.
+   */
   public len(): number {
     return this.nodes.length;
   }
 
+  /**
+   * `release` deletes the given value from this Heap.
+   */
   public release(node: HeapNode<K, V>): void {
     const targetIndex = this.nodes.findIndex(
       (_node) => _node.getValue() === node.getValue(),
@@ -70,11 +91,17 @@ export class Heap<K, V> {
     this.heapify(this.getParentIndex(targetIndex), targetIndex);
   }
 
+  /**
+   * `push` pushes the element x onto this Heap.
+   */
   public push(node: HeapNode<K, V>): void {
     this.nodes.push(node);
     this.moveUp(this.nodes.length - 1);
   }
 
+  /**
+   * `pop` removes and returns the maximum element from this Heap.
+   */
   public pop(): HeapNode<K, V> | undefined {
     const count = this.nodes.length;
     const head = this.nodes[0];
@@ -91,6 +118,7 @@ export class Heap<K, V> {
     return head;
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<HeapNode<K, V>> {
     for (const node of this.nodes) {
       yield node;

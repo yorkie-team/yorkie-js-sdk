@@ -41,6 +41,9 @@ const Noop = (): void => {
   // Do nothing
 };
 
+/**
+ * `ObserverProxy` is proxy of `Observer`.
+ */
 class ObserverProxy<T> implements Observer<T> {
   public finalized = false;
   public onNoObservers: Executor<T> | undefined;
@@ -62,12 +65,18 @@ class ObserverProxy<T> implements Observer<T> {
       });
   }
 
+  /**
+   * `complete` iterates next observer.
+   */
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.next(value);
     });
   }
 
+  /**
+   * `complete` invoke error.
+   */
   public error(error: Error): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.error!(error);
@@ -75,6 +84,9 @@ class ObserverProxy<T> implements Observer<T> {
     this.close(error);
   }
 
+  /**
+   * `complete` completes observer.
+   */
   public complete(): void {
     this.forEachObserver((observer: Observer<T>) => {
       observer.complete!();
@@ -82,6 +94,9 @@ class ObserverProxy<T> implements Observer<T> {
     this.close();
   }
 
+  /**
+   * `subscribe` is a function for subscribing observer.
+   */
   public subscribe(
     nextOrObserver: Observer<T> | NextFn<T>,
     error?: ErrorFn,
@@ -200,6 +215,10 @@ export interface Observable<T> {
 
 export type Executor<T> = (observer: Observer<T>) => void;
 
+/**
+ * `createObservable` creates a new instance of ObserverProxy
+ * and subscribe the instance.
+ */
 export function createObservable<T>(executor: Executor<T>): Observable<T> {
   const proxy = new ObserverProxy(executor);
   return {

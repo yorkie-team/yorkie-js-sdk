@@ -16,6 +16,9 @@
 
 import { logger } from './logger';
 
+/**
+ * `SplayNode` is a node of SplayTree.
+ */
 export abstract class SplayNode<V> {
   protected value: V;
 
@@ -31,76 +34,130 @@ export abstract class SplayNode<V> {
 
   abstract getLength(): number;
 
+  /**
+   * `getNodeString` returns a string of weight and value of this node.
+   */
   public getNodeString(): string {
     return `${this.weight}${this.value}`;
   }
 
+  /**
+   * `getValue` returns value of this node.
+   */
   public getValue(): V {
     return this.value;
   }
 
+  /**
+   * `getLeftWeight` returns left weight of this node.
+   */
   public getLeftWeight(): number {
     return !this.hasLeft() ? 0 : this.left!.getWeight();
   }
 
+  /**
+   * `getRightWeight` returns right weight of this node.
+   */
   public getRightWeight(): number {
     return !this.hasRight() ? 0 : this.right!.getWeight();
   }
 
+  /**
+   * `getWeight` returns weight of this node.
+   */
   public getWeight(): number {
     return this.weight;
   }
 
+  /**
+   * `getLeft` returns a left node.
+   */
   public getLeft(): SplayNode<V> | undefined {
     return this.left;
   }
 
+  /**
+   * `getRight` returns a right node.
+   */
   public getRight(): SplayNode<V> | undefined {
     return this.right;
   }
 
+  /**
+   * `setRight` sets a right node.
+   */
   public setRight(right?: SplayNode<V>): void {
     this.right = right;
   }
 
+  /**
+   * `hasLeft` check if the left node exists
+   */
   public hasLeft(): boolean {
     return !!this.left;
   }
 
+  /**
+   * `hasRight` check if the right node exists
+   */
   public hasRight(): boolean {
     return !!this.right;
   }
 
+  /**
+   * `hasParent` check if the parent node exists
+   */
   public hasParent(): boolean {
     return !!this.parent;
   }
 
+  /**
+   * `setParent` sets a parent node.
+   */
   public setParent(parent?: SplayNode<V>): void {
     this.parent = parent;
   }
 
+  /**
+   * `setLeft` sets a left node.
+   */
   public setLeft(left?: SplayNode<V>): void {
     this.left = left;
   }
 
+  /**
+   * `getParent` returns parent of this node.
+   */
   public getParent(): SplayNode<V> | undefined {
     return this.parent;
   }
 
+  /**
+   * `unlink` unlink parent, right and left node.
+   */
   public unlink(): void {
     this.parent = undefined;
     this.right = undefined;
     this.left = undefined;
   }
 
+  /**
+   * `hasLinks` checks if parent, right and left node exists.
+   */
   public hasLinks(): boolean {
     return this.hasParent() || this.hasLeft() || this.hasRight();
   }
 
+  /**
+   * `increaseWeight` increases weight.
+   */
   public increaseWeight(weight: number): void {
     this.weight! += weight;
   }
 
+  /**
+   * `initWeight` set initial weight of this node.
+   */
   public initWeight(): void {
     this.weight = this.getLength();
   }
@@ -109,7 +166,7 @@ export abstract class SplayNode<V> {
 /**
  * SplayTree is weighted binary search tree which is based on Splay tree.
  * original paper on Splay Trees:
- *  - https://www.cs.cmu.edu/~sleator/papers/self-adjusting.pdf
+ * @see https://www.cs.cmu.edu/~sleator/papers/self-adjusting.pdf
  */
 export class SplayTree<V> {
   private root?: SplayNode<V>;
@@ -118,6 +175,9 @@ export class SplayTree<V> {
     this.root = root;
   }
 
+  /**
+   * `find` returns the Node and offset of the given index.
+   */
   public find(pos: number): [SplayNode<V> | undefined, number] {
     if (!this.root) {
       return [undefined, 0];
@@ -172,14 +232,23 @@ export class SplayTree<V> {
     return index - node.getLength();
   }
 
+  /**
+   * `getRoot` returns root of this tree.
+   */
   public getRoot(): SplayNode<V> {
     return this.root!;
   }
 
+  /**
+   * `insert` inserts the node at the last.
+   */
   public insert(newNode: SplayNode<V>): SplayNode<V> {
     return this.insertAfter(this.root!, newNode);
   }
 
+  /**
+   * `insertAfter` inserts the node after the given previous node.
+   */
   public insertAfter(
     target: SplayNode<V>,
     newNode: SplayNode<V>,
@@ -204,6 +273,9 @@ export class SplayTree<V> {
     return newNode;
   }
 
+  /**
+   * `updateSubtree` increase weight of left and right node.
+   */
   public updateSubtree(node: SplayNode<V>): void {
     node.initWeight();
 
@@ -215,6 +287,9 @@ export class SplayTree<V> {
     }
   }
 
+  /**
+   * `splayNode` moves the given node to the root.
+   */
   public splayNode(node: SplayNode<V>): void {
     if (!node) {
       return;
@@ -255,6 +330,9 @@ export class SplayTree<V> {
     }
   }
 
+  /**
+   * `delete` deletes target node of this tree.
+   */
   public delete(node: SplayNode<V>): void {
     this.splayNode(node);
 
@@ -286,6 +364,10 @@ export class SplayTree<V> {
     }
   }
 
+  /**
+   * `getAnnotatedString` returns a string containing the meta data of the Node
+   * for debugging purpose.
+   */
   public getAnnotatedString(): string {
     const metaString: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root!, metaString);

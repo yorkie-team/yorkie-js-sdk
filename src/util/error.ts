@@ -21,6 +21,9 @@ export enum Code {
   Unsupported = 'unsupported',
 }
 
+/**
+ * `YorkieError` is util for viewing error message
+ */
 export class YorkieError extends Error {
   name = 'YorkieError';
   stack?: string;
