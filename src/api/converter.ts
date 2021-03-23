@@ -69,6 +69,9 @@ import {
 import { IncreaseOperation } from '../document/operation/increase_operation';
 import { CounterType, Counter } from '../document/json/counter';
 
+/**
+ * `fromMetadataMap` converts the given Protobuf format to model format.
+ */
 function fromMetadataMap(pbMetadataMap: jspb.Map<string, string>): Metadata {
   const metadata: Metadata = {};
   pbMetadataMap.forEach((value: string, key: string) => {
@@ -77,6 +80,9 @@ function fromMetadataMap(pbMetadataMap: jspb.Map<string, string>): Metadata {
   return metadata;
 }
 
+/**
+ * `toClient` converts the given model to Protobuf format.
+ */
 function toClient(id: string, metadata: Metadata): PbClient {
   const pbClient = new PbClient();
   pbClient.setId(toUint8Array(id));
@@ -88,6 +94,9 @@ function toClient(id: string, metadata: Metadata): PbClient {
   return pbClient;
 }
 
+/**
+ * `toDocumentKey` converts the given model to Protobuf format.
+ */
 function toDocumentKey(key: DocumentKey): PbDocumentKey {
   const pbDocumentKey = new PbDocumentKey();
   pbDocumentKey.setCollection(key.getCollection());
@@ -95,10 +104,16 @@ function toDocumentKey(key: DocumentKey): PbDocumentKey {
   return pbDocumentKey;
 }
 
+/**
+ * `toDocumentKeys` converts the given model to Protobuf format.
+ */
 function toDocumentKeys(keys: Array<DocumentKey>): Array<PbDocumentKey> {
   return keys.map(toDocumentKey);
 }
 
+/**
+ * `toCheckpoint` converts the given model to Protobuf format.
+ */
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
   const pbCheckpoint = new PbCheckpoint();
   pbCheckpoint.setServerSeq(checkpoint.getServerSeqAsString());
@@ -106,6 +121,9 @@ function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
   return pbCheckpoint;
 }
 
+/**
+ * `toChangeID` converts the given model to Protobuf format.
+ */
 function toChangeID(changeID: ChangeID): PbChangeID {
   const pbChangeID = new PbChangeID();
   pbChangeID.setClientSeq(changeID.getClientSeq());
@@ -114,6 +132,9 @@ function toChangeID(changeID: ChangeID): PbChangeID {
   return pbChangeID;
 }
 
+/**
+ * `toTimeTicket` converts the given model to Protobuf format.
+ */
 function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   if (!ticket) {
     return;
@@ -126,6 +147,9 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   return pbTimeTicket;
 }
 
+/**
+ * `toValueType` converts the given model to Protobuf format.
+ */
 function toValueType(valueType: PrimitiveType): PbValueType {
   switch (valueType) {
     case PrimitiveType.Null:
@@ -149,6 +173,9 @@ function toValueType(valueType: PrimitiveType): PbValueType {
   }
 }
 
+/**
+ * `toCounterType` converts the given model to Protobuf format.
+ */
 function toCounterType(valueType: CounterType): PbValueType {
   switch (valueType) {
     case CounterType.IntegerCnt:
@@ -162,6 +189,9 @@ function toCounterType(valueType: CounterType): PbValueType {
   }
 }
 
+/**
+ * `toJSONElementSimple` converts the given model to Protobuf format.
+ */
 function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   const pbJSONElement = new PbJSONElementSimple();
   if (jsonElement instanceof JSONObject) {
@@ -196,6 +226,9 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   return pbJSONElement;
 }
 
+/**
+ * `toTextNodeID` converts the given model to Protobuf format.
+ */
 function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
   const pbTextNodeID = new PbTextNodeID();
   pbTextNodeID.setCreatedAt(toTimeTicket(id.getCreatedAt()));
@@ -203,6 +236,9 @@ function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
   return pbTextNodeID;
 }
 
+/**
+ * `toTextNodePos` converts the given model to Protobuf format.
+ */
 function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
   const pbTextNodePos = new PbTextNodePos();
   pbTextNodePos.setCreatedAt(toTimeTicket(pos.getID().getCreatedAt()));
@@ -211,6 +247,9 @@ function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
   return pbTextNodePos;
 }
 
+/**
+ * `toOperation` converts the given model to Protobuf format.
+ */
 function toOperation(operation: Operation): PbOperation {
   const pbOperation = new PbOperation();
 
@@ -345,6 +384,9 @@ function toOperation(operation: Operation): PbOperation {
   return pbOperation;
 }
 
+/**
+ * `toOperations` converts the given model to Protobuf format.
+ */
 function toOperations(operations: Operation[]): PbOperation[] {
   const pbOperations = [];
   for (const operation of operations) {
@@ -353,6 +395,9 @@ function toOperations(operations: Operation[]): PbOperation[] {
   return pbOperations;
 }
 
+/**
+ * `toChange` converts the given model to Protobuf format.
+ */
 function toChange(change: Change): PbChange {
   const pbChange = new PbChange();
   pbChange.setId(toChangeID(change.getID()));
@@ -361,6 +406,9 @@ function toChange(change: Change): PbChange {
   return pbChange;
 }
 
+/**
+ * `toChanges` converts the given model to Protobuf format.
+ */
 function toChanges(changes: Change[]): PbChange[] {
   const pbChanges = [];
   for (const change of changes) {
@@ -369,6 +417,9 @@ function toChanges(changes: Change[]): PbChange[] {
   return pbChanges;
 }
 
+/**
+ * `toRHTNodes` converts the given model to Protobuf format.
+ */
 function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
@@ -382,6 +433,9 @@ function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
   return pbRHTNodes;
 }
 
+/**
+ * `toRGANodes` converts the given model to Protobuf format.
+ */
 function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
   const pbRGANodes = [];
   for (const rgaTreeListNode of rgaTreeList) {
@@ -394,6 +448,9 @@ function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
   return pbRGANodes;
 }
 
+/**
+ * `toTextNodes` converts the given model to Protobuf format.
+ */
 function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
@@ -408,6 +465,9 @@ function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
   return pbTextNodes;
 }
 
+/**
+ * `toJSONObject` converts the given model to Protobuf format.
+ */
 function toJSONObject(obj: JSONObject): PbJSONElement {
   const pbJSONObject = new PbJSONElement.JSONObject();
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
@@ -419,6 +479,9 @@ function toJSONObject(obj: JSONObject): PbJSONElement {
   return pbJSONElement;
 }
 
+/**
+ * `toJSONArray` converts the given model to Protobuf format.
+ */
 function toJSONArray(arr: JSONArray): PbJSONElement {
   const pbJSONArray = new PbJSONElement.JSONArray();
   pbJSONArray.setNodesList(toRGANodes(arr.getElements()));
@@ -430,6 +493,9 @@ function toJSONArray(arr: JSONArray): PbJSONElement {
   return pbJSONElement;
 }
 
+/**
+ * `toJSONPrimitive` converts the given model to Protobuf format.
+ */
 function toJSONPrimitive(primitive: JSONPrimitive): PbJSONElement {
   const pbJSONPrimitive = new PbJSONElement.Primitive();
   pbJSONPrimitive.setType(toValueType(primitive.getType()));
@@ -442,6 +508,9 @@ function toJSONPrimitive(primitive: JSONPrimitive): PbJSONElement {
   return pbJSONElement;
 }
 
+/**
+ * `toPlainText` converts the given model to Protobuf format.
+ */
 function toPlainText(text: PlainText): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
@@ -453,6 +522,9 @@ function toPlainText(text: PlainText): PbJSONElement {
   return pbJSONElement;
 }
 
+/**
+ * `toCounter` converts the given model to Protobuf format.
+ */
 function toCounter(counter: Counter): PbJSONElement {
   const pbJSONCounter = new PbJSONElement.Counter();
   pbJSONCounter.setType(toCounterType(counter.getType()));
@@ -465,6 +537,9 @@ function toCounter(counter: Counter): PbJSONElement {
   return pbJSONElement;
 }
 
+/**
+ * `toJSONElement` converts the given model to Protobuf format.
+ */
 function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   if (jsonElement instanceof JSONObject) {
     return toJSONObject(jsonElement);
@@ -484,6 +559,9 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
   }
 }
 
+/**
+ * `toChangePack` converts the given model to Protobuf format.
+ */
 function toChangePack(pack: ChangePack): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(toDocumentKey(pack.getKey()));
@@ -494,6 +572,9 @@ function toChangePack(pack: ChangePack): PbChangePack {
   return pbChangePack;
 }
 
+/**
+ * `fromDocumentKey` converts the given Protobuf format to model format.
+ */
 function fromDocumentKey(pbDocumentKey: PbDocumentKey): DocumentKey {
   return DocumentKey.of(
     pbDocumentKey.getCollection(),
@@ -501,12 +582,18 @@ function fromDocumentKey(pbDocumentKey: PbDocumentKey): DocumentKey {
   );
 }
 
+/**
+ * `fromDocumentKeys` converts the given Protobuf format to model format.
+ */
 function fromDocumentKeys(
   pbDocumentKeys: Array<PbDocumentKey>,
 ): Array<DocumentKey> {
   return pbDocumentKeys.map(fromDocumentKey);
 }
 
+/**
+ * `fromChangeID` converts the given Protobuf format to model format.
+ */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   return ChangeID.of(
     pbChangeID.getClientSeq(),
@@ -515,6 +602,9 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   );
 }
 
+/**
+ * `fromTimeTicket` converts the given Protobuf format to model format.
+ */
 function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   if (!pbTimeTicket) {
     return;
@@ -527,6 +617,9 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   );
 }
 
+/**
+ * `fromValueType` converts the given Protobuf format to model format.
+ */
 function fromValueType(pbValueType: PbValueType): PrimitiveType {
   switch (pbValueType) {
     case PbValueType.NULL:
@@ -552,6 +645,9 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
   );
 }
 
+/**
+ * `fromCounterType` converts the given Protobuf format to model format.
+ */
 function fromCounterType(pbValueType: PbValueType): CounterType {
   switch (pbValueType) {
     case PbValueType.INTEGER_CNT:
@@ -567,6 +663,9 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
   );
 }
 
+/**
+ * `fromJSONElementSimple` converts the given Protobuf format to model format.
+ */
 function fromJSONElementSimple(
   pbJSONElement: PbJSONElementSimple,
 ): JSONElement {
@@ -618,6 +717,9 @@ function fromJSONElementSimple(
   );
 }
 
+/**
+ * `fromTextNodePos` converts the given Protobuf format to model format.
+ */
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
   return RGATreeSplitNodePos.of(
     RGATreeSplitNodeID.of(
@@ -628,6 +730,9 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
   );
 }
 
+/**
+ * `fromTextNodeID` converts the given Protobuf format to model format.
+ */
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
     fromTimeTicket(pbTextNodeID.getCreatedAt())!,
@@ -635,6 +740,9 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   );
 }
 
+/**
+ * `fromTextNode` converts the given Protobuf format to model format.
+ */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()!),
@@ -644,6 +752,9 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
   return textNode;
 }
 
+/**
+ * `fromRichTextNode` converts the given Protobuf format to model format.
+ */
 function fromRichTextNode(
   pbTextNode: PbRichTextNode,
 ): RGATreeSplitNode<RichTextValue> {
@@ -655,6 +766,9 @@ function fromRichTextNode(
   return textNode;
 }
 
+/**
+ * `fromOperations` converts the given Protobuf format to model format.
+ */
 function fromOperations(pbOperations: PbOperation[]): Operation[] {
   const operations = [];
 
@@ -762,6 +876,9 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
   return operations;
 }
 
+/**
+ * `fromChanges` converts the given Protobuf format to model format.
+ */
 function fromChanges(pbChanges: PbChange[]): Change[] {
   const changes = [];
 
@@ -778,6 +895,9 @@ function fromChanges(pbChanges: PbChange[]): Change[] {
   return changes;
 }
 
+/**
+ * `fromCheckpoint` converts the given Protobuf format to model format.
+ */
 function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
   return Checkpoint.of(
     Long.fromString(pbCheckpoint.getServerSeq(), true),
@@ -785,6 +905,9 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
   );
 }
 
+/**
+ * `fromChangePack` converts the given Protobuf format to model format.
+ */
 function fromChangePack(pbPack: PbChangePack): ChangePack {
   return ChangePack.create(
     fromDocumentKey(pbPack.getDocumentKey()!),
@@ -795,6 +918,9 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
   );
 }
 
+/**
+ * `fromJSONObject` converts the given Protobuf format to model format.
+ */
 function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
   const rht = new RHTPQMap();
   for (const pbRHTNode of pbObject.getNodesList()) {
@@ -807,6 +933,9 @@ function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
   return obj;
 }
 
+/**
+ * `fromJSONArray` converts the given Protobuf format to model format.
+ */
 function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.getNodesList()) {
@@ -822,6 +951,9 @@ function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
   return arr;
 }
 
+/**
+ * `fromJSONPrimitive` converts the given Protobuf format to model format.
+ */
 function fromJSONPrimitive(
   pbPrimitive: PbJSONElement.Primitive,
 ): JSONPrimitive {
@@ -836,6 +968,9 @@ function fromJSONPrimitive(
   return primitive;
 }
 
+/**
+ * `fromJSONText` converts the given Protobuf format to model format.
+ */
 function fromJSONText(pbText: PbJSONElement.Text): PlainText {
   const rgaTreeSplit = new RGATreeSplit<string>();
 
@@ -858,6 +993,9 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
   return text;
 }
 
+/**
+ * `fromJSONRichText` converts the given Protobuf format to model format.
+ */
 function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
 
@@ -880,6 +1018,9 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
   return text;
 }
 
+/**
+ * `fromCounter` converts the given Protobuf format to model format.
+ */
 function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
   const counter = Counter.of(
     Counter.valueFromBytes(
@@ -892,6 +1033,9 @@ function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
   return counter;
 }
 
+/**
+ * `fromJSONElement` converts the given Protobuf format to model format.
+ */
 function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   if (pbJSONElement.hasJsonObject()) {
     return fromJSONObject(pbJSONElement.getJsonObject()!);
@@ -913,6 +1057,9 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
   }
 }
 
+/**
+ * `bytesToObject` creates an JSONObject from the given byte array.
+ */
 function bytesToObject(bytes?: Uint8Array): JSONObject {
   if (!bytes) {
     return JSONObject.create(InitialTimeTicket);
@@ -922,14 +1069,23 @@ function bytesToObject(bytes?: Uint8Array): JSONObject {
   return fromJSONObject(pbJSONElement.getJsonObject()!);
 }
 
+/**
+ * `objectToBytes` converts the given JSONObject to byte array.
+ */
 function objectToBytes(obj: JSONObject): Uint8Array {
   return toJSONElement(obj).serializeBinary();
 }
 
+/**
+ * `toHexString` converts the given byte array to hex string.
+ */
 function toHexString(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('hex');
 }
 
+/**
+ * `toUnit8Array` converts the given hex string to byte array.
+ */
 function toUint8Array(hex: string): Uint8Array {
   return Uint8Array.from(Buffer.from(hex, 'hex'));
 }

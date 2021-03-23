@@ -16,7 +16,10 @@
 
 export type UUID = string;
 
-// http://www.ietf.org/rfc/rfc4122.txt
+/**
+ * `uuid` generates uuid string
+ * @see http://www.ietf.org/rfc/rfc4122.txt
+ */
 export function uuid(): UUID {
   return 'xxxxxxxx-xxxx-4xxxy-xxxx-xxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

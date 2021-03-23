@@ -19,7 +19,7 @@ import { JSONContainer, JSONElement } from './element';
 import { RGATreeList } from './rga_tree_list';
 
 /**
- * JSONArray represents JSON array data structure including logical clock.
+ * `JSONArray` represents JSON array data structure including logical clock.
  */
 export class JSONArray extends JSONContainer {
   private elements: RGATreeList;
@@ -29,22 +29,37 @@ export class JSONArray extends JSONContainer {
     this.elements = elements;
   }
 
+  /**
+   * `create` creates a new instance of Array.
+   */
   public static create(createdAt: TimeTicket): JSONArray {
     return new JSONArray(createdAt, RGATreeList.create());
   }
 
+  /**
+   * `keyof` returns key of the given `createdAt` element.
+   */
   public keyOf(createdAt: TimeTicket): string | undefined {
     return this.elements.keyOf(createdAt);
   }
 
+  /**
+   * `purge` physically purge child element.
+   */
   public purge(element: JSONElement): void {
     this.elements.purge(element);
   }
 
+  /**
+   * `insertAfter` inserts the given element after the given previous element.
+   */
   public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
     this.elements.insertAfter(prevCreatedAt, value);
   }
 
+  /**
+   * `moveAfter` moves the given `createdAt` element after the `prevCreatedAt`.
+   */
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
@@ -53,10 +68,16 @@ export class JSONArray extends JSONContainer {
     this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
   }
 
+  /**
+   * `get` returns the element of the given createAt.
+   */
   public get(createdAt: TimeTicket): JSONElement {
     return this.elements.get(createdAt);
   }
 
+  /**
+   * `getByIndex` returns the element of the given index.
+   */
   public getByIndex(index: number): JSONElement | undefined {
     const node = this.elements.getByIndex(index);
     if (!node) {
@@ -66,18 +87,31 @@ export class JSONArray extends JSONContainer {
     return node.getValue();
   }
 
+  /**
+   * `getLast` returns last element.
+   */
   public getLast(): JSONElement {
     return this.elements.getLast();
   }
 
+  /**
+   * `getPrevCreatedAt` returns the creation time of
+   * the previous element of the given element.
+   */
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     return this.elements.getPrevCreatedAt(createdAt);
   }
 
+  /**
+   * `delete` deletes the element of the given index.
+   */
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     return this.elements.delete(createdAt, editedAt);
   }
 
+  /**
+   * `deleteByIndex` deletes the element of given index and editedAt.
+   */
   public deleteByIndex(
     index: number,
     editedAt: TimeTicket,
@@ -85,14 +119,21 @@ export class JSONArray extends JSONContainer {
     return this.elements.deleteByIndex(index, editedAt);
   }
 
+  /**
+   * `getLastCreatedAt` get last created element.
+   */
   public getLastCreatedAt(): TimeTicket {
     return this.elements.getLastCreatedAt();
   }
 
+  /**
+   * `length` returns length of this elements.
+   */
   public get length(): number {
     return this.elements.length;
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<JSONElement> {
     for (const node of this.elements) {
       if (!node.isRemoved()) {
@@ -101,6 +142,9 @@ export class JSONArray extends JSONContainer {
     }
   }
 
+  /**
+   * `getDescendants` traverse the descendants of this array.
+   */
   public getDescendants(
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
   ): void {
@@ -116,6 +160,9 @@ export class JSONArray extends JSONContainer {
     }
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this array.
+   */
   public toJSON(): string {
     const json = [];
     for (const value of this) {
@@ -124,14 +171,23 @@ export class JSONArray extends JSONContainer {
     return `[${json.join(',')}]`;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of this array.
+   */
   public toSortedJSON(): string {
     return this.toJSON();
   }
 
+  /**
+   * `getElements` returns an array of elements contained in this RGATreeList.
+   */
   public getElements(): RGATreeList {
     return this.elements;
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): JSONArray {
     const clone = JSONArray.create(this.getCreatedAt());
     for (const node of this.elements) {

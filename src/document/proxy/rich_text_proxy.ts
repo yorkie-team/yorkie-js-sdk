@@ -22,6 +22,9 @@ import { RichEditOperation } from '../operation/rich_edit_operation';
 import { StyleOperation } from '../operation/style_operation';
 import { SelectOperation } from '../operation/select_operation';
 
+/**
+ * `RichTextProxy` is a proxy representing RichText.
+ */
 export class RichTextProxy {
   private context: ChangeContext;
   private handlers: any;
@@ -82,11 +85,17 @@ export class RichTextProxy {
     };
   }
 
+  /**
+   * `create` creates a new instance of RichTextProxy.
+   */
   public static create(context: ChangeContext, target: RichText): RichText {
     const textProxy = new RichTextProxy(context);
     return new Proxy(target, textProxy.getHandlers());
   }
 
+  /**
+   * `edit` edits the given range with the given content and attributes.
+   */
   public edit(
     target: RichText,
     fromIdx: number,
@@ -130,6 +139,9 @@ export class RichTextProxy {
     }
   }
 
+  /**
+   *  `setStyle` applies the style of the given range.
+   */
   public setStyle(
     target: RichText,
     fromIdx: number,
@@ -163,6 +175,9 @@ export class RichTextProxy {
     );
   }
 
+  /**
+   * `updateSelection` stores that the given range has been selected.
+   */
   public updateSelection(
     target: RichText,
     fromIdx: number,
@@ -182,6 +197,9 @@ export class RichTextProxy {
     );
   }
 
+  /**
+   * `getHandlers` gets handlers.
+   */
   public getHandlers(): any {
     return this.handlers;
   }

@@ -24,6 +24,10 @@ export enum LogLevel {
 }
 
 let level = LogLevel.Debug;
+
+/**
+ * `setLogLevel` sets log level.
+ */
 export function setLogLevel(l: LogLevel): void {
   level = l;
 }

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-// Immutable
+/**
+ * `DocumentKey` represents the key of the Document.
+ */
 export class DocumentKey {
   private collection: string;
   private document: string;
@@ -24,18 +26,30 @@ export class DocumentKey {
     this.document = document;
   }
 
+  /**
+   * `create` creates a new instance of DocumentKey.
+   */
   public static of(collection: string, document: string): DocumentKey {
     return new DocumentKey(collection, document);
   }
 
+  /**
+   * `getCollection` return the collection string.
+   */
   public getCollection(): string {
     return this.collection;
   }
 
+  /**
+   * `getDocument` return the document string.
+   */
   public getDocument(): string {
     return this.document;
   }
 
+  /**
+   * `toIDString` returns the key string for this Document.
+   */
   public toIDString(): string {
     return `${this.collection}$${this.document}`;
   }

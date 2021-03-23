@@ -19,6 +19,9 @@ import { HeapNode, Heap } from '../../util/heap';
 import { TicketComparator, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 
+/**
+ * `RHTPQMapNode` is a node of RHTPQMap.
+ */
 export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
   private strKey: string;
 
@@ -27,25 +30,37 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
     this.strKey = strKey;
   }
 
+  /**
+   * `of` creates a instance of RHTPQMapNode.
+   */
   public static of(strKey: string, value: JSONElement): RHTPQMapNode {
     return new RHTPQMapNode(strKey, value);
   }
 
+  /**
+   * `isRemoved` checks whether this value was removed.
+   */
   public isRemoved(): boolean {
     return this.getValue().isRemoved();
   }
 
+  /**
+   * `getStrKey` returns the key of this node.
+   */
   public getStrKey(): string {
     return this.strKey;
   }
 
+  /**
+   * `remove` removes a value base on removing time.
+   */
   public remove(removedAt: TimeTicket): void {
     this.getValue().remove(removedAt);
   }
 }
 
 /**
- * RHT is replicated hash table with priority queue by creation time.
+ * RHTPQMap is replicated hash table with priority queue by creation time.
  */
 export class RHTPQMap {
   private elementQueueMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;
@@ -56,10 +71,16 @@ export class RHTPQMap {
     this.nodeMapByCreatedAt = new Map();
   }
 
+  /**
+   * `create` creates a instance of RHTPQMap.
+   */
   public static create(): RHTPQMap {
     return new RHTPQMap();
   }
 
+  /**
+   * `set` sets the value of the given key.
+   */
   public set(key: string, value: JSONElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
@@ -70,6 +91,9 @@ export class RHTPQMap {
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
   }
 
+  /**
+   * `delete` deletes deletes the Element of the given key.
+   */
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
       logger.fatal(`fail to find ${createdAt.toIDString()}`);
@@ -80,6 +104,9 @@ export class RHTPQMap {
     return node.getValue();
   }
 
+  /**
+   * `keyOf` returns a key of node based on creation time
+   */
   public keyOf(createdAt: TimeTicket): string | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
@@ -89,6 +116,9 @@ export class RHTPQMap {
     return node.getStrKey();
   }
 
+  /**
+   * `purge` physically purge child element.
+   */
   public purge(element: JSONElement): void {
     const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
@@ -109,6 +139,9 @@ export class RHTPQMap {
     this.nodeMapByCreatedAt.delete(element.getCreatedAt().toIDString());
   }
 
+  /**
+   * `deleteByKey` deletes the Element of the given key and removed time.
+   */
   public deleteByKey(
     key: string,
     removedAt: TimeTicket,
@@ -122,6 +155,9 @@ export class RHTPQMap {
     return node.getValue();
   }
 
+  /**
+   * `has` returns whether the element exists of the given key or not.
+   */
   public has(key: string): boolean {
     if (!this.elementQueueMapByKey.has(key)) {
       return false;
@@ -131,6 +167,9 @@ export class RHTPQMap {
     return !node.isRemoved();
   }
 
+  /**
+   * `get` returns the value of the given key.
+   */
   public get(key: string): JSONElement | undefined {
     if (!this.elementQueueMapByKey.has(key)) {
       return;
@@ -139,6 +178,7 @@ export class RHTPQMap {
     return this.elementQueueMapByKey!.get(key)!.peek()!.getValue();
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTPQMapNode> {
     for (const [, heap] of this.elementQueueMapByKey) {
       for (const node of heap) {

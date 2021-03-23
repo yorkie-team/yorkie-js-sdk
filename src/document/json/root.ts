@@ -25,8 +25,8 @@ interface JSONElementPair {
 }
 
 /**
- * JSONRoot is a structure represents the root of JSON. It has a hash table of
- * all JSON elements to find a specific element when appling remote changes
+ * `JSONRoot` is a structure represents the root of JSON. It has a hash table of
+ * all JSON elements to find a specific element when applying remote changes
  * received from agent.
  *
  * Every element has a unique time ticket at creation, which allows us to find
@@ -57,12 +57,15 @@ export class JSONRoot {
     );
   }
 
+  /**
+   * `create` creates a new instance of Root.
+   */
   public static create(): JSONRoot {
     return new JSONRoot(JSONObject.create(InitialTimeTicket));
   }
 
   /**
-   * findByCreatedAt returns the element of given creation time.
+   * `findByCreatedAt` returns the element of given creation time.
    */
   public findByCreatedAt(createdAt: TimeTicket): JSONElement | undefined {
     const pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
@@ -74,7 +77,7 @@ export class JSONRoot {
   }
 
   /**
-   * createPath creates path of the given element.
+   * `createPath` creates path of the given element.
    */
   public createPath(createdAt: TimeTicket): string | undefined {
     let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
@@ -101,7 +104,7 @@ export class JSONRoot {
   }
 
   /**
-   * registerElement registers the given element to hash table.
+   * `registerElement` registers the given element to hash table.
    */
   public registerElement(element: JSONElement, parent: JSONContainer): void {
     this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
@@ -111,7 +114,7 @@ export class JSONRoot {
   }
 
   /**
-   * deregisterElement deregister the given element from hash table.
+   * `deregisterElement` deregister the given element from hash table.
    */
   public deregisterElement(element: JSONElement): void {
     this.elementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString());
@@ -121,24 +124,36 @@ export class JSONRoot {
   }
 
   /**
-   * registerRemovedElement register the given element pair to hash table.
+   * `registerRemovedElement` registers the given element to hash table.
    */
   public registerRemovedElement(element: JSONElement): void {
     this.removedElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
   }
 
+  /**
+   * `registerTextWithGarbage` registers the given text to hash set.
+   */
   public registerTextWithGarbage(text: TextElement): void {
     this.textWithGarbageSetByCreatedAt.add(text.getCreatedAt().toIDString());
   }
 
+  /**
+   * `getElementMapSize` returns size of element pair.
+   */
   public getElementMapSize(): number {
     return this.elementPairMapByCreatedAt.size;
   }
 
+  /**
+   * `getObject` returns root object.
+   */
   public getObject(): JSONObject {
     return this.rootObject;
   }
 
+  /**
+   * `getGarbageLen` returns length of nodes which should garbage collection task
+   */
   public getGarbageLen(): number {
     let count = 0;
 
@@ -162,10 +177,16 @@ export class JSONRoot {
     return count;
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): JSONRoot {
     return new JSONRoot(this.rootObject.deepcopy());
   }
 
+  /**
+   * `garbageCollect` purges elements that were removed before the given time.
+   */
   public garbageCollect(ticket: TimeTicket): number {
     let count = 0;
 
@@ -215,10 +236,16 @@ export class JSONRoot {
     return count;
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this root object.
+   */
   public toJSON(): string {
     return this.rootObject.toJSON();
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of this root object.
+   */
   public toSortedJSON(): string {
     return this.rootObject.toSortedJSON();
   }

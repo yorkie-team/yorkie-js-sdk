@@ -2,7 +2,7 @@
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'prettier', 'eslint-plugin-tsdoc'],
+  plugins: ['@typescript-eslint', 'prettier', 'eslint-plugin-tsdoc', 'jsdoc'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
@@ -24,5 +24,24 @@ module.exports = {
     'tsdoc/syntax': 'error',
     'object-shorthand': ['error', 'always'],
     'no-unreachable': 'error',
+    'jsdoc/require-jsdoc': [
+      'error',
+      {
+        contexts: ['MethodDefinition:not([accessibility="private"])'],
+        require: {
+          ClassDeclaration: true,
+        },
+        checkConstructors: false,
+        enableFixer: false,
+      },
+    ],
   },
+  overrides: [
+    {
+      files: ['test/**/*'],
+      rules: {
+        'jsdoc/require-jsdoc': 'off',
+      },
+    },
+  ],
 };

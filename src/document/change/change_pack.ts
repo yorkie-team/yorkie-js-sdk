@@ -20,13 +20,30 @@ import { Change } from './change';
 import { TimeTicket } from '../time/ticket';
 
 /**
- * ChangePack is a unit for delivering changes in a document to the remote.
+ * `ChangePack` is a unit for delivering changes in a document to the remote.
  */
 export class ChangePack {
+  /**
+   * `key` is the key of the document.
+   */
   private key: DocumentKey;
+
+  /**
+   * `Checkpoint` is used to determine the client received changes.
+   */
   private checkpoint: Checkpoint;
+
   private changes: Change[];
+
+  /**
+   * `snapshot` is a byte array that encode the document.
+   */
   private snapshot?: Uint8Array;
+
+  /**
+   * `minSyncedTicket` is the minimum logical time taken by clients who attach
+   * the document. It used to collect garbage on the replica on the client.
+   */
   private minSyncedTicket?: TimeTicket;
 
   constructor(
@@ -43,6 +60,9 @@ export class ChangePack {
     this.minSyncedTicket = minSyncedTicket;
   }
 
+  /**
+   * `create` creates a new instance of ChangePack.
+   */
   public static create(
     key: DocumentKey,
     checkpoint: Checkpoint,
@@ -53,34 +73,58 @@ export class ChangePack {
     return new ChangePack(key, checkpoint, changes, snapshot, minSyncedTicket);
   }
 
+  /**
+   * `getKey` returns the document key of this pack.
+   */
   public getKey(): DocumentKey {
     return this.key;
   }
 
+  /**
+   * `getCheckpoint` returns the checkpoint of this pack.
+   */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
   }
 
+  /**
+   * `getChanges` returns the changes of this pack.
+   */
   public getChanges(): Change[] {
     return this.changes;
   }
 
+  /**
+   * `hasChanges` returns the whether this pack has changes or not.
+   */
   public hasChanges(): boolean {
     return this.changes.length > 0;
   }
 
+  /**
+   * `getChangeSize` returns the size of changes this pack has.
+   */
   public getChangeSize(): number {
     return this.changes.length;
   }
 
+  /**
+   * `hasSnapshot` returns the whether this pack has a snapshot or not.
+   */
   public hasSnapshot(): boolean {
     return !!this.snapshot && !!this.snapshot.length;
   }
 
+  /**
+   * `getSnapshot` returns the snapshot of this pack.
+   */
   public getSnapshot(): Uint8Array | undefined {
     return this.snapshot;
   }
 
+  /**
+   * `getMinSyncedTicket` returns the minimum synced ticket of this pack.
+   */
   public getMinSyncedTicket(): TimeTicket | undefined {
     return this.minSyncedTicket;
   }

@@ -24,7 +24,7 @@ import { CounterType } from './counter';
 import { CounterProxy } from '../proxy/counter_proxy';
 
 /**
- * JSONObject represents a JSON object, but unlike regular JSON, it has time
+ * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  */
 export class JSONObject extends JSONContainer {
@@ -35,26 +35,45 @@ export class JSONObject extends JSONContainer {
     this.memberNodes = memberNodes;
   }
 
+  /**
+   * `create` creates a new instance of Object.
+   */
   public static create(createdAt: TimeTicket): JSONObject {
     return new JSONObject(createdAt, RHTPQMap.create());
   }
 
+  /**
+   * Don't use createText directly. Be sure to use it through a proxy.
+   * The reason for setting the PlainText type as the return value
+   * is to provide the PlainText interface to the user.
+   */
   public createText(key: string): PlainText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     // @ts-ignore
     return;
   }
 
+  /**
+   * Don't use createRichText directly. Be sure to use it through a proxy.
+   * The reason for setting the RichText type as the return value
+   * is to provide the RichText interface to the user.
+   */
   public createRichText(key: string): RichText {
     logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
     // @ts-ignore
     return;
   }
 
+  /**
+   * `keyOf` returns a key of RHTPQMap based on the given creation time.
+   */
   public keyOf(createdAt: TimeTicket): string | undefined {
     return this.memberNodes.keyOf(createdAt);
   }
 
+  /**
+   * `purge` physically purges child element.
+   */
   public purge(value: JSONElement): void {
     this.memberNodes.purge(value);
   }
@@ -74,14 +93,23 @@ export class JSONObject extends JSONContainer {
     return;
   }
 
+  /**
+   * `set` sets the given element of the given key.
+   */
   public set(key: string, value: JSONElement): void {
     this.memberNodes.set(key, value);
   }
 
+  /**
+   * `delete` deletes the element of the given key.
+   */
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
     return this.memberNodes.delete(createdAt, executedAt);
   }
 
+  /**
+   * `deleteByKey` deletes the element of the given key and execution time.
+   */
   public deleteByKey(
     key: string,
     executedAt: TimeTicket,
@@ -89,14 +117,23 @@ export class JSONObject extends JSONContainer {
     return this.memberNodes.deleteByKey(key, executedAt);
   }
 
+  /**
+   * `get` returns the value of the given key.
+   */
   public get(key: string): JSONElement | undefined {
     return this.memberNodes.get(key);
   }
 
+  /**
+   * `has` returns whether the element exists of the given key or not.
+   */
   public has(key: string): boolean {
     return this.memberNodes.has(key);
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this object.
+   */
   public toJSON(): string {
     const json = [];
     for (const [key, value] of this) {
@@ -105,6 +142,9 @@ export class JSONObject extends JSONContainer {
     return `{${json.join(',')}}`;
   }
 
+  /**
+   * `getKeys` returns array of this object.
+   */
   public getKeys(): Array<string> {
     const keys = Array<string>();
     for (const [key] of this) {
@@ -114,6 +154,9 @@ export class JSONObject extends JSONContainer {
     return keys;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of this object.
+   */
   public toSortedJSON(): string {
     const keys = Array<string>();
     for (const [key] of this) {
@@ -129,10 +172,16 @@ export class JSONObject extends JSONContainer {
     return `{${json.join(',')}}`;
   }
 
+  /**
+   * `getRHT` RHTNodes returns the RHTPQMap nodes.
+   */
   public getRHT(): RHTPQMap {
     return this.memberNodes;
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): JSONObject {
     const clone = JSONObject.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
@@ -142,6 +191,9 @@ export class JSONObject extends JSONContainer {
     return clone;
   }
 
+  /**
+   * `getDescendants` returns the descendants of this object by traversing.
+   */
   public getDescendants(
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
   ): void {
@@ -157,6 +209,7 @@ export class JSONObject extends JSONContainer {
     }
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     const keySet = new Set<string>();
     for (const node of this.memberNodes) {

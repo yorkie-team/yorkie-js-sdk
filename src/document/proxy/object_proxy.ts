@@ -32,6 +32,9 @@ import { toProxy } from './proxy';
 import { CounterType, Counter } from '../json/counter';
 import { CounterProxy } from './counter_proxy';
 
+/**
+ * `ObjectProxy` is a proxy representing Object.
+ */
 export class ObjectProxy {
   private context: ChangeContext;
   private handlers: any;
@@ -109,11 +112,17 @@ export class ObjectProxy {
     };
   }
 
+  /**
+   * `create` creates a new instance of ObjectProxy.
+   */
   public static create(context: ChangeContext, target: JSONObject): JSONObject {
     const objectProxy = new ObjectProxy(context);
     return new Proxy(target, objectProxy.getHandlers());
   }
 
+  /**
+   * `setInternal` sets a new Object for the given key
+   */
   public static setInternal(
     context: ChangeContext,
     target: JSONObject,
@@ -177,6 +186,9 @@ export class ObjectProxy {
     }
   }
 
+  /**
+   * `createText` creates a new Text for the given key
+   */
   public static createText(
     context: ChangeContext,
     target: JSONObject,
@@ -192,6 +204,9 @@ export class ObjectProxy {
     return TextProxy.create(context, text);
   }
 
+  /**
+   * `createRichText` a new RichText for the given key.
+   */
   public static createRichText(
     context: ChangeContext,
     target: JSONObject,
@@ -207,6 +222,9 @@ export class ObjectProxy {
     return RichTextProxy.create(context, text);
   }
 
+  /**
+   * `createCounter` a new Counter for the given key.
+   */
   public static createCounter(
     context: ChangeContext,
     target: JSONObject,
@@ -228,6 +246,9 @@ export class ObjectProxy {
     return CounterProxy.create(context, counter);
   }
 
+  /**
+   * `deleteInternal` deletes the value of the given key.
+   */
   public static deleteInternal(
     context: ChangeContext,
     target: JSONObject,
@@ -249,6 +270,9 @@ export class ObjectProxy {
     context.registerRemovedElement(deleted);
   }
 
+  /**
+   * `getHandlers` gets handlers.
+   */
   public getHandlers(): any {
     return this.handlers;
   }
