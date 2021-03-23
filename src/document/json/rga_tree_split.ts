@@ -447,7 +447,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * edit does following steps
+   * `edit` does following steps
    * 1. split nodes with from and to
    * 2. delete between from and to
    * 3. insert a new node
