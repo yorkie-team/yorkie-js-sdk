@@ -79,7 +79,9 @@ export class TextView {
     }
 
     if (enableLog) {
-      console.log(`apply: ${oldValue}->${this.value} [${changeLogs.join(',')}]`);
+      console.log(
+        `apply: ${oldValue}->${this.value} [${changeLogs.join(',')}]`,
+      );
     }
   }
 

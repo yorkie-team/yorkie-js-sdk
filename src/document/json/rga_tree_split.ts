@@ -686,9 +686,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     if (id.getOffset() > 0 && node!.getID().getOffset() == id.getOffset()) {
-      // TODO(hackerwins): InsPrev may not be present due to GC. We have to check the GC algorithm.
+      // NOTE: InsPrev may not be present due to GC.
       if (!node!.hasInsPrev()) {
-        logger.fatal('insPrev should be presence');
+        return node!;
       }
       node = node!.getInsPrev();
     }
