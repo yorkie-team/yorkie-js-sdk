@@ -160,7 +160,7 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * `subscribe` returns document event observer.
+   * `subscribe` adds the given observer to the fan-out list.
    */
   public subscribe(
     nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,

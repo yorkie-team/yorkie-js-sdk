@@ -22,7 +22,7 @@ export enum Code {
 }
 
 /**
- * `YorkieError` is util for viewing error message
+ * `YorkieError` is an error returned by a Yorkie operation.
  */
 export class YorkieError extends Error {
   name = 'YorkieError';

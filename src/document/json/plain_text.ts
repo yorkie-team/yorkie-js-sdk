@@ -43,7 +43,7 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * `create` creates a new instance of Text.
+   * `create` creates a new instance of `PlainText`.
    */
   public static create(
     rgaTreeSplit: RGATreeSplit<string>,

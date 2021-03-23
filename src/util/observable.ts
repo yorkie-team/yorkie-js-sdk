@@ -66,7 +66,7 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   /**
-   * `complete` iterates next observer.
+   * `next` iterates next observer.
    */
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
@@ -75,7 +75,7 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   /**
-   * `complete` invoke error.
+   * `error` invoke error.
    */
   public error(error: Error): void {
     this.forEachObserver((observer: Observer<T>) => {

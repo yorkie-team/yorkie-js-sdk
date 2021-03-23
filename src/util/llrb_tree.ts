@@ -22,7 +22,7 @@ interface Entry<K, V> {
 }
 
 /**
- * `LLRBNode` is node of LLRBTree
+ * `LLRBNode` is node of LLRBTree.
  */
 class LLRBNode<K, V> {
   public key: K;

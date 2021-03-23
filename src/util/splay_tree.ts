@@ -274,7 +274,7 @@ export class SplayTree<V> {
   }
 
   /**
-   * `updateSubtree` increase weight of left and right node.
+   * `updateSubtree` recalculates weights with left and right nodes.
    */
   public updateSubtree(node: SplayNode<V>): void {
     node.initWeight();

@@ -92,7 +92,7 @@ export class Heap<K, V> {
   }
 
   /**
-   * `push` pushes the element x onto this Heap.
+   * `push` pushes the given node onto this Heap.
    */
   public push(node: HeapNode<K, V>): void {
     this.nodes.push(node);
