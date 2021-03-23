@@ -31,6 +31,10 @@ export interface RichTextVal {
   content: string;
 }
 
+/**
+ * `RichTextValue` is a value of RichText
+ * which has a attributes that expresses the text style.
+ */
 export class RichTextValue {
   private attributes: RHT;
   private content: string;
@@ -40,14 +44,23 @@ export class RichTextValue {
     this.content = content;
   }
 
+  /**
+   * `create` creates a instance of RichTextValue.
+   */
   public static create(content: string): RichTextValue {
     return new RichTextValue(content);
   }
 
+  /**
+   * `length` returns the length of content.
+   */
   public get length(): number {
     return this.content.length;
   }
 
+  /**
+   * `substring` returns a sub-string value of the given range.
+   */
   public substring(indexStart: number, indexEnd: number): RichTextValue {
     const value = new RichTextValue(
       this.content.substring(indexStart, indexEnd),
@@ -56,27 +69,45 @@ export class RichTextValue {
     return value;
   }
 
+  /**
+   * `setAttr` sets attribute of the given key, updated time and value.
+   */
   public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
     this.attributes.set(key, value, updatedAt);
   }
 
+  /**
+   * `toString` returns content.
+   */
   public toString(): string {
     return this.content;
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this .
+   */
   public toJSON(): string {
     return `{"attrs":${this.attributes.toJSON()},"content":${this.content}}`;
   }
 
+  /**
+   * `getAttributes` returns the attributes of this value.
+   */
   public getAttributes(): { [key: string]: string } {
     return this.attributes.toObject();
   }
 
+  /**
+   * `getContent` returns content.
+   */
   public getContent(): string {
     return this.content;
   }
 }
 
+/**
+ *  `RichText` is an extended data type for the contents of a text editor.
+ */
 export class RichText extends TextElement {
   private onChangesHandler?: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
@@ -93,6 +124,9 @@ export class RichText extends TextElement {
     this.remoteChangeLock = false;
   }
 
+  /**
+   * `create` a instance of RichText.
+   */
   public static create(
     rgaTreeSplit: RGATreeSplit<RichTextValue>,
     createdAt: TimeTicket,
@@ -103,6 +137,11 @@ export class RichText extends TextElement {
     return text;
   }
 
+  /**
+   * Don't use edit directly. Be sure to use it through a proxy.
+   * The reason for setting the RichText type as the return value
+   * is to provide the RichText interface to the user.
+   */
   public edit(
     fromIdx: number,
     toIdx: number,
@@ -117,6 +156,11 @@ export class RichText extends TextElement {
     return;
   }
 
+  /**
+   * Don't use setStyle directly. Be sure to use it through a proxy.
+   * The reason for setting the RichText type as the return value
+   * is to provide the RichText interface to the user.
+   */
   public setStyle(
     fromIdx: number,
     toIdx: number,
@@ -130,6 +174,9 @@ export class RichText extends TextElement {
     return;
   }
 
+  /**
+   * `editInternal` edits the given range with the given content and attributes.
+   */
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
@@ -172,6 +219,14 @@ export class RichText extends TextElement {
     return latestCreatedAtMap;
   }
 
+  /**
+   * `setStyleInternal` applies the style of the given range.
+   * 01. split nodes with from and to
+   * 02. style nodes between from and to
+   * @param range - range of RGATreeSplitNode
+   * @param attributes - style attributes
+   * @param editedAt - edited time
+   */
   public setStyleInternal(
     range: RGATreeSplitNodeRange,
     attributes: { [key: string]: string },
@@ -215,6 +270,9 @@ export class RichText extends TextElement {
     }
   }
 
+  /**
+   * Don't use updateSelection directly. Be sure to use it through a proxy.
+   */
   public updateSelection(fromIdx: number, toIdx: number): void {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
@@ -223,6 +281,9 @@ export class RichText extends TextElement {
     return;
   }
 
+  /**
+   * `updateSelectionInternal` stores that the given range has been selected.
+   */
   public updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
@@ -239,14 +300,23 @@ export class RichText extends TextElement {
     }
   }
 
+  /**
+   * `hasRemoteChangeLock` checks whether remoteChangeLock has.
+   */
   public hasRemoteChangeLock(): boolean {
     return this.remoteChangeLock;
   }
 
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
   public onChanges(handler: (changes: Array<Change>) => void): void {
     this.onChangesHandler = handler;
   }
 
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
   public createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
     const fromPos = this.rgaTreeSplit.findNodePos(fromIdx);
     if (fromIdx === toIdx) {
@@ -256,6 +326,9 @@ export class RichText extends TextElement {
     return [fromPos, this.rgaTreeSplit.findNodePos(toIdx)];
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this rich text.
+   */
   public toJSON(): string {
     const json = [];
 
@@ -268,10 +341,16 @@ export class RichText extends TextElement {
     return `[${json.join(',')}]`;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of this rich text.
+   */
   public toSortedJSON(): string {
     return this.toJSON();
   }
 
+  /**
+   * `getValue` returns value array of this RichTextVal.
+   */
   public getValue(): Array<RichTextVal> {
     const values = [];
 
@@ -288,29 +367,39 @@ export class RichText extends TextElement {
     return values;
   }
 
+  /**
+   * `getRGATreeSplit` returns rgaTreeSplit.
+   */
   public getRGATreeSplit(): RGATreeSplit<RichTextValue> {
     return this.rgaTreeSplit;
   }
 
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of this value
+   * for debugging purpose.
+   */
   public getAnnotatedString(): string {
     return this.rgaTreeSplit.getAnnotatedString();
   }
 
   /**
-   * removedNodesLen returns length of removed nodes
+   * `removedNodesLen` returns length of removed nodes
    */
   public getRemovedNodesLen(): number {
     return this.rgaTreeSplit.getRemovedNodesLen();
   }
 
   /**
-   * cleanupRemovedNodes cleans up nodes that have been removed.
+   * `cleanupRemovedNodes` cleans up nodes that have been removed.
    * The cleaned nodes are subject to garbage collector collection.
    */
   public cleanupRemovedNodes(ticket: TimeTicket): number {
     return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): RichText {
     const text = new RichText(
       this.rgaTreeSplit.deepcopy(),

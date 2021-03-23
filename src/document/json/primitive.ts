@@ -35,7 +35,7 @@ export type PrimitiveValue =
   null | boolean | number | Long | string | Uint8Array | Date;
 
 /**
- * Primitive represents JSON primitive data type including logical lock.
+ * `JSONPrimitive` represents JSON primitive data type including logical lock.
  * This is immutable.
  */
 export class JSONPrimitive extends JSONElement {
@@ -48,6 +48,9 @@ export class JSONPrimitive extends JSONElement {
     this.value = value;
   }
 
+  /**
+   * `of` creates a new instance of Primitive.
+   */
   public static of(
     value: PrimitiveValue,
     createdAt: TimeTicket,
@@ -55,6 +58,9 @@ export class JSONPrimitive extends JSONElement {
     return new JSONPrimitive(value, createdAt);
   }
 
+  /**
+   * `valueFromBytes` parses the given bytes into value.
+   */
   public static valueFromBytes(
     primitiveType: PrimitiveType,
     bytes: Uint8Array,
@@ -89,6 +95,9 @@ export class JSONPrimitive extends JSONElement {
     }
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of the value.
+   */
   public toJSON(): string {
     if (this.valueType === PrimitiveType.String) {
       return `"${this.value}"`;
@@ -97,20 +106,32 @@ export class JSONPrimitive extends JSONElement {
     return `${this.value}`;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of the value.
+   */
   public toSortedJSON(): string {
     return this.toJSON();
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): JSONPrimitive {
     const primitive = JSONPrimitive.of(this.value, this.getCreatedAt());
     primitive.setMovedAt(this.getMovedAt());
     return primitive;
   }
 
+  /**
+   * `getType` returns the type of the value.
+   */
   public getType(): PrimitiveType {
     return this.valueType!;
   }
 
+  /**
+   * `getPrimitiveType` returns the primitive type of the value.
+   */
   public static getPrimitiveType(value: unknown): PrimitiveType | undefined {
     switch (typeof value) {
       case 'boolean':
@@ -135,6 +156,9 @@ export class JSONPrimitive extends JSONElement {
     return;
   }
 
+  /**
+   * `isSupport` check if the given value is supported type.
+   */
   public static isSupport(value: unknown): boolean {
     const primitiveType = JSONPrimitive.getPrimitiveType(value);
     if (primitiveType === undefined) {
@@ -143,12 +167,15 @@ export class JSONPrimitive extends JSONElement {
     return true;
   }
 
+  /**
+   * `isInteger` checks if the given number is integer.
+   */
   public static isInteger(num: number): boolean {
     return num % 1 === 0;
   }
 
   /**
-   * isNumericType check numeric type by JSONPrimitive
+   * `isNumericType` checks numeric type by JSONPrimitive
    */
   public isNumericType(): boolean {
     const t = this.valueType;
@@ -159,10 +186,16 @@ export class JSONPrimitive extends JSONElement {
     );
   }
 
+  /**
+   * `getValue` returns the value of Primitive.
+   */
   public getValue(): PrimitiveValue {
     return this.value;
   }
 
+  /**
+   * `toBytes` creates an array representing the value.
+   */
   public toBytes(): Uint8Array {
     switch (this.valueType) {
       case PrimitiveType.Null: {

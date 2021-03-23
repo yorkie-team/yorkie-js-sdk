@@ -21,6 +21,9 @@ import { PlainText } from '../json/plain_text';
 import { EditOperation } from '../operation/edit_operation';
 import { SelectOperation } from '../operation/select_operation';
 
+/**
+ * `TextProxy` is a proxy representing Text.
+ */
 export class TextProxy {
   private context: ChangeContext;
   private handlers: any;
@@ -66,11 +69,17 @@ export class TextProxy {
     };
   }
 
+  /**
+   * `create` creates a new instance of TextProxy.
+   */
   public static create(context: ChangeContext, target: PlainText): PlainText {
     const textProxy = new TextProxy(context);
     return new Proxy(target, textProxy.getHandlers());
   }
 
+  /**
+   * `edit` edits the given range with the given content.
+   */
   public edit(
     target: PlainText,
     fromIdx: number,
@@ -107,6 +116,9 @@ export class TextProxy {
     }
   }
 
+  /**
+   * `updateSelection` stores that the given range has been selected.
+   */
   public updateSelection(
     target: PlainText,
     fromIdx: number,
@@ -126,6 +138,9 @@ export class TextProxy {
     );
   }
 
+  /**
+   * `getHandlers` gets handlers.
+   */
   public getHandlers(): any {
     return this.handlers;
   }

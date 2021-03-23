@@ -20,6 +20,9 @@ import { JSONRoot } from '../json/root';
 import { Operation } from './operation';
 import { JSONContainer } from '../json/element';
 
+/**
+ * `RemoveOperation` is an operation representing removes an element from Container.
+ */
 export class RemoveOperation extends Operation {
   private createdAt: TimeTicket;
 
@@ -32,6 +35,9 @@ export class RemoveOperation extends Operation {
     this.createdAt = createdAt;
   }
 
+  /**
+   * `create` creates a new instance of RemoveOperation.
+   */
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
@@ -40,6 +46,9 @@ export class RemoveOperation extends Operation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
 
+  /**
+   * `execute` executes this operation on the given document(`root`).
+   */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONContainer) {
@@ -51,14 +60,23 @@ export class RemoveOperation extends Operation {
     }
   }
 
+  /**
+   * `getEffectedCreatedAt` returns the time of the effected element.
+   */
   public getEffectedCreatedAt(): TimeTicket {
     return this.getParentCreatedAt();
   }
 
+  /**
+   * `getAnnotatedString` returns a string containing the meta data.
+   */
   public getAnnotatedString(): string {
     return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`;
   }
 
+  /**
+   * `getCreatedAt` returns the creation time of the target element.
+   */
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
   }

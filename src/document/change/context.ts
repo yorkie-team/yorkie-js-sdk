@@ -22,7 +22,7 @@ import { ChangeID } from './change_id';
 import { Change } from './change';
 
 /**
- * ChangeContext is used to record the context of modification when editing
+ * `ChangeContext` is used to record the context of modification when editing
  * a document. Each time we add an operation, a new time ticket is issued.
  * Finally returns a Change after the modification has been completed.
  */
@@ -42,7 +42,7 @@ export class ChangeContext {
   }
 
   /**
-   * create creates a new instance of ChangeContext.
+   * `create` creates a new instance of ChangeContext.
    */
   public static create(
     id: ChangeID,
@@ -52,32 +52,51 @@ export class ChangeContext {
     return new ChangeContext(id, root, message);
   }
 
+  /**
+   * `push` pushes the given operation to this context.
+   */
   public push(operation: Operation): void {
     this.operations.push(operation);
   }
 
+  /**
+   * `registerElement` registers the given element to the root.
+   */
   public registerElement(element: JSONElement, parent: JSONContainer): void {
     this.root.registerElement(element, parent);
   }
 
+  /**
+   * `registerRemovedElement` register removed element for garbage collection.
+   */
   public registerRemovedElement(deleted: JSONElement): void {
     this.root.registerRemovedElement(deleted);
   }
 
+  /**
+   * `registerRemovedNodeTextElement` register text element has removed node for
+   * garbage collection.
+   */
   public registerRemovedNodeTextElement(text: TextElement): void {
     this.root.registerTextWithGarbage(text);
   }
 
+  /**
+   * `getChange` creates a new instance of Change in this context.
+   */
   public getChange(): Change {
     return Change.create(this.id, this.operations, this.message);
   }
 
+  /**
+   * `hasOperations` returns the whether this context has operations or not.
+   */
   public hasOperations(): boolean {
     return this.operations.length > 0;
   }
 
   /**
-   * issueTimeTicket creates a time ticket to be used to create a new operation.
+   * `issueTimeTicket` creates a time ticket to be used to create a new operation.
    */
   public issueTimeTicket(): TimeTicket {
     this.delimiter += 1;

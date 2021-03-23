@@ -21,6 +21,9 @@ export enum Code {
   Unsupported = 'unsupported',
 }
 
+/**
+ * `YorkieError` is an error returned by a Yorkie operation.
+ */
 export class YorkieError extends Error {
   name = 'YorkieError';
   stack?: string;

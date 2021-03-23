@@ -20,6 +20,9 @@ import { InitialTimeTicket, TimeTicket } from '../time/ticket';
 import { JSONElement } from './element';
 import { JSONPrimitive } from './primitive';
 
+/**
+ * `RGATreeListNode` is a node of RGATreeList.
+ */
 class RGATreeListNode extends SplayNode<JSONElement> {
   private prev?: RGATreeListNode;
   private next?: RGATreeListNode;
@@ -29,6 +32,9 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     this.value = value;
   }
 
+  /**
+   * `createAfter` creates a new node after the previous node.
+   */
   public static createAfter(
     prev: RGATreeListNode,
     value: JSONElement,
@@ -45,14 +51,23 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     return newNode;
   }
 
+  /**
+   * `remove` removes value based on removing time.
+   */
   public remove(removedAt: TimeTicket): boolean {
     return this.value.remove(removedAt);
   }
 
+  /**
+   * `getCreatedAt` returns creation time of this value
+   */
   public getCreatedAt(): TimeTicket {
     return this.value.getCreatedAt();
   }
 
+  /**
+   * `release` releases prev and next node.
+   */
   public release(): void {
     if (this.prev) {
       this.prev.next = this.next;
@@ -64,29 +79,44 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     this.next = undefined;
   }
 
+  /**
+   * `getLength` returns the length of this node.
+   */
   public getLength(): number {
     return this.value.isRemoved() ? 0 : 1;
   }
 
+  /**
+   * `getPrev` returns a previous node.
+   */
   public getPrev(): RGATreeListNode | undefined {
     return this.prev;
   }
 
+  /**
+   * `getNext` returns a next node.
+   */
   public getNext(): RGATreeListNode | undefined {
     return this.next;
   }
 
+  /**
+   * `getValue` returns a element value.
+   */
   public getValue(): JSONElement {
     return this.value;
   }
 
+  /**
+   * `isRemoved` checks if the value was removed.
+   */
   public isRemoved(): boolean {
     return this.value.isRemoved();
   }
 }
 
 /**
- * RGATreeList is replicated growable array.
+ * `RGATreeList` is replicated growable array.
  */
 export class RGATreeList {
   private dummyHead: RGATreeListNode;
@@ -111,18 +141,27 @@ export class RGATreeList {
     );
   }
 
+  /**
+   * `create` creates instance of RGATreeList.
+   */
   public static create(): RGATreeList {
     return new RGATreeList();
   }
 
+  /**
+   * `length` returns size of RGATreeList.
+   */
   public get length(): number {
     return this.size;
   }
 
   /**
-   * findNextBeforeExecutedAt returns the node by the given createdAt and
+   * `findNextBeforeExecutedAt` returns the node by the given createdAt and
    * executedAt. It passes through nodes created after executedAt from the
    * given node and returns the next node.
+   * @param createdAt - created time
+   * @param executedAt - executed time
+   * @returns next node
    */
   private findNextBeforeExecutedAt(
     createdAt: TimeTicket,
@@ -157,6 +196,9 @@ export class RGATreeList {
     }
   }
 
+  /**
+   * `insertAfter` adds next element of previously created node.
+   */
   public insertAfter(
     prevCreatedAt: TimeTicket,
     value: JSONElement,
@@ -174,6 +216,10 @@ export class RGATreeList {
     this.size += 1;
   }
 
+  /**
+   * `moveAfter` moves the given `createdAt` element
+   * after the `prevCreatedAt` element.
+   */
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
@@ -199,15 +245,24 @@ export class RGATreeList {
     }
   }
 
+  /**
+   * `insert` adds the given element after  the last creation time.
+   */
   public insert(value: JSONElement): void {
     this.insertAfter(this.last.getCreatedAt(), value);
   }
 
+  /**
+   * `get` returns the element of the given index.
+   */
   public get(createdAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     return node!.getValue();
   }
 
+  /**
+   * `keyOf` key based on the creation time of the node.
+   */
   public keyOf(createdAt: TimeTicket): string | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
@@ -216,6 +271,9 @@ export class RGATreeList {
     return String(this.nodeMapByIndex.indexOf(node));
   }
 
+  /**
+   * `purge` physically purges child element.
+   */
   public purge(element: JSONElement): void {
     const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
@@ -230,6 +288,9 @@ export class RGATreeList {
     this.release(node!);
   }
 
+  /**
+   * `getByIndex` returns node of the given index.
+   */
   public getByIndex(idx: number): RGATreeListNode | undefined {
     const [node, offset] = this.nodeMapByIndex.find(idx);
     let rgaNode = node as RGATreeListNode | undefined;
@@ -245,6 +306,9 @@ export class RGATreeList {
     return rgaNode;
   }
 
+  /**
+   * `getPrevCreatedAt` returns a creation time of the previous node.
+   */
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     do {
@@ -253,6 +317,9 @@ export class RGATreeList {
     return node.getValue().getCreatedAt();
   }
 
+  /**
+   * `delete` deletes the node of the given creation time.
+   */
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (node!.remove(editedAt)) {
@@ -262,6 +329,9 @@ export class RGATreeList {
     return node!.getValue();
   }
 
+  /**
+   * `deleteByIndex` deletes the node of the given index.
+   */
   public deleteByIndex(
     index: number,
     editedAt: TimeTicket,
@@ -278,14 +348,24 @@ export class RGATreeList {
     return node.getValue();
   }
 
+  /**
+   * `getLast` returns the value of last elements.
+   */
   public getLast(): JSONElement {
     return this.last.getValue();
   }
 
+  /**
+   * `getLastCreatedAt` returns the creation time of last elements.
+   */
   public getLastCreatedAt(): TimeTicket {
     return this.last.getCreatedAt();
   }
 
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of the node id
+   * for debugging purpose.
+   */
   public getAnnotatedString(): string {
     const json = [];
 
@@ -303,6 +383,7 @@ export class RGATreeList {
     return json.join('');
   }
 
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RGATreeListNode> {
     let node = this.dummyHead.getNext();
     while (node) {

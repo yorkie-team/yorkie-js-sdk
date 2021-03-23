@@ -25,6 +25,10 @@ import {
   Selection,
 } from './rga_tree_split';
 
+/**
+ * `PlainText` represents plain text element
+ * Text is an extended data type for the contents of a text editor
+ */
 export class PlainText extends TextElement {
   private onChangesHandler?: (changes: Array<Change>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
@@ -38,6 +42,9 @@ export class PlainText extends TextElement {
     this.remoteChangeLock = false;
   }
 
+  /**
+   * `create` creates a new instance of `PlainText`.
+   */
   public static create(
     rgaTreeSplit: RGATreeSplit<string>,
     createdAt: TimeTicket,
@@ -45,6 +52,11 @@ export class PlainText extends TextElement {
     return new PlainText(rgaTreeSplit, createdAt);
   }
 
+  /**
+   * Don't use edit directly. Be sure to use it through a proxy.
+   * The reason for setting the PlainText type as the return value
+   * is to provide the PlainText interface to the user.
+   */
   public edit(fromIdx: number, toIdx: number, content: string): PlainText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
@@ -53,6 +65,9 @@ export class PlainText extends TextElement {
     return;
   }
 
+  /**
+   * `editInternal` edits the given range with the given content.
+   */
   public editInternal(
     range: RGATreeSplitNodeRange,
     content: string,
@@ -83,6 +98,9 @@ export class PlainText extends TextElement {
     return latestCreatedAtMap;
   }
 
+  /**
+   * Don't use updateSelection directly. Be sure to use it through a proxy.
+   */
   public updateSelection(fromIdx: number, toIdx: number): void {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
@@ -91,6 +109,9 @@ export class PlainText extends TextElement {
     return;
   }
 
+  /**
+   * `updateSelectionInternal` updates selection info of the given selection range.
+   */
   public updateSelectionInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
@@ -107,14 +128,23 @@ export class PlainText extends TextElement {
     }
   }
 
+  /**
+   * `hasRemoteChangeLock` checks whether remoteChangeLock has.
+   */
   public hasRemoteChangeLock(): boolean {
     return this.remoteChangeLock;
   }
 
+  /**
+   * onChanges registers a handler of onChanges event.
+   */
   public onChanges(handler: (changes: Array<Change>) => void): void {
     this.onChangesHandler = handler;
   }
 
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
   public createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
     const fromPos = this.rgaTreeSplit.findNodePos(fromIdx);
     if (fromIdx === toIdx) {
@@ -124,34 +154,59 @@ export class PlainText extends TextElement {
     return [fromPos, this.rgaTreeSplit.findNodePos(toIdx)];
   }
 
+  /**
+   * `toJSON` returns the JSON encoding of this text.
+   */
   public toJSON(): string {
     return `"${this.rgaTreeSplit.toJSON()}"`;
   }
 
+  /**
+   * `toSortedJSON` returns the sorted JSON encoding of this text.
+   */
   public toSortedJSON(): string {
     return this.toJSON();
   }
 
+  /**
+   * `getValue` returns the JSON encoding of rgaTreeSplit.
+   */
   public getValue(): string {
     return this.rgaTreeSplit.toJSON();
   }
 
+  /**
+   * `getRGATreeSplit` returns the rgaTreeSplit.
+   */
   public getRGATreeSplit(): RGATreeSplit<string> {
     return this.rgaTreeSplit;
   }
 
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of the text.
+   */
   public getAnnotatedString(): string {
     return this.rgaTreeSplit.getAnnotatedString();
   }
 
+  /**
+   * `getRemovedNodesLen` returns length of removed nodes.
+   */
   public getRemovedNodesLen(): number {
     return this.rgaTreeSplit.getRemovedNodesLen();
   }
 
+  /**
+   * `cleanupRemovedNodes` cleans up nodes that have been removed.
+   * The cleaned nodes are subject to garbage collector collection.
+   */
   public cleanupRemovedNodes(ticket: TimeTicket): number {
     return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
   }
 
+  /**
+   * `deepcopy` copies itself deeply.
+   */
   public deepcopy(): PlainText {
     const text = PlainText.create(
       this.rgaTreeSplit.deepcopy(),

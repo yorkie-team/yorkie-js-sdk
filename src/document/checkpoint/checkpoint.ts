@@ -17,7 +17,8 @@
 import Long from 'long';
 
 /**
- * Checkpoint is used to determine the changes sent and received by the client.
+ * `Checkpoint` is used to determine the changes sent and received by the
+ * client. This is immutable.
  **/
 export class Checkpoint {
   private serverSeq: Long;
@@ -28,10 +29,16 @@ export class Checkpoint {
     this.clientSeq = clientSeq;
   }
 
+  /**
+   * `of` creates a new instance of Checkpoint.
+   */
   public static of(serverSeq: Long, clientSeq: number): Checkpoint {
     return new Checkpoint(serverSeq, clientSeq);
   }
 
+  /**
+   * `increaseClientSeq` creates a new instance with increased client sequence.
+   */
   public increaseClientSeq(inc: number): Checkpoint {
     if (inc === 0) {
       return this;
@@ -40,6 +47,10 @@ export class Checkpoint {
     return new Checkpoint(this.serverSeq, this.clientSeq + inc);
   }
 
+  /**
+   * `forward` updates the given checkpoint with those values when it is greater
+   * than the values of internal properties.
+   */
   public forward(other: Checkpoint): Checkpoint {
     if (this.equals(other)) {
       return this;
@@ -52,18 +63,32 @@ export class Checkpoint {
     return Checkpoint.of(serverSeq, clientSeq);
   }
 
+  /**
+   * `getServerSeqAsString` returns the server seq of this checkpoint as a
+   * string.
+   */
   public getServerSeqAsString(): string {
     return this.serverSeq.toString();
   }
 
+  /**
+   * `getClientSeq` returns the client seq of this checkpoint.
+   */
   public getClientSeq(): number {
     return this.clientSeq;
   }
 
+  /**
+   * `getServerSeq` returns the server seq of this checkpoint.
+   */
   public getServerSeq(): Long {
     return this.serverSeq;
   }
 
+  /**
+   * `equals` returns whether the given checkpoint is equal to this checkpoint
+   * or not.
+   */
   public equals(other: Checkpoint): boolean {
     return (
       this.clientSeq === other.clientSeq &&
@@ -71,9 +96,16 @@ export class Checkpoint {
     );
   }
 
+  /**
+   * `getAnnotatedString` returns a string containing the meta data of this
+   * checkpoint.
+   */
   public getAnnotatedString(): string {
     return `serverSeq=${this.serverSeq}, clientSeq=${this.clientSeq}`;
   }
 }
 
+/**
+ * `InitialCheckpoint` is the initial value of the checkpoint.
+ */
 export const InitialCheckpoint = new Checkpoint(Long.fromInt(0, true), 0);

@@ -17,7 +17,7 @@
 import { TimeTicket } from '../time/ticket';
 
 /**
- * JSONElement represents JSON element including logical clock.
+ * `JSONElement` represents JSON element including logical clock.
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
@@ -28,22 +28,37 @@ export abstract class JSONElement {
     this.createdAt = createdAt;
   }
 
+  /**
+   * `getCreatedAt` returns the creation time of this element.
+   */
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
   }
 
+  /**
+   * `getID` returns the creation time of this element.
+   */
   public getID(): TimeTicket {
     return this.createdAt;
   }
 
+  /**
+   * `getMovedAt` returns the move time of this element.
+   */
   public getMovedAt(): TimeTicket | undefined {
     return this.movedAt;
   }
 
+  /**
+   * `getRemovedAt` returns the removal time of this element.
+   */
   public getRemovedAt(): TimeTicket | undefined {
     return this.removedAt;
   }
 
+  /**
+   * `setMovedAt` sets the move time of this element.
+   */
   public setMovedAt(movedAt?: TimeTicket): boolean {
     if (!this.movedAt || (movedAt && movedAt.after(this.movedAt))) {
       this.movedAt = movedAt;
@@ -53,6 +68,9 @@ export abstract class JSONElement {
     return false;
   }
 
+  /**
+   * `remove` removes this element.
+   */
   public remove(removedAt?: TimeTicket): boolean {
     if (!this.removedAt || (removedAt && removedAt.after(this.removedAt))) {
       this.removedAt = removedAt;
@@ -62,6 +80,9 @@ export abstract class JSONElement {
     return false;
   }
 
+  /**
+   * `isRemoved` check if this element was removed.
+   */
   public isRemoved(): boolean {
     return !!this.removedAt;
   }
@@ -71,6 +92,9 @@ export abstract class JSONElement {
   abstract deepcopy(): JSONElement;
 }
 
+/**
+ * `JSONContainer` represents Array or Object.
+ */
 export abstract class JSONContainer extends JSONElement {
   constructor(createdAt: TimeTicket) {
     super(createdAt);
@@ -87,6 +111,9 @@ export abstract class JSONContainer extends JSONElement {
   ): void;
 }
 
+/**
+ * `TextElement` represents Text or RichText.
+ */
 export abstract class TextElement extends JSONElement {
   abstract getRemovedNodesLen(): number;
   abstract cleanupRemovedNodes(ticket: TimeTicket): number;
