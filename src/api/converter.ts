@@ -44,7 +44,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '../document/json/rga_tree_split';
-import { PlainText } from '../document/json/plain_text';
+import { PlainText, PlainTextValue } from '../document/json/plain_text';
 import { RichText, RichTextValue } from '../document/json/rich_text';
 import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
 import {
@@ -451,12 +451,12 @@ function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
+function toTextNodes(rgaTreeSplit: RGATreeSplit<PlainTextValue>): PbTextNode[] {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue());
+    pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     pbTextNodes.push(pbTextNode);
@@ -743,10 +743,12 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 /**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
-function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
+function fromTextNode(
+  pbTextNode: PbTextNode,
+): RGATreeSplitNode<PlainTextValue> {
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()!),
-    pbTextNode.getValue(),
+    PlainTextValue.create(pbTextNode.getValue()),
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
@@ -972,7 +974,7 @@ function fromJSONPrimitive(
  * `fromJSONText` converts the given Protobuf format to model format.
  */
 function fromJSONText(pbText: PbJSONElement.Text): PlainText {
-  const rgaTreeSplit = new RGATreeSplit<string>();
+  const rgaTreeSplit = new RGATreeSplit<PlainTextValue>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {

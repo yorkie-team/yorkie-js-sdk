@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// @ts-ignore
+import * as GraphemeSplitter from 'grapheme-splitter';
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { TextElement } from './element';
@@ -26,16 +28,78 @@ import {
 } from './rga_tree_split';
 
 /**
+ * `PlainTextValue` is a value of PlainText.
+ */
+export class PlainTextValue {
+  private content: string;
+
+  constructor(content: string) {
+    this.content = content;
+  }
+
+  /**
+   * `create` creates a instance of PlainTextValue.
+   */
+  public static create(content: string): PlainTextValue {
+    return new PlainTextValue(content);
+  }
+
+  /**
+   * `length` returns the length of content.
+   */
+  public get length(): number {
+    const splitter = new GraphemeSplitter();
+    return splitter.splitGraphemes(this.content).length;
+  }
+
+  /**
+   * `substring` returns a sub-string value of the given range.
+   */
+  public substring(indexStart: number, indexEnd: number): PlainTextValue {
+    const splitter = new GraphemeSplitter();
+    const split = splitter.splitGraphemes(this.content);
+    const value = new PlainTextValue(
+      split.slice(indexStart, indexEnd).join(''),
+    );
+    return value;
+  }
+
+  /**
+   * `toString` returns content.
+   */
+  public toString(): string {
+    return this.content;
+  }
+
+  /**
+   * `toJSON` returns the JSON encoding of this.
+   */
+  public toJSON(): string {
+    return this.content;
+  }
+
+  /**
+   * `getContent` returns content.
+   */
+  public getContent(): string {
+    return this.content;
+  }
+}
+
+/**
  * `PlainText` represents plain text element
  * Text is an extended data type for the contents of a text editor
  */
 export class PlainText extends TextElement {
   private onChangesHandler?: (changes: Array<Change>) => void;
-  private rgaTreeSplit: RGATreeSplit<string>;
+  private rgaTreeSplit: RGATreeSplit<PlainTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
-  constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
+  constructor(
+    rgaTreeSplit: RGATreeSplit<PlainTextValue>,
+    createdAt: TimeTicket,
+  ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
@@ -46,7 +110,7 @@ export class PlainText extends TextElement {
    * `create` creates a new instance of `PlainText`.
    */
   public static create(
-    rgaTreeSplit: RGATreeSplit<string>,
+    rgaTreeSplit: RGATreeSplit<PlainTextValue>,
     createdAt: TimeTicket,
   ): PlainText {
     return new PlainText(rgaTreeSplit, createdAt);
@@ -74,10 +138,11 @@ export class PlainText extends TextElement {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
+    const value = content ? PlainTextValue.create(content) : undefined;
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
       editedAt,
-      content,
+      value,
       latestCreatedAtMapByActor,
     );
 
@@ -178,7 +243,7 @@ export class PlainText extends TextElement {
   /**
    * `getRGATreeSplit` returns the rgaTreeSplit.
    */
-  public getRGATreeSplit(): RGATreeSplit<string> {
+  public getRGATreeSplit(): RGATreeSplit<PlainTextValue> {
     return this.rgaTreeSplit;
   }
 

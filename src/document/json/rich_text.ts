@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// @ts-ignore
+import * as GraphemeSplitter from 'grapheme-splitter';
 import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { RHT } from './rht';
@@ -55,16 +57,17 @@ export class RichTextValue {
    * `length` returns the length of content.
    */
   public get length(): number {
-    return this.content.length;
+    const splitter = new GraphemeSplitter();
+    return splitter.splitGraphemes(this.content).length;
   }
 
   /**
    * `substring` returns a sub-string value of the given range.
    */
   public substring(indexStart: number, indexEnd: number): RichTextValue {
-    const value = new RichTextValue(
-      this.content.substring(indexStart, indexEnd),
-    );
+    const splitter = new GraphemeSplitter();
+    const split = splitter.splitGraphemes(this.content);
+    const value = new RichTextValue(split.slice(indexStart, indexEnd).join(''));
     value.attributes = this.attributes.deepcopy();
     return value;
   }
@@ -84,7 +87,7 @@ export class RichTextValue {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this .
+   * `toJSON` returns the JSON encoding of this.
    */
   public toJSON(): string {
     return `{"attrs":${this.attributes.toJSON()},"content":${this.content}}`;

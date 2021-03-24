@@ -65,6 +65,7 @@
     "@types/google-protobuf": "^3.7.4",
     "@types/long": "^4.0.1",
     "google-protobuf": "^3.14.0",
+    "grapheme-splitter": "^1.0.4",
     "grpc-web": "^1.2.1",
     "long": "^4.0.0"
   },
