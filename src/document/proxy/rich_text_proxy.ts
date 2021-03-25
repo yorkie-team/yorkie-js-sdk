@@ -57,9 +57,9 @@ export class RichTextProxy {
             this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
           };
-        } else if (method === 'updateSelection') {
+        } else if (method === 'select') {
           return (fromIdx: number, toIdx: number): boolean => {
-            this.updateSelection(target, fromIdx, toIdx);
+            this.select(target, fromIdx, toIdx);
             return true;
           };
         } else if (method === 'getAnnotatedString') {
@@ -176,13 +176,9 @@ export class RichTextProxy {
   }
 
   /**
-   * `updateSelection` stores that the given range has been selected.
+   * `select` stores that the given range has been selected.
    */
-  public updateSelection(
-    target: RichText,
-    fromIdx: number,
-    toIdx: number,
-  ): void {
+  public select(target: RichText, fromIdx: number, toIdx: number): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
@@ -190,7 +186,7 @@ export class RichTextProxy {
       );
     }
     const ticket = this.context.issueTimeTicket();
-    target.updateSelectionInternal(range, ticket);
+    target.selectInternal(range, ticket);
 
     this.context.push(
       new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),

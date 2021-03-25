@@ -59,16 +59,10 @@ export class SelectOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof PlainText) {
       const text = parentObject as PlainText;
-      text.updateSelectionInternal(
-        [this.fromPos, this.toPos],
-        this.getExecutedAt(),
-      );
+      text.selectInternal([this.fromPos, this.toPos], this.getExecutedAt());
     } else if (parentObject instanceof RichText) {
       const text = parentObject as RichText;
-      text.updateSelectionInternal(
-        [this.fromPos, this.toPos],
-        this.getExecutedAt(),
-      );
+      text.selectInternal([this.fromPos, this.toPos], this.getExecutedAt());
     } else {
       logger.fatal(
         `fail to execute, only PlainText, RichText can execute select`,
