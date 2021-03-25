@@ -198,6 +198,7 @@ describe('Yorkie', function () {
         root['k5'] = '4';
         root['k6'] = new Uint8Array([65, 66]);
         root['k7'] = new Date();
+        root['k8'] = undefined;
       });
 
       await c1.sync();

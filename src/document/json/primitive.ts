@@ -45,7 +45,7 @@ export class JSONPrimitive extends JSONElement {
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
     super(createdAt);
     this.valueType = JSONPrimitive.getPrimitiveType(value)!;
-    this.value = value;
+    this.value = value === undefined ? null : value;
   }
 
   /**
@@ -134,6 +134,8 @@ export class JSONPrimitive extends JSONElement {
    */
   public static getPrimitiveType(value: unknown): PrimitiveType | undefined {
     switch (typeof value) {
+      case 'undefined':
+        return PrimitiveType.Null;
       case 'boolean':
         return PrimitiveType.Boolean;
       case 'number':
@@ -143,8 +145,7 @@ export class JSONPrimitive extends JSONElement {
       case 'object':
         if (value === null) {
           return PrimitiveType.Null;
-        }
-        if (value instanceof Long) {
+        } else if (value instanceof Long) {
           return PrimitiveType.Long;
         } else if (value instanceof Uint8Array) {
           return PrimitiveType.Bytes;
