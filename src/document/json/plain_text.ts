@@ -81,10 +81,7 @@ export class PlainText extends TextElement {
       latestCreatedAtMapByActor,
     );
 
-    const selectionChange = this.updateSelectionPriv(
-      [caretPos, caretPos],
-      editedAt,
-    );
+    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
     if (selectionChange) {
       changes.push(selectionChange);
     }
@@ -99,9 +96,9 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * Don't use updateSelection directly. Be sure to use it through a proxy.
+   * Don't use select directly. Be sure to use it through a proxy.
    */
-  public updateSelection(fromIdx: number, toIdx: number): void {
+  public select(fromIdx: number, toIdx: number): void {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
     );
@@ -110,9 +107,9 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * `updateSelectionInternal` updates selection info of the given selection range.
+   * `selectInternal` updates selection info of the given selection range.
    */
-  public updateSelectionInternal(
+  public selectInternal(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): void {
@@ -120,7 +117,7 @@ export class PlainText extends TextElement {
       return;
     }
 
-    const change = this.updateSelectionPriv(range, updatedAt);
+    const change = this.selectPriv(range, updatedAt);
     if (this.onChangesHandler && change) {
       this.remoteChangeLock = true;
       this.onChangesHandler([change]);
@@ -216,7 +213,7 @@ export class PlainText extends TextElement {
     return text;
   }
 
-  private updateSelectionPriv(
+  private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): Change | undefined {
