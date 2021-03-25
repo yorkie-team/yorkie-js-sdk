@@ -179,7 +179,7 @@
           }
 
           doc.update((root) => {
-            root.content.updateSelection(range.index, range.index + range.length);
+            root.content.select(range.index, range.index + range.length);
           }, `update selection by ${client.getID()}`);
         });
 

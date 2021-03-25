@@ -170,7 +170,7 @@
           const to = cm.indexFromPos(change.ranges[0].head);
 
           doc.update((root) => {
-            root.content.updateSelection(from, to);
+            root.content.select(from, to);
           }, `update selection by ${client.getID()}`);
         });
 

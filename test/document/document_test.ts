@@ -18,9 +18,11 @@ import { assert } from 'chai';
 import { Document, DocEventType } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { ChangeType } from '../../src/document/json/rga_tree_split';
 import { JSONElement } from '../../src/document/json/element';
 import { JSONArray } from '../../src/document/json/array';
 import { PlainText } from '../../src/document/json/plain_text';
+import { RichText } from '../../src/document/json/rich_text';
 
 import { TextView } from '../helper/helper';
 
@@ -638,6 +640,36 @@ describe('Document', function () {
     }
   });
 
+  it('should handle select operations', async function () {
+    const doc = Document.create<{
+      text: PlainText;
+      rich: RichText;
+    }>('test-col', 'test-doc');
+
+    doc.update((root) => {
+      root.createText('text');
+      root.createRichText('rich');
+      root.text.edit(0, 0, 'ABCD');
+      root.rich.edit(0, 0, 'ABCD');
+    });
+
+    doc.getRoot().text.onChanges((changes) => {
+      if (changes[0].type === ChangeType.Selection) {
+        assert.equal(changes[0].from, 2);
+        assert.equal(changes[0].to, 4);
+      }
+    });
+    doc.update((root) => root.text.select(2, 4));
+
+    doc.getRoot().rich.onChanges((changes) => {
+      if (changes[0].type === ChangeType.Selection) {
+        assert.equal(changes[0].from, 2);
+        assert.equal(changes[0].to, 4);
+      }
+    });
+    doc.update((root) => root.rich.select(2, 4));
+  });
+
   it('text garbage collection test', function () {
     const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
     doc.update((root) => root.createText('text'));
@@ -706,7 +738,7 @@ describe('Document', function () {
       paths.push('$.text');
       text.edit(0, 0, 'hello world');
       paths.push('$.text');
-      text.updateSelection(0, 2);
+      text.select(0, 2);
       paths.push('$.text');
 
       const rich = root.createRichText('rich');
