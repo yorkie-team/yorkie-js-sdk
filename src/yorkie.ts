@@ -27,7 +27,13 @@ export { JSONArray } from './document/json/array';
 export { PlainText } from './document/json/plain_text';
 export { RichText } from './document/json/rich_text';
 export { Change, ChangeType } from './document/json/rga_tree_split';
-
+export {
+  ClientEventType,
+  ClientStatus,
+  StreamConnectionStatus,
+  DocumentSyncResultType,
+} from './core/client';
+export { DocEventType } from './document/document';
 export type EventType = ClientEventType | DocEventType;
 
 /**
