@@ -1,6 +1,7 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { JSONElement } from '../../src/document/json/element';
+import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
@@ -105,5 +106,113 @@ describe('Array', function () {
       root['list'].moveBefore(next.getID(), item.getID());
       assert.equal('{"list":[1,2,0]}', root.toJSON());
     });
+  });
+
+  it('Can handle concurrent insertAfter operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev: JSONElement;
+      d1.update((root) => {
+        root['k1'] = [1, 2, 3, 4];
+        prev = root['k1'].getElementByIndex(1);
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].deleteByID(prev.getID());
+        assert.equal('{"k1":[1,3,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        root['k1'].insertAfter(prev.getID(), 2);
+        assert.equal('{"k1":[1,2,2,3,4]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal('{"k1":[1,2,3,4]}', d1.toJSON());
+
+      d1.update((root) => {
+        const prev = root['k1'].getElementByIndex(1);
+        root['k1'].insertAfter(prev.getID(), '2.1');
+        assert.equal('{"k1":[1,2,"2.1",3,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        const prev = root['k1'].getElementByIndex(1);
+        root['k1'].insertAfter(prev.getID(), '2.2');
+        assert.equal('{"k1":[1,2,"2.2",3,4]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent moveBefore operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
+      });
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(1);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(1);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent add operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = ['1'];
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].push('2');
+      });
+      d2.update((root) => {
+        root['k1'].push('3');
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
   });
 });

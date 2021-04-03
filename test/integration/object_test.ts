@@ -1,5 +1,6 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
+import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Object', function () {
   it('should apply updates inside nested map', function () {
@@ -83,5 +84,60 @@ describe('Object', function () {
     assert.equal('a,b,c', Object.keys(content).join(','));
     assert.equal('1,2,3', Object.values(content).join(','));
     assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
+  });
+
+  it('Can handle concurrent set/delete operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = 'v1';
+      });
+      d2.update((root) => {
+        root['k1'] = 'v2';
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k2'] = {};
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k2'] = 'v2';
+      });
+      d2.update((root) => {
+        root['k2']['k2.1'] = { 'k2.1.1': 'v3' };
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k3'] = 'v4';
+      });
+      d2.update((root) => {
+        root['k4'] = 'v5';
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        delete root['k3'];
+      });
+      d2.update((root) => {
+        root['k3'] = 'v6';
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
   });
 });

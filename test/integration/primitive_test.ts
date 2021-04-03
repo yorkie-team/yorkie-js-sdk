@@ -1,6 +1,8 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
+import yorkie from '../../src/yorkie';
+import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
@@ -37,5 +39,25 @@ describe('Primitive', function () {
       }, 'dummy error');
     });
     assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
+  });
+
+  it('Can handle primitive types', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k0'] = null;
+        root['k1'] = true;
+        root['k2'] = 2147483647;
+        root['k3'] = yorkie.Long.fromString('9223372036854775807');
+        root['k4'] = 1.79;
+        root['k5'] = '4';
+        root['k6'] = new Uint8Array([65, 66]);
+        root['k7'] = new Date();
+        root['k8'] = undefined;
+      });
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
   });
 });

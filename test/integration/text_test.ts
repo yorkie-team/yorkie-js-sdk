@@ -3,6 +3,7 @@ import { Document } from '../../src/document/document';
 import { PlainText } from '../../src/document/json/plain_text';
 import { TextView } from '../helper/helper';
 import { ChangeType } from '../../src/document/json/rga_tree_split';
+import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
@@ -119,5 +120,76 @@ describe('Text', function () {
       }
     });
     doc.update((root) => root.text.select(2, 4));
+  });
+
+  it('should handle edit operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.createText('k1');
+        root['k1'].edit(0, 0, 'ABCD');
+      }, 'set new text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root.createText('k1');
+        root['k1'].edit(0, 0, '1234');
+      }, 'edit 0,0 1234 by c1');
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('should handle concurrent edit operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.createText('k1');
+      }, 'set new text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":""}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].edit(0, 0, 'ABCD');
+      }, 'edit 0,0 ABCD by c1');
+      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
+      d2.update((root) => {
+        root['k1'].edit(0, 0, '1234');
+      }, 'edit 0,0 1234 by c2');
+      assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].edit(2, 3, 'XX');
+      }, 'edit 2,3 XX by c1');
+      d2.update((root) => {
+        root['k1'].edit(2, 3, 'YY');
+      }, 'edit 2,3 YY by c1');
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].edit(4, 5, 'ZZ');
+      }, 'edit 4,5 ZZ by c1');
+      d2.update((root) => {
+        root['k1'].edit(2, 3, 'TT');
+      }, 'edit 2,3 TT by c1');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
   });
 });
