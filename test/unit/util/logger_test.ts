@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import { logger, setLogLevel, LogLevel } from '../../src/util/logger';
+import { logger, setLogLevel, LogLevel } from '../../../src/util/logger';
 
 describe('logger', function () {
   it('Can log according to the level.', function () {
