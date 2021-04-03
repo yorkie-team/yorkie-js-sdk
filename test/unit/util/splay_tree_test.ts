@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import { SplayNode, SplayTree } from '../../src/util/splay_tree';
+import { SplayNode, SplayTree } from '../../../src/util/splay_tree';
 
 class StringNode extends SplayNode<string> {
   constructor(value: string) {

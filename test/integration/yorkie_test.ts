@@ -20,11 +20,11 @@ import {
   Client,
   ClientEventType,
   DocumentSyncResultType,
-} from '../src/core/client';
-import { Document, DocEventType, Indexable } from '../src/document/document';
-import { JSONElement } from '../src/document/json/element';
-import yorkie from '../src/yorkie';
-import { createEmitterAndSpy, waitFor } from './helper/helper';
+} from '../../src/core/client';
+import { Document, DocEventType, Indexable } from '../../src/document/document';
+import { JSONElement } from '../../src/document/json/element';
+import yorkie from '../../src/yorkie';
+import { createEmitterAndSpy, waitFor } from '../helper/helper';
 
 const __karma__ = (global as any).__karma__;
 const testRPCAddr = __karma__.config.testRPCAddr || 'http://localhost:8080';

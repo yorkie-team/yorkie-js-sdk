@@ -15,8 +15,8 @@
  */
 
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
-import { converter } from '../../src/api/converter';
+import { Document } from '../../../src/document/document';
+import { converter } from '../../../src/api/converter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
