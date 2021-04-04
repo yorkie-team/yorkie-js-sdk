@@ -7,6 +7,22 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.3] - 2021-04-04
+
+### Added
+- Pass paths to change events: #162
+- Support null and undefined values: #157
+- Add type parameter to Document: #148
+
+### Changed
+- Rename getRootObject to getRoot: #158
+- Rename updateSelection to select: #170
+
+### Fixed
+- Fix error that occurred when deleting value using missing key or index: #149
+- Fix invalid states of SplayTree: #153
+- Remove errors that occur when insPrev does not exist: #166
+
 ## [0.1.2] - 2021-02-14
 
 ### Added
