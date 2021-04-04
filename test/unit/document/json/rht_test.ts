@@ -15,9 +15,9 @@
  */
 
 import { assert } from 'chai';
-import { RHT } from '../../../src/document/json/rht';
-import { InitialTimeTicket } from '../../../src/document/time/ticket';
-import { Indexable } from '../../helper/helper';
+import { RHT } from '../../../../src/document/json/rht';
+import { InitialTimeTicket } from '../../../../src/document/time/ticket';
+import { Indexable } from '../../../helper/helper';
 
 describe('RHT', function () {
   it('should set and get a value', function () {

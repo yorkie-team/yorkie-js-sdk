@@ -15,12 +15,12 @@
  */
 
 import { assert } from 'chai';
-import { InitialTimeTicket } from '../../../src/document/time/ticket';
+import { InitialTimeTicket } from '../../../../src/document/time/ticket';
 import {
   JSONPrimitive,
   PrimitiveType,
-} from '../../../src/document/json/primitive';
-import yorkie from '../../../src/yorkie';
+} from '../../../../src/document/json/primitive';
+import yorkie from '../../../../src/yorkie';
 
 describe('Primitive', function () {
   const primitiveTypes = [
