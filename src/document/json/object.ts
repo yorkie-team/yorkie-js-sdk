@@ -209,6 +209,9 @@ export class JSONObject extends JSONContainer {
     }
   }
 
+  /**
+   * @internal
+   */
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     const keySet = new Set<string>();

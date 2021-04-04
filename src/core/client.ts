@@ -42,21 +42,33 @@ import { uuid } from '../util/uuid';
 import { DocumentKey } from '../document/key/document_key';
 import { Document } from '../document/document';
 
+/**
+ * @internal
+ */
 export enum ClientStatus {
   Deactivated = 'deactivated',
   Activated = 'activated',
 }
 
+/**
+ * @internal
+ */
 export enum StreamConnectionStatus {
   Connected = 'connected',
   Disconnected = 'disconnected',
 }
 
+/**
+ * @internal
+ */
 export enum DocumentSyncResultType {
   Synced = 'synced',
   SyncFailed = 'sync-failed',
 }
 
+/**
+ * @internal
+ */
 export enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',
@@ -65,11 +77,17 @@ export enum ClientEventType {
   DocumentSyncResult = 'document-sync-result',
 }
 
+/**
+ * @internal
+ */
 export interface ClientEvent {
   type: ClientEventType;
   value: any;
 }
 
+/**
+ * @internal
+ */
 interface Attachment {
   doc: Document<unknown>;
   isRealtimeSync: boolean;
@@ -77,8 +95,14 @@ interface Attachment {
   remoteChangeEventReceived?: boolean;
 }
 
+/**
+ * @internal
+ */
 export type Metadata = { [key: string]: string };
 
+/**
+ * @internal
+ */
 export interface ClientOptions {
   key?: string;
   metadata?: Metadata;

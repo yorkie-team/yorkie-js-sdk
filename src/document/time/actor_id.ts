@@ -15,5 +15,13 @@
  */
 
 export type ActorID = string;
+
+/**
+ * @internal
+ */
 export const InitialActorID = '000000000000000000000000';
+
+/**
+ * @internal
+ */
 export const MaxActorID = 'FFFFFFFFFFFFFFFFFFFFFFFF';

@@ -10,7 +10,7 @@
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
-    "build:docs": "typedoc --includeVersion --ignoreCompilerErrors --excludeExternals --out docs src",
+    "build:docs": "typedoc --excludeInternal --excludePrivate --exclude 'src/+(util|api)/**.ts' --exclude 'src/document/+(change|checkpoint|key|proxy|operation)/**.ts' --exclude 'src/document/json/+(counter|primitive|rga_tree_list|rht_pq_map|rht|root).ts'  --includeVersion --excludeExternals --out docs src",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
     "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
@@ -55,7 +55,7 @@
     "prettier": "^2.2.0",
     "sinon": "^9.2.1",
     "ts-loader": "^8.0.11",
-    "typedoc": "^0.19.2",
+    "typedoc": "^0.20.35",
     "typescript": "^3.9.7",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",

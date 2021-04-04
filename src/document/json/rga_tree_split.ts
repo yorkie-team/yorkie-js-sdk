@@ -36,12 +36,16 @@ export interface Change {
   attributes?: { [key: string]: string };
 }
 
+/**
+ * @internal
+ */
 interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
 
 /**
+ * @internal
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
  */
 export class RGATreeSplitNodeID {
@@ -107,9 +111,13 @@ export class RGATreeSplitNodeID {
   }
 }
 
+/**
+ * @internal
+ */
 const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(InitialTimeTicket, 0);
 
 /**
+ * @internal
  * `RGATreeSplitNodePos` is the position of the text inside the node.
  */
 export class RGATreeSplitNodePos {
@@ -176,9 +184,13 @@ export class RGATreeSplitNodePos {
   }
 }
 
+/**
+ * @internal
+ */
 export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
 
 /**
+ * @internal
  * `RGATreeSplitNode` is a node of RGATreeSplit.
  */
 export class RGATreeSplitNode<
@@ -418,6 +430,7 @@ export class RGATreeSplitNode<
 }
 
 /**
+ * @internal
  * `RGATreeSplit` is a block-based list with improved index-based lookup in RGA.
  * The difference from RGATreeList is that it has data on a block basis to
  * reduce the size of CRDT metadata. When an edit occurs on a block,
@@ -575,6 +588,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return json.join('');
   }
 
+  /**
+   * @internal
+   */
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RGATreeSplitNode<T>> {
     let node = this.head.getNext();
@@ -881,6 +897,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 }
 
 /**
+ * @internal
  * `Selection` represents the selection of text range in the editor.
  */
 export class Selection {

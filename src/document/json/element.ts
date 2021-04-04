@@ -93,6 +93,7 @@ export abstract class JSONElement {
 }
 
 /**
+ * @internal
  * `JSONContainer` represents Array or Object.
  */
 export abstract class JSONContainer extends JSONElement {
@@ -112,6 +113,7 @@ export abstract class JSONContainer extends JSONElement {
 }
 
 /**
+ * @internal
  * `TextElement` represents Text or RichText.
  */
 export abstract class TextElement extends JSONElement {

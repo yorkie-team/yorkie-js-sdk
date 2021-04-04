@@ -18,6 +18,9 @@ import Long from 'long';
 import { Comparator } from '../../util/comparator';
 import { ActorID, InitialActorID, MaxActorID } from './actor_id';
 
+/**
+ * @internal
+ */
 export const TicketComparator: Comparator<TimeTicket> = (
   p1: TimeTicket,
   p2: TimeTicket,
@@ -143,15 +146,33 @@ export class TimeTicket {
   }
 }
 
+/**
+ * @internal
+ */
 export const InitialDelimiter = 0;
+
+/**
+ * @internal
+ */
 export const MaxDelemiter = 4294967295;
+
+/**
+ * @internal
+ */
 export const MaxLamport = Long.fromString('18446744073709551615', true);
 
+/**
+ * @internal
+ */
 export const InitialTimeTicket = new TimeTicket(
   Long.fromNumber(0, true),
   InitialDelimiter,
   InitialActorID,
 );
+
+/**
+ * @internal
+ */
 export const MaxTimeTicket = new TimeTicket(
   MaxLamport,
   MaxDelemiter,

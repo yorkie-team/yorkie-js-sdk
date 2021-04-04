@@ -37,38 +37,62 @@ import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
 import { TimeTicket } from './time/ticket';
 
+/**
+ * @internal
+ */
 export enum DocEventType {
   Snapshot = 'snapshot',
   LocalChange = 'local-change',
   RemoteChange = 'remote-change',
 }
 
+/**
+ * @internal
+ */
 export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
 
+/**
+ * @internal
+ */
 export interface AbstractDocEvent {
   type: DocEventType;
 }
 
+/**
+ * @internal
+ */
 export interface SnapshotEvent extends AbstractDocEvent {
   type: DocEventType.Snapshot;
   value: Uint8Array | undefined;
 }
 
+/**
+ * @internal
+ */
 export interface ChangeInfo {
   change: Change;
   paths: Array<string>;
 }
 
+/**
+ * @internal
+ */
 export interface LocalChangeEvent extends AbstractDocEvent {
   type: DocEventType.LocalChange;
   value: Array<ChangeInfo>;
 }
 
+/**
+ * @internal
+ */
 export interface RemoteChangeEvent extends AbstractDocEvent {
   type: DocEventType.RemoteChange;
   value: Array<ChangeInfo>;
 }
 
+/**
+ * @internal
+ */
 export type Indexable = {
   [index: string]: any;
 };

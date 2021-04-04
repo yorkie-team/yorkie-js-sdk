@@ -26,6 +26,9 @@ import {
   Selection,
 } from './rga_tree_split';
 
+/**
+ * @internal
+ */
 export interface RichTextVal {
   attributes: { [key: string]: string };
   content: string;
