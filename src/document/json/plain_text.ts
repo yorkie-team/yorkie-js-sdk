@@ -26,6 +26,7 @@ import {
 } from './rga_tree_split';
 
 /**
+ * @public
  * `PlainText` represents plain text element
  * Text is an extended data type for the contents of a text editor
  */

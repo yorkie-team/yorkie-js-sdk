@@ -24,6 +24,7 @@ import { CounterType } from './counter';
 import { CounterProxy } from '../proxy/counter_proxy';
 
 /**
+ * @public
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  */

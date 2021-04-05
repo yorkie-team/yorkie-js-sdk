@@ -109,6 +109,7 @@ export class RichTextValue {
 }
 
 /**
+ * @public
  *  `RichText` is an extended data type for the contents of a text editor.
  */
 export class RichText extends TextElement {

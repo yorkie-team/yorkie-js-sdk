@@ -29,6 +29,7 @@ export const TicketComparator: Comparator<TimeTicket> = (
 };
 
 /**
+ * @public
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
  * It is created by `ChangeID`.
  */

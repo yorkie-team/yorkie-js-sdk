@@ -125,3 +125,7 @@ dist/
 
 # Docs files
 docs/
+
+
+# temp folder used by api-extractor
+temp
