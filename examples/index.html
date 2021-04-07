@@ -121,7 +121,7 @@
 
         client.subscribe((event) => {
           if (event.type === 'peers-changed') {
-            displayPeers(event.value[doc.getKey().toIDString()], client.getID());
+            displayPeers(event.value[doc.getKey()], client.getID());
           }
         });
 
