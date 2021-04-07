@@ -256,9 +256,18 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * `getKey` returns the key of this document.
+   * `getKey` returns the key of this document as a string. The string is
+   * a combination pattern of collection and document.
+   * e.g. `Collection$Document`;
    */
-  public getKey(): DocumentKey {
+  public getKey(): string {
+    return this.key.toIDString();
+  }
+
+  /**
+   * `getDocumentKey` returns the key of this document.
+   */
+  public getDocumentKey(): DocumentKey {
     return this.key;
   }
 
