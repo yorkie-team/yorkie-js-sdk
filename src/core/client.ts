@@ -231,16 +231,14 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack(res.getChangePack()!);
         doc.applyChangePack(pack);
 
-        this.attachmentMap.set(doc.getKey().toIDString(), {
+        this.attachmentMap.set(doc.getKey(), {
           doc,
           isRealtimeSync: !isManualSync,
           peerClients: new Map(),
         });
         this.runWatchLoop();
 
-        logger.info(
-          `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey().toIDString()}"`,
-        );
+        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
         resolve(doc);
       });
     });
@@ -274,14 +272,12 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack(res.getChangePack()!);
         doc.applyChangePack(pack);
 
-        if (this.attachmentMap.has(doc.getKey().toIDString())) {
-          this.attachmentMap.delete(doc.getKey().toIDString());
+        if (this.attachmentMap.has(doc.getKey())) {
+          this.attachmentMap.delete(doc.getKey());
         }
         this.runWatchLoop();
 
-        logger.info(
-          `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey().toIDString()}"`,
-        );
+        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         resolve(doc);
       });
     });
@@ -407,7 +403,7 @@ export class Client implements Observable<ClientEvent> {
       const realtimeSyncDocKeys: Array<DocumentKey> = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
-          realtimeSyncDocKeys.push(attachment.doc.getKey());
+          realtimeSyncDocKeys.push(attachment.doc.getDocumentKey());
         }
       }
 
@@ -553,7 +549,7 @@ export class Client implements Observable<ClientEvent> {
             value: DocumentSyncResultType.Synced,
           });
 
-          const docKey = doc.getKey().toIDString();
+          const docKey = doc.getKey();
           const remoteSize = respPack.getChangeSize();
           logger.info(
             `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack

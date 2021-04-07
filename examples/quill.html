@@ -90,7 +90,7 @@
 
         client.subscribe((event) => {
           if (event.type === 'peers-changed') {
-            peers = event.value[doc.getKey().toIDString()];
+            peers = event.value[doc.getKey()];
             displayPeers(peers, metadata['username']);
           }
         });
