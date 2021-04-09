@@ -15,11 +15,13 @@ services:
     depends_on:
       - yorkie
   yorkie:
-    volumes:
-    - ./yorkie.json:/app/yorkie.json
     image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
-    command: ['/app/bin/yorkie', 'agent', '-c', '/app/yorkie.json']
+    command: [
+      'agent',
+      '--mongo-connection-uri',
+      'mongodb://mongo:27017',
+    ]
     restart: always
     ports:
       - '11101:11101'
