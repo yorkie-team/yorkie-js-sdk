@@ -56,6 +56,10 @@ export class RemoveOperation extends Operation {
       const elem = obj.delete(this.createdAt, this.getExecutedAt());
       root.registerRemovedElement(elem);
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }
   }

@@ -90,6 +90,10 @@ export class RichEditOperation extends Operation {
         root.registerTextWithGarbage(text);
       }
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only RichText can execute edit`);
     }
   }

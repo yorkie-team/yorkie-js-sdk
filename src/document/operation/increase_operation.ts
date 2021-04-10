@@ -59,6 +59,10 @@ export class IncreaseOperation extends Operation {
       const value = this.value.deepcopy() as JSONPrimitive;
       counter.increase(value);
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only Counter can execute increase`);
     }
   }
