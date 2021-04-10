@@ -64,6 +64,10 @@ export class MoveOperation extends Operation {
       const array = parentObject as JSONArray;
       array.moveAfter(this.prevCreatedAt, this.createdAt, this.getExecutedAt());
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only array can execute add`);
     }
   }

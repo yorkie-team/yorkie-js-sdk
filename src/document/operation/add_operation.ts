@@ -62,6 +62,10 @@ export class AddOperation extends Operation {
       array.insertAfter(this.prevCreatedAt, value);
       root.registerElement(value, array);
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only array can execute add`);
     }
   }

@@ -63,6 +63,10 @@ export class SetOperation extends Operation {
       obj.set(this.key, value);
       root.registerElement(value, obj);
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only object can execute set`);
     }
   }
