@@ -64,6 +64,10 @@ export class SelectOperation extends Operation {
       const text = parentObject as RichText;
       text.selectInternal([this.fromPos, this.toPos], this.getExecutedAt());
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(
         `fail to execute, only PlainText, RichText can execute select`,
       );

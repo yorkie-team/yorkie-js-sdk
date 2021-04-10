@@ -74,6 +74,10 @@ export class StyleOperation extends Operation {
         this.getExecutedAt(),
       );
     } else {
+      if (!parentObject) {
+        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      }
+
       logger.fatal(`fail to execute, only PlainText can execute edit`);
     }
   }
