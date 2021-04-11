@@ -132,3 +132,8 @@ temp
 
 # api review folder used by api-extractor
 api-review
+
+# lib folder used by api-extractor
+lib/
+
+.DS_Store

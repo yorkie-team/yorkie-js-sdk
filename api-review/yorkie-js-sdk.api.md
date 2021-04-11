@@ -6,6 +6,8 @@
 
 import { default as Long_2 } from 'long';
 
+// Warning: (ae-missing-release-tag) "ActorID" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export type ActorID = string;
 
@@ -226,6 +228,8 @@ export class RichText extends TextElement {
     toSortedJSON(): string;
 }
 
+// Warning: (ae-missing-release-tag) "TimeTicket" is exported by the package, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public
 export class TimeTicket {
     constructor(lamport: Long_2, delimiter: number, actorID?: string);
