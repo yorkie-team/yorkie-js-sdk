@@ -21,12 +21,18 @@ import { SplayNode, SplayTree } from '../../util/splay_tree';
 import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 
+/**
+ * @public
+ */
 export enum ChangeType {
   Content = 'content',
   Selection = 'selection',
   Style = 'style',
 }
 
+/**
+ * @public
+ */
 export interface Change {
   type: ChangeType;
   actor: ActorID;
