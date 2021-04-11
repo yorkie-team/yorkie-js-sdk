@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { RichText } from '../../src/document/json/rich_text';
-import { ChangeType } from '../../src/document/json/rga_tree_split';
+import { TextChangeType } from '../../src/document/json/rga_tree_split';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
@@ -38,7 +38,7 @@ describe('RichText', function () {
     });
 
     doc.getRoot().rich.onChanges((changes) => {
-      if (changes[0].type === ChangeType.Selection) {
+      if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);
       }

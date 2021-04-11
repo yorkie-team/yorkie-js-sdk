@@ -16,7 +16,7 @@
 
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
-import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
+import { RGATreeSplitNodeRange, TextChange } from '../json/rga_tree_split';
 import { RichText, RichTextVal } from '../json/rich_text';
 import { RichEditOperation } from '../operation/rich_edit_operation';
 import { StyleOperation } from '../operation/style_operation';
@@ -75,7 +75,7 @@ export class RichTextProxy {
             return target.createRange(fromIdx, toIdx);
           };
         } else if (method === 'onChanges') {
-          return (handler: (changes: Array<Change>) => void): void => {
+          return (handler: (changes: Array<TextChange>) => void): void => {
             target.onChanges(handler);
           };
         }

@@ -2,7 +2,7 @@ import { assert } from 'chai';
 import { Document } from '../../src/document/document';
 import { PlainText } from '../../src/document/json/plain_text';
 import { TextView } from '../helper/helper';
-import { ChangeType } from '../../src/document/json/rga_tree_split';
+import { TextChangeType } from '../../src/document/json/rga_tree_split';
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Text', function () {
@@ -114,7 +114,7 @@ describe('Text', function () {
     });
 
     doc.getRoot().text.onChanges((changes) => {
-      if (changes[0].type === ChangeType.Selection) {
+      if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);
       }
