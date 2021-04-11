@@ -41,7 +41,7 @@ module.exports = {
       files: ['test/**/*', 'lib/**/*'],
       rules: {
         'jsdoc/require-jsdoc': 'off',
-        '@typescript-eslint/ban-types': 'off'
+        '@typescript-eslint/ban-types': 'off',
       },
     },
   ],
