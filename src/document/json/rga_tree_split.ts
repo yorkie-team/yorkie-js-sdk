@@ -24,7 +24,7 @@ import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 /**
  * @public
  */
-export enum ChangeType {
+export enum TextChangeType {
   Content = 'content',
   Selection = 'selection',
   Style = 'style',
@@ -33,8 +33,8 @@ export enum ChangeType {
 /**
  * @public
  */
-export interface Change {
-  type: ChangeType;
+export interface TextChange {
+  type: TextChangeType;
   actor: ActorID;
   from: number;
   to: number;
@@ -469,7 +469,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -495,7 +495,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       );
 
       changes.push({
-        type: ChangeType.Content,
+        type: TextChangeType.Content,
         actor: editedAt.getActorID()!,
         from: idx,
         to: idx,
@@ -767,12 +767,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<Change>,
+    Array<TextChange>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
     const isRemote = !!latestCreatedAtMapByActor;
-    const changes: Array<Change> = [];
+    const changes: Array<TextChange> = [];
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
@@ -796,7 +796,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
             node.createRange(),
           );
           const change = {
-            type: ChangeType.Content,
+            type: TextChangeType.Content,
             actor: editedAt.getActorID()!,
             from: fromIdx,
             to: toIdx,
