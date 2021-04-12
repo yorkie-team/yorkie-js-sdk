@@ -15,7 +15,7 @@ jobs:
       - name: Install and Build 🔧
         run: |
           npm install
-          npm run api-report
+          npm run build
           npm run build:docs
 
       - name: Deploy 🚀

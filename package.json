@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config webpack.config.js",
+    "build": "webpack --config webpack.config.js && npm run api-report",
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "build:docs": "api-documenter markdown --input temp --output docs",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
@@ -17,7 +17,7 @@
     "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "npm run build",
-    "api-report": "npm run build && npm run api-report:api-json",
+    "api-report": "npm run api-report:api-json",
     "api-report:api-json": "rm -rf temp && api-extractor run --local --verbose"
   },
   "repository": {
