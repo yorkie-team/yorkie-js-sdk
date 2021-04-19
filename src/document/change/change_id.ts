@@ -53,7 +53,7 @@ export class ChangeID {
   /**
    * `syncLamport` syncs lamport timestamp with the given ID.
    *
-   * @see {@link https://en.wikipedia.org/wiki/Lamport_timestamps#Algorithm}
+   * {@link https://en.wikipedia.org/wiki/Lamport_timestamps#Algorithm}
    */
   public syncLamport(otherLamport: Long): ChangeID {
     if (otherLamport.greaterThan(this.lamport)) {

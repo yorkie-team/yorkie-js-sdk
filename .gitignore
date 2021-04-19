@@ -125,3 +125,15 @@ dist/
 
 # Docs files
 docs/
+
+
+# temp folder used by api-extractor
+temp
+
+# api review folder used by api-extractor
+api-review
+
+# lib folder used by api-extractor
+lib/
+
+.DS_Store

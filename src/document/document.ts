@@ -74,6 +74,7 @@ export type Indexable = {
 };
 
 /**
+ * @public
  * `Document` represents a document in MongoDB and contains logical clocks.
  */
 export class Document<T = Indexable> implements Observable<DocEvent> {

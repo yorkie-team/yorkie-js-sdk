@@ -16,7 +16,7 @@
 
 import { logger, LogLevel } from '../../util/logger';
 import { ChangeContext } from '../change/context';
-import { RGATreeSplitNodeRange, Change } from '../json/rga_tree_split';
+import { RGATreeSplitNodeRange, TextChange } from '../json/rga_tree_split';
 import { PlainText } from '../json/plain_text';
 import { EditOperation } from '../operation/edit_operation';
 import { SelectOperation } from '../operation/select_operation';
@@ -59,7 +59,7 @@ export class TextProxy {
             return target.createRange(fromIdx, toIdx);
           };
         } else if (method === 'onChanges') {
-          return (handler: (changes: Array<Change>) => void): void => {
+          return (handler: (changes: Array<TextChange>) => void): void => {
             target.onChanges(handler);
           };
         }

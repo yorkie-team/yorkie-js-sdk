@@ -19,7 +19,7 @@ import { NextFn } from '../../src/util/observable';
 
 import { ClientEvent } from '../../src/core/client';
 import { DocEvent } from '../../src/document/document';
-import { Change, ChangeType } from '../../src/document/json/rga_tree_split';
+import { TextChange, TextChangeType } from '../../src/document/json/rga_tree_split';
 
 export function range(from: number, to: number): Array<number> {
   const list = [];
@@ -62,11 +62,11 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(changes: Array<Change>, enableLog = false): void {
+  public applyChanges(changes: Array<TextChange>, enableLog = false): void {
     const oldValue = this.value;
     const changeLogs = [];
     for (const change of changes) {
-      if (change.type === ChangeType.Content) {
+      if (change.type === TextChangeType.Content) {
         this.value = [
           this.value.substring(0, change.from),
           change.content,

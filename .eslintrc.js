@@ -38,9 +38,10 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['test/**/*'],
+      files: ['test/**/*', 'lib/**/*'],
       rules: {
         'jsdoc/require-jsdoc': 'off',
+        '@typescript-eslint/ban-types': 'off',
       },
     },
   ],

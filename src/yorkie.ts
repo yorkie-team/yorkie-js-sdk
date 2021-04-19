@@ -26,11 +26,15 @@ export { JSONObject } from './document/json/object';
 export { JSONArray } from './document/json/array';
 export { PlainText } from './document/json/plain_text';
 export { RichText } from './document/json/rich_text';
-export { Change, ChangeType } from './document/json/rga_tree_split';
+export { TextChange, TextChangeType } from './document/json/rga_tree_split';
 
+/**
+ * @public
+ */
 export type EventType = ClientEventType | DocEventType;
 
 /**
+ * @public
  * The top-level yorkie namespace with additional properties.
  *
  * In production, this will be called exactly once and the result
