@@ -92,6 +92,7 @@ const DefaultClientOptions = {
 };
 
 /**
+ * @public
  * `Client` is a normal client that can communicate with the agent.
  * It has documents and sends changes of the documents in local
  * to the agent to synchronize with other replicas in remote.

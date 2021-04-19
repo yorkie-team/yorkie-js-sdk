@@ -19,8 +19,8 @@ import { TimeTicket } from '../time/ticket';
 import { RHT } from './rht';
 import { TextElement } from './element';
 import {
-  Change,
-  ChangeType,
+  TextChange,
+  TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
   Selection,
@@ -106,10 +106,11 @@ export class RichTextValue {
 }
 
 /**
+ * @public
  *  `RichText` is an extended data type for the contents of a text editor.
  */
 export class RichText extends TextElement {
-  private onChangesHandler?: (changes: Array<Change>) => void;
+  private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -248,7 +249,7 @@ export class RichText extends TextElement {
         node.createRange(),
       );
       changes.push({
-        type: ChangeType.Style,
+        type: TextChangeType.Style,
         actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
@@ -307,7 +308,7 @@ export class RichText extends TextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<Change>) => void): void {
+  public onChanges(handler: (changes: Array<TextChange>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -409,7 +410,7 @@ export class RichText extends TextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): Change | undefined {
+  ): TextChange | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
@@ -427,7 +428,7 @@ export class RichText extends TextElement {
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
-        type: ChangeType.Selection,
+        type: TextChangeType.Selection,
         actor: updatedAt.getActorID()!,
         from,
         to,

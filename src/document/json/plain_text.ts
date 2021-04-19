@@ -18,19 +18,20 @@ import { logger } from '../../util/logger';
 import { TimeTicket } from '../time/ticket';
 import { TextElement } from './element';
 import {
-  Change,
-  ChangeType,
+  TextChange,
+  TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
   Selection,
 } from './rga_tree_split';
 
 /**
+ * @public
  * `PlainText` represents plain text element
  * Text is an extended data type for the contents of a text editor
  */
 export class PlainText extends TextElement {
-  private onChangesHandler?: (changes: Array<Change>) => void;
+  private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -135,7 +136,7 @@ export class PlainText extends TextElement {
   /**
    * onChanges registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<Change>) => void): void {
+  public onChanges(handler: (changes: Array<TextChange>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -216,7 +217,7 @@ export class PlainText extends TextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): Change | undefined {
+  ): TextChange | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
@@ -234,7 +235,7 @@ export class PlainText extends TextElement {
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
-        type: ChangeType.Selection,
+        type: TextChangeType.Selection,
         actor: updatedAt.getActorID()!,
         from,
         to,

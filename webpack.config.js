@@ -60,7 +60,7 @@ module.exports = {
     library: 'yorkie',
     libraryTarget: 'umd',
     libraryExport: 'default',
-    filename: 'yorkie.js',
+    filename: 'yorkie-js-sdk.js',
     path: path.resolve(__dirname, './dist'),
   },
   plugins: [
