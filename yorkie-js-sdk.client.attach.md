@@ -9,17 +9,17 @@
 <b>Signature:</b>
 
 ```typescript
-attach(doc: Document<unknown>, isManualSync?: boolean): Promise<Document<unknown>>;
+attach(doc: DocumentReplica<unknown>, isManualSync?: boolean): Promise<DocumentReplica<unknown>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
+|  doc | [DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;unknown&gt; |  |
 |  isManualSync | boolean |  |
 
 <b>Returns:</b>
 
-Promise&lt;Document&lt;unknown&gt;&gt;
+Promise&lt;[DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;unknown&gt;&gt;
 

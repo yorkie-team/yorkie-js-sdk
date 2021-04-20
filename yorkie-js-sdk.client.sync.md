@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-sync(): Promise<Document<unknown>[]>;
+sync(): Promise<DocumentReplica<unknown>[]>;
 ```
 <b>Returns:</b>
 
-Promise&lt;Document&lt;unknown&gt;\[\]&gt;
+Promise&lt;[DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;unknown&gt;\[\]&gt;
 

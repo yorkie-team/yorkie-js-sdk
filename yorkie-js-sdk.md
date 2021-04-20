@@ -9,7 +9,7 @@
 |  Class | Description |
 |  --- | --- |
 |  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the agent. It has documents and sends changes of the documents in local to the agent to synchronize with other replicas in remote. |
-|  [Document\_2](./yorkie-js-sdk.document_2.md) | <code>Document</code> represents a document in MongoDB and contains logical clocks. |
+|  [DocumentReplica](./yorkie-js-sdk.documentreplica.md) | <code>DocumentReplica</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array data structure including logical clock. |
 |  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> represents JSON element including logical clock. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets which is created by logical clock. |
