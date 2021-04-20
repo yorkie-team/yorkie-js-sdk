@@ -14,7 +14,7 @@ e.g) `yorkie.createClient(...);`
 
 ```typescript
 yorkie: {
-    createClient(rpcAddr: string, opts?: ClientOptions | undefined): Client;
-    createDocument<T = Indexable>(collection: string, document: string): DocumentReplica<T>;
+    createClient: typeof createClient;
+    createDocument: typeof createDocument;
 }
 ```

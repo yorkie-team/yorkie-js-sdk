@@ -16,11 +16,11 @@ subscribe(nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>, error?: E
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  nextOrObserver | Observer&lt;ClientEvent&gt; \| NextFn&lt;ClientEvent&gt; |  |
-|  error | ErrorFn |  |
-|  complete | CompleteFn |  |
+|  nextOrObserver | [Observer](./yorkie-js-sdk.observer.md)<!-- -->&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; \| [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; |  |
+|  error | [ErrorFn](./yorkie-js-sdk.errorfn.md) |  |
+|  complete | [CompleteFn](./yorkie-js-sdk.completefn.md) |  |
 
 <b>Returns:</b>
 
-Unsubscribe
+[Unsubscribe](./yorkie-js-sdk.unsubscribe.md)
 

@@ -4,6 +4,8 @@
 
 ## ClientOptions interface
 
+'ClientOptions' are user-settable options used when defining clients.
+
 <b>Signature:</b>
 
 ```typescript
@@ -15,7 +17,7 @@ export interface ClientOptions
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [key?](./yorkie-js-sdk.clientoptions.key.md) | string | <i>(Optional)</i> |
-|  [metadata?](./yorkie-js-sdk.clientoptions.metadata.md) | Metadata | <i>(Optional)</i> |
+|  [metadata?](./yorkie-js-sdk.clientoptions.metadata.md) | [Metadata](./yorkie-js-sdk.metadata.md) | <i>(Optional)</i> |
 |  [reconnectStreamDelay?](./yorkie-js-sdk.clientoptions.reconnectstreamdelay.md) | number | <i>(Optional)</i> |
 |  [syncLoopDuration?](./yorkie-js-sdk.clientoptions.syncloopduration.md) | number | <i>(Optional)</i> |
 
