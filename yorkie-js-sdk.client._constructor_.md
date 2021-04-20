@@ -17,5 +17,5 @@ constructor(rpcAddr: string, opts?: ClientOptions);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  rpcAddr | string |  |
-|  opts | ClientOptions |  |
+|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md) |  |
 

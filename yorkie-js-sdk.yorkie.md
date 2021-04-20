@@ -16,6 +16,5 @@ e.g) `yorkie.createClient(...);`
 yorkie: {
     createClient(rpcAddr: string, opts?: ClientOptions | undefined): Client;
     createDocument<T = Indexable>(collection: string, document: string): DocumentReplica<T>;
-    Long: Long.LongConstructor;
 }
 ```

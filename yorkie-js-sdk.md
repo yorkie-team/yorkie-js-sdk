@@ -27,6 +27,7 @@
 
 |  Interface | Description |
 |  --- | --- |
+|  [ClientOptions](./yorkie-js-sdk.clientoptions.md) |  |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
 
 ## Variables
