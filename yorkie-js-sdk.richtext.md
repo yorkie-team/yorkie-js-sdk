@@ -23,22 +23,17 @@ export declare class RichText extends TextElement
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [cleanupRemovedNodes(ticket)](./yorkie-js-sdk.richtext.cleanupremovednodes.md) |  | <code>cleanupRemovedNodes</code> cleans up nodes that have been removed. The cleaned nodes are subject to garbage collector collection. |
 |  [create(rgaTreeSplit, createdAt)](./yorkie-js-sdk.richtext.create.md) | <code>static</code> | <code>create</code> a instance of RichText. |
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.richtext.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
 |  [deepcopy()](./yorkie-js-sdk.richtext.deepcopy.md) |  | <code>deepcopy</code> copies itself deeply. |
 |  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.richtext.edit.md) |  | Don't use edit directly. Be sure to use it through a proxy. The reason for setting the RichText type as the return value is to provide the RichText interface to the user. |
-|  [editInternal(range, content, editedAt, attributes, latestCreatedAtMapByActor)](./yorkie-js-sdk.richtext.editinternal.md) |  | <code>editInternal</code> edits the given range with the given content and attributes. |
 |  [getAnnotatedString()](./yorkie-js-sdk.richtext.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of this value for debugging purpose. |
-|  [getRemovedNodesLen()](./yorkie-js-sdk.richtext.getremovednodeslen.md) |  | <code>removedNodesLen</code> returns length of removed nodes |
-|  [getRGATreeSplit()](./yorkie-js-sdk.richtext.getrgatreesplit.md) |  | <code>getRGATreeSplit</code> returns rgaTreeSplit. |
+|  [getRemovedNodesLen()](./yorkie-js-sdk.richtext.getremovednodeslen.md) |  | <code>getRemovedNodesLen</code> returns length of removed nodes |
 |  [getValue()](./yorkie-js-sdk.richtext.getvalue.md) |  | <code>getValue</code> returns value array of this RichTextVal. |
 |  [hasRemoteChangeLock()](./yorkie-js-sdk.richtext.hasremotechangelock.md) |  | <code>hasRemoteChangeLock</code> checks whether remoteChangeLock has. |
 |  [onChanges(handler)](./yorkie-js-sdk.richtext.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.richtext.select.md) |  | Don't use select directly. Be sure to use it through a proxy. |
-|  [selectInternal(range, updatedAt)](./yorkie-js-sdk.richtext.selectinternal.md) |  | <code>selectInternal</code> stores that the given range has been selected. |
 |  [setStyle(fromIdx, toIdx, key, value)](./yorkie-js-sdk.richtext.setstyle.md) |  | Don't use setStyle directly. Be sure to use it through a proxy. The reason for setting the RichText type as the return value is to provide the RichText interface to the user. |
-|  [setStyleInternal(range, attributes, editedAt)](./yorkie-js-sdk.richtext.setstyleinternal.md) |  | <code>setStyleInternal</code> applies the style of the given range. 01. split nodes with from and to 02. style nodes between from and to |
 |  [toJSON()](./yorkie-js-sdk.richtext.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this rich text. |
 |  [toSortedJSON()](./yorkie-js-sdk.richtext.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of this rich text. |
 

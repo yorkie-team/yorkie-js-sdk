@@ -4,7 +4,7 @@
 
 ## RichText.getRemovedNodesLen() method
 
-`removedNodesLen` returns length of removed nodes
+`getRemovedNodesLen` returns length of removed nodes
 
 <b>Signature:</b>
 
