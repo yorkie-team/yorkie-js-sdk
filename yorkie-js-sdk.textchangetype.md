@@ -4,6 +4,7 @@
 
 ## TextChangeType enum
 
+`TextChangeType` is the type of TextChange.
 
 <b>Signature:</b>
 

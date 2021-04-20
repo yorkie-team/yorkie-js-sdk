@@ -4,6 +4,7 @@
 
 ## TextChange interface
 
+`TextChange` is the value passed as an argument to `Text.onChanges()`<!-- -->. `Text.onChanges()` is called when the `Text` is modified.
 
 <b>Signature:</b>
 
