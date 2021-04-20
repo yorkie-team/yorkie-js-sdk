@@ -1,10 +1,10 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Object', function () {
   it('should apply updates inside nested map', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -56,7 +56,7 @@ describe('Object', function () {
   });
 
   it('should handle delete operations', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -72,7 +72,7 @@ describe('Object', function () {
   });
 
   it('Object.keys, Object.values and Object.entries test', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {

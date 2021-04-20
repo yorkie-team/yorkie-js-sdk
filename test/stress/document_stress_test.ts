@@ -1,11 +1,11 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 
 describe('Document stress', function () {
   it('garbage collection test for large size text 1', function () {
     const size = 100;
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. initial
@@ -34,7 +34,7 @@ describe('Document stress', function () {
 
   it('garbage collection test for large size text 2', function () {
     const size = 100;
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. long text by one node

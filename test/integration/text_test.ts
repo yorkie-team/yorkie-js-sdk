@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { PlainText } from '../../src/document/json/plain_text';
 import { TextView } from '../helper/helper';
 import { TextChangeType } from '../../src/document/json/rga_tree_split';
@@ -7,7 +7,7 @@ import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
@@ -45,7 +45,7 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
@@ -68,7 +68,7 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -85,7 +85,10 @@ describe('Text', function () {
   });
 
   it('should handle deletion of nested nodes', function () {
-    const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ text: PlainText }>(
+      'test-col',
+      'test-doc',
+    );
     const view = new TextView();
     doc.update((root) => root.createText('text'));
     doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
@@ -104,7 +107,7 @@ describe('Text', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{
+    const doc = DocumentReplica.create<{
       text: PlainText;
     }>('test-col', 'test-doc');
 

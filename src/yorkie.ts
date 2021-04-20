@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-import Long from 'long';
-import { Client, ClientOptions, ClientEventType } from './core/client';
-import { Document, Indexable, DocEventType } from './document/document';
+import { Client, ClientOptions } from './core/client';
+import { DocumentReplica, Indexable } from './document/document';
 
-export { Client, Document };
+export { Client, ClientOptions, DocumentReplica };
+export { Metadata, ClientEvent } from './core/client';
+export { DocEvent } from './document/document';
+export {
+  Observer,
+  Observable,
+  NextFn,
+  ErrorFn,
+  CompleteFn,
+  Unsubscribe,
+} from './util/observable';
 export { TimeTicket } from './document/time/ticket';
 export { ActorID } from './document/time/actor_id';
 export { JSONElement } from './document/json/element';
@@ -29,30 +38,39 @@ export { RichText } from './document/json/rich_text';
 export { TextChange, TextChangeType } from './document/json/rga_tree_split';
 
 /**
+ * `createClient` creates a new instance of `Client`.
+ *
  * @public
  */
-export type EventType = ClientEventType | DocEventType;
+export function createClient(rpcAddr: string, opts?: ClientOptions): Client {
+  return new Client(rpcAddr, opts);
+}
 
 /**
+ * `createDocument` creates a new instance of `DocumentReplica`.
+ *
  * @public
+ */
+export function createDocument<T = Indexable>(
+  collection: string,
+  document: string,
+): DocumentReplica<T> {
+  return new DocumentReplica<T>(collection, document);
+}
+
+/**
  * The top-level yorkie namespace with additional properties.
  *
  * In production, this will be called exactly once and the result
  * assigned to the `yorkie` global.
  *
  * e.g) `yorkie.createClient(...);`
+ *
+ * @public
  */
 const yorkie = {
-  createClient(rpcAddr: string, opts?: ClientOptions): Client {
-    return new Client(rpcAddr, opts);
-  },
-  createDocument<T = Indexable>(
-    collection: string,
-    document: string,
-  ): Document<T> {
-    return new Document<T>(collection, document);
-  },
-  Long,
+  createClient,
+  createDocument,
 };
 
 export default yorkie;

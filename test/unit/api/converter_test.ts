@@ -15,12 +15,12 @@
  */
 
 import { assert } from 'chai';
-import { Document } from '../../../src/document/document';
+import { DocumentReplica } from '../../../src/document/document';
 import { converter } from '../../../src/api/converter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
 
     doc.update((root) => {
       root['k1'] = {

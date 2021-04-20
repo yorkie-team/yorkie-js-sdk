@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+import Long from 'long';
 import { assert } from 'chai';
 import { InitialTimeTicket } from '../../../../src/document/time/ticket';
 import {
   JSONPrimitive,
   PrimitiveType,
 } from '../../../../src/document/json/primitive';
-import yorkie from '../../../../src/yorkie';
 
 describe('Primitive', function () {
   const primitiveTypes = [
@@ -46,7 +46,7 @@ describe('Primitive', function () {
     },
     {
       type: PrimitiveType.Long,
-      value: yorkie.Long.fromString('9223372036854775807'),
+      value: Long.fromString('9223372036854775807'),
     },
     {
       type: PrimitiveType.Bytes,

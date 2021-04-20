@@ -16,16 +16,33 @@
 
 import { logger } from './logger';
 
+/**
+ * @public
+ */
 export type NextFn<T> = (value: T) => void;
+
+/**
+ * @public
+ */
 export type ErrorFn = (error: Error) => void;
+
+/**
+ * @public
+ */
 export type CompleteFn = () => void;
 
+/**
+ * @public
+ */
 export interface Observer<T> {
   next: NextFn<T>;
   error?: ErrorFn;
   complete?: CompleteFn;
 }
 
+/**
+ * @public
+ */
 export type Unsubscribe = () => void;
 
 export interface SubscribeFn<T> {
@@ -208,6 +225,9 @@ class ObserverProxy<T> implements Observer<T> {
   }
 }
 
+/**
+ * @public
+ */
 export interface Observable<T> {
   subscribe: SubscribeFn<T>;
   getProxy?: () => ObserverProxy<T>;

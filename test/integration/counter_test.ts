@@ -1,10 +1,10 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
 
     doc.update((root) => {
       root['k1'] = {};

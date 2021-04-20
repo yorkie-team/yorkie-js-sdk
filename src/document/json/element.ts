@@ -17,8 +17,9 @@
 import { TimeTicket } from '../time/ticket';
 
 /**
- * @public
  * `JSONElement` represents JSON element including logical clock.
+ *
+ * @public
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;

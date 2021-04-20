@@ -1,13 +1,13 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import Long from 'long';
+import { DocumentReplica } from '../../src/document/document';
 import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
-import yorkie from '../../src/yorkie';
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
-    const doc1 = Document.create('test-col', 'test-doc');
-    const doc2 = Document.create('test-col', 'test-doc');
+    const doc1 = DocumentReplica.create('test-col', 'test-doc');
+    const doc2 = DocumentReplica.create('test-col', 'test-doc');
 
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
     assert.isFalse(doc1.hasLocalChanges());
@@ -24,7 +24,7 @@ describe('Primitive', function () {
   });
 
   it('can rollback, primitive deepcopy', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
 
     doc.update((root) => {
       root['k1'] = {};
@@ -47,7 +47,7 @@ describe('Primitive', function () {
         root['k0'] = null;
         root['k1'] = true;
         root['k2'] = 2147483647;
-        root['k3'] = yorkie.Long.fromString('9223372036854775807');
+        root['k3'] = Long.fromString('9223372036854775807');
         root['k4'] = 1.79;
         root['k5'] = '4';
         root['k6'] = new Uint8Array([65, 66]);

@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { PlainText } from '../../src/document/json/plain_text';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 import { JSONArray } from '../../src/document/json/array';
@@ -8,7 +8,7 @@ import { testCollection, testRPCAddr } from './integration_helper';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -29,7 +29,7 @@ describe('Garbage Collection', function () {
 
   it('garbage collection test2', function () {
     const size = 10000;
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     doc.update((root) => {
       root['1'] = Array.from(Array(size).keys());
     }, 'sets big array');
@@ -42,7 +42,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test3', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -70,7 +70,10 @@ describe('Garbage Collection', function () {
   });
 
   it('text garbage collection test', function () {
-    const doc = Document.create<{ text: PlainText }>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ text: PlainText }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => root.createText('text'));
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
@@ -98,7 +101,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg = '{"k1":"Hello mario"}';
@@ -131,7 +134,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for rich text', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =

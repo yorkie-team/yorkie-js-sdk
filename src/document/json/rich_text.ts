@@ -106,8 +106,9 @@ export class RichTextValue {
 }
 
 /**
- * @public
  *  `RichText` is an extended data type for the contents of a text editor.
+ *
+ * @public
  */
 export class RichText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
@@ -177,6 +178,8 @@ export class RichText extends TextElement {
 
   /**
    * `editInternal` edits the given range with the given content and attributes.
+   *
+   * @internal
    */
   public editInternal(
     range: RGATreeSplitNodeRange,
@@ -221,9 +224,11 @@ export class RichText extends TextElement {
    * `setStyleInternal` applies the style of the given range.
    * 01. split nodes with from and to
    * 02. style nodes between from and to
+   *
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
+   * @internal
    */
   public setStyleInternal(
     range: RGATreeSplitNodeRange,
@@ -281,6 +286,8 @@ export class RichText extends TextElement {
 
   /**
    * `selectInternal` stores that the given range has been selected.
+   *
+   * @internal
    */
   public selectInternal(
     range: RGATreeSplitNodeRange,
@@ -367,6 +374,8 @@ export class RichText extends TextElement {
 
   /**
    * `getRGATreeSplit` returns rgaTreeSplit.
+   *
+   * @internal
    */
   public getRGATreeSplit(): RGATreeSplit<RichTextValue> {
     return this.rgaTreeSplit;
@@ -381,7 +390,7 @@ export class RichText extends TextElement {
   }
 
   /**
-   * `removedNodesLen` returns length of removed nodes
+   * `getRemovedNodesLen` returns length of removed nodes
    */
   public getRemovedNodesLen(): number {
     return this.rgaTreeSplit.getRemovedNodesLen();
@@ -390,6 +399,8 @@ export class RichText extends TextElement {
   /**
    * `cleanupRemovedNodes` cleans up nodes that have been removed.
    * The cleaned nodes are subject to garbage collector collection.
+   *
+   * @internal
    */
   public cleanupRemovedNodes(ticket: TimeTicket): number {
     return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
