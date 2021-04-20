@@ -74,10 +74,12 @@ export type Indexable = {
 };
 
 /**
+ * `DocumentReplica` is a CRDT-based data type. We can representing the model
+ * of the application. And we can edit it even while offline.
+ *
  * @public
- * `Document` represents a document in MongoDB and contains logical clocks.
  */
-export class Document<T = Indexable> implements Observable<DocEvent> {
+export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   private key: DocumentKey;
   private root: JSONRoot;
   private clone?: JSONRoot;
@@ -104,8 +106,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   public static create<T = Indexable>(
     collection: string,
     document: string,
-  ): Document<T> {
-    return new Document<T>(collection, document);
+  ): DocumentReplica<T> {
+    return new DocumentReplica<T>(collection, document);
   }
 
   /**
@@ -176,7 +178,9 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
    * 3. Do Garbage collection.
+   *
    * @param pack - change pack
+   * @internal
    */
   public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
@@ -210,6 +214,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `getCheckpoint` returns the checkpoint of this document.
+   *
+   * @internal
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
@@ -224,6 +230,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `ensureClone` make a clone of root.
+   *
+   * @internal
    */
   public ensureClone(): void {
     if (this.clone) {
@@ -236,6 +244,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   /**
    * `createChangePack` create change pack of the local changes to send to the
    * remote server.
+   *
+   * @internal
    */
   public createChangePack(): ChangePack {
     const changes = this.localChanges;
@@ -246,6 +256,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
   /**
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
+   *
+   * @internal
    */
   public setActor(actorID: ActorID): void {
     for (const change of this.localChanges) {
@@ -267,6 +279,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `getDocumentKey` returns the key of this document.
+   *
+   * @internal
    */
   public getDocumentKey(): DocumentKey {
     return this.key;
@@ -274,6 +288,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `getClone` return clone object.
+   *
+   * @internal
    */
   public getClone(): JSONObject | undefined {
     if (!this.clone) {
@@ -295,6 +311,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `garbageCollect` purges elements that were removed before the given time.
+   *
+   * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
     if (this.clone) {
@@ -305,6 +323,8 @@ export class Document<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `getRootObject` returns root object.
+   *
+   * @internal
    */
   public getRootObject(): JSONObject {
     return this.root.getObject();

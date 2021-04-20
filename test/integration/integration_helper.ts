@@ -1,6 +1,6 @@
 import yorkie from '../../src/yorkie';
 import { Client } from '../../src/core/client';
-import { Document, Indexable } from '../../src/document/document';
+import { DocumentReplica, Indexable } from '../../src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
@@ -10,9 +10,9 @@ export const testCollection = 'test-col';
 export async function withTwoClientsAndDocuments<T = Indexable>(
   callback: (
     c1: Client,
-    d1: Document<T>,
+    d1: DocumentReplica<T>,
     c2: Client,
-    d2: Document<T>,
+    d2: DocumentReplica<T>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {

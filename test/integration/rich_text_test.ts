@@ -1,11 +1,11 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { RichText } from '../../src/document/json/rich_text';
 import { TextChangeType } from '../../src/document/json/rga_tree_split';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -28,7 +28,7 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{
+    const doc = DocumentReplica.create<{
       rich: RichText;
     }>('test-col', 'test-doc');
 

@@ -26,9 +26,10 @@ import {
 } from './rga_tree_split';
 
 /**
- * @public
  * `PlainText` represents plain text element
  * Text is an extended data type for the contents of a text editor
+ *
+ * @public
  */
 export class PlainText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
@@ -68,6 +69,8 @@ export class PlainText extends TextElement {
 
   /**
    * `editInternal` edits the given range with the given content.
+   *
+   * @internal
    */
   public editInternal(
     range: RGATreeSplitNodeRange,
@@ -109,6 +112,8 @@ export class PlainText extends TextElement {
 
   /**
    * `selectInternal` updates selection info of the given selection range.
+   *
+   * @internal
    */
   public selectInternal(
     range: RGATreeSplitNodeRange,
@@ -175,6 +180,8 @@ export class PlainText extends TextElement {
 
   /**
    * `getRGATreeSplit` returns the rgaTreeSplit.
+   *
+   * @internal
    */
   public getRGATreeSplit(): RGATreeSplit<string> {
     return this.rgaTreeSplit;
@@ -197,6 +204,8 @@ export class PlainText extends TextElement {
   /**
    * `cleanupRemovedNodes` cleans up nodes that have been removed.
    * The cleaned nodes are subject to garbage collector collection.
+   *
+   * @internal
    */
   public cleanupRemovedNodes(ticket: TimeTicket): number {
     return this.rgaTreeSplit.cleanupRemovedNodes(ticket);

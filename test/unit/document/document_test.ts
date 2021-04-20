@@ -15,11 +15,11 @@
  */
 
 import { assert } from 'chai';
-import { Document, DocEventType } from '../../../src/document/document';
+import { DocumentReplica, DocEventType } from '../../../src/document/document';
 
-describe('Document', function () {
+describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     doc.update((root) => {
       root.k1 = '1';
       root.k2 = '2';
@@ -37,7 +37,7 @@ describe('Document', function () {
   it('generic type parameter test', function () {
     type Todos = { todos: Array<{ title: string; done: boolean }> };
 
-    const doc = Document.create<Todos>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<Todos>('test-col', 'test-doc');
     doc.update((root) => {
       root.todos = [
         {
@@ -65,7 +65,7 @@ describe('Document', function () {
   });
 
   it('null value test', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     doc.update((root) => {
       root.data = {
         null: null,
@@ -75,7 +75,7 @@ describe('Document', function () {
   });
 
   it('change paths test', async function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 

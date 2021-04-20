@@ -22,6 +22,8 @@ import { LLRBTree } from '../../util/llrb_tree';
 import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 
 /**
+ * `TextChangeType` is the type of TextChange.
+ *
  * @public
  */
 export enum TextChangeType {
@@ -31,6 +33,9 @@ export enum TextChangeType {
 }
 
 /**
+ * `TextChange` is the value passed as an argument to `Text.onChanges()`.
+ * `Text.onChanges()` is called when the `Text` is modified.
+ *
  * @public
  */
 export interface TextChange {

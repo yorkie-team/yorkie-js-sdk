@@ -19,7 +19,10 @@ import { NextFn } from '../../src/util/observable';
 
 import { ClientEvent } from '../../src/core/client';
 import { DocEvent } from '../../src/document/document';
-import { TextChange, TextChangeType } from '../../src/document/json/rga_tree_split';
+import {
+  TextChange,
+  TextChangeType,
+} from '../../src/document/json/rga_tree_split';
 
 export function range(from: number, to: number): Array<number> {
   const list = [];

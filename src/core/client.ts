@@ -40,7 +40,7 @@ import { Code, YorkieError } from '../util/error';
 import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
 import { DocumentKey } from '../document/key/document_key';
-import { Document } from '../document/document';
+import { DocumentReplica } from '../document/document';
 
 export enum ClientStatus {
   Deactivated = 'deactivated',
@@ -71,14 +71,24 @@ export interface ClientEvent {
 }
 
 interface Attachment {
-  doc: Document<unknown>;
+  doc: DocumentReplica<unknown>;
   isRealtimeSync: boolean;
   peerClients?: Map<string, { [key: string]: string }>;
   remoteChangeEventReceived?: boolean;
 }
 
+/**
+ * `Metadata` is custom metadata that can be defined in the client.
+ *
+ * @public
+ */
 export type Metadata = { [key: string]: string };
 
+/**
+ * 'ClientOptions' are user-settable options used when defining clients.
+ *
+ * @public
+ */
 export interface ClientOptions {
   key?: string;
   metadata?: Metadata;
@@ -92,10 +102,11 @@ const DefaultClientOptions = {
 };
 
 /**
- * @public
  * `Client` is a normal client that can communicate with the agent.
  * It has documents and sends changes of the documents in local
  * to the agent to synchronize with other replicas in remote.
+ *
+ * @public
  */
 export class Client implements Observable<ClientEvent> {
   private id?: ActorID;
@@ -208,9 +219,9 @@ export class Client implements Observable<ClientEvent> {
    * this client will synchronize the given document.
    */
   public attach(
-    doc: Document<unknown>,
+    doc: DocumentReplica<unknown>,
     isManualSync?: boolean,
-  ): Promise<Document<unknown>> {
+  ): Promise<DocumentReplica<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -253,7 +264,9 @@ export class Client implements Observable<ClientEvent> {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach(doc: Document<unknown>): Promise<Document<unknown>> {
+  public detach(
+    doc: DocumentReplica<unknown>,
+  ): Promise<DocumentReplica<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -289,7 +302,7 @@ export class Client implements Observable<ClientEvent> {
    * receives changes of the remote replica from the agent then apply them to
    * local documents.
    */
-  public sync(): Promise<Document<unknown>[]> {
+  public sync(): Promise<DocumentReplica<unknown>[]> {
     const promises = [];
     for (const [, attachment] of this.attachmentMap) {
       promises.push(this.syncInternal(attachment.doc));
@@ -524,7 +537,9 @@ export class Client implements Observable<ClientEvent> {
     }
   }
 
-  private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
+  private syncInternal(
+    doc: DocumentReplica<unknown>,
+  ): Promise<DocumentReplica<unknown>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
       req.setClientId(converter.toUint8Array(this.id!));

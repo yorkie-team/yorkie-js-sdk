@@ -1,11 +1,11 @@
 import { assert } from 'chai';
-import { Document } from '../../src/document/document';
+import { DocumentReplica } from '../../src/document/document';
 import { JSONElement } from '../../src/document/json/element';
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -21,7 +21,7 @@ describe('Array', function () {
   });
 
   it('can push element then delete it by ID in array', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let toDelete: JSONElement;
@@ -48,7 +48,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let prev: JSONElement;
@@ -86,7 +86,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = Document.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
