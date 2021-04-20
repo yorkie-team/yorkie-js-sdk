@@ -23,20 +23,11 @@ export declare class DocumentReplica<T = Indexable> implements Observable<DocEve
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [applyChangePack(pack)](./yorkie-js-sdk.documentreplica.applychangepack.md) |  | <code>applyChangePack</code> applies the given change pack into this document. 1. Remove local changes applied to server. 2. Update the checkpoint. 3. Do Garbage collection. |
 |  [create(collection, document)](./yorkie-js-sdk.documentreplica.create.md) | <code>static</code> | <code>create</code> creates a new instance of Document. |
-|  [createChangePack()](./yorkie-js-sdk.documentreplica.createchangepack.md) |  | <code>createChangePack</code> create change pack of the local changes to send to the remote server. |
-|  [ensureClone()](./yorkie-js-sdk.documentreplica.ensureclone.md) |  | <code>ensureClone</code> make a clone of root. |
-|  [garbageCollect(ticket)](./yorkie-js-sdk.documentreplica.garbagecollect.md) |  | <code>garbageCollect</code> purges elements that were removed before the given time. |
-|  [getCheckpoint()](./yorkie-js-sdk.documentreplica.getcheckpoint.md) |  | <code>getCheckpoint</code> returns the checkpoint of this document. |
-|  [getClone()](./yorkie-js-sdk.documentreplica.getclone.md) |  | <code>getClone</code> return clone object. |
-|  [getDocumentKey()](./yorkie-js-sdk.documentreplica.getdocumentkey.md) |  | <code>getDocumentKey</code> returns the key of this document. |
 |  [getGarbageLen()](./yorkie-js-sdk.documentreplica.getgarbagelen.md) |  | <code>getGarbageLen</code> returns the length of elements should be purged. |
 |  [getKey()](./yorkie-js-sdk.documentreplica.getkey.md) |  | <code>getKey</code> returns the key of this document as a string. The string is a combination pattern of collection and document. e.g. <code>Collection$Document</code>; |
 |  [getRoot()](./yorkie-js-sdk.documentreplica.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
-|  [getRootObject()](./yorkie-js-sdk.documentreplica.getrootobject.md) |  | <code>getRootObject</code> returns root object. |
 |  [hasLocalChanges()](./yorkie-js-sdk.documentreplica.haslocalchanges.md) |  | <code>hasLocalChanges</code> returns whether this document has local changes or not. |
-|  [setActor(actorID)](./yorkie-js-sdk.documentreplica.setactor.md) |  | <code>setActor</code> sets actor into this document. This is also applied in the local changes the document has. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.documentreplica.subscribe.md) |  | <code>subscribe</code> adds the given observer to the fan-out list. |
 |  [toJSON()](./yorkie-js-sdk.documentreplica.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this array. |
 |  [toSortedJSON()](./yorkie-js-sdk.documentreplica.tosortedjson.md) |  | <code>toJSON</code> returns the sorted JSON encoding of this array. |
