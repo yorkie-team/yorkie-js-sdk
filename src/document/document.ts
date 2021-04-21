@@ -43,28 +43,61 @@ export enum DocEventType {
   RemoteChange = 'remote-change',
 }
 
+/**
+ * `DocEvent` is an event that occurs in `DocumentReplica`. It can be delivered
+ * using `DocumentReplica.subscribe()`.
+ *
+ * @public
+ */
 export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
 
-export interface AbstractDocEvent {
+/**
+ * @internal
+ */
+export interface BaseDocEvent {
   type: DocEventType;
 }
 
-export interface SnapshotEvent extends AbstractDocEvent {
+/**
+ * `SnapshotEvent` is an event that occurs when a snapshot is received from
+ * an agent.
+ *
+ * @public
+ */
+export interface SnapshotEvent extends BaseDocEvent {
   type: DocEventType.Snapshot;
   value: Uint8Array | undefined;
 }
 
+/**
+ * `ChangeInfo` represents a pair of `Change` and the JsonPath of the changed
+ * element.
+ *
+ * @public
+ */
 export interface ChangeInfo {
   change: Change;
   paths: Array<string>;
 }
 
-export interface LocalChangeEvent extends AbstractDocEvent {
+/**
+ * `LocalChangeEvent` is an event that occurs when the document is changed
+ * by local changes.
+ *
+ * @public
+ */
+export interface LocalChangeEvent extends BaseDocEvent {
   type: DocEventType.LocalChange;
   value: Array<ChangeInfo>;
 }
 
-export interface RemoteChangeEvent extends AbstractDocEvent {
+/**
+ * `RemoteChangeEvent` is an event that occurs when the document is changed
+ * by remote changes.
+ *
+ * @public
+ */
+export interface RemoteChangeEvent extends BaseDocEvent {
   type: DocEventType.RemoteChange;
   value: Array<ChangeInfo>;
 }
