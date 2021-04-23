@@ -126,12 +126,12 @@ describe('Client', function () {
     await c2.attach(d2);
 
     const [emitter1, spy1] = createEmitterAndSpy((event) =>
-      event.type === ClientEventType.DocumentSyncResult
+      event.type === ClientEventType.DocumentSynced
         ? event.value
         : event.type,
     );
     const [emitter2, spy2] = createEmitterAndSpy((event) =>
-      event.type === ClientEventType.DocumentSyncResult
+      event.type === ClientEventType.DocumentSynced
         ? event.value
         : event.type,
     );
