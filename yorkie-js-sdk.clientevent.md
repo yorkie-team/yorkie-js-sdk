@@ -2,18 +2,12 @@
 
 [Home](./index.md) &gt; [yorkie-js-sdk](./yorkie-js-sdk.md) &gt; [ClientEvent](./yorkie-js-sdk.clientevent.md)
 
-## ClientEvent interface
+## ClientEvent type
+
+`ClientEvent` is an event that occurs in `Client`<!-- -->. It can be delivered using `Client.subscribe()`<!-- -->.
 
 <b>Signature:</b>
 
 ```typescript
-export interface ClientEvent 
+export declare type ClientEvent = StatusChangedEvent | DocumentsChangedEvent | PeersChangedEvent | StreamConnectionStatusChangedEvent | DocumentSyncedEvent;
 ```
-
-## Properties
-
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.clientevent.type.md) | ClientEventType |  |
-|  [value](./yorkie-js-sdk.clientevent.value.md) | any |  |
-

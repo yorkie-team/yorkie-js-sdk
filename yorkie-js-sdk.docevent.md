@@ -4,6 +4,8 @@
 
 ## DocEvent type
 
+`DocEvent` is an event that occurs in `DocumentReplica`<!-- -->. It can be delivered using `DocumentReplica.subscribe()`<!-- -->.
+
 <b>Signature:</b>
 
 ```typescript

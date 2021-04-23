@@ -4,7 +4,7 @@
 
 ## ClientOptions interface
 
-'ClientOptions' are user-settable options used when defining clients.
+`ClientOptions` are user-settable options used when defining clients.
 
 <b>Signature:</b>
 
