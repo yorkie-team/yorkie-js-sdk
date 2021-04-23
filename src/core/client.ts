@@ -62,12 +62,79 @@ export enum ClientEventType {
   DocumentsChanged = 'documents-changed',
   PeersChanged = 'peers-changed',
   StreamConnectionStatusChanged = 'stream-connection-status-changed',
-  DocumentSyncResult = 'document-sync-result',
+  DocumentSynced = 'document-synced',
 }
 
-export interface ClientEvent {
+/**
+ * `ClientEvent` is an event that occurs in `Client`. It can be delivered using
+ * `Client.subscribe()`.
+ *
+ * @public
+ */
+export type ClientEvent =
+  | StatusChangedEvent
+  | DocumentsChangedEvent
+  | PeersChangedEvent
+  | StreamConnectionStatusChangedEvent
+  | DocumentSyncedEvent;
+
+/**
+ * @internal
+ */
+export interface BaseClientEvent {
   type: ClientEventType;
-  value: any;
+}
+
+/**
+ * `StatusChangedEvent` is an event that occurs when the Client's state changes.
+ *
+ * @public
+ */
+export interface StatusChangedEvent extends BaseClientEvent {
+  type: ClientEventType.StatusChanged;
+  value: ClientStatus;
+}
+
+/**
+ * `DocumentsChangedEvent` is an event that occurs when documents attached to
+ * the client changes.
+ *
+ * @public
+ */
+export interface DocumentsChangedEvent extends BaseClientEvent {
+  type: ClientEventType.DocumentsChanged;
+  value: Array<DocumentKey>;
+}
+
+/**
+ * `PeersChangedEvent` is an event that occurs when the states of another peers
+ * of the attached documents changes.
+ *
+ * @public
+ */
+export interface PeersChangedEvent extends BaseClientEvent {
+  type: ClientEventType.PeersChanged;
+  value: { [docKey: string]: { [clientKey: string]: Metadata } };
+}
+
+/**
+ * `StreamConnectionStatusChangedEvent` is an event that occurs when
+ * the client's stream connection state changes.
+ *
+ * @public
+ */
+export interface StreamConnectionStatusChangedEvent extends BaseClientEvent {
+  type: ClientEventType.StreamConnectionStatusChanged;
+  value: StreamConnectionStatus;
+}
+
+/**
+ * `DocumentSyncedEvent` is an event that occurs when documents
+ * attached to the client are synced.
+ */
+export interface DocumentSyncedEvent extends BaseClientEvent {
+  type: ClientEventType.DocumentSynced;
+  value: DocumentSyncResultType;
 }
 
 interface Attachment {
@@ -85,7 +152,7 @@ interface Attachment {
 export type Metadata = { [key: string]: string };
 
 /**
- * 'ClientOptions' are user-settable options used when defining clients.
+ * `ClientOptions` are user-settable options used when defining clients.
  *
  * @public
  */
@@ -314,7 +381,7 @@ export class Client implements Observable<ClientEvent> {
       })
       .catch((err) => {
         this.eventStreamObserver.next({
-          type: ClientEventType.DocumentSyncResult,
+          type: ClientEventType.DocumentSynced,
           value: DocumentSyncResultType.SyncFailed,
         });
         throw err;
@@ -386,7 +453,7 @@ export class Client implements Observable<ClientEvent> {
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
           this.eventStreamObserver.next({
-            type: ClientEventType.DocumentSyncResult,
+            type: ClientEventType.DocumentSynced,
             value: DocumentSyncResultType.SyncFailed,
           });
           setTimeout(doLoop, this.reconnectStreamDelay);
@@ -561,7 +628,7 @@ export class Client implements Observable<ClientEvent> {
           const respPack = converter.fromChangePack(res.getChangePack()!);
           doc.applyChangePack(respPack);
           this.eventStreamObserver.next({
-            type: ClientEventType.DocumentSyncResult,
+            type: ClientEventType.DocumentSynced,
             value: DocumentSyncResultType.Synced,
           });
 
