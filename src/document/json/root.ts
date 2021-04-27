@@ -89,7 +89,7 @@ export class JSONRoot {
     while (pair.parent) {
       const createdAt = pair.element.getCreatedAt();
       const key = pair.parent.keyOf(createdAt);
-      if (!key) {
+      if (key === undefined) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
       }
 
