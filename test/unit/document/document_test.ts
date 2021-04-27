@@ -68,10 +68,11 @@ describe('DocumentReplica', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     doc.update((root) => {
       root.data = {
+        '': null,
         null: null,
       };
     });
-    assert.equal('{"data":{"null":null}}', doc.toSortedJSON());
+    assert.equal('{"data":{"":null,"null":null}}', doc.toSortedJSON());
   });
 
   it('change paths test', async function () {
@@ -87,6 +88,9 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
+      root[''] = {};
+      paths.push('$.');
+
       root.obj = {};
       paths.push('$.obj');
       root.obj.a = 1;
