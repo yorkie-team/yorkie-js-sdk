@@ -137,12 +137,12 @@ export class ArrayProxy {
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
       },
-      deleteProperty: (target: JSONArray, key: number): boolean => {
+      deleteProperty: (target: JSONArray, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
         }
 
-        ArrayProxy.deleteInternalByIndex(context, target, key);
+        ArrayProxy.deleteInternalByIndex(context, target, Number.parseInt(key));
         return true;
       },
     };
