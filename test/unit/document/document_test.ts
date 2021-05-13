@@ -91,6 +91,7 @@ describe('DocumentReplica', function () {
       delete root.data[1];
     });
     assert.equal('{"data":[1]}', doc.toSortedJSON());
+    
     doc.update((root) => {
       delete root.data[0];
     });
