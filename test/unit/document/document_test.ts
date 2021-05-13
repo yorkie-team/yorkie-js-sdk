@@ -91,6 +91,10 @@ describe('DocumentReplica', function () {
       delete root.data[1];
     });
     assert.equal('{"data":[1]}', doc.toSortedJSON());
+    doc.update((root) => {
+      delete root.data[0];
+    });
+    assert.equal('{"data":[]}', doc.toSortedJSON());
   });
 
   it('change paths test', async function () {
