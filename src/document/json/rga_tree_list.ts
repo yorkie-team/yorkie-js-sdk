@@ -292,6 +292,10 @@ export class RGATreeList {
    * `getByIndex` returns node of the given index.
    */
   public getByIndex(idx: number): RGATreeListNode | undefined {
+    if (idx >= this.length) {
+      return;
+    }
+
     const [node, offset] = this.nodeMapByIndex.find(idx);
     let rgaNode = node as RGATreeListNode | undefined;
 
