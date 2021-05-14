@@ -95,7 +95,24 @@ describe('DocumentReplica', function () {
     doc.update((root) => {
       delete root.data[0];
     });
-    assert.equal('{"data":[]}', doc.toSortedJSON());
+    assert.equal('{"data":[]}', doc.toSortedJSON());    
+  });
+
+  it('move elements of array test', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = [0, 1, 2];
+    });
+    assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const zero = root.data.getElementByIndex(0);
+      const two = root.data.getElementByIndex(2);
+      root.data.moveBefore(two.getID(), zero.getID());
+    });
+    assert.equal('{"data":[1,0,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
   });
 
   it('change paths test', async function () {

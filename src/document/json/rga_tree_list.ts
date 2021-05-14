@@ -239,7 +239,7 @@ export class RGATreeList {
       !node!.getValue().getMovedAt() ||
       executedAt.after(node!.getValue().getMovedAt()!)
     ) {
-      node!.release();
+      this.release(node!);
       this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
       node!.getValue().setMovedAt(executedAt);
     }
