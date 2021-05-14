@@ -75,6 +75,29 @@ describe('DocumentReplica', function () {
     assert.equal('{"data":{"":null,"null":null}}', doc.toSortedJSON());
   });
 
+  it('delete elements of array test', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = [0, 1, 2];
+    });
+    assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root.data[0];
+    });
+    assert.equal('{"data":[1,2]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root.data[1];
+    });
+    assert.equal('{"data":[1]}', doc.toSortedJSON());
+    
+    doc.update((root) => {
+      delete root.data[0];
+    });
+    assert.equal('{"data":[]}', doc.toSortedJSON());
+  });
+
   it('change paths test', async function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
