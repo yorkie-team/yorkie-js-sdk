@@ -91,11 +91,11 @@ describe('DocumentReplica', function () {
       delete root.data[1];
     });
     assert.equal('{"data":[1]}', doc.toSortedJSON());
-    
+
     doc.update((root) => {
       delete root.data[0];
     });
-    assert.equal('{"data":[]}', doc.toSortedJSON());    
+    assert.equal('{"data":[]}', doc.toSortedJSON());
   });
 
   it('move elements of array test', function () {
@@ -113,6 +113,35 @@ describe('DocumentReplica', function () {
     });
     assert.equal('{"data":[1,0,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      root.data.push(3);
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveBefore(one.getID(), three.getID());
+      assert.equal('{"data":[1,3,0,2]}', root.toJSON());
+    });
+    assert.equal('{"data":[1,3,0,2]}', doc.toSortedJSON());
+    assert.equal(4, doc.getRoot().data.length);
+  });
+
+  it('simple move elements of array test', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = [0, 1, 2];
+    });
+    assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      root.data.push(3);
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveBefore(one.getID(), three.getID());
+      assert.equal('{"data":[0,3,1,2]}', root.toJSON());
+    });
+    assert.equal('{"data":[0,3,1,2]}', doc.toSortedJSON());
+    assert.equal(4, doc.getRoot().data.length);
   });
 
   it('change paths test', async function () {

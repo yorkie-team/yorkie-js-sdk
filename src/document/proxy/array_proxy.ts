@@ -218,8 +218,9 @@ export class ArrayProxy {
     const ticket = context.issueTimeTicket();
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
-      target.insertAfter(prevCreatedAt, primitive);
-      context.registerElement(primitive, target);
+      const clone = primitive.deepcopy();
+      target.insertAfter(prevCreatedAt, clone);
+      context.registerElement(clone, target);
       context.push(
         AddOperation.create(
           target.getCreatedAt(),
