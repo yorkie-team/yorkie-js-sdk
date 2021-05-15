@@ -7,6 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.4] - 2021-05-15
+
+### Added
+
+### Changed
+- Rename Document.getKey().toIDString() to Document.getKey(): #178
+- Only display exported objects in JS SDK Reference: #179
+- Rename Document to DocumentReplica: #10f2b72
+
+### Fixed
+- Fix a bug occurs when setting an empty string as a key: #182
+- Fix a bug that the first element of an array was not deleted: #185
+- Fix a bug that the size of the array increases when moving element: #186
+- Fix a bug that did not move after pushing in same update: #188
+
 ## [0.1.3] - 2021-04-04
 
 ### Added
