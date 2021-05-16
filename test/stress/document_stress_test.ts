@@ -1,4 +1,5 @@
 import { assert } from 'chai';
+import { printElapsedTime } from '../helper/helper';
 import { DocumentReplica } from '../../src/document/document';
 import { MaxTimeTicket } from '../../src/document/time/ticket';
 
@@ -63,5 +64,32 @@ describe('Document stress', function () {
 
     const empty = 0;
     assert.equal(empty, doc.getGarbageLen());
+  });
+
+  it('move element in large array test', function () {
+    const size = 10_000;
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    let start = Date.now();
+
+    doc.update((root) => {
+      root.arr = [];
+      for (let i = 0; i < size; i++) {
+        root.arr.push(i);
+      }
+    }, 'initial large array');
+    printElapsedTime(start);
+
+    start = Date.now();
+    doc.update((root) => {
+      for (let i = 0; i < size; i++) {
+        const first = root.arr.getElementByIndex(0);
+        const last = root.arr.getElementByIndex(size - 1);
+        root.arr.moveBefore(first.getID(), last.getID());
+      }
+    }, 'move last to first');
+
+    printElapsedTime(start);
   });
 });

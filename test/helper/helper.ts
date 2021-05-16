@@ -54,6 +54,12 @@ export function createEmitterAndSpy(
   ];
 }
 
+export function printElapsedTime(startTime: number): void {
+  const endTime = Date.now();
+  const timeDiff = endTime - startTime;
+  console.log(`${timeDiff}ms`);
+}
+
 /**
  * TextView emulates an external editor like CodeMirror to test whether change
  * events are delivered properly.
