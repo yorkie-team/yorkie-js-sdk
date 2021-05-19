@@ -95,6 +95,10 @@ export class ArrayProxy {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
           };
           // JavaScript Native API
+        } else if (method === 'moveFront') {
+          return (itemID: TimeTicket): void => {
+            ArrayProxy.moveFrontInternal(context, target, itemID);
+          };
         } else if (isNumericString(method)) {
           return toProxy(context, target.getByIndex(+(method as string)));
         } else if (method === 'push') {
@@ -199,10 +203,26 @@ export class ArrayProxy {
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
-        prevCreatedAt,
         createdAt,
         ticket,
+        prevCreatedAt,
       ),
+    );
+  }
+
+  /**
+   * `moveFrontInternal` moves the given `createdAt` element
+   * at the first of array.
+   */
+  public static moveFrontInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    target.moveFront(createdAt, ticket);
+    context.push(
+      MoveOperation.create(target.getCreatedAt(), createdAt, ticket),
     );
   }
 

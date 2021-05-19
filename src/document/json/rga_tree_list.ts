@@ -246,6 +246,33 @@ export class RGATreeList {
   }
 
   /**
+   * `moveFront` moves the given element
+   * at the first of array
+   */
+  public moveFront(createdAt: TimeTicket, executedAt: TimeTicket): void {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    if (!node) {
+      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
+    }
+
+    let prevNode = node!.getPrev();
+
+    do {
+      if (prevNode) {
+        prevNode = prevNode.getPrev();
+      }
+    } while (prevNode && prevNode.getPrev());
+
+    if (!prevNode) {
+      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
+    }
+
+    this.release(node!);
+    this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
+    node!.getValue().setMovedAt(executedAt);
+  }
+
+  /**
    * `insert` adds the given element after  the last creation time.
    */
   public insert(value: JSONElement): void {

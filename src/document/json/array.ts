@@ -71,6 +71,13 @@ export class JSONArray extends JSONContainer {
   }
 
   /**
+   * `moveFront` moves the given `createdAt` element at the first of array.
+   */
+  public moveFront(createdAt: TimeTicket, executedAt: TimeTicket): void {
+    this.elements.moveFront(createdAt, executedAt);
+  }
+
+  /**
    * `get` returns the element of the given createAt.
    */
   public get(createdAt: TimeTicket): JSONElement {
