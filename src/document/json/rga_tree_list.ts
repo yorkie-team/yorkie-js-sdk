@@ -255,20 +255,9 @@ export class RGATreeList {
       logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
     }
 
-    let prevNode = node!.getPrev();
-
-    do {
-      if (prevNode) {
-        prevNode = prevNode.getPrev();
-      }
-    } while (prevNode && prevNode.getPrev());
-
-    if (!prevNode) {
-      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
-    }
-
+    const prevNode = this.dummyHead;
     this.release(node!);
-    this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
+    this.insertAfter(prevNode.getCreatedAt(), node!.getValue(), executedAt);
     node!.getValue().setMovedAt(executedAt);
   }
 
