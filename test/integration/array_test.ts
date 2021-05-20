@@ -127,6 +127,12 @@ describe('Array', function () {
       root['list'].moveFront(item.getID());
       assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(0);
+      root['list'].moveFront(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
+    });
   });
 
   it('Can handle concurrent insertAfter operations', async function () {
