@@ -24,14 +24,14 @@ import { Operation } from './operation';
  * `MoveOperation` is an operation representing moving an element to an Array.
  */
 export class MoveOperation extends Operation {
-  private prevCreatedAt?: TimeTicket;
+  private prevCreatedAt: TimeTicket;
   private createdAt: TimeTicket;
 
   constructor(
     parentCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
     executedAt: TimeTicket,
-    prevCreatedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
@@ -43,15 +43,15 @@ export class MoveOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
     executedAt: TimeTicket,
-    prevCreatedAt?: TimeTicket,
   ): MoveOperation {
     return new MoveOperation(
       parentCreatedAt,
+      prevCreatedAt,
       createdAt,
       executedAt,
-      prevCreatedAt,
     );
   }
 
@@ -62,15 +62,11 @@ export class MoveOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONArray) {
       const array = parentObject as JSONArray;
-      if (this.prevCreatedAt) {
-        array.moveAfter(
-          this.prevCreatedAt!,
-          this.createdAt,
-          this.getExecutedAt(),
-        );
-      } else {
-        array.moveFront(this.createdAt, this.getExecutedAt());
-      }
+      array.moveAfter(
+        this.prevCreatedAt!,
+        this.createdAt,
+        this.getExecutedAt(),
+      );
     } else {
       if (!parentObject) {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -97,7 +93,7 @@ export class MoveOperation extends Operation {
   /**
    * `getPrevCreatedAt` returns the creation time of previous element.
    */
-  public getPrevCreatedAt(): TimeTicket | undefined {
+  public getPrevCreatedAt(): TimeTicket {
     return this.prevCreatedAt;
   }
 

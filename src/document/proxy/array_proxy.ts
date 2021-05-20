@@ -203,9 +203,9 @@ export class ArrayProxy {
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
+        prevCreatedAt,
         createdAt,
         ticket,
-        prevCreatedAt,
       ),
     );
   }
@@ -220,9 +220,15 @@ export class ArrayProxy {
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
-    target.moveFront(createdAt, ticket);
+    const head = target.getHead();
+    target.moveAfter(head.getCreatedAt(), createdAt, ticket);
     context.push(
-      MoveOperation.create(target.getCreatedAt(), createdAt, ticket),
+      MoveOperation.create(
+        target.getCreatedAt(),
+        head.getCreatedAt(),
+        createdAt,
+        ticket,
+      ),
     );
   }
 

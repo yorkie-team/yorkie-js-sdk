@@ -246,22 +246,6 @@ export class RGATreeList {
   }
 
   /**
-   * `moveFront` moves the given element
-   * at the first of array
-   */
-  public moveFront(createdAt: TimeTicket, executedAt: TimeTicket): void {
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (!node) {
-      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
-    }
-
-    const prevNode = this.dummyHead;
-    this.release(node!);
-    this.insertAfter(prevNode.getCreatedAt(), node!.getValue(), executedAt);
-    node!.getValue().setMovedAt(executedAt);
-  }
-
-  /**
    * `insert` adds the given element after  the last creation time.
    */
   public insert(value: JSONElement): void {
@@ -366,6 +350,13 @@ export class RGATreeList {
       this.size -= 1;
     }
     return node.getValue();
+  }
+
+  /**
+   * `getHead` returns the value of head elements.
+   */
+  public getHead(): JSONElement {
+    return this.dummyHead.getValue();
   }
 
   /**
