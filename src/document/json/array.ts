@@ -90,6 +90,13 @@ export class JSONArray extends JSONContainer {
   }
 
   /**
+   * `getHead` returns dummy head element.
+   */
+  public getHead(): JSONElement {
+    return this.elements.getHead();
+  }
+
+  /**
    * `getLast` returns last element.
    */
   public getLast(): JSONElement {
