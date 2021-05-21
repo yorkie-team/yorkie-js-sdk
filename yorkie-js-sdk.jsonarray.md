@@ -38,6 +38,7 @@ export declare class JSONArray extends JSONContainer
 |  [getByIndex(index)](./yorkie-js-sdk.jsonarray.getbyindex.md) |  | <code>getByIndex</code> returns the element of the given index. |
 |  [getDescendants(callback)](./yorkie-js-sdk.jsonarray.getdescendants.md) |  | <code>getDescendants</code> traverse the descendants of this array. |
 |  [getElements()](./yorkie-js-sdk.jsonarray.getelements.md) |  | <code>getElements</code> returns an array of elements contained in this RGATreeList. |
+|  [getHead()](./yorkie-js-sdk.jsonarray.gethead.md) |  | <code>getHead</code> returns dummy head element. |
 |  [getLast()](./yorkie-js-sdk.jsonarray.getlast.md) |  | <code>getLast</code> returns last element. |
 |  [getLastCreatedAt()](./yorkie-js-sdk.jsonarray.getlastcreatedat.md) |  | <code>getLastCreatedAt</code> get last created element. |
 |  [getPrevCreatedAt(createdAt)](./yorkie-js-sdk.jsonarray.getprevcreatedat.md) |  | <code>getPrevCreatedAt</code> returns the creation time of the previous element of the given element. |
