@@ -353,6 +353,13 @@ export class RGATreeList {
   }
 
   /**
+   * `getHead` returns the value of head elements.
+   */
+  public getHead(): JSONElement {
+    return this.dummyHead.getValue();
+  }
+
+  /**
    * `getLast` returns the value of last elements.
    */
   public getLast(): JSONElement {
