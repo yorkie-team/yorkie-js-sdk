@@ -174,7 +174,9 @@ export class RGATreeList {
 
     while (
       node!.getNext() &&
-      node!.getNext()!.getCreatedAt().after(executedAt)
+      (node!.getNext()!.getCreatedAt().after(executedAt) ||
+        (node!.getNext()!.getValue().getMovedAt() &&
+          node!.getNext()!.getValue().getMovedAt()!.after(executedAt)))
     ) {
       node = node!.getNext();
     }
