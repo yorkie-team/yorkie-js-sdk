@@ -66,6 +66,18 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   }
 
   /**
+   * `getPositionedAt` returns time this element was positioned in the array.
+   */
+  public getPositionedAt(): TimeTicket {
+    const movedAt = this.value.getMovedAt();
+    if (movedAt) {
+      return movedAt;
+    }
+
+    return this.value.getCreatedAt();
+  }
+
+  /**
    * `release` releases prev and next node.
    */
   public release(): void {
@@ -174,7 +186,7 @@ export class RGATreeList {
 
     while (
       node!.getNext() &&
-      node!.getNext()!.getCreatedAt().after(executedAt)
+      node!.getNext()!.getPositionedAt().after(executedAt)
     ) {
       node = node!.getNext();
     }

@@ -177,7 +177,7 @@ describe('Array', function () {
     }, this.test!.title);
   });
 
-  it('Can handle concurrent moveBefore operations', async function () {
+  it('Can handle concurrent moveBefore operations with the same position', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -199,6 +199,44 @@ describe('Array', function () {
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveBefore(next.getID(), item.getID());
         assert.equal('{"k1":[1,2,0]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent moveBefore operations from the different position', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
       });
 
       d2.update((root) => {
@@ -208,20 +246,14 @@ describe('Array', function () {
         assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
-      d2.update((root) => {
-        const next = root['k1'].getElementByIndex(1);
-        const item = root['k1'].getElementByIndex(2);
-        root['k1'].moveBefore(next.getID(), item.getID());
-        assert.equal('{"k1":[0,1,2]}', root.toJSON());
-      });
-
       await c1.sync();
       await c2.sync();
       await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
   });
 
-  it('Can handle concurrent moveFront operations', async function () {
+  it('Can handle concurrent moveFront operations with the item which has the different index', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -244,6 +276,35 @@ describe('Array', function () {
       });
 
       d2.update((root) => {
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveFront(item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveFront(item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent moveFront operations with the item which has the same index', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveFront(item.getID());
         assert.equal('{"k1":[2,0,1]}', root.toJSON());
@@ -252,7 +313,52 @@ describe('Array', function () {
       d2.update((root) => {
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveFront(item.getID());
-        assert.equal('{"k1":[1,2,0]}', root.toJSON());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent insertAfter and moveBefore operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev: JSONElement;
+      d1.update((root) => {
+        root['k1'] = [0];
+        prev = root['k1'].getElementByIndex(0);
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].insertAfter(prev.getID(), 1);
+        assert.equal('{"k1":[0,1]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        root['k1'].insertAfter(prev.getID(), 2);
+        assert.equal('{"k1":[0,2]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveBefore(next.getID(), item.getID());
+      });
+
+      d2.update((root) => {
+        const next = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveBefore(next.getID(), item.getID());
       });
 
       await c1.sync();
