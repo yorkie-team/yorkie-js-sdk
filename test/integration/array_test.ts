@@ -20,6 +20,50 @@ describe('Array', function () {
     assert.equal('{"k1":["1","3","4"]}', doc.toSortedJSON());
   });
 
+  it('can push array element after delete operation', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+    }, 'set {"k1":["1","2","3"]}');
+    assert.equal('{"k1":["1","2","3"]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['k1'][1];
+      root['k1'].push('4');
+    }, 'set {"k1":["1","3","4"]}');
+
+    doc.update((root) => {
+      root['k1'].push([4, 5, 6]);
+      assert.equal('{"k1":["1","3","4",[4,5,6]]}', root.toJSON());
+    });
+
+    assert.equal('{"k1":["1","3","4",[4,5,6]]}', doc.toJSON());
+  });
+
+  it('can push object element after delete operation', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+    }, 'set {"k1":["1","2","3"]}');
+    assert.equal('{"k1":["1","2","3"]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['k1'][1];
+      root['k1'].push('4');
+    }, 'set {"k1":["1","3","4"]}');
+
+    doc.update((root) => {
+      root['k1'].push({ a: '1', b: '2' });
+      assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', root.toJSON());
+    });
+
+    assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', doc.toJSON());
+  });
+
   it('can push element then delete it by ID in array', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
