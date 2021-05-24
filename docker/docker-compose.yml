@@ -15,7 +15,7 @@ services:
     depends_on:
       - yorkie
   yorkie:
-    image: 'yorkieteam/yorkie:latest'
+    image: 'yorkieteam/yorkie:webhook'
     container_name: 'yorkie'
     command: [
       'agent',

@@ -1,100 +1,89 @@
 import * as grpcWeb from 'grpc-web';
 
-import {
-  ActivateClientRequest,
-  ActivateClientResponse,
-  AttachDocumentRequest,
-  AttachDocumentResponse,
-  DeactivateClientRequest,
-  DeactivateClientResponse,
-  DetachDocumentRequest,
-  DetachDocumentResponse,
-  PushPullRequest,
-  PushPullResponse,
-  WatchDocumentsRequest,
-  WatchDocumentsResponse} from './yorkie_pb';
+import * as src_api_yorkie_pb from '../../src/api/yorkie_pb';
+
 
 export class YorkieClient {
   constructor (hostname: string,
                credentials?: null | { [index: string]: string; },
-               options?: null | { [index: string]: string; });
+               options?: null | { [index: string]: any; });
 
   activateClient(
-    request: ActivateClientRequest,
+    request: src_api_yorkie_pb.ActivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
-               response: ActivateClientResponse) => void
-  ): grpcWeb.ClientReadableStream<ActivateClientResponse>;
+               response: src_api_yorkie_pb.ActivateClientResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.ActivateClientResponse>;
 
   deactivateClient(
-    request: DeactivateClientRequest,
+    request: src_api_yorkie_pb.DeactivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
-               response: DeactivateClientResponse) => void
-  ): grpcWeb.ClientReadableStream<DeactivateClientResponse>;
+               response: src_api_yorkie_pb.DeactivateClientResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.DeactivateClientResponse>;
 
   attachDocument(
-    request: AttachDocumentRequest,
+    request: src_api_yorkie_pb.AttachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
-               response: AttachDocumentResponse) => void
-  ): grpcWeb.ClientReadableStream<AttachDocumentResponse>;
+               response: src_api_yorkie_pb.AttachDocumentResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.AttachDocumentResponse>;
 
   detachDocument(
-    request: DetachDocumentRequest,
+    request: src_api_yorkie_pb.DetachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
-               response: DetachDocumentResponse) => void
-  ): grpcWeb.ClientReadableStream<DetachDocumentResponse>;
+               response: src_api_yorkie_pb.DetachDocumentResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.DetachDocumentResponse>;
 
   watchDocuments(
-    request: WatchDocumentsRequest,
+    request: src_api_yorkie_pb.WatchDocumentsRequest,
     metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<WatchDocumentsResponse>;
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.WatchDocumentsResponse>;
 
   pushPull(
-    request: PushPullRequest,
+    request: src_api_yorkie_pb.PushPullRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.Error,
-               response: PushPullResponse) => void
-  ): grpcWeb.ClientReadableStream<PushPullResponse>;
+               response: src_api_yorkie_pb.PushPullResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.PushPullResponse>;
 
 }
 
 export class YorkiePromiseClient {
   constructor (hostname: string,
                credentials?: null | { [index: string]: string; },
-               options?: null | { [index: string]: string; });
+               options?: null | { [index: string]: any; });
 
   activateClient(
-    request: ActivateClientRequest,
+    request: src_api_yorkie_pb.ActivateClientRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<ActivateClientResponse>;
+  ): Promise<src_api_yorkie_pb.ActivateClientResponse>;
 
   deactivateClient(
-    request: DeactivateClientRequest,
+    request: src_api_yorkie_pb.DeactivateClientRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<DeactivateClientResponse>;
+  ): Promise<src_api_yorkie_pb.DeactivateClientResponse>;
 
   attachDocument(
-    request: AttachDocumentRequest,
+    request: src_api_yorkie_pb.AttachDocumentRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<AttachDocumentResponse>;
+  ): Promise<src_api_yorkie_pb.AttachDocumentResponse>;
 
   detachDocument(
-    request: DetachDocumentRequest,
+    request: src_api_yorkie_pb.DetachDocumentRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<DetachDocumentResponse>;
+  ): Promise<src_api_yorkie_pb.DetachDocumentResponse>;
 
   watchDocuments(
-    request: WatchDocumentsRequest,
+    request: src_api_yorkie_pb.WatchDocumentsRequest,
     metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<WatchDocumentsResponse>;
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.WatchDocumentsResponse>;
 
   pushPull(
-    request: PushPullRequest,
+    request: src_api_yorkie_pb.PushPullRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<PushPullResponse>;
+  ): Promise<src_api_yorkie_pb.PushPullResponse>;
 
 }
 
