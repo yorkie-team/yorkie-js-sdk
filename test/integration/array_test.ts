@@ -64,6 +64,17 @@ describe('Array', function () {
     assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', doc.toJSON());
   });
 
+  it('can push array', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+
+    doc.update((root) => {
+      root.arr = [1, 2, 3];
+      root.arr.push([4, 5, 6]);
+      assert.equal('{"arr":[1,2,3,[4,5,6]]}', root.toJSON());
+    });
+    assert.equal('{"arr":[1,2,3,[4,5,6]]}', doc.toJSON());
+  });
+
   it('can push element then delete it by ID in array', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
