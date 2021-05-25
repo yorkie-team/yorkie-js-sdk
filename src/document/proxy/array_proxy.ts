@@ -258,8 +258,9 @@ export class ArrayProxy {
       return primitive;
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
-      target.insertAfter(prevCreatedAt, array);
-      context.registerElement(array, target);
+      const clone = array.deepcopy();
+      target.insertAfter(prevCreatedAt, clone);
+      context.registerElement(clone, target);
       context.push(
         AddOperation.create(
           target.getCreatedAt(),
@@ -269,7 +270,7 @@ export class ArrayProxy {
         ),
       );
       for (const element of value) {
-        ArrayProxy.pushInternal(context, array, element);
+        ArrayProxy.pushInternal(context, clone, element);
       }
       return array;
     } else if (typeof value === 'object') {
