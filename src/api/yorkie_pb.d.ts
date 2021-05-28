@@ -1,29 +1,8 @@
-import * as jspb from "google-protobuf"
+import * as jspb from 'google-protobuf'
 
-export class RequestHeader extends jspb.Message {
-  getVersion(): number;
-  setVersion(value: number): RequestHeader;
 
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): RequestHeader.AsObject;
-  static toObject(includeInstance: boolean, msg: RequestHeader): RequestHeader.AsObject;
-  static serializeBinaryToWriter(message: RequestHeader, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): RequestHeader;
-  static deserializeBinaryFromReader(message: RequestHeader, reader: jspb.BinaryReader): RequestHeader;
-}
-
-export namespace RequestHeader {
-  export type AsObject = {
-    version: number,
-  }
-}
 
 export class ActivateClientRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): ActivateClientRequest;
-  hasHeader(): boolean;
-  clearHeader(): ActivateClientRequest;
-
   getClientKey(): string;
   setClientKey(value: string): ActivateClientRequest;
 
@@ -37,7 +16,6 @@ export class ActivateClientRequest extends jspb.Message {
 
 export namespace ActivateClientRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     clientKey: string,
   }
 }
@@ -67,11 +45,6 @@ export namespace ActivateClientResponse {
 }
 
 export class DeactivateClientRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): DeactivateClientRequest;
-  hasHeader(): boolean;
-  clearHeader(): DeactivateClientRequest;
-
   getClientId(): Uint8Array | string;
   getClientId_asU8(): Uint8Array;
   getClientId_asB64(): string;
@@ -87,7 +60,6 @@ export class DeactivateClientRequest extends jspb.Message {
 
 export namespace DeactivateClientRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     clientId: Uint8Array | string,
   }
 }
@@ -113,11 +85,6 @@ export namespace DeactivateClientResponse {
 }
 
 export class AttachDocumentRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): AttachDocumentRequest;
-  hasHeader(): boolean;
-  clearHeader(): AttachDocumentRequest;
-
   getClientId(): Uint8Array | string;
   getClientId_asU8(): Uint8Array;
   getClientId_asB64(): string;
@@ -138,7 +105,6 @@ export class AttachDocumentRequest extends jspb.Message {
 
 export namespace AttachDocumentRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
@@ -171,11 +137,6 @@ export namespace AttachDocumentResponse {
 }
 
 export class DetachDocumentRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): DetachDocumentRequest;
-  hasHeader(): boolean;
-  clearHeader(): DetachDocumentRequest;
-
   getClientId(): Uint8Array | string;
   getClientId_asU8(): Uint8Array;
   getClientId_asB64(): string;
@@ -196,7 +157,6 @@ export class DetachDocumentRequest extends jspb.Message {
 
 export namespace DetachDocumentRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }
@@ -227,11 +187,6 @@ export namespace DetachDocumentResponse {
 }
 
 export class WatchDocumentsRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): WatchDocumentsRequest;
-  hasHeader(): boolean;
-  clearHeader(): WatchDocumentsRequest;
-
   getClient(): Client | undefined;
   setClient(value?: Client): WatchDocumentsRequest;
   hasClient(): boolean;
@@ -252,7 +207,6 @@ export class WatchDocumentsRequest extends jspb.Message {
 
 export namespace WatchDocumentsRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     client?: Client.AsObject,
     documentKeysList: Array<DocumentKey.AsObject>,
   }
@@ -343,11 +297,6 @@ export namespace WatchDocumentsResponse {
 }
 
 export class PushPullRequest extends jspb.Message {
-  getHeader(): RequestHeader | undefined;
-  setHeader(value?: RequestHeader): PushPullRequest;
-  hasHeader(): boolean;
-  clearHeader(): PushPullRequest;
-
   getClientId(): Uint8Array | string;
   getClientId_asU8(): Uint8Array;
   getClientId_asB64(): string;
@@ -368,7 +317,6 @@ export class PushPullRequest extends jspb.Message {
 
 export namespace PushPullRequest {
   export type AsObject = {
-    header?: RequestHeader.AsObject,
     clientId: Uint8Array | string,
     changePack?: ChangePack.AsObject,
   }

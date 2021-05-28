@@ -41,6 +41,7 @@ import { logger } from '../util/logger';
 import { uuid } from '../util/uuid';
 import { DocumentKey } from '../document/key/document_key';
 import { DocumentReplica } from '../document/document';
+import { AuthUnaryInterceptor, AuthStreamInterceptor } from './auth';
 
 export enum ClientStatus {
   Deactivated = 'deactivated',
@@ -159,6 +160,7 @@ export type Metadata = { [key: string]: string };
 export interface ClientOptions {
   key?: string;
   metadata?: Metadata;
+  token?: string;
   syncLoopDuration?: number;
   reconnectStreamDelay?: number;
 }
@@ -202,7 +204,15 @@ export class Client implements Observable<ClientEvent> {
     this.reconnectStreamDelay =
       opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
 
-    this.rpcClient = new RPCClient(rpcAddr);
+    let rpcOpts;
+    if (opts.token) {
+      rpcOpts = {
+        unaryInterceptors: [new AuthUnaryInterceptor(opts.token)],
+        streamInterceptors: [new AuthStreamInterceptor(opts.token)],
+      };
+    }
+
+    this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
