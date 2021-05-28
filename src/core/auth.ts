@@ -28,7 +28,7 @@ export class AuthUnaryInterceptor {
   /**
    * `intercept` intercepts the request and adds the token to the metadata.
    */
-  // eslint-disable-next-line
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
     metadata.Authorization = this.token;
@@ -50,7 +50,7 @@ export class AuthStreamInterceptor {
   /**
    * `intercept` intercepts the request and adds the token to the metadata.
    */
-  // eslint-disable-next-line
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
     metadata.Authorization = this.token;
