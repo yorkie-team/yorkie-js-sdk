@@ -99,9 +99,9 @@ export class ArrayProxy {
           return (itemID: TimeTicket): void => {
             ArrayProxy.moveFrontInternal(context, target, itemID);
           };
-        } else if (method === 'moveAfter') {
+        } else if (method === 'moveLast') {
           return (itemID: TimeTicket): void => {
-            ArrayProxy.moveAfterInternal(context, target, itemID);
+            ArrayProxy.moveLastInternal(context, target, itemID);
           };
         } else if (isNumericString(method)) {
           return toProxy(context, target.getByIndex(+(method as string)));
@@ -240,7 +240,7 @@ export class ArrayProxy {
    * `moveAfterInternal` moves the given `createdAt` element
    * at the last of array.
    */
-  public static moveAfterInternal(
+  public static moveLastInternal(
     context: ChangeContext,
     target: JSONArray,
     createdAt: TimeTicket,

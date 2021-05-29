@@ -200,19 +200,19 @@ describe('Array', function () {
 
     doc.update((root) => {
       const item = root['list'].getElementByIndex(2);
-      root['list'].moveAfter(item.getID());
+      root['list'].moveLast(item.getID());
       assert.equal('{"list":[0,1,2]}', root.toJSON());
     });
 
     doc.update((root) => {
       const item = root['list'].getElementByIndex(1);
-      root['list'].moveAfter(item.getID());
+      root['list'].moveLast(item.getID());
       assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
 
     doc.update((root) => {
       const item = root['list'].getElementByIndex(0);
-      root['list'].moveAfter(item.getID());
+      root['list'].moveLast(item.getID());
       assert.equal('{"list":[2,1,0]}', root.toJSON());
     });
   });
@@ -417,13 +417,13 @@ describe('Array', function () {
 
       d1.update((root) => {
         const item = root['k1'].getElementByIndex(1);
-        root['k1'].moveAfter(item.getID());
+        root['k1'].moveLast(item.getID());
         assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
       d2.update((root) => {
         const item = root['k1'].getElementByIndex(0);
-        root['k1'].moveAfter(item.getID());
+        root['k1'].moveLast(item.getID());
         assert.equal('{"k1":[1,2,0]}', root.toJSON());
       });
 
