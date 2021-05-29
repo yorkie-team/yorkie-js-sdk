@@ -90,6 +90,16 @@ export class ArrayProxy {
             );
             return toProxy(context, inserted);
           };
+        } else if (method === 'insertBefore') {
+          return (prevID: TimeTicket, value: any): JSONElement => {
+            const inserted = ArrayProxy.insertBeforeInternal(
+              context,
+              target,
+              prevID,
+              value,
+            );
+            return toProxy(context, inserted);
+          };
         } else if (method === 'moveBefore') {
           return (prevID: TimeTicket, itemID: TimeTicket): void => {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
@@ -288,6 +298,23 @@ export class ArrayProxy {
     } else {
       throw new TypeError(`Unsupported type of value: ${typeof value}`);
     }
+  }
+
+  /**
+   * `insertBeforeInternal` inserts the value before the previously created element.
+   */
+  public static insertBeforeInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    nextCreatedAt: TimeTicket,
+    value: unknown,
+  ): JSONElement {
+    return ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      target.getPrevCreatedAt(nextCreatedAt),
+      value,
+    );
   }
 
   /**
