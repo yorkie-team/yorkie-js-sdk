@@ -95,6 +95,10 @@ export class ArrayProxy {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
           };
           // JavaScript Native API
+        } else if (method === 'moveAfter') {
+          return (prevID: TimeTicket, itemID: TimeTicket): void => {
+            ArrayProxy.moveAfterInternal(context, target, prevID, itemID);
+          };
         } else if (method === 'moveFront') {
           return (itemID: TimeTicket): void => {
             ArrayProxy.moveFrontInternal(context, target, itemID);
@@ -204,6 +208,28 @@ export class ArrayProxy {
       MoveOperation.create(
         target.getCreatedAt(),
         prevCreatedAt,
+        createdAt,
+        ticket,
+      ),
+    );
+  }
+
+  /**
+   * `moveAfterInternal` moves the given `createdAt` element
+   * after the specific element.
+   */
+  public static moveAfterInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    nextCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    target.moveAfter(nextCreatedAt, createdAt, ticket);
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        nextCreatedAt,
         createdAt,
         ticket,
       ),
