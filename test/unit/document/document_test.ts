@@ -361,7 +361,7 @@ describe('DocumentReplica', function () {
     assert.equal(6, doc.getRoot().data.length);
   });
 
-  it('insert elements before a deleted node of array', function () {
+  it('can insert an element before specific position after delete operation', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
