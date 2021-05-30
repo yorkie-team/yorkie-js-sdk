@@ -221,7 +221,7 @@ export class ArrayProxy {
   public static moveAfterInternal(
     context: ChangeContext,
     target: JSONArray,
-    nextCreatedAt: TimeTicket,
+    prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
@@ -229,7 +229,7 @@ export class ArrayProxy {
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
-        nextCreatedAt,
+        prevCreatedAt,
         createdAt,
         ticket,
       ),
