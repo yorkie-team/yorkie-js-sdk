@@ -225,7 +225,7 @@ export class ArrayProxy {
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
-    target.moveAfter(nextCreatedAt, createdAt, ticket);
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
