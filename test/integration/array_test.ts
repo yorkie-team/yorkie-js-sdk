@@ -213,6 +213,33 @@ describe('Array', function () {
     });
   });
 
+  it('can move an element at the last of array', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+    }, 'set {"list":[0,1,2]}');
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[0,1,2]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(1);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(0);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[2,1,0]}', root.toJSON());
+    });
+  });
+
   it('Can handle concurrent insertAfter operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
@@ -392,6 +419,35 @@ describe('Array', function () {
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveFront(item.getID());
         assert.equal('{"k1":[2,0,1]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent moveAfter operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveLast(item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const item = root['k1'].getElementByIndex(0);
+        root['k1'].moveLast(item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
       });
 
       await c1.sync();
