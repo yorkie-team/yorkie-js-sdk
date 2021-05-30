@@ -330,4 +330,63 @@ describe('DocumentReplica', function () {
       paths.push('$.rich');
     });
   });
+
+  it('insert elements before a specific node of array', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = [0, 1, 2];
+    });
+    assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const zero = root.data.getElementByIndex(0);
+      root.data.insertBefore(zero.getID(), 3);
+    });
+    assert.equal('{"data":[3,0,1,2]}', doc.toSortedJSON());
+    assert.equal(4, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const one = root.data.getElementByIndex(2);
+      root.data.insertBefore(one.getID(), 4);
+    });
+    assert.equal('{"data":[3,0,4,1,2]}', doc.toSortedJSON());
+    assert.equal(5, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const two = root.data.getElementByIndex(4);
+      root.data.insertBefore(two.getID(), 5);
+    });
+    assert.equal('{"data":[3,0,4,1,5,2]}', doc.toSortedJSON());
+    assert.equal(6, doc.getRoot().data.length);
+  });
+
+  it('can insert an element before specific position after delete operation', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.data = [0, 1, 2];
+    });
+    assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const zero = root.data.getElementByIndex(0);
+      root.data.deleteByID(zero.getID());
+
+      const one = root.data.getElementByIndex(0);
+      root.data.insertBefore(one.getID(), 3);
+    });
+    assert.equal('{"data":[3,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+
+    doc.update((root) => {
+      const one = root.data.getElementByIndex(1);
+      root.data.deleteByID(one.getID());
+
+      const two = root.data.getElementByIndex(1);
+      root.data.insertBefore(two.getID(), 4);
+    });
+    assert.equal('{"data":[3,4,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
+  });
 });
