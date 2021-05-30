@@ -140,7 +140,7 @@ describe('Array', function () {
     }
   });
 
-  it('can insert an element after the given element in array', function () {
+  it('can move an element before the given element in array', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
@@ -160,6 +160,29 @@ describe('Array', function () {
       const item = root['list'].getElementByIndex(2);
       root['list'].moveBefore(next.getID(), item.getID());
       assert.equal('{"list":[1,2,0]}', root.toJSON());
+    });
+  });
+
+  it('can move an element after the given element in array', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+    }, 'set {"list":[0,1,2]}');
+
+    doc.update((root) => {
+      const prev = root['list'].getElementByIndex(0);
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveAfter(prev.getID(), item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const prev = root['list'].getElementByIndex(0);
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveAfter(prev.getID(), item.getID());
+      assert.equal('{"list":[0,1,2]}', root.toJSON());
     });
   });
 
@@ -187,6 +210,33 @@ describe('Array', function () {
       const item = root['list'].getElementByIndex(0);
       root['list'].moveFront(item.getID());
       assert.equal('{"list":[0,2,1]}', root.toJSON());
+    });
+  });
+
+  it('can move an element at the last of array', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+    }, 'set {"list":[0,1,2]}');
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(2);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[0,1,2]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(1);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
+    });
+
+    doc.update((root) => {
+      const item = root['list'].getElementByIndex(0);
+      root['list'].moveLast(item.getID());
+      assert.equal('{"list":[2,1,0]}', root.toJSON());
     });
   });
 
@@ -378,6 +428,35 @@ describe('Array', function () {
     }, this.test!.title);
   });
 
+  it('Can handle concurrent moveAfter operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveLast(item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const item = root['k1'].getElementByIndex(0);
+        root['k1'].moveLast(item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
   it('Can handle concurrent insertAfter and moveBefore operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
@@ -414,6 +493,37 @@ describe('Array', function () {
         const next = root['k1'].getElementByIndex(0);
         const item = root['k1'].getElementByIndex(2);
         root['k1'].moveBefore(next.getID(), item.getID());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent moveAfter', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        const prev = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(1);
+        root['k1'].moveAfter(prev.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        const prev = root['k1'].getElementByIndex(0);
+        const item = root['k1'].getElementByIndex(2);
+        root['k1'].moveAfter(prev.getID(), item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
       await c1.sync();

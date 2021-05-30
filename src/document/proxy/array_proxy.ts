@@ -105,9 +105,17 @@ export class ArrayProxy {
             ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
           };
           // JavaScript Native API
+        } else if (method === 'moveAfter') {
+          return (prevID: TimeTicket, itemID: TimeTicket): void => {
+            ArrayProxy.moveAfterInternal(context, target, prevID, itemID);
+          };
         } else if (method === 'moveFront') {
           return (itemID: TimeTicket): void => {
             ArrayProxy.moveFrontInternal(context, target, itemID);
+          };
+        } else if (method === 'moveLast') {
+          return (itemID: TimeTicket): void => {
+            ArrayProxy.moveLastInternal(context, target, itemID);
           };
         } else if (isNumericString(method)) {
           return toProxy(context, target.getByIndex(+(method as string)));
@@ -221,6 +229,28 @@ export class ArrayProxy {
   }
 
   /**
+   * `moveAfterInternal` moves the given `createdAt` element
+   * after the specific element.
+   */
+  public static moveAfterInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    prevCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        prevCreatedAt,
+        createdAt,
+        ticket,
+      ),
+    );
+  }
+
+  /**
    * `moveFrontInternal` moves the given `createdAt` element
    * at the first of array.
    */
@@ -239,6 +269,23 @@ export class ArrayProxy {
         createdAt,
         ticket,
       ),
+    );
+  }
+
+  /**
+   * `moveAfterInternal` moves the given `createdAt` element
+   * at the last of array.
+   */
+  public static moveLastInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const last = target.getLastCreatedAt();
+    target.moveAfter(last, createdAt, ticket);
+    context.push(
+      MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
   }
 
