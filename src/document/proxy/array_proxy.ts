@@ -103,6 +103,10 @@ export class ArrayProxy {
           return (itemID: TimeTicket): void => {
             ArrayProxy.moveFrontInternal(context, target, itemID);
           };
+        } else if (method === 'moveLast') {
+          return (itemID: TimeTicket): void => {
+            ArrayProxy.moveLastInternal(context, target, itemID);
+          };
         } else if (isNumericString(method)) {
           return toProxy(context, target.getByIndex(+(method as string)));
         } else if (method === 'push') {
@@ -255,6 +259,23 @@ export class ArrayProxy {
         createdAt,
         ticket,
       ),
+    );
+  }
+
+  /**
+   * `moveAfterInternal` moves the given `createdAt` element
+   * at the last of array.
+   */
+  public static moveLastInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const last = target.getLastCreatedAt();
+    target.moveAfter(last, createdAt, ticket);
+    context.push(
+      MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
   }
 

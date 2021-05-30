@@ -248,8 +248,9 @@ export class RGATreeList {
     }
 
     if (
-      !node!.getValue().getMovedAt() ||
-      executedAt.after(node!.getValue().getMovedAt()!)
+      prevNode !== node &&
+      (!node!.getValue().getMovedAt() ||
+        executedAt.after(node!.getValue().getMovedAt()!))
     ) {
       this.release(node!);
       this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
