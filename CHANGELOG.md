@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.5] - 2021-06-05
+
+### Added
+- Add moveFront, moveAfter, moveLast, insertBefore to Array: #194, #203, #206, #207
+- Add AuthInterceptor: #199
+
+### Fixed
+- Fix the concurrent editing issue of Move Operation: #196
+- Fix a bug when pushing an array element in Array: #200
+
+### Removed
+- Delete RequestHeader in Protobuf
+
 ## [0.1.4] - 2021-05-15
 
 ### Added
