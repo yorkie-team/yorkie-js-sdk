@@ -434,6 +434,20 @@ export class Client implements Observable<ClientEvent> {
     return this.status === ClientStatus.Activated;
   }
 
+  /**
+   * `getStatus` returns the status of this client.
+   */
+  public getStatus(): ClientStatus {
+    return this.status;
+  }
+
+  /**
+   * `getMetadata` returns the metadata of this client.
+   */
+  public getMetadata(): Metadata {
+    return this.metadata;
+  }
+
   private runSyncLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
