@@ -32,7 +32,7 @@ import {
   PushPullRequest,
   WatchDocumentsRequest,
   WatchDocumentsResponse,
-  EventType as WatchEventType,
+  DocEventType,
 } from '../api/yorkie_pb';
 import { converter } from '../api/converter';
 import { YorkieClient as RPCClient } from '../api/yorkie_grpc_web_pb';
@@ -592,34 +592,34 @@ export class Client implements Observable<ClientEvent> {
     );
     for (const key of respKeys) {
       const attachment = this.attachmentMap.get(key.toIDString());
-      switch (pbWatchEvent!.getEventType()) {
-        case WatchEventType.DOCUMENTS_WATCHED:
+      switch (pbWatchEvent!.getType()) {
+        case DocEventType.DOCUMENTS_WATCHED:
           attachment!.peerClients!.set(
-            converter.toHexString(pbWatchEvent!.getClient()!.getId_asU8()),
+            converter.toHexString(pbWatchEvent!.getPublisher()!.getId_asU8()),
             converter.fromMetadataMap(
-              pbWatchEvent!.getClient()!.getMetadataMap(),
+              pbWatchEvent!.getPublisher()!.getMetadataMap(),
             ),
           );
           break;
-        case WatchEventType.DOCUMENTS_UNWATCHED:
+        case DocEventType.DOCUMENTS_UNWATCHED:
           attachment!.peerClients!.delete(
-            converter.toHexString(pbWatchEvent!.getClient()!.getId_asU8()),
+            converter.toHexString(pbWatchEvent!.getPublisher()!.getId_asU8()),
           );
           break;
-        case WatchEventType.DOCUMENTS_CHANGED:
+        case DocEventType.DOCUMENTS_CHANGED:
           attachment!.remoteChangeEventReceived = true;
           break;
       }
     }
 
-    if (pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_CHANGED) {
+    if (pbWatchEvent!.getType() === DocEventType.DOCUMENTS_CHANGED) {
       this.eventStreamObserver.next({
         type: ClientEventType.DocumentsChanged,
         value: respKeys,
       });
     } else if (
-      pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_WATCHED ||
-      pbWatchEvent!.getEventType() === WatchEventType.DOCUMENTS_UNWATCHED
+      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_WATCHED ||
+      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_UNWATCHED
     ) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
