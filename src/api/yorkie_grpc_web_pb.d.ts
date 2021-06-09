@@ -50,6 +50,20 @@ export class YorkieClient {
 
 }
 
+export class ClusterClient {
+  constructor (hostname: string,
+               credentials?: null | { [index: string]: string; },
+               options?: null | { [index: string]: any; });
+
+  broadcastEvent(
+    request: src_api_yorkie_pb.BroadcastEventRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.Error,
+               response: src_api_yorkie_pb.BroadcastEventResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.BroadcastEventResponse>;
+
+}
+
 export class YorkiePromiseClient {
   constructor (hostname: string,
                credentials?: null | { [index: string]: string; },
@@ -84,6 +98,18 @@ export class YorkiePromiseClient {
     request: src_api_yorkie_pb.PushPullRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<src_api_yorkie_pb.PushPullResponse>;
+
+}
+
+export class ClusterPromiseClient {
+  constructor (hostname: string,
+               credentials?: null | { [index: string]: string; },
+               options?: null | { [index: string]: any; });
+
+  broadcastEvent(
+    request: src_api_yorkie_pb.BroadcastEventRequest,
+    metadata?: grpcWeb.Metadata
+  ): Promise<src_api_yorkie_pb.BroadcastEventResponse>;
 
 }
 

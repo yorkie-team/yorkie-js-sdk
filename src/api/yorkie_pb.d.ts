@@ -2,6 +2,46 @@ import * as jspb from 'google-protobuf'
 
 
 
+export class BroadcastEventRequest extends jspb.Message {
+  getPublisherId(): Uint8Array | string;
+  getPublisherId_asU8(): Uint8Array;
+  getPublisherId_asB64(): string;
+  setPublisherId(value: Uint8Array | string): BroadcastEventRequest;
+
+  getEvent(): DocEvent | undefined;
+  setEvent(value?: DocEvent): BroadcastEventRequest;
+  hasEvent(): boolean;
+  clearEvent(): BroadcastEventRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BroadcastEventRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BroadcastEventRequest): BroadcastEventRequest.AsObject;
+  static serializeBinaryToWriter(message: BroadcastEventRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BroadcastEventRequest;
+  static deserializeBinaryFromReader(message: BroadcastEventRequest, reader: jspb.BinaryReader): BroadcastEventRequest;
+}
+
+export namespace BroadcastEventRequest {
+  export type AsObject = {
+    publisherId: Uint8Array | string,
+    event?: DocEvent.AsObject,
+  }
+}
+
+export class BroadcastEventResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BroadcastEventResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BroadcastEventResponse): BroadcastEventResponse.AsObject;
+  static serializeBinaryToWriter(message: BroadcastEventResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BroadcastEventResponse;
+  static deserializeBinaryFromReader(message: BroadcastEventResponse, reader: jspb.BinaryReader): BroadcastEventResponse;
+}
+
+export namespace BroadcastEventResponse {
+  export type AsObject = {
+  }
+}
+
 export class ActivateClientRequest extends jspb.Message {
   getClientKey(): string;
   setClientKey(value: string): ActivateClientRequest;
@@ -218,8 +258,8 @@ export class WatchDocumentsResponse extends jspb.Message {
   hasInitialization(): boolean;
   clearInitialization(): WatchDocumentsResponse;
 
-  getEvent(): WatchDocumentsResponse.Event | undefined;
-  setEvent(value?: WatchDocumentsResponse.Event): WatchDocumentsResponse;
+  getEvent(): DocEvent | undefined;
+  setEvent(value?: DocEvent): WatchDocumentsResponse;
   hasEvent(): boolean;
   clearEvent(): WatchDocumentsResponse;
 
@@ -236,7 +276,7 @@ export class WatchDocumentsResponse extends jspb.Message {
 export namespace WatchDocumentsResponse {
   export type AsObject = {
     initialization?: WatchDocumentsResponse.Initialization.AsObject,
-    event?: WatchDocumentsResponse.Event.AsObject,
+    event?: DocEvent.AsObject,
   }
 
   export class Initialization extends jspb.Message {
@@ -254,37 +294,6 @@ export namespace WatchDocumentsResponse {
   export namespace Initialization {
     export type AsObject = {
       peersMapByDocMap: Array<[string, Clients.AsObject]>,
-    }
-  }
-
-
-  export class Event extends jspb.Message {
-    getClient(): Client | undefined;
-    setClient(value?: Client): Event;
-    hasClient(): boolean;
-    clearClient(): Event;
-
-    getEventType(): EventType;
-    setEventType(value: EventType): Event;
-
-    getDocumentKeysList(): Array<DocumentKey>;
-    setDocumentKeysList(value: Array<DocumentKey>): Event;
-    clearDocumentKeysList(): Event;
-    addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): Event.AsObject;
-    static toObject(includeInstance: boolean, msg: Event): Event.AsObject;
-    static serializeBinaryToWriter(message: Event, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): Event;
-    static deserializeBinaryFromReader(message: Event, reader: jspb.BinaryReader): Event;
-  }
-
-  export namespace Event {
-    export type AsObject = {
-      client?: Client.AsObject,
-      eventType: EventType,
-      documentKeysList: Array<DocumentKey.AsObject>,
     }
   }
 
@@ -1562,6 +1571,36 @@ export namespace TimeTicket {
   }
 }
 
+export class DocEvent extends jspb.Message {
+  getType(): DocEventType;
+  setType(value: DocEventType): DocEvent;
+
+  getPublisher(): Client | undefined;
+  setPublisher(value?: Client): DocEvent;
+  hasPublisher(): boolean;
+  clearPublisher(): DocEvent;
+
+  getDocumentKeysList(): Array<DocumentKey>;
+  setDocumentKeysList(value: Array<DocumentKey>): DocEvent;
+  clearDocumentKeysList(): DocEvent;
+  addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DocEvent.AsObject;
+  static toObject(includeInstance: boolean, msg: DocEvent): DocEvent.AsObject;
+  static serializeBinaryToWriter(message: DocEvent, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): DocEvent;
+  static deserializeBinaryFromReader(message: DocEvent, reader: jspb.BinaryReader): DocEvent;
+}
+
+export namespace DocEvent {
+  export type AsObject = {
+    type: DocEventType,
+    publisher?: Client.AsObject,
+    documentKeysList: Array<DocumentKey.AsObject>,
+  }
+}
+
 export enum ValueType { 
   NULL = 0,
   BOOLEAN = 1,
@@ -1579,7 +1618,7 @@ export enum ValueType {
   LONG_CNT = 13,
   DOUBLE_CNT = 14,
 }
-export enum EventType { 
+export enum DocEventType { 
   DOCUMENTS_CHANGED = 0,
   DOCUMENTS_WATCHED = 1,
   DOCUMENTS_UNWATCHED = 2,
