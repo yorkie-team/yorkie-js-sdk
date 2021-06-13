@@ -1,6 +1,9 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '../../src/document/document';
 import { JSONElement } from '../../src/document/json/element';
+import { TimeTicket } from '../../src/document/time/ticket';
+import { MaxTimeTicket } from '../../src/document/time/ticket';
+
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Array', function () {
@@ -625,5 +628,27 @@ describe('Array', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
       assert.equal('{"k1":[7,1,5,3,6,4]}', d1.toJSON());
     }, this.test!.title);
+  });
+
+  it('Returns undefined when looking up an element that doesnt exist', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    let targetID: TimeTicket;
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+      targetID = root['list'].getElementByIndex(2).getID();
+    });
+
+    doc.update((root) => {
+      root['list'].deleteByID(targetID);
+    });
+
+    assert.equal('{"list":[0,1]}', doc.toSortedJSON());
+
+    doc.garbageCollect(MaxTimeTicket);
+    doc.update((root) => {
+      const elem = root['list'].getElementByID(targetID);
+      assert.isUndefined(elem);
+    });
   });
 });
