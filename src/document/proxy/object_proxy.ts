@@ -125,7 +125,7 @@ export class ObjectProxy {
    */
   public static setInternal(
     context: ChangeContext,
-    target: JSONObject,
+    target: JSONObject | JSONArray,
     key: string,
     value: unknown,
   ): void {

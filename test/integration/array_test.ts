@@ -651,4 +651,79 @@ describe('Array', function () {
       assert.isUndefined(elem);
     });
   });
+
+  it('Can set value in array index', async function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+    doc.update((root) => {
+      root['k1'] = [];
+      root['k1'][0] = 1;
+      assert.equal('{"k1":[]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'] = [0, 1, 2];
+      assert.equal('{"k1":[0,1,2]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][0] = 3;
+      assert.equal('{"k1":[3,1,2]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][1] = 4;
+      assert.equal('{"k1":[3,4,2]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][2] = 5;
+      assert.equal('{"k1":[3,4,5]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1']['a'] = 5;
+      assert.equal('{"k1":[3,4,5]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][4] = 6;
+      assert.equal('{"k1":[3,4,5]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][-1] = 7;
+      assert.equal('{"k1":[3,4,5]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][0] = [1, 2, 3];
+      assert.equal('{"k1":[[1,2,3],4,5]}', root.toJSON());
+    });
+    doc.update((root) => {
+      root['k1'][1] = { a: 1 };
+      assert.equal('{"k1":[[1,2,3],{"a":1},5]}', root.toJSON());
+    });
+  });
+
+  it('Can handle concurrent value setting', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root['k1'] = [0, 1, 2];
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(d1.toJSON(), d2.toJSON());
+
+      d1.update((root) => {
+        root['k1'][0] = 3;
+        assert.equal('{"k1":[3,1,2]}', root.toJSON());
+      });
+
+      d2.update((root) => {
+        root['k1'][0] = 4;
+        assert.equal('{"k1":[4,1,2]}', root.toJSON());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toJSON(), d2.toJSON());
+      assert.equal('{"k1":[4,1,2]}', d1.toJSON());
+    }, this.test!.title);
+  });
 });

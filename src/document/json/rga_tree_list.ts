@@ -14,22 +14,36 @@
  * limitations under the License.
  */
 
+import { Heap, HeapNode } from '../../util/heap';
 import { logger } from '../../util/logger';
 import { SplayNode, SplayTree } from '../../util/splay_tree';
-import { InitialTimeTicket, TimeTicket } from '../time/ticket';
+import {
+  InitialTimeTicket,
+  TicketComparator,
+  TimeTicket,
+} from '../time/ticket';
 import { JSONElement } from './element';
 import { JSONPrimitive } from './primitive';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.
  */
-class RGATreeListNode extends SplayNode<JSONElement> {
+class RGATreeListNode extends SplayNode<Heap<TimeTicket, JSONElement>> {
   private prev?: RGATreeListNode;
   private next?: RGATreeListNode;
 
-  constructor(value: JSONElement) {
+  constructor(value: Heap<TimeTicket, JSONElement>) {
     super(value);
     this.value = value;
+  }
+
+  /**
+   * `create` creates a new instance of RGATreeListNode.
+   */
+  public static create(value: JSONElement) {
+    const heap = new Heap<TimeTicket, JSONElement>(TicketComparator);
+    heap.push(new HeapNode(value.getCreatedAt(), value));
+    return new RGATreeListNode(heap);
   }
 
   /**
@@ -39,7 +53,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
     prev: RGATreeListNode,
     value: JSONElement,
   ): RGATreeListNode {
-    const newNode = new RGATreeListNode(value);
+    const newNode = RGATreeListNode.create(value);
     const prevNext = prev.next;
     prev.next = newNode;
     newNode.prev = prev;
@@ -55,26 +69,26 @@ class RGATreeListNode extends SplayNode<JSONElement> {
    * `remove` removes value based on removing time.
    */
   public remove(removedAt: TimeTicket): boolean {
-    return this.value.remove(removedAt);
+    return this.getElementValue().remove(removedAt);
   }
 
   /**
-   * `getCreatedAt` returns creation time of this value
+   * `getCreatedAt` returns creation time of this element
    */
   public getCreatedAt(): TimeTicket {
-    return this.value.getCreatedAt();
+    return this.getElementValue().getCreatedAt();
   }
 
   /**
    * `getPositionedAt` returns time this element was positioned in the array.
    */
   public getPositionedAt(): TimeTicket {
-    const movedAt = this.value.getMovedAt();
+    const movedAt = this.getElementValue().getMovedAt();
     if (movedAt) {
       return movedAt;
     }
 
-    return this.value.getCreatedAt();
+    return this.getElementValue().getCreatedAt();
   }
 
   /**
@@ -95,7 +109,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
    * `getLength` returns the length of this node.
    */
   public getLength(): number {
-    return this.value.isRemoved() ? 0 : 1;
+    return this.getElementValue().isRemoved() ? 0 : 1;
   }
 
   /**
@@ -113,17 +127,38 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   }
 
   /**
-   * `getValue` returns a element value.
+   * `getValue` returns a heap with elements.
    */
-  public getValue(): JSONElement {
+  public getValue(): Heap<TimeTicket, JSONElement> {
     return this.value;
+  }
+
+  /**
+   * `getElementValue` returns a element.
+   */
+  public getElementValue(): JSONElement {
+    return this.value.peek()!.getValue();
+  }
+
+  /**
+   * `setValue` sets a element value into heap.
+   */
+  public setValue(value: JSONElement) {
+    this.value.push(new HeapNode(value.getCreatedAt(), value));
   }
 
   /**
    * `isRemoved` checks if the value was removed.
    */
   public isRemoved(): boolean {
-    return this.value.isRemoved();
+    return this.getElementValue().isRemoved();
+  }
+
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public *[Symbol.iterator](): IterableIterator<JSONElement> {
+    for (const node of this.getValue()) {
+      yield node.getValue();
+    }
   }
 }
 
@@ -134,13 +169,13 @@ export class RGATreeList {
   private dummyHead: RGATreeListNode;
   private last: RGATreeListNode;
   private size: number;
-  private nodeMapByIndex: SplayTree<JSONElement>;
+  private nodeMapByIndex: SplayTree<Heap<TimeTicket, JSONElement>>;
   private nodeMapByCreatedAt: Map<string, RGATreeListNode>;
 
   constructor() {
     const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
     dummyValue.remove(InitialTimeTicket);
-    this.dummyHead = new RGATreeListNode(dummyValue);
+    this.dummyHead = RGATreeListNode.create(dummyValue);
     this.last = this.dummyHead;
     this.size = 0;
     this.nodeMapByIndex = new SplayTree();
@@ -201,7 +236,10 @@ export class RGATreeList {
 
     node.release();
     this.nodeMapByIndex.delete(node);
-    this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
+
+    for (const value of node) {
+      this.nodeMapByCreatedAt.delete(value.getCreatedAt().toIDString());
+    }
 
     if (!node.isRemoved()) {
       this.size -= 1;
@@ -249,12 +287,16 @@ export class RGATreeList {
 
     if (
       prevNode !== node &&
-      (!node!.getValue().getMovedAt() ||
-        executedAt.after(node!.getValue().getMovedAt()!))
+      (!node!.getElementValue().getMovedAt() ||
+        executedAt.after(node!.getElementValue().getMovedAt()!))
     ) {
       this.release(node!);
-      this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
-      node!.getValue().setMovedAt(executedAt);
+      this.insertAfter(
+        prevNode!.getCreatedAt(),
+        node!.getElementValue(),
+        executedAt,
+      );
+      node!.getElementValue().setMovedAt(executedAt);
     }
   }
 
@@ -274,7 +316,22 @@ export class RGATreeList {
       return;
     }
 
-    return node.getValue();
+    return node.getElementValue();
+  }
+
+  /**
+   * `set` sets the given element.
+   */
+  public set(key: string, value: JSONElement): void {
+    const index = Number(key);
+    const rgaNode = this.getByIndex(index);
+
+    if (!rgaNode) {
+      return;
+    }
+
+    rgaNode.setValue(value);
+    this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), rgaNode);
   }
 
   /**
@@ -335,7 +392,7 @@ export class RGATreeList {
     do {
       node = node!.getPrev()!;
     } while (this.dummyHead !== node && node.isRemoved());
-    return node.getValue().getCreatedAt();
+    return node.getElementValue().getCreatedAt();
   }
 
   /**
@@ -347,7 +404,7 @@ export class RGATreeList {
       this.nodeMapByIndex.splayNode(node!);
       this.size -= 1;
     }
-    return node!.getValue();
+    return node!.getElementValue();
   }
 
   /**
@@ -366,21 +423,21 @@ export class RGATreeList {
       this.nodeMapByIndex.splayNode(node);
       this.size -= 1;
     }
-    return node.getValue();
+    return node.getElementValue();
   }
 
   /**
    * `getHead` returns the value of head elements.
    */
   public getHead(): JSONElement {
-    return this.dummyHead.getValue();
+    return this.dummyHead.getElementValue();
   }
 
   /**
    * `getLast` returns the value of last elements.
    */
   public getLast(): JSONElement {
-    return this.last.getValue();
+    return this.last.getElementValue();
   }
 
   /**
@@ -400,7 +457,7 @@ export class RGATreeList {
     for (const node of this) {
       const elem = `${node
         .getCreatedAt()
-        .toIDString()}:${node.getValue().toJSON()}`;
+        .toIDString()}:${node.getElementValue().toJSON()}`;
       if (node.isRemoved()) {
         json.push(`{${elem}}`);
       } else {

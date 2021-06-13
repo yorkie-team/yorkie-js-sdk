@@ -49,6 +49,14 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
+      set: (target: JSONArray, key: string, value: any): boolean => {
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`array[${key}]=${JSON.stringify(value)}`);
+        }
+
+        ArrayProxy.setInternal(context, target, key, value);
+        return true;
+      },
       get: (target: JSONArray, method: string | symbol, receiver: any): any => {
         // Yorkie extension API
         if (method === 'getID') {
@@ -408,6 +416,27 @@ export class ArrayProxy {
     );
     context.registerRemovedElement(deleted);
     return deleted;
+  }
+
+  /**
+   * `setInternal` sets an Array for the given key
+   */
+  public static setInternal(
+    context: ChangeContext,
+    target: JSONArray,
+    key: string,
+    value: unknown,
+  ): void {
+    const index = Number(key);
+    if (!Number.isInteger(index)) {
+      return;
+    }
+
+    if (index < 0 || index >= target.length) {
+      return;
+    }
+
+    ObjectProxy.setInternal(context, target, key, value);
   }
 
   /**

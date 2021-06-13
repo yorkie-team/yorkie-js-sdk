@@ -441,7 +441,7 @@ function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
   for (const rgaTreeListNode of rgaTreeList) {
     const pbRGANode = new PbRGANode();
     // eslint-disable-next-line
-    pbRGANode.setElement(toJSONElement(rgaTreeListNode.getValue()));
+    pbRGANode.setElement(toJSONElement(rgaTreeListNode.getElementValue()));
     pbRGANodes.push(pbRGANode);
   }
 

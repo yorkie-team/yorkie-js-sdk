@@ -19,6 +19,7 @@ import { TimeTicket } from '../time/ticket';
 import { JSONElement } from '../json/element';
 import { JSONRoot } from '../json/root';
 import { JSONObject } from '../json/object';
+import { JSONArray } from '../json/array';
 import { Operation } from './operation';
 
 /**
@@ -59,6 +60,11 @@ export class SetOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof JSONObject) {
       const obj = parentObject as JSONObject;
+      const value = this.value.deepcopy();
+      obj.set(this.key, value);
+      root.registerElement(value, obj);
+    } else if (parentObject instanceof JSONArray) {
+      const obj = parentObject as JSONArray;
       const value = this.value.deepcopy();
       obj.set(this.key, value);
       root.registerElement(value, obj);

@@ -78,6 +78,13 @@ export class JSONArray extends JSONContainer {
   }
 
   /**
+   * `set` sets the given element.
+   */
+  public set(key: string, value: JSONElement): void {
+    this.elements.set(key, value);
+  }
+
+  /**
    * `getByIndex` returns the element of the given index.
    */
   public getByIndex(index: number): JSONElement | undefined {
@@ -86,7 +93,7 @@ export class JSONArray extends JSONContainer {
       return;
     }
 
-    return node.getValue();
+    return node.getElementValue();
   }
 
   /**
@@ -146,7 +153,7 @@ export class JSONArray extends JSONContainer {
   public *[Symbol.iterator](): IterableIterator<JSONElement> {
     for (const node of this.elements) {
       if (!node.isRemoved()) {
-        yield node.getValue();
+        yield node.getElementValue();
       }
     }
   }
@@ -158,7 +165,7 @@ export class JSONArray extends JSONContainer {
     callback: (elem: JSONElement, parent: JSONContainer) => boolean,
   ): void {
     for (const node of this.elements) {
-      const element = node.getValue();
+      const element = node.getElementValue();
       if (callback(element, this)) {
         return;
       }
@@ -202,7 +209,7 @@ export class JSONArray extends JSONContainer {
     for (const node of this.elements) {
       clone.elements.insertAfter(
         clone.getLastCreatedAt(),
-        node.getValue().deepcopy(),
+        node.getElementValue().deepcopy(),
       );
     }
     clone.remove(this.getRemovedAt());
