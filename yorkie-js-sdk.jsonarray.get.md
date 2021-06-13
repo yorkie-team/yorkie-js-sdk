@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-get(createdAt: TimeTicket): JSONElement;
+get(createdAt: TimeTicket): JSONElement | undefined;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ get(createdAt: TimeTicket): JSONElement;
 
 <b>Returns:</b>
 
-[JSONElement](./yorkie-js-sdk.jsonelement.md)
+[JSONElement](./yorkie-js-sdk.jsonelement.md) \| undefined
 
