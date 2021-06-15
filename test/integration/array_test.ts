@@ -630,7 +630,7 @@ describe('Array', function () {
     }, this.test!.title);
   });
 
-  it('Returns undefined when looking up an element that doesnt exist', function () {
+  it('Returns undefined when looking up an element that doesnt exist after GC', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     let targetID: TimeTicket;
 
@@ -650,5 +650,26 @@ describe('Array', function () {
       const elem = root['list'].getElementByID(targetID);
       assert.isUndefined(elem);
     });
+  });
+
+  it('Returns undefined when looking up an element that doesnt exist', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    let targetID: TimeTicket;
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+      targetID = root['list'].getElementByIndex(2).getID();
+    });
+
+    doc.update((root) => {
+      assert.equal(2, root['list'].getElementByID(targetID));
+    });
+
+    doc.update((root) => {
+      root['list'].deleteByID(targetID);
+      assert.isUndefined(root['list'].getElementByID(targetID));
+    });
+
+    assert.equal('{"list":[0,1]}', doc.toSortedJSON());
   });
 });
