@@ -120,23 +120,35 @@ export class RHTPQMap {
    * `purge` physically purge child element.
    */
   public purge(element: JSONElement): void {
-    const node = this.nodeMapByCreatedAt.get(
+    const current = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
     );
-    if (!node) {
+    if (!current) {
       logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
+      return;
     }
 
-    const queue = this.elementQueueMapByKey.get(node!.getStrKey());
+    const queue = this.elementQueueMapByKey.get(current.getStrKey());
     if (!queue) {
       logger.fatal(
         `fail to find queue of ${element.getCreatedAt().toIDString()}`,
       );
+      return;
     }
 
-    queue!.release(node!);
+    // Removes nodes previously inserted into the heap.
+    const nodesToRelease = [];
+    for (const node of queue) {
+      if (node.getValue().getCreatedAt().after(element.getCreatedAt())) {
+        continue;
+      }
+      nodesToRelease.push(node);
+    }
 
-    this.nodeMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    for (const node of nodesToRelease) {
+      queue.release(node);
+      this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
+    }
   }
 
   /**
