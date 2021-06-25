@@ -81,7 +81,24 @@ export class RHTPQMap {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: JSONElement): void {
+  public set(key: string, value: JSONElement): JSONElement | undefined {
+    let removed;
+    const queue = this.elementQueueMapByKey.get(key);
+    if (queue && queue.len()) {
+      const node = queue.peek() as RHTPQMapNode;
+      if (!node.isRemoved() && node.remove(value.getCreatedAt())) {
+        removed = node.getValue();
+      }
+    }
+
+    this.setInternal(key, value);
+    return removed;
+  }
+
+  /**
+   * `setInternal` sets the value of the given key.
+   */
+  public setInternal(key: string, value: JSONElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -120,15 +137,15 @@ export class RHTPQMap {
    * `purge` physically purge child element.
    */
   public purge(element: JSONElement): void {
-    const current = this.nodeMapByCreatedAt.get(
+    const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
     );
-    if (!current) {
+    if (!node) {
       logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
       return;
     }
 
-    const queue = this.elementQueueMapByKey.get(current.getStrKey());
+    const queue = this.elementQueueMapByKey.get(node.getStrKey());
     if (!queue) {
       logger.fatal(
         `fail to find queue of ${element.getCreatedAt().toIDString()}`,
@@ -136,19 +153,8 @@ export class RHTPQMap {
       return;
     }
 
-    // Removes nodes previously inserted into the heap.
-    const nodesToRelease = [];
-    for (const node of queue) {
-      if (node.getValue().getCreatedAt().after(element.getCreatedAt())) {
-        continue;
-      }
-      nodesToRelease.push(node);
-    }
-
-    for (const node of nodesToRelease) {
-      queue.release(node);
-      this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
-    }
+    queue.release(node);
+    this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
   }
 
   /**

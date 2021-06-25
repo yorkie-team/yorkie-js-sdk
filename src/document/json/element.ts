@@ -71,10 +71,21 @@ export abstract class JSONElement {
   }
 
   /**
+   * `setRemovedAt` sets the remove time of this element.
+   */
+  public setRemovedAt(removedAt?: TimeTicket): void {
+    this.removedAt = removedAt;
+  }
+
+  /**
    * `remove` removes this element.
    */
   public remove(removedAt?: TimeTicket): boolean {
-    if (!this.removedAt || (removedAt && removedAt.after(this.removedAt))) {
+    if (
+      removedAt &&
+      removedAt.after(this.createdAt) &&
+      (!this.removedAt || removedAt.after(this.removedAt))
+    ) {
       this.removedAt = removedAt;
       return true;
     }
