@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-set(key: string, value: JSONElement): void;
+set(key: string, value: JSONElement): JSONElement | undefined;
 ```
 
 ## Parameters
@@ -21,5 +21,5 @@ set(key: string, value: JSONElement): void;
 
 <b>Returns:</b>
 
-void
+[JSONElement](./yorkie-js-sdk.jsonelement.md) \| undefined
 

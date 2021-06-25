@@ -30,6 +30,7 @@ export declare abstract class JSONElement
 |  [isRemoved()](./yorkie-js-sdk.jsonelement.isremoved.md) |  | <code>isRemoved</code> check if this element was removed. |
 |  [remove(removedAt)](./yorkie-js-sdk.jsonelement.remove.md) |  | <code>remove</code> removes this element. |
 |  [setMovedAt(movedAt)](./yorkie-js-sdk.jsonelement.setmovedat.md) |  | <code>setMovedAt</code> sets the move time of this element. |
+|  [setRemovedAt(removedAt)](./yorkie-js-sdk.jsonelement.setremovedat.md) |  | <code>setRemovedAt</code> sets the remove time of this element. |
 |  [toJSON()](./yorkie-js-sdk.jsonelement.tojson.md) |  |  |
 |  [toSortedJSON()](./yorkie-js-sdk.jsonelement.tosortedjson.md) |  |  |
 
