@@ -81,7 +81,24 @@ export class RHTPQMap {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: JSONElement): void {
+  public set(key: string, value: JSONElement): JSONElement | undefined {
+    let removed;
+    const queue = this.elementQueueMapByKey.get(key);
+    if (queue && queue.len()) {
+      const node = queue.peek() as RHTPQMapNode;
+      if (!node.isRemoved() && node.remove(value.getCreatedAt())) {
+        removed = node.getValue();
+      }
+    }
+
+    this.setInternal(key, value);
+    return removed;
+  }
+
+  /**
+   * `setInternal` sets the value of the given key.
+   */
+  public setInternal(key: string, value: JSONElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -125,18 +142,19 @@ export class RHTPQMap {
     );
     if (!node) {
       logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
+      return;
     }
 
-    const queue = this.elementQueueMapByKey.get(node!.getStrKey());
+    const queue = this.elementQueueMapByKey.get(node.getStrKey());
     if (!queue) {
       logger.fatal(
         `fail to find queue of ${element.getCreatedAt().toIDString()}`,
       );
+      return;
     }
 
-    queue!.release(node!);
-
-    this.nodeMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    queue.release(node);
+    this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
   }
 
   /**

@@ -15,6 +15,7 @@
  */
 
 import { assert } from 'chai';
+import { MaxTimeTicket } from '../../../src/document/time/ticket';
 import { DocumentReplica, DocEventType } from '../../../src/document/document';
 
 describe('DocumentReplica', function () {
@@ -388,5 +389,20 @@ describe('DocumentReplica', function () {
     });
     assert.equal('{"data":[3,4,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
+  });
+
+  it('should remove previously inserted elements in heap when running GC', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    doc.update((root) => {
+      root.a = 1;
+      root.a = 2;
+      delete root.a;
+    });
+    assert.equal('{}', doc.toSortedJSON());
+    assert.equal(1, doc.getGarbageLen());
+
+    doc.garbageCollect(MaxTimeTicket);
+    assert.equal('{}', doc.toSortedJSON());
+    assert.equal(0, doc.getGarbageLen());
   });
 });
