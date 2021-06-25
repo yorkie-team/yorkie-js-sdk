@@ -1,6 +1,9 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '../../src/document/document';
 import { JSONElement } from '../../src/document/json/element';
+import { TimeTicket } from '../../src/document/time/ticket';
+import { MaxTimeTicket } from '../../src/document/time/ticket';
+
 import { withTwoClientsAndDocuments } from './integration_helper';
 
 describe('Array', function () {
@@ -553,5 +556,120 @@ describe('Array', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
+  });
+
+  it('Can handle concurrent insertBefore and delete operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev: JSONElement;
+
+      d1.update((root) => {
+        root['k1'] = [1];
+        prev = root['k1'].getElementByIndex(0);
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].deleteByID(prev.getID());
+        assert.equal('{"k1":[]}', root.toJSON());
+      });
+      d2.update((root) => {
+        root['k1'].insertBefore(prev.getID(), 2);
+        assert.equal('{"k1":[2,1]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal('{"k1":[2]}', d1.toJSON());
+    }, this.test!.title);
+  });
+
+  it('Can handle complex concurrent insertBefore and delete operations', async function () {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev: JSONElement;
+
+      d1.update((root) => {
+        root['k1'] = [1, 2, 3, 4];
+        prev = root['k1'].getElementByIndex(1);
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].deleteByID(prev.getID());
+        assert.equal('{"k1":[1,3,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        root['k1'].insertBefore(prev.getID(), 5);
+        assert.equal('{"k1":[1,5,2,3,4]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal('{"k1":[1,5,3,4]}', d1.toJSON());
+
+      d1.update((root) => {
+        const prev = root['k1'].getElementByIndex(3);
+        root['k1'].insertBefore(prev.getID(), 6);
+        assert.equal('{"k1":[1,5,3,6,4]}', root.toJSON());
+      });
+      d2.update((root) => {
+        const prev = root['k1'].getElementByIndex(0);
+        root['k1'].insertBefore(prev.getID(), 7);
+        assert.equal('{"k1":[7,1,5,3,4]}', root.toJSON());
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal('{"k1":[7,1,5,3,6,4]}', d1.toJSON());
+    }, this.test!.title);
+  });
+
+  it('Returns undefined when looking up an element that doesnt exist after GC', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    let targetID: TimeTicket;
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+      targetID = root['list'].getElementByIndex(2).getID();
+    });
+
+    doc.update((root) => {
+      root['list'].deleteByID(targetID);
+    });
+
+    assert.equal('{"list":[0,1]}', doc.toSortedJSON());
+
+    doc.garbageCollect(MaxTimeTicket);
+    doc.update((root) => {
+      const elem = root['list'].getElementByID(targetID);
+      assert.isUndefined(elem);
+    });
+  });
+
+  it('Returns undefined when looking up an element that doesnt exist', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    let targetID: TimeTicket;
+
+    doc.update((root) => {
+      root['list'] = [0, 1, 2];
+      targetID = root['list'].getElementByIndex(2).getID();
+    });
+
+    doc.update((root) => {
+      assert.equal(2, root['list'].getElementByID(targetID));
+    });
+
+    doc.update((root) => {
+      root['list'].deleteByID(targetID);
+      assert.isUndefined(root['list'].getElementByID(targetID));
+    });
+
+    assert.equal('{"list":[0,1]}', doc.toSortedJSON());
   });
 });

@@ -19,6 +19,7 @@ import { TimeTicket } from '../time/ticket';
 import { SetOperation } from '../operation/set_operation';
 import { RemoveOperation } from '../operation/remove_operation';
 import { ChangeContext } from '../change/context';
+import { JSONElement } from '../json/element';
 import { JSONObject } from '../json/object';
 import { JSONArray } from '../json/array';
 import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
@@ -131,17 +132,23 @@ export class ObjectProxy {
   ): void {
     const ticket = context.issueTimeTicket();
 
+    const setAndRegister = function (elem: JSONElement) {
+      const removed = target.set(key, elem);
+      context.registerElement(elem, target);
+      if (removed) {
+        context.registerRemovedElement(removed);
+      }
+    };
+
     if (JSONPrimitive.isSupport(value)) {
       const primitive = JSONPrimitive.of(value as PrimitiveValue, ticket);
-      target.set(key, primitive);
-      context.registerElement(primitive, target);
+      setAndRegister(primitive);
       context.push(
         SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
       );
     } else if (Array.isArray(value)) {
       const array = JSONArray.create(ticket);
-      target.set(key, array);
-      context.registerElement(array, target);
+      setAndRegister(array);
       context.push(
         SetOperation.create(
           key,
@@ -155,8 +162,7 @@ export class ObjectProxy {
       }
     } else if (typeof value === 'object') {
       if (value instanceof PlainText) {
-        target.set(key, value);
-        context.registerElement(value, target);
+        setAndRegister(value);
         context.push(
           SetOperation.create(
             key,
@@ -167,8 +173,7 @@ export class ObjectProxy {
         );
       } else {
         const obj = JSONObject.create(ticket);
-        target.set(key, obj);
-        context.registerElement(obj, target);
+        setAndRegister(obj);
         context.push(
           SetOperation.create(
             key,

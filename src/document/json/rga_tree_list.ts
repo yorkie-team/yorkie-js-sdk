@@ -139,7 +139,7 @@ export class RGATreeList {
 
   constructor() {
     const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
-    dummyValue.remove(InitialTimeTicket);
+    dummyValue.setRemovedAt(InitialTimeTicket);
     this.dummyHead = new RGATreeListNode(dummyValue);
     this.last = this.dummyHead;
     this.size = 0;
@@ -268,9 +268,13 @@ export class RGATreeList {
   /**
    * `get` returns the element of the given index.
    */
-  public get(createdAt: TimeTicket): JSONElement {
+  public get(createdAt: TimeTicket): JSONElement | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    return node!.getValue();
+    if (!node) {
+      return;
+    }
+
+    return node.getValue();
   }
 
   /**

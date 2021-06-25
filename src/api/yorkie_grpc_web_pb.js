@@ -545,5 +545,137 @@ proto.api.YorkiePromiseClient.prototype.pushPull =
 };
 
 
+/**
+ * @param {string} hostname
+ * @param {?Object} credentials
+ * @param {?Object} options
+ * @constructor
+ * @struct
+ * @final
+ */
+proto.api.ClusterClient =
+    function(hostname, credentials, options) {
+  if (!options) options = {};
+  options['format'] = 'text';
+
+  /**
+   * @private @const {!grpc.web.GrpcWebClientBase} The client
+   */
+  this.client_ = new grpc.web.GrpcWebClientBase(options);
+
+  /**
+   * @private @const {string} The hostname
+   */
+  this.hostname_ = hostname;
+
+};
+
+
+/**
+ * @param {string} hostname
+ * @param {?Object} credentials
+ * @param {?Object} options
+ * @constructor
+ * @struct
+ * @final
+ */
+proto.api.ClusterPromiseClient =
+    function(hostname, credentials, options) {
+  if (!options) options = {};
+  options['format'] = 'text';
+
+  /**
+   * @private @const {!grpc.web.GrpcWebClientBase} The client
+   */
+  this.client_ = new grpc.web.GrpcWebClientBase(options);
+
+  /**
+   * @private @const {string} The hostname
+   */
+  this.hostname_ = hostname;
+
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.api.BroadcastEventRequest,
+ *   !proto.api.BroadcastEventResponse>}
+ */
+const methodDescriptor_Cluster_BroadcastEvent = new grpc.web.MethodDescriptor(
+  '/api.Cluster/BroadcastEvent',
+  grpc.web.MethodType.UNARY,
+  proto.api.BroadcastEventRequest,
+  proto.api.BroadcastEventResponse,
+  /**
+   * @param {!proto.api.BroadcastEventRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.BroadcastEventResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.api.BroadcastEventRequest,
+ *   !proto.api.BroadcastEventResponse>}
+ */
+const methodInfo_Cluster_BroadcastEvent = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.api.BroadcastEventResponse,
+  /**
+   * @param {!proto.api.BroadcastEventRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.BroadcastEventResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.api.BroadcastEventRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.api.BroadcastEventResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.api.BroadcastEventResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.api.ClusterClient.prototype.broadcastEvent =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/api.Cluster/BroadcastEvent',
+      request,
+      metadata || {},
+      methodDescriptor_Cluster_BroadcastEvent,
+      callback);
+};
+
+
+/**
+ * @param {!proto.api.BroadcastEventRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.api.BroadcastEventResponse>}
+ *     Promise that resolves to the response
+ */
+proto.api.ClusterPromiseClient.prototype.broadcastEvent =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/api.Cluster/BroadcastEvent',
+      request,
+      metadata || {},
+      methodDescriptor_Cluster_BroadcastEvent);
+};
+
+
 module.exports = proto.api;
 

@@ -73,8 +73,13 @@ export class JSONArray extends JSONContainer {
   /**
    * `get` returns the element of the given createAt.
    */
-  public get(createdAt: TimeTicket): JSONElement {
-    return this.elements.get(createdAt);
+  public get(createdAt: TimeTicket): JSONElement | undefined {
+    const node = this.elements.get(createdAt);
+    if (!node || node.isRemoved()) {
+      return;
+    }
+
+    return node;
   }
 
   /**
