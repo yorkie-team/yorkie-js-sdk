@@ -98,8 +98,8 @@ export class JSONObject extends JSONContainer {
   /**
    * `set` sets the given element of the given key.
    */
-  public set(key: string, value: JSONElement): void {
-    this.memberNodes.set(key, value);
+  public set(key: string, value: JSONElement): JSONElement | undefined {
+    return this.memberNodes.set(key, value);
   }
 
   /**

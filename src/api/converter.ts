@@ -472,6 +472,7 @@ function toJSONObject(obj: JSONObject): PbJSONElement {
   const pbJSONObject = new PbJSONElement.JSONObject();
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
   pbJSONObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
+  pbJSONObject.setMovedAt(toTimeTicket(obj.getMovedAt()));
   pbJSONObject.setRemovedAt(toTimeTicket(obj.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
@@ -486,6 +487,7 @@ function toJSONArray(arr: JSONArray): PbJSONElement {
   const pbJSONArray = new PbJSONElement.JSONArray();
   pbJSONArray.setNodesList(toRGANodes(arr.getElements()));
   pbJSONArray.setCreatedAt(toTimeTicket(arr.getCreatedAt()));
+  pbJSONArray.setMovedAt(toTimeTicket(arr.getMovedAt()));
   pbJSONArray.setRemovedAt(toTimeTicket(arr.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
@@ -501,6 +503,7 @@ function toJSONPrimitive(primitive: JSONPrimitive): PbJSONElement {
   pbJSONPrimitive.setType(toValueType(primitive.getType()));
   pbJSONPrimitive.setValue(primitive.toBytes());
   pbJSONPrimitive.setCreatedAt(toTimeTicket(primitive.getCreatedAt()));
+  pbJSONPrimitive.setMovedAt(toTimeTicket(primitive.getMovedAt()));
   pbJSONPrimitive.setRemovedAt(toTimeTicket(primitive.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
@@ -515,6 +518,7 @@ function toPlainText(text: PlainText): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
+  pbText.setMovedAt(toTimeTicket(text.getMovedAt()));
   pbText.setRemovedAt(toTimeTicket(text.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
@@ -530,6 +534,7 @@ function toCounter(counter: Counter): PbJSONElement {
   pbJSONCounter.setType(toCounterType(counter.getType()));
   pbJSONCounter.setValue(counter.toBytes());
   pbJSONCounter.setCreatedAt(toTimeTicket(counter.getCreatedAt()));
+  pbJSONCounter.setMovedAt(toTimeTicket(counter.getMovedAt()));
   pbJSONCounter.setRemovedAt(toTimeTicket(counter.getRemovedAt()));
 
   const pbJSONElement = new PbJSONElement();
@@ -929,7 +934,8 @@ function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
   }
 
   const obj = new JSONObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
-  obj.remove(fromTimeTicket(pbObject.getRemovedAt()));
+  obj.setMovedAt(fromTimeTicket(pbObject.getMovedAt()));
+  obj.setRemovedAt(fromTimeTicket(pbObject.getRemovedAt()));
   return obj;
 }
 
@@ -947,7 +953,8 @@ function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
     fromTimeTicket(pbArray.getCreatedAt())!,
     rgaTreeList,
   );
-  arr.remove(fromTimeTicket(pbArray.getRemovedAt()));
+  arr.setMovedAt(fromTimeTicket(pbArray.getMovedAt()));
+  arr.setRemovedAt(fromTimeTicket(pbArray.getRemovedAt()));
   return arr;
 }
 
@@ -964,7 +971,8 @@ function fromJSONPrimitive(
     ),
     fromTimeTicket(pbPrimitive.getCreatedAt())!,
   );
-  primitive.remove(fromTimeTicket(pbPrimitive.getRemovedAt()));
+  primitive.setMovedAt(fromTimeTicket(pbPrimitive.getMovedAt()));
+  primitive.setRemovedAt(fromTimeTicket(pbPrimitive.getRemovedAt()));
   return primitive;
 }
 
@@ -989,7 +997,8 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
-  text.remove(fromTimeTicket(pbText.getRemovedAt()));
+  text.setMovedAt(fromTimeTicket(pbText.getMovedAt()));
+  text.setRemovedAt(fromTimeTicket(pbText.getRemovedAt()));
   return text;
 }
 
@@ -1014,7 +1023,8 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
-  text.remove(fromTimeTicket(pbText.getRemovedAt()));
+  text.setMovedAt(fromTimeTicket(pbText.getMovedAt()));
+  text.setRemovedAt(fromTimeTicket(pbText.getRemovedAt()));
   return text;
 }
 
@@ -1029,7 +1039,8 @@ function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
     ),
     fromTimeTicket(pbCounter.getCreatedAt())!,
   );
-  counter.remove(fromTimeTicket(pbCounter.getRemovedAt()));
+  counter.setMovedAt(fromTimeTicket(pbCounter.getMovedAt()));
+  counter.setRemovedAt(fromTimeTicket(pbCounter.getRemovedAt()));
   return counter;
 }
 

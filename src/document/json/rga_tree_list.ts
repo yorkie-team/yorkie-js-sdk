@@ -139,7 +139,7 @@ export class RGATreeList {
 
   constructor() {
     const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
-    dummyValue.remove(InitialTimeTicket);
+    dummyValue.setRemovedAt(InitialTimeTicket);
     this.dummyHead = new RGATreeListNode(dummyValue);
     this.last = this.dummyHead;
     this.size = 0;
