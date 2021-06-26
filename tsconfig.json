@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "sourceMap": true,
-    "target": "esnext",
+    "target": "ES2019",
     "removeComments": false,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
