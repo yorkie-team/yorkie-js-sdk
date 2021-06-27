@@ -122,6 +122,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
 
+  /** @hideconstructor */
   constructor(collection: string, document: string) {
     this.key = DocumentKey.of(collection, document);
     this.root = JSONRoot.create();
@@ -256,6 +257,8 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `hasLocalChanges` returns whether this document has local changes or not.
+   *
+   * @internal
    */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
@@ -365,6 +368,8 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
 
   /**
    * `getGarbageLen` returns the length of elements should be purged.
+   *
+   * @internal
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();

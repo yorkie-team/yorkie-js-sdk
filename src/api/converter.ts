@@ -335,7 +335,8 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbRichEditOperation.setFrom(toTextNodePos(richEditOperation.getFromPos()));
     pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
-    const pbCreatedAtMapByActor = pbRichEditOperation.getCreatedAtMapByActorMap();
+    const pbCreatedAtMapByActor =
+      pbRichEditOperation.getCreatedAtMapByActorMap();
     for (const [key, value] of richEditOperation.getMaxCreatedAtMapByActor()) {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
     }

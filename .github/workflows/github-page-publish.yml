@@ -15,7 +15,7 @@ jobs:
       - name: Install and Build 🔧
         run: |
           npm install
-          npm run build
+          npm run rollup
           npm run build:docs
 
       - name: Deploy 🚀

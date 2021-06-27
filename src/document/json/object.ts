@@ -32,6 +32,7 @@ import { CounterProxy } from '../proxy/counter_proxy';
 export class JSONObject extends JSONContainer {
   private memberNodes: RHTPQMap;
 
+  /** @hideconstructor */
   constructor(createdAt: TimeTicket, memberNodes: RHTPQMap) {
     super(createdAt);
     this.memberNodes = memberNodes;
@@ -211,7 +212,10 @@ export class JSONObject extends JSONContainer {
     }
   }
 
-  // eslint-disable-next-line jsdoc/require-jsdoc
+  /**
+   * eslint-disable-next-line jsdoc/require-jsdoc
+   * @internal
+   */
   public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
     const keySet = new Set<string>();
     for (const node of this.memberNodes) {

@@ -8,17 +8,18 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config webpack.config.js && npm run api-report",
+    "build": "webpack --config webpack.config.js",
+    "api-report": "api-extractor run --local --verbose",
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
-    "build:docs": "api-documenter markdown --input temp --output docs",
+    "prune": "ts-node-script ./script/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
+    "rollup": "npm run build && npm run api-report && npm run prune",
+    "predoc": "ts-node-script ./script/api-extractor.ts",
+    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "start": "webpack-dev-server --watch --config webpack.dev.config.js",
     "test": "karma start karma.conf.js --single-run",
     "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
     "test:watch": "karma start karma.conf.js",
-    "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "npm run build",
-    "api-report": "npm run api-report:api-json",
-    "api-report:api-json": "rm -rf temp && api-extractor run --local --verbose"
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts"
   },
   "repository": {
     "type": "git",
@@ -38,6 +39,7 @@
     "@types/chai": "^4.2.14",
     "@types/mocha": "^8.0.4",
     "@types/sinon": "^9.0.8",
+    "@types/yargs": "^17.0.0",
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
     "api-documenter-me": "^0.1.1",
@@ -59,12 +61,14 @@
     "mocha": "^8.2.1",
     "prettier": "^2.2.0",
     "sinon": "^9.2.1",
+    "strip-json-comments": "^3.1.1",
     "ts-loader": "^8.0.11",
-    "typedoc": "^0.20.35",
+    "ts-node": "^10.0.0",
     "typescript": "^3.9.7",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^3.11.0",
+    "yargs": "^17.0.1"
   },
   "dependencies": {
     "@types/google-protobuf": "^3.7.4",

@@ -26,6 +26,7 @@ import { RGATreeList } from './rga_tree_list';
 export class JSONArray extends JSONContainer {
   private elements: RGATreeList;
 
+  /** @hideconstructor */
   constructor(createdAt: TimeTicket, elements: RGATreeList) {
     super(createdAt);
     this.elements = elements;

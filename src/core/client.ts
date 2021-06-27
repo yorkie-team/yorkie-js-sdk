@@ -192,6 +192,7 @@ export class Client implements Observable<ClientEvent> {
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver!: Observer<ClientEvent>;
 
+  /** @hideconstructor */
   constructor(rpcAddr: string, opts?: ClientOptions) {
     opts = opts || DefaultClientOptions;
 

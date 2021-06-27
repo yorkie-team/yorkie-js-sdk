@@ -37,6 +37,7 @@ export class PlainText extends TextElement {
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
+  /** @hideconstructor */
   constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
