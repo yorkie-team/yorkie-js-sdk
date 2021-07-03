@@ -23,10 +23,10 @@ export function pruneDts(inputLocation: string, outputLocation: string): void {
   const printer: ts.Printer = ts.createPrinter();
   const sourceFile = program.getSourceFile(inputLocation)!;
 
-  const result: ts.TransformationResult<ts.SourceFile> = ts.transform<ts.SourceFile>(
-    sourceFile,
-    [dropPrivateApiTransformer.bind(null, program, host)],
-  );
+  const result: ts.TransformationResult<ts.SourceFile> =
+    ts.transform<ts.SourceFile>(sourceFile, [
+      dropPrivateApiTransformer.bind(null, program, host),
+    ]);
   const transformedSourceFile: ts.SourceFile = result.transformed[0];
   const content = printer.printFile(transformedSourceFile);
 
@@ -94,7 +94,7 @@ function maybeHideConstructor(
  * declaration.
  */
 function prunePrivateImports<
-  T extends ts.InterfaceDeclaration | ts.ClassDeclaration
+  T extends ts.InterfaceDeclaration | ts.ClassDeclaration,
 >(
   program: ts.Program,
   host: ts.CompilerHost,
