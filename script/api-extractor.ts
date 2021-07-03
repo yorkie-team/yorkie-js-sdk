@@ -14,12 +14,14 @@ const globalApiExtractorJsonPath: string = path.join(
 );
 
 const overridesPath = path.resolve(globalApiExtractorJsonPath);
-const apiExtractorJsonFile = fs.readFileSync(overridesPath);
 
+// Read current api-extractor.json file
+const apiExtractorJsonFile = fs.readFileSync(overridesPath);
 const apiExtractorJsonOverrides = fs.existsSync(overridesPath)
   ? JSON.parse(apiExtractorJsonFile.toString())
   : {};
 
+// Create a new `api-extractor.json` file in the `lib` folder for generating documents
 const apiExtractorJson = {
   ...apiExtractorJsonOverrides,
   $schema:
@@ -35,12 +37,10 @@ const apiExtractorJson = {
     enabled: false,
   },
 };
-
 const apiExtractorJsonPath: string = path.join(
   __dirname,
   '../lib/api-extractor.json',
 );
-
 fs.writeFileSync(apiExtractorJsonPath, JSON.stringify(apiExtractorJson));
 
 // Load and parse the api-extractor.json file

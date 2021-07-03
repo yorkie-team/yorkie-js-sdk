@@ -311,4 +311,5 @@ const argv = yargs.options({
 if (argv.input && argv.output) {
   console.log('Removing private exports...');
   pruneDts(argv.input, argv.output);
+  console.log('Done');
 }
