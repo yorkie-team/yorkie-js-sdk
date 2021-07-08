@@ -18,7 +18,8 @@
     "test": "karma start karma.conf.js --single-run",
     "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
     "test:watch": "karma start karma.conf.js",
-    "lint": "eslint . --fix --max-warnings=0 --ext .ts"
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts",
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
