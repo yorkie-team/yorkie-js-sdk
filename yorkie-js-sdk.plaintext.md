@@ -9,15 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class PlainText extends TextElement 
+export declare class PlainText 
 ```
-<b>Extends:</b> TextElement
-
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(rgaTreeSplit, createdAt)](./yorkie-js-sdk.plaintext._constructor_.md) |  | Constructs a new instance of the <code>PlainText</code> class |
 
 ## Methods
 

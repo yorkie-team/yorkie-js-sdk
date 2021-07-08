@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export interface TextChange 
+export declare interface TextChange 
 ```
 
 ## Properties

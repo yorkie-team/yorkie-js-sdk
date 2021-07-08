@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-getDescendants(callback: (elem: JSONElement, parent: JSONContainer) => boolean): void;
+getDescendants(callback: (elem: JSONElement, parent: JSONArray) => boolean): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  callback | (elem: [JSONElement](./yorkie-js-sdk.jsonelement.md)<!-- -->, parent: JSONContainer) =&gt; boolean |  |
+|  callback | (elem: [JSONElement](./yorkie-js-sdk.jsonelement.md)<!-- -->, parent: [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->) =&gt; boolean |  |
 
 <b>Returns:</b>
 

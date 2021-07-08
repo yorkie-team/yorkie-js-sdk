@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-getProxy?: () => ObserverProxy<T>;
+getProxy?: () => Observer<T>;
 ```

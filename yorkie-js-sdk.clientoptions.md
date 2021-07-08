@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export interface ClientOptions 
+export declare interface ClientOptions 
 ```
 
 ## Properties

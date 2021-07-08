@@ -9,15 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class JSONArray extends JSONContainer 
+export declare class JSONArray 
 ```
-<b>Extends:</b> JSONContainer
-
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(createdAt, elements)](./yorkie-js-sdk.jsonarray._constructor_.md) |  | Constructs a new instance of the <code>JSONArray</code> class |
 
 ## Properties
 
@@ -29,7 +22,6 @@ export declare class JSONArray extends JSONContainer
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [\[Symbol.iterator\]()](./yorkie-js-sdk.jsonarray._symbol.iterator_.md) |  |  |
 |  [create(createdAt)](./yorkie-js-sdk.jsonarray.create.md) | <code>static</code> | <code>create</code> creates a new instance of Array. |
 |  [deepcopy()](./yorkie-js-sdk.jsonarray.deepcopy.md) |  | <code>deepcopy</code> copies itself deeply. |
 |  [delete(createdAt, editedAt)](./yorkie-js-sdk.jsonarray.delete.md) |  | <code>delete</code> deletes the element of the given index. |

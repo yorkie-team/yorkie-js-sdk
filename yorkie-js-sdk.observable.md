@@ -8,13 +8,13 @@
 <b>Signature:</b>
 
 ```typescript
-export interface Observable<T> 
+export declare interface Observable<T> 
 ```
 
 ## Properties
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [getProxy?](./yorkie-js-sdk.observable.getproxy.md) | () =&gt; ObserverProxy&lt;T&gt; | <i>(Optional)</i> |
+|  [getProxy?](./yorkie-js-sdk.observable.getproxy.md) | () =&gt; [Observer](./yorkie-js-sdk.observer.md)<!-- -->&lt;T&gt; | <i>(Optional)</i> |
 |  [subscribe](./yorkie-js-sdk.observable.subscribe.md) | SubscribeFn&lt;T&gt; |  |
 

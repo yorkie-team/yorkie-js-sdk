@@ -9,9 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class RichText extends TextElement 
+export declare class RichText 
 ```
-<b>Extends:</b> TextElement
 
 ## Constructors
 

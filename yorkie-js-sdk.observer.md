@@ -8,7 +8,7 @@
 <b>Signature:</b>
 
 ```typescript
-export interface Observer<T> 
+export declare interface Observer<T> 
 ```
 
 ## Properties

@@ -12,12 +12,6 @@
 export declare class TimeTicket 
 ```
 
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(lamport, delimiter, actorID)](./yorkie-js-sdk.timeticket._constructor_.md) |  | Constructs a new instance of the <code>TimeTicket</code> class |
-
 ## Methods
 
 |  Method | Modifiers | Description |

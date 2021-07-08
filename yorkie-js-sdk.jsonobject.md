@@ -9,21 +9,13 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class JSONObject extends JSONContainer 
+export declare class JSONObject 
 ```
-<b>Extends:</b> JSONContainer
-
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(createdAt, memberNodes)](./yorkie-js-sdk.jsonobject._constructor_.md) |  | Constructs a new instance of the <code>JSONObject</code> class |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [\[Symbol.iterator\]()](./yorkie-js-sdk.jsonobject._symbol.iterator_.md) |  |  |
 |  [create(createdAt)](./yorkie-js-sdk.jsonobject.create.md) | <code>static</code> | <code>create</code> creates a new instance of Object. |
 |  [createCounter(key, value)](./yorkie-js-sdk.jsonobject.createcounter.md) |  | Don't use createCounter directly. Be sure to use it through a proxy. The reason for setting the CounterProxy type as the return value is to provide the CounterProxy interface to the user. |
 |  [createRichText(key)](./yorkie-js-sdk.jsonobject.createrichtext.md) |  | Don't use createRichText directly. Be sure to use it through a proxy. The reason for setting the RichText type as the return value is to provide the RichText interface to the user. |

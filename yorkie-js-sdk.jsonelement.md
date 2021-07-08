@@ -12,12 +12,6 @@
 export declare abstract class JSONElement 
 ```
 
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(createdAt)](./yorkie-js-sdk.jsonelement._constructor_.md) |  | Constructs a new instance of the <code>JSONElement</code> class |
-
 ## Methods
 
 |  Method | Modifiers | Description |

@@ -13,21 +13,13 @@ export declare class DocumentReplica<T = Indexable> implements Observable<DocEve
 ```
 <b>Implements:</b> [Observable](./yorkie-js-sdk.observable.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt;
 
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(collection, document)](./yorkie-js-sdk.documentreplica._constructor_.md) |  | Constructs a new instance of the <code>DocumentReplica</code> class |
-
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [create(collection, document)](./yorkie-js-sdk.documentreplica.create.md) | <code>static</code> | <code>create</code> creates a new instance of Document. |
-|  [getGarbageLen()](./yorkie-js-sdk.documentreplica.getgarbagelen.md) |  | <code>getGarbageLen</code> returns the length of elements should be purged. |
 |  [getKey()](./yorkie-js-sdk.documentreplica.getkey.md) |  | <code>getKey</code> returns the key of this document as a string. The string is a combination pattern of collection and document. e.g. <code>Collection$Document</code>; |
 |  [getRoot()](./yorkie-js-sdk.documentreplica.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
-|  [hasLocalChanges()](./yorkie-js-sdk.documentreplica.haslocalchanges.md) |  | <code>hasLocalChanges</code> returns whether this document has local changes or not. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.documentreplica.subscribe.md) |  | <code>subscribe</code> adds the given observer to the fan-out list. |
 |  [toJSON()](./yorkie-js-sdk.documentreplica.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this array. |
 |  [toSortedJSON()](./yorkie-js-sdk.documentreplica.tosortedjson.md) |  | <code>toJSON</code> returns the sorted JSON encoding of this array. |
