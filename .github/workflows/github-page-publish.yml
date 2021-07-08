@@ -16,6 +16,7 @@ jobs:
         run: |
           npm install
           npm run build
+          npm run predoc
           npm run build:docs
 
       - name: Deploy 🚀

@@ -398,9 +398,9 @@ export class RGATreeList {
     const json = [];
 
     for (const node of this) {
-      const elem = `${node
-        .getCreatedAt()
-        .toIDString()}:${node.getValue().toJSON()}`;
+      const elem = `${node.getCreatedAt().toIDString()}:${node
+        .getValue()
+        .toJSON()}`;
       if (node.isRemoved()) {
         json.push(`{${elem}}`);
       } else {

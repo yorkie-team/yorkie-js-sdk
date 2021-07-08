@@ -26,6 +26,7 @@ export abstract class JSONElement {
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
 
+  /** @hideconstructor */
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
   }
