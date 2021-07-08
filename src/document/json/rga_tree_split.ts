@@ -193,7 +193,7 @@ export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
  * `RGATreeSplitNode` is a node of RGATreeSplit.
  */
 export class RGATreeSplitNode<
-  T extends RGATreeSplitValue
+  T extends RGATreeSplitValue,
 > extends SplayNode<T> {
   private id: RGATreeSplitNodeID;
   private removedAt?: TimeTicket;
@@ -481,11 +481,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const [
-      changes,
-      latestCreatedAtMap,
-      removedNodeMapByNodeKey,
-    ] = this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
+    const [changes, latestCreatedAtMap, removedNodeMapByNodeKey] =
+      this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitNodePos.of(caretID, 0);

@@ -36,6 +36,7 @@ export class TimeTicket {
   private delimiter: number;
   private actorID?: ActorID;
 
+  /** @hideconstructor */
   constructor(lamport: Long, delimiter: number, actorID?: string) {
     this.lamport = lamport;
     this.delimiter = delimiter;
