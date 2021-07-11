@@ -19,14 +19,13 @@ import { TimeTicket } from '../time/ticket';
 /**
  * `JSONElement` represents JSON element including logical clock.
  *
- * @public
+ * @internal
  */
 export abstract class JSONElement {
   private createdAt: TimeTicket;
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
 
-  /** @hideconstructor */
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
   }

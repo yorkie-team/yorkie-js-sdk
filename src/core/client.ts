@@ -70,7 +70,7 @@ export enum ClientEventType {
  * `ClientEvent` is an event that occurs in `Client`. It can be delivered using
  * `Client.subscribe()`.
  *
- * @public
+ * @internal
  */
 export type ClientEvent =
   | StatusChangedEvent
@@ -148,14 +148,14 @@ interface Attachment {
 /**
  * `Metadata` is custom metadata that can be defined in the client.
  *
- * @public
+ * @internal
  */
 export type Metadata = { [key: string]: string };
 
 /**
  * `ClientOptions` are user-settable options used when defining clients.
  *
- * @public
+ * @internal
  */
 export interface ClientOptions {
   key?: string;

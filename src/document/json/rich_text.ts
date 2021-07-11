@@ -34,6 +34,7 @@ export interface RichTextVal {
 /**
  * `RichTextValue` is a value of RichText
  * which has a attributes that expresses the text style.
+ *
  */
 export class RichTextValue {
   private attributes: RHT;
@@ -109,7 +110,7 @@ export class RichTextValue {
 /**
  *  `RichText` is an extended data type for the contents of a text editor.
  *
- * @public
+ * @internal
  */
 export class RichText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;

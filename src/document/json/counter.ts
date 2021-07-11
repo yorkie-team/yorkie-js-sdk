@@ -30,6 +30,8 @@ type CounterValue = number | Long;
 
 /**
  * `Counter` represents changeable number data type.
+ *
+ * @public
  */
 export class Counter extends JSONElement {
   private valueType?: CounterType;
