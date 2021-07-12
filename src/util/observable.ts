@@ -17,22 +17,22 @@
 import { logger } from './logger';
 
 /**
- * @public
+ * @internal
  */
 export type NextFn<T> = (value: T) => void;
 
 /**
- * @public
+ * @internal
  */
 export type ErrorFn = (error: Error) => void;
 
 /**
- * @public
+ * @internal
  */
 export type CompleteFn = () => void;
 
 /**
- * @public
+ * @internal
  */
 export interface Observer<T> {
   next: NextFn<T>;
@@ -41,7 +41,7 @@ export interface Observer<T> {
 }
 
 /**
- * @public
+ * @internal
  */
 export type Unsubscribe = () => void;
 
@@ -226,7 +226,7 @@ class ObserverProxy<T> implements Observer<T> {
 }
 
 /**
- * @public
+ * @internal
  */
 export interface Observable<T> {
   subscribe: SubscribeFn<T>;

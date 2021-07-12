@@ -21,7 +21,7 @@ import { RGATreeList } from './rga_tree_list';
 /**
  * `JSONArray` represents JSON array data structure including logical clock.
  *
- * @public
+ * @internal
  */
 export class JSONArray extends JSONContainer {
   private elements: RGATreeList;

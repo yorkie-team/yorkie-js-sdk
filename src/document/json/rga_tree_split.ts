@@ -24,7 +24,7 @@ import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
 /**
  * `TextChangeType` is the type of TextChange.
  *
- * @public
+ * @internal
  */
 export enum TextChangeType {
   Content = 'content',
@@ -36,7 +36,7 @@ export enum TextChangeType {
  * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  *
- * @public
+ * @internal
  */
 export interface TextChange {
   type: TextChangeType;
