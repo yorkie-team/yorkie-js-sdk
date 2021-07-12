@@ -16,7 +16,7 @@ update(updater: (root: T & JSONObject) => void, message?: string): void;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  updater | (root: T &amp; [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->) =&gt; void |  |
+|  updater | (root: T &amp; JSONObject) =&gt; void |  |
 |  message | string |  |
 
 <b>Returns:</b>

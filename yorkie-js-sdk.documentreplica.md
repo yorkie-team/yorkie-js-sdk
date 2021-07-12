@@ -11,7 +11,7 @@
 ```typescript
 export declare class DocumentReplica<T = Indexable> implements Observable<DocEvent> 
 ```
-<b>Implements:</b> [Observable](./yorkie-js-sdk.observable.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt;
+<b>Implements:</b> Observable&lt;DocEvent&gt;
 
 ## Methods
 
