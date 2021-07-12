@@ -148,7 +148,7 @@ interface Attachment {
 /**
  * `Metadata` is custom metadata that can be defined in the client.
  *
- * @internal
+ * @public
  */
 export type Metadata = { [key: string]: string };
 
