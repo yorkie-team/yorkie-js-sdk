@@ -47,7 +47,7 @@ export enum DocEventType {
  * `DocEvent` is an event that occurs in `DocumentReplica`. It can be delivered
  * using `DocumentReplica.subscribe()`.
  *
- * @public
+ * @internal
  */
 export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
 

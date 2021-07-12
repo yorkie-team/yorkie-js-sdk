@@ -29,7 +29,7 @@ import {
  * `PlainText` represents plain text element
  * Text is an extended data type for the contents of a text editor
  *
- * @public
+ * @internal
  */
 export class PlainText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;

@@ -27,7 +27,7 @@ import { CounterProxy } from '../proxy/counter_proxy';
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  *
- * @public
+ * @internal
  */
 export class JSONObject extends JSONContainer {
   private memberNodes: RHTPQMap;

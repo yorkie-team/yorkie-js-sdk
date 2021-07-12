@@ -70,7 +70,7 @@ export enum ClientEventType {
  * `ClientEvent` is an event that occurs in `Client`. It can be delivered using
  * `Client.subscribe()`.
  *
- * @public
+ * @internal
  */
 export type ClientEvent =
   | StatusChangedEvent
