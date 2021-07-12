@@ -155,7 +155,7 @@ export type Metadata = { [key: string]: string };
 /**
  * `ClientOptions` are user-settable options used when defining clients.
  *
- * @internal
+ * @public
  */
 export interface ClientOptions {
   key?: string;
