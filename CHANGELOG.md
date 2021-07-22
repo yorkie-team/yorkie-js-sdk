@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.6] - 2021-07-24
+
+### Added
+- Add client.getStatus and client.Metadata: #162f2d5
+
+### Changed
+- Change getElementByID to return undefined if the element doesnt exist: #208
+- Change esnext to ES2019 in compiler target option: #197
+- Clean up JS SDK Reference: #181, #218, #219
+
+### Fixed
+- Fix a bug where deleted values from objects are revivded after GC: #216
+
 ## [0.1.5] - 2021-06-05
 
 ### Added
