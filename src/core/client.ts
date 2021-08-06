@@ -43,21 +43,33 @@ import { DocumentKey } from '../document/key/document_key';
 import { DocumentReplica } from '../document/document';
 import { AuthUnaryInterceptor, AuthStreamInterceptor } from './auth';
 
+/**
+ * `ClientStatus` is client status types
+ */
 export enum ClientStatus {
   Deactivated = 'deactivated',
   Activated = 'activated',
 }
 
+/**
+ * `StreamConnectionStatus` is stream connection status types
+ */
 export enum StreamConnectionStatus {
   Connected = 'connected',
   Disconnected = 'disconnected',
 }
 
+/**
+ * `DocumentSyncResultType` is document sync result types
+ */
 export enum DocumentSyncResultType {
   Synced = 'synced',
   SyncFailed = 'sync-failed',
 }
 
+/**
+ * `ClientEventType` is client event types
+ */
 export enum ClientEventType {
   StatusChanged = 'status-changed',
   DocumentsChanged = 'documents-changed',

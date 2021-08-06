@@ -18,8 +18,15 @@ import { Client, ClientOptions } from './core/client';
 import { DocumentReplica, Indexable } from './document/document';
 
 export { Client, ClientOptions, DocumentReplica };
-export { Metadata, ClientEvent } from './core/client';
-export { DocEvent } from './document/document';
+export {
+  Metadata,
+  ClientEvent,
+  ClientStatus,
+  StreamConnectionStatus,
+  DocumentSyncResultType,
+  ClientEventType,
+} from './core/client';
+export { DocEvent, DocEventType } from './document/document';
 export {
   Observer,
   Observable,
@@ -30,11 +37,6 @@ export {
 } from './util/observable';
 export { TimeTicket } from './document/time/ticket';
 export { ActorID } from './document/time/actor_id';
-export { JSONElement } from './document/json/element';
-export { JSONObject } from './document/json/object';
-export { JSONArray } from './document/json/array';
-export { PlainText } from './document/json/plain_text';
-export { RichText } from './document/json/rich_text';
 export { TextChange, TextChangeType } from './document/json/rga_tree_split';
 
 /**
