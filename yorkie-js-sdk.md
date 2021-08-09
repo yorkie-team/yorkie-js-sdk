@@ -12,6 +12,16 @@
 |  [DocumentReplica](./yorkie-js-sdk.documentreplica.md) | <code>DocumentReplica</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
 
+## Enumerations
+
+|  Enumeration | Description |
+|  --- | --- |
+|  [ClientEventType](./yorkie-js-sdk.clienteventtype.md) | <code>ClientEventType</code> is client event types |
+|  [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>ClientStatus</code> is client status types |
+|  [DocEventType](./yorkie-js-sdk.doceventtype.md) | <code>DocEventType</code> is document event types |
+|  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> is document sync result types |
+|  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> is stream connection status types |
+
 ## Functions
 
 |  Function | Description |

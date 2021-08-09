@@ -13,5 +13,5 @@ getStatus(): ClientStatus;
 ```
 <b>Returns:</b>
 
-ClientStatus
+[ClientStatus](./yorkie-js-sdk.clientstatus.md)
 
