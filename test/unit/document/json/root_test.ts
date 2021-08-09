@@ -11,7 +11,7 @@ import { InitialTimeTicket } from '../../../../src/document/time/ticket';
 import { MaxTimeTicket } from '../../../../src/document/time/ticket';
 import { RGATreeList } from '../../../../src/document/json/rga_tree_list';
 import { JSONPrimitive } from '../../../../src/document/json/primitive';
-import { JSONArray } from '../../../../src/yorkie';
+import { JSONArray } from '../../../../src/document/json/array';
 
 describe('ROOT', function () {
   it('basic test', function () {

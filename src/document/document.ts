@@ -37,6 +37,9 @@ import { createProxy } from './proxy/proxy';
 import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
 import { TimeTicket } from './time/ticket';
 
+/**
+ * `DocEventType` is document event types
+ */
 export enum DocEventType {
   Snapshot = 'snapshot',
   LocalChange = 'local-change',
