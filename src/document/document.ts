@@ -39,6 +39,7 @@ import { TimeTicket } from './time/ticket';
 
 /**
  * `DocEventType` is document event types
+ * @public
  */
 export enum DocEventType {
   Snapshot = 'snapshot',
