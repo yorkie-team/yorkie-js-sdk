@@ -3,8 +3,11 @@
   "mainEntryPointFilePath": "<projectFolder>/lib/yorkie.d.ts",
   "bundledPackages": [],
   "apiReport": {
-    "enabled": false,
-    "reportFolder": "<projectFolder>/api-review/"
+    "enabled": true,
+    "reportFolder": "<projectFolder>/lib/"
+  },
+  "compiler": {
+    "skipLibCheck": true
   },
   "docModel": {
     "enabled": false
