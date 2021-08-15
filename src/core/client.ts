@@ -45,6 +45,7 @@ import { AuthUnaryInterceptor, AuthStreamInterceptor } from './auth';
 
 /**
  * `ClientStatus` is client status types
+ * @public
  */
 export enum ClientStatus {
   Deactivated = 'deactivated',
@@ -53,6 +54,7 @@ export enum ClientStatus {
 
 /**
  * `StreamConnectionStatus` is stream connection status types
+ * @public
  */
 export enum StreamConnectionStatus {
   Connected = 'connected',
@@ -61,6 +63,7 @@ export enum StreamConnectionStatus {
 
 /**
  * `DocumentSyncResultType` is document sync result types
+ * @public
  */
 export enum DocumentSyncResultType {
   Synced = 'synced',
@@ -69,6 +72,7 @@ export enum DocumentSyncResultType {
 
 /**
  * `ClientEventType` is client event types
+ * @public
  */
 export enum ClientEventType {
   StatusChanged = 'status-changed',
