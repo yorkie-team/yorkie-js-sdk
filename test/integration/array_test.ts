@@ -558,6 +558,35 @@ describe('Array', function () {
     }, this.test!.title);
   });
 
+  it('Can handle concurrent concurrent delete operations', async function() {
+    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+      let prev: JSONElement;
+      d1.update((root) => {
+        root['k1'] = [1, 2, 3, 4];
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        prev = root['k1'].getElementByIndex(2);
+        root['k1'].deleteByID(prev.getCreatedAt());
+      });
+
+      d2.update((root) => {
+        prev = root['k1'].getElementByIndex(2);
+        root['k1'].deleteByID(prev.getCreatedAt());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      d1.update((root) => {
+        assert.equal(3, root['k1'].length);
+      });
+    }, this.test!.title);
+  });
+
   it('Can handle concurrent insertBefore and delete operations', async function () {
     await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
