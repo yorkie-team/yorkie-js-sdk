@@ -602,16 +602,21 @@ describe('Array', function () {
       d1.update((root) => {
         root['k1'].deleteByID(prev.getID());
         assert.equal('{"k1":[]}', root.toJSON());
+        assert.equal(0, root['k1'].length);
       });
       d2.update((root) => {
         root['k1'].insertBefore(prev.getID(), 2);
         assert.equal('{"k1":[2,1]}', root.toJSON());
+        assert.equal(2, root['k1'].length);
       });
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-      assert.equal('{"k1":[2]}', d1.toJSON());
+      d1.update((root) => {
+        assert.equal('{"k1":[2]}', root.toJSON());
+        assert.equal(1, root['k1'].length);
+      });
     }, this.test!.title);
   });
 
@@ -630,10 +635,12 @@ describe('Array', function () {
       d1.update((root) => {
         root['k1'].deleteByID(prev.getID());
         assert.equal('{"k1":[1,3,4]}', root.toJSON());
+        assert.equal(3, root['k1'].length);
       });
       d2.update((root) => {
         root['k1'].insertBefore(prev.getID(), 5);
         assert.equal('{"k1":[1,5,2,3,4]}', root.toJSON());
+        assert.equal(5, root['k1'].length);
       });
       await c1.sync();
       await c2.sync();
@@ -643,19 +650,30 @@ describe('Array', function () {
 
       d1.update((root) => {
         const prev = root['k1'].getElementByIndex(3);
+
+        assert.equal(4, root['k1'].length);
+
         root['k1'].insertBefore(prev.getID(), 6);
         assert.equal('{"k1":[1,5,3,6,4]}', root.toJSON());
+        assert.equal(5, root['k1'].length);
       });
       d2.update((root) => {
         const prev = root['k1'].getElementByIndex(0);
+
+        assert.equal(4, root['k1'].length);
+
         root['k1'].insertBefore(prev.getID(), 7);
         assert.equal('{"k1":[7,1,5,3,4]}', root.toJSON());
+        assert.equal(5, root['k1'].length);
       });
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-      assert.equal('{"k1":[7,1,5,3,6,4]}', d1.toJSON());
+      d1.update((root) => {
+        assert.equal('{"k1":[7,1,5,3,6,4]}', root.toJSON());
+        assert.equal(6, root['k1'].length);
+      });
     }, this.test!.title);
   });
 
