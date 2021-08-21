@@ -343,7 +343,8 @@ export class RGATreeList {
    */
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (node!.remove(editedAt) && node!.isRemoved() === false) {
+    const alreadyRemoved = node!.isRemoved();
+    if (node!.remove(editedAt) && !alreadyRemoved) {
       this.nodeMapByIndex.splayNode(node!);
       this.size -= 1;
     }
