@@ -650,18 +650,14 @@ describe('Array', function () {
 
       d1.update((root) => {
         const prev = root['k1'].getElementByIndex(3);
-
         assert.equal(4, root['k1'].length);
-
         root['k1'].insertBefore(prev.getID(), 6);
         assert.equal('{"k1":[1,5,3,6,4]}', root.toJSON());
         assert.equal(5, root['k1'].length);
       });
       d2.update((root) => {
         const prev = root['k1'].getElementByIndex(0);
-
         assert.equal(4, root['k1'].length);
-
         root['k1'].insertBefore(prev.getID(), 7);
         assert.equal('{"k1":[7,1,5,3,4]}', root.toJSON());
         assert.equal(5, root['k1'].length);
