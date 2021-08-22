@@ -1,10 +1,13 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { PlainText } from '../../src/document/json/plain_text';
-import { MaxTimeTicket } from '../../src/document/time/ticket';
-import { JSONArray } from '../../src/document/json/array';
-import yorkie from '../../src/yorkie';
-import { testCollection, testRPCAddr } from './integration_helper';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import yorkie from '@yorkie-js-sdk/src/yorkie';
+import {
+  testCollection,
+  testRPCAddr,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {

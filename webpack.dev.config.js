@@ -30,16 +30,20 @@ module.exports = {
       },
       {
         test: /\.ts$/,
-        exclude: [ path.resolve(__dirname, "test") ],
+        exclude: [path.resolve(__dirname, 'test')],
         enforce: 'post',
         use: {
           loader: 'istanbul-instrumenter-loader',
-          options: { esModules: true }
-        }
-      }
+          options: { esModules: true },
+        },
+      },
     ],
   },
   resolve: {
+    alias: {
+      '@yorkie-js-sdk/src': path.resolve(__dirname, 'src/'),
+      '@yorkie-js-sdk/test': path.resolve(__dirname, 'test/'),
+    },
     extensions: ['.ts', '.js'],
   },
   output: {
@@ -58,8 +62,8 @@ module.exports = {
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        pathRewrite: {'^/api' : ''}
-      }
-    }
+        pathRewrite: { '^/api': '' },
+      },
+    },
   },
 };

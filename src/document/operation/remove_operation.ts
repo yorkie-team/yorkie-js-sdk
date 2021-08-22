@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { Operation } from './operation';
-import { JSONContainer } from '../json/element';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { JSONContainer } from '@yorkie-js-sdk/src/document/json/element';
 
 /**
  * `RemoveOperation` is an operation representing removes an element from Container.

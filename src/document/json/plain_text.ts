@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { TextElement } from './element';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { TextElement } from '@yorkie-js-sdk/src/document/json/element';
 import {
   TextChange,
   TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
   Selection,
-} from './rga_tree_split';
+} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 /**
  * `PlainText` represents plain text element

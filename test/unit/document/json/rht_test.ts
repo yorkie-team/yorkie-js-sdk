@@ -15,9 +15,9 @@
  */
 
 import { assert } from 'chai';
-import { RHT } from '../../../../src/document/json/rht';
-import { InitialTimeTicket } from '../../../../src/document/time/ticket';
-import { Indexable } from '../../../helper/helper';
+import { RHT } from '@yorkie-js-sdk/src/document/json/rht';
+import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('RHT', function () {
   it('should set and get a value', function () {

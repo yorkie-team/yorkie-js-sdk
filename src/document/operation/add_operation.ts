@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONElement } from '../json/element';
-import { JSONRoot } from '../json/root';
-import { JSONArray } from '../json/array';
-import { Operation } from './operation';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `AddOperation` is an operation representing adding an element to an Array.

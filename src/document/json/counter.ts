@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-import { JSONElement } from './element';
-import { TimeTicket } from '../time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import Long from 'long';
-import { Code, YorkieError } from '../../util/error';
-import { JSONPrimitive, PrimitiveType } from './primitive';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import {
+  JSONPrimitive,
+  PrimitiveType,
+} from '@yorkie-js-sdk/src/document/json/primitive';
 
 export enum CounterType {
   IntegerCnt,

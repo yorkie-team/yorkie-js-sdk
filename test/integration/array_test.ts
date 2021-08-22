@@ -1,10 +1,10 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { JSONElement } from '../../src/document/json/element';
-import { TimeTicket } from '../../src/document/time/ticket';
-import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
-import { withTwoClientsAndDocuments } from './integration_helper';
+import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {

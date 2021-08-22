@@ -1,6 +1,9 @@
-import yorkie from '../../src/yorkie';
-import { Client } from '../../src/core/client';
-import { DocumentReplica, Indexable } from '../../src/document/document';
+import yorkie from '@yorkie-js-sdk/src/yorkie';
+import { Client } from '@yorkie-js-sdk/src/core/client';
+import {
+  DocumentReplica,
+  Indexable,
+} from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =

@@ -15,8 +15,8 @@
  */
 
 import { assert } from 'chai';
-import { DocumentReplica } from '../../../src/document/document';
-import { converter } from '../../../src/api/converter';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {

@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { HeapNode, Heap } from '../../util/heap';
-import { TicketComparator, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { HeapNode, Heap } from '@yorkie-js-sdk/src/util/heap';
+import {
+  TicketComparator,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
 
 /**
  * `RHTPQMapNode` is a node of RHTPQMap.

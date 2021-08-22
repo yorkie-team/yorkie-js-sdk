@@ -1,6 +1,6 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { MaxTimeTicket } from '../../src/document/time/ticket';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 describe('Document stress', function () {
   it('garbage collection test for large size text 1', function () {

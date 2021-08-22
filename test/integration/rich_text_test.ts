@@ -1,7 +1,7 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { RichText } from '../../src/document/json/rich_text';
-import { TextChangeType } from '../../src/document/json/rga_tree_split';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {

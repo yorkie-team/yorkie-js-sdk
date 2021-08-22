@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { SetOperation } from '../operation/set_operation';
-import { RemoveOperation } from '../operation/remove_operation';
-import { ChangeContext } from '../change/context';
-import { JSONElement } from '../json/element';
-import { JSONObject } from '../json/object';
-import { JSONArray } from '../json/array';
-import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
-import { RGATreeSplit } from '../json/rga_tree_split';
-import { PlainText } from '../json/plain_text';
-import { RichText } from '../json/rich_text';
-import { ArrayProxy } from './array_proxy';
-import { TextProxy } from './text_proxy';
-import { RichTextProxy } from './rich_text_proxy';
-import { toProxy } from './proxy';
-import { CounterType, Counter } from '../json/counter';
-import { CounterProxy } from './counter_proxy';
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import {
+  JSONPrimitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/json/primitive';
+import { RGATreeSplit } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
+import { TextProxy } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { RichTextProxy } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
+import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 
 /**
  * `ObjectProxy` is a proxy representing Object.

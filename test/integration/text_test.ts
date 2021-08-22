@@ -1,9 +1,9 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { PlainText } from '../../src/document/json/plain_text';
-import { TextView } from '../helper/helper';
-import { TextChangeType } from '../../src/document/json/rga_tree_split';
-import { withTwoClientsAndDocuments } from './integration_helper';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { TextView } from '@yorkie-js-sdk/test/helper/helper';
+import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Text', function () {
   it('should handle edit operations', function () {

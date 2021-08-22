@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '../time/ticket';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).

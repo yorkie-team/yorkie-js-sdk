@@ -6,7 +6,12 @@
     "allowSyntheticDefaultImports": true,
     "declaration": true,
     "outDir": "lib",
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@yorkie-js-sdk/src/*": ["src/*"],
+      "@yorkie-js-sdk/test/*": ["test/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],
