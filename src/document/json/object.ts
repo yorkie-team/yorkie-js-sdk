@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONContainer, JSONElement } from './element';
-import { RHTPQMap } from './rht_pq_map';
-import { PlainText } from './plain_text';
-import { RichText } from './rich_text';
-import { CounterType } from './counter';
-import { CounterProxy } from '../proxy/counter_proxy';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  JSONContainer,
+  JSONElement,
+} from '@yorkie-js-sdk/src/document/json/element';
+import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { CounterType } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time

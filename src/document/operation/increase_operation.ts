@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { Operation } from './operation';
-import { TimeTicket } from '../time/ticket';
-import { JSONElement } from '../json/element';
-import { JSONRoot } from '../json/root';
-import { JSONPrimitive } from '../json/primitive';
-import { logger } from '../../util/logger';
-import { Counter } from '../json/counter';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { ChangeContext } from '../change/context';
-import { JSONPrimitive } from '../json/primitive';
-import { TimeTicket } from '../time/ticket';
-import { IncreaseOperation } from '../operation/increase_operation';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import Long from 'long';
-import { Counter } from '../json/counter';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * CounterProxy is a proxy representing Counter types.

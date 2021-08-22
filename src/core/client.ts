@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ActorID } from '../document/time/actor_id';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
   Observer,
   Observable,
@@ -23,7 +23,7 @@ import {
   ErrorFn,
   CompleteFn,
   NextFn,
-} from '../util/observable';
+} from '@yorkie-js-sdk/src/util/observable';
 import {
   ActivateClientRequest,
   DeactivateClientRequest,
@@ -33,15 +33,18 @@ import {
   WatchDocumentsRequest,
   WatchDocumentsResponse,
   DocEventType,
-} from '../api/yorkie_pb';
-import { converter } from '../api/converter';
-import { YorkieClient as RPCClient } from '../api/yorkie_grpc_web_pb';
-import { Code, YorkieError } from '../util/error';
-import { logger } from '../util/logger';
-import { uuid } from '../util/uuid';
-import { DocumentKey } from '../document/key/document_key';
-import { DocumentReplica } from '../document/document';
-import { AuthUnaryInterceptor, AuthStreamInterceptor } from './auth';
+} from '@yorkie-js-sdk/src/api/yorkie_pb';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
+import { YorkieClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie_grpc_web_pb';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { uuid } from '@yorkie-js-sdk/src/util/uuid';
+import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import {
+  AuthUnaryInterceptor,
+  AuthStreamInterceptor,
+} from '@yorkie-js-sdk/src/core/auth';
 
 /**
  * `ClientStatus` is client status types

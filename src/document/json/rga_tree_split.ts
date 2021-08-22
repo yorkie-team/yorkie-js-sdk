@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { ActorID } from '../time/actor_id';
-import { Comparator } from '../../util/comparator';
-import { SplayNode, SplayTree } from '../../util/splay_tree';
-import { LLRBTree } from '../../util/llrb_tree';
-import { InitialTimeTicket, MaxTimeTicket, TimeTicket } from '../time/ticket';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
+import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+import {
+  InitialTimeTicket,
+  MaxTimeTicket,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `TextChangeType` is the type of TextChange.

@@ -16,11 +16,11 @@
 
 import Long from 'long';
 import { assert } from 'chai';
-import { InitialTimeTicket } from '../../../../src/document/time/ticket';
+import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   JSONPrimitive,
   PrimitiveType,
-} from '../../../../src/document/json/primitive';
+} from '@yorkie-js-sdk/src/document/json/primitive';
 
 describe('Primitive', function () {
   const primitiveTypes = [

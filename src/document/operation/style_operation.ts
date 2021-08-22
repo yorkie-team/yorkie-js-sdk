@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { RGATreeSplitNodePos } from '../json/rga_tree_split';
-import { RichText } from '../json/rich_text';
-import { Operation } from './operation';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  *  `StyleOperation` is an operation applies the style of the given range to RichText.

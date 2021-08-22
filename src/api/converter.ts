@@ -16,37 +16,46 @@
 
 import Long from 'long';
 import * as jspb from 'google-protobuf';
-import { Code, YorkieError } from '../util/error';
-import { Metadata } from '../core/client';
-import { InitialTimeTicket, TimeTicket } from '../document/time/ticket';
-import { Operation } from '../document/operation/operation';
-import { SetOperation } from '../document/operation/set_operation';
-import { AddOperation } from '../document/operation/add_operation';
-import { MoveOperation } from '../document/operation/move_operation';
-import { RemoveOperation } from '../document/operation/remove_operation';
-import { EditOperation } from '../document/operation/edit_operation';
-import { RichEditOperation } from '../document/operation/rich_edit_operation';
-import { SelectOperation } from '../document/operation/select_operation';
-import { StyleOperation } from '../document/operation/style_operation';
-import { DocumentKey } from '../document/key/document_key';
-import { ChangeID } from '../document/change/change_id';
-import { Change } from '../document/change/change';
-import { ChangePack } from '../document/change/change_pack';
-import { Checkpoint } from '../document/checkpoint/checkpoint';
-import { RHTPQMap } from '../document/json/rht_pq_map';
-import { RGATreeList } from '../document/json/rga_tree_list';
-import { JSONElement } from '../document/json/element';
-import { JSONObject } from '../document/json/object';
-import { JSONArray } from '../document/json/array';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Metadata } from '@yorkie-js-sdk/src/core/client';
+import {
+  InitialTimeTicket,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
+import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
+import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
+import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
+import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
+import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
+import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
+import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
+import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
-} from '../document/json/rga_tree_split';
-import { PlainText } from '../document/json/plain_text';
-import { RichText, RichTextValue } from '../document/json/rich_text';
-import { JSONPrimitive, PrimitiveType } from '../document/json/primitive';
+} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import {
+  RichText,
+  RichTextValue,
+} from '@yorkie-js-sdk/src/document/json/rich_text';
+import {
+  JSONPrimitive,
+  PrimitiveType,
+} from '@yorkie-js-sdk/src/document/json/primitive';
 import {
   Change as PbChange,
   ChangeID as PbChangeID,
@@ -65,9 +74,9 @@ import {
   TextNodePos as PbTextNodePos,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
-} from './yorkie_pb';
-import { IncreaseOperation } from '../document/operation/increase_operation';
-import { CounterType, Counter } from '../document/json/counter';
+} from '@yorkie-js-sdk/src/api/yorkie_pb';
+import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
+import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * `fromMetadataMap` converts the given Protobuf format to model format.

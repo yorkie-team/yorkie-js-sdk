@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { SplayNode, SplayTree } from '../../util/splay_tree';
-import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
-import { JSONPrimitive } from './primitive';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import {
+  InitialTimeTicket,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.

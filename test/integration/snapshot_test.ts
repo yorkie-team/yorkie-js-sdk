@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { withTwoClientsAndDocuments } from './integration_helper';
+import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Snapshot', function () {
   it('should handle snapshot', async function () {

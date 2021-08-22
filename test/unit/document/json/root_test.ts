@@ -1,17 +1,16 @@
 import { assert } from 'chai';
-import { InitialChangeID } from '../../../../src/document/change/change_id';
-import { JSONRoot } from '../../../../src/document/json/root';
-import { JSONObject } from '../../../../src/document/json/object';
-import { RHTPQMap } from '../../../../src/document/json/rht_pq_map';
-import { ChangeContext } from '../../../../src/document/change/context';
-import { ObjectProxy } from '../../../../src/document/proxy/object_proxy';
-import { ArrayProxy } from '../../../../src/document/proxy/array_proxy';
-
-import { InitialTimeTicket } from '../../../../src/document/time/ticket';
-import { MaxTimeTicket } from '../../../../src/document/time/ticket';
-import { RGATreeList } from '../../../../src/document/json/rga_tree_list';
-import { JSONPrimitive } from '../../../../src/document/json/primitive';
-import { JSONArray } from '../../../../src/document/json/array';
+import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
+import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
+import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
+import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 
 describe('ROOT', function () {
   it('basic test', function () {

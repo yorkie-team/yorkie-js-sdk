@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { DocumentKey } from '../key/document_key';
-import { Checkpoint } from '../checkpoint/checkpoint';
-import { Change } from './change';
-import { TimeTicket } from '../time/ticket';
+import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
+import { Checkpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.

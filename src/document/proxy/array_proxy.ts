@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { AddOperation } from '../operation/add_operation';
-import { MoveOperation } from '../operation/move_operation';
-import { RemoveOperation } from '../operation/remove_operation';
-import { ChangeContext } from '../change/context';
-import { JSONElement } from '../json/element';
-import { JSONObject } from '../json/object';
-import { JSONArray } from '../json/array';
-import { JSONPrimitive, PrimitiveValue } from '../json/primitive';
-import { ObjectProxy } from './object_proxy';
-import { toProxy } from './proxy';
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
+import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import {
+  JSONPrimitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/json/primitive';
+import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
+import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 
 /**
  * `isNumericString` checks if value is numeric string.
