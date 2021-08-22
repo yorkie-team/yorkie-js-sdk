@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-import { Comparator, DefaultComparator } from './comparator';
+import {
+  Comparator,
+  DefaultComparator,
+} from '@yorkie-js-sdk/src/util/comparator';
 
 /**
  * `HeapNode` is a node of `Heap`.

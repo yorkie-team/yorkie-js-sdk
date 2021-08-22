@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '../time/ticket';
-import { JSONContainer, JSONElement } from './element';
-import { RGATreeList } from './rga_tree_list';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  JSONContainer,
+  JSONElement,
+} from '@yorkie-js-sdk/src/document/json/element';
+import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 
 /**
  * `JSONArray` represents JSON array data structure including logical clock.

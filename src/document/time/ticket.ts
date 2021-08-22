@@ -15,8 +15,12 @@
  */
 
 import Long from 'long';
-import { Comparator } from '../../util/comparator';
-import { ActorID, InitialActorID, MaxActorID } from './actor_id';
+import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
+import {
+  ActorID,
+  InitialActorID,
+  MaxActorID,
+} from '@yorkie-js-sdk/src/document/time/actor_id';
 
 export const TicketComparator: Comparator<TimeTicket> = (
   p1: TimeTicket,

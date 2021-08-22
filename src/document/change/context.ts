@@ -14,12 +14,19 @@
  * limitations under the License.
  */
 
-import { TimeTicket, InitialDelimiter } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { JSONContainer, JSONElement, TextElement } from '../json/element';
-import { Operation } from '../operation/operation';
-import { ChangeID } from './change_id';
-import { Change } from './change';
+import {
+  TimeTicket,
+  InitialDelimiter,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import {
+  JSONContainer,
+  JSONElement,
+  TextElement,
+} from '@yorkie-js-sdk/src/document/json/element';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { Change } from '@yorkie-js-sdk/src/document/change/change';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing

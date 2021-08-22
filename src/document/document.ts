@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '../util/logger';
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import {
   Observer,
   Observable,
@@ -23,19 +23,25 @@ import {
   ErrorFn,
   CompleteFn,
   NextFn,
-} from '../util/observable';
-import { ActorID } from './time/actor_id';
-import { DocumentKey } from './key/document_key';
-import { Change } from './change/change';
-import { ChangeID, InitialChangeID } from './change/change_id';
-import { ChangeContext } from './change/context';
-import { converter } from '../api/converter';
-import { ChangePack } from './change/change_pack';
-import { JSONRoot } from './json/root';
-import { JSONObject } from './json/object';
-import { createProxy } from './proxy/proxy';
-import { Checkpoint, InitialCheckpoint } from './checkpoint/checkpoint';
-import { TimeTicket } from './time/ticket';
+} from '@yorkie-js-sdk/src/util/observable';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
+import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import {
+  ChangeID,
+  InitialChangeID,
+} from '@yorkie-js-sdk/src/document/change/change_id';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
+import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { createProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
+import {
+  Checkpoint,
+  InitialCheckpoint,
+} from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `DocEventType` is document event types

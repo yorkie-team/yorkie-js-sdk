@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import { ChangeContext } from '../change/context';
-import { JSONElement } from '../json/element';
-import { JSONObject } from '../json/object';
-import { JSONArray } from '../json/array';
-import { JSONPrimitive } from '../json/primitive';
-import { RichText } from '../json/rich_text';
-import { PlainText } from '../json/plain_text';
-import { ObjectProxy } from './object_proxy';
-import { ArrayProxy } from './array_proxy';
-import { TextProxy } from './text_proxy';
-import { RichTextProxy } from './rich_text_proxy';
-import { CounterProxy } from './counter_proxy';
-import { Counter } from '../json/counter';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
+import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
+import { TextProxy } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { RichTextProxy } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * `createProxy` create a new instance of ObjectProxy.

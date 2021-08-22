@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '../../util/logger';
-import { ChangeContext } from '../change/context';
-import { RGATreeSplitNodeRange, TextChange } from '../json/rga_tree_split';
-import { RichText, RichTextVal } from '../json/rich_text';
-import { RichEditOperation } from '../operation/rich_edit_operation';
-import { StyleOperation } from '../operation/style_operation';
-import { SelectOperation } from '../operation/select_operation';
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import {
+  RGATreeSplitNodeRange,
+  TextChange,
+} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import {
+  RichText,
+  RichTextVal,
+} from '@yorkie-js-sdk/src/document/json/rich_text';
+import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
+import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
+import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 /**
  * `RichTextProxy` is a proxy representing RichText.

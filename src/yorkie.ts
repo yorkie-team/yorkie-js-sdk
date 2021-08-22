@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-import { Client, ClientOptions } from './core/client';
-import { DocumentReplica, Indexable } from './document/document';
+import { Client, ClientOptions } from '@yorkie-js-sdk/src/core/client';
+import {
+  DocumentReplica,
+  Indexable,
+} from '@yorkie-js-sdk/src/document/document';
 
 export { Client, ClientOptions, DocumentReplica };
 export {
@@ -25,8 +28,8 @@ export {
   StreamConnectionStatus,
   DocumentSyncResultType,
   ClientEventType,
-} from './core/client';
-export { DocEvent, DocEventType } from './document/document';
+} from '@yorkie-js-sdk/src/core/client';
+export { DocEvent, DocEventType } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
   Observable,
@@ -34,15 +37,18 @@ export {
   ErrorFn,
   CompleteFn,
   Unsubscribe,
-} from './util/observable';
-export { TimeTicket } from './document/time/ticket';
-export { ActorID } from './document/time/actor_id';
-export { TextChange, TextChangeType } from './document/json/rga_tree_split';
-export { JSONElement } from './document/json/element';
-export { JSONObject } from './document/json/object';
-export { JSONArray } from './document/json/array';
-export { PlainText } from './document/json/plain_text';
-export { RichText } from './document/json/rich_text';
+} from '@yorkie-js-sdk/src/util/observable';
+export { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+export {
+  TextChange,
+  TextChangeType,
+} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+export { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+export { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 
 /**
  * `createClient` creates a new instance of `Client`.
