@@ -4,24 +4,6 @@
 
 ## yorkie-js-sdk package
 
-## Classes
-
-|  Class | Description |
-|  --- | --- |
-|  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the agent. It has documents and sends changes of the documents in local to the agent to synchronize with other replicas in remote. |
-|  [DocumentReplica](./yorkie-js-sdk.documentreplica.md) | <code>DocumentReplica</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
-|  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
-
-## Enumerations
-
-|  Enumeration | Description |
-|  --- | --- |
-|  [ClientEventType](./yorkie-js-sdk.clienteventtype.md) | <code>ClientEventType</code> is client event types |
-|  [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>ClientStatus</code> is client status types |
-|  [DocEventType](./yorkie-js-sdk.doceventtype.md) | <code>DocEventType</code> is document event types |
-|  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> is document sync result types |
-|  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> is stream connection status types |
-
 ## Functions
 
 |  Function | Description |
@@ -29,21 +11,9 @@
 |  [createClient(rpcAddr, opts)](./yorkie-js-sdk.createclient.md) | <code>createClient</code> creates a new instance of <code>Client</code>. |
 |  [createDocument(collection, document)](./yorkie-js-sdk.createdocument.md) | <code>createDocument</code> creates a new instance of <code>DocumentReplica</code>. |
 
-## Interfaces
-
-|  Interface | Description |
-|  --- | --- |
-|  [ClientOptions](./yorkie-js-sdk.clientoptions.md) | <code>ClientOptions</code> are user-settable options used when defining clients. |
-
 ## Variables
 
 |  Variable | Description |
 |  --- | --- |
 |  [yorkie](./yorkie-js-sdk.yorkie.md) | The top-level yorkie namespace with additional properties.<!-- -->In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.<!-- -->e.g) <code>yorkie.createClient(...);</code> |
-
-## Type Aliases
-
-|  Type Alias | Description |
-|  --- | --- |
-|  [Metadata](./yorkie-js-sdk.metadata.md) | <code>Metadata</code> is custom metadata that can be defined in the client. |
 

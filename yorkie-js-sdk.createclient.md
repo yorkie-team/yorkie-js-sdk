@@ -17,9 +17,9 @@ export declare function createClient(rpcAddr: string, opts?: ClientOptions): Cli
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  rpcAddr | string |  |
-|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md) |  |
+|  opts | ClientOptions |  |
 
 <b>Returns:</b>
 
-[Client](./yorkie-js-sdk.client.md)
+Client
 

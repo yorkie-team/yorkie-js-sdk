@@ -21,5 +21,5 @@ export declare function createDocument<T = Indexable>(collection: string, docume
 
 <b>Returns:</b>
 
-[DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;T&gt;
+DocumentReplica&lt;T&gt;
 
