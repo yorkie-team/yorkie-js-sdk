@@ -15,14 +15,14 @@
  */
 
 import { EventEmitter } from 'events';
-import { NextFn } from '../../src/util/observable';
+import { NextFn } from '@yorkie-js-sdk/src/util/observable';
 
-import { ClientEvent } from '../../src/core/client';
-import { DocEvent } from '../../src/document/document';
+import { ClientEvent } from '@yorkie-js-sdk/src/core/client';
+import { DocEvent } from '@yorkie-js-sdk/src/document/document';
 import {
   TextChange,
   TextChangeType,
-} from '../../src/document/json/rga_tree_split';
+} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 export function range(from: number, to: number): Array<number> {
   const list = [];

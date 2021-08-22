@@ -15,8 +15,8 @@
  */
 
 import { assert } from 'chai';
-import { range } from '../../helper/helper';
-import { HeapNode, Heap } from '../../../src/util/heap';
+import { range } from '@yorkie-js-sdk/test/helper/helper';
+import { HeapNode, Heap } from '@yorkie-js-sdk/src/util/heap';
 
 describe('Heap', function () {
   it('Can push and pop', function () {

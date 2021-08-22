@@ -1,14 +1,20 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import yorkie from '../../src/yorkie';
-import { DocEventType } from '../../src/document/document';
-import { ClientEventType, DocumentSyncResultType } from '../../src/core/client';
-import { createEmitterAndSpy, waitFor } from '../helper/helper';
+import yorkie from '@yorkie-js-sdk/src/yorkie';
+import { DocEventType } from '@yorkie-js-sdk/src/document/document';
+import {
+  ClientEventType,
+  DocumentSyncResultType,
+} from '@yorkie-js-sdk/src/core/client';
+import {
+  createEmitterAndSpy,
+  waitFor,
+} from '@yorkie-js-sdk/test/helper/helper';
 import {
   testCollection,
   testRPCAddr,
   withTwoClientsAndDocuments,
-} from './integration_helper';
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Client', function () {
   it('Can be activated, deactivated', async function () {

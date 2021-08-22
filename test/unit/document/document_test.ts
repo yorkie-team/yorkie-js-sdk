@@ -15,8 +15,11 @@
  */
 
 import { assert } from 'chai';
-import { MaxTimeTicket } from '../../../src/document/time/ticket';
-import { DocumentReplica, DocEventType } from '../../../src/document/document';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  DocumentReplica,
+  DocEventType,
+} from '@yorkie-js-sdk/src/document/document';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {

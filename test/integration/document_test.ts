@@ -1,8 +1,14 @@
 import { assert } from 'chai';
-import yorkie from '../../src/yorkie';
-import { DocEventType } from '../../src/document/document';
-import { testCollection, testRPCAddr } from './integration_helper';
-import { createEmitterAndSpy, waitFor } from '../helper/helper';
+import yorkie from '@yorkie-js-sdk/src/yorkie';
+import { DocEventType } from '@yorkie-js-sdk/src/document/document';
+import {
+  testCollection,
+  testRPCAddr,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  createEmitterAndSpy,
+  waitFor,
+} from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
