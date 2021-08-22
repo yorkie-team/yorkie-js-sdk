@@ -1,8 +1,8 @@
 import { assert } from 'chai';
 import Long from 'long';
-import { DocumentReplica } from '../../src/document/document';
-import { InitialCheckpoint } from '../../src/document/checkpoint/checkpoint';
-import { withTwoClientsAndDocuments } from './integration_helper';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {

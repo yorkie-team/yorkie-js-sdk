@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { logger } from './logger';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
 
 /**
  * @internal

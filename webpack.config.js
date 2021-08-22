@@ -18,7 +18,7 @@ const path = require('path');
 const webpack = require('webpack');
 const pkg = require('./package.json');
 
-const date = (new Date()).toISOString().replace(/:\d+\.\d+Z$/, 'Z');
+const date = new Date().toISOString().replace(/:\d+\.\d+Z$/, 'Z');
 const banner = `
 yorkie-js-sdk for building collaborative editing applications.
  - Version: v${pkg.version}
@@ -54,6 +54,10 @@ module.exports = {
     ],
   },
   resolve: {
+    alias: {
+      '@yorkie-js-sdk/src': path.resolve(__dirname, 'src/'),
+      '@yorkie-js-sdk/test': path.resolve(__dirname, 'test/'),
+    },
     extensions: ['.ts', '.js'],
   },
   output: {
@@ -65,6 +69,6 @@ module.exports = {
   plugins: [
     new webpack.BannerPlugin({
       banner,
-    })
+    }),
   ],
 };

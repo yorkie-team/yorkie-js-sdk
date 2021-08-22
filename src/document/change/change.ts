@@ -16,10 +16,10 @@
 
 import Long from 'long';
 
-import { ActorID } from '../time/actor_id';
-import { Operation } from '../operation/operation';
-import { JSONRoot } from '../json/root';
-import { ChangeID } from './change_id';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 
 /**
  * `Change` represents a unit of modification in the document.

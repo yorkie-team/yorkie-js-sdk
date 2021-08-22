@@ -15,8 +15,11 @@
  */
 
 import Long from 'long';
-import { ActorID, InitialActorID } from '../time/actor_id';
-import { TimeTicket } from '../time/ticket';
+import {
+  ActorID,
+  InitialActorID,
+} from '@yorkie-js-sdk/src/document/time/actor_id';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `ChangeID` is for identifying the Change. This is immutable.

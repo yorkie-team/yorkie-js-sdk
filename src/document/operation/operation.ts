@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { ActorID } from '../time/actor_id';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
 
 /**
  * `Operation` represents an operation to be executed on a document.

@@ -15,9 +15,9 @@
  */
 
 import Long from 'long';
-import { Code, YorkieError } from '../../util/error';
-import { TimeTicket } from '../time/ticket';
-import { JSONElement } from './element';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
 
 export enum PrimitiveType {
   Null,

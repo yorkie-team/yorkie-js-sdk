@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { InitialTimeTicket, TimeTicket } from '../time/ticket';
-import { JSONContainer, JSONElement, TextElement } from './element';
-import { JSONObject } from './object';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import {
+  InitialTimeTicket,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  JSONContainer,
+  JSONElement,
+  TextElement,
+} from '@yorkie-js-sdk/src/document/json/element';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 
 interface JSONElementPair {
   element: JSONElement;

@@ -1,6 +1,6 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '../../src/document/document';
-import { withTwoClientsAndDocuments } from './integration_helper';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Object', function () {
   it('should apply updates inside nested map', function () {

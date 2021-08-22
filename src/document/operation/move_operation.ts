@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { logger } from '../../util/logger';
-import { TimeTicket } from '../time/ticket';
-import { JSONRoot } from '../json/root';
-import { JSONArray } from '../json/array';
-import { Operation } from './operation';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `MoveOperation` is an operation representing moving an element to an Array.
