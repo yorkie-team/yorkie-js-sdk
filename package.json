@@ -19,7 +19,7 @@
     "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
     "test:watch": "karma start karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "npm run build"
+    "prepare": "ts-patch install && npm run build"
   },
   "repository": {
     "type": "git",
@@ -63,7 +63,9 @@
     "sinon": "^9.2.1",
     "ts-loader": "^8.0.11",
     "ts-node": "^10.0.0",
+    "ts-patch": "^1.4.3",
     "typescript": "^3.9.7",
+    "typescript-transform-paths": "^3.3.1",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
     "webpack-dev-server": "^3.11.0",
