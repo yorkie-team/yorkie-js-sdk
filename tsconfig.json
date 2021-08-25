@@ -11,7 +11,11 @@
     "paths": {
       "@yorkie-js-sdk/src/*": ["src/*"],
       "@yorkie-js-sdk/test/*": ["test/*"]
-    }
+    },
+    "plugins": [
+      { "transform": "typescript-transform-paths" },
+      { "transform": "typescript-transform-paths", "afterDeclarations": true }
+    ]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],
