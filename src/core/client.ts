@@ -33,6 +33,7 @@ import {
   WatchDocumentsRequest,
   WatchDocumentsResponse,
   DocEventType,
+  UpdateMetadataRequest,
 } from '@yorkie-js-sdk/src/api/yorkie_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { YorkieClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie_grpc_web_pb';
@@ -134,7 +135,7 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
  */
 export interface PeersChangedEvent extends BaseClientEvent {
   type: ClientEventType.PeersChanged;
-  value: { [docKey: string]: { [clientKey: string]: Metadata } };
+  value: { [docKey: string]: { [clientKey: string]: MetadataInfo } };
 }
 
 /**
@@ -160,16 +161,24 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 interface Attachment {
   doc: DocumentReplica<unknown>;
   isRealtimeSync: boolean;
-  peerClients?: Map<string, { [key: string]: string }>;
+  peerClients?: Map<string, MetadataInfo>;
   remoteChangeEventReceived?: boolean;
 }
 
 /**
- * `Metadata` is custom metadata that can be defined in the client.
+ * `Metadata` is metadata that can be defined in the client.
  *
  * @public
  */
 export type Metadata = { [key: string]: string };
+
+/**
+ * `MetadataInfo` is metadata information of this client.
+ */
+export type MetadataInfo = {
+  clock: number;
+  data: Metadata;
+};
 
 /**
  * `ClientOptions` are user-settable options used when defining clients.
@@ -184,6 +193,7 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 }
 
+// DefaultClientOptions is the default options for Client.
 const DefaultClientOptions = {
   syncLoopDuration: 50,
   reconnectStreamDelay: 1000,
@@ -199,7 +209,7 @@ const DefaultClientOptions = {
 export class Client implements Observable<ClientEvent> {
   private id?: ActorID;
   private key: string;
-  private metadata: Metadata;
+  private metadataInfo: MetadataInfo;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment>;
   private syncLoopDuration: number;
@@ -216,7 +226,7 @@ export class Client implements Observable<ClientEvent> {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
-    this.metadata = opts.metadata ? opts.metadata : {};
+    this.metadataInfo = { clock: 0, data: opts.metadata ? opts.metadata : {} };
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.syncLoopDuration =
@@ -419,6 +429,49 @@ export class Client implements Observable<ClientEvent> {
   }
 
   /**
+   * `updateMetadata` updates the metadata of this client.
+   */
+  public updateMetadata(key: string, value: string): Promise<void> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
+    this.metadataInfo.clock += 1;
+    this.metadataInfo.data[key] = value;
+
+    if (this.attachmentMap.size === 0) {
+      return Promise.resolve();
+    }
+
+    const keys: Array<DocumentKey> = [];
+    for (const [, attachment] of this.attachmentMap) {
+      if (!attachment.isRealtimeSync) {
+        continue;
+      }
+
+      attachment.peerClients!.set(this.getID()!, this.metadataInfo);
+      keys.push(attachment.doc.getDocumentKey());
+    }
+
+    const req = new UpdateMetadataRequest();
+    req.setClient(converter.toClient(this.id!, this.metadataInfo));
+    req.setDocumentKeysList(converter.toDocumentKeys(keys));
+
+    return new Promise((resolve, reject) => {
+      this.rpcClient.updateMetadata(req, {}, (err) => {
+        if (err) {
+          logger.error(`[UM] c:"${this.getKey()}" err :`, err);
+          reject(err);
+          return;
+        }
+
+        logger.info(`[UM] c"${this.getKey()}" updated`);
+        resolve();
+      });
+    });
+  }
+
+  /**
    * `subscribe` subscribes to the given topics.
    */
   public subscribe(
@@ -465,7 +518,19 @@ export class Client implements Observable<ClientEvent> {
    * `getMetadata` returns the metadata of this client.
    */
   public getMetadata(): Metadata {
-    return this.metadata;
+    return this.metadataInfo.data;
+  }
+
+  /**
+   * `getPeers` returns the peers of the given document.
+   */
+  public getPeers(key: string): { [key: string]: Metadata } {
+    const peers: { [key: string]: Metadata } = {};
+    const attachment = this.attachmentMap.get(key);
+    for (const [key, value] of attachment!.peerClients!) {
+      peers[key] = value.data;
+    }
+    return peers;
   }
 
   private runSyncLoop(): void {
@@ -538,7 +603,7 @@ export class Client implements Observable<ClientEvent> {
       }
 
       const req = new WatchDocumentsRequest();
-      req.setClient(converter.toClient(this.id!, this.metadata));
+      req.setClient(converter.toClient(this.id!, this.metadataInfo));
       req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
 
       const onStreamDisconnect = () => {
@@ -575,11 +640,11 @@ export class Client implements Observable<ClientEvent> {
     resp: WatchDocumentsResponse,
   ) {
     const getPeers = (
-      peersMap: { [key: string]: { [key: string]: Metadata } },
+      peersMap: { [key: string]: { [key: string]: MetadataInfo } },
       key: DocumentKey,
     ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers: { [key: string]: Metadata } = {};
+      const peers: { [key: string]: MetadataInfo } = {};
       for (const [key, value] of attachment!.peerClients!) {
         peers[key] = value;
       }
@@ -594,7 +659,7 @@ export class Client implements Observable<ClientEvent> {
         for (const pbClient of pbPeers.getClientsList()) {
           attachment!.peerClients!.set(
             converter.toHexString(pbClient.getId_asU8()),
-            converter.fromMetadataMap(pbClient.getMetadataMap()),
+            converter.fromMetadata(pbClient.getMetadata()!),
           );
         }
       });
@@ -606,28 +671,37 @@ export class Client implements Observable<ClientEvent> {
       return;
     }
 
-    const pbWatchEvent = resp.getEvent();
+    const pbWatchEvent = resp.getEvent()!;
     const respKeys = converter.fromDocumentKeys(
-      pbWatchEvent!.getDocumentKeysList(),
+      pbWatchEvent.getDocumentKeysList(),
+    );
+    const publisher = converter.toHexString(
+      pbWatchEvent.getPublisher()!.getId_asU8(),
+    );
+    const metadata = converter.fromMetadata(
+      pbWatchEvent.getPublisher()!.getMetadata()!,
     );
     for (const key of respKeys) {
-      const attachment = this.attachmentMap.get(key.toIDString());
-      switch (pbWatchEvent!.getType()) {
+      const attachment = this.attachmentMap.get(key.toIDString())!;
+      const peerClients = attachment.peerClients!;
+      switch (pbWatchEvent.getType()) {
         case DocEventType.DOCUMENTS_WATCHED:
-          attachment!.peerClients!.set(
-            converter.toHexString(pbWatchEvent!.getPublisher()!.getId_asU8()),
-            converter.fromMetadataMap(
-              pbWatchEvent!.getPublisher()!.getMetadataMap(),
-            ),
-          );
+          peerClients!.set(publisher, metadata);
           break;
         case DocEventType.DOCUMENTS_UNWATCHED:
-          attachment!.peerClients!.delete(
-            converter.toHexString(pbWatchEvent!.getPublisher()!.getId_asU8()),
-          );
+          peerClients!.delete(publisher);
           break;
         case DocEventType.DOCUMENTS_CHANGED:
-          attachment!.remoteChangeEventReceived = true;
+          attachment.remoteChangeEventReceived = true;
+          break;
+        case DocEventType.METADATA_CHANGED:
+          if (
+            peerClients!.has(publisher) &&
+            peerClients!.get(publisher)!.clock > metadata.clock
+          ) {
+            break;
+          }
+          peerClients!.set(publisher, metadata);
           break;
       }
     }
@@ -639,7 +713,8 @@ export class Client implements Observable<ClientEvent> {
       });
     } else if (
       pbWatchEvent!.getType() === DocEventType.DOCUMENTS_WATCHED ||
-      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_UNWATCHED
+      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_UNWATCHED ||
+      pbWatchEvent!.getType() === DocEventType.METADATA_CHANGED
     ) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,

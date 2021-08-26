@@ -546,6 +546,86 @@ proto.api.YorkiePromiseClient.prototype.pushPull =
 
 
 /**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.api.UpdateMetadataRequest,
+ *   !proto.api.UpdateMetadataResponse>}
+ */
+const methodDescriptor_Yorkie_UpdateMetadata = new grpc.web.MethodDescriptor(
+  '/api.Yorkie/UpdateMetadata',
+  grpc.web.MethodType.UNARY,
+  proto.api.UpdateMetadataRequest,
+  proto.api.UpdateMetadataResponse,
+  /**
+   * @param {!proto.api.UpdateMetadataRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.UpdateMetadataResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.api.UpdateMetadataRequest,
+ *   !proto.api.UpdateMetadataResponse>}
+ */
+const methodInfo_Yorkie_UpdateMetadata = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.api.UpdateMetadataResponse,
+  /**
+   * @param {!proto.api.UpdateMetadataRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.api.UpdateMetadataResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.api.UpdateMetadataRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.api.UpdateMetadataResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.api.UpdateMetadataResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.api.YorkieClient.prototype.updateMetadata =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/api.Yorkie/UpdateMetadata',
+      request,
+      metadata || {},
+      methodDescriptor_Yorkie_UpdateMetadata,
+      callback);
+};
+
+
+/**
+ * @param {!proto.api.UpdateMetadataRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.api.UpdateMetadataResponse>}
+ *     Promise that resolves to the response
+ */
+proto.api.YorkiePromiseClient.prototype.updateMetadata =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/api.Yorkie/UpdateMetadata',
+      request,
+      metadata || {},
+      methodDescriptor_Yorkie_UpdateMetadata);
+};
+
+
+/**
  * @param {string} hostname
  * @param {?Object} credentials
  * @param {?Object} options

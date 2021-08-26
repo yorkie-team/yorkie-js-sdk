@@ -357,6 +357,46 @@ export namespace PushPullResponse {
   }
 }
 
+export class UpdateMetadataRequest extends jspb.Message {
+  getClient(): Client | undefined;
+  setClient(value?: Client): UpdateMetadataRequest;
+  hasClient(): boolean;
+  clearClient(): UpdateMetadataRequest;
+
+  getDocumentKeysList(): Array<DocumentKey>;
+  setDocumentKeysList(value: Array<DocumentKey>): UpdateMetadataRequest;
+  clearDocumentKeysList(): UpdateMetadataRequest;
+  addDocumentKeys(value?: DocumentKey, index?: number): DocumentKey;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): UpdateMetadataRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: UpdateMetadataRequest): UpdateMetadataRequest.AsObject;
+  static serializeBinaryToWriter(message: UpdateMetadataRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): UpdateMetadataRequest;
+  static deserializeBinaryFromReader(message: UpdateMetadataRequest, reader: jspb.BinaryReader): UpdateMetadataRequest;
+}
+
+export namespace UpdateMetadataRequest {
+  export type AsObject = {
+    client?: Client.AsObject,
+    documentKeysList: Array<DocumentKey.AsObject>,
+  }
+}
+
+export class UpdateMetadataResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): UpdateMetadataResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: UpdateMetadataResponse): UpdateMetadataResponse.AsObject;
+  static serializeBinaryToWriter(message: UpdateMetadataResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): UpdateMetadataResponse;
+  static deserializeBinaryFromReader(message: UpdateMetadataResponse, reader: jspb.BinaryReader): UpdateMetadataResponse;
+}
+
+export namespace UpdateMetadataResponse {
+  export type AsObject = {
+  }
+}
+
 export class ChangePack extends jspb.Message {
   getDocumentKey(): DocumentKey | undefined;
   setDocumentKey(value?: DocumentKey): ChangePack;
@@ -1427,14 +1467,38 @@ export namespace TextNodeID {
   }
 }
 
+export class Metadata extends jspb.Message {
+  getClock(): number;
+  setClock(value: number): Metadata;
+
+  getDataMap(): jspb.Map<string, string>;
+  clearDataMap(): Metadata;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Metadata.AsObject;
+  static toObject(includeInstance: boolean, msg: Metadata): Metadata.AsObject;
+  static serializeBinaryToWriter(message: Metadata, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Metadata;
+  static deserializeBinaryFromReader(message: Metadata, reader: jspb.BinaryReader): Metadata;
+}
+
+export namespace Metadata {
+  export type AsObject = {
+    clock: number,
+    dataMap: Array<[string, string]>,
+  }
+}
+
 export class Client extends jspb.Message {
   getId(): Uint8Array | string;
   getId_asU8(): Uint8Array;
   getId_asB64(): string;
   setId(value: Uint8Array | string): Client;
 
-  getMetadataMap(): jspb.Map<string, string>;
-  clearMetadataMap(): Client;
+  getMetadata(): Metadata | undefined;
+  setMetadata(value?: Metadata): Client;
+  hasMetadata(): boolean;
+  clearMetadata(): Client;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Client.AsObject;
@@ -1447,7 +1511,7 @@ export class Client extends jspb.Message {
 export namespace Client {
   export type AsObject = {
     id: Uint8Array | string,
-    metadataMap: Array<[string, string]>,
+    metadata?: Metadata.AsObject,
   }
 }
 
@@ -1622,4 +1686,5 @@ export enum DocEventType {
   DOCUMENTS_CHANGED = 0,
   DOCUMENTS_WATCHED = 1,
   DOCUMENTS_UNWATCHED = 2,
+  METADATA_CHANGED = 3,
 }
