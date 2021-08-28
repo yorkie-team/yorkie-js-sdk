@@ -23,6 +23,7 @@ import {
 export { Client, ClientOptions, DocumentReplica };
 export {
   Metadata,
+  MetadataInfo,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,
