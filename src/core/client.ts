@@ -193,7 +193,9 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 }
 
-// DefaultClientOptions is the default options for Client.
+/**
+ * `DefaultClientOptions` is the default options for Client.
+ */
 const DefaultClientOptions = {
   syncLoopDuration: 50,
   reconnectStreamDelay: 1000,
