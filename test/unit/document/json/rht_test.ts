@@ -85,6 +85,24 @@ describe('RHT', function () {
     assert.equal(jsonObj.testKey3, testData.testKey3);
   });
 
+  it('should handle toJS', function () {
+    const testData: Indexable = {
+      testKey1: 'testValue1',
+      testKey2: 'testValue2',
+      testKey3: 'testValue3',
+    };
+
+    const rht = RHT.create();
+    for (const [key, value] of Object.entries(testData)) {
+      rht.set(key, value, InitialTimeTicket);
+    }
+
+    const jsonObj = rht.toJS();
+    assert.equal(jsonObj.testKey1, testData.testKey1);
+    assert.equal(jsonObj.testKey2, testData.testKey2);
+    assert.equal(jsonObj.testKey3, testData.testKey3);
+  });
+
   it('should handle toObject', function () {
     const testData: Indexable = {
       testKey1: 'testValue1',
