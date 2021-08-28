@@ -349,6 +349,13 @@ export class RichText extends TextElement {
   }
 
   /**
+   * `toJS` return the javascript object of this rich text.
+   */
+  public toJS(): any {
+    return JSON.parse(this.toJSON());
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of this rich text.
    */
   public toSortedJSON(): string {

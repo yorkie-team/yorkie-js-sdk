@@ -193,6 +193,13 @@ export class JSONArray extends JSONContainer {
   }
 
   /**
+   * `toJS` return the javascript object of this array.
+   */
+  public toJS(): any {
+    return JSON.parse(this.toJSON());
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of this array.
    */
   public toSortedJSON(): string {

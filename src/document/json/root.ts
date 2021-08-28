@@ -251,6 +251,13 @@ export class JSONRoot {
   }
 
   /**
+   * `toJS` return the javascript object of this root object.
+   */
+  public toJS(): any {
+    return this.rootObject.toJS();
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of this root object.
    */
   public toSortedJSON(): string {

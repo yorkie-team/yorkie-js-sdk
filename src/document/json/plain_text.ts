@@ -166,6 +166,13 @@ export class PlainText extends TextElement {
   }
 
   /**
+   * `toJS` return the javascript object of this text.
+   */
+  public toJS(): any {
+    return JSON.parse(this.toJSON());
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of this text.
    */
   public toSortedJSON(): string {

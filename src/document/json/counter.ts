@@ -87,6 +87,13 @@ export class Counter extends JSONElement {
   }
 
   /**
+   * `toJS` return the javascript object of this value.
+   */
+  public toJS(): any {
+    return JSON.parse(this.toJSON());
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of the value.
    */
   public toSortedJSON(): string {
