@@ -45,5 +45,6 @@
 
 |  Type Alias | Description |
 |  --- | --- |
-|  [Metadata](./yorkie-js-sdk.metadata.md) | <code>Metadata</code> is custom metadata that can be defined in the client. |
+|  [Metadata](./yorkie-js-sdk.metadata.md) | <code>Metadata</code> is metadata that can be defined in the client. |
+|  [MetadataInfo](./yorkie-js-sdk.metadatainfo.md) | <code>MetadataInfo</code> is metadata information of this client. |
 

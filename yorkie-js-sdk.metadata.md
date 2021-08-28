@@ -4,7 +4,7 @@
 
 ## Metadata type
 
-`Metadata` is custom metadata that can be defined in the client.
+`Metadata` is metadata that can be defined in the client.
 
 <b>Signature:</b>
 

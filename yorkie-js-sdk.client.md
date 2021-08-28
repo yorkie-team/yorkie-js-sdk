@@ -24,8 +24,10 @@ export declare class Client implements Observable<ClientEvent>
 |  [getID()](./yorkie-js-sdk.client.getid.md) |  | <code>getID</code> returns a ActorID of client. |
 |  [getKey()](./yorkie-js-sdk.client.getkey.md) |  | <code>getKey</code> returns a key of client. |
 |  [getMetadata()](./yorkie-js-sdk.client.getmetadata.md) |  | <code>getMetadata</code> returns the metadata of this client. |
+|  [getPeers(key)](./yorkie-js-sdk.client.getpeers.md) |  | <code>getPeers</code> returns the peers of the given document. |
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |
 |  [isActive()](./yorkie-js-sdk.client.isactive.md) |  | <code>isActive</code> checks if the client is active. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.client.subscribe.md) |  | <code>subscribe</code> subscribes to the given topics. |
 |  [sync()](./yorkie-js-sdk.client.sync.md) |  | <code>sync</code> pushes local changes of the attached documents to the Agent and receives changes of the remote replica from the agent then apply them to local documents. |
+|  [updateMetadata(key, value)](./yorkie-js-sdk.client.updatemetadata.md) |  | <code>updateMetadata</code> updates the metadata of this client. |
 
