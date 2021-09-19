@@ -16,6 +16,8 @@
 
 /**
  * `DocumentKey` represents the key of the Document.
+ *
+ * @internal
  */
 export class DocumentKey {
   private collection: string;

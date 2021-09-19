@@ -19,6 +19,8 @@ import Long from 'long';
 /**
  * `Checkpoint` is used to determine the changes sent and received by the
  * client. This is immutable.
+ *
+ * @internal
  **/
 export class Checkpoint {
   private serverSeq: Long;

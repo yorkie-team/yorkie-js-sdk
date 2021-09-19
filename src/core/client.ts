@@ -52,7 +52,13 @@ import {
  * @public
  */
 export enum ClientStatus {
+  /**
+   * client deactivated status
+   */
   Deactivated = 'deactivated',
+  /**
+   * client activated status
+   */
   Activated = 'activated',
 }
 
@@ -61,7 +67,13 @@ export enum ClientStatus {
  * @public
  */
 export enum StreamConnectionStatus {
+  /**
+   * stream connected
+   */
   Connected = 'connected',
+  /**
+   * stream disconnected
+   */
   Disconnected = 'disconnected',
 }
 
@@ -70,7 +82,13 @@ export enum StreamConnectionStatus {
  * @public
  */
 export enum DocumentSyncResultType {
+  /**
+   * type when Document synced.
+   */
   Synced = 'synced',
+  /**
+   * type when Document sync failed.
+   */
   SyncFailed = 'sync-failed',
 }
 
@@ -79,10 +97,25 @@ export enum DocumentSyncResultType {
  * @public
  */
 export enum ClientEventType {
+  /**
+   * client event type when status changed.
+   */
   StatusChanged = 'status-changed',
+  /**
+   * client event type when documents changed.
+   */
   DocumentsChanged = 'documents-changed',
+  /**
+   * client event type when peers changed.
+   */
   PeersChanged = 'peers-changed',
+  /**
+   * client event type when stream connection changed.
+   */
   StreamConnectionStatusChanged = 'stream-connection-status-changed',
+  /**
+   * client event type when document synced.
+   */
   DocumentSynced = 'document-synced',
 }
 
@@ -90,7 +123,7 @@ export enum ClientEventType {
  * `ClientEvent` is an event that occurs in `Client`. It can be delivered using
  * `Client.subscribe()`.
  *
- * @internal
+ * @public
  */
 export type ClientEvent =
   | StatusChangedEvent
@@ -112,7 +145,13 @@ export interface BaseClientEvent {
  * @public
  */
 export interface StatusChangedEvent extends BaseClientEvent {
+  /**
+   * enum {@link ClientEventType}.StatusChanged
+   */
   type: ClientEventType.StatusChanged;
+  /**
+   * `DocumentsChangedEvent` value
+   */
   value: ClientStatus;
 }
 
@@ -123,7 +162,13 @@ export interface StatusChangedEvent extends BaseClientEvent {
  * @public
  */
 export interface DocumentsChangedEvent extends BaseClientEvent {
+  /**
+   * enum {@link ClientEventType}.DocumentsChangedEvent
+   */
   type: ClientEventType.DocumentsChanged;
+  /**
+   * `DocumentsChangedEvent` value
+   */
   value: Array<DocumentKey>;
 }
 
@@ -134,7 +179,13 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
  * @public
  */
 export interface PeersChangedEvent extends BaseClientEvent {
+  /**
+   * enum {@link ClientEventType}.PeersChangedEvent
+   */
   type: ClientEventType.PeersChanged;
+  /**
+   * `PeersChangedEvent` value
+   */
   value: { [docKey: string]: { [clientKey: string]: MetadataInfo } };
 }
 
@@ -145,16 +196,32 @@ export interface PeersChangedEvent extends BaseClientEvent {
  * @public
  */
 export interface StreamConnectionStatusChangedEvent extends BaseClientEvent {
+  /**
+   * `StreamConnectionStatusChangedEvent` type
+   * enum {@link ClientEventType}.StreamConnectionStatusChangedEvent
+   */
   type: ClientEventType.StreamConnectionStatusChanged;
+  /**
+   * `StreamConnectionStatusChangedEvent` value
+   */
   value: StreamConnectionStatus;
 }
 
 /**
  * `DocumentSyncedEvent` is an event that occurs when documents
  * attached to the client are synced.
+ *
+ * @public
  */
 export interface DocumentSyncedEvent extends BaseClientEvent {
+  /**
+   * `DocumentSyncedEvent` type
+   * enum {@link ClientEventType}.DocumentSyncedEvent
+   */
   type: ClientEventType.DocumentSynced;
+  /**
+   * `DocumentSyncedEvent` value
+   */
   value: DocumentSyncResultType;
 }
 
@@ -174,6 +241,8 @@ export type Metadata = { [key: string]: string };
 
 /**
  * `MetadataInfo` is metadata information of this client.
+ *
+ * @public
  */
 export type MetadataInfo = {
   clock: number;

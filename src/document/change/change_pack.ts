@@ -21,6 +21,8 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
+ *
+ * @internal
  */
 export class ChangePack {
   /**
