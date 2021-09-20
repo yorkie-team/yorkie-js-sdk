@@ -43,6 +43,12 @@ export function waitFor(
   return new Promise((resolve) => listener.on(eventName, resolve));
 }
 
+export function delay(timeout: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, timeout);
+  });
+}
+
 export function createEmitterAndSpy(
   fn?: (event: ClientEvent | DocEvent) => string,
 ): [EventEmitter, NextFn<ClientEvent | DocEvent>] {
