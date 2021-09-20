@@ -15,9 +15,8 @@
  */
 
 import Long from 'long';
-import * as jspb from 'google-protobuf';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { Metadata } from '@yorkie-js-sdk/src/core/client';
+import { MetadataInfo } from '@yorkie-js-sdk/src/core/client';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -62,6 +61,7 @@ import {
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
   Client as PbClient,
+  Metadata as PbMetadata,
   DocumentKey as PbDocumentKey,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
@@ -79,27 +79,34 @@ import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increas
 import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
- * `fromMetadataMap` converts the given Protobuf format to model format.
+ * `fromMetadata` converts the given Protobuf format to model format.
  */
-function fromMetadataMap(pbMetadataMap: jspb.Map<string, string>): Metadata {
-  const metadata: Metadata = {};
-  pbMetadataMap.forEach((value: string, key: string) => {
-    metadata[key] = value;
+function fromMetadata(pbMetadata: PbMetadata): MetadataInfo {
+  const data: { [key: string]: string } = {};
+  pbMetadata.getDataMap().forEach((value: string, key: string) => {
+    data[key] = value;
   });
-  return metadata;
+
+  return {
+    clock: pbMetadata.getClock(),
+    data,
+  };
 }
 
 /**
  * `toClient` converts the given model to Protobuf format.
  */
-function toClient(id: string, metadata: Metadata): PbClient {
-  const pbClient = new PbClient();
-  pbClient.setId(toUint8Array(id));
-  const pbMetadataMap = pbClient.getMetadataMap();
-  for (const [key, value] of Object.entries(metadata)) {
-    pbMetadataMap.set(key, value);
+function toClient(id: string, metadata: MetadataInfo): PbClient {
+  const pbMetadata = new PbMetadata();
+  pbMetadata.setClock(metadata.clock);
+  const pbDataMap = pbMetadata.getDataMap();
+  for (const [key, value] of Object.entries(metadata.data)) {
+    pbDataMap.set(key, value);
   }
 
+  const pbClient = new PbClient();
+  pbClient.setId(toUint8Array(id));
+  pbClient.setMetadata(pbMetadata);
   return pbClient;
 }
 
@@ -1112,7 +1119,7 @@ function toUint8Array(hex: string): Uint8Array {
 }
 
 export const converter = {
-  fromMetadataMap,
+  fromMetadata,
   toClient,
   toChangePack,
   fromChangePack,

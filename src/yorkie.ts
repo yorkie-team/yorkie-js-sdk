@@ -20,16 +20,31 @@ import {
   Indexable,
 } from '@yorkie-js-sdk/src/document/document';
 
-export { Client, ClientOptions, DocumentReplica };
 export {
+  Client,
   Metadata,
+  MetadataInfo,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,
   DocumentSyncResultType,
   ClientEventType,
+  StatusChangedEvent,
+  DocumentsChangedEvent,
+  PeersChangedEvent,
+  StreamConnectionStatusChangedEvent,
+  DocumentSyncedEvent,
+  ClientOptions,
 } from '@yorkie-js-sdk/src/core/client';
-export { DocEvent, DocEventType } from '@yorkie-js-sdk/src/document/document';
+export {
+  DocEventType,
+  SnapshotEvent,
+  LocalChangeEvent,
+  RemoteChangeEvent,
+  Indexable,
+  DocEvent,
+  DocumentReplica,
+} from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
   Observable,

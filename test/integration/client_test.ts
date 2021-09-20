@@ -9,6 +9,7 @@ import {
 import {
   createEmitterAndSpy,
   waitFor,
+  delay,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
   testCollection,
@@ -193,6 +194,52 @@ describe('Client', function () {
     await c1.detach(d1);
     await c2.detach(d2);
 
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Can update its metadata', async function () {
+    const c1 = yorkie.createClient(testRPCAddr, { metadata: { name: 'c1' } });
+    const c2 = yorkie.createClient(testRPCAddr, { metadata: { name: 'c2' } });
+    await c1.activate();
+    await c2.activate();
+
+    const [emitter1, spy1] = createEmitterAndSpy();
+    const [emitter2, spy2] = createEmitterAndSpy();
+
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const d1 = yorkie.createDocument(testCollection, docKey);
+    const d2 = yorkie.createDocument(testCollection, docKey);
+
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    // Since attach's response doesn't wait for the watch ready,
+    // We need to wait here until the threshold.
+    await delay(100);
+
+    const unsub1 = c1.subscribe(spy1);
+    const unsub2 = c2.subscribe(spy2);
+
+    // Since `updateMetadata` handles event publishing synchronously with
+    // Memory Coordinator, We need to wait for the event from the peer wihout
+    // waiting for the response of `updateMetadata` here.
+    c1.updateMetadata('name', 'c1+');
+    await waitFor(ClientEventType.PeersChanged, emitter2);
+
+    c2.updateMetadata('name', 'c2+');
+    await waitFor(ClientEventType.PeersChanged, emitter1);
+
+    assert.equal(
+      JSON.stringify(c1.getPeers(d1.getKey())),
+      JSON.stringify(c2.getPeers(d2.getKey())),
+    );
+
+    unsub1();
+    unsub2();
+
+    await c1.detach(d1);
+    await c2.detach(d2);
     await c1.deactivate();
     await c2.deactivate();
   });
