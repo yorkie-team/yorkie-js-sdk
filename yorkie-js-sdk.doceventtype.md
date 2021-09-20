@@ -16,7 +16,7 @@ export declare enum DocEventType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  LocalChange | <code>&quot;local-change&quot;</code> |  |
-|  RemoteChange | <code>&quot;remote-change&quot;</code> |  |
-|  Snapshot | <code>&quot;snapshot&quot;</code> |  |
+|  LocalChange | <code>&quot;local-change&quot;</code> | local document change event type |
+|  RemoteChange | <code>&quot;remote-change&quot;</code> | remote document change event type |
+|  Snapshot | <code>&quot;snapshot&quot;</code> | snapshot event type |
 

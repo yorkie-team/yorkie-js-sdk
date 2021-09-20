@@ -16,7 +16,7 @@ setActor(actorID: ActorID): TimeTicket;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  actorID | ActorID |  |
+|  actorID | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 
 <b>Returns:</b>
 

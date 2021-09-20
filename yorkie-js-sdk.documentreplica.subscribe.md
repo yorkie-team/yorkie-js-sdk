@@ -16,7 +16,7 @@ subscribe(nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>, error?: ErrorFn
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  nextOrObserver | Observer&lt;DocEvent&gt; \| NextFn&lt;DocEvent&gt; |  |
+|  nextOrObserver | Observer&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt; \| NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

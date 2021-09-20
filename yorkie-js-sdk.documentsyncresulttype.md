@@ -16,6 +16,6 @@ export declare enum DocumentSyncResultType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Synced | <code>&quot;synced&quot;</code> |  |
-|  SyncFailed | <code>&quot;sync-failed&quot;</code> |  |
+|  Synced | <code>&quot;synced&quot;</code> | type when Document synced. |
+|  SyncFailed | <code>&quot;sync-failed&quot;</code> | type when Document sync failed. |
 

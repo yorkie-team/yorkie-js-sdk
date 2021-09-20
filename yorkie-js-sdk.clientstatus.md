@@ -16,6 +16,6 @@ export declare enum ClientStatus
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Activated | <code>&quot;activated&quot;</code> |  |
-|  Deactivated | <code>&quot;deactivated&quot;</code> |  |
+|  Activated | <code>&quot;activated&quot;</code> | client activated status |
+|  Deactivated | <code>&quot;deactivated&quot;</code> | client deactivated status |
 

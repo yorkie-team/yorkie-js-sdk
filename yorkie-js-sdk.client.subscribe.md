@@ -16,7 +16,7 @@ subscribe(nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>, error?: E
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  nextOrObserver | Observer&lt;ClientEvent&gt; \| NextFn&lt;ClientEvent&gt; |  |
+|  nextOrObserver | Observer&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; \| NextFn&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

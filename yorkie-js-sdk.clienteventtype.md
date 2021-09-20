@@ -16,9 +16,9 @@ export declare enum ClientEventType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  DocumentsChanged | <code>&quot;documents-changed&quot;</code> |  |
-|  DocumentSynced | <code>&quot;document-synced&quot;</code> |  |
-|  PeersChanged | <code>&quot;peers-changed&quot;</code> |  |
-|  StatusChanged | <code>&quot;status-changed&quot;</code> |  |
-|  StreamConnectionStatusChanged | <code>&quot;stream-connection-status-changed&quot;</code> |  |
+|  DocumentsChanged | <code>&quot;documents-changed&quot;</code> | client event type when documents changed. |
+|  DocumentSynced | <code>&quot;document-synced&quot;</code> | client event type when document synced. |
+|  PeersChanged | <code>&quot;peers-changed&quot;</code> | client event type when peers changed. |
+|  StatusChanged | <code>&quot;status-changed&quot;</code> | client event type when status changed. |
+|  StreamConnectionStatusChanged | <code>&quot;stream-connection-status-changed&quot;</code> | client event type when stream connection changed. |
 

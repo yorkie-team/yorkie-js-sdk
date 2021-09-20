@@ -16,6 +16,6 @@ export declare enum StreamConnectionStatus
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Connected | <code>&quot;connected&quot;</code> |  |
-|  Disconnected | <code>&quot;disconnected&quot;</code> |  |
+|  Connected | <code>&quot;connected&quot;</code> | stream connected |
+|  Disconnected | <code>&quot;disconnected&quot;</code> | stream disconnected |
 
