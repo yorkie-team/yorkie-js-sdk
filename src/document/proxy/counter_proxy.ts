@@ -23,6 +23,8 @@ import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * CounterProxy is a proxy representing Counter types.
+ *
+ * @internal
  */
 export class CounterProxy {
   private context: ChangeContext;

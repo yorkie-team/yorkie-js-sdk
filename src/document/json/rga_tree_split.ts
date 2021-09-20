@@ -191,6 +191,9 @@ export class RGATreeSplitNodePos {
   }
 }
 
+/**
+ * @internal
+ */
 export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
 
 /**
@@ -437,6 +440,8 @@ export class RGATreeSplitNode<
  * The difference from RGATreeList is that it has data on a block basis to
  * reduce the size of CRDT metadata. When an edit occurs on a block,
  * the block is split.
+ *
+ * @internal
  */
 export class RGATreeSplit<T extends RGATreeSplitValue> {
   private head: RGATreeSplitNode<T>;

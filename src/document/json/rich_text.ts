@@ -35,6 +35,7 @@ export interface RichTextVal {
  * `RichTextValue` is a value of RichText
  * which has a attributes that expresses the text style.
  *
+ * @internal
  */
 export class RichTextValue {
   private attributes: RHT;
