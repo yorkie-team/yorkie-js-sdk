@@ -106,8 +106,9 @@ export abstract class JSONElement {
 }
 
 /**
- * @internal
+ *
  * `JSONContainer` represents Array or Object.
+ * @internal
  */
 export abstract class JSONContainer extends JSONElement {
   constructor(createdAt: TimeTicket) {

@@ -64,6 +64,8 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
 
 /**
  * RHTPQMap is replicated hash table with priority queue by creation time.
+ *
+ * @internal
  */
 export class RHTPQMap {
   private elementQueueMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;

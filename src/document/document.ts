@@ -48,8 +48,17 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  * @public
  */
 export enum DocEventType {
+  /**
+   * snapshot event type
+   */
   Snapshot = 'snapshot',
+  /**
+   * local document change event type
+   */
   LocalChange = 'local-change',
+  /**
+   * remote document change event type
+   */
   RemoteChange = 'remote-change',
 }
 
@@ -57,7 +66,7 @@ export enum DocEventType {
  * `DocEvent` is an event that occurs in `DocumentReplica`. It can be delivered
  * using `DocumentReplica.subscribe()`.
  *
- * @internal
+ * @public
  */
 export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
 
@@ -75,15 +84,19 @@ export interface BaseDocEvent {
  * @public
  */
 export interface SnapshotEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.Snapshot
+   */
   type: DocEventType.Snapshot;
+  /**
+   * SnapshotEvent type
+   */
   value: Uint8Array | undefined;
 }
 
 /**
  * `ChangeInfo` represents a pair of `Change` and the JsonPath of the changed
  * element.
- *
- * @public
  */
 export interface ChangeInfo {
   change: Change;
@@ -97,7 +110,13 @@ export interface ChangeInfo {
  * @public
  */
 export interface LocalChangeEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.LocalChange
+   */
   type: DocEventType.LocalChange;
+  /**
+   * LocalChangeEvent type
+   */
   value: Array<ChangeInfo>;
 }
 
@@ -108,10 +127,20 @@ export interface LocalChangeEvent extends BaseDocEvent {
  * @public
  */
 export interface RemoteChangeEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.RemoteChange
+   */
   type: DocEventType.RemoteChange;
+  /**
+   * RemoteChangeEvent type
+   */
   value: Array<ChangeInfo>;
 }
 
+/**
+ * Indexable key, value
+ * @public
+ */
 export type Indexable = {
   [index: string]: any;
 };

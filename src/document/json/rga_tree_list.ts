@@ -132,6 +132,8 @@ class RGATreeListNode extends SplayNode<JSONElement> {
 
 /**
  * `RGATreeList` is replicated growable array.
+ *
+ * @internal
  */
 export class RGATreeList {
   private dummyHead: RGATreeListNode;

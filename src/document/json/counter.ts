@@ -23,6 +23,9 @@ import {
   PrimitiveType,
 } from '@yorkie-js-sdk/src/document/json/primitive';
 
+/**
+ * @internal
+ */
 export enum CounterType {
   IntegerCnt,
   LongCnt,
