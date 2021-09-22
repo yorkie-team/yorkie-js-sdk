@@ -125,10 +125,10 @@ export enum ClientEventType {
  *
  * @public
  */
-export type ClientEvent =
+export type ClientEvent<Metadata> =
   | StatusChangedEvent
   | DocumentsChangedEvent
-  | PeersChangedEvent
+  | PeersChangedEvent<Metadata>
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -178,7 +178,7 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
  *
  * @public
  */
-export interface PeersChangedEvent extends BaseClientEvent {
+export interface PeersChangedEvent<Metadata> extends BaseClientEvent {
   /**
    * enum {@link ClientEventType}.PeersChangedEvent
    */
@@ -186,7 +186,7 @@ export interface PeersChangedEvent extends BaseClientEvent {
   /**
    * `PeersChangedEvent` value
    */
-  value: { [docKey: string]: { [clientKey: string]: MetadataInfo } };
+  value: { [docKey: string]: { [clientKey: string]: MetadataInfo<Metadata> } };
 }
 
 /**
@@ -225,26 +225,19 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
   value: DocumentSyncResultType;
 }
 
-interface Attachment {
+interface Attachment<Metadata> {
   doc: DocumentReplica<unknown>;
   isRealtimeSync: boolean;
-  peerClients?: Map<string, MetadataInfo>;
+  peerClients?: Map<string, MetadataInfo<Metadata>>;
   remoteChangeEventReceived?: boolean;
 }
-
-/**
- * `Metadata` is metadata that can be defined in the client.
- *
- * @public
- */
-export type Metadata = { [key: string]: string };
 
 /**
  * `MetadataInfo` is metadata information of this client.
  *
  * @public
  */
-export type MetadataInfo = {
+export type MetadataInfo<Metadata> = {
   clock: number;
   data: Metadata;
 };
@@ -254,7 +247,7 @@ export type MetadataInfo = {
  *
  * @public
  */
-export interface ClientOptions {
+export interface ClientOptions<Metadata> {
   key?: string;
   metadata?: Metadata;
   token?: string;
@@ -277,27 +270,32 @@ const DefaultClientOptions = {
  *
  * @public
  */
-export class Client implements Observable<ClientEvent> {
+export class Client<Metadata extends { [key: string]: any }>
+  implements Observable<ClientEvent<Metadata>>
+{
   private id?: ActorID;
   private key: string;
-  private metadataInfo: MetadataInfo;
+  private metadataInfo: MetadataInfo<Metadata>;
   private status: ClientStatus;
-  private attachmentMap: Map<string, Attachment>;
+  private attachmentMap: Map<string, Attachment<Metadata>>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
 
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream?: any;
-  private eventStream: Observable<ClientEvent>;
-  private eventStreamObserver!: Observer<ClientEvent>;
+  private eventStream: Observable<ClientEvent<Metadata>>;
+  private eventStreamObserver!: Observer<ClientEvent<Metadata>>;
 
   /** @hideconstructor */
-  constructor(rpcAddr: string, opts?: ClientOptions) {
+  constructor(rpcAddr: string, opts?: ClientOptions<Metadata>) {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
-    this.metadataInfo = { clock: 0, data: opts.metadata ? opts.metadata : {} };
+    this.metadataInfo = {
+      clock: 0,
+      data: opts.metadata ? opts.metadata : ({} as Metadata),
+    };
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.syncLoopDuration =
@@ -314,7 +312,7 @@ export class Client implements Observable<ClientEvent> {
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
-    this.eventStream = createObservable<ClientEvent>((observer) => {
+    this.eventStream = createObservable<ClientEvent<Metadata>>((observer) => {
       this.eventStreamObserver = observer;
     });
   }
@@ -502,13 +500,16 @@ export class Client implements Observable<ClientEvent> {
   /**
    * `updateMetadata` updates the metadata of this client.
    */
-  public updateMetadata(key: string, value: string): Promise<void> {
+  public updateMetadata<MetadataKey extends keyof Metadata>(
+    key: MetadataKey,
+    value: Metadata[MetadataKey],
+  ): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
     this.metadataInfo.clock += 1;
-    this.metadataInfo.data[key] = value;
+    (this.metadataInfo.data as any)[key] = value;
 
     if (this.attachmentMap.size === 0) {
       return Promise.resolve();
@@ -546,12 +547,14 @@ export class Client implements Observable<ClientEvent> {
    * `subscribe` subscribes to the given topics.
    */
   public subscribe(
-    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
+    nextOrObserver:
+      | Observer<ClientEvent<Metadata>>
+      | NextFn<ClientEvent<Metadata>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
     return this.eventStream.subscribe(
-      nextOrObserver as NextFn<ClientEvent>,
+      nextOrObserver as NextFn<ClientEvent<Metadata>>,
       error,
       complete,
     );
@@ -711,11 +714,11 @@ export class Client implements Observable<ClientEvent> {
     resp: WatchDocumentsResponse,
   ) {
     const getPeers = (
-      peersMap: { [key: string]: { [key: string]: MetadataInfo } },
+      peersMap: { [key: string]: { [key: string]: MetadataInfo<Metadata> } },
       key: DocumentKey,
     ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers: { [key: string]: MetadataInfo } = {};
+      const peers: { [key: string]: MetadataInfo<Metadata> } = {};
       for (const [key, value] of attachment!.peerClients!) {
         peers[key] = value;
       }
@@ -749,7 +752,7 @@ export class Client implements Observable<ClientEvent> {
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
-    const metadata = converter.fromMetadata(
+    const metadata = converter.fromMetadata<Metadata>(
       pbWatchEvent.getPublisher()!.getMetadata()!,
     );
     for (const key of respKeys) {
