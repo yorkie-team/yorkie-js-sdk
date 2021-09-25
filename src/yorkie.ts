@@ -69,10 +69,10 @@ export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
  *
  * @public
  */
-export function createClient<Metadata>(
+export function createClient<M>(
   rpcAddr: string,
-  opts?: ClientOptions<Metadata>,
-): Client<Metadata> {
+  opts?: ClientOptions<M>,
+): Client<M> {
   return new Client(rpcAddr, opts);
 }
 
