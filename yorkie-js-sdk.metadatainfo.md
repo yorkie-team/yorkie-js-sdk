@@ -9,10 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type MetadataInfo = {
+export declare type MetadataInfo<M> = {
     clock: number;
-    data: Metadata;
+    data: M;
 };
 ```
-<b>References:</b> [Metadata](./yorkie-js-sdk.metadata.md)
-

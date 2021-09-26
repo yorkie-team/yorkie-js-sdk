@@ -9,15 +9,15 @@
 <b>Signature:</b>
 
 ```typescript
-updateMetadata(key: string, value: string): Promise<void>;
+updateMetadata<K extends keyof M>(key: K, value: M[K]): Promise<void>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  key | string |  |
-|  value | string |  |
+|  key | K |  |
+|  value | M\[K\] |  |
 
 <b>Returns:</b>
 

@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface ClientOptions 
+export declare interface ClientOptions<M> 
 ```
 
 ## Properties
@@ -17,7 +17,7 @@ export declare interface ClientOptions
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [key?](./yorkie-js-sdk.clientoptions.key.md) | string | <i>(Optional)</i> |
-|  [metadata?](./yorkie-js-sdk.clientoptions.metadata.md) | [Metadata](./yorkie-js-sdk.metadata.md) | <i>(Optional)</i> |
+|  [metadata?](./yorkie-js-sdk.clientoptions.metadata.md) | M | <i>(Optional)</i> |
 |  [reconnectStreamDelay?](./yorkie-js-sdk.clientoptions.reconnectstreamdelay.md) | number | <i>(Optional)</i> |
 |  [syncLoopDuration?](./yorkie-js-sdk.clientoptions.syncloopduration.md) | number | <i>(Optional)</i> |
 |  [token?](./yorkie-js-sdk.clientoptions.token.md) | string | <i>(Optional)</i> |

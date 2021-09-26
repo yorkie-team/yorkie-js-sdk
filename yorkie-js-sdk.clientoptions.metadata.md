@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-metadata?: Metadata;
+metadata?: M;
 ```

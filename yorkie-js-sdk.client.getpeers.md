@@ -10,7 +10,7 @@
 
 ```typescript
 getPeers(key: string): {
-        [key: string]: Metadata;
+        [key: string]: M;
     };
 ```
 
@@ -22,5 +22,5 @@ getPeers(key: string): {
 
 <b>Returns:</b>
 
-{ \[key: string\]: [Metadata](./yorkie-js-sdk.metadata.md)<!-- -->; }
+{ \[key: string\]: M; }
 

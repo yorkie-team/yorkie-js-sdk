@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare function createClient(rpcAddr: string, opts?: ClientOptions): Client;
+export declare function createClient<M>(rpcAddr: string, opts?: ClientOptions<M>): Client<M>;
 ```
 
 ## Parameters
@@ -17,9 +17,9 @@ export declare function createClient(rpcAddr: string, opts?: ClientOptions): Cli
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  rpcAddr | string |  |
-|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md) |  |
+|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md)<!-- -->&lt;M&gt; |  |
 
 <b>Returns:</b>
 
-[Client](./yorkie-js-sdk.client.md)
+[Client](./yorkie-js-sdk.client.md)<!-- -->&lt;M&gt;
 

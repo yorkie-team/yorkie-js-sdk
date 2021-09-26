@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-getMetadata(): Metadata;
+getMetadata(): M;
 ```
 <b>Returns:</b>
 
-[Metadata](./yorkie-js-sdk.metadata.md)
+M
 

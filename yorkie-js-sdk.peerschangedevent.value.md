@@ -11,7 +11,7 @@
 ```typescript
 value: {
         [docKey: string]: {
-            [clientKey: string]: MetadataInfo;
+            [clientKey: string]: MetadataInfo<M>;
         };
     };
 ```
