@@ -12,15 +12,15 @@ export const testCollection = 'test-col';
 
 export async function withTwoClientsAndDocuments<T = Indexable>(
   callback: (
-    c1: Client<T>,
+    c1: Client,
     d1: DocumentReplica<T>,
-    c2: Client<T>,
+    c2: Client,
     d2: DocumentReplica<T>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
-  const client1: Client<T> = yorkie.createClient(testRPCAddr);
-  const client2: Client<T> = yorkie.createClient(testRPCAddr);
+  const client1 = yorkie.createClient(testRPCAddr);
+  const client2 = yorkie.createClient(testRPCAddr);
   await client1.activate();
   await client2.activate();
 
