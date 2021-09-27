@@ -126,7 +126,7 @@ export enum ClientEventType {
  *
  * @public
  */
-export type ClientEvent<M> =
+export type ClientEvent<M = Indexable> =
   | StatusChangedEvent
   | DocumentsChangedEvent
   | PeersChangedEvent<M>

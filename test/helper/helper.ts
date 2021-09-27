@@ -50,12 +50,12 @@ export function delay(timeout: number): Promise<void> {
 }
 
 export function createEmitterAndSpy(
-  fn?: (event: ClientEvent<unknown> | DocEvent) => string,
-): [EventEmitter, NextFn<ClientEvent<unknown> | DocEvent>] {
+  fn?: (event: ClientEvent | DocEvent) => string,
+): [EventEmitter, NextFn<ClientEvent | DocEvent>] {
   const emitter = new EventEmitter();
   return [
     emitter,
-    (event: ClientEvent<unknown> | DocEvent) =>
+    (event: ClientEvent | DocEvent) =>
       emitter.emit(fn ? fn(event) : event.type),
   ];
 }
