@@ -22,7 +22,6 @@ import {
 
 export {
   Client,
-  Metadata,
   MetadataInfo,
   ClientEvent,
   ClientStatus,
@@ -70,7 +69,10 @@ export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
  *
  * @public
  */
-export function createClient(rpcAddr: string, opts?: ClientOptions): Client {
+export function createClient<M = Indexable>(
+  rpcAddr: string,
+  opts?: ClientOptions<M>,
+): Client<M> {
   return new Client(rpcAddr, opts);
 }
 

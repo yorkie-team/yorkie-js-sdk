@@ -81,7 +81,7 @@ import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
 /**
  * `fromMetadata` converts the given Protobuf format to model format.
  */
-function fromMetadata(pbMetadata: PbMetadata): MetadataInfo {
+function fromMetadata<M>(pbMetadata: PbMetadata): MetadataInfo<M> {
   const data: { [key: string]: string } = {};
   pbMetadata.getDataMap().forEach((value: string, key: string) => {
     data[key] = value;
@@ -89,14 +89,14 @@ function fromMetadata(pbMetadata: PbMetadata): MetadataInfo {
 
   return {
     clock: pbMetadata.getClock(),
-    data,
+    data: data as any,
   };
 }
 
 /**
  * `toClient` converts the given model to Protobuf format.
  */
-function toClient(id: string, metadata: MetadataInfo): PbClient {
+function toClient<M>(id: string, metadata: MetadataInfo<M>): PbClient {
   const pbMetadata = new PbMetadata();
   pbMetadata.setClock(metadata.clock);
   const pbDataMap = pbMetadata.getDataMap();
