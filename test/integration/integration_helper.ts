@@ -1,21 +1,18 @@
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/core/client';
-import {
-  DocumentReplica,
-  Indexable,
-} from '@yorkie-js-sdk/src/document/document';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
   __karma__.config.testRPCAddr || 'http://localhost:8080';
 export const testCollection = 'test-col';
 
-export async function withTwoClientsAndDocuments<T = Indexable>(
+export async function withTwoClientsAndDocuments(
   callback: (
     c1: Client,
-    d1: DocumentReplica<T>,
+    d1: DocumentReplica,
     c2: Client,
-    d2: DocumentReplica<T>,
+    d2: DocumentReplica,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
@@ -25,8 +22,8 @@ export async function withTwoClientsAndDocuments<T = Indexable>(
   await client2.activate();
 
   const docKey = `${title}-${new Date().getTime()}`;
-  const doc1 = yorkie.createDocument<T>(testCollection, docKey);
-  const doc2 = yorkie.createDocument<T>(testCollection, docKey);
+  const doc1 = yorkie.createDocument(testCollection, docKey);
+  const doc2 = yorkie.createDocument(testCollection, docKey);
 
   await client1.attach(doc1, true);
   await client2.attach(doc2, true);
