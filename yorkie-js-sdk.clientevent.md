@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type ClientEvent<M> = StatusChangedEvent | DocumentsChangedEvent | PeersChangedEvent<M> | StreamConnectionStatusChangedEvent | DocumentSyncedEvent;
+export declare type ClientEvent<M = Indexable> = StatusChangedEvent | DocumentsChangedEvent | PeersChangedEvent<M> | StreamConnectionStatusChangedEvent | DocumentSyncedEvent;
 ```
-<b>References:</b> [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md)<!-- -->, [DocumentsChangedEvent](./yorkie-js-sdk.documentschangedevent.md)<!-- -->, [PeersChangedEvent](./yorkie-js-sdk.peerschangedevent.md)<!-- -->, [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md)<!-- -->, [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md)<!-- -->, [DocumentsChangedEvent](./yorkie-js-sdk.documentschangedevent.md)<!-- -->, [PeersChangedEvent](./yorkie-js-sdk.peerschangedevent.md)<!-- -->, [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md)<!-- -->, [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md)
 

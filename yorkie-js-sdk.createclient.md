@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare function createClient<M>(rpcAddr: string, opts?: ClientOptions<M>): Client<M>;
+export declare function createClient<M = Indexable>(rpcAddr: string, opts?: ClientOptions<M>): Client<M>;
 ```
 
 ## Parameters

@@ -9,9 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class Client<M extends {
-    [key: string]: any;
-}> implements Observable<ClientEvent<M>> 
+export declare class Client<M = Indexable> implements Observable<ClientEvent<M>> 
 ```
 <b>Implements:</b> Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;M&gt;&gt;
 
