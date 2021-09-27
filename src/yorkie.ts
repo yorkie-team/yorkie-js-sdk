@@ -69,7 +69,7 @@ export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
  *
  * @public
  */
-export function createClient<M>(
+export function createClient<M = Indexable>(
   rpcAddr: string,
   opts?: ClientOptions<M>,
 ): Client<M> {

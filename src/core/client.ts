@@ -46,6 +46,7 @@ import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
 } from '@yorkie-js-sdk/src/core/auth';
+import type { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `ClientStatus` is client status types
@@ -125,7 +126,7 @@ export enum ClientEventType {
  *
  * @public
  */
-export type ClientEvent<M> =
+export type ClientEvent<M = Indexable> =
   | StatusChangedEvent
   | DocumentsChangedEvent
   | PeersChangedEvent<M>
@@ -270,9 +271,7 @@ const DefaultClientOptions = {
  *
  * @public
  */
-export class Client<M extends { [key: string]: any }>
-  implements Observable<ClientEvent<M>>
-{
+export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   private id?: ActorID;
   private key: string;
   private metadataInfo: MetadataInfo<M>;
