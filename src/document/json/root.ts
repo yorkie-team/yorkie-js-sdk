@@ -95,9 +95,11 @@ export class JSONRoot {
     const keys: Array<string> = [];
     while (pair.parent) {
       const createdAt = pair.element.getCreatedAt();
-      const key = pair.parent.keyOf(createdAt);
+      let key = pair.parent.keyOf(createdAt);
       if (key === undefined) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
+      } else {
+        key = key.replace(/[$.]/g, '\\$&');
       }
 
       keys.unshift(key!);
