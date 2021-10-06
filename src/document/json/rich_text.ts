@@ -352,8 +352,16 @@ export class RichText extends TextElement {
   /**
    * `toJS` return the javascript object of this rich text.
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
+  public toJS(): RichTextValue[] {
+    const json: RichTextValue[] = [];
+
+    for (const node of this.rgaTreeSplit) {
+      if (!node.isRemoved()) {
+        json.push(node.getValue());
+      }
+    }
+
+    return json;
   }
 
   /**

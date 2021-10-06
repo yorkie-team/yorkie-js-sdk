@@ -167,9 +167,10 @@ export class PlainText extends TextElement {
 
   /**
    * `toJS` return the javascript object of this text.
+   * This toJS is the same function as getValue
    */
   public toJS(): any {
-    return JSON.parse(this.toJSON());
+    return this.getValue();
   }
 
   /**

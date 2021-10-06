@@ -91,9 +91,10 @@ export class Counter extends JSONElement {
 
   /**
    * `toJS` return the javascript object of this value.
+   * This toJS is the same function as getValue
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
+  public toJS(): CounterValue {
+    return this.value;
   }
 
   /**

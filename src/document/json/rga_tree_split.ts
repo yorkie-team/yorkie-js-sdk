@@ -595,8 +595,16 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `toJS` return the javascript object of this Array.
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
+  public toJS(): T[] {
+    const json: T[] = [];
+
+    for (const node of this) {
+      if (!node.isRemoved()) {
+        json.push(node.getValue());
+      }
+    }
+
+    return json;
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc

@@ -108,9 +108,10 @@ export class JSONPrimitive extends JSONElement {
 
   /**
    * `toJS` return the javascript object of this value.
+   * This toJS is the same function as getValue
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
+  public toJS(): PrimitiveValue {
+    return this.getValue();
   }
 
   /**
