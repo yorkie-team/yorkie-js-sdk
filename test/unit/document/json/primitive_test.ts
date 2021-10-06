@@ -61,6 +61,7 @@ describe('Primitive', function () {
     for (const { type, value } of primitiveTypes) {
       const primVal = JSONPrimitive.of(value, InitialTimeTicket);
       assert.equal(type, primVal.getType());
+      assert.equal(primVal.toJS(), value);
     }
   });
 
