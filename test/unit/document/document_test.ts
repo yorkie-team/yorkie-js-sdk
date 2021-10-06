@@ -280,7 +280,8 @@ describe('DocumentReplica', function () {
     assert.equal(4, doc.getRoot().data.length);
   });
 
-  it('change paths test', async function () {
+
+  it('change paths test for object', async function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
@@ -302,8 +303,30 @@ describe('DocumentReplica', function () {
       paths.push('$.obj.a');
       delete root.obj.a;
       paths.push('$.obj');
+      root.obj['$.hello'] = 1;
+      paths.push('$.obj.\\$\\.hello');
+      delete root.obj['$.hello'];
+      paths.push('$.obj');
       delete root.obj;
       paths.push('$');
+    });
+  });
+
+  it('change paths test for array', async function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
+
+    doc.subscribe((event) => {
+      assert.equal(event.type, DocEventType.LocalChange);
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
+    });
+
+    doc.update((root) => {
+      root[''] = {};
+      paths.push('$.');
 
       root.arr = [];
       paths.push('$.arr');
@@ -313,11 +336,53 @@ describe('DocumentReplica', function () {
       paths.push('$.arr.1');
       delete root.arr[1];
       paths.push('$.arr');
+      root['$$...hello'] = [];
+      paths.push('$.\\$\\$\\.\\.\\.hello');
+      root['$$...hello'].push(0);
+      paths.push('$.\\$\\$\\.\\.\\.hello.0');
+    });
+  });
+
+  it('change paths test for counter', async function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
+
+    doc.subscribe((event) => {
+      assert.equal(event.type, DocEventType.LocalChange);
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
+    });
+
+    doc.update((root) => {
+      root[''] = {};
+      paths.push('$.');
 
       const counter = root.createCounter('cnt', 0);
       paths.push('$.cnt');
       counter.increase(1);
       paths.push('$.cnt');
+      root.createCounter('$$..#.hello', 0);
+      paths.push('$.\\$\\$\\.\\.#\\.hello');
+    });
+  });
+
+  it('change paths test for text', async function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
+
+    doc.subscribe((event) => {
+      assert.equal(event.type, DocEventType.LocalChange);
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
+    });
+
+    doc.update((root) => {
+      root[''] = {};
+      paths.push('$.');
 
       const text = root.createText('text');
       paths.push('$.text');
@@ -325,6 +390,26 @@ describe('DocumentReplica', function () {
       paths.push('$.text');
       text.select(0, 2);
       paths.push('$.text');
+      root.createText('$$..#.hello');
+      paths.push('$.\\$\\$\\.\\.#\\.hello');
+    });
+  });
+
+  it('change paths test for rich text', async function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const paths: Array<string> = [];
+
+    doc.subscribe((event) => {
+      assert.equal(event.type, DocEventType.LocalChange);
+      if (event.type === DocEventType.LocalChange) {
+        assert.deepEqual(event.value[0].paths, paths);
+      }
+    });
+
+    doc.update((root) => {
+      root[''] = {};
+      paths.push('$.');
 
       const rich = root.createRichText('rich');
       paths.push('$.rich');
@@ -332,6 +417,8 @@ describe('DocumentReplica', function () {
       paths.push('$.rich');
       rich.setStyle(0, 1, 'bold', 'true');
       paths.push('$.rich');
+      root.createRichText('$$..#.hello');
+      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 
