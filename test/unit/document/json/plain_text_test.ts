@@ -10,6 +10,8 @@ describe('PlainText', function () {
     const range = plainText.createRange(0, 0);
 
     plainText.editInternal(range, 'test-value', InitialTimeTicket);
+    assert.equal(rgaTreeSplit.toJSON(), 'test-value');
+    assert.equal(rgaTreeSplit.toJS()?.[0], 'test-value');
     assert.equal(plainText.getValue(), 'test-value');
     assert.equal(plainText.toJS(), 'test-value');
     assert.equal(plainText.toJSON(), '"test-value"');
