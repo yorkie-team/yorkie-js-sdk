@@ -280,7 +280,6 @@ describe('DocumentReplica', function () {
     assert.equal(4, doc.getRoot().data.length);
   });
 
-
   it('change paths test for object', async function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
