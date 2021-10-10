@@ -187,7 +187,7 @@ export interface PeersChangedEvent<M> extends BaseClientEvent {
   /**
    * `PeersChangedEvent` value
    */
-  value: Record<'docKey' | string, Record<'clientKey', MetadataInfo<M>> | any>;
+  value: Record<string, Record<string, MetadataInfo<M>>>;
 }
 
 /**
