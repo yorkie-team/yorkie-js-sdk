@@ -793,7 +793,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor?.hasOwnProperty(actorID!)
+        ? Object.prototype.hasOwnProperty.call(
+            latestCreatedAtMapByActor,
+            actorID!,
+          )
           ? latestCreatedAtMapByActor![actorID!]
           : InitialTimeTicket
         : MaxTimeTicket;
