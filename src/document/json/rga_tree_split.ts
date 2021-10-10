@@ -482,8 +482,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     range: RGATreeSplitNodeRange,
     editedAt: TimeTicket,
     value?: T,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
+    latestCreatedAtMapByActor?: Record<string, TimeTicket>,
+  ): [RGATreeSplitNodePos, Record<string, TimeTicket>, Array<TextChange>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -520,7 +520,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     // 04. add removed node
-    for (const [key, removedNode] of removedNodeMapByNodeKey) {
+    for (const [key, removedNode] of Object.entries(removedNodeMapByNodeKey)) {
       this.removedNodeMap.set(key, removedNode);
     }
 
@@ -776,16 +776,16 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor?: Record<string, TimeTicket>,
   ): [
     Array<TextChange>,
-    Map<string, TimeTicket>,
-    Map<string, RGATreeSplitNode<T>>,
+    Record<string, TimeTicket>,
+    Record<string, RGATreeSplitNode<T>>,
   ] {
     const isRemote = !!latestCreatedAtMapByActor;
     const changes: Array<TextChange> = [];
-    const createdAtMapByActor = new Map();
-    const removedNodeMap = new Map();
+    const createdAtMapByActor: Record<string, TimeTicket> = {};
+    const removedNodeMap: Record<string, RGATreeSplitNode<T>> = {};
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
@@ -793,8 +793,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor!.has(actorID!)
-          ? latestCreatedAtMapByActor!.get(actorID!)
+        ? latestCreatedAtMapByActor?.hasOwnProperty(actorID!)
+          ? latestCreatedAtMapByActor![actorID!]
           : InitialTimeTicket
         : MaxTimeTicket;
 
@@ -822,12 +822,15 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         }
 
         if (
-          !createdAtMapByActor.has(actorID) ||
-          node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
+          !Object.prototype.hasOwnProperty.call(
+            createdAtMapByActor,
+            actorID!,
+          ) ||
+          node.getID().getCreatedAt().after(createdAtMapByActor[actorID!])
         ) {
-          createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
+          createdAtMapByActor[actorID!] = node.getID().getCreatedAt();
         }
-        removedNodeMap.set(node.getID().getAnnotatedString(), node);
+        removedNodeMap[node.getID().getAnnotatedString()] = node;
       }
     }
 
