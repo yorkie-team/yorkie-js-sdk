@@ -34,14 +34,14 @@ import {
 export class PlainText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
-  private selectionMap: Map<string, Selection>;
+  private selectionMap: Record<string, Selection>;
   private remoteChangeLock: boolean;
 
   /** @hideconstructor */
   constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
-    this.selectionMap = new Map();
+    this.selectionMap = {};
     this.remoteChangeLock = false;
   }
 
@@ -77,8 +77,8 @@ export class PlainText extends TextElement {
     range: RGATreeSplitNodeRange,
     content: string,
     editedAt: TimeTicket,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): Map<string, TimeTicket> {
+    latestCreatedAtMapByActor?: Record<string, TimeTicket>,
+  ): Record<string, TimeTicket> {
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
       editedAt,
@@ -228,19 +228,24 @@ export class PlainText extends TextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): TextChange | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
-      this.selectionMap.set(
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        this.selectionMap,
         updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
+      )
+    ) {
+      this.selectionMap[updatedAt.getActorID()!] = Selection.of(
+        range,
+        updatedAt,
       );
       return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
+    const prevSelection = this.selectionMap[updatedAt.getActorID()!];
     if (updatedAt.after(prevSelection!.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
+      this.selectionMap[updatedAt.getActorID()!] = Selection.of(
+        range,
+        updatedAt,
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
