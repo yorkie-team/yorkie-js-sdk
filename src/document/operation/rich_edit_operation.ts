@@ -28,17 +28,17 @@ import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 export class RichEditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
+  private maxCreatedAtMapByActor: Record<string, TimeTicket>;
   private content: string;
-  private attributes: Map<string, string>;
+  private attributes: Record<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor: Record<string, TimeTicket>,
     content: string,
-    attributes: Map<string, string>,
+    attributes: Record<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -56,9 +56,9 @@ export class RichEditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor: Record<string, TimeTicket>,
     content: string,
-    attributes: Map<string, string>,
+    attributes: Record<string, string>,
     executedAt: TimeTicket,
   ): RichEditOperation {
     return new RichEditOperation(
@@ -83,7 +83,7 @@ export class RichEditOperation extends Operation {
         [this.fromPos, this.toPos],
         this.content,
         this.getExecutedAt(),
-        Object.fromEntries(this.attributes),
+        { ...this.attributes },
         this.maxCreatedAtMapByActor,
       );
       if (this.fromPos.compare(this.toPos) !== 0) {
@@ -140,15 +140,15 @@ export class RichEditOperation extends Operation {
   /**
    * `getAttributes` returns the attributes of this Edit.
    */
-  public getAttributes(): Map<string, string> {
-    return this.attributes || new Map();
+  public getAttributes(): Record<string, string> {
+    return this.attributes || {};
   }
 
   /**
    * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
    * by actor for the nodes included in the editing range.
    */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+  public getMaxCreatedAtMapByActor(): Record<string, TimeTicket> {
     return this.maxCreatedAtMapByActor;
   }
 }
