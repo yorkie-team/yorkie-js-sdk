@@ -41,20 +41,19 @@ interface JSONElementPair {
  */
 export class JSONRoot {
   private rootObject: JSONObject;
-  private elementPairMapByCreatedAt: Map<string, JSONElementPair>;
+  private elementPairMapByCreatedAt: Record<string, JSONElementPair>;
   private removedElementSetByCreatedAt: Set<string>;
   private textWithGarbageSetByCreatedAt: Set<string>;
 
   constructor(rootObject: JSONObject) {
     this.rootObject = rootObject;
-    this.elementPairMapByCreatedAt = new Map();
+    this.elementPairMapByCreatedAt = {};
     this.removedElementSetByCreatedAt = new Set();
     this.textWithGarbageSetByCreatedAt = new Set();
 
-    this.elementPairMapByCreatedAt.set(
-      this.rootObject.getCreatedAt().toIDString(),
-      { element: this.rootObject },
-    );
+    this.elementPairMapByCreatedAt[
+      this.rootObject.getCreatedAt().toIDString()
+    ] = { element: this.rootObject };
 
     rootObject.getDescendants(
       (elem: JSONElement, parent: JSONContainer): boolean => {
@@ -75,7 +74,7 @@ export class JSONRoot {
    * `findByCreatedAt` returns the element of given creation time.
    */
   public findByCreatedAt(createdAt: TimeTicket): JSONElement | undefined {
-    const pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+    const pair = this.elementPairMapByCreatedAt[createdAt.toIDString()];
     if (!pair) {
       return;
     }
@@ -87,7 +86,7 @@ export class JSONRoot {
    * `createPath` creates path of the given element.
    */
   public createPath(createdAt: TimeTicket): string | undefined {
-    let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+    let pair = this.elementPairMapByCreatedAt[createdAt.toIDString()];
     if (!pair) {
       return;
     }
@@ -103,9 +102,10 @@ export class JSONRoot {
       }
 
       keys.unshift(key!);
-      pair = this.elementPairMapByCreatedAt.get(
-        pair.parent.getCreatedAt().toIDString(),
-      )!;
+      pair =
+        this.elementPairMapByCreatedAt[
+          pair.parent.getCreatedAt().toIDString()
+        ]!;
     }
 
     keys.unshift('$');
@@ -116,17 +116,17 @@ export class JSONRoot {
    * `registerElement` registers the given element to hash table.
    */
   public registerElement(element: JSONElement, parent: JSONContainer): void {
-    this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
+    this.elementPairMapByCreatedAt[element.getCreatedAt().toIDString()] = {
       parent,
       element,
-    });
+    };
   }
 
   /**
    * `deregisterElement` deregister the given element from hash table.
    */
   public deregisterElement(element: JSONElement): void {
-    this.elementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString());
+    delete this.elementPairMapByCreatedAt[element.getCreatedAt().toIDString()];
     this.removedElementSetByCreatedAt.delete(
       element.getCreatedAt().toIDString(),
     );
@@ -150,7 +150,7 @@ export class JSONRoot {
    * `getElementMapSize` returns size of element pair.
    */
   public getElementMapSize(): number {
-    return this.elementPairMapByCreatedAt.size;
+    return Object.keys(this.elementPairMapByCreatedAt).length;
   }
 
   /**
@@ -168,7 +168,7 @@ export class JSONRoot {
 
     for (const createdAt of this.removedElementSetByCreatedAt) {
       count++;
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const pair = this.elementPairMapByCreatedAt[createdAt];
       if (pair.element instanceof JSONContainer) {
         pair.element.getDescendants(() => {
           count++;
@@ -178,7 +178,7 @@ export class JSONRoot {
     }
 
     for (const createdAt of this.textWithGarbageSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const pair = this.elementPairMapByCreatedAt[createdAt];
       const text = pair.element as TextElement;
       count += text.getRemovedNodesLen();
     }
@@ -200,7 +200,7 @@ export class JSONRoot {
     let count = 0;
 
     for (const createdAt of this.removedElementSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const pair = this.elementPairMapByCreatedAt[createdAt];
       if (
         pair.element.getRemovedAt() &&
         ticket.compare(pair.element.getRemovedAt()!) >= 0
@@ -211,7 +211,7 @@ export class JSONRoot {
     }
 
     for (const createdAt of this.textWithGarbageSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const pair = this.elementPairMapByCreatedAt[createdAt];
       const text = pair.element as TextElement;
 
       const removedNodeCnt = text.cleanupRemovedNodes(ticket);

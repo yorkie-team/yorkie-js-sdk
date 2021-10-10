@@ -27,7 +27,7 @@ import {
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 export interface RichTextVal {
-  attributes: { [key: string]: string };
+  attributes: Record<string, string>;
   content: string;
 }
 
@@ -96,7 +96,7 @@ export class RichTextValue {
   /**
    * `getAttributes` returns the attributes of this value.
    */
-  public getAttributes(): { [key: string]: string } {
+  public getAttributes(): Record<string, string> {
     return this.attributes.toObject();
   }
 
@@ -116,7 +116,7 @@ export class RichTextValue {
 export class RichText extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
-  private selectionMap: Map<string, Selection>;
+  private selectionMap: Record<string, Selection>;
   private remoteChangeLock: boolean;
 
   constructor(
@@ -125,7 +125,7 @@ export class RichText extends TextElement {
   ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
-    this.selectionMap = new Map();
+    this.selectionMap = {};
     this.remoteChangeLock = false;
   }
 
@@ -152,7 +152,7 @@ export class RichText extends TextElement {
     toIdx: number,
     content: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    attributes?: { [key: string]: string },
+    attributes?: Record<string, string>,
   ): RichText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
@@ -188,9 +188,9 @@ export class RichText extends TextElement {
     range: RGATreeSplitNodeRange,
     content: string,
     editedAt: TimeTicket,
-    attributes?: { [key: string]: string },
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): Map<string, TimeTicket> {
+    attributes?: Record<string, string>,
+    latestCreatedAtMapByActor?: Record<string, TimeTicket>,
+  ): Record<string, TimeTicket> {
     const value = content ? RichTextValue.create(content) : undefined;
     if (content && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -235,7 +235,7 @@ export class RichText extends TextElement {
    */
   public setStyleInternal(
     range: RGATreeSplitNodeRange,
-    attributes: { [key: string]: string },
+    attributes: Record<string, string>,
     editedAt: TimeTicket,
   ): void {
     // 01. split nodes with from and to
@@ -425,19 +425,24 @@ export class RichText extends TextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): TextChange | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
-      this.selectionMap.set(
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        this.selectionMap,
         updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
+      )
+    ) {
+      this.selectionMap[updatedAt.getActorID()!] = Selection.of(
+        range,
+        updatedAt,
       );
       return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
+    const prevSelection = this.selectionMap[updatedAt.getActorID()!];
     if (updatedAt.after(prevSelection!.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
+      this.selectionMap[updatedAt.getActorID()!] = Selection.of(
+        range,
+        updatedAt,
       );
 
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
