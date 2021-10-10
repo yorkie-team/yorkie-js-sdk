@@ -325,7 +325,9 @@ function toOperation(operation: Operation): PbOperation {
     pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
     pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
     const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
-    for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()) {
+    for (const [key, value] of Object.entries(
+      editOperation.getMaxCreatedAtMapByActor(),
+    )) {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
     }
     pbEditOperation.setContent(editOperation.getContent());
@@ -353,12 +355,16 @@ function toOperation(operation: Operation): PbOperation {
     pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
     const pbCreatedAtMapByActor =
       pbRichEditOperation.getCreatedAtMapByActorMap();
-    for (const [key, value] of richEditOperation.getMaxCreatedAtMapByActor()) {
+    for (const [key, value] of Object.entries(
+      richEditOperation.getMaxCreatedAtMapByActor(),
+    )) {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
     }
     pbRichEditOperation.setContent(richEditOperation.getContent());
     const pbAttributes = pbRichEditOperation.getAttributesMap();
-    for (const [key, value] of richEditOperation.getAttributes()) {
+    for (const [key, value] of Object.entries(
+      richEditOperation.getAttributes(),
+    )) {
       pbAttributes.set(key, value);
     }
     pbRichEditOperation.setExecutedAt(
@@ -374,7 +380,7 @@ function toOperation(operation: Operation): PbOperation {
     pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
     pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
     const pbAttributes = pbStyleOperation.getAttributesMap();
-    for (const [key, value] of styleOperation.getAttributes()) {
+    for (const [key, value] of Object.entries(styleOperation.getAttributes())) {
       pbAttributes.set(key, value);
     }
     pbStyleOperation.setExecutedAt(
@@ -829,9 +835,9 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
       );
     } else if (pbOperation.hasEdit()) {
       const pbEditOperation = pbOperation.getEdit();
-      const createdAtMapByActor = new Map();
+      const createdAtMapByActor: Record<string, TimeTicket> = {};
       pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
+        createdAtMapByActor[key] = fromTimeTicket(value)!;
       });
       operation = EditOperation.create(
         fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
@@ -851,13 +857,13 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
       );
     } else if (pbOperation.hasRichEdit()) {
       const pbEditOperation = pbOperation.getRichEdit();
-      const createdAtMapByActor = new Map();
+      const createdAtMapByActor: Record<string, TimeTicket> = {};
       pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
+        createdAtMapByActor[key] = fromTimeTicket(value)!;
       });
-      const attributes = new Map();
+      const attributes: Record<string, string> = {};
       pbEditOperation!.getAttributesMap().forEach((value, key) => {
-        attributes.set(key, value);
+        attributes[key] = value;
       });
       operation = RichEditOperation.create(
         fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
@@ -870,9 +876,9 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
       );
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
-      const attributes = new Map();
+      const attributes: Record<string, string> = {};
       pbStyleOperation!.getAttributesMap().forEach((value, key) => {
-        attributes.set(key, value);
+        attributes[key] = value;
       });
       operation = StyleOperation.create(
         fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
