@@ -64,12 +64,12 @@ export class RHTNode {
  * For more details about RHT: @see http://csl.skku.edu/papers/jpdc11.pdf
  */
 export class RHT {
-  private nodeMapByKey: Map<string, RHTNode>;
-  private nodeMapByCreatedAt: Map<string, RHTNode>;
+  private nodeMapByKey: Record<string, RHTNode>;
+  private nodeMapByCreatedAt: Record<string, RHTNode>;
 
   constructor() {
-    this.nodeMapByKey = new Map();
-    this.nodeMapByCreatedAt = new Map();
+    this.nodeMapByKey = {};
+    this.nodeMapByCreatedAt = {};
   }
 
   /**
@@ -83,12 +83,12 @@ export class RHT {
    * `set` sets the value of the given key.
    */
   public set(key: string, value: string, executedAt: TimeTicket): void {
-    const prev = this.nodeMapByKey.get(key);
+    const prev = this.nodeMapByKey[key];
 
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
       const node = RHTNode.of(key, value, executedAt);
-      this.nodeMapByKey.set(key, node);
-      this.nodeMapByCreatedAt.set(executedAt.toIDString(), node);
+      this.nodeMapByKey[key] = node;
+      this.nodeMapByCreatedAt[executedAt.toIDString()] = node;
     }
   }
 
@@ -96,18 +96,18 @@ export class RHT {
    * `has` returns whether the element exists of the given key or not.
    */
   public has(key: string): boolean {
-    return this.nodeMapByKey.has(key);
+    return Object.prototype.hasOwnProperty.call(this.nodeMapByKey, key);
   }
 
   /**
    * `get` returns the value of the given key.
    */
   public get(key: string): string | undefined {
-    if (!this.nodeMapByKey.has(key)) {
+    if (!Object.prototype.hasOwnProperty.call(this.nodeMapByKey, key)) {
       return;
     }
 
-    return this.nodeMapByKey.get(key)!.getValue();
+    return this.nodeMapByKey[key].getValue();
   }
 
   /**
@@ -115,7 +115,7 @@ export class RHT {
    */
   public deepcopy(): RHT {
     const rht = new RHT();
-    for (const [, node] of this.nodeMapByKey) {
+    for (const [, node] of Object.entries(this.nodeMapByKey)) {
       rht.set(node.getKey(), node.getValue(), node.getUpdatedAt());
     }
     return rht;
@@ -126,7 +126,7 @@ export class RHT {
    */
   public toJSON(): string {
     const items = [];
-    for (const [key, node] of this.nodeMapByKey) {
+    for (const [key, node] of Object.entries(this.nodeMapByKey)) {
       items.push(`"${key}":"${node.getValue()}"`);
     }
     return `{${items.join(',')}}`;
@@ -137,7 +137,7 @@ export class RHT {
    */
   public toObject(): { [key: string]: string } {
     const obj = {} as { [key: string]: string };
-    for (const [key, node] of this.nodeMapByKey) {
+    for (const [key, node] of Object.entries(this.nodeMapByKey)) {
       obj[key as string] = node.getValue();
     }
 
@@ -146,7 +146,7 @@ export class RHT {
 
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
-    for (const [, node] of this.nodeMapByKey) {
+    for (const [, node] of Object.entries(this.nodeMapByKey)) {
       yield node as RHTNode;
     }
   }
