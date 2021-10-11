@@ -17,6 +17,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const pkg = require('./package.json');
+const NodePolyfillPlugin = require("node-polyfill-webpack-plugin")
 
 const date = new Date().toISOString().replace(/:\d+\.\d+Z$/, 'Z');
 const banner = `
@@ -70,5 +71,6 @@ module.exports = {
     new webpack.BannerPlugin({
       banner,
     }),
+    new NodePolyfillPlugin(),
   ],
 };
