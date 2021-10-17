@@ -166,14 +166,6 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * `toJS` return the javascript object of this text.
-   * This toJS is the same function as getValue
-   */
-  public toJS(): any {
-    return this.getValue();
-  }
-
-  /**
    * `toSortedJSON` returns the sorted JSON encoding of this text.
    */
   public toSortedJSON(): string {

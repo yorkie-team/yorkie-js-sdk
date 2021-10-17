@@ -107,14 +107,6 @@ export class JSONPrimitive extends JSONElement {
   }
 
   /**
-   * `toJS` return the javascript object of this value.
-   * This toJS is the same function as getValue
-   */
-  public toJS(): PrimitiveValue {
-    return this.getValue();
-  }
-
-  /**
    * `toSortedJSON` returns the sorted JSON encoding of the value.
    */
   public toSortedJSON(): string {

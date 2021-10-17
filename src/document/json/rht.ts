@@ -133,13 +133,6 @@ export class RHT {
   }
 
   /**
-   * `toJS` return the javascript object of this hashtable.
-   */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
-  }
-
-  /**
    * `toObject` returns the object of this hashtable.
    */
   public toObject(): { [key: string]: string } {

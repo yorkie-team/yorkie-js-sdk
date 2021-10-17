@@ -96,11 +96,6 @@ describe('RHT', function () {
     for (const [key, value] of Object.entries(testData)) {
       rht.set(key, value, InitialTimeTicket);
     }
-
-    const jsonObj = rht.toJS();
-    assert.equal(jsonObj.testKey1, testData.testKey1);
-    assert.equal(jsonObj.testKey2, testData.testKey2);
-    assert.equal(jsonObj.testKey3, testData.testKey3);
   });
 
   it('should handle toObject', function () {

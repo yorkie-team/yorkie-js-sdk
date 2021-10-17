@@ -90,14 +90,6 @@ export class Counter extends JSONElement {
   }
 
   /**
-   * `toJS` return the javascript object of this value.
-   * This toJS is the same function as getValue
-   */
-  public toJS(): CounterValue {
-    return this.value;
-  }
-
-  /**
    * `toSortedJSON` returns the sorted JSON encoding of the value.
    */
   public toSortedJSON(): string {

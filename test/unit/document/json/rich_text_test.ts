@@ -11,10 +11,6 @@ describe('RichText', function () {
 
     richText.editInternal(range, 'test-value', InitialTimeTicket);
 
-    const nodeList = richText.toJS();
-    assert.equal(nodeList[0].getContent(), '\n');
-    assert.equal(nodeList[1].getContent(), 'test-value');
-
     const value = richText.getValue();
     assert.equal(value[0].content, '\n');
     assert.equal(value[1].content, 'test-value');

@@ -26,7 +26,6 @@ describe('ROOT', function () {
     root.getObject().set('k1', k1);
     root.registerElement(k1, root.getObject());
     assert.equal(root.toJSON(), '{"k1":"k1"}');
-    assert.equal(root.toJS()?.['k1'], 'k1');
     assert.equal(root.getElementMapSize(), 2);
     assert.equal(root.findByCreatedAt(k1.getCreatedAt()), k1);
     assert.equal(root.createPath(k1.getCreatedAt()), '$.k1');
@@ -37,7 +36,6 @@ describe('ROOT', function () {
     root.deregisterElement(k1);
     assert.equal(root.getElementMapSize(), 1);
     assert.equal(root.toJSON(), '{}');
-    assert.isUndefined(root.toJS()?.['k1']);
     assert.isUndefined(root.findByCreatedAt(k1.getCreatedAt()));
 
     // set '$.k2'
