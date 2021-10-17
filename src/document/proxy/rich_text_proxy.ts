@@ -48,7 +48,7 @@ export class RichTextProxy {
             fromIdx: number,
             toIdx: number,
             content: string,
-            attributes?: Record<string, string>,
+            attributes?: { [key: string]: string },
           ): boolean => {
             this.edit(target, fromIdx, toIdx, content, attributes);
             return true;
@@ -58,7 +58,7 @@ export class RichTextProxy {
           return (
             fromIdx: number,
             toIdx: number,
-            attributes: Record<string, string>,
+            attributes: { [key: string]: string },
           ): boolean => {
             this.setStyle(target, fromIdx, toIdx, attributes);
             return true;
@@ -107,7 +107,7 @@ export class RichTextProxy {
     fromIdx: number,
     toIdx: number,
     content: string,
-    attributes?: Record<string, string>,
+    attributes?: { [key: string]: string },
   ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
@@ -135,7 +135,7 @@ export class RichTextProxy {
         range[1],
         maxCreatedAtMapByActor,
         content,
-        attributes ? { ...attributes } : {},
+        attributes ? new Map(Object.entries(attributes)) : new Map(),
         ticket,
       ),
     );
@@ -152,7 +152,7 @@ export class RichTextProxy {
     target: RichText,
     fromIdx: number,
     toIdx: number,
-    attributes: Record<string, string>,
+    attributes: { [key: string]: string },
   ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
@@ -175,7 +175,7 @@ export class RichTextProxy {
         target.getCreatedAt(),
         range[0],
         range[1],
-        { ...attributes },
+        new Map(Object.entries(attributes)),
         ticket,
       ),
     );
