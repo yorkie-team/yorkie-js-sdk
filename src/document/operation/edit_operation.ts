@@ -27,14 +27,14 @@ import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
-  private maxCreatedAtMapByActor: Record<string, TimeTicket>;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private content: string;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    maxCreatedAtMapByActor: Record<string, TimeTicket>,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     executedAt: TimeTicket,
   ) {
@@ -52,7 +52,7 @@ export class EditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    maxCreatedAtMapByActor: Record<string, TimeTicket>,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     executedAt: TimeTicket,
   ): EditOperation {
@@ -134,7 +134,7 @@ export class EditOperation extends Operation {
    * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
    * by actor for the nodes included in the editing range.
    */
-  public getMaxCreatedAtMapByActor(): Record<string, TimeTicket> {
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
     return this.maxCreatedAtMapByActor;
   }
 }
