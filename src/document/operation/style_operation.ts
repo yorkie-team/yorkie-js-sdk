@@ -27,13 +27,13 @@ import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
-  private attributes: Record<string, string>;
+  private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    attributes: Record<string, string>,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -49,7 +49,7 @@ export class StyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitNodePos,
     toPos: RGATreeSplitNodePos,
-    attributes: Record<string, string>,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
@@ -70,7 +70,7 @@ export class StyleOperation extends Operation {
       const text = parentObject as RichText;
       text.setStyleInternal(
         [this.fromPos, this.toPos],
-        this.attributes ? { ...this.attributes } : {},
+        this.attributes ? Object.fromEntries(this.attributes) : {},
         this.getExecutedAt(),
       );
     } else {
@@ -117,7 +117,7 @@ export class StyleOperation extends Operation {
   /**
    * `getAttributes` returns the attributes of this operation.
    */
-  public getAttributes(): Record<string, string> {
+  public getAttributes(): Map<string, string> {
     return this.attributes;
   }
 }
