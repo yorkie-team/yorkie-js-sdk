@@ -141,9 +141,7 @@ export interface RemoteChangeEvent extends BaseDocEvent {
  * Indexable key, value
  * @public
  */
-export type Indexable = {
-  [index: string]: any;
-};
+export type Indexable = Record<string, any>;
 
 /**
  * `DocumentReplica` is a CRDT-based data type. We can representing the model

@@ -27,7 +27,7 @@ import {
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 export interface RichTextVal {
-  attributes: { [key: string]: string };
+  attributes: Record<string, string>;
   content: string;
 }
 
@@ -96,7 +96,7 @@ export class RichTextValue {
   /**
    * `getAttributes` returns the attributes of this value.
    */
-  public getAttributes(): { [key: string]: string } {
+  public getAttributes(): Record<string, string> {
     return this.attributes.toObject();
   }
 
@@ -152,7 +152,7 @@ export class RichText extends TextElement {
     toIdx: number,
     content: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    attributes?: { [key: string]: string },
+    attributes?: Record<string, string>,
   ): RichText {
     logger.fatal(
       `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
@@ -188,7 +188,7 @@ export class RichText extends TextElement {
     range: RGATreeSplitNodeRange,
     content: string,
     editedAt: TimeTicket,
-    attributes?: { [key: string]: string },
+    attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
     const value = content ? RichTextValue.create(content) : undefined;
@@ -235,7 +235,7 @@ export class RichText extends TextElement {
    */
   public setStyleInternal(
     range: RGATreeSplitNodeRange,
-    attributes: { [key: string]: string },
+    attributes: Record<string, string>,
     editedAt: TimeTicket,
   ): void {
     // 01. split nodes with from and to
