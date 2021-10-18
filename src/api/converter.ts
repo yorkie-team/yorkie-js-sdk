@@ -82,7 +82,7 @@ import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
  * `fromMetadata` converts the given Protobuf format to model format.
  */
 function fromMetadata<M>(pbMetadata: PbMetadata): MetadataInfo<M> {
-  const data: { [key: string]: string } = {};
+  const data: Record<string, string> = {};
   pbMetadata.getDataMap().forEach((value: string, key: string) => {
     data[key] = value;
   });

@@ -48,7 +48,7 @@ export interface TextChange {
   from: number;
   to: number;
   content?: string;
-  attributes?: { [key: string]: string };
+  attributes?: Record<string, string>;
 }
 
 interface RGATreeSplitValue {
