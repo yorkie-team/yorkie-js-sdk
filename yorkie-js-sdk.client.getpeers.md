@@ -9,9 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-getPeers(key: string): {
-        [key: string]: M;
-    };
+getPeers(key: string): Record<string, M>;
 ```
 
 ## Parameters
@@ -22,5 +20,5 @@ getPeers(key: string): {
 
 <b>Returns:</b>
 
-{ \[key: string\]: M; }
+Record&lt;string, M&gt;
 

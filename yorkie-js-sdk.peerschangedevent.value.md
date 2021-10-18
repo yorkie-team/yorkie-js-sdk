@@ -9,9 +9,5 @@
 <b>Signature:</b>
 
 ```typescript
-value: {
-        [docKey: string]: {
-            [clientKey: string]: MetadataInfo<M>;
-        };
-    };
+value: Record<string, Record<string, MetadataInfo<M>>>;
 ```

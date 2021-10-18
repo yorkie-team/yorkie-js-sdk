@@ -9,7 +9,5 @@ Indexable key, value
 <b>Signature:</b>
 
 ```typescript
-export declare type Indexable = {
-    [index: string]: any;
-};
+export declare type Indexable = Record<string, any>;
 ```
