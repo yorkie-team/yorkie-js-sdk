@@ -135,10 +135,10 @@ export class RHT {
   /**
    * `toObject` returns the object of this hashtable.
    */
-  public toObject(): { [key: string]: string } {
-    const obj = {} as { [key: string]: string };
+  public toObject(): Record<string, string> {
+    const obj: Record<string, string> = {};
     for (const [key, node] of this.nodeMapByKey) {
-      obj[key as string] = node.getValue();
+      obj[key] = node.getValue();
     }
 
     return obj;
