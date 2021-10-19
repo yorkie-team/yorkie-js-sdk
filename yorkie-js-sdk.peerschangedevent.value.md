@@ -9,5 +9,5 @@
 <b>Signature:</b>
 
 ```typescript
-value: Record<string, Record<string, MetadataInfo<M>>>;
+value: Record<string, Record<string, M>>;
 ```
