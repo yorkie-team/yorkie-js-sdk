@@ -7,6 +7,15 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.7] - 2021-10-19
+
+### Added
+- Improve Client's metadata to be updatable: #240
+
+### Fixed
+- Fix reduce array size when deleting the same position: #229
+- Handle special characters in keys of the path in change events: #247
+
 ## [0.1.6] - 2021-07-24
 
 ### Added
