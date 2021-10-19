@@ -187,7 +187,7 @@ export interface PeersChangedEvent<M> extends BaseClientEvent {
   /**
    * `PeersChangedEvent` value
    */
-  value: Record<string, Record<string, MetadataInfo<M>>>;
+  value: Record<string, Record<string, M>>;
 }
 
 /**
@@ -708,13 +708,13 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     resp: WatchDocumentsResponse,
   ) {
     const getPeers = (
-      peersMap: Record<string, Record<string, MetadataInfo<M>>>,
+      peersMap: Record<string, Record<string, M>>,
       key: DocumentKey,
     ) => {
       const attachment = this.attachmentMap.get(key.toIDString());
-      const peers: Record<string, MetadataInfo<M>> = {};
+      const peers: Record<string, M> = {};
       for (const [key, value] of attachment!.peerClients!) {
-        peers[key] = value;
+        peers[key] = value.data;
       }
       peersMap[key.toIDString()] = peers;
       return peersMap;
