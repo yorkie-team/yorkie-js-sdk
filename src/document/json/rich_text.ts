@@ -350,21 +350,6 @@ export class RichText extends TextElement {
   }
 
   /**
-   * `toJS` return the javascript object of this rich text.
-   */
-  public toJS(): RichTextValue[] {
-    const json: RichTextValue[] = [];
-
-    for (const node of this.rgaTreeSplit) {
-      if (!node.isRemoved()) {
-        json.push(node.getValue());
-      }
-    }
-
-    return json;
-  }
-
-  /**
    * `toSortedJSON` returns the sorted JSON encoding of this rich text.
    */
   public toSortedJSON(): string {
