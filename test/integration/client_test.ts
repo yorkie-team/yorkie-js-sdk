@@ -19,16 +19,16 @@ import {
 
 describe('Client', function () {
   it('Can be activated, deactivated', async function () {
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const clientKey = `${this.test!.title}-${new Date().getTime()}`;
     const clientWithKey = yorkie.createClient(testRPCAddr, {
-      key: docKey,
+      key: clientKey,
       syncLoopDuration: 50,
       reconnectStreamDelay: 1000,
     });
     assert.isFalse(clientWithKey.isActive());
     await clientWithKey.activate();
     assert.isTrue(clientWithKey.isActive());
-    assert.equal(docKey, clientWithKey.getKey());
+    assert.equal(clientKey, clientWithKey.getKey());
     await clientWithKey.deactivate();
     assert.isFalse(clientWithKey.isActive());
 
