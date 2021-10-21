@@ -7,6 +7,11 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.8] - 2021-10-21
+
+### Fixed
+- Hide clock from value of peers-changed event
+
 ## [0.1.7] - 2021-10-19
 
 ### Added
