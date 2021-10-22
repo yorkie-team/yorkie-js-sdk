@@ -34,12 +34,10 @@ describe('Counter', function () {
     double.increase(doubleOperand);
     double.increase(longOperand);
     assert.equal(double.getValue(), 120);
-    assert.equal(double.toJSON(), '120');
 
     long.increase(doubleOperand);
     long.increase(longOperand);
     assert.equal((long.getValue() as Long).toNumber(), 210);
-    assert.equal(long.toJSON(), '210');
 
     // error process test
     function errorTest(counter: Counter, operand: JSONPrimitive): void {

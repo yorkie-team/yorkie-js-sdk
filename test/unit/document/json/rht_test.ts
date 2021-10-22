@@ -85,19 +85,6 @@ describe('RHT', function () {
     assert.equal(jsonObj.testKey3, testData.testKey3);
   });
 
-  it('should handle toJS', function () {
-    const testData: Indexable = {
-      testKey1: 'testValue1',
-      testKey2: 'testValue2',
-      testKey3: 'testValue3',
-    };
-
-    const rht = RHT.create();
-    for (const [key, value] of Object.entries(testData)) {
-      rht.set(key, value, InitialTimeTicket);
-    }
-  });
-
   it('should handle toObject', function () {
     const testData: Indexable = {
       testKey1: 'testValue1',
