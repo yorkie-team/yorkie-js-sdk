@@ -2,7 +2,7 @@
 // Generated on Sun Dec 01 2019 19:51:02 GMT+0900
 
 const path = require('path');
-const webpackConfig = require('./webpack.dev.config');
+const webpackConfig = require('./webpack.karma.config');
 
 module.exports = function(config) {
   config.set({
@@ -13,7 +13,7 @@ module.exports = function(config) {
 
     // frameworks to use
     // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ['source-map-support', 'mocha'],
+    frameworks: ['mocha'],
 
 
     client: {
@@ -39,17 +39,12 @@ module.exports = function(config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
-      'test/**/*.ts': ['webpack', 'sourcemap'],
-      'test/**/*.js': ['webpack', 'sourcemap']
+      'test/**/*.ts': ['webpack'],
+      'test/**/*.js': ['webpack'],
     },
 
 
-    webpack: {
-      module: webpackConfig.module,
-      resolve: webpackConfig.resolve,
-      mode: webpackConfig.mode,
-      devtool: 'inline-source-map',
-    },
+    webpack: webpackConfig,
 
 
     // test results reporter to use
