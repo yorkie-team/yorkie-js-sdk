@@ -149,6 +149,13 @@ export class JSONObject extends JSONContainer {
   }
 
   /**
+   * `toJS` return the javascript object of this object.
+   */
+  public toJS(): any {
+    return JSON.parse(this.toJSON());
+  }
+
+  /**
    * `getKeys` returns array of this object.
    */
   public getKeys(): Array<string> {

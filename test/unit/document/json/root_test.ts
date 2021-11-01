@@ -43,6 +43,8 @@ describe('ROOT', function () {
     assert.equal(root.getElementMapSize(), 2);
     assert.equal(root.findByCreatedAt(k2.getCreatedAt()), k2);
     assert.equal(root.createPath(k2.getCreatedAt()), '$.k2');
+    assert.equal(k2.toJSON(), '{}');
+    assert.equal(Object.keys(k2.toJS()).length, 0);
 
     // set '$.k2.1'
     const k2_1 = JSONArray.create(cc.issueTimeTicket());
@@ -81,11 +83,20 @@ describe('ROOT', function () {
     ArrayProxy.pushInternal(change, arr, 2);
     assert.equal('[0,1,2]', arr.toJSON());
 
+    const arrJs1 = arr.toJS();
+    assert.equal(0, arrJs1?.[0]);
+    assert.equal(1, arrJs1?.[1]);
+    assert.equal(2, arrJs1?.[2]);
+
     const targetElement = arr.getByIndex(1)!;
     arr.delete(targetElement.getCreatedAt(), change.issueTimeTicket());
     root.registerRemovedElement(targetElement);
     assert.equal('[0,2]', arr.toJSON());
     assert.equal(1, root.getGarbageLen());
+
+    const arrJs2 = arr.toJS();
+    assert.equal(0, arrJs2?.[0]);
+    assert.equal(2, arrJs2?.[1]);
 
     assert.equal(1, root.garbageCollect(MaxTimeTicket));
     assert.equal(0, root.getGarbageLen());
