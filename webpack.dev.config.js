@@ -16,6 +16,7 @@
 
 const path = require('path');
 const webpack = require('webpack');
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
 module.exports = {
   entry: './src/yorkie',
@@ -51,10 +52,10 @@ module.exports = {
     libraryTarget: 'umd',
     libraryExport: 'default',
     filename: 'yorkie.js',
-    path: path.resolve(__dirname, './examples'),
+    path: path.resolve(__dirname, './examples/dist'),
   },
   devServer: {
-    contentBase: path.join(__dirname, './examples'),
+    static: path.join(__dirname, './examples'),
     compress: true,
     hot: true,
     host: '0.0.0.0',
@@ -66,4 +67,7 @@ module.exports = {
       },
     },
   },
+  plugins: [
+    new NodePolyfillPlugin(),
+  ],
 };
