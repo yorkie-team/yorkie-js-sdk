@@ -200,7 +200,7 @@ export class SplayTree<V> {
     }
     if (pos > node.getLength()) {
       logger.fatal(
-        `out of bound of text index: pos: ${pos} > node.length: ${node.getLength()}`,
+        `out of index range: pos: ${pos} > node.length: ${node.getLength()}`,
       );
     }
     return [node, pos];
