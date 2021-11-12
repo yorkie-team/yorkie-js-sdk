@@ -147,10 +147,17 @@ export class JSONRoot {
   }
 
   /**
-   * `getElementMapSize` returns size of element pair.
+   * `getElementMapSize` returns the size of element map.
    */
   public getElementMapSize(): number {
     return this.elementPairMapByCreatedAt.size;
+  }
+
+  /**
+   * `getRemovedElementSetSize()` returns the size of removed element set.
+   */
+  public getRemovedElementSetSize(): number {
+    return this.removedElementSetByCreatedAt.size;
   }
 
   /**

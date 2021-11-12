@@ -447,8 +447,13 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   }
 
   private applyChanges(changes: Array<Change>): void {
-    logger.debug(`trying to apply ${changes.length} remote changes`);
-
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `trying to apply ${changes.length} remote changes.` +
+          `elements:${this.root.getElementMapSize()}, ` +
+          `removeds:${this.root.getRemovedElementSetSize()}`
+      );
+    }
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(
         changes
@@ -484,7 +489,13 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
       });
     }
 
-    logger.debug(`after appling ${changes.length} remote changes`);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `after appling ${changes.length} remote changes.` +
+          `elements:${this.root.getElementMapSize()}, ` +
+          ` removeds:${this.root.getRemovedElementSetSize()}`
+      );
+    }
   }
 
   private createPaths(change: Change): Array<string> {
