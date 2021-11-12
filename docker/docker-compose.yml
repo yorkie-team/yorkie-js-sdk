@@ -28,10 +28,12 @@ services:
       'agent',
       '--mongo-connection-uri',
       'mongodb://mongo:27017',
+      '--enable-pprof',
     ]
     restart: always
     ports:
       - '11101:11101'
+      - '11102:11102'
     depends_on:
       - mongo
   mongo:
