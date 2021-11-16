@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.10] - 2021-11-16
+
+### Added
+- Add Array.toJS() and Object.toJS(): #237
+
+### Changed
+- Print log message more accurately: #5ce95c6, #de05448
+
+### Fixed
+- Fix quill example page: #260
+
 ## [0.1.8] - 2021-10-21
 
 ### Fixed
