@@ -451,7 +451,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
           `elements:${this.root.getElementMapSize()}, ` +
-          `removeds:${this.root.getRemovedElementSetSize()}`
+          `removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -493,7 +493,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
       logger.debug(
         `after appling ${changes.length} remote changes.` +
           `elements:${this.root.getElementMapSize()}, ` +
-          ` removeds:${this.root.getRemovedElementSetSize()}`
+          ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
   }
