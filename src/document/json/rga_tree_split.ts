@@ -179,15 +179,14 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   * `compare` compares the offset between RGATreeSplitNodePos.
+   * `equals` returns whether given pos equal to this pos or not.
    */
-  public compare(other: RGATreeSplitNodePos): number {
-    if (this.relativeOffset > other.relativeOffset) {
-      return 1;
-    } else if (this.relativeOffset < other.relativeOffset) {
-      return -1;
+  public equals(other: RGATreeSplitNodePos): boolean {
+    if (!this.id.equals(other.id)) {
+      return false;
     }
-    return 0;
+
+    return this.relativeOffset === other.relativeOffset;
   }
 }
 

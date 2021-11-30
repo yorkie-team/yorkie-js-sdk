@@ -79,7 +79,7 @@ export class EditOperation extends Operation {
         this.getExecutedAt(),
         this.maxCreatedAtMapByActor,
       );
-      if (this.fromPos.compare(this.toPos) !== 0) {
+      if (!this.fromPos.equals(this.toPos)) {
         root.registerTextWithGarbage(text);
       }
     } else {
