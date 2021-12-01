@@ -400,13 +400,12 @@ export class RichText extends TextElement {
   }
 
   /**
-   * `cleanupRemovedNodes` cleans up nodes that have been removed.
-   * The cleaned nodes are subject to garbage collector collection.
+   * `purgeTextNodesWithGarbage` physically purges nodes that have been removed.
    *
    * @internal
    */
-  public cleanupRemovedNodes(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.cleanupRemovedNodes(ticket);
+  public purgeTextNodesWithGarbage(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.purgeTextNodesWithGarbage(ticket);
   }
 
   /**
