@@ -114,7 +114,7 @@ export class TextProxy {
       ),
     );
 
-    if (range[0].compare(range[1]) !== 0) {
+    if (!range[0].equals(range[1])) {
       this.context.registerRemovedNodeTextElement(target);
     }
   }

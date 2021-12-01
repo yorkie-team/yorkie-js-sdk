@@ -131,5 +131,5 @@ export abstract class JSONContainer extends JSONElement {
  */
 export abstract class TextElement extends JSONElement {
   abstract getRemovedNodesLen(): number;
-  abstract cleanupRemovedNodes(ticket: TimeTicket): number;
+  abstract purgeTextNodesWithGarbage(ticket: TimeTicket): number;
 }

@@ -86,7 +86,7 @@ export class RichEditOperation extends Operation {
         Object.fromEntries(this.attributes),
         this.maxCreatedAtMapByActor,
       );
-      if (this.fromPos.compare(this.toPos) !== 0) {
+      if (!this.fromPos.equals(this.toPos)) {
         root.registerTextWithGarbage(text);
       }
     } else {

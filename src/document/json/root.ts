@@ -221,7 +221,7 @@ export class JSONRoot {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       const text = pair.element as TextElement;
 
-      const removedNodeCnt = text.cleanupRemovedNodes(ticket);
+      const removedNodeCnt = text.purgeTextNodesWithGarbage(ticket);
       if (removedNodeCnt > 0) {
         this.textWithGarbageSetByCreatedAt.delete(
           text.getCreatedAt().toIDString(),

@@ -179,15 +179,14 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   * `compare` compares the offset between RGATreeSplitNodePos.
+   * `equals` returns whether given pos equal to this pos or not.
    */
-  public compare(other: RGATreeSplitNodePos): number {
-    if (this.relativeOffset > other.relativeOffset) {
-      return 1;
-    } else if (this.relativeOffset < other.relativeOffset) {
-      return -1;
+  public equals(other: RGATreeSplitNodePos): boolean {
+    if (!this.id.equals(other.id)) {
+      return false;
     }
-    return 0;
+
+    return this.relativeOffset === other.relativeOffset;
   }
 }
 
@@ -847,10 +846,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `cleanupRemovedNodes` cleans up nodes that have been removed.
-   * The cleaned nodes are subject to garbage collector collection.
+   * `purgeTextNodesWithGarbage` physically purges nodes that have been removed.
    */
-  public cleanupRemovedNodes(ticket: TimeTicket): number {
+  public purgeTextNodesWithGarbage(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
       if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
