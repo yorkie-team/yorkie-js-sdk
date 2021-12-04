@@ -7,6 +7,11 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.1.11] - 2021-12-04
+
+### Fixed
+- Fix a bug where text nodes with tombstones were not counted: #263
+
 ## [0.1.10] - 2021-11-16
 
 ### Added
