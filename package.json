@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -42,6 +42,7 @@
     "@types/yargs": "^17.0.0",
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
+    "@webpack-cli/serve": "^1.6.0",
     "api-documenter-me": "^0.1.1",
     "api-extractor-me": "^0.1.2",
     "chai": "^4.2.0",
