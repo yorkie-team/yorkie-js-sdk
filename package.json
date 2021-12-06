@@ -21,6 +21,10 @@
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build"
   },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.1.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yorkie-team/yorkie-js-sdk.git"
