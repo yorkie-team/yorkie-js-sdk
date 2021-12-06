@@ -26,6 +26,8 @@ For more details: https://grpc.io/blog/state-of-grpc-web/
 
 ### Building yorkie-js-sdk
 
+For building yorkie-js-sdk, You'll first need Node.js installed(Node.js version 16+ and npm version 7.10+ are required).
+
 ```bash
 # install packages
 npm install
