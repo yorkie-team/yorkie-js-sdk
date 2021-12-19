@@ -7,6 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2021-12-19
+
+2nd Year Release
+
+### Added
+
+- Garbage collection for Text and RichText
+- Improve Client's metadata to be updatable
+- Improved Peer Awareness
+- Supporting TLS and Auth webhook
+
+### Changed
+
+### Removed
+
+### Deprecated
+
 ## [0.1.11] - 2021-12-04
 
 ### Fixed
