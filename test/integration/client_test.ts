@@ -230,10 +230,7 @@ describe('Client', function () {
     c2.updateMetadata('name', 'c2+');
     await waitFor(ClientEventType.PeersChanged, emitter1);
 
-    assert.equal(
-      JSON.stringify(c1.getPeers(d1.getKey())),
-      JSON.stringify(c2.getPeers(d2.getKey())),
-    );
+    assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
 
     unsub1();
     unsub2();

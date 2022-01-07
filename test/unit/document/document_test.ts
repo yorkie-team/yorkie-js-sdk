@@ -324,9 +324,6 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      root[''] = {};
-      paths.push('$.');
-
       root.arr = [];
       paths.push('$.arr');
       root.arr.push(0);
@@ -355,9 +352,6 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      root[''] = {};
-      paths.push('$.');
-
       const counter = root.createCounter('cnt', 0);
       paths.push('$.cnt');
       counter.increase(1);
@@ -380,9 +374,6 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      root[''] = {};
-      paths.push('$.');
-
       const text = root.createText('text');
       paths.push('$.text');
       text.edit(0, 0, 'hello world');
@@ -407,9 +398,6 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      root[''] = {};
-      paths.push('$.');
-
       const rich = root.createRichText('rich');
       paths.push('$.rich');
       rich.edit(0, 0, 'hello world');
