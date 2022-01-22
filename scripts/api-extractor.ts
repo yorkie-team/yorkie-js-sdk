@@ -25,7 +25,7 @@ const prunedDTSFilePath = path.join(__dirname, '../dist/yorkie-js-sdk.d.ts');
 
 const globalApiExtractorJsonPath: string = path.join(
   __dirname,
-  '../api-extractor.json',
+  '../config/api-extractor.json',
 );
 
 const overridesPath = path.resolve(globalApiExtractorJsonPath);

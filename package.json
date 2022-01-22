@@ -8,16 +8,16 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config webpack.config.js && npm run api-report && npm run prune",
-    "api-report": "api-extractor run --local --verbose",
+    "build": "webpack --config ./config/webpack/webpack.config.js && npm run api-report && npm run prune",
+    "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "build:proto": "protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:. ./src/api/yorkie.proto",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "predoc": "ts-node-script ./scripts/api-extractor.ts",
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
-    "start": "webpack serve --config webpack.dev.config.js",
-    "test": "karma start karma.conf.js --single-run",
-    "test:yorkie.dev": "karma start karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
-    "test:watch": "karma start karma.conf.js",
+    "start": "webpack serve --config config/webpack/webpack.dev.config.js",
+    "test": "karma start ./config/karma.conf.js --single-run",
+    "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
+    "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build"
   },
