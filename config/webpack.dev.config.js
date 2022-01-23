@@ -29,7 +29,7 @@ module.exports = {
         use: {
           loader: 'ts-loader',
           options: {
-            configFile: path.resolve(__dirname, '../tsconfig.json'),
+            configFile: path.resolve(__dirname, './tsconfig.json'),
           },
         },
         exclude: /node_modules/,
@@ -47,8 +47,8 @@ module.exports = {
   },
   resolve: {
     alias: {
-      '@yorkie-js-sdk/src': path.resolve(__dirname, 'src/'),
-      '@yorkie-js-sdk/test': path.resolve(__dirname, 'test/'),
+      '@yorkie-js-sdk/src': path.resolve(__dirname, '../src/'),
+      '@yorkie-js-sdk/test': path.resolve(__dirname, '../test/'),
     },
     extensions: ['.ts', '.js'],
   },
@@ -57,10 +57,10 @@ module.exports = {
     libraryTarget: 'umd',
     libraryExport: 'default',
     filename: 'yorkie.js',
-    path: path.resolve(__dirname, '../../examples/dist'),
+    path: path.resolve(__dirname, '../examples/dist'),
   },
   devServer: {
-    static: path.join(__dirname, '../../examples'),
+    static: path.join(__dirname, '../examples'),
     compress: true,
     hot: true,
     host: '0.0.0.0',

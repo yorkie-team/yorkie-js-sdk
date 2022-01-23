@@ -2,7 +2,7 @@
 // Generated on Sun Dec 01 2019 19:51:02 GMT+0900
 
 const path = require('path');
-const webpackConfig = require('./webpack/webpack.karma.config');
+const webpackConfig = require('./webpack.karma.config');
 
 module.exports = function(config) {
   config.set({
