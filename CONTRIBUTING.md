@@ -5,7 +5,7 @@ Yorkie is Apache 2.0 licensed and accepts contributions via GitHub pull requests
 ### Contacts
 
 If you have any questions along the way, please don’t hesitate to ask us
-- Slack: [Dev Yorkie](https://dev-yorkie.slack.com/): You can sign up for our [Slack here](https://communityinviter.com/apps/dev-yorkie/yorkie-framework).
+- Slack: [Dev Yorkie](https://dev-yorkie.slack.com/): You can sign up for our [Slack here](https://communityinviter.com/apps/dev-yorkie/yorkie).
 
 ### Getting started
 
@@ -20,7 +20,7 @@ This is a rough outline of what a contributor's workflow looks like:
 - Make commits of logical units
 - Make sure commit messages are in the proper format
 - Push changes in a topic branch to a personal fork of the repository
-- Submit a pull request to yorkie-team/yorkie
+- Submit a pull request to yorkie-team/yorkie-js-sdk
 - The PR must receive a LGTM from maintainers
 
 Thanks for contributing!
