@@ -34,7 +34,7 @@ import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
-import { Checkpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
