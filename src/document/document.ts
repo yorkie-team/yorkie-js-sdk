@@ -40,7 +40,7 @@ import { createProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import {
   Checkpoint,
   InitialCheckpoint,
-} from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+} from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**

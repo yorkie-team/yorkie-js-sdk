@@ -15,7 +15,7 @@
  */
 
 import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
-import { Checkpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
