@@ -39,7 +39,8 @@
   },
   "homepage": "https://github.com/yorkie-team/yorkie-js-sdk#readme",
   "devDependencies": {
-    "@microsoft/api-extractor": "^7.13.4",
+    "@microsoft/api-documenter": "^7.15.1",
+    "@microsoft/api-extractor": "^7.19.4",
     "@types/chai": "^4.2.14",
     "@types/mocha": "^8.0.4",
     "@types/sinon": "^9.0.8",
@@ -47,8 +48,6 @@
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
     "@webpack-cli/serve": "^1.6.0",
-    "api-documenter-me": "^0.1.1",
-    "api-extractor-me": "^0.1.2",
     "chai": "^4.2.0",
     "eslint": "^7.14.0",
     "eslint-plugin-jsdoc": "^32.2.0",
