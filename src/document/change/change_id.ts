@@ -26,6 +26,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  */
 export class ChangeID {
   private clientSeq: number;
+
+  // `serverSeq` is optional and only present for changes stored on the server.
+  private serverSeq?: Long;
+
   private lamport: Long;
   private actor?: ActorID;
 

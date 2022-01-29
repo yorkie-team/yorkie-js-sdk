@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
-
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
@@ -32,9 +30,6 @@ export class Change {
 
   // `message` is used to save a description of the change.
   private message?: string;
-
-  // `serverSeq` is optional and only present for changes stored on the server.
-  private serverSeq?: Long;
 
   constructor(id: ChangeID, operations: Operation[], message?: string) {
     this.id = id;

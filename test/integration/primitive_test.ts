@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import Long from 'long';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/checkpoint/checkpoint';
+import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Primitive', function () {
