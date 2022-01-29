@@ -16,7 +16,7 @@
 
 const path = require('path');
 const webpack = require('webpack');
-const pkg = require('./package.json');
+const pkg = require('../package.json');
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
 const date = new Date().toISOString().replace(/:\d+\.\d+Z$/, 'Z');
@@ -49,15 +49,20 @@ module.exports = {
     rules: [
       {
         test: /\.ts$/,
-        use: 'ts-loader',
+        use: {
+          loader: 'ts-loader',
+          options: {
+            configFile: path.resolve(__dirname, './tsconfig.json'),
+          },
+        },
         exclude: /node_modules/,
       },
     ],
   },
   resolve: {
     alias: {
-      '@yorkie-js-sdk/src': path.resolve(__dirname, 'src/'),
-      '@yorkie-js-sdk/test': path.resolve(__dirname, 'test/'),
+      '@yorkie-js-sdk/src': path.resolve(__dirname, '../src/'),
+      '@yorkie-js-sdk/test': path.resolve(__dirname, '../test/'),
     },
     extensions: ['.ts', '.js'],
   },
@@ -65,7 +70,7 @@ module.exports = {
     library: 'yorkie',
     libraryTarget: 'umd',
     filename: 'yorkie-js-sdk.js',
-    path: path.resolve(__dirname, './dist'),
+    path: path.resolve(__dirname, '../dist'),
   },
   plugins: [
     new webpack.BannerPlugin({

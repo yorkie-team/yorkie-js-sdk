@@ -1,5 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+  "projectFolder": "..",
   "mainEntryPointFilePath": "<projectFolder>/lib/src/yorkie.d.ts",
   "bundledPackages": [],
   "apiReport": {
@@ -7,7 +8,8 @@
     "reportFolder": "<projectFolder>/lib/"
   },
   "compiler": {
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "tsconfigFilePath": "<projectFolder>/config/tsconfig.json"
   },
   "docModel": {
     "enabled": false
