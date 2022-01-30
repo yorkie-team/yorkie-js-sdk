@@ -8,7 +8,7 @@ module.exports = function(config) {
   config.set({
 
     // base path that will be used to resolve all patterns (eg. files, exclude)
-    basePath: '',
+    basePath: '.',
 
 
     // frameworks to use
@@ -26,7 +26,7 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
-      'test/**/*.ts'
+      '../test/**/*.ts'
     ],
 
 
@@ -39,8 +39,8 @@ module.exports = function(config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
-      'test/**/*.ts': ['webpack'],
-      'test/**/*.js': ['webpack'],
+      '../test/**/*.ts': ['webpack'],
+      '../test/**/*.js': ['webpack'],
     },
 
 
@@ -55,7 +55,7 @@ module.exports = function(config) {
 
     coverageIstanbulReporter: {
       reports: [ 'html', 'text-summary', 'lcovonly' ],
-      dir: path.join(__dirname, 'coverage'),
+      dir: path.join(__dirname, '../coverage'),
       fixWebpackSourcePaths: true,
       'report-config': {
         html: { outdir: 'html' }
