@@ -16,6 +16,6 @@ export declare interface DocumentsChangedEvent
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.documentschangedevent.type.md) | [ClientEventType.DocumentsChanged](./yorkie-js-sdk.clienteventtype.documentschanged.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentsChangedEvent |
+|  [type](./yorkie-js-sdk.documentschangedevent.type.md) | [ClientEventType.DocumentsChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentsChangedEvent |
 |  [value](./yorkie-js-sdk.documentschangedevent.value.md) | Array&lt;DocumentKey&gt; | <code>DocumentsChangedEvent</code> value |
 

@@ -16,6 +16,6 @@ export declare interface StreamConnectionStatusChangedEvent
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.streamconnectionstatuschangedevent.type.md) | [ClientEventType.StreamConnectionStatusChanged](./yorkie-js-sdk.clienteventtype.streamconnectionstatuschanged.md) | <code>StreamConnectionStatusChangedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StreamConnectionStatusChangedEvent |
+|  [type](./yorkie-js-sdk.streamconnectionstatuschangedevent.type.md) | [ClientEventType.StreamConnectionStatusChanged](./yorkie-js-sdk.clienteventtype.md) | <code>StreamConnectionStatusChangedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StreamConnectionStatusChangedEvent |
 |  [value](./yorkie-js-sdk.streamconnectionstatuschangedevent.value.md) | [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatusChangedEvent</code> value |
 

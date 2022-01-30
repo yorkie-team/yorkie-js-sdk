@@ -16,6 +16,6 @@ export declare interface RemoteChangeEvent
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.remotechangeevent.type.md) | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.remotechange.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
+|  [type](./yorkie-js-sdk.remotechangeevent.type.md) | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
 |  [value](./yorkie-js-sdk.remotechangeevent.value.md) | Array&lt;ChangeInfo&gt; | RemoteChangeEvent type |
 

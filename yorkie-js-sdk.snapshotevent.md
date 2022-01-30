@@ -16,6 +16,6 @@ export declare interface SnapshotEvent
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.snapshotevent.type.md) | [DocEventType.Snapshot](./yorkie-js-sdk.doceventtype.snapshot.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot |
+|  [type](./yorkie-js-sdk.snapshotevent.type.md) | [DocEventType.Snapshot](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot |
 |  [value](./yorkie-js-sdk.snapshotevent.value.md) | Uint8Array \| undefined | SnapshotEvent type |
 

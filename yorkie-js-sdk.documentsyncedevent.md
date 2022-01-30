@@ -16,6 +16,6 @@ export declare interface DocumentSyncedEvent
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.documentsyncedevent.type.md) | [ClientEventType.DocumentSynced](./yorkie-js-sdk.clienteventtype.documentsynced.md) | <code>DocumentSyncedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentSyncedEvent |
+|  [type](./yorkie-js-sdk.documentsyncedevent.type.md) | [ClientEventType.DocumentSynced](./yorkie-js-sdk.clienteventtype.md) | <code>DocumentSyncedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentSyncedEvent |
 |  [value](./yorkie-js-sdk.documentsyncedevent.value.md) | [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncedEvent</code> value |
 
