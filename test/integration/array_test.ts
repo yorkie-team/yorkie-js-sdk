@@ -216,6 +216,21 @@ describe('Array', function () {
     });
   });
 
+  it.only('can insert a text', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.contents = [];
+      root.contents.push({});
+      const content = root.contents[0];
+      const code = content.createText('code');
+      code.edit(0, 0, 'hello');
+    });
+
+    assert.equal('{"contents":[{"code":"hello"}]}', doc.toSortedJSON());
+  });
+
   it('can move an element at the last of array', function () {
     const doc = DocumentReplica.create('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
