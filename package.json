@@ -54,7 +54,7 @@
     "eslint-plugin-prettier": "^3.1.4",
     "eslint-plugin-tsdoc": "^0.2.10",
     "husky": "^4.3.0",
-    "istanbul-instrumenter-loader": "^3.0.1",
+    "istanbul-instrumenter-loader": "^2.0.0",
     "karma": "^6.3.5",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage-istanbul-reporter": "^3.0.3",
