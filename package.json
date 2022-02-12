@@ -16,7 +16,7 @@
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "start": "webpack serve --config config/webpack.dev.config.js",
     "test": "karma start ./config/karma.conf.js --single-run",
-    "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://yorkie.dev/api",
+    "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://api.yorkie.dev",
     "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build"
