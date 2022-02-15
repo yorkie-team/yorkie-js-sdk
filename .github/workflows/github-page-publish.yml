@@ -26,7 +26,14 @@ jobs:
           npm run predoc
           npm run build:docs
 
-      - name: Github REST API Call 🛎️
+      - name: Deploy to gh-pages Branch 🚀
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          enable_jekyll: true
+
+      - name: Notify to Parent Repository 🛎️
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PARENT_REPO: yorkie-team/yorkie-team.github.io
