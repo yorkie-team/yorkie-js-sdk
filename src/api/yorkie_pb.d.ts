@@ -397,6 +397,52 @@ export namespace UpdateMetadataResponse {
   }
 }
 
+export class FetchHistoryRequest extends jspb.Message {
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): FetchHistoryRequest;
+
+  getDocumentKey(): DocumentKey | undefined;
+  setDocumentKey(value?: DocumentKey): FetchHistoryRequest;
+  hasDocumentKey(): boolean;
+  clearDocumentKey(): FetchHistoryRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchHistoryRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: FetchHistoryRequest): FetchHistoryRequest.AsObject;
+  static serializeBinaryToWriter(message: FetchHistoryRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FetchHistoryRequest;
+  static deserializeBinaryFromReader(message: FetchHistoryRequest, reader: jspb.BinaryReader): FetchHistoryRequest;
+}
+
+export namespace FetchHistoryRequest {
+  export type AsObject = {
+    clientId: Uint8Array | string,
+    documentKey?: DocumentKey.AsObject,
+  }
+}
+
+export class FetchHistoryResponse extends jspb.Message {
+  getChangesList(): Array<Change>;
+  setChangesList(value: Array<Change>): FetchHistoryResponse;
+  clearChangesList(): FetchHistoryResponse;
+  addChanges(value?: Change, index?: number): Change;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): FetchHistoryResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: FetchHistoryResponse): FetchHistoryResponse.AsObject;
+  static serializeBinaryToWriter(message: FetchHistoryResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): FetchHistoryResponse;
+  static deserializeBinaryFromReader(message: FetchHistoryResponse, reader: jspb.BinaryReader): FetchHistoryResponse;
+}
+
+export namespace FetchHistoryResponse {
+  export type AsObject = {
+    changesList: Array<Change.AsObject>,
+  }
+}
+
 export class ChangePack extends jspb.Message {
   getDocumentKey(): DocumentKey | undefined;
   setDocumentKey(value?: DocumentKey): ChangePack;
@@ -475,6 +521,9 @@ export class ChangeID extends jspb.Message {
   getClientSeq(): number;
   setClientSeq(value: number): ChangeID;
 
+  getServerSeq(): string;
+  setServerSeq(value: string): ChangeID;
+
   getLamport(): string;
   setLamport(value: string): ChangeID;
 
@@ -494,6 +543,7 @@ export class ChangeID extends jspb.Message {
 export namespace ChangeID {
   export type AsObject = {
     clientSeq: number,
+    serverSeq: string,
     lamport: string,
     actorId: Uint8Array | string,
   }

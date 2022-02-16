@@ -11,28 +11,35 @@ export class YorkieClient {
   activateClient(
     request: src_api_yorkie_pb.ActivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.ActivateClientResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.ActivateClientResponse>;
 
   deactivateClient(
     request: src_api_yorkie_pb.DeactivateClientRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.DeactivateClientResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.DeactivateClientResponse>;
+
+  updateMetadata(
+    request: src_api_yorkie_pb.UpdateMetadataRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.RpcError,
+               response: src_api_yorkie_pb.UpdateMetadataResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.UpdateMetadataResponse>;
 
   attachDocument(
     request: src_api_yorkie_pb.AttachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.AttachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.AttachDocumentResponse>;
 
   detachDocument(
     request: src_api_yorkie_pb.DetachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.DetachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.DetachDocumentResponse>;
 
@@ -44,16 +51,16 @@ export class YorkieClient {
   pushPull(
     request: src_api_yorkie_pb.PushPullRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.PushPullResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.PushPullResponse>;
 
-  updateMetadata(
-    request: src_api_yorkie_pb.UpdateMetadataRequest,
+  fetchHistory(
+    request: src_api_yorkie_pb.FetchHistoryRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
-               response: src_api_yorkie_pb.UpdateMetadataResponse) => void
-  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.UpdateMetadataResponse>;
+    callback: (err: grpcWeb.RpcError,
+               response: src_api_yorkie_pb.FetchHistoryResponse) => void
+  ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.FetchHistoryResponse>;
 
 }
 
@@ -65,7 +72,7 @@ export class ClusterClient {
   broadcastEvent(
     request: src_api_yorkie_pb.BroadcastEventRequest,
     metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.Error,
+    callback: (err: grpcWeb.RpcError,
                response: src_api_yorkie_pb.BroadcastEventResponse) => void
   ): grpcWeb.ClientReadableStream<src_api_yorkie_pb.BroadcastEventResponse>;
 
@@ -85,6 +92,11 @@ export class YorkiePromiseClient {
     request: src_api_yorkie_pb.DeactivateClientRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<src_api_yorkie_pb.DeactivateClientResponse>;
+
+  updateMetadata(
+    request: src_api_yorkie_pb.UpdateMetadataRequest,
+    metadata?: grpcWeb.Metadata
+  ): Promise<src_api_yorkie_pb.UpdateMetadataResponse>;
 
   attachDocument(
     request: src_api_yorkie_pb.AttachDocumentRequest,
@@ -106,10 +118,10 @@ export class YorkiePromiseClient {
     metadata?: grpcWeb.Metadata
   ): Promise<src_api_yorkie_pb.PushPullResponse>;
 
-  updateMetadata(
-    request: src_api_yorkie_pb.UpdateMetadataRequest,
+  fetchHistory(
+    request: src_api_yorkie_pb.FetchHistoryRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<src_api_yorkie_pb.UpdateMetadataResponse>;
+  ): Promise<src_api_yorkie_pb.FetchHistoryResponse>;
 
 }
 
