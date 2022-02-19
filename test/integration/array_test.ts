@@ -715,4 +715,52 @@ describe('Array', function () {
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
   });
+
+  it('Can handle array splice methods - delete', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+      root['k1'].splce(1, 1);
+    }, 'set {"k1":["1","3"]}');
+
+    assert.equal('{"k1":["1","3"]}', doc.toSortedJSON());
+  });
+
+  it('Can handle array splice methods - modify', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+      root['k1'].splce(1, 1, 4);
+    }, 'set {"k1":["1","4","3"]}');
+
+    assert.equal('{"k1":["1","4","3"]}', doc.toSortedJSON());
+  });
+
+  it('Can handle array splice methods - add(just right after length of array)', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+      root['k1'].splce(3, 1, 4);
+    }, 'set {"k1":["1","2","3","4"]}');
+
+    assert.equal('{"k1":["1","2","3","4"]}', doc.toSortedJSON());
+  });
+
+  it('Can handle array splice methods - add(over length of array)', function () {
+    const doc = DocumentReplica.create('test-col', 'test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root['k1'] = ['1', '2', '3'];
+      root['k1'].splce(100, 1, 4);
+    }, 'set {"k1":["1","2","3","4"]}');
+
+    assert.equal('{"k1":["1","2","3","4"]}', doc.toSortedJSON());
+  });
 });
