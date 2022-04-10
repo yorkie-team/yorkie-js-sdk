@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.3] - 2022-04-07
+
+### Changed
+
+- Bump up yorkie.proto to 0.2.3
+
 ## [0.2.0] - 2021-12-19
 
 2nd Year Release
