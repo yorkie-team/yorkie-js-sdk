@@ -9,7 +9,7 @@
   },
   "compiler": {
     "skipLibCheck": true,
-    "tsconfigFilePath": "<projectFolder>/config/tsconfig.json"
+    "tsconfigFilePath": "<projectFolder>/tsconfig.json"
   },
   "docModel": {
     "enabled": false

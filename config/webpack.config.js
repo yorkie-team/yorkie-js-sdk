@@ -52,7 +52,7 @@ module.exports = {
         use: {
           loader: 'ts-loader',
           options: {
-            configFile: path.resolve(__dirname, './tsconfig.json'),
+            configFile: path.resolve(__dirname, '../tsconfig.json'),
           },
         },
         exclude: /node_modules/,
