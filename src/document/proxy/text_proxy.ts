@@ -24,6 +24,15 @@ import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
+export type TText = {
+  edit?(fromIdx: number, toIdx: number, context: string): boolean;
+  select?(fromIdx: number, toIdx: number): boolean;
+  getAnnotatedString?(): string;
+  getValue?(): string;
+  createRange?(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
+  onChanges?(changes: Array<TextChange>): void;
+};
+
 /**
  * `TextProxy` is a proxy representing Text.
  */
@@ -34,7 +43,7 @@ export class TextProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: PlainText, method: string): any => {
+      get: (target: PlainText, method: keyof TText): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${method}]`);
         }

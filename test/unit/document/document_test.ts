@@ -20,10 +20,16 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
+import { TArray } from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      k1?: string;
+      k2?: string;
+      k3: number[];
+      k4: unknown;
+    }>('test-col', 'test-doc');
     doc.update((root) => {
       root.k1 = '1';
       root.k2 = '2';
@@ -69,7 +75,10 @@ describe('DocumentReplica', function () {
   });
 
   it('null value test', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: { '': null; null: null } }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = {
         '': null,
@@ -80,7 +89,10 @@ describe('DocumentReplica', function () {
   });
 
   it('delete elements of array test', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: number[] }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -103,7 +115,10 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -111,45 +126,51 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex(0);
-      const two = root.data.getElementByIndex(2);
-      root.data.moveBefore(two.getID(), zero.getID());
+      const zero = root.data.getElementByIndex!(0);
+      const two = root.data.getElementByIndex!(2);
+      root.data.moveBefore!(two.getID(), zero.getID());
     });
     assert.equal('{"data":[1,0,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      const three = root.data.getElementByIndex(3);
-      root.data.moveBefore(one.getID(), three.getID());
-      assert.equal('{"data":[1,3,0,2]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      const three = root.data.getElementByIndex!(3);
+      root.data.moveBefore!(one.getID(), three.getID());
+      assert.equal('{"data":[1,3,0,2]}', root.toJSON!());
     });
     assert.equal('{"data":[1,3,0,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('simple move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
-    assert.equal(3, doc.getRoot().data.length);
+    assert.equal(3, doc.getRoot!().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      const three = root.data.getElementByIndex(3);
-      root.data.moveBefore(one.getID(), three.getID());
-      assert.equal('{"data":[0,3,1,2]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      const three = root.data.getElementByIndex!(3);
+      root.data.moveBefore!(one.getID(), three.getID());
+      assert.equal('{"data":[0,3,1,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,3,1,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -157,26 +178,29 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex(0);
-      const two = root.data.getElementByIndex(2);
-      root.data.moveAfter(two.getID(), zero.getID());
+      const zero = root.data.getElementByIndex!(0);
+      const two = root.data.getElementByIndex!(2);
+      root.data.moveAfter!(two.getID(), zero.getID());
     });
     assert.equal('{"data":[1,2,0]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      const three = root.data.getElementByIndex(3);
-      root.data.moveAfter(one.getID(), three.getID());
-      assert.equal('{"data":[1,2,3,0]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      const three = root.data.getElementByIndex!(3);
+      root.data.moveAfter!(one.getID(), three.getID());
+      assert.equal('{"data":[1,2,3,0]}', root.toJSON!());
     });
     assert.equal('{"data":[1,2,3,0]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('simple move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -185,17 +209,20 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      const three = root.data.getElementByIndex(3);
-      root.data.moveAfter(one.getID(), three.getID());
-      assert.equal('{"data":[0,1,3,2]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      const three = root.data.getElementByIndex!(3);
+      root.data.moveAfter!(one.getID(), three.getID());
+      assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('move elements at the first of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -203,24 +230,27 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex(2);
-      root.data.moveFront(two.getID());
+      const two = root.data.getElementByIndex!(2);
+      root.data.moveFront!(two.getID());
     });
     assert.equal('{"data":[2,0,1]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const three = root.data.getElementByIndex(3);
-      root.data.moveFront(three.getID());
-      assert.equal('{"data":[3,2,0,1]}', root.toJSON());
+      const three = root.data.getElementByIndex!(3);
+      root.data.moveFront!(three.getID());
+      assert.equal('{"data":[3,2,0,1]}', root.toJSON!());
     });
     assert.equal('{"data":[3,2,0,1]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('simple move elements at the first of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -229,16 +259,19 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      root.data.moveFront(one.getID());
-      assert.equal('{"data":[1,0,2,3]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      root.data.moveFront!(one.getID());
+      assert.equal('{"data":[1,0,2,3]}', root.toJSON!());
     });
     assert.equal('{"data":[1,0,2,3]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('move elements at the last of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -246,24 +279,27 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex(2);
-      root.data.moveLast(two.getID());
+      const two = root.data.getElementByIndex!(2);
+      root.data.moveLast!(two.getID());
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const two = root.data.getElementByIndex(2);
-      root.data.moveLast(two.getID());
-      assert.equal('{"data":[0,1,3,2]}', root.toJSON());
+      const two = root.data.getElementByIndex!(2);
+      root.data.moveLast!(two.getID());
+      assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('simple move elements at the last of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -272,16 +308,16 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex(1);
-      root.data.moveLast(one.getID());
-      assert.equal('{"data":[0,2,3,1]}', root.toJSON());
+      const one = root.data.getElementByIndex!(1);
+      root.data.moveLast!(one.getID());
+      assert.equal('{"data":[0,2,3,1]}', root.toJSON!());
     });
     assert.equal('{"data":[0,2,3,1]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
   });
 
   it('change paths test for object', async function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<any>('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -312,7 +348,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for array', async function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<any>('test-col', 'test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -352,11 +388,11 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const counter = root.createCounter('cnt', 0);
+      const counter = root.createCounter!('cnt', 0);
       paths.push('$.cnt');
-      counter.increase(1);
+      counter.increase!(1);
       paths.push('$.cnt');
-      root.createCounter('$$..#.hello', 0);
+      root.createCounter!('$$..#.hello', 0);
       paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
@@ -374,13 +410,13 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const text = root.createText('text');
+      const text = root.createText!('text');
       paths.push('$.text');
-      text.edit(0, 0, 'hello world');
+      text.edit!(0, 0, 'hello world');
       paths.push('$.text');
-      text.select(0, 2);
+      text.select!(0, 2);
       paths.push('$.text');
-      root.createText('$$..#.hello');
+      root.createText!('$$..#.hello');
       paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
@@ -398,19 +434,22 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const rich = root.createRichText('rich');
+      const rich = root.createRichText!('rich');
       paths.push('$.rich');
-      rich.edit(0, 0, 'hello world');
+      rich.edit!(0, 0, 'hello world');
       paths.push('$.rich');
-      rich.setStyle(0, 1, 'bold', 'true');
+      rich.setStyle!(0, 1, { bold: 'true' });
       paths.push('$.rich');
-      root.createRichText('$$..#.hello');
+      root.createRichText!('$$..#.hello');
       paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 
   it('insert elements before a specific node of array', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -418,29 +457,32 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex(0);
-      root.data.insertBefore(zero.getID(), 3);
+      const zero = root.data.getElementByIndex!(0);
+      root.data.insertBefore!(zero.getID(), 3);
     });
     assert.equal('{"data":[3,0,1,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex(2);
-      root.data.insertBefore(one.getID(), 4);
+      const one = root.data.getElementByIndex!(2);
+      root.data.insertBefore!(one.getID(), 4);
     });
     assert.equal('{"data":[3,0,4,1,2]}', doc.toSortedJSON());
     assert.equal(5, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex(4);
-      root.data.insertBefore(two.getID(), 5);
+      const two = root.data.getElementByIndex!(4);
+      root.data.insertBefore!(two.getID(), 5);
     });
     assert.equal('{"data":[3,0,4,1,5,2]}', doc.toSortedJSON());
     assert.equal(6, doc.getRoot().data.length);
   });
 
   it('can insert an element before specific position after delete operation', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ data: TArray<number> }>(
+      'test-col',
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -448,28 +490,28 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex(0);
-      root.data.deleteByID(zero.getID());
+      const zero = root.data.getElementByIndex!(0);
+      root.data.deleteByID!(zero.getID());
 
-      const one = root.data.getElementByIndex(0);
-      root.data.insertBefore(one.getID(), 3);
+      const one = root.data.getElementByIndex!(0);
+      root.data.insertBefore!(one.getID(), 3);
     });
     assert.equal('{"data":[3,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex(1);
-      root.data.deleteByID(one.getID());
+      const one = root.data.getElementByIndex!(1);
+      root.data.deleteByID!(one.getID());
 
-      const two = root.data.getElementByIndex(1);
-      root.data.insertBefore(two.getID(), 4);
+      const two = root.data.getElementByIndex!(1);
+      root.data.insertBefore!(two.getID(), 4);
     });
     assert.equal('{"data":[3,4,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
   });
 
   it('should remove previously inserted elements in heap when running GC', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ a?: number }>('test-col', 'test-doc');
     doc.update((root) => {
       root.a = 1;
       root.a = 2;

@@ -17,10 +17,20 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
+import { TCounter, TText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      k1: {
+        ['k1.1']: boolean;
+        ['k1.2']: number;
+        ['k1.5']: string;
+      };
+      k2: Array<boolean | number | string>;
+      k3: TText;
+      k4: TCounter;
+    }>('test-col', 'test-doc');
 
     doc.update((root) => {
       root['k1'] = {
@@ -43,16 +53,16 @@ describe('Converter', function () {
         // new Date(),
       ];
 
-      const text = root.createText('k3');
-      text.edit(0, 0, 'ㅎ');
-      text.edit(0, 1, '하');
-      text.edit(0, 1, '한');
-      text.edit(0, 1, '하');
-      text.edit(1, 1, '느');
-      text.edit(1, 2, '늘');
+      const text = root.createText!('k3');
+      text.edit!(0, 0, 'ㅎ');
+      text.edit!(0, 1, '하');
+      text.edit!(0, 1, '한');
+      text.edit!(0, 1, '하');
+      text.edit!(1, 1, '느');
+      text.edit!(1, 2, '늘');
 
-      const counter = root.createCounter('k4', 0);
-      counter.increase(1).increase(2).increase(3);
+      const counter = root.createCounter!('k4', 0);
+      counter.increase!(1).increase!(2).increase!(3);
     });
 
     const bytes = converter.objectToBytes(doc.getRootObject());

@@ -6,7 +6,10 @@ import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/inte
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
-    const doc1 = DocumentReplica.create('test-col', 'test-doc');
+    const doc1 = DocumentReplica.create<{ k1: string; k2: string }>(
+      'test-col',
+      'test-doc',
+    );
     const doc2 = DocumentReplica.create('test-col', 'test-doc');
 
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
@@ -24,7 +27,9 @@ describe('Primitive', function () {
   });
 
   it('can rollback, primitive deepcopy', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      k1: { ['k1.1']?: number; ['k1.2']?: number };
+    }>('test-col', 'test-doc');
 
     doc.update((root) => {
       root['k1'] = {};
@@ -42,7 +47,17 @@ describe('Primitive', function () {
   });
 
   it('Can handle primitive types', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<{
+      k0: null;
+      k1: boolean;
+      k2: number;
+      k3: Long;
+      k4: number;
+      k5: string;
+      k6: Uint8Array;
+      k7: Date;
+      k8: undefined;
+    }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k0'] = null;
         root['k1'] = true;

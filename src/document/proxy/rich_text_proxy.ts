@@ -28,6 +28,25 @@ import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_ed
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
+export type TRichText = {
+  edit?(
+    fromIdx: number,
+    toIdx: number,
+    context: string,
+    attributes?: Record<string, string>,
+  ): boolean;
+  setStyle?(
+    fromIdx: number,
+    toIdx: number,
+    attributes: Record<string, string>,
+  ): boolean;
+  select?(fromIdx: number, toIdx: number): boolean;
+  getAnnotatedString?(): string;
+  getValue?(): Array<RichTextVal>;
+  createRange?(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
+  onChanges?(handlers: (changes: Array<TextChange>) => void): void;
+};
+
 /**
  * `RichTextProxy` is a proxy representing RichText.
  */
@@ -38,7 +57,7 @@ export class RichTextProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: RichText, method: string): any => {
+      get: (target: RichText, method: keyof TRichText): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${method}]`);
         }

@@ -30,6 +30,20 @@ import {
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 
+export type TArray<T = unknown> = {
+  getID?(): TimeTicket;
+  getElementByID?(createdAt: TimeTicket): JSONElement & T;
+  getElementByIndex?(index: number): JSONElement & T;
+  getLast?(): JSONElement;
+  deleteByID?(createdAt: TimeTicket): JSONElement & T;
+  insertAfter?(prevID: TimeTicket, value: any): JSONElement & T;
+  insertBefore?(prevID: TimeTicket, value: any): JSONElement & T;
+  moveBefore?(prevID: TimeTicket, itemID: TimeTicket): void;
+  moveAfter?(prevID: TimeTicket, itemID: TimeTicket): void;
+  moveFront?(itemID: TimeTicket): void;
+  moveLast?(itemID: TimeTicket): void;
+} & Array<T>;
+
 /**
  * `isNumericString` checks if value is numeric string.
  */
@@ -52,7 +66,11 @@ export class ArrayProxy {
     this.context = context;
     this.array = array;
     this.handlers = {
-      get: (target: JSONArray, method: string | symbol, receiver: any): any => {
+      get: (
+        target: JSONArray,
+        method: keyof TArray<unknown>,
+        receiver: any,
+      ): any => {
         // Yorkie extension API
         if (method === 'getID') {
           return (): TimeTicket => {
@@ -153,7 +171,7 @@ export class ArrayProxy {
           };
         } else if (method === 'length') {
           return target.length;
-        } else if (method === Symbol.iterator) {
+        } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
         }
 

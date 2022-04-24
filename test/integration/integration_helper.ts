@@ -7,12 +7,12 @@ export const testRPCAddr =
   __karma__.config.testRPCAddr || 'http://localhost:8080';
 export const testCollection = 'test-col';
 
-export async function withTwoClientsAndDocuments(
+export async function withTwoClientsAndDocuments<T>(
   callback: (
     c1: Client,
-    d1: DocumentReplica,
+    d1: DocumentReplica<T>,
     c2: Client,
-    d2: DocumentReplica,
+    d2: DocumentReplica<T>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
@@ -22,8 +22,8 @@ export async function withTwoClientsAndDocuments(
   await client2.activate();
 
   const docKey = `${title}-${new Date().getTime()}`;
-  const doc1 = yorkie.createDocument(testCollection, docKey);
-  const doc2 = yorkie.createDocument(testCollection, docKey);
+  const doc1 = yorkie.createDocument<T>(testCollection, docKey);
+  const doc2 = yorkie.createDocument<T>(testCollection, docKey);
 
   await client1.attach(doc1, true);
   await client2.attach(doc2, true);

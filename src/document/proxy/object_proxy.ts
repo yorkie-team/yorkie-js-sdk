@@ -30,11 +30,26 @@ import { RGATreeSplit } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import { TextProxy } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
-import { RichTextProxy } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { TextProxy, TText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import {
+  RichTextProxy,
+  TRichText,
+} from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+import {
+  CounterProxy,
+  TCounter,
+} from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+import { Indexable } from '../document';
+
+export type TObject<T extends Indexable> = {
+  getID?(): TimeTicket;
+  toJSON?(): string;
+  createText?(key: string): TText;
+  createRichText?(key: string): TRichText;
+  createCounter?(key: string, value: CounterType): TCounter;
+} & T;
 
 /**
  * `ObjectProxy` is a proxy representing Object.
@@ -55,7 +70,10 @@ export class ObjectProxy {
         return true;
       },
 
-      get: (target: JSONObject, keyOrMethod: string): any => {
+      get: (
+        target: JSONObject,
+        keyOrMethod: Extract<keyof TObject<any>, 'string'>,
+      ): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${keyOrMethod}]`);
         }

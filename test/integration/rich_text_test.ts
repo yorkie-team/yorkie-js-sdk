@@ -1,23 +1,26 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
+import { TRichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TRichText }>(
+      'test-col',
+      'test-doc',
+    );
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      const text = root.createRichText('k1');
-      text.edit(0, 0, 'ABCD', { b: '1' });
-      text.edit(3, 3, '\n');
+      const text = root.createRichText!('k1');
+      text.edit!(0, 0, 'ABCD', { b: '1' });
+      text.edit!(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
-        root['k1'].getAnnotatedString(),
+        root['k1'].getAnnotatedString!(),
       );
     });
 
@@ -29,20 +32,20 @@ describe('RichText', function () {
 
   it('should handle select operations', async function () {
     const doc = DocumentReplica.create<{
-      rich: RichText;
+      rich: TRichText;
     }>('test-col', 'test-doc');
 
     doc.update((root) => {
-      root.createRichText('rich');
-      root.rich.edit(0, 0, 'ABCD');
+      root.createRichText!('rich');
+      root.rich.edit!(0, 0, 'ABCD');
     });
 
-    doc.getRoot().rich.onChanges((changes) => {
+    doc.getRoot!().rich.onChanges!((changes) => {
       if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);
       }
     });
-    doc.update((root) => root.rich.select(2, 4));
+    doc.update((root) => root.rich.select!(2, 4));
   });
 });
