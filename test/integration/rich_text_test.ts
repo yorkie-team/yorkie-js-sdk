@@ -13,8 +13,8 @@ describe('RichText', function () {
 
     doc.update((root) => {
       const text = root.createRichText!('k1');
-      text.edit!(0, 0, 'ABCD', { b: '1' });
-      text.edit!(3, 3, '\n');
+      text.edit(0, 0, 'ABCD', { b: '1' });
+      text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
     doc.update((root) => {
@@ -37,10 +37,10 @@ describe('RichText', function () {
 
     doc.update((root) => {
       root.createRichText!('rich');
-      root.rich.edit!(0, 0, 'ABCD');
+      root.rich.edit(0, 0, 'ABCD');
     });
 
-    doc.getRoot!().rich.onChanges!((changes) => {
+    doc.getRoot().rich.onChanges((changes) => {
       if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);

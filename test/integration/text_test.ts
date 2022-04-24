@@ -16,8 +16,8 @@ describe('Text', function () {
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
       const text = root.createText!('k1');
-      text.edit!(0, 0, 'ABCD');
-      text.edit!(1, 3, '12');
+      text.edit(0, 0, 'ABCD');
+      text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
 
     doc.update((root) => {
@@ -54,8 +54,8 @@ describe('Text', function () {
     // [init] - [ABC] - [\n] - [D]
     doc.update((root) => {
       const text = root.createText!('k1');
-      text.edit!(0, 0, 'ABCD');
-      text.edit!(3, 3, '\n');
+      text.edit(0, 0, 'ABCD');
+      text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
     doc.update((root) => {
@@ -74,12 +74,12 @@ describe('Text', function () {
 
     doc.update((root) => {
       const text = root.createText!('k1');
-      text.edit!(0, 0, 'ㅎ');
-      text.edit!(0, 1, '하');
-      text.edit!(0, 1, '한');
-      text.edit!(0, 1, '하');
-      text.edit!(1, 1, '느');
-      text.edit!(1, 2, '늘');
+      text.edit(0, 0, 'ㅎ');
+      text.edit(0, 1, '하');
+      text.edit(0, 1, '한');
+      text.edit(0, 1, '하');
+      text.edit(1, 1, '느');
+      text.edit(1, 2, '늘');
     }, 'set {"k1":"하늘"}');
 
     assert.equal('{"k1":"하늘"}', doc.toSortedJSON());
@@ -130,7 +130,7 @@ describe('Text', function () {
     await withTwoClientsAndDocuments<{ k1: TText }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createText!('k1');
-        root['k1'].edit!(0, 0, 'ABCD');
+        root['k1'].edit(0, 0, 'ABCD');
       }, 'set new text by c1');
       await c1.sync();
       await c2.sync();
@@ -139,7 +139,7 @@ describe('Text', function () {
 
       d1.update((root) => {
         root.createText!('k1');
-        root['k1'].edit!(0, 0, '1234');
+        root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c1');
       await c1.sync();
       await c2.sync();

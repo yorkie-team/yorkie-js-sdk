@@ -25,12 +25,12 @@ import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operat
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 export type TText = {
-  edit?(fromIdx: number, toIdx: number, context: string): boolean;
-  select?(fromIdx: number, toIdx: number): boolean;
-  getAnnotatedString?(): string;
-  getValue?(): string;
-  createRange?(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-  onChanges?(changes: Array<TextChange>): void;
+  edit(fromIdx: number, toIdx: number, context: string): boolean;
+  select(fromIdx: number, toIdx: number): boolean;
+  getAnnotatedString(): string;
+  getValue(): string;
+  createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
+  onChanges(changes: Array<TextChange>): void;
 };
 
 /**

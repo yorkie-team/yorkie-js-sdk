@@ -29,22 +29,22 @@ import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_oper
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 export type TRichText = {
-  edit?(
+  edit(
     fromIdx: number,
     toIdx: number,
     context: string,
     attributes?: Record<string, string>,
   ): boolean;
-  setStyle?(
+  setStyle(
     fromIdx: number,
     toIdx: number,
     attributes: Record<string, string>,
   ): boolean;
-  select?(fromIdx: number, toIdx: number): boolean;
-  getAnnotatedString?(): string;
-  getValue?(): Array<RichTextVal>;
-  createRange?(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-  onChanges?(handlers: (changes: Array<TextChange>) => void): void;
+  select(fromIdx: number, toIdx: number): boolean;
+  getAnnotatedString(): string;
+  getValue(): Array<RichTextVal>;
+  createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
+  onChanges(handlers: (changes: Array<TextChange>) => void): void;
 };
 
 /**

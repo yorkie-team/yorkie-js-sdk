@@ -120,8 +120,8 @@ describe('Garbage Collection', function () {
     let expected_msg = '{"k1":"Hello mario"}';
     doc.update((root) => {
       const text = root.createText!('k1');
-      text.edit!(0, 0, 'Hello world');
-      text.edit!(6, 11, 'mario');
+      text.edit(0, 0, 'Hello world');
+      text.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON!());
     }, 'edit text k1');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -131,9 +131,9 @@ describe('Garbage Collection', function () {
 
     doc.update((root) => {
       const text = root['k1'];
-      text.edit!(0, 5, 'Hi');
-      text.edit!(3, 4, 'j');
-      text.edit!(4, 8, 'ane');
+      text.edit(0, 5, 'Hi');
+      text.edit(3, 4, 'j');
+      text.edit(4, 8, 'ane');
       assert.equal(expected_msg, root.toJSON!());
     }, 'deletes 2');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -157,8 +157,8 @@ describe('Garbage Collection', function () {
       '{"k1":[{"attrs":{"b":"1"},"content":Hello },{"attrs":{},"content":mario},{"attrs":{},"content":\n}]}';
     doc.update((root) => {
       const text = root.createRichText!('k1');
-      text.edit!(0, 0, 'Hello world', { b: '1' });
-      text.edit!(6, 11, 'mario');
+      text.edit(0, 0, 'Hello world', { b: '1' });
+      text.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON!());
     }, 'edit rich text k1');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -169,9 +169,9 @@ describe('Garbage Collection', function () {
 
     doc.update((root) => {
       const text = root['k1'];
-      text.edit!(0, 5, 'Hi', { b: '1' });
-      text.edit!(3, 4, 'j');
-      text.edit!(4, 8, 'ane', { b: '1' });
+      text.edit(0, 5, 'Hi', { b: '1' });
+      text.edit(3, 4, 'j');
+      text.edit(4, 8, 'ane', { b: '1' });
       assert.equal(expected_msg, root.toJSON!());
     }, 'edit rich text k1');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -279,9 +279,9 @@ describe('Garbage Collection', function () {
 
     doc1.update((root) => {
       const text = root.createText!('text');
-      text.edit!(0, 0, 'Hello World');
+      text.edit(0, 0, 'Hello World');
       const richText = root.createRichText!('richText');
-      richText.edit!(0, 0, 'Hello World');
+      richText.edit(0, 0, 'Hello World');
     }, 'sets test and richText');
 
     assert.equal(0, doc1.getGarbageLen());
@@ -364,9 +364,9 @@ describe('Garbage Collection', function () {
       root['2'] = [1, 2, 3];
       root['3'] = 3;
       const text = root.createText!('4');
-      text.edit!(0, 0, 'hi');
+      text.edit(0, 0, 'hi');
       const richText = root.createRichText!('5');
-      richText.edit!(0, 0, 'hi');
+      richText.edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
 
     assert.equal(0, doc1.getGarbageLen());
