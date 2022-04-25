@@ -156,7 +156,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   private clone?: JSONRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
-  private localChanges: Change[];
+  private localChanges: Array<Change>;
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
 

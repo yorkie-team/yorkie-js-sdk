@@ -33,7 +33,7 @@ export function setLogLevel(l: LogLevel): void {
 }
 
 export const logger = {
-  trivial: (...messages: unknown[]): void => {
+  trivial: (...messages: Array<unknown>): void => {
     if (level > LogLevel.Trivial) {
       return;
     }
@@ -43,7 +43,7 @@ export const logger = {
     }
   },
 
-  debug: (...messages: unknown[]): void => {
+  debug: (...messages: Array<unknown>): void => {
     if (level > LogLevel.Debug) {
       return;
     }
@@ -53,7 +53,7 @@ export const logger = {
     }
   },
 
-  info: (...messages: unknown[]): void => {
+  info: (...messages: Array<unknown>): void => {
     if (level > LogLevel.Info) {
       return;
     }
@@ -63,7 +63,7 @@ export const logger = {
     }
   },
 
-  warn: (...messages: unknown[]): void => {
+  warn: (...messages: Array<unknown>): void => {
     if (level > LogLevel.Warn) {
       return;
     }
@@ -77,7 +77,7 @@ export const logger = {
     }
   },
 
-  error: (...messages: unknown[]): void => {
+  error: (...messages: Array<unknown>): void => {
     if (level > LogLevel.Error) {
       return;
     }
@@ -91,7 +91,7 @@ export const logger = {
     }
   },
 
-  fatal: (message: string, ...messages: unknown[]): void => {
+  fatal: (message: string, ...messages: Array<unknown>): void => {
     if (typeof console != 'undefined') {
       if (typeof console.error !== 'undefined') {
         console.error('YORKIE F:', ...messages);

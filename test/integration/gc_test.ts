@@ -37,7 +37,7 @@ describe('Garbage Collection', function () {
 
   it('garbage collection test2', function () {
     const size = 10000;
-    const doc = DocumentReplica.create<{ 1?: unknown[] }>(
+    const doc = DocumentReplica.create<{ 1?: Array<unknown> }>(
       'test-col',
       'test-doc',
     );
@@ -53,7 +53,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test3', function () {
-    const doc = DocumentReplica.create<{ list: number[] }>(
+    const doc = DocumentReplica.create<{ list: Array<number> }>(
       'test-col',
       'test-doc',
     );
@@ -186,7 +186,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for container type', async function () {
-    type TestDoc = { 1: number; 2?: Array<number>; 3: number; };
+    type TestDoc = { 1: number; 2?: Array<number>; 3: number };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
     const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
@@ -254,7 +254,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: TRichText; richText: TRichText; };
+    type TestDoc = { text: TRichText; richText: TRichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
     const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
@@ -325,7 +325,13 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection with detached document test', async function () {
-    type TestDoc = { 1: number; 2?: Array<number>; 3: number; 4: TText; 5: TRichText; };
+    type TestDoc = {
+      1: number;
+      2?: Array<number>;
+      3: number;
+      4: TText;
+      5: TRichText;
+    };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
     const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);

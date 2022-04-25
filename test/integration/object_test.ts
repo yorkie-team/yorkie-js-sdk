@@ -6,7 +6,7 @@ describe('Object', function () {
   it('should apply updates inside nested map', function () {
     const doc = DocumentReplica.create<{
       k1: { 'k1-1'?: string; 'k1-2'?: string };
-      k2: (string | { 'k2-5': string })[];
+      k2: Array<string | { 'k2-5': string }>;
     }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
