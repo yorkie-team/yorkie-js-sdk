@@ -12,9 +12,10 @@ import {
 
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
+    type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string>; };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const doc1 = yorkie.createDocument(testCollection, docKey);
-    const doc2 = yorkie.createDocument(testCollection, docKey);
+    const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
+    const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);
@@ -52,8 +53,8 @@ describe('Document', function () {
     await c2.activate();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument(testCollection, docKey);
-    const d2 = yorkie.createDocument(testCollection, docKey);
+    const d1 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
+    const d2 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
     await c1.attach(d1);
     await c2.attach(d2);
 

@@ -4,17 +4,18 @@ import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { TText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText!('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
@@ -45,14 +46,14 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
     //           |              |
     // [init] - [ABC] - [\n] - [D]
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText!('k1');
       text.edit(0, 0, 'ABCD');
       text.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
@@ -68,11 +69,11 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText!('k1');
       text.edit(0, 0, 'ㅎ');
       text.edit(0, 1, '하');
       text.edit(0, 1, '한');
@@ -90,7 +91,7 @@ describe('Text', function () {
       'test-doc',
     );
     const view = new TextView();
-    doc.update((root) => root.createText('text'));
+    doc.update((root) => root.createText!('text'));
     doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
 
     const commands = [
@@ -112,7 +113,7 @@ describe('Text', function () {
     }>('test-col', 'test-doc');
 
     doc.update((root) => {
-      root.createText('text');
+      root.createText!('text');
       root.text.edit(0, 0, 'ABCD');
     });
 
@@ -126,9 +127,9 @@ describe('Text', function () {
   });
 
   it('should handle edit operations', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<{ k1: TText }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.createText('k1');
+        root.createText!('k1');
         root['k1'].edit(0, 0, 'ABCD');
       }, 'set new text by c1');
       await c1.sync();
@@ -137,7 +138,7 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root.createText('k1');
+        root.createText!('k1');
         root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c1');
       await c1.sync();
@@ -149,9 +150,9 @@ describe('Text', function () {
   });
 
   it('should handle concurrent edit operations', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<{ k1: TText }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.createText('k1');
+        root.createText!('k1');
       }, 'set new text by c1');
       await c1.sync();
       await c2.sync();

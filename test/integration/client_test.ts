@@ -43,7 +43,8 @@ describe('Client', function () {
   });
 
   it('Can handle sync', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    type TestDoc = { k1: string; k2: string; k3: string };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       const spy = sinon.spy();
       const unsub = d2.subscribe(spy);
 
@@ -75,7 +76,7 @@ describe('Client', function () {
   });
 
   it('Can recover from temporary disconnect (manual sync)', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<{ k1: string }>(async (c1, d1, c2, d2) => {
       // Normal Condition
       d2.update((root) => {
         root['k1'] = 'undefined';
@@ -126,8 +127,8 @@ describe('Client', function () {
     await c2.activate();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument(testCollection, docKey);
-    const d2 = yorkie.createDocument(testCollection, docKey);
+    const d1 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
+    const d2 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);

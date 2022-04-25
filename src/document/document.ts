@@ -42,6 +42,7 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { TObject } from './proxy/object_proxy';
 
 /**
  * `DocEventType` is document event types
@@ -174,7 +175,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T = Indexable>(
+  public static create<T>(
     collection: string,
     document: string,
   ): DocumentReplica<T> {
@@ -184,10 +185,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   /**
    * `update` executes the given updater to update this document.
    */
-  public update(
-    updater: (root: T & JSONObject) => void,
-    message?: string,
-  ): void {
+  public update(updater: (root: TObject<T>) => void, message?: string): void {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
@@ -196,7 +194,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
     );
 
     try {
-      const proxy = createProxy<T>(context, this.clone!.getObject());
+      const proxy = createProxy<TObject<T>>(context, this.clone!.getObject());
       updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
