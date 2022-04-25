@@ -4,7 +4,10 @@ import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/inte
 
 describe('Object', function () {
   it('should apply updates inside nested map', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      k1: { 'k1-1'?: string; 'k1-2'?: string };
+      k2: (string | { 'k2-5': string })[];
+    }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -56,7 +59,9 @@ describe('Object', function () {
   });
 
   it('should handle delete operations', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      k1: { 'k1-1'?: string; 'k1-2': string; 'k1-3'?: string };
+    }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -72,7 +77,9 @@ describe('Object', function () {
   });
 
   it('Object.keys, Object.values and Object.entries test', function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{
+      content: { a: number; b: number; c: number };
+    }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -87,7 +94,12 @@ describe('Object', function () {
   });
 
   it('Can handle concurrent set/delete operations', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<{
+      k1: string;
+      k2: string;
+      k3?: string;
+      k4: string;
+    }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = 'v1';
       });
@@ -100,7 +112,7 @@ describe('Object', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k2'] = {};
+        root['k2'] = '3';
       });
       await c1.sync();
       await c2.sync();
@@ -110,7 +122,7 @@ describe('Object', function () {
         root['k2'] = 'v2';
       });
       d2.update((root) => {
-        root['k2']['k2.1'] = { 'k2.1.1': 'v3' };
+        root['k2'] = 'v3';
       });
       await c1.sync();
       await c2.sync();

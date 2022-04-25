@@ -3,7 +3,8 @@ import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/inte
 
 describe('Snapshot', function () {
   it('should handle snapshot', async function () {
-    await withTwoClientsAndDocuments(async (c1, d1, c2, d2) => {
+    type TestDoc = Record<string, number> & { key: string };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       // 01. Updates 700 changes over snapshot threshold.
       for (let idx = 0; idx < 700; idx++) {
         d1.update((root) => {

@@ -21,6 +21,11 @@ import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increas
 import Long from 'long';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
+export type TCounter = {
+  getID(): TimeTicket;
+  increase(v: number | Long): TCounter;
+};
+
 /**
  * CounterProxy is a proxy representing Counter types.
  *
@@ -37,7 +42,7 @@ export class CounterProxy {
     this.handlers = {
       get: (
         target: JSONPrimitive,
-        method: string | symbol,
+        method: keyof TCounter,
         receiver: any,
       ): any => {
         if (method === 'getID') {

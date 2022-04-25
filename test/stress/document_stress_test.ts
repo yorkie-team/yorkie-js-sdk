@@ -1,16 +1,17 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { TText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Document stress', function () {
   it('garbage collection test for large size text 1', function () {
     const size = 100;
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. initial
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText!('k1');
       for (let i = 0; i < size; i++) {
         text.edit(i, i, 'a');
       }
@@ -34,12 +35,12 @@ describe('Document stress', function () {
 
   it('garbage collection test for large size text 2', function () {
     const size = 100;
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. long text by one node
     doc.update((root) => {
-      const text = root.createText('k1');
+      const text = root.createText!('k1');
       let str = '';
       for (let i = 0; i < size; i++) {
         str += 'a';
