@@ -20,7 +20,7 @@ describe('RichText', function () {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
-        root['k1'].getAnnotatedString!(),
+        root['k1'].getAnnotatedString(),
       );
     });
 
@@ -31,21 +31,22 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = DocumentReplica.create<{
-      rich: TRichText;
-    }>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TRichText; }>(
+      'test-col',
+      'test-doc',
+    );
 
     doc.update((root) => {
-      root.createRichText!('rich');
-      root.rich.edit(0, 0, 'ABCD');
+      root.createRichText!('k1');
+      root.k1.edit(0, 0, 'ABCD');
     });
 
-    doc.getRoot().rich.onChanges((changes) => {
+    doc.getRoot().k1.onChanges((changes) => {
       if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);
       }
     });
-    doc.update((root) => root.rich.select!(2, 4));
+    doc.update((root) => root.k1.select(2, 4));
   });
 });

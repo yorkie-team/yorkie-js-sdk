@@ -43,38 +43,36 @@ describe('Client', function () {
   });
 
   it('Can handle sync', async function () {
-    await withTwoClientsAndDocuments<{ k1: string; k2: string; k3: string }>(
-      async (c1, d1, c2, d2) => {
-        const spy = sinon.spy();
-        const unsub = d2.subscribe(spy);
+    type TestDoc = { k1: string; k2: string; k3: string };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      const spy = sinon.spy();
+      const unsub = d2.subscribe(spy);
 
-        assert.equal(0, spy.callCount);
+      assert.equal(0, spy.callCount);
 
-        d1.update((root) => {
-          root['k1'] = 'v1';
-        });
-        await c1.sync();
-        await c2.sync();
-        assert.equal(1, spy.callCount);
+      d1.update((root) => {
+        root['k1'] = 'v1';
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(1, spy.callCount);
 
-        d1.update((root) => {
-          root['k2'] = 'v2';
-        });
-        await c1.sync();
-        await c2.sync();
-        assert.equal(2, spy.callCount);
+      d1.update((root) => {
+        root['k2'] = 'v2';
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(2, spy.callCount);
 
-        unsub();
+      unsub();
 
-        d1.update((root) => {
-          root['k3'] = 'v3';
-        });
-        await c1.sync();
-        await c2.sync();
-        assert.equal(2, spy.callCount);
-      },
-      this.test!.title,
-    );
+      d1.update((root) => {
+        root['k3'] = 'v3';
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(2, spy.callCount);
+    }, this.test!.title);
   });
 
   it('Can recover from temporary disconnect (manual sync)', async function () {

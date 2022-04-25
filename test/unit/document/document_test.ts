@@ -390,7 +390,7 @@ describe('DocumentReplica', function () {
     doc.update((root) => {
       const counter = root.createCounter!('cnt', 0);
       paths.push('$.cnt');
-      counter.increase!(1);
+      counter.increase(1);
       paths.push('$.cnt');
       root.createCounter!('$$..#.hello', 0);
       paths.push('$.\\$\\$\\.\\.#\\.hello');
@@ -412,9 +412,9 @@ describe('DocumentReplica', function () {
     doc.update((root) => {
       const text = root.createText!('text');
       paths.push('$.text');
-      text.edit!(0, 0, 'hello world');
+      text.edit(0, 0, 'hello world');
       paths.push('$.text');
-      text.select!(0, 2);
+      text.select(0, 2);
       paths.push('$.text');
       root.createText!('$$..#.hello');
       paths.push('$.\\$\\$\\.\\.#\\.hello');
@@ -436,9 +436,9 @@ describe('DocumentReplica', function () {
     doc.update((root) => {
       const rich = root.createRichText!('rich');
       paths.push('$.rich');
-      rich.edit!(0, 0, 'hello world');
+      rich.edit(0, 0, 'hello world');
       paths.push('$.rich');
-      rich.setStyle!(0, 1, { bold: 'true' });
+      rich.setStyle(0, 1, { bold: 'true' });
       paths.push('$.rich');
       root.createRichText!('$$..#.hello');
       paths.push('$.\\$\\$\\.\\.#\\.hello');

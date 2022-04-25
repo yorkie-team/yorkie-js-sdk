@@ -22,8 +22,8 @@ import Long from 'long';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 export type TCounter = {
-  getID?(): TimeTicket;
-  increase?(v: number | Long): TCounter;
+  getID(): TimeTicket;
+  increase(v: number | Long): TCounter;
 };
 
 /**

@@ -13,7 +13,7 @@ describe('Document stress', function () {
     doc.update((root) => {
       const text = root.createText!('k1');
       for (let i = 0; i < size; i++) {
-        text.edit!(i, i, 'a');
+        text.edit(i, i, 'a');
       }
     }, 'initial');
 
@@ -21,7 +21,7 @@ describe('Document stress', function () {
     doc.update((root) => {
       const text = root['k1'];
       for (let i = 0; i < size; i++) {
-        text.edit!(i, i + 1, 'b');
+        text.edit(i, i + 1, 'b');
       }
     }, 'modify 100 nodes');
 
@@ -45,7 +45,7 @@ describe('Document stress', function () {
       for (let i = 0; i < size; i++) {
         str += 'a';
       }
-      text.edit!(0, 0, str);
+      text.edit(0, 0, str);
     }, 'initial large size');
 
     // 02. Modify one node multiple times
@@ -53,7 +53,7 @@ describe('Document stress', function () {
       const text = root['k1'];
       for (let i = 0; i < size; i++) {
         if (i !== size) {
-          text.edit!(i, i + 1, 'b');
+          text.edit(i, i + 1, 'b');
         }
       }
     }, 'modify one node multiple times');

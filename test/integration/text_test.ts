@@ -23,22 +23,22 @@ describe('Text', function () {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]',
-        root['k1'].getAnnotatedString!(),
+        root['k1'].getAnnotatedString(),
       );
 
-      let range = root['k1'].createRange!(0, 0);
+      let range = root['k1'].createRange(0, 0);
       assert.equal('0:00:0:0:0', range[0].getAnnotatedString());
 
-      range = root['k1'].createRange!(1, 1);
+      range = root['k1'].createRange(1, 1);
       assert.equal('1:00:2:0:1', range[0].getAnnotatedString());
 
-      range = root['k1'].createRange!(2, 2);
+      range = root['k1'].createRange(2, 2);
       assert.equal('1:00:3:0:1', range[0].getAnnotatedString());
 
-      range = root['k1'].createRange!(3, 3);
+      range = root['k1'].createRange(3, 3);
       assert.equal('1:00:3:0:2', range[0].getAnnotatedString());
 
-      range = root['k1'].createRange!(4, 4);
+      range = root['k1'].createRange(4, 4);
       assert.equal('1:00:2:3:1', range[0].getAnnotatedString());
     });
 
@@ -61,7 +61,7 @@ describe('Text', function () {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D]',
-        root['k1'].getAnnotatedString!(),
+        root['k1'].getAnnotatedString(),
       );
     });
 
@@ -160,11 +160,11 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit!(0, 0, 'ABCD');
+        root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
       assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
       d2.update((root) => {
-        root['k1'].edit!(0, 0, '1234');
+        root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
       assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
       await c1.sync();
@@ -173,10 +173,10 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit!(2, 3, 'XX');
+        root['k1'].edit(2, 3, 'XX');
       }, 'edit 2,3 XX by c1');
       d2.update((root) => {
-        root['k1'].edit!(2, 3, 'YY');
+        root['k1'].edit(2, 3, 'YY');
       }, 'edit 2,3 YY by c1');
       await c1.sync();
       await c2.sync();
@@ -184,10 +184,10 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root['k1'].edit!(4, 5, 'ZZ');
+        root['k1'].edit(4, 5, 'ZZ');
       }, 'edit 4,5 ZZ by c1');
       d2.update((root) => {
-        root['k1'].edit!(2, 3, 'TT');
+        root['k1'].edit(2, 3, 'TT');
       }, 'edit 2,3 TT by c1');
 
       await c1.sync();
