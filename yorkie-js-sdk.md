@@ -58,4 +58,9 @@
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>DocumentReplica</code>. It can be delivered using <code>DocumentReplica.subscribe()</code>. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
 |  [MetadataInfo](./yorkie-js-sdk.metadatainfo.md) | <code>MetadataInfo</code> is metadata information of this client. |
+|  [TArray](./yorkie-js-sdk.tarray.md) |  |
+|  [TCounter](./yorkie-js-sdk.tcounter.md) |  |
+|  [TObject](./yorkie-js-sdk.tobject.md) |  |
+|  [TRichText](./yorkie-js-sdk.trichtext.md) |  |
+|  [TText](./yorkie-js-sdk.ttext.md) |  |
 

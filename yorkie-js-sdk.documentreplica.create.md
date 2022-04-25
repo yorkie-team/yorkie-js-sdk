@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-static create<T = Indexable>(collection: string, document: string): DocumentReplica<T>;
+static create<T>(collection: string, document: string): DocumentReplica<T>;
 ```
 
 ## Parameters
