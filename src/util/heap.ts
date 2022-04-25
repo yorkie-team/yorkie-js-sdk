@@ -50,7 +50,7 @@ export class HeapNode<K, V> {
  * `Heap` is a heap implemented with max heap.
  */
 export class Heap<K, V> {
-  private nodes: HeapNode<K, V>[];
+  private nodes: Array<HeapNode<K, V>>;
   private comparator: Comparator<K>;
 
   constructor(comparator?: Comparator<K>) {

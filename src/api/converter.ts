@@ -404,7 +404,7 @@ function toOperation(operation: Operation): PbOperation {
 /**
  * `toOperations` converts the given model to Protobuf format.
  */
-function toOperations(operations: Operation[]): PbOperation[] {
+function toOperations(operations: Array<Operation>): Array<PbOperation> {
   const pbOperations = [];
   for (const operation of operations) {
     pbOperations.push(toOperation(operation));
@@ -426,7 +426,7 @@ function toChange(change: Change): PbChange {
 /**
  * `toChanges` converts the given model to Protobuf format.
  */
-function toChanges(changes: Change[]): PbChange[] {
+function toChanges(changes: Array<Change>): Array<PbChange> {
   const pbChanges = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
@@ -437,7 +437,7 @@ function toChanges(changes: Change[]): PbChange[] {
 /**
  * `toRHTNodes` converts the given model to Protobuf format.
  */
-function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
+function toRHTNodes(rht: RHTPQMap): Array<PbRHTNode> {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
@@ -453,7 +453,7 @@ function toRHTNodes(rht: RHTPQMap): PbRHTNode[] {
 /**
  * `toRGANodes` converts the given model to Protobuf format.
  */
-function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
+function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
   const pbRGANodes = [];
   for (const rgaTreeListNode of rgaTreeList) {
     const pbRGANode = new PbRGANode();
@@ -468,7 +468,7 @@ function toRGANodes(rgaTreeList: RGATreeList): PbRGANode[] {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): PbTextNode[] {
+function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
@@ -791,7 +791,7 @@ function fromRichTextNode(
 /**
  * `fromOperations` converts the given Protobuf format to model format.
  */
-function fromOperations(pbOperations: PbOperation[]): Operation[] {
+function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
   const operations = [];
 
   for (const pbOperation of pbOperations) {
@@ -901,7 +901,7 @@ function fromOperations(pbOperations: PbOperation[]): Operation[] {
 /**
  * `fromChanges` converts the given Protobuf format to model format.
  */
-function fromChanges(pbChanges: PbChange[]): Change[] {
+function fromChanges(pbChanges: Array<PbChange>): Array<Change> {
   const changes = [];
 
   for (const pbChange of pbChanges) {

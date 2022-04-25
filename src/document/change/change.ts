@@ -26,12 +26,12 @@ export class Change {
   private id: ChangeID;
 
   // `operations` represent a series of user edits.
-  private operations: Operation[];
+  private operations: Array<Operation>;
 
   // `message` is used to save a description of the change.
   private message?: string;
 
-  constructor(id: ChangeID, operations: Operation[], message?: string) {
+  constructor(id: ChangeID, operations: Array<Operation>, message?: string) {
     this.id = id;
     this.operations = operations;
     this.message = message;
@@ -42,7 +42,7 @@ export class Change {
    */
   public static create(
     id: ChangeID,
-    operations: Operation[],
+    operations: Array<Operation>,
     message?: string,
   ): Change {
     return new Change(id, operations, message);
@@ -65,7 +65,7 @@ export class Change {
   /**
    * `getOperations` returns the operations of this change.
    */
-  public getOperations(): Operation[] {
+  public getOperations(): Array<Operation> {
     return this.operations;
   }
 

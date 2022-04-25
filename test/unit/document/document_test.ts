@@ -27,7 +27,7 @@ describe('DocumentReplica', function () {
     const doc = DocumentReplica.create<{
       k1?: string;
       k2?: string;
-      k3: number[];
+      k3: Array<number>;
       k4: unknown;
     }>('test-col', 'test-doc');
     doc.update((root) => {
@@ -89,7 +89,7 @@ describe('DocumentReplica', function () {
   });
 
   it('delete elements of array test', function () {
-    const doc = DocumentReplica.create<{ data: number[] }>(
+    const doc = DocumentReplica.create<{ data: Array<number> }>(
       'test-col',
       'test-doc',
     );

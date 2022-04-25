@@ -477,7 +477,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * receives changes of the remote replica from the agent then apply them to
    * local documents.
    */
-  public sync(): Promise<DocumentReplica<unknown>[]> {
+  public sync(): Promise<Array<DocumentReplica<unknown>>> {
     const promises = [];
     for (const [, attachment] of this.attachmentMap) {
       promises.push(this.syncInternal(attachment.doc));

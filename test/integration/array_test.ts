@@ -28,7 +28,7 @@ describe('Array', function () {
   });
 
   it('can push array element after delete operation', function () {
-    const doc = DocumentReplica.create<{ k1: TArray<string | number[]> }>(
+    const doc = DocumentReplica.create<{ k1: TArray<string | Array<number>> }>(
       'test-col',
       'test-doc',
     );
@@ -77,7 +77,7 @@ describe('Array', function () {
   });
 
   it('can push array', function () {
-    const doc = DocumentReplica.create<{ arr: (number | number[])[] }>(
+    const doc = DocumentReplica.create<{ arr: Array<number | Array<number>> }>(
       'test-col',
       'test-doc',
     );

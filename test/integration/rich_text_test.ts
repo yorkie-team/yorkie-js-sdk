@@ -31,7 +31,7 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = DocumentReplica.create<{ k1: TRichText; }>(
+    const doc = DocumentReplica.create<{ k1: TRichText }>(
       'test-col',
       'test-doc',
     );

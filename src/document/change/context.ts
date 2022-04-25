@@ -36,7 +36,7 @@ import { Change } from '@yorkie-js-sdk/src/document/change/change';
 export class ChangeContext {
   private id: ChangeID;
   private root: JSONRoot;
-  private operations: Operation[];
+  private operations: Array<Operation>;
   private message?: string;
   private delimiter: number;
 

@@ -66,7 +66,7 @@ class ObserverProxy<T> implements Observer<T> {
   public onNoObservers: Executor<T> | undefined;
 
   private observers: Array<Observer<T>> | undefined = [];
-  private unsubscribes: Unsubscribe[] = [];
+  private unsubscribes: Array<Unsubscribe> = [];
   private observerCount = 0;
   private task = Promise.resolve();
   private finalError?: Error;

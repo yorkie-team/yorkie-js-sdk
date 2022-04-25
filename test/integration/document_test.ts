@@ -12,7 +12,7 @@ import {
 
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
-    type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string>; };
+    type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string> };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
     const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);

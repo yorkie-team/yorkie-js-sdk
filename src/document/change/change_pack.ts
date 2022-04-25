@@ -35,7 +35,7 @@ export class ChangePack {
    */
   private checkpoint: Checkpoint;
 
-  private changes: Change[];
+  private changes: Array<Change>;
 
   /**
    * `snapshot` is a byte array that encode the document.
@@ -51,7 +51,7 @@ export class ChangePack {
   constructor(
     key: DocumentKey,
     checkpoint: Checkpoint,
-    changes: Change[],
+    changes: Array<Change>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ) {
@@ -68,7 +68,7 @@ export class ChangePack {
   public static create(
     key: DocumentKey,
     checkpoint: Checkpoint,
-    changes: Change[],
+    changes: Array<Change>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ): ChangePack {
@@ -92,7 +92,7 @@ export class ChangePack {
   /**
    * `getChanges` returns the changes of this pack.
    */
-  public getChanges(): Change[] {
+  public getChanges(): Array<Change> {
     return this.changes;
   }
 

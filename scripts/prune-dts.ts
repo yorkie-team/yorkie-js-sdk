@@ -121,13 +121,13 @@ function prunePrivateImports<
   const typeChecker = program.getTypeChecker();
 
   // The list of heritage clauses after all private symbols are removed.
-  const prunedHeritageClauses: ts.HeritageClause[] = [];
+  const prunedHeritageClauses: Array<ts.HeritageClause> = [];
   // Additional members that are copied from the private symbols into the public
   // symbols
-  const additionalMembers: ts.Node[] = [];
+  const additionalMembers: Array<ts.Node> = [];
 
   for (const heritageClause of node.heritageClauses || []) {
-    const exportedTypes: ts.ExpressionWithTypeArguments[] = [];
+    const exportedTypes: Array<ts.ExpressionWithTypeArguments> = [];
     for (const type of heritageClause.types) {
       if (
         ts.isIdentifier(type.expression) &&
@@ -154,7 +154,7 @@ function prunePrivateImports<
       prunedHeritageClauses,
       [
         ...(node.members as ts.NodeArray<ts.ClassElement>),
-        ...(additionalMembers as ts.ClassElement[]),
+        ...(additionalMembers as Array<ts.ClassElement>),
       ],
     ) as T;
   } else if (ts.isInterfaceDeclaration(node)) {
@@ -167,7 +167,7 @@ function prunePrivateImports<
       prunedHeritageClauses,
       [
         ...(node.members as ts.NodeArray<ts.TypeElement>),
-        ...(additionalMembers as ts.TypeElement[]),
+        ...(additionalMembers as Array<ts.TypeElement>),
       ],
     ) as T;
   } else {
