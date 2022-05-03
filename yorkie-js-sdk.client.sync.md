@@ -4,7 +4,7 @@
 
 ## Client.sync() method
 
-`sync` pushes local changes of the attached documents to the Agent and receives changes of the remote replica from the agent then apply them to local documents.
+`sync` pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents.
 
 <b>Signature:</b>
 

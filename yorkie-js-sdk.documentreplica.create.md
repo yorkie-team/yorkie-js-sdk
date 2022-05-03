@@ -9,15 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-static create<T>(collection: string, document: string): DocumentReplica<T>;
+static create<T>(key: string): DocumentReplica<T>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  collection | string |  |
-|  document | string |  |
+|  key | string |  |
 
 <b>Returns:</b>
 

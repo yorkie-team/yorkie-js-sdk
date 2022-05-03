@@ -9,15 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-export declare function createDocument<T = Indexable>(collection: string, document: string): DocumentReplica<T>;
+export declare function createDocument<T = Indexable>(key: string): DocumentReplica<T>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  collection | string |  |
-|  document | string |  |
+|  key | string |  |
 
 <b>Returns:</b>
 

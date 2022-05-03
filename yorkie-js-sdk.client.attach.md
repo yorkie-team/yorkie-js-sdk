@@ -4,7 +4,7 @@
 
 ## Client.attach() method
 
-`attach` attaches the given document to this client. It tells the agent that this client will synchronize the given document.
+`attach` attaches the given document to this client. It tells the server that this client will synchronize the given document.
 
 <b>Signature:</b>
 

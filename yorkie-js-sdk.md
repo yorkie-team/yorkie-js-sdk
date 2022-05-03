@@ -8,7 +8,7 @@
 
 |  Class | Description |
 |  --- | --- |
-|  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the agent. It has documents and sends changes of the documents in local to the agent to synchronize with other replicas in remote. |
+|  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the server. It has documents and sends changes of the documents in local to the server to synchronize with other replicas in remote. |
 |  [DocumentReplica](./yorkie-js-sdk.documentreplica.md) | <code>DocumentReplica</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
 
@@ -27,7 +27,7 @@
 |  Function | Description |
 |  --- | --- |
 |  [createClient(rpcAddr, opts)](./yorkie-js-sdk.createclient.md) | <code>createClient</code> creates a new instance of <code>Client</code>. |
-|  [createDocument(collection, document)](./yorkie-js-sdk.createdocument.md) | <code>createDocument</code> creates a new instance of <code>DocumentReplica</code>. |
+|  [createDocument(key)](./yorkie-js-sdk.createdocument.md) | <code>createDocument</code> creates a new instance of <code>DocumentReplica</code>. |
 
 ## Interfaces
 
@@ -39,7 +39,7 @@
 |  [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md) | <code>LocalChangeEvent</code> is an event that occurs when the document is changed by local changes. |
 |  [PeersChangedEvent](./yorkie-js-sdk.peerschangedevent.md) | <code>PeersChangedEvent</code> is an event that occurs when the states of another peers of the attached documents changes. |
 |  [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md) | <code>RemoteChangeEvent</code> is an event that occurs when the document is changed by remote changes. |
-|  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from an agent. |
+|  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from the server. |
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
 |  [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md) | <code>StreamConnectionStatusChangedEvent</code> is an event that occurs when the client's stream connection state changes. |
 

@@ -9,5 +9,5 @@
 <b>Signature:</b>
 
 ```typescript
-value: Array<DocumentKey>;
+value: Array<string>;
 ```

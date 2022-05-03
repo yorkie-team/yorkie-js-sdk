@@ -4,7 +4,7 @@
 
 ## SnapshotEvent interface
 
-`SnapshotEvent` is an event that occurs when a snapshot is received from an agent.
+`SnapshotEvent` is an event that occurs when a snapshot is received from the server.
 
 <b>Signature:</b>
 

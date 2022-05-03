@@ -4,7 +4,7 @@
 
 ## Client.detach() method
 
-`detach` detaches the given document from this client. It tells the agent that this client will no longer synchronize the given document.
+`detach` detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.
 
 To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached.
 
