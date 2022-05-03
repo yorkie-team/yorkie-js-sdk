@@ -15,6 +15,8 @@
 const grpc = {};
 grpc.web = require('grpc-web');
 
+
+var resources_pb = require('./resources_pb.js')
 const proto = {};
 proto.api = require('./yorkie_pb.js');
 
@@ -495,174 +497,61 @@ proto.api.YorkiePromiseClient.prototype.pushPull =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.api.FetchHistoryRequest,
- *   !proto.api.FetchHistoryResponse>}
+ *   !proto.api.ListChangesRequest,
+ *   !proto.api.ListChangesResponse>}
  */
-const methodDescriptor_Yorkie_FetchHistory = new grpc.web.MethodDescriptor(
-  '/api.Yorkie/FetchHistory',
+const methodDescriptor_Yorkie_ListChanges = new grpc.web.MethodDescriptor(
+  '/api.Yorkie/ListChanges',
   grpc.web.MethodType.UNARY,
-  proto.api.FetchHistoryRequest,
-  proto.api.FetchHistoryResponse,
+  proto.api.ListChangesRequest,
+  proto.api.ListChangesResponse,
   /**
-   * @param {!proto.api.FetchHistoryRequest} request
+   * @param {!proto.api.ListChangesRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.api.FetchHistoryResponse.deserializeBinary
+  proto.api.ListChangesResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.api.FetchHistoryRequest} request The
+ * @param {!proto.api.ListChangesRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.api.FetchHistoryResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.api.ListChangesResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.api.FetchHistoryResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.api.ListChangesResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.api.YorkieClient.prototype.fetchHistory =
+proto.api.YorkieClient.prototype.listChanges =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/api.Yorkie/FetchHistory',
+      '/api.Yorkie/ListChanges',
       request,
       metadata || {},
-      methodDescriptor_Yorkie_FetchHistory,
+      methodDescriptor_Yorkie_ListChanges,
       callback);
 };
 
 
 /**
- * @param {!proto.api.FetchHistoryRequest} request The
+ * @param {!proto.api.ListChangesRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.api.FetchHistoryResponse>}
+ * @return {!Promise<!proto.api.ListChangesResponse>}
  *     Promise that resolves to the response
  */
-proto.api.YorkiePromiseClient.prototype.fetchHistory =
+proto.api.YorkiePromiseClient.prototype.listChanges =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/api.Yorkie/FetchHistory',
+      '/api.Yorkie/ListChanges',
       request,
       metadata || {},
-      methodDescriptor_Yorkie_FetchHistory);
-};
-
-
-/**
- * @param {string} hostname
- * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
- * @constructor
- * @struct
- * @final
- */
-proto.api.ClusterClient =
-    function(hostname, credentials, options) {
-  if (!options) options = {};
-  options.format = 'text';
-
-  /**
-   * @private @const {!grpc.web.GrpcWebClientBase} The client
-   */
-  this.client_ = new grpc.web.GrpcWebClientBase(options);
-
-  /**
-   * @private @const {string} The hostname
-   */
-  this.hostname_ = hostname;
-
-};
-
-
-/**
- * @param {string} hostname
- * @param {?Object} credentials
- * @param {?grpc.web.ClientOptions} options
- * @constructor
- * @struct
- * @final
- */
-proto.api.ClusterPromiseClient =
-    function(hostname, credentials, options) {
-  if (!options) options = {};
-  options.format = 'text';
-
-  /**
-   * @private @const {!grpc.web.GrpcWebClientBase} The client
-   */
-  this.client_ = new grpc.web.GrpcWebClientBase(options);
-
-  /**
-   * @private @const {string} The hostname
-   */
-  this.hostname_ = hostname;
-
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.api.BroadcastEventRequest,
- *   !proto.api.BroadcastEventResponse>}
- */
-const methodDescriptor_Cluster_BroadcastEvent = new grpc.web.MethodDescriptor(
-  '/api.Cluster/BroadcastEvent',
-  grpc.web.MethodType.UNARY,
-  proto.api.BroadcastEventRequest,
-  proto.api.BroadcastEventResponse,
-  /**
-   * @param {!proto.api.BroadcastEventRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.api.BroadcastEventResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.api.BroadcastEventRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.api.BroadcastEventResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.api.BroadcastEventResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.api.ClusterClient.prototype.broadcastEvent =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/api.Cluster/BroadcastEvent',
-      request,
-      metadata || {},
-      methodDescriptor_Cluster_BroadcastEvent,
-      callback);
-};
-
-
-/**
- * @param {!proto.api.BroadcastEventRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.api.BroadcastEventResponse>}
- *     Promise that resolves to the response
- */
-proto.api.ClusterPromiseClient.prototype.broadcastEvent =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/api.Cluster/BroadcastEvent',
-      request,
-      metadata || {},
-      methodDescriptor_Cluster_BroadcastEvent);
+      methodDescriptor_Yorkie_ListChanges);
 };
 
 

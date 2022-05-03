@@ -18,7 +18,7 @@ services:
     image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
     command: [
-      'agent',
+      'server',
       '--mongo-connection-uri',
       'mongodb://mongo:27017',
     ]

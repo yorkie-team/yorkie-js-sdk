@@ -9,10 +9,7 @@ import { TArray } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = DocumentReplica.create<{ k1: TArray<string> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ k1: TArray<string> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -28,10 +25,10 @@ describe('Array', function () {
   });
 
   it('can push array element after delete operation', function () {
-    const doc = DocumentReplica.create<{ k1: TArray<string | Array<number>> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc =
+      DocumentReplica.create<{ k1: TArray<string | Array<number>> }>(
+        'test-doc',
+      );
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -55,7 +52,7 @@ describe('Array', function () {
   it('can push object element after delete operation', function () {
     const doc = DocumentReplica.create<{
       k1: TArray<string | { a: string; b: string }>;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -77,10 +74,10 @@ describe('Array', function () {
   });
 
   it('can push array', function () {
-    const doc = DocumentReplica.create<{ arr: Array<number | Array<number>> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc =
+      DocumentReplica.create<{ arr: Array<number | Array<number>> }>(
+        'test-doc',
+      );
 
     doc.update((root) => {
       root.arr = [1, 2, 3];
@@ -91,10 +88,7 @@ describe('Array', function () {
   });
 
   it('can push element then delete it by ID in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let toDelete: JSONElement;
@@ -121,10 +115,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let prev: JSONElement;
@@ -161,10 +152,7 @@ describe('Array', function () {
   });
 
   it('can move an element before the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -187,10 +175,7 @@ describe('Array', function () {
   });
 
   it('can move an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -213,10 +198,7 @@ describe('Array', function () {
   });
 
   it('can insert an element at the first of array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -243,10 +225,7 @@ describe('Array', function () {
   });
 
   it('can move an element at the last of array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -715,10 +694,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist after GC', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {
@@ -740,10 +716,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {

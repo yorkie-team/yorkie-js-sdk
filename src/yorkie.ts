@@ -82,11 +82,8 @@ export function createClient<M = Indexable>(
  *
  * @public
  */
-export function createDocument<T = Indexable>(
-  collection: string,
-  document: string,
-): DocumentReplica<T> {
-  return new DocumentReplica<T>(collection, document);
+export function createDocument<T = Indexable>(key: string): DocumentReplica<T> {
+  return new DocumentReplica<T>(key);
 }
 
 /**

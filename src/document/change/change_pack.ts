@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
@@ -26,9 +25,9 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  */
 export class ChangePack {
   /**
-   * `key` is the key of the document.
+   * `documentKey` is the key of the document.
    */
-  private key: DocumentKey;
+  private documentKey: string;
 
   /**
    * `Checkpoint` is used to determine the client received changes.
@@ -49,13 +48,13 @@ export class ChangePack {
   private minSyncedTicket?: TimeTicket;
 
   constructor(
-    key: DocumentKey,
+    key: string,
     checkpoint: Checkpoint,
     changes: Array<Change>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ) {
-    this.key = key;
+    this.documentKey = key;
     this.checkpoint = checkpoint;
     this.changes = changes;
     this.snapshot = snapshot;
@@ -66,7 +65,7 @@ export class ChangePack {
    * `create` creates a new instance of ChangePack.
    */
   public static create(
-    key: DocumentKey,
+    key: string,
     checkpoint: Checkpoint,
     changes: Array<Change>,
     snapshot?: Uint8Array,
@@ -78,8 +77,8 @@ export class ChangePack {
   /**
    * `getKey` returns the document key of this pack.
    */
-  public getKey(): DocumentKey {
-    return this.key;
+  public getDocumentKey(): string {
+    return this.documentKey;
   }
 
   /**
