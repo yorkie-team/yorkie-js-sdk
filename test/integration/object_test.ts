@@ -7,7 +7,7 @@ describe('Object', function () {
     const doc = DocumentReplica.create<{
       k1: { 'k1-1'?: string; 'k1-2'?: string };
       k2: Array<string | { 'k2-5': string }>;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -61,7 +61,7 @@ describe('Object', function () {
   it('should handle delete operations', function () {
     const doc = DocumentReplica.create<{
       k1: { 'k1-1'?: string; 'k1-2': string; 'k1-3'?: string };
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -79,7 +79,7 @@ describe('Object', function () {
   it('Object.keys, Object.values and Object.entries test', function () {
     const doc = DocumentReplica.create<{
       content: { a: number; b: number; c: number };
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {

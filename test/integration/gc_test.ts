@@ -4,10 +4,7 @@ import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
-import {
-  testCollection,
-  testRPCAddr,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { TText, TRichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Garbage Collection', function () {
@@ -16,7 +13,7 @@ describe('Garbage Collection', function () {
       1: number;
       2?: Array<number>;
       3: number;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -37,10 +34,7 @@ describe('Garbage Collection', function () {
 
   it('garbage collection test2', function () {
     const size = 10000;
-    const doc = DocumentReplica.create<{ 1?: Array<unknown> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ 1?: Array<unknown> }>('test-doc');
     doc.update((root) => {
       root['1'] = Array.from(Array(size).keys());
     }, 'sets big array');
@@ -53,10 +47,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test3', function () {
-    const doc = DocumentReplica.create<{ list: Array<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ list: Array<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -84,10 +75,7 @@ describe('Garbage Collection', function () {
   });
 
   it('text garbage collection test', function () {
-    const doc = DocumentReplica.create<{ text: PlainText }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
     doc.update((root) => root.createText!('text'));
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
@@ -115,7 +103,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text', function () {
-    const doc = DocumentReplica.create<{ k1: TText }>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg = '{"k1":"Hello mario"}';
@@ -148,10 +136,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for rich text', function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =
@@ -188,8 +173,8 @@ describe('Garbage Collection', function () {
   it('Can handle garbage collection for container type', async function () {
     type TestDoc = { 1: number; 2?: Array<number>; 3: number };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
-    const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
+    const doc1 = yorkie.createDocument<TestDoc>(docKey);
+    const doc2 = yorkie.createDocument<TestDoc>(docKey);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);
@@ -256,8 +241,8 @@ describe('Garbage Collection', function () {
   it('Can handle garbage collection for text type', async function () {
     type TestDoc = { text: TRichText; richText: TRichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
-    const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
+    const doc1 = yorkie.createDocument<TestDoc>(docKey);
+    const doc2 = yorkie.createDocument<TestDoc>(docKey);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);
@@ -333,8 +318,8 @@ describe('Garbage Collection', function () {
       5: TRichText;
     };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const doc1 = yorkie.createDocument<TestDoc>(testCollection, docKey);
-    const doc2 = yorkie.createDocument<TestDoc>(testCollection, docKey);
+    const doc1 = yorkie.createDocument<TestDoc>(docKey);
+    const doc2 = yorkie.createDocument<TestDoc>(docKey);
 
     const client1 = yorkie.createClient(testRPCAddr);
     const client2 = yorkie.createClient(testRPCAddr);

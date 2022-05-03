@@ -30,7 +30,6 @@ import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operat
 import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
-import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
@@ -62,7 +61,6 @@ import {
   Checkpoint as PbCheckpoint,
   Client as PbClient,
   Metadata as PbMetadata,
-  DocumentKey as PbDocumentKey,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -74,7 +72,7 @@ import {
   TextNodePos as PbTextNodePos,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
-} from '@yorkie-js-sdk/src/api/yorkie_pb';
+} from '@yorkie-js-sdk/src/api/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
@@ -108,23 +106,6 @@ function toClient<M>(id: string, metadata: MetadataInfo<M>): PbClient {
   pbClient.setId(toUint8Array(id));
   pbClient.setMetadata(pbMetadata);
   return pbClient;
-}
-
-/**
- * `toDocumentKey` converts the given model to Protobuf format.
- */
-function toDocumentKey(key: DocumentKey): PbDocumentKey {
-  const pbDocumentKey = new PbDocumentKey();
-  pbDocumentKey.setCollection(key.getCollection());
-  pbDocumentKey.setDocument(key.getDocument());
-  return pbDocumentKey;
-}
-
-/**
- * `toDocumentKeys` converts the given model to Protobuf format.
- */
-function toDocumentKeys(keys: Array<DocumentKey>): Array<PbDocumentKey> {
-  return keys.map(toDocumentKey);
 }
 
 /**
@@ -586,31 +567,12 @@ function toJSONElement(jsonElement: JSONElement): PbJSONElement {
  */
 function toChangePack(pack: ChangePack): PbChangePack {
   const pbChangePack = new PbChangePack();
-  pbChangePack.setDocumentKey(toDocumentKey(pack.getKey()));
+  pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
   return pbChangePack;
-}
-
-/**
- * `fromDocumentKey` converts the given Protobuf format to model format.
- */
-function fromDocumentKey(pbDocumentKey: PbDocumentKey): DocumentKey {
-  return DocumentKey.of(
-    pbDocumentKey.getCollection(),
-    pbDocumentKey.getDocument(),
-  );
-}
-
-/**
- * `fromDocumentKeys` converts the given Protobuf format to model format.
- */
-function fromDocumentKeys(
-  pbDocumentKeys: Array<PbDocumentKey>,
-): Array<DocumentKey> {
-  return pbDocumentKeys.map(fromDocumentKey);
 }
 
 /**
@@ -932,7 +894,7 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
  */
 function fromChangePack(pbPack: PbChangePack): ChangePack {
   return ChangePack.create(
-    fromDocumentKey(pbPack.getDocumentKey()!),
+    pbPack.getDocumentKey()!,
     fromCheckpoint(pbPack.getCheckpoint()!),
     fromChanges(pbPack.getChangesList()),
     pbPack.getSnapshot_asU8(),
@@ -1123,8 +1085,6 @@ export const converter = {
   toClient,
   toChangePack,
   fromChangePack,
-  toDocumentKeys,
-  fromDocumentKeys,
   objectToBytes,
   bytesToObject,
   toHexString,

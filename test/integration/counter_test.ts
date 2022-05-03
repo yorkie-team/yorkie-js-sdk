@@ -7,7 +7,7 @@ describe('Counter', function () {
   it('can be increased by Counter type', function () {
     const doc = DocumentReplica.create<{
       k1: TObject<{ age?: TCounter; length?: TCounter }>;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
 
     doc.update((root) => {
       root['k1'] = {};

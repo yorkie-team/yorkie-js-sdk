@@ -25,7 +25,7 @@ services:
     image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
     command: [
-      'agent',
+      'server',
       '--enable-pprof',
     ]
     restart: always

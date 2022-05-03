@@ -32,15 +32,14 @@ import {
   PushPullRequest,
   WatchDocumentsRequest,
   WatchDocumentsResponse,
-  DocEventType,
   UpdateMetadataRequest,
 } from '@yorkie-js-sdk/src/api/yorkie_pb';
+import { DocEventType } from '@yorkie-js-sdk/src/api/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { YorkieClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
@@ -170,7 +169,7 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
   /**
    * `DocumentsChangedEvent` value
    */
-  value: Array<DocumentKey>;
+  value: Array<string>;
 }
 
 /**
@@ -265,9 +264,9 @@ const DefaultClientOptions = {
 };
 
 /**
- * `Client` is a normal client that can communicate with the agent.
+ * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
- * to the agent to synchronize with other replicas in remote.
+ * to the server to synchronize with other replicas in remote.
  *
  * @public
  */
@@ -317,8 +316,8 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   }
 
   /**
-   * `ativate` activates this client. That is, it register itself to the agent
-   * and receives a unique ID from the agent. The given ID is used to
+   * `ativate` activates this client. That is, it register itself to the server
+   * and receives a unique ID from the server. The given ID is used to
    * distinguish different clients.
    */
   public activate(): Promise<void> {
@@ -390,7 +389,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   }
 
   /**
-   * `attach` attaches the given document to this client. It tells the agent that
+   * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
   public attach(
@@ -433,7 +432,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
 
   /**
    * `detach` detaches the given document from this client. It tells the
-   * agent that this client will no longer synchronize the given document.
+   * server that this client will no longer synchronize the given document.
    *
    * To collect garbage things like CRDT tombstones left on the document, all
    * the changes should be applied to other replicas before GC time. For this,
@@ -473,8 +472,8 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   }
 
   /**
-   * `sync` pushes local changes of the attached documents to the Agent and
-   * receives changes of the remote replica from the agent then apply them to
+   * `sync` pushes local changes of the attached documents to the server and
+   * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
   public sync(): Promise<Array<DocumentReplica<unknown>>> {
@@ -511,19 +510,19 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       return Promise.resolve();
     }
 
-    const keys: Array<DocumentKey> = [];
+    const keys: Array<string> = [];
     for (const [, attachment] of this.attachmentMap) {
       if (!attachment.isRealtimeSync) {
         continue;
       }
 
       attachment.peerClients!.set(this.getID()!, this.metadataInfo);
-      keys.push(attachment.doc.getDocumentKey());
+      keys.push(attachment.doc.getKey());
     }
 
     const req = new UpdateMetadataRequest();
     req.setClient(converter.toClient(this.id!, this.metadataInfo));
-    req.setDocumentKeysList(converter.toDocumentKeys(keys));
+    req.setDocumentKeysList(keys);
 
     return new Promise((resolve, reject) => {
       this.rpcClient.updateMetadata(req, {}, (err) => {
@@ -658,10 +657,10 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
         return;
       }
 
-      const realtimeSyncDocKeys: Array<DocumentKey> = [];
+      const realtimeSyncDocKeys: Array<string> = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.isRealtimeSync) {
-          realtimeSyncDocKeys.push(attachment.doc.getDocumentKey());
+          realtimeSyncDocKeys.push(attachment.doc.getKey());
         }
       }
 
@@ -672,7 +671,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
 
       const req = new WatchDocumentsRequest();
       req.setClient(converter.toClient(this.id!, this.metadataInfo));
-      req.setDocumentKeysList(converter.toDocumentKeys(realtimeSyncDocKeys));
+      req.setDocumentKeysList(realtimeSyncDocKeys);
 
       const onStreamDisconnect = () => {
         this.remoteChangeEventStream = undefined;
@@ -692,8 +691,8 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       this.remoteChangeEventStream = stream;
 
       logger.info(
-        `[WD] c:"${this.getKey()}" watches d:"${realtimeSyncDocKeys.map((key) =>
-          key.toIDString(),
+        `[WD] c:"${this.getKey()}" watches d:"${realtimeSyncDocKeys.map(
+          (key) => key,
         )}"`,
       );
     };
@@ -704,19 +703,19 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   }
 
   private handleWatchDocumentsResponse(
-    keys: Array<DocumentKey>,
+    keys: Array<string>,
     resp: WatchDocumentsResponse,
   ) {
     const getPeers = (
       peersMap: Record<string, Record<string, M>>,
-      key: DocumentKey,
+      key: string,
     ) => {
-      const attachment = this.attachmentMap.get(key.toIDString());
+      const attachment = this.attachmentMap.get(key);
       const peers: Record<string, M> = {};
       for (const [key, value] of attachment!.peerClients!) {
         peers[key] = value.data;
       }
-      peersMap[key.toIDString()] = peers;
+      peersMap[key] = peers;
       return peersMap;
     };
 
@@ -740,9 +739,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     }
 
     const pbWatchEvent = resp.getEvent()!;
-    const respKeys = converter.fromDocumentKeys(
-      pbWatchEvent.getDocumentKeysList(),
-    );
+    const respKeys = pbWatchEvent.getDocumentKeysList();
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
@@ -750,7 +747,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       pbWatchEvent.getPublisher()!.getMetadata()!,
     );
     for (const key of respKeys) {
-      const attachment = this.attachmentMap.get(key.toIDString())!;
+      const attachment = this.attachmentMap.get(key)!;
       const peerClients = attachment.peerClients!;
       switch (pbWatchEvent.getType()) {
         case DocEventType.DOCUMENTS_WATCHED:
