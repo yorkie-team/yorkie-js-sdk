@@ -5,10 +5,7 @@ import { TRichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -31,10 +28,7 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
 
     doc.update((root) => {
       root.createRichText!('k1');

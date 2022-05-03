@@ -10,7 +10,7 @@ To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/js-sdk
 
 ## How yorkie-js-sdk works
 
-yorkie-js-sdk uses gRPC-web for communicating with Yorkie agent built on gRPC.
+yorkie-js-sdk uses gRPC-web for communicating with Yorkie Server built on gRPC.
 
 ```
  +--Browser--+           +--Envoy---------+         +--Yorkie-----+

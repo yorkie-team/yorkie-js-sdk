@@ -25,7 +25,6 @@ import {
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { DocumentKey } from '@yorkie-js-sdk/src/document/key/document_key';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import {
   ChangeID,
@@ -80,7 +79,7 @@ export interface BaseDocEvent {
 
 /**
  * `SnapshotEvent` is an event that occurs when a snapshot is received from
- * an agent.
+ * the server.
  *
  * @public
  */
@@ -151,7 +150,7 @@ export type Indexable = Record<string, any>;
  * @public
  */
 export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
-  private key: DocumentKey;
+  private key: string;
   private root: JSONRoot;
   private clone?: JSONRoot;
   private changeID: ChangeID;
@@ -161,8 +160,8 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   private eventStreamObserver!: Observer<DocEvent>;
 
   /** @hideconstructor */
-  constructor(collection: string, document: string) {
-    this.key = DocumentKey.of(collection, document);
+  constructor(key: string) {
+    this.key = key;
     this.root = JSONRoot.create();
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
@@ -175,11 +174,8 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T>(
-    collection: string,
-    document: string,
-  ): DocumentReplica<T> {
-    return new DocumentReplica<T>(collection, document);
+  public static create<T>(key: string): DocumentReplica<T> {
+    return new DocumentReplica<T>(key);
   }
 
   /**
@@ -340,20 +336,11 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   }
 
   /**
-   * `getKey` returns the key of this document as a string. The string is
-   * a combination pattern of collection and document.
-   * e.g. `Collection$Document`;
-   */
-  public getKey(): string {
-    return this.key.toIDString();
-  }
-
-  /**
-   * `getDocumentKey` returns the key of this document.
+   * `getKey` returns the key of this document.
    *
    * @internal
    */
-  public getDocumentKey(): DocumentKey {
+  public getKey(): string {
     return this.key;
   }
 

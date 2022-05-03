@@ -30,7 +30,7 @@ describe('Converter', function () {
       k2: Array<boolean | number | string>;
       k3: TText;
       k4: TCounter;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
 
     doc.update((root) => {
       root['k1'] = {

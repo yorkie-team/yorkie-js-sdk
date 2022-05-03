@@ -29,7 +29,7 @@ describe('DocumentReplica', function () {
       k2?: string;
       k3: Array<number>;
       k4: unknown;
-    }>('test-col', 'test-doc');
+    }>('test-doc');
     doc.update((root) => {
       root.k1 = '1';
       root.k2 = '2';
@@ -47,7 +47,7 @@ describe('DocumentReplica', function () {
   it('generic type parameter test', function () {
     type Todos = { todos: Array<{ title: string; done: boolean }> };
 
-    const doc = DocumentReplica.create<Todos>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<Todos>('test-doc');
     doc.update((root) => {
       root.todos = [
         {
@@ -75,10 +75,8 @@ describe('DocumentReplica', function () {
   });
 
   it('null value test', function () {
-    const doc = DocumentReplica.create<{ data: { '': null; null: null } }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc =
+      DocumentReplica.create<{ data: { '': null; null: null } }>('test-doc');
     doc.update((root) => {
       root.data = {
         '': null,
@@ -89,10 +87,7 @@ describe('DocumentReplica', function () {
   });
 
   it('delete elements of array test', function () {
-    const doc = DocumentReplica.create<{ data: Array<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: Array<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -115,10 +110,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -145,10 +137,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -167,10 +156,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -197,10 +183,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -219,10 +202,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -247,10 +227,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -268,10 +245,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -296,10 +270,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -317,7 +288,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for object', async function () {
-    const doc = DocumentReplica.create<any>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -348,7 +319,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for array', async function () {
-    const doc = DocumentReplica.create<any>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -376,7 +347,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for counter', async function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -398,7 +369,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for text', async function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -422,7 +393,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for rich text', async function () {
-    const doc = DocumentReplica.create('test-col', 'test-doc');
+    const doc = DocumentReplica.create('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -446,10 +417,7 @@ describe('DocumentReplica', function () {
   });
 
   it('insert elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -479,10 +447,7 @@ describe('DocumentReplica', function () {
   });
 
   it('can insert an element before specific position after delete operation', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>(
-      'test-col',
-      'test-doc',
-    );
+    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -511,7 +476,7 @@ describe('DocumentReplica', function () {
   });
 
   it('should remove previously inserted elements in heap when running GC', function () {
-    const doc = DocumentReplica.create<{ a?: number }>('test-col', 'test-doc');
+    const doc = DocumentReplica.create<{ a?: number }>('test-doc');
     doc.update((root) => {
       root.a = 1;
       root.a = 2;

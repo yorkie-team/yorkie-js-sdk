@@ -12,7 +12,6 @@ import {
   delay,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
-  testCollection,
   testRPCAddr,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
@@ -127,8 +126,8 @@ describe('Client', function () {
     await c2.activate();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
-    const d2 = yorkie.createDocument<{ k1: string }>(testCollection, docKey);
+    const d1 = yorkie.createDocument<{ k1: string }>(docKey);
+    const d2 = yorkie.createDocument<{ k1: string }>(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);
@@ -209,8 +208,8 @@ describe('Client', function () {
     const [emitter2, spy2] = createEmitterAndSpy();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument(testCollection, docKey);
-    const d2 = yorkie.createDocument(testCollection, docKey);
+    const d1 = yorkie.createDocument(docKey);
+    const d2 = yorkie.createDocument(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);
