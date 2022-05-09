@@ -57,7 +57,7 @@
 |  [ClientEvent](./yorkie-js-sdk.clientevent.md) | <code>ClientEvent</code> is an event that occurs in <code>Client</code>. It can be delivered using <code>Client.subscribe()</code>. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>DocumentReplica</code>. It can be delivered using <code>DocumentReplica.subscribe()</code>. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
-|  [MetadataInfo](./yorkie-js-sdk.metadatainfo.md) | <code>MetadataInfo</code> is metadata information of this client. |
+|  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
 |  [TArray](./yorkie-js-sdk.tarray.md) |  |
 |  [TCounter](./yorkie-js-sdk.tcounter.md) |  |
 |  [TObject](./yorkie-js-sdk.tobject.md) |  |
