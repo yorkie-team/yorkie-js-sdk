@@ -22,7 +22,7 @@ import {
 
 export {
   Client,
-  MetadataInfo,
+  PresenceInfo,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,

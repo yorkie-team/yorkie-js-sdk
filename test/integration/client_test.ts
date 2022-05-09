@@ -198,9 +198,9 @@ describe('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can update its metadata', async function () {
-    const c1 = yorkie.createClient(testRPCAddr, { metadata: { name: 'c1' } });
-    const c2 = yorkie.createClient(testRPCAddr, { metadata: { name: 'c2' } });
+  it('Can update its presence', async function () {
+    const c1 = yorkie.createClient(testRPCAddr, { presence: { name: 'c1' } });
+    const c2 = yorkie.createClient(testRPCAddr, { presence: { name: 'c2' } });
     await c1.activate();
     await c2.activate();
 
@@ -221,13 +221,13 @@ describe('Client', function () {
     const unsub1 = c1.subscribe(spy1);
     const unsub2 = c2.subscribe(spy2);
 
-    // Since `updateMetadata` handles event publishing synchronously with
+    // Since `updatePresence` handles event publishing synchronously with
     // Memory Coordinator, We need to wait for the event from the peer wihout
-    // waiting for the response of `updateMetadata` here.
-    c1.updateMetadata('name', 'c1+');
+    // waiting for the response of `updatePresence` here.
+    c1.updatePresence('name', 'c1+');
     await waitFor(ClientEventType.PeersChanged, emitter2);
 
-    c2.updateMetadata('name', 'c2+');
+    c2.updatePresence('name', 'c2+');
     await waitFor(ClientEventType.PeersChanged, emitter1);
 
     assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
