@@ -197,61 +197,61 @@ proto.api.YorkiePromiseClient.prototype.deactivateClient =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.api.UpdateMetadataRequest,
- *   !proto.api.UpdateMetadataResponse>}
+ *   !proto.api.UpdatePresenceRequest,
+ *   !proto.api.UpdatePresenceResponse>}
  */
-const methodDescriptor_Yorkie_UpdateMetadata = new grpc.web.MethodDescriptor(
-  '/api.Yorkie/UpdateMetadata',
+const methodDescriptor_Yorkie_UpdatePresence = new grpc.web.MethodDescriptor(
+  '/api.Yorkie/UpdatePresence',
   grpc.web.MethodType.UNARY,
-  proto.api.UpdateMetadataRequest,
-  proto.api.UpdateMetadataResponse,
+  proto.api.UpdatePresenceRequest,
+  proto.api.UpdatePresenceResponse,
   /**
-   * @param {!proto.api.UpdateMetadataRequest} request
+   * @param {!proto.api.UpdatePresenceRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.api.UpdateMetadataResponse.deserializeBinary
+  proto.api.UpdatePresenceResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.api.UpdateMetadataRequest} request The
+ * @param {!proto.api.UpdatePresenceRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.api.UpdateMetadataResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.api.UpdatePresenceResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.api.UpdateMetadataResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.api.UpdatePresenceResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.api.YorkieClient.prototype.updateMetadata =
+proto.api.YorkieClient.prototype.updatePresence =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/api.Yorkie/UpdateMetadata',
+      '/api.Yorkie/UpdatePresence',
       request,
       metadata || {},
-      methodDescriptor_Yorkie_UpdateMetadata,
+      methodDescriptor_Yorkie_UpdatePresence,
       callback);
 };
 
 
 /**
- * @param {!proto.api.UpdateMetadataRequest} request The
+ * @param {!proto.api.UpdatePresenceRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.api.UpdateMetadataResponse>}
+ * @return {!Promise<!proto.api.UpdatePresenceResponse>}
  *     Promise that resolves to the response
  */
-proto.api.YorkiePromiseClient.prototype.updateMetadata =
+proto.api.YorkiePromiseClient.prototype.updatePresence =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/api.Yorkie/UpdateMetadata',
+      '/api.Yorkie/UpdatePresence',
       request,
       metadata || {},
-      methodDescriptor_Yorkie_UpdateMetadata);
+      methodDescriptor_Yorkie_UpdatePresence);
 };
 
 
