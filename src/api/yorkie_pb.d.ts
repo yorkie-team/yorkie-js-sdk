@@ -318,42 +318,42 @@ export namespace PushPullResponse {
   }
 }
 
-export class UpdateMetadataRequest extends jspb.Message {
+export class UpdatePresenceRequest extends jspb.Message {
   getClient(): resources_pb.Client | undefined;
-  setClient(value?: resources_pb.Client): UpdateMetadataRequest;
+  setClient(value?: resources_pb.Client): UpdatePresenceRequest;
   hasClient(): boolean;
-  clearClient(): UpdateMetadataRequest;
+  clearClient(): UpdatePresenceRequest;
 
   getDocumentKeysList(): Array<string>;
-  setDocumentKeysList(value: Array<string>): UpdateMetadataRequest;
-  clearDocumentKeysList(): UpdateMetadataRequest;
-  addDocumentKeys(value: string, index?: number): UpdateMetadataRequest;
+  setDocumentKeysList(value: Array<string>): UpdatePresenceRequest;
+  clearDocumentKeysList(): UpdatePresenceRequest;
+  addDocumentKeys(value: string, index?: number): UpdatePresenceRequest;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): UpdateMetadataRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: UpdateMetadataRequest): UpdateMetadataRequest.AsObject;
-  static serializeBinaryToWriter(message: UpdateMetadataRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): UpdateMetadataRequest;
-  static deserializeBinaryFromReader(message: UpdateMetadataRequest, reader: jspb.BinaryReader): UpdateMetadataRequest;
+  toObject(includeInstance?: boolean): UpdatePresenceRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: UpdatePresenceRequest): UpdatePresenceRequest.AsObject;
+  static serializeBinaryToWriter(message: UpdatePresenceRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): UpdatePresenceRequest;
+  static deserializeBinaryFromReader(message: UpdatePresenceRequest, reader: jspb.BinaryReader): UpdatePresenceRequest;
 }
 
-export namespace UpdateMetadataRequest {
+export namespace UpdatePresenceRequest {
   export type AsObject = {
     client?: resources_pb.Client.AsObject,
     documentKeysList: Array<string>,
   }
 }
 
-export class UpdateMetadataResponse extends jspb.Message {
+export class UpdatePresenceResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): UpdateMetadataResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: UpdateMetadataResponse): UpdateMetadataResponse.AsObject;
-  static serializeBinaryToWriter(message: UpdateMetadataResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): UpdateMetadataResponse;
-  static deserializeBinaryFromReader(message: UpdateMetadataResponse, reader: jspb.BinaryReader): UpdateMetadataResponse;
+  toObject(includeInstance?: boolean): UpdatePresenceResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: UpdatePresenceResponse): UpdatePresenceResponse.AsObject;
+  static serializeBinaryToWriter(message: UpdatePresenceResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): UpdatePresenceResponse;
+  static deserializeBinaryFromReader(message: UpdatePresenceResponse, reader: jspb.BinaryReader): UpdatePresenceResponse;
 }
 
-export namespace UpdateMetadataResponse {
+export namespace UpdatePresenceResponse {
   export type AsObject = {
   }
 }

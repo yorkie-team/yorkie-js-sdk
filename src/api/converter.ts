@@ -16,7 +16,7 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { MetadataInfo } from '@yorkie-js-sdk/src/core/client';
+import { PresenceInfo } from '@yorkie-js-sdk/src/core/client';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -60,7 +60,7 @@ import {
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
   Client as PbClient,
-  Metadata as PbMetadata,
+  Presence as PbPresence,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -77,16 +77,16 @@ import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increas
 import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
- * `fromMetadata` converts the given Protobuf format to model format.
+ * `fromPresence` converts the given Protobuf format to model format.
  */
-function fromMetadata<M>(pbMetadata: PbMetadata): MetadataInfo<M> {
+function fromPresence<M>(pbPresence: PbPresence): PresenceInfo<M> {
   const data: Record<string, string> = {};
-  pbMetadata.getDataMap().forEach((value: string, key: string) => {
+  pbPresence.getDataMap().forEach((value: string, key: string) => {
     data[key] = value;
   });
 
   return {
-    clock: pbMetadata.getClock(),
+    clock: pbPresence.getClock(),
     data: data as any,
   };
 }
@@ -94,17 +94,17 @@ function fromMetadata<M>(pbMetadata: PbMetadata): MetadataInfo<M> {
 /**
  * `toClient` converts the given model to Protobuf format.
  */
-function toClient<M>(id: string, metadata: MetadataInfo<M>): PbClient {
-  const pbMetadata = new PbMetadata();
-  pbMetadata.setClock(metadata.clock);
-  const pbDataMap = pbMetadata.getDataMap();
-  for (const [key, value] of Object.entries(metadata.data)) {
+function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
+  const pbPresence = new PbPresence();
+  pbPresence.setClock(presence.clock);
+  const pbDataMap = pbPresence.getDataMap();
+  for (const [key, value] of Object.entries(presence.data)) {
     pbDataMap.set(key, value);
   }
 
   const pbClient = new PbClient();
   pbClient.setId(toUint8Array(id));
-  pbClient.setMetadata(pbMetadata);
+  pbClient.setPresence(pbPresence);
   return pbClient;
 }
 
@@ -1081,7 +1081,7 @@ function toUint8Array(hex: string): Uint8Array {
 }
 
 export const converter = {
-  fromMetadata,
+  fromPresence,
   toClient,
   toChangePack,
   fromChangePack,
