@@ -34,14 +34,14 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
 import { createProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import {
   Checkpoint,
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { TObject } from './proxy/object_proxy';
+import { JSONObject } from './proxy/object_proxy';
 
 /**
  * `DocEventType` is document event types
@@ -181,7 +181,10 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   /**
    * `update` executes the given updater to update this document.
    */
-  public update(updater: (root: TObject<T>) => void, message?: string): void {
+  public update(
+    updater: (root: JSONObject<T>) => void,
+    message?: string,
+  ): void {
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
@@ -190,7 +193,10 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
     );
 
     try {
-      const proxy = createProxy<TObject<T>>(context, this.clone!.getObject());
+      const proxy = createProxy<JSONObject<T>>(
+        context,
+        this.clone!.getObject(),
+      );
       updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
@@ -349,7 +355,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
    *
    * @internal
    */
-  public getClone(): JSONObject | undefined {
+  public getClone(): ObjectInternal | undefined {
     if (!this.clone) {
       return;
     }
@@ -384,7 +390,7 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
    *
    * @internal
    */
-  public getRootObject(): JSONObject {
+  public getRootObject(): ObjectInternal {
     return this.root.getObject();
   }
 

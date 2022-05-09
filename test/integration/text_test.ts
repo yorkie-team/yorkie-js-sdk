@@ -1,14 +1,16 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
-import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TText } from '@yorkie-js-sdk/src/yorkie';
+import {
+  DocumentReplica,
+  PlainText,
+  TextChange,
+  TextChangeType,
+} from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
@@ -46,7 +48,7 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
@@ -69,7 +71,7 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -114,7 +116,7 @@ describe('Text', function () {
       root.text.edit(0, 0, 'ABCD');
     });
 
-    doc.getRoot().text.onChanges((changes) => {
+    doc.getRoot().text.onChanges((changes: Array<TextChange>): void => {
       if (changes[0].type === TextChangeType.Selection) {
         assert.equal(changes[0].from, 2);
         assert.equal(changes[0].to, 4);
@@ -124,73 +126,79 @@ describe('Text', function () {
   });
 
   it('should handle edit operations', async function () {
-    await withTwoClientsAndDocuments<{ k1: TText }>(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
-        root.createText!('k1');
-        root['k1'].edit(0, 0, 'ABCD');
-      }, 'set new text by c1');
-      await c1.sync();
-      await c2.sync();
-      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    await withTwoClientsAndDocuments<{ k1: PlainText }>(
+      async (c1, d1, c2, d2) => {
+        d1.update((root) => {
+          root.createText!('k1');
+          root['k1'].edit(0, 0, 'ABCD');
+        }, 'set new text by c1');
+        await c1.sync();
+        await c2.sync();
+        assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
-        root.createText!('k1');
-        root['k1'].edit(0, 0, '1234');
-      }, 'edit 0,0 1234 by c1');
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-      assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+        d1.update((root) => {
+          root.createText!('k1');
+          root['k1'].edit(0, 0, '1234');
+        }, 'edit 0,0 1234 by c1');
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(d1.toSortedJSON(), `{"k1":"1234"}`);
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      },
+      this.test!.title,
+    );
   });
 
   it('should handle concurrent edit operations', async function () {
-    await withTwoClientsAndDocuments<{ k1: TText }>(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
-        root.createText!('k1');
-      }, 'set new text by c1');
-      await c1.sync();
-      await c2.sync();
-      assert.equal(d1.toSortedJSON(), `{"k1":""}`);
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    await withTwoClientsAndDocuments<{ k1: PlainText }>(
+      async (c1, d1, c2, d2) => {
+        d1.update((root) => {
+          root.createText!('k1');
+        }, 'set new text by c1');
+        await c1.sync();
+        await c2.sync();
+        assert.equal(d1.toSortedJSON(), `{"k1":""}`);
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
-        root['k1'].edit(0, 0, 'ABCD');
-      }, 'edit 0,0 ABCD by c1');
-      assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
-      d2.update((root) => {
-        root['k1'].edit(0, 0, '1234');
-      }, 'edit 0,0 1234 by c2');
-      assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+        d1.update((root) => {
+          root['k1'].edit(0, 0, 'ABCD');
+        }, 'edit 0,0 ABCD by c1');
+        assert.equal(d1.toSortedJSON(), `{"k1":"ABCD"}`);
+        d2.update((root) => {
+          root['k1'].edit(0, 0, '1234');
+        }, 'edit 0,0 1234 by c2');
+        assert.equal(d2.toSortedJSON(), `{"k1":"1234"}`);
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
-        root['k1'].edit(2, 3, 'XX');
-      }, 'edit 2,3 XX by c1');
-      d2.update((root) => {
-        root['k1'].edit(2, 3, 'YY');
-      }, 'edit 2,3 YY by c1');
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+        d1.update((root) => {
+          root['k1'].edit(2, 3, 'XX');
+        }, 'edit 2,3 XX by c1');
+        d2.update((root) => {
+          root['k1'].edit(2, 3, 'YY');
+        }, 'edit 2,3 YY by c1');
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      d1.update((root) => {
-        root['k1'].edit(4, 5, 'ZZ');
-      }, 'edit 4,5 ZZ by c1');
-      d2.update((root) => {
-        root['k1'].edit(2, 3, 'TT');
-      }, 'edit 2,3 TT by c1');
+        d1.update((root) => {
+          root['k1'].edit(4, 5, 'ZZ');
+        }, 'edit 4,5 ZZ by c1');
+        d2.update((root) => {
+          root['k1'].edit(2, 3, 'TT');
+        }, 'edit 2,3 TT by c1');
 
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      },
+      this.test!.title,
+    );
   });
 });

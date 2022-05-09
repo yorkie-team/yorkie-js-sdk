@@ -24,7 +24,7 @@ import {
   JSONElement,
   TextElement,
 } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
 
 interface JSONElementPair {
   element: JSONElement;
@@ -40,12 +40,12 @@ interface JSONElementPair {
  * a particular element.
  */
 export class JSONRoot {
-  private rootObject: JSONObject;
+  private rootObject: ObjectInternal;
   private elementPairMapByCreatedAt: Map<string, JSONElementPair>;
   private removedElementSetByCreatedAt: Set<string>;
   private textWithGarbageSetByCreatedAt: Set<string>;
 
-  constructor(rootObject: JSONObject) {
+  constructor(rootObject: ObjectInternal) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
@@ -68,7 +68,7 @@ export class JSONRoot {
    * `create` creates a new instance of Root.
    */
   public static create(): JSONRoot {
-    return new JSONRoot(JSONObject.create(InitialTimeTicket));
+    return new JSONRoot(ObjectInternal.create(InitialTimeTicket));
   }
 
   /**
@@ -163,7 +163,7 @@ export class JSONRoot {
   /**
    * `getObject` returns root object.
    */
-  public getObject(): JSONObject {
+  public getObject(): ObjectInternal {
     return this.rootObject;
   }
 

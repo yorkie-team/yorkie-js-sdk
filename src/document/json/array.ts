@@ -22,11 +22,11 @@ import {
 import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 
 /**
- * `JSONArray` represents JSON array data structure including logical clock.
+ * `ArrayInternal` represents JSON array data structure including logical clock.
  *
  * @internal
  */
-export class JSONArray extends JSONContainer {
+export class ArrayInternal extends JSONContainer {
   private elements: RGATreeList;
 
   /** @hideconstructor */
@@ -38,8 +38,8 @@ export class JSONArray extends JSONContainer {
   /**
    * `create` creates a new instance of Array.
    */
-  public static create(createdAt: TimeTicket): JSONArray {
-    return new JSONArray(createdAt, RGATreeList.create());
+  public static create(createdAt: TimeTicket): ArrayInternal {
+    return new ArrayInternal(createdAt, RGATreeList.create());
   }
 
   /**
@@ -216,8 +216,8 @@ export class JSONArray extends JSONContainer {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): JSONArray {
-    const clone = JSONArray.create(this.getCreatedAt());
+  public deepcopy(): ArrayInternal {
+    const clone = ArrayInternal.create(this.getCreatedAt());
     for (const node of this.elements) {
       clone.elements.insertAfter(
         clone.getLastCreatedAt(),

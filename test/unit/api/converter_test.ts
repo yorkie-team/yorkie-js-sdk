@@ -17,7 +17,7 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { TCounter, TText } from '@yorkie-js-sdk/src/yorkie';
+import { Counter, PlainText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -28,8 +28,8 @@ describe('Converter', function () {
         ['k1.5']: string;
       };
       k2: Array<boolean | number | string>;
-      k3: TText;
-      k4: TCounter;
+      k3: PlainText;
+      k4: Counter;
     }>('test-doc');
 
     doc.update((root) => {

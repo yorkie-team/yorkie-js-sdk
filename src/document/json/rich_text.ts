@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { RHT } from '@yorkie-js-sdk/src/document/json/rht';
 import { TextElement } from '@yorkie-js-sdk/src/document/json/element';
@@ -109,11 +108,11 @@ export class RichTextValue {
 }
 
 /**
- *  `RichText` is an extended data type for the contents of a text editor.
+ *  `RichTextInternal` is an extended data type for the contents of a text editor.
  *
  * @internal
  */
-export class RichText extends TextElement {
+export class RichTextInternal extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
@@ -135,48 +134,11 @@ export class RichText extends TextElement {
   public static create(
     rgaTreeSplit: RGATreeSplit<RichTextValue>,
     createdAt: TimeTicket,
-  ): RichText {
-    const text = new RichText(rgaTreeSplit, createdAt);
+  ): RichTextInternal {
+    const text = new RichTextInternal(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
     text.editInternal(range, '\n', createdAt);
     return text;
-  }
-
-  /**
-   * Don't use edit directly. Be sure to use it through a proxy.
-   * The reason for setting the RichText type as the return value
-   * is to provide the RichText interface to the user.
-   */
-  public edit(
-    fromIdx: number,
-    toIdx: number,
-    content: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    attributes?: Record<string, string>,
-  ): RichText {
-    logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
-    );
-    // @ts-ignore
-    return;
-  }
-
-  /**
-   * Don't use setStyle directly. Be sure to use it through a proxy.
-   * The reason for setting the RichText type as the return value
-   * is to provide the RichText interface to the user.
-   */
-  public setStyle(
-    fromIdx: number,
-    toIdx: number,
-    key: string,
-    value: string,
-  ): RichText {
-    logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${key} ${value}`,
-    );
-    // @ts-ignore
-    return;
   }
 
   /**
@@ -274,17 +236,6 @@ export class RichText extends TextElement {
       this.onChangesHandler(changes);
       this.remoteChangeLock = false;
     }
-  }
-
-  /**
-   * Don't use select directly. Be sure to use it through a proxy.
-   */
-  public select(fromIdx: number, toIdx: number): void {
-    logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
-    );
-    // @ts-ignore
-    return;
   }
 
   /**
@@ -411,8 +362,8 @@ export class RichText extends TextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): RichText {
-    const text = new RichText(
+  public deepcopy(): RichTextInternal {
+    const text = new RichTextInternal(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );

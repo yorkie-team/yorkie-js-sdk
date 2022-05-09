@@ -20,17 +20,44 @@ import {
   RGATreeSplitNodeRange,
   TextChange,
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
-export type TText = {
+/**
+ * `PlainText` represents plain text element for representing contents of a text editor.
+ */
+export type PlainText = {
+  /**
+   * `edit` edits this text with the given content.
+   */
   edit(fromIdx: number, toIdx: number, context: string): boolean;
+
+  /**
+   * `select` selects the given range.
+   */
   select(fromIdx: number, toIdx: number): boolean;
+
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of the node
+   * for debugging purpose.
+   */
   getAnnotatedString(): string;
+
+  /**
+   * `getValue` returns the JSON encoding of this text.
+   */
   getValue(): string;
+
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
   createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-  onChanges(changes: Array<TextChange>): void;
+
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  onChanges(handler: (changes: Array<TextChange>) => void): void;
 };
 
 /**
@@ -43,7 +70,7 @@ export class TextProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: PlainText, method: keyof TText): any => {
+      get: (target: PlainTextInternal, method: keyof PlainText): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${method}]`);
         }
@@ -84,16 +111,19 @@ export class TextProxy {
   /**
    * `create` creates a new instance of TextProxy.
    */
-  public static create(context: ChangeContext, target: PlainText): PlainText {
+  public static create(
+    context: ChangeContext,
+    target: PlainTextInternal,
+  ): PlainText {
     const textProxy = new TextProxy(context);
-    return new Proxy(target, textProxy.getHandlers());
+    return new Proxy(target, textProxy.getHandlers()) as any;
   }
 
   /**
    * `edit` edits the given range with the given content.
    */
   public edit(
-    target: PlainText,
+    target: PlainTextInternal,
     fromIdx: number,
     toIdx: number,
     content: string,
@@ -131,7 +161,11 @@ export class TextProxy {
   /**
    * `select` stores that the given range has been selected.
    */
-  public select(target: PlainText, fromIdx: number, toIdx: number): void {
+  public select(
+    target: PlainTextInternal,
+    fromIdx: number,
+    toIdx: number,
+  ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(

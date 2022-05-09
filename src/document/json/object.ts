@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   JSONContainer,
   JSONElement,
 } from '@yorkie-js-sdk/src/document/json/element';
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
-import { CounterType } from '@yorkie-js-sdk/src/document/json/counter';
-import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 
 /**
- * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
+ * `ObjectInternal` represents a JSON object, but unlike regular JSON, it has time
  * tickets which is created by logical clock.
  *
  * @internal
  */
-export class JSONObject extends JSONContainer {
+export class ObjectInternal extends JSONContainer {
   private memberNodes: RHTPQMap;
 
   /** @hideconstructor */
@@ -44,30 +39,8 @@ export class JSONObject extends JSONContainer {
   /**
    * `create` creates a new instance of Object.
    */
-  public static create(createdAt: TimeTicket): JSONObject {
-    return new JSONObject(createdAt, RHTPQMap.create());
-  }
-
-  /**
-   * Don't use createText directly. Be sure to use it through a proxy.
-   * The reason for setting the PlainText type as the return value
-   * is to provide the PlainText interface to the user.
-   */
-  public createText(key: string): PlainText {
-    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    // @ts-ignore
-    return;
-  }
-
-  /**
-   * Don't use createRichText directly. Be sure to use it through a proxy.
-   * The reason for setting the RichText type as the return value
-   * is to provide the RichText interface to the user.
-   */
-  public createRichText(key: string): RichText {
-    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    // @ts-ignore
-    return;
+  public static create(createdAt: TimeTicket): ObjectInternal {
+    return new ObjectInternal(createdAt, RHTPQMap.create());
   }
 
   /**
@@ -82,21 +55,6 @@ export class JSONObject extends JSONContainer {
    */
   public purge(value: JSONElement): void {
     this.memberNodes.purge(value);
-  }
-
-  /**
-   * Don't use createCounter directly. Be sure to use it through a proxy.
-   * The reason for setting the CounterProxy type as the return value
-   * is to provide the CounterProxy interface to the user.
-   */
-  public createCounter(
-    key: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    value: CounterType,
-  ): CounterProxy {
-    logger.fatal(`unsupported: this method should be called by proxy: ${key}`);
-    // @ts-ignore
-    return;
   }
 
   /**
@@ -195,8 +153,8 @@ export class JSONObject extends JSONContainer {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): JSONObject {
-    const clone = JSONObject.create(this.getCreatedAt());
+  public deepcopy(): ObjectInternal {
+    const clone = ObjectInternal.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
       clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
     }
