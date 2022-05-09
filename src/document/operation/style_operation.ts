@@ -18,7 +18,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -66,8 +66,8 @@ export class StyleOperation extends Operation {
    */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof RichText) {
-      const text = parentObject as RichText;
+    if (parentObject instanceof RichTextInternal) {
+      const text = parentObject as RichTextInternal;
       text.setStyleInternal(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},

@@ -1,6 +1,5 @@
 import { assert } from 'chai';
-import yorkie from '@yorkie-js-sdk/src/yorkie';
-import { DocEventType } from '@yorkie-js-sdk/src/document/document';
+import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
   createEmitterAndSpy,

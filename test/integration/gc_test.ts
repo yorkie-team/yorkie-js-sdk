@@ -1,11 +1,10 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TText, TRichText } from '@yorkie-js-sdk/src/yorkie';
+import { PlainText, RichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
@@ -64,10 +63,10 @@ describe('Garbage Collection', function () {
     assert.equal(1, doc.garbageCollect(MaxTimeTicket));
     assert.equal(0, doc.getGarbageLen());
 
-    const root = (doc.getRootObject().get('list') as JSONArray)
+    const root = (doc.getRootObject().get('list') as ArrayInternal)
       .getElements()
       .getAnnotatedString();
-    const clone = (doc.getClone()!.get('list') as JSONArray)
+    const clone = (doc.getClone()!.get('list') as ArrayInternal)
       .getElements()
       .getAnnotatedString();
 
@@ -103,7 +102,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text', function () {
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg = '{"k1":"Hello mario"}';
@@ -136,7 +135,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for rich text', function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: RichText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =
@@ -239,7 +238,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: TRichText; richText: TRichText };
+    type TestDoc = { text: RichText; richText: RichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(docKey);
     const doc2 = yorkie.createDocument<TestDoc>(docKey);
@@ -314,8 +313,8 @@ describe('Garbage Collection', function () {
       1: number;
       2?: Array<number>;
       3: number;
-      4: TText;
-      5: TRichText;
+      4: PlainText;
+      5: RichText;
     };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(docKey);

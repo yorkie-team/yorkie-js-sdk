@@ -1,12 +1,12 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { TText } from '@yorkie-js-sdk/src/yorkie';
+import { PlainText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Document stress', function () {
   it('garbage collection test for large size text 1', function () {
     const size = 100;
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. initial
@@ -35,7 +35,7 @@ describe('Document stress', function () {
 
   it('garbage collection test for large size text 2', function () {
     const size = 100;
-    const doc = DocumentReplica.create<{ k1: TText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. long text by one node

@@ -20,39 +20,68 @@ import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operatio
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
+import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
 import {
   JSONPrimitive,
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/json/primitive';
 import { RGATreeSplit } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import { TextProxy, TText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import {
+  TextProxy,
+  PlainText,
+} from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 import {
   RichTextProxy,
-  TRichText,
+  RichText,
 } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
-import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import {
+  CounterType,
+  CounterInternal,
+} from '@yorkie-js-sdk/src/document/json/counter';
 import {
   CounterProxy,
-  TCounter,
+  Counter,
 } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 import { Indexable } from '../document';
 
-export type TObject<T extends Indexable> = {
+/**
+ * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
+ * tickets created by a logical clock to resolve conflicts.
+ */
+export type JSONObject<T extends Indexable> = {
+  /**
+   * `getID` returns the ID(time ticket) of this Object.
+   */
   getID?(): TimeTicket;
+
+  /**
+   * `toJSON` returns the JSON encoding of this object.
+   */
   toJSON?(): string;
-  createText?(key: string): TText;
-  createRichText?(key: string): TRichText;
-  createCounter?(key: string, value: CounterType): TCounter;
+
+  /**
+   * `createText` creates a `Text`.
+   */
+  createText?(key: string): PlainText;
+
+  /**
+   * `createRichText` creates a `RichText`.
+   */
+  createRichText?(key: string): RichText;
+
+  /**
+   * `createCounter` creates a `Counter`.
+   */
+  createCounter?(key: string, value: CounterType): Counter;
 } & T;
 
 /**
- * `ObjectProxy` is a proxy representing Object.
+ * `ObjectProxy` is a proxy representing `Object`.
  */
 export class ObjectProxy {
   private context: ChangeContext;
@@ -61,7 +90,7 @@ export class ObjectProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      set: (target: JSONObject, key: string, value: any): boolean => {
+      set: (target: ObjectInternal, key: string, value: any): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${key}]=${JSON.stringify(value)}`);
         }
@@ -71,8 +100,8 @@ export class ObjectProxy {
       },
 
       get: (
-        target: JSONObject,
-        keyOrMethod: Extract<keyof TObject<any>, 'string'>,
+        target: ObjectInternal,
+        keyOrMethod: Extract<keyof JSONObject<any>, 'string'>,
       ): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${keyOrMethod}]`);
@@ -112,7 +141,7 @@ export class ObjectProxy {
         return toProxy(context, target.get(keyOrMethod));
       },
 
-      ownKeys: (target: JSONObject): Array<string> => {
+      ownKeys: (target: ObjectInternal): Array<string> => {
         return target.getKeys();
       },
 
@@ -123,7 +152,7 @@ export class ObjectProxy {
         };
       },
 
-      deleteProperty: (target: JSONObject, key: string): boolean => {
+      deleteProperty: (target: ObjectInternal, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${key}]`);
         }
@@ -137,7 +166,10 @@ export class ObjectProxy {
   /**
    * `create` creates a new instance of ObjectProxy.
    */
-  public static create(context: ChangeContext, target: JSONObject): JSONObject {
+  public static create(
+    context: ChangeContext,
+    target: ObjectInternal,
+  ): ObjectInternal {
     const objectProxy = new ObjectProxy(context);
     return new Proxy(target, objectProxy.getHandlers());
   }
@@ -147,7 +179,7 @@ export class ObjectProxy {
    */
   public static setInternal(
     context: ChangeContext,
-    target: JSONObject,
+    target: ObjectInternal,
     key: string,
     value: unknown,
   ): void {
@@ -168,7 +200,7 @@ export class ObjectProxy {
         SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
       );
     } else if (Array.isArray(value)) {
-      const array = JSONArray.create(ticket);
+      const array = ArrayInternal.create(ticket);
       setAndRegister(array);
       context.push(
         SetOperation.create(
@@ -182,7 +214,7 @@ export class ObjectProxy {
         ArrayProxy.pushInternal(context, array, element);
       }
     } else if (typeof value === 'object') {
-      if (value instanceof PlainText) {
+      if (value instanceof PlainTextInternal) {
         setAndRegister(value);
         context.push(
           SetOperation.create(
@@ -193,7 +225,7 @@ export class ObjectProxy {
           ),
         );
       } else {
-        const obj = JSONObject.create(ticket);
+        const obj = ObjectInternal.create(ticket);
         setAndRegister(obj);
         context.push(
           SetOperation.create(
@@ -217,11 +249,11 @@ export class ObjectProxy {
    */
   public static createText(
     context: ChangeContext,
-    target: JSONObject,
+    target: ObjectInternal,
     key: string,
   ): PlainText {
     const ticket = context.issueTimeTicket();
-    const text = PlainText.create(RGATreeSplit.create(), ticket);
+    const text = PlainTextInternal.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text, target);
     context.push(
@@ -235,11 +267,11 @@ export class ObjectProxy {
    */
   public static createRichText(
     context: ChangeContext,
-    target: JSONObject,
+    target: ObjectInternal,
     key: string,
   ): RichText {
     const ticket = context.issueTimeTicket();
-    const text = RichText.create(RGATreeSplit.create(), ticket);
+    const text = RichTextInternal.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text, target);
     context.push(
@@ -253,12 +285,12 @@ export class ObjectProxy {
    */
   public static createCounter(
     context: ChangeContext,
-    target: JSONObject,
+    target: ObjectInternal,
     key: string,
     value: CounterType,
   ): Counter {
     const ticket = context.issueTimeTicket();
-    const counter = Counter.of(value, ticket);
+    const counter = CounterInternal.of(value, ticket);
     target.set(key, counter);
     context.registerElement(counter, target);
     context.push(
@@ -277,7 +309,7 @@ export class ObjectProxy {
    */
   public static deleteInternal(
     context: ChangeContext,
-    target: JSONObject,
+    target: ObjectInternal,
     key: string,
   ): void {
     const ticket = context.issueTimeTicket();

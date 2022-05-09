@@ -39,17 +39,15 @@ export enum TextChangeType {
 /**
  * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
- *
- * @internal
  */
-export interface TextChange {
+export type TextChange = {
   type: TextChangeType;
   actor: ActorID;
   from: number;
   to: number;
   content?: string;
   attributes?: Record<string, string>;
-}
+};
 
 interface RGATreeSplitValue {
   length: number;

@@ -19,30 +19,40 @@ import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import Long from 'long';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 
-export type TCounter = {
+/**
+ * `Counter` is the counter.
+ */
+export type Counter = {
+  /**
+   * `getID` returns the ID(time ticket) of this Object.
+   */
   getID(): TimeTicket;
-  increase(v: number | Long): TCounter;
+
+  /**
+   * `increase` increases numeric data.
+   */
+  increase(v: number | Long): Counter;
 };
 
 /**
- * CounterProxy is a proxy representing Counter types.
+ * `CounterProxy` is the proxy for the `Counter`.
  *
  * @internal
  */
 export class CounterProxy {
   private context: ChangeContext;
   private handlers: any;
-  private counter: Counter;
+  private counter: CounterInternal;
 
-  constructor(context: ChangeContext, counter: Counter) {
+  constructor(context: ChangeContext, counter: CounterInternal) {
     this.context = context;
     this.counter = counter;
     this.handlers = {
       get: (
         target: JSONPrimitive,
-        method: keyof TCounter,
+        method: keyof Counter,
         receiver: any,
       ): any => {
         if (method === 'getID') {
@@ -50,7 +60,7 @@ export class CounterProxy {
             return target.getCreatedAt();
           };
         } else if (method === 'increase') {
-          return (v: number | Long): CounterProxy => {
+          return (v: number | Long): Counter => {
             return this.increase(v);
           };
         }
@@ -63,16 +73,19 @@ export class CounterProxy {
   /**
    * `create` creates a new instance of CounterProxy.
    */
-  public static create(context: ChangeContext, target: Counter): Counter {
+  public static create(
+    context: ChangeContext,
+    target: CounterInternal,
+  ): Counter {
     const numberProxy = new CounterProxy(context, target);
-    return new Proxy(target, numberProxy.getHandlers());
+    return new Proxy(target, numberProxy.getHandlers()) as any;
   }
 
   /**
    * `increase` adds an increase operation.
    * Only numeric types are allowed as operand values.
    */
-  public increase(v: number | Long): CounterProxy {
+  public increase(v: number | Long): Counter {
     const ticket = this.context.issueTimeTicket();
     const value = JSONPrimitive.of(v, ticket);
     if (!value.isNumericType()) {
@@ -85,7 +98,7 @@ export class CounterProxy {
       IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
     );
 
-    return this;
+    return this as any;
   }
 
   /**

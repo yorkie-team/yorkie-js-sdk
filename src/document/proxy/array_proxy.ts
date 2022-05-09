@@ -21,8 +21,8 @@ import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operat
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
+import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
 import {
   JSONPrimitive,
   PrimitiveValue,
@@ -30,18 +30,65 @@ import {
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 
-export type TArray<T = unknown> = {
+/**
+ * `JSONArray` represents JSON array, but unlike regular JSON, it has time
+ * tickets created by a logical clock to resolve conflicts.
+ */
+export type JSONArray<T = unknown> = {
+  /**
+   * `getID` returns the ID, `TimeTicket` of this Object.
+   */
   getID?(): TimeTicket;
+
+  /**
+   * `getElementByID` returns the element for the given ID.
+   */
   getElementByID?(createdAt: TimeTicket): JSONElement & T;
+
+  /**
+   * `getElementByIndex` returns the element for the given index.
+   */
   getElementByIndex?(index: number): JSONElement & T;
+
+  /**
+   * `getLast` returns the last element of this array.
+   */
   getLast?(): JSONElement;
+
+  /**
+   * `deleteByID` deletes the element of the given ID.
+   */
   deleteByID?(createdAt: TimeTicket): JSONElement & T;
+
+  /**
+   * `insertBefore` inserts a value before the given next element.
+   */
+  insertBefore?(nextID: TimeTicket, value: any): JSONElement & T;
+
+  /**
+   * `insertAfter` inserts a value after the given previous element.
+   */
   insertAfter?(prevID: TimeTicket, value: any): JSONElement & T;
-  insertBefore?(prevID: TimeTicket, value: any): JSONElement & T;
-  moveBefore?(prevID: TimeTicket, itemID: TimeTicket): void;
-  moveAfter?(prevID: TimeTicket, itemID: TimeTicket): void;
-  moveFront?(itemID: TimeTicket): void;
-  moveLast?(itemID: TimeTicket): void;
+
+  /**
+   * `moveBefore` moves the element before the given next element.
+   */
+  moveBefore?(nextID: TimeTicket, id: TimeTicket): void;
+
+  /**
+   * `moveAfter` moves the element after the given previous element.
+   */
+  moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
+
+  /**
+   * `moveFront` moves the element before the first element.
+   */
+  moveFront?(id: TimeTicket): void;
+
+  /**
+   * `moveLast` moves the element after the last element.
+   */
+  moveLast?(id: TimeTicket): void;
 } & Array<T>;
 
 /**
@@ -60,15 +107,15 @@ function isNumericString(val: any): boolean {
 export class ArrayProxy {
   private context: ChangeContext;
   private handlers: any;
-  private array: JSONArray;
+  private array: ArrayInternal;
 
-  constructor(context: ChangeContext, array: JSONArray) {
+  constructor(context: ChangeContext, array: ArrayInternal) {
     this.context = context;
     this.array = array;
     this.handlers = {
       get: (
-        target: JSONArray,
-        method: keyof TArray<unknown>,
+        target: ArrayInternal,
+        method: keyof JSONArray<unknown>,
         receiver: any,
       ): any => {
         // Yorkie extension API
@@ -112,31 +159,31 @@ export class ArrayProxy {
             return toProxy(context, inserted);
           };
         } else if (method === 'insertBefore') {
-          return (prevID: TimeTicket, value: any): JSONElement => {
+          return (nextID: TimeTicket, value: any): JSONElement => {
             const inserted = ArrayProxy.insertBeforeInternal(
               context,
               target,
-              prevID,
+              nextID,
               value,
             );
             return toProxy(context, inserted);
           };
         } else if (method === 'moveBefore') {
-          return (prevID: TimeTicket, itemID: TimeTicket): void => {
-            ArrayProxy.moveBeforeInternal(context, target, prevID, itemID);
+          return (nextID: TimeTicket, id: TimeTicket): void => {
+            ArrayProxy.moveBeforeInternal(context, target, nextID, id);
           };
           // JavaScript Native API
         } else if (method === 'moveAfter') {
-          return (prevID: TimeTicket, itemID: TimeTicket): void => {
-            ArrayProxy.moveAfterInternal(context, target, prevID, itemID);
+          return (prevID: TimeTicket, id: TimeTicket): void => {
+            ArrayProxy.moveAfterInternal(context, target, prevID, id);
           };
         } else if (method === 'moveFront') {
-          return (itemID: TimeTicket): void => {
-            ArrayProxy.moveFrontInternal(context, target, itemID);
+          return (id: TimeTicket): void => {
+            ArrayProxy.moveFrontInternal(context, target, id);
           };
         } else if (method === 'moveLast') {
-          return (itemID: TimeTicket): void => {
-            ArrayProxy.moveLastInternal(context, target, itemID);
+          return (id: TimeTicket): void => {
+            ArrayProxy.moveLastInternal(context, target, id);
           };
         } else if (isNumericString(method)) {
           return toProxy(context, target.getByIndex(+(method as string)));
@@ -180,7 +227,7 @@ export class ArrayProxy {
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
       },
-      deleteProperty: (target: JSONArray, key: string): boolean => {
+      deleteProperty: (target: ArrayInternal, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
         }
@@ -194,7 +241,7 @@ export class ArrayProxy {
   // eslint-disable-next-line jsdoc/require-jsdoc
   public static *iteratorInternal(
     change: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
   ): IterableIterator<any> {
     for (const elem of target) {
       yield toProxy(change, elem);
@@ -204,7 +251,10 @@ export class ArrayProxy {
   /**
    * `create` creates a new instance of ArrayProxy.
    */
-  public static create(context: ChangeContext, target: JSONArray): JSONArray {
+  public static create(
+    context: ChangeContext,
+    target: ArrayInternal,
+  ): ArrayInternal {
     const arrayProxy = new ArrayProxy(context, target);
     return new Proxy(target, arrayProxy.getHandlers());
   }
@@ -214,7 +264,7 @@ export class ArrayProxy {
    */
   public static pushInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     value: unknown,
   ): number {
     ArrayProxy.insertAfterInternal(
@@ -232,7 +282,7 @@ export class ArrayProxy {
    */
   public static moveBeforeInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     nextCreatedAt: TimeTicket,
     createdAt: TimeTicket,
   ): void {
@@ -255,7 +305,7 @@ export class ArrayProxy {
    */
   public static moveAfterInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
   ): void {
@@ -277,7 +327,7 @@ export class ArrayProxy {
    */
   public static moveFrontInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
@@ -299,7 +349,7 @@ export class ArrayProxy {
    */
   public static moveLastInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
@@ -315,7 +365,7 @@ export class ArrayProxy {
    */
   public static insertAfterInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     prevCreatedAt: TimeTicket,
     value: unknown,
   ): JSONElement {
@@ -335,7 +385,7 @@ export class ArrayProxy {
       );
       return primitive;
     } else if (Array.isArray(value)) {
-      const array = JSONArray.create(ticket);
+      const array = ArrayInternal.create(ticket);
       const clone = array.deepcopy();
       target.insertAfter(prevCreatedAt, clone);
       context.registerElement(clone, target);
@@ -352,7 +402,7 @@ export class ArrayProxy {
       }
       return array;
     } else if (typeof value === 'object') {
-      const obj = JSONObject.create(ticket);
+      const obj = ObjectInternal.create(ticket);
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj, target);
       context.push(
@@ -373,7 +423,7 @@ export class ArrayProxy {
    */
   public static insertBeforeInternal(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     nextCreatedAt: TimeTicket,
     value: unknown,
   ): JSONElement {
@@ -390,7 +440,7 @@ export class ArrayProxy {
    */
   public static deleteInternalByIndex(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     index: number,
   ): JSONElement | undefined {
     const ticket = context.issueTimeTicket();
@@ -415,7 +465,7 @@ export class ArrayProxy {
    */
   public static deleteInternalByID(
     context: ChangeContext,
-    target: JSONArray,
+    target: ArrayInternal,
     createdAt: TimeTicket,
   ): JSONElement {
     const ticket = context.issueTimeTicket();
