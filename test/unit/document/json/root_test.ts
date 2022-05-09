@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
@@ -10,12 +10,12 @@ import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
-import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
 
 describe('ROOT', function () {
   it('basic test', function () {
     const root = new JSONRoot(
-      new JSONObject(InitialTimeTicket, RHTPQMap.create()),
+      new ObjectInternal(InitialTimeTicket, RHTPQMap.create()),
     );
     const cc = ChangeContext.create(InitialChangeID, root);
     assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
@@ -37,7 +37,7 @@ describe('ROOT', function () {
     assert.isUndefined(root.findByCreatedAt(k1.getCreatedAt()));
 
     // set '$.k2'
-    const k2 = JSONObject.create(cc.issueTimeTicket());
+    const k2 = ObjectInternal.create(cc.issueTimeTicket());
     root.getObject().set('k2', k2);
     root.registerElement(k2, root.getObject());
     assert.equal(root.getElementMapSize(), 2);
@@ -47,7 +47,7 @@ describe('ROOT', function () {
     assert.equal(Object.keys(k2.toJS()).length, 0);
 
     // set '$.k2.1'
-    const k2_1 = JSONArray.create(cc.issueTimeTicket());
+    const k2_1 = ArrayInternal.create(cc.issueTimeTicket());
     k2.set('1', k2_1);
     root.registerElement(k2_1, k2);
     assert.equal(root.getElementMapSize(), 3);
@@ -73,9 +73,9 @@ describe('ROOT', function () {
 
   it('garbage collection test for array', function () {
     const root = new JSONRoot(
-      new JSONObject(InitialTimeTicket, RHTPQMap.create()),
+      new ObjectInternal(InitialTimeTicket, RHTPQMap.create()),
     );
-    const arr = new JSONArray(InitialTimeTicket, RGATreeList.create());
+    const arr = new ArrayInternal(InitialTimeTicket, RGATreeList.create());
     const change = ChangeContext.create(InitialChangeID, root);
 
     ArrayProxy.pushInternal(change, arr, 0);
@@ -104,9 +104,9 @@ describe('ROOT', function () {
 
   it('garbage collection test for text', function () {
     const root = new JSONRoot(
-      new JSONObject(InitialTimeTicket, RHTPQMap.create()),
+      new ObjectInternal(InitialTimeTicket, RHTPQMap.create()),
     );
-    const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
+    const obj = new ObjectInternal(InitialTimeTicket, RHTPQMap.create());
     const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createText(change, obj, 'k1');
 
@@ -126,9 +126,9 @@ describe('ROOT', function () {
 
   it('garbage collection test for rich text', function () {
     const root = new JSONRoot(
-      new JSONObject(InitialTimeTicket, RHTPQMap.create()),
+      new ObjectInternal(InitialTimeTicket, RHTPQMap.create()),
     );
-    const obj = new JSONObject(InitialTimeTicket, RHTPQMap.create());
+    const obj = new ObjectInternal(InitialTimeTicket, RHTPQMap.create());
     const change = ChangeContext.create(InitialChangeID, root);
     const text = ObjectProxy.createRichText(change, obj, 'k1');
 

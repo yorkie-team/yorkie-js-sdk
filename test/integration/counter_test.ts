@@ -1,12 +1,12 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TObject, TCounter } from '@yorkie-js-sdk/src/yorkie';
+import { JSONObject, Counter } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
     const doc = DocumentReplica.create<{
-      k1: TObject<{ age?: TCounter; length?: TCounter }>;
+      k1: JSONObject<{ age?: Counter; length?: Counter }>;
     }>('test-doc');
 
     doc.update((root) => {
@@ -35,7 +35,7 @@ describe('Counter', function () {
   });
 
   it('Can handle increase operation', async function () {
-    type TestDoc = { age: TCounter };
+    type TestDoc = { age: Counter };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createCounter!('age', 0);
@@ -53,9 +53,9 @@ describe('Counter', function () {
 
   it('Can handle concurrent increase operation', async function () {
     await withTwoClientsAndDocuments<{
-      age: TCounter;
-      width: TCounter;
-      height: TCounter;
+      age: Counter;
+      width: Counter;
+      height: Counter;
     }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.createCounter!('age', 0);

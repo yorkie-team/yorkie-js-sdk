@@ -17,13 +17,13 @@
 import { assert } from 'chai';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import Long from 'long';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
-    const double = Counter.of(10, InitialTimeTicket);
-    const long = Counter.of(Long.fromString('100'), InitialTimeTicket);
+    const double = CounterInternal.of(10, InitialTimeTicket);
+    const long = CounterInternal.of(Long.fromString('100'), InitialTimeTicket);
 
     const doubleOperand = JSONPrimitive.of(10, InitialTimeTicket);
     const longOperand = JSONPrimitive.of(
@@ -40,7 +40,7 @@ describe('Counter', function () {
     assert.equal((long.getValue() as Long).toNumber(), 210);
 
     // error process test
-    function errorTest(counter: Counter, operand: JSONPrimitive): void {
+    function errorTest(counter: CounterInternal, operand: JSONPrimitive): void {
       const errValue = !counter.isNumericType()
         ? counter.getValue()
         : operand.getValue();

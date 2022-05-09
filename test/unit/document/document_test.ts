@@ -20,7 +20,7 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
-import { TArray } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray } from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -110,7 +110,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -137,7 +137,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -156,7 +156,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -183,7 +183,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -202,7 +202,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -227,7 +227,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -245,7 +245,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -270,7 +270,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -417,7 +417,7 @@ describe('DocumentReplica', function () {
   });
 
   it('insert elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -447,7 +447,7 @@ describe('DocumentReplica', function () {
   });
 
   it('can insert an element before specific position after delete operation', function () {
-    const doc = DocumentReplica.create<{ data: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });

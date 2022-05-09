@@ -35,25 +35,28 @@ export enum CounterType {
 type CounterValue = number | Long;
 
 /**
- * `Counter` represents changeable number data type.
+ * `CounterInternal` represents changeable number data type.
  *
- * @public
+ * @internal
  */
-export class Counter extends JSONElement {
+export class CounterInternal extends JSONElement {
   private valueType?: CounterType;
   private value: CounterValue;
 
   constructor(value: CounterValue, createdAt: TimeTicket) {
     super(createdAt);
-    this.valueType = Counter.getCounterType(value);
+    this.valueType = CounterInternal.getCounterType(value);
     this.value = value;
   }
 
   /**
    * `of` creates a new instance of Counter.
    */
-  public static of(value: CounterValue, createdAt: TimeTicket): Counter {
-    return new Counter(value, createdAt);
+  public static of(
+    value: CounterValue,
+    createdAt: TimeTicket,
+  ): CounterInternal {
+    return new CounterInternal(value, createdAt);
   }
   /**
    * `valueFromBytes` parses the given bytes into value.
@@ -99,8 +102,8 @@ export class Counter extends JSONElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): Counter {
-    const counter = Counter.of(this.value, this.getCreatedAt());
+  public deepcopy(): CounterInternal {
+    const counter = CounterInternal.of(this.value, this.getCreatedAt());
     counter.setMovedAt(this.getMovedAt());
     return counter;
   }
@@ -131,7 +134,7 @@ export class Counter extends JSONElement {
    * `isSupport` check if there is a counter type of given value.
    */
   public static isSupport(value: CounterValue): boolean {
-    return !!Counter.getCounterType(value);
+    return !!CounterInternal.getCounterType(value);
   }
 
   /**
@@ -197,11 +200,11 @@ export class Counter extends JSONElement {
   /**
    * `increase` increases numeric data.
    */
-  public increase(v: JSONPrimitive): Counter {
+  public increase(v: JSONPrimitive): CounterInternal {
     /**
      * `checkNumericType` checks if the given target is a numeric type.
      */
-    function checkNumericType(target: JSONPrimitive | Counter): void {
+    function checkNumericType(target: JSONPrimitive | CounterInternal): void {
       if (!target.isNumericType()) {
         throw new TypeError(
           `Unsupported type of value: ${typeof target.getValue()}`,

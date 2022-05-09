@@ -20,7 +20,7 @@ import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
 import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
@@ -54,8 +54,8 @@ export class IncreaseOperation extends Operation {
    */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof Counter) {
-      const counter = parentObject as Counter;
+    if (parentObject instanceof CounterInternal) {
+      const counter = parentObject as CounterInternal;
       const value = this.value.deepcopy() as JSONPrimitive;
       counter.increase(value);
     } else {

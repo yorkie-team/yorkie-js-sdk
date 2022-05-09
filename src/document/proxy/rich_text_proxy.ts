@@ -21,29 +21,60 @@ import {
   TextChange,
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import {
-  RichText,
+  RichTextInternal,
   RichTextVal,
 } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
-export type TRichText = {
+/**
+ * `RichText` is an extended data type for the contents of a text editor.
+ */
+export type RichText = {
+  /**
+   * `edit` edits this text with the given content.
+   */
   edit(
     fromIdx: number,
     toIdx: number,
-    context: string,
+    content: string,
     attributes?: Record<string, string>,
   ): boolean;
+
+  /**
+   * `setStyle` styles this text with the given attributes.
+   */
   setStyle(
     fromIdx: number,
     toIdx: number,
     attributes: Record<string, string>,
   ): boolean;
+
+  /**
+   * `select` selects the given range.
+   */
   select(fromIdx: number, toIdx: number): boolean;
+
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of the node
+   * for debugging purpose.
+   */
   getAnnotatedString(): string;
+
+  /**
+   * `getValue` returns the JSON encoding of this text.
+   */
   getValue(): Array<RichTextVal>;
+
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
   createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
+
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
   onChanges(handlers: (changes: Array<TextChange>) => void): void;
 };
 
@@ -57,7 +88,7 @@ export class RichTextProxy {
   constructor(context: ChangeContext) {
     this.context = context;
     this.handlers = {
-      get: (target: RichText, method: keyof TRichText): any => {
+      get: (target: RichTextInternal, method: keyof RichText): any => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`obj[${method}]`);
         }
@@ -113,16 +144,19 @@ export class RichTextProxy {
   /**
    * `create` creates a new instance of RichTextProxy.
    */
-  public static create(context: ChangeContext, target: RichText): RichText {
+  public static create(
+    context: ChangeContext,
+    target: RichTextInternal,
+  ): RichText {
     const textProxy = new RichTextProxy(context);
-    return new Proxy(target, textProxy.getHandlers());
+    return new Proxy(target, textProxy.getHandlers()) as any;
   }
 
   /**
    * `edit` edits the given range with the given content and attributes.
    */
   public edit(
-    target: RichText,
+    target: RichTextInternal,
     fromIdx: number,
     toIdx: number,
     content: string,
@@ -168,7 +202,7 @@ export class RichTextProxy {
    *  `setStyle` applies the style of the given range.
    */
   public setStyle(
-    target: RichText,
+    target: RichTextInternal,
     fromIdx: number,
     toIdx: number,
     attributes: Record<string, string>,
@@ -203,7 +237,11 @@ export class RichTextProxy {
   /**
    * `select` stores that the given range has been selected.
    */
-  public select(target: RichText, fromIdx: number, toIdx: number): void {
+  public select(
+    target: RichTextInternal,
+    fromIdx: number,
+    toIdx: number,
+  ): void {
     const range = target.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(

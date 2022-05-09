@@ -18,7 +18,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -57,8 +57,8 @@ export class SetOperation extends Operation {
    */
   public execute(root: JSONRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof JSONObject) {
-      const obj = parentObject as JSONObject;
+    if (parentObject instanceof ObjectInternal) {
+      const obj = parentObject as ObjectInternal;
       const value = this.value.deepcopy();
       obj.set(this.key, value);
       root.registerElement(value, obj);

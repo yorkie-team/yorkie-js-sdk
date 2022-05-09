@@ -59,11 +59,11 @@ export {
   TextChangeType,
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 export { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-export { TArray } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-export { TCounter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
-export { TObject } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
-export { TRichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
-export { TText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+export { JSONArray } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
+export { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+export { JSONObject } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
+export { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+export { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 
 /**
  * `createClient` creates a new instance of `Client`.

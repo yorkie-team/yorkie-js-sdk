@@ -1,15 +1,13 @@
 import { assert } from 'chai';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TArray } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, JSONElement, TimeTicket } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = DocumentReplica.create<{ k1: TArray<string> }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: JSONArray<string> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -26,7 +24,7 @@ describe('Array', function () {
 
   it('can push array element after delete operation', function () {
     const doc =
-      DocumentReplica.create<{ k1: TArray<string | Array<number>> }>(
+      DocumentReplica.create<{ k1: JSONArray<string | Array<number>> }>(
         'test-doc',
       );
     assert.equal('{}', doc.toSortedJSON());
@@ -51,7 +49,7 @@ describe('Array', function () {
 
   it('can push object element after delete operation', function () {
     const doc = DocumentReplica.create<{
-      k1: TArray<string | { a: string; b: string }>;
+      k1: JSONArray<string | { a: string; b: string }>;
     }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
@@ -88,7 +86,7 @@ describe('Array', function () {
   });
 
   it('can push element then delete it by ID in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let toDelete: JSONElement;
@@ -115,7 +113,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let prev: JSONElement;
@@ -152,7 +150,7 @@ describe('Array', function () {
   });
 
   it('can move an element before the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -175,7 +173,7 @@ describe('Array', function () {
   });
 
   it('can move an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -198,7 +196,7 @@ describe('Array', function () {
   });
 
   it('can insert an element at the first of array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -225,7 +223,7 @@ describe('Array', function () {
   });
 
   it('can move an element at the last of array', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -252,7 +250,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent insertAfter operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
       d1.update((root) => {
@@ -295,7 +293,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveBefore operations with the same position', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -341,7 +339,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveBefore operations from the different position', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -373,7 +371,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveFront operations with the item which has the different index', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -415,7 +413,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveFront operations with the item which has the same index', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -445,7 +443,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveAfter operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -475,7 +473,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent insertAfter and moveBefore operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
       d1.update((root) => {
@@ -521,7 +519,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent moveAfter', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root['k1'] = [0, 1, 2];
@@ -576,7 +574,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent delete operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
       d1.update((root) => {
@@ -606,7 +604,7 @@ describe('Array', function () {
   });
 
   it('Can handle concurrent insertBefore and delete operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
 
@@ -640,7 +638,7 @@ describe('Array', function () {
   });
 
   it('Can handle complex concurrent insertBefore and delete operations', async function () {
-    type TestDoc = { k1: TArray<number> };
+    type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: JSONElement;
 
@@ -694,7 +692,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist after GC', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {
@@ -716,7 +714,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist', function () {
-    const doc = DocumentReplica.create<{ list: TArray<number> }>('test-doc');
+    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {

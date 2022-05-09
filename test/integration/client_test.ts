@@ -1,11 +1,10 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import yorkie from '@yorkie-js-sdk/src/yorkie';
-import { DocEventType } from '@yorkie-js-sdk/src/document/document';
-import {
+import yorkie, {
+  DocEventType,
   ClientEventType,
   DocumentSyncResultType,
-} from '@yorkie-js-sdk/src/core/client';
+} from '@yorkie-js-sdk/src/yorkie';
 import {
   createEmitterAndSpy,
   waitFor,

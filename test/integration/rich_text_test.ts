@@ -1,11 +1,13 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { TextChangeType } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { TRichText } from '@yorkie-js-sdk/src/yorkie';
+import {
+  DocumentReplica,
+  RichText,
+  TextChangeType,
+} from '@yorkie-js-sdk/src/yorkie';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: RichText }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -28,7 +30,7 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = DocumentReplica.create<{ k1: TRichText }>('test-doc');
+    const doc = DocumentReplica.create<{ k1: RichText }>('test-doc');
 
     doc.update((root) => {
       root.createRichText!('k1');

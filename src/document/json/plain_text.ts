@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { TextElement } from '@yorkie-js-sdk/src/document/json/element';
 import {
@@ -26,12 +25,12 @@ import {
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 
 /**
- * `PlainText` represents plain text element
+ * `PlainTextInternal` represents plain text element
  * Text is an extended data type for the contents of a text editor
  *
  * @internal
  */
-export class PlainText extends TextElement {
+export class PlainTextInternal extends TextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
@@ -51,21 +50,8 @@ export class PlainText extends TextElement {
   public static create(
     rgaTreeSplit: RGATreeSplit<string>,
     createdAt: TimeTicket,
-  ): PlainText {
-    return new PlainText(rgaTreeSplit, createdAt);
-  }
-
-  /**
-   * Don't use edit directly. Be sure to use it through a proxy.
-   * The reason for setting the PlainText type as the return value
-   * is to provide the PlainText interface to the user.
-   */
-  public edit(fromIdx: number, toIdx: number, content: string): PlainText {
-    logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx} ${content}`,
-    );
-    // @ts-ignore
-    return;
+  ): PlainTextInternal {
+    return new PlainTextInternal(rgaTreeSplit, createdAt);
   }
 
   /**
@@ -101,17 +87,6 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * Don't use select directly. Be sure to use it through a proxy.
-   */
-  public select(fromIdx: number, toIdx: number): void {
-    logger.fatal(
-      `unsupported: this method should be called by proxy, ${fromIdx}-${toIdx}`,
-    );
-    // @ts-ignore
-    return;
-  }
-
-  /**
    * `selectInternal` updates selection info of the given selection range.
    *
    * @internal
@@ -140,7 +115,7 @@ export class PlainText extends TextElement {
   }
 
   /**
-   * onChanges registers a handler of onChanges event.
+   * `onChanges` registers a handler of onChanges event.
    */
   public onChanges(handler: (changes: Array<TextChange>) => void): void {
     this.onChangesHandler = handler;
@@ -214,8 +189,8 @@ export class PlainText extends TextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): PlainText {
-    const text = PlainText.create(
+  public deepcopy(): PlainTextInternal {
+    const text = PlainTextInternal.create(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );

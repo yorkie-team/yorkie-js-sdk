@@ -37,17 +37,17 @@ import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
+import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import {
-  RichText,
+  RichTextInternal,
   RichTextValue,
 } from '@yorkie-js-sdk/src/document/json/rich_text';
 import {
@@ -74,7 +74,10 @@ import {
   ValueType as PbValueType,
 } from '@yorkie-js-sdk/src/api/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
-import { CounterType, Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import {
+  CounterType,
+  CounterInternal,
+} from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
@@ -191,16 +194,16 @@ function toCounterType(valueType: CounterType): PbValueType {
  */
 function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
   const pbJSONElement = new PbJSONElementSimple();
-  if (jsonElement instanceof JSONObject) {
+  if (jsonElement instanceof ObjectInternal) {
     pbJSONElement.setType(PbValueType.JSON_OBJECT);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof JSONArray) {
+  } else if (jsonElement instanceof ArrayInternal) {
     pbJSONElement.setType(PbValueType.JSON_ARRAY);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof PlainText) {
+  } else if (jsonElement instanceof PlainTextInternal) {
     pbJSONElement.setType(PbValueType.TEXT);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
-  } else if (jsonElement instanceof RichText) {
+  } else if (jsonElement instanceof RichTextInternal) {
     pbJSONElement.setType(PbValueType.RICH_TEXT);
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
   } else if (jsonElement instanceof JSONPrimitive) {
@@ -208,8 +211,8 @@ function toJSONElementSimple(jsonElement: JSONElement): PbJSONElementSimple {
     pbJSONElement.setType(toValueType(primitive.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
-  } else if (jsonElement instanceof Counter) {
-    const counter = jsonElement as Counter;
+  } else if (jsonElement instanceof CounterInternal) {
+    const counter = jsonElement as CounterInternal;
     pbJSONElement.setType(toCounterType(counter.getType()));
     pbJSONElement.setCreatedAt(toTimeTicket(jsonElement.getCreatedAt()));
     pbJSONElement.setValue(jsonElement.toBytes());
@@ -466,7 +469,7 @@ function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
 /**
  * `toJSONObject` converts the given model to Protobuf format.
  */
-function toJSONObject(obj: JSONObject): PbJSONElement {
+function toJSONObject(obj: ObjectInternal): PbJSONElement {
   const pbJSONObject = new PbJSONElement.JSONObject();
   pbJSONObject.setNodesList(toRHTNodes(obj.getRHT()));
   pbJSONObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
@@ -481,7 +484,7 @@ function toJSONObject(obj: JSONObject): PbJSONElement {
 /**
  * `toJSONArray` converts the given model to Protobuf format.
  */
-function toJSONArray(arr: JSONArray): PbJSONElement {
+function toJSONArray(arr: ArrayInternal): PbJSONElement {
   const pbJSONArray = new PbJSONElement.JSONArray();
   pbJSONArray.setNodesList(toRGANodes(arr.getElements()));
   pbJSONArray.setCreatedAt(toTimeTicket(arr.getCreatedAt()));
@@ -512,7 +515,7 @@ function toJSONPrimitive(primitive: JSONPrimitive): PbJSONElement {
 /**
  * `toPlainText` converts the given model to Protobuf format.
  */
-function toPlainText(text: PlainText): PbJSONElement {
+function toPlainText(text: PlainTextInternal): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
@@ -527,7 +530,7 @@ function toPlainText(text: PlainText): PbJSONElement {
 /**
  * `toCounter` converts the given model to Protobuf format.
  */
-function toCounter(counter: Counter): PbJSONElement {
+function toCounter(counter: CounterInternal): PbJSONElement {
   const pbJSONCounter = new PbJSONElement.Counter();
   pbJSONCounter.setType(toCounterType(counter.getType()));
   pbJSONCounter.setValue(counter.toBytes());
@@ -544,15 +547,15 @@ function toCounter(counter: Counter): PbJSONElement {
  * `toJSONElement` converts the given model to Protobuf format.
  */
 function toJSONElement(jsonElement: JSONElement): PbJSONElement {
-  if (jsonElement instanceof JSONObject) {
+  if (jsonElement instanceof ObjectInternal) {
     return toJSONObject(jsonElement);
-  } else if (jsonElement instanceof JSONArray) {
+  } else if (jsonElement instanceof ArrayInternal) {
     return toJSONArray(jsonElement);
   } else if (jsonElement instanceof JSONPrimitive) {
     return toJSONPrimitive(jsonElement);
-  } else if (jsonElement instanceof PlainText) {
+  } else if (jsonElement instanceof PlainTextInternal) {
     return toPlainText(jsonElement);
-  } else if (jsonElement instanceof Counter) {
+  } else if (jsonElement instanceof CounterInternal) {
     return toCounter(jsonElement);
   } else {
     throw new YorkieError(
@@ -655,16 +658,20 @@ function fromJSONElementSimple(
 ): JSONElement {
   switch (pbJSONElement.getType()) {
     case PbValueType.JSON_OBJECT:
-      return JSONObject.create(fromTimeTicket(pbJSONElement.getCreatedAt())!);
+      return ObjectInternal.create(
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
+      );
     case PbValueType.JSON_ARRAY:
-      return JSONArray.create(fromTimeTicket(pbJSONElement.getCreatedAt())!);
+      return ArrayInternal.create(
+        fromTimeTicket(pbJSONElement.getCreatedAt())!,
+      );
     case PbValueType.TEXT:
-      return PlainText.create(
+      return PlainTextInternal.create(
         RGATreeSplit.create(),
         fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
     case PbValueType.RICH_TEXT:
-      return RichText.create(
+      return RichTextInternal.create(
         RGATreeSplit.create(),
         fromTimeTicket(pbJSONElement.getCreatedAt())!,
       );
@@ -686,8 +693,8 @@ function fromJSONElementSimple(
     case PbValueType.INTEGER_CNT:
     case PbValueType.DOUBLE_CNT:
     case PbValueType.LONG_CNT:
-      return Counter.of(
-        Counter.valueFromBytes(
+      return CounterInternal.of(
+        CounterInternal.valueFromBytes(
           fromCounterType(pbJSONElement.getType()),
           pbJSONElement.getValue_asU8(),
         ),
@@ -905,14 +912,14 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
 /**
  * `fromJSONObject` converts the given Protobuf format to model format.
  */
-function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
+function fromJSONObject(pbObject: PbJSONElement.JSONObject): ObjectInternal {
   const rht = new RHTPQMap();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
     rht.set(pbRHTNode.getKey(), fromJSONElement(pbRHTNode.getElement()!));
   }
 
-  const obj = new JSONObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
+  const obj = new ObjectInternal(fromTimeTicket(pbObject.getCreatedAt())!, rht);
   obj.setMovedAt(fromTimeTicket(pbObject.getMovedAt()));
   obj.setRemovedAt(fromTimeTicket(pbObject.getRemovedAt()));
   return obj;
@@ -921,14 +928,14 @@ function fromJSONObject(pbObject: PbJSONElement.JSONObject): JSONObject {
 /**
  * `fromJSONArray` converts the given Protobuf format to model format.
  */
-function fromJSONArray(pbArray: PbJSONElement.JSONArray): JSONArray {
+function fromJSONArray(pbArray: PbJSONElement.JSONArray): ArrayInternal {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.getNodesList()) {
     // eslint-disable-next-line
     rgaTreeList.insert(fromJSONElement(pbRGANode.getElement()!));
   }
 
-  const arr = new JSONArray(
+  const arr = new ArrayInternal(
     fromTimeTicket(pbArray.getCreatedAt())!,
     rgaTreeList,
   );
@@ -958,7 +965,7 @@ function fromJSONPrimitive(
 /**
  * `fromJSONText` converts the given Protobuf format to model format.
  */
-function fromJSONText(pbText: PbJSONElement.Text): PlainText {
+function fromJSONText(pbText: PbJSONElement.Text): PlainTextInternal {
   const rgaTreeSplit = new RGATreeSplit<string>();
 
   let prev = rgaTreeSplit.getHead();
@@ -972,7 +979,7 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
     prev = current;
   }
 
-  const text = PlainText.create(
+  const text = PlainTextInternal.create(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
@@ -984,7 +991,7 @@ function fromJSONText(pbText: PbJSONElement.Text): PlainText {
 /**
  * `fromJSONRichText` converts the given Protobuf format to model format.
  */
-function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
+function fromJSONRichText(pbText: PbJSONElement.RichText): RichTextInternal {
   const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
 
   let prev = rgaTreeSplit.getHead();
@@ -998,7 +1005,7 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
     prev = current;
   }
 
-  const text = RichText.create(
+  const text = RichTextInternal.create(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
@@ -1010,9 +1017,9 @@ function fromJSONRichText(pbText: PbJSONElement.RichText): RichText {
 /**
  * `fromCounter` converts the given Protobuf format to model format.
  */
-function fromCounter(pbCounter: PbJSONElement.Counter): Counter {
-  const counter = Counter.of(
-    Counter.valueFromBytes(
+function fromCounter(pbCounter: PbJSONElement.Counter): CounterInternal {
+  const counter = CounterInternal.of(
+    CounterInternal.valueFromBytes(
       fromCounterType(pbCounter.getType()),
       pbCounter.getValue_asU8(),
     ),
@@ -1050,9 +1057,9 @@ function fromJSONElement(pbJSONElement: PbJSONElement): JSONElement {
 /**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
-function bytesToObject(bytes?: Uint8Array): JSONObject {
+function bytesToObject(bytes?: Uint8Array): ObjectInternal {
   if (!bytes) {
-    return JSONObject.create(InitialTimeTicket);
+    return ObjectInternal.create(InitialTimeTicket);
   }
 
   const pbJSONElement = PbJSONElement.deserializeBinary(bytes);
@@ -1062,7 +1069,7 @@ function bytesToObject(bytes?: Uint8Array): JSONObject {
 /**
  * `objectToBytes` converts the given JSONObject to byte array.
  */
-function objectToBytes(obj: JSONObject): Uint8Array {
+function objectToBytes(obj: ObjectInternal): Uint8Array {
   return toJSONElement(obj).serializeBinary();
 }
 
