@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.4] - 2022-05-10
+
+### Changed
+
+- Fix incorrect type hint in document.update handler: #289
+- Rename Client Metadata to Presence: #293
+
+### Removed
+
+- Remove collection from document: #292
+
 ## [0.2.3] - 2022-04-07
 
 ### Changed
