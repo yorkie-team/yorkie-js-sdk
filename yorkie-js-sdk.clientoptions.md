@@ -16,6 +16,7 @@ export declare interface ClientOptions<M>
 
 |  Property | Type | Description |
 |  --- | --- | --- |
+|  [apiKey?](./yorkie-js-sdk.clientoptions.apikey.md) | string | <i>(Optional)</i> |
 |  [key?](./yorkie-js-sdk.clientoptions.key.md) | string | <i>(Optional)</i> |
 |  [presence?](./yorkie-js-sdk.clientoptions.presence.md) | M | <i>(Optional)</i> |
 |  [reconnectStreamDelay?](./yorkie-js-sdk.clientoptions.reconnectstreamdelay.md) | number | <i>(Optional)</i> |
