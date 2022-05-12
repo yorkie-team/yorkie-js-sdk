@@ -92,7 +92,7 @@ export function createDocument<T = Indexable>(key: string): DocumentReplica<T> {
  * In production, this will be called exactly once and the result
  * assigned to the `yorkie` global.
  *
- * e.g) `yorkie.createClient(...);`
+ * e.g) `new yorkie.Client(...);`
  *
  * @public
  */
