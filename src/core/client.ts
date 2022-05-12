@@ -250,6 +250,7 @@ export type PresenceInfo<M> = {
 export interface ClientOptions<M> {
   key?: string;
   presence?: M;
+  apiKey?: string;
   token?: string;
   syncLoopDuration?: number;
   reconnectStreamDelay?: number;
@@ -302,10 +303,12 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
 
     let rpcOpts;
-    if (opts.token) {
+    if (opts.apiKey || opts.token) {
       rpcOpts = {
-        unaryInterceptors: [new AuthUnaryInterceptor(opts.token)],
-        streamInterceptors: [new AuthStreamInterceptor(opts.token)],
+        unaryInterceptors: [new AuthUnaryInterceptor(opts.apiKey, opts.token)],
+        streamInterceptors: [
+          new AuthStreamInterceptor(opts.apiKey, opts.token),
+        ],
       };
     }
 

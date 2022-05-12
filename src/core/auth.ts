@@ -19,9 +19,11 @@
  * request.
  */
 export class AuthUnaryInterceptor {
-  private token: string;
+  private apiKey?: string;
+  private token?: string;
 
-  constructor(token: string) {
+  constructor(apiKey?: string, token?: string) {
+    this.apiKey = apiKey;
     this.token = token;
   }
 
@@ -31,7 +33,12 @@ export class AuthUnaryInterceptor {
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
-    metadata.Authorization = this.token;
+    if (this.apiKey) {
+      metadata['x-api-key'] = this.apiKey;
+    }
+    if (this.token) {
+      metadata['authorization'] = this.token;
+    }
     return invoker(request);
   }
 }
@@ -41,9 +48,11 @@ export class AuthUnaryInterceptor {
  * request.
  */
 export class AuthStreamInterceptor {
-  private token: string;
+  private apiKey?: string;
+  private token?: string;
 
-  constructor(token: string) {
+  constructor(apiKey?: string, token?: string) {
+    this.apiKey = apiKey;
     this.token = token;
   }
 
@@ -53,7 +62,12 @@ export class AuthStreamInterceptor {
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
-    metadata.Authorization = this.token;
+    if (this.apiKey) {
+      metadata['x-api-key'] = this.apiKey;
+    }
+    if (this.token) {
+      metadata['authorization'] = this.token;
+    }
     return invoker(request);
   }
 }
