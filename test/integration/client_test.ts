@@ -18,7 +18,7 @@ import {
 describe('Client', function () {
   it('Can be activated, deactivated', async function () {
     const clientKey = `${this.test!.title}-${new Date().getTime()}`;
-    const clientWithKey = yorkie.createClient(testRPCAddr, {
+    const clientWithKey = new yorkie.Client(testRPCAddr, {
       key: clientKey,
       syncLoopDuration: 50,
       reconnectStreamDelay: 1000,
@@ -30,7 +30,7 @@ describe('Client', function () {
     await clientWithKey.deactivate();
     assert.isFalse(clientWithKey.isActive());
 
-    const clientWithoutKey = yorkie.createClient(testRPCAddr);
+    const clientWithoutKey = new yorkie.Client(testRPCAddr);
     assert.isFalse(clientWithoutKey.isActive());
     await clientWithoutKey.activate();
     assert.isTrue(clientWithoutKey.isActive());
@@ -119,14 +119,14 @@ describe('Client', function () {
   });
 
   it('Can recover from temporary disconnect (realtime sync)', async function () {
-    const c1 = yorkie.createClient(testRPCAddr);
-    const c2 = yorkie.createClient(testRPCAddr);
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument<{ k1: string }>(docKey);
-    const d2 = yorkie.createDocument<{ k1: string }>(docKey);
+    const d1 = new yorkie.Document<{ k1: string }>(docKey);
+    const d2 = new yorkie.Document<{ k1: string }>(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);
@@ -198,8 +198,8 @@ describe('Client', function () {
   });
 
   it('Can update its presence', async function () {
-    const c1 = yorkie.createClient(testRPCAddr, { presence: { name: 'c1' } });
-    const c2 = yorkie.createClient(testRPCAddr, { presence: { name: 'c2' } });
+    const c1 = new yorkie.Client(testRPCAddr, { presence: { name: 'c1' } });
+    const c2 = new yorkie.Client(testRPCAddr, { presence: { name: 'c2' } });
     await c1.activate();
     await c2.activate();
 
@@ -207,8 +207,8 @@ describe('Client', function () {
     const [emitter2, spy2] = createEmitterAndSpy();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument(docKey);
-    const d2 = yorkie.createDocument(docKey);
+    const d1 = new yorkie.Document(docKey);
+    const d2 = new yorkie.Document(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);

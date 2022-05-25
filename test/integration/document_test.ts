@@ -10,11 +10,11 @@ describe('Document', function () {
   it('Can attach/detach documents', async function () {
     type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string> };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const doc1 = yorkie.createDocument<TestDoc>(docKey);
-    const doc2 = yorkie.createDocument<TestDoc>(docKey);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = yorkie.createClient(testRPCAddr);
-    const client2 = yorkie.createClient(testRPCAddr);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
     await client1.activate();
     await client2.activate();
 
@@ -43,14 +43,14 @@ describe('Document', function () {
   });
 
   it('Can watch documents', async function () {
-    const c1 = yorkie.createClient(testRPCAddr);
-    const c2 = yorkie.createClient(testRPCAddr);
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = yorkie.createDocument<{ k1: string }>(docKey);
-    const d2 = yorkie.createDocument<{ k1: string }>(docKey);
+    const d1 = new yorkie.Document<{ k1: string }>(docKey);
+    const d2 = new yorkie.Document<{ k1: string }>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
 

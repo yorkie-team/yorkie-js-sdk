@@ -33,7 +33,7 @@ describe('Converter', function () {
     }>('test-doc');
 
     doc.update((root) => {
-      root['k1'] = {
+      root.k1 = {
         'k1.1': true,
         'k1.2': 2147483647,
         // 'k1.3': yorkie.Long.fromString('9223372036854775807'),
@@ -43,7 +43,7 @@ describe('Converter', function () {
         // 'k7': new Date(),
       };
 
-      root['k2'] = [
+      root.k2 = [
         true,
         2147483647,
         // yorkie.Long.fromString('9223372036854775807'),
@@ -53,16 +53,15 @@ describe('Converter', function () {
         // new Date(),
       ];
 
-      const text = root.createText!('k3');
-      text.edit(0, 0, 'ㅎ');
-      text.edit(0, 1, '하');
-      text.edit(0, 1, '한');
-      text.edit(0, 1, '하');
-      text.edit(1, 1, '느');
-      text.edit(1, 2, '늘');
-
-      const counter = root.createCounter!('k4', 0);
-      counter.increase(1).increase(2).increase(3);
+      root.k3 = new PlainText();
+      root.k3.edit(0, 0, 'ㅎ');
+      root.k3.edit(0, 1, '하');
+      root.k3.edit(0, 1, '한');
+      root.k3.edit(0, 1, '하');
+      root.k3.edit(1, 1, '느');
+      root.k3.edit(1, 2, '늘');
+      root.k4 = new Counter(0);
+      root.k4.increase(1).increase(2).increase(3);
     });
 
     const bytes = converter.objectToBytes(doc.getRootObject());

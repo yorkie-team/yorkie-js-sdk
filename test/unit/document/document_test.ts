@@ -20,7 +20,12 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray } from '@yorkie-js-sdk/src/yorkie';
+import {
+  JSONArray,
+  PlainText,
+  RichText,
+  Counter,
+} from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -347,7 +352,8 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for counter', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { cnt: Counter };
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -359,17 +365,31 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const counter = root.createCounter!('cnt', 0);
+      root.cnt = new Counter(0);
       paths.push('$.cnt');
-      counter.increase(1);
+      root.cnt.increase(1);
       paths.push('$.cnt');
-      root.createCounter!('$$..#.hello', 0);
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
+    });
+  });
+
+  it('support TypeScript', function () {
+    type TestDoc = {
+      array: Array<number>;
+      text: PlainText;
+    };
+
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    doc.update((root) => {
+      root.array = [1, 2];
+      root.text = new PlainText();
+      root.text.edit(0, 0, 'hello world');
     });
   });
 
   it('change paths test for text', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { text: PlainText };
+
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -381,19 +401,18 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const text = root.createText!('text');
+      root.text = new PlainText();
       paths.push('$.text');
-      text.edit(0, 0, 'hello world');
+      root.text.edit(0, 0, 'hello world');
       paths.push('$.text');
-      text.select(0, 2);
+      root.text.select(0, 2);
       paths.push('$.text');
-      root.createText!('$$..#.hello');
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 
   it('change paths test for rich text', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { rich: RichText };
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -405,14 +424,12 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const rich = root.createRichText!('rich');
+      root.rich = new RichText();
       paths.push('$.rich');
-      rich.edit(0, 0, 'hello world');
+      root.rich.edit(0, 0, 'hello world');
       paths.push('$.rich');
-      rich.setStyle(0, 1, { bold: 'true' });
+      root.rich.setStyle(0, 1, { bold: 'true' });
       paths.push('$.rich');
-      root.createRichText!('$$..#.hello');
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 

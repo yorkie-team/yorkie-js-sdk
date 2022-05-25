@@ -11,7 +11,8 @@ describe('Document stress', function () {
 
     // 01. initial
     doc.update((root) => {
-      const text = root.createText!('k1');
+      root.k1 = new PlainText();
+      const text = root.k1;
       for (let i = 0; i < size; i++) {
         text.edit(i, i, 'a');
       }
@@ -40,12 +41,12 @@ describe('Document stress', function () {
 
     // 01. long text by one node
     doc.update((root) => {
-      const text = root.createText!('k1');
+      root.k1 = new PlainText();
       let str = '';
       for (let i = 0; i < size; i++) {
         str += 'a';
       }
-      text.edit(0, 0, str);
+      root.k1.edit(0, 0, str);
     }, 'initial large size');
 
     // 02. Modify one node multiple times

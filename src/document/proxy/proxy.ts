@@ -23,9 +23,9 @@ import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import { TextProxy } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
-import { RichTextProxy } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
-import { CounterProxy } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
@@ -53,13 +53,15 @@ export function toProxy(context: ChangeContext, elem?: JSONElement): any {
     return ArrayProxy.create(context, array);
   } else if (elem instanceof PlainTextInternal) {
     const text = elem as PlainTextInternal;
-    return TextProxy.create(context, text);
+    return new PlainText(context, text);
   } else if (elem instanceof RichTextInternal) {
     const text = elem as RichTextInternal;
-    return RichTextProxy.create(context, text);
+    return new RichText(context, text);
   } else if (elem instanceof CounterInternal) {
-    const counter = elem as CounterInternal;
-    return CounterProxy.create(context, counter);
+    const counterInternal = elem as CounterInternal;
+    const counter = new Counter(0);
+    counter.initialize(context, counterInternal);
+    return counter;
   } else if (!elem) {
     return;
   } else {
