@@ -32,7 +32,7 @@ export enum CounterType {
   DoubleCnt,
 }
 
-type CounterValue = number | Long;
+export type CounterValue = number | Long;
 
 /**
  * `CounterInternal` represents changeable number data type.
