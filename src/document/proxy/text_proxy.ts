@@ -27,112 +27,34 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 /**
  * `PlainText` represents plain text element for representing contents of a text editor.
  */
-export type PlainText = {
+export class PlainText {
+  private context?: ChangeContext;
+  private text?: PlainTextInternal;
+
+  constructor(context?: ChangeContext, text?: PlainTextInternal) {
+    this.context = context;
+    this.text = text;
+  }
+
+  public initialize(context: ChangeContext, text: PlainTextInternal) {
+    this.context = context;
+    this.text = text;
+  }
+
   /**
    * `edit` edits this text with the given content.
    */
-  edit(fromIdx: number, toIdx: number, context: string): boolean;
+  public edit(fromIdx: number, toIdx: number, content: string): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
+    }
 
-  /**
-   * `select` selects the given range.
-   */
-  select(fromIdx: number, toIdx: number): boolean;
-
-  /**
-   * `getAnnotatedString` returns a String containing the meta data of the node
-   * for debugging purpose.
-   */
-  getAnnotatedString(): string;
-
-  /**
-   * `getValue` returns the JSON encoding of this text.
-   */
-  getValue(): string;
-
-  /**
-   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
-   */
-  createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  onChanges(handler: (changes: Array<TextChange>) => void): void;
-};
-
-/**
- * `TextProxy` is a proxy representing Text.
- */
-export class TextProxy {
-  private context: ChangeContext;
-  private handlers: any;
-
-  constructor(context: ChangeContext) {
-    this.context = context;
-    this.handlers = {
-      get: (target: PlainTextInternal, method: keyof PlainText): any => {
-        if (logger.isEnabled(LogLevel.Trivial)) {
-          logger.trivial(`obj[${method}]`);
-        }
-
-        if (method === 'edit') {
-          return (fromIdx: number, toIdx: number, content: string): boolean => {
-            this.edit(target, fromIdx, toIdx, content);
-            return true;
-          };
-        } else if (method === 'select') {
-          return (fromIdx: number, toIdx: number): boolean => {
-            this.select(target, fromIdx, toIdx);
-            return true;
-          };
-        } else if (method === 'getAnnotatedString') {
-          return (): string => {
-            return target.getAnnotatedString();
-          };
-        } else if (method === 'getValue') {
-          return (): string => {
-            return target.getValue();
-          };
-        } else if (method === 'createRange') {
-          return (fromIdx: number, toIdx: number): RGATreeSplitNodeRange => {
-            return target.createRange(fromIdx, toIdx);
-          };
-        } else if (method === 'onChanges') {
-          return (handler: (changes: Array<TextChange>) => void): void => {
-            target.onChanges(handler);
-          };
-        }
-
-        logger.fatal(`unsupported method: ${method}`);
-      },
-    };
-  }
-
-  /**
-   * `create` creates a new instance of TextProxy.
-   */
-  public static create(
-    context: ChangeContext,
-    target: PlainTextInternal,
-  ): PlainText {
-    const textProxy = new TextProxy(context);
-    return new Proxy(target, textProxy.getHandlers()) as any;
-  }
-
-  /**
-   * `edit` edits the given range with the given content.
-   */
-  public edit(
-    target: PlainTextInternal,
-    fromIdx: number,
-    toIdx: number,
-    content: string,
-  ): void {
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
     }
 
-    const range = target.createRange(fromIdx, toIdx);
+    const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
@@ -140,11 +62,11 @@ export class TextProxy {
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = target.editInternal(range, content, ticket);
+    const maxCreatedAtMapByActor = this.text.editInternal(range, content, ticket);
 
     this.context.push(
       new EditOperation(
-        target.getCreatedAt(),
+        this.text.getCreatedAt(),
         range[0],
         range[1],
         maxCreatedAtMapByActor,
@@ -154,36 +76,85 @@ export class TextProxy {
     );
 
     if (!range[0].equals(range[1])) {
-      this.context.registerRemovedNodeTextElement(target);
+      this.context.registerRemovedNodeTextElement(this.text);
     }
+
+    return true;
   }
 
   /**
-   * `select` stores that the given range has been selected.
+   * `select` selects the given range.
    */
-  public select(
-    target: PlainTextInternal,
-    fromIdx: number,
-    toIdx: number,
-  ): void {
-    const range = target.createRange(fromIdx, toIdx);
+  public select(fromIdx: number, toIdx: number): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
+    }
+
+    const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
-    target.selectInternal(range, ticket);
+    this.text.selectInternal(range, ticket);
 
     this.context.push(
-      new SelectOperation(target.getCreatedAt(), range[0], range[1], ticket),
+      new SelectOperation(this.text.getCreatedAt(), range[0], range[1], ticket),
     );
+
+    return true;
   }
 
   /**
-   * `getHandlers` gets handlers.
+   * `getAnnotatedString` returns a String containing the meta data of the node
+   * for debugging purpose.
    */
-  public getHandlers(): any {
-    return this.handlers;
+  public getAnnotatedString(): string {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return '';
+    }
+
+    return this.text.getAnnotatedString();
+  }
+
+  /**
+   * `getValue` returns the JSON encoding of this text.
+   */
+  getValue(): string {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return '';
+    }
+
+    return this.text.getValue();
+  }
+
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
+  createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.text.createRange(fromIdx, toIdx);
+  }
+
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  onChanges(handler: (changes: Array<TextChange>) => void): void {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return;
+    }
+
+    this.text.onChanges(handler);
   }
 }
+

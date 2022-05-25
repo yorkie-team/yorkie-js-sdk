@@ -127,7 +127,7 @@
 
         doc.update((root) => {
           if (!root.content) {
-            root.createText('content');
+            root.content = new PlainText();
           }
         }, 'create content if not exists');
         doc.subscribe((event) => {

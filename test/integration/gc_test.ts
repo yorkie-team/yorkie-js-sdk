@@ -75,7 +75,7 @@ describe('Garbage Collection', function () {
 
   it('text garbage collection test', function () {
     const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
-    doc.update((root) => root.createText!('text'));
+    doc.update((root) => root.text = new PlainText());
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
 
@@ -107,9 +107,9 @@ describe('Garbage Collection', function () {
 
     let expected_msg = '{"k1":"Hello mario"}';
     doc.update((root) => {
-      const text = root.createText!('k1');
-      text.edit(0, 0, 'Hello world');
-      text.edit(6, 11, 'mario');
+      root.k1 = new PlainText();
+      root.k1.edit(0, 0, 'Hello world');
+      root.k1.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON!());
     }, 'edit text k1');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -238,7 +238,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: RichText; richText: RichText };
+    type TestDoc = { text: PlainText; richText: RichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(docKey);
     const doc2 = yorkie.createDocument<TestDoc>(docKey);
@@ -253,8 +253,8 @@ describe('Garbage Collection', function () {
     await client2.attach(doc2);
 
     doc1.update((root) => {
-      const text = root.createText!('text');
-      text.edit(0, 0, 'Hello World');
+      root.text = new PlainText();
+      root.text.edit(0, 0, 'Hello World');
       const richText = root.createRichText!('richText');
       richText.edit(0, 0, 'Hello World');
     }, 'sets test and richText');
@@ -333,8 +333,8 @@ describe('Garbage Collection', function () {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
-      const text = root.createText!('4');
-      text.edit(0, 0, 'hi');
+      root['4'] = new PlainText();
+      root['4'].edit(0, 0, 'hi');
       const richText = root.createRichText!('5');
       richText.edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
