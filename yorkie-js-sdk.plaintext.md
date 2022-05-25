@@ -12,6 +12,12 @@
 export declare class PlainText 
 ```
 
+## Constructors
+
+|  Constructor | Modifiers | Description |
+|  --- | --- | --- |
+|  [(constructor)(context, text)](./yorkie-js-sdk.plaintext._constructor_.md) |  | Constructs a new instance of the <code>PlainText</code> class |
+
 ## Methods
 
 |  Method | Modifiers | Description |

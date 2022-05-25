@@ -12,6 +12,12 @@
 export declare class RichText 
 ```
 
+## Constructors
+
+|  Constructor | Modifiers | Description |
+|  --- | --- | --- |
+|  [(constructor)(context, text)](./yorkie-js-sdk.richtext._constructor_.md) |  | Constructs a new instance of the <code>RichText</code> class |
+
 ## Methods
 
 |  Method | Modifiers | Description |

@@ -13,6 +13,12 @@ export declare class DocumentReplica<T = Indexable> implements Observable<DocEve
 ```
 <b>Implements:</b> Observable&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt;
 
+## Constructors
+
+|  Constructor | Modifiers | Description |
+|  --- | --- | --- |
+|  [(constructor)(key)](./yorkie-js-sdk.documentreplica._constructor_.md) |  | Constructs a new instance of the <code>DocumentReplica</code> class |
+
 ## Methods
 
 |  Method | Modifiers | Description |

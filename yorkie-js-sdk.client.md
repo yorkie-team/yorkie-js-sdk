@@ -13,6 +13,12 @@ export declare class Client<M = Indexable> implements Observable<ClientEvent<M>>
 ```
 <b>Implements:</b> Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;M&gt;&gt;
 
+## Constructors
+
+|  Constructor | Modifiers | Description |
+|  --- | --- | --- |
+|  [(constructor)(rpcAddr, opts)](./yorkie-js-sdk.client._constructor_.md) |  | Constructs a new instance of the <code>Client</code> class |
+
 ## Methods
 
 |  Method | Modifiers | Description |
