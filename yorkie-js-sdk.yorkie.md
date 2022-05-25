@@ -8,16 +8,13 @@ The top-level yorkie namespace with additional properties.
 
 In production, this will be called exactly once and the result assigned to the `yorkie` global.
 
-e.g) `yorkie.createClient(...);`
+e.g) `new yorkie.Client(...);`
 
 <b>Signature:</b>
 
 ```typescript
 yorkie: {
-    Client: typeof Client;
-    Document: typeof DocumentReplica;
-    Text: typeof PlainText;
-    RichText: typeof RichText;
-    Counter: typeof Counter;
+    createClient: typeof createClient;
+    createDocument: typeof createDocument;
 }
 ```

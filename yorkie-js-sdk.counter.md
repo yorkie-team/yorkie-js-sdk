@@ -2,25 +2,17 @@
 
 [Home](./index.md) &gt; [yorkie-js-sdk](./yorkie-js-sdk.md) &gt; [Counter](./yorkie-js-sdk.counter.md)
 
-## Counter class
+## Counter type
 
 `Counter` is the counter.
 
 <b>Signature:</b>
 
 ```typescript
-export declare class Counter 
+export declare type Counter = {
+    getID(): TimeTicket;
+    increase(v: number | Long_2): Counter;
+};
 ```
-
-## Constructors
-
-|  Constructor | Modifiers | Description |
-|  --- | --- | --- |
-|  [(constructor)(value)](./yorkie-js-sdk.counter._constructor_.md) |  | Constructs a new instance of the <code>Counter</code> class |
-
-## Methods
-
-|  Method | Modifiers | Description |
-|  --- | --- | --- |
-|  [increase(v)](./yorkie-js-sdk.counter.increase.md) |  | <code>increase</code> increases numeric data. |
+<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
 
