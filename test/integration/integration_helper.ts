@@ -15,14 +15,14 @@ export async function withTwoClientsAndDocuments<T>(
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
-  const client1 = yorkie.createClient(testRPCAddr);
-  const client2 = yorkie.createClient(testRPCAddr);
+  const client1 = new yorkie.Client(testRPCAddr);
+  const client2 = new yorkie.Client(testRPCAddr);
   await client1.activate();
   await client2.activate();
 
   const docKey = `${title}-${new Date().getTime()}`;
-  const doc1 = yorkie.createDocument<T>(docKey);
-  const doc2 = yorkie.createDocument<T>(docKey);
+  const doc1 = new yorkie.Document<T>(docKey);
+  const doc2 = new yorkie.Document<T>(docKey);
 
   await client1.attach(doc1, true);
   await client2.attach(doc2, true);
