@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-import { Client, ClientOptions } from '@yorkie-js-sdk/src/core/client';
-import {
-  DocumentReplica,
-  Indexable,
-} from '@yorkie-js-sdk/src/document/document';
+import { Client } from '@yorkie-js-sdk/src/core/client';
+import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
@@ -69,27 +66,6 @@ export { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 export { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 
 /**
- * `createClient` creates a new instance of `Client`.
- *
- * @public
- */
-export function createClient<M = Indexable>(
-  rpcAddr: string,
-  opts?: ClientOptions<M>,
-): Client<M> {
-  return new Client(rpcAddr, opts);
-}
-
-/**
- * `createDocument` creates a new instance of `DocumentReplica`.
- *
- * @public
- */
-export function createDocument<T = Indexable>(key: string): DocumentReplica<T> {
-  return new DocumentReplica<T>(key);
-}
-
-/**
  * The top-level yorkie namespace with additional properties.
  *
  * In production, this will be called exactly once and the result
@@ -100,9 +76,9 @@ export function createDocument<T = Indexable>(key: string): DocumentReplica<T> {
  * @public
  */
 const yorkie = {
-  createClient,
-  createDocument,
-  PlainText,
+  Client,
+  Document: DocumentReplica,
+  Text: PlainText,
   RichText,
   Counter,
 };
