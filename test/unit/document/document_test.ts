@@ -20,7 +20,12 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray, PlainText, RichText } from '@yorkie-js-sdk/src/yorkie';
+import {
+  JSONArray,
+  PlainText,
+  RichText,
+  Counter,
+} from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -347,7 +352,8 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for counter', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { cnt: Counter };
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -359,12 +365,10 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const counter = root.createCounter!('cnt', 0);
+      root.cnt = new Counter(0);
       paths.push('$.cnt');
-      counter.increase(1);
+      root.cnt.increase(1);
       paths.push('$.cnt');
-      root.createCounter!('$$..#.hello', 0);
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 
