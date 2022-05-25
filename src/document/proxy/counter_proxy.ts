@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import Long from 'long';
 import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
@@ -24,68 +24,42 @@ import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 /**
  * `Counter` is the counter.
  */
-export type Counter = {
+export class Counter {
+  private value: number | Long;
+  private context?: ChangeContext;
+  private counter?: CounterInternal;
+
+  constructor(value: number | Long) {
+    this.value = value;
+  }
+
   /**
-   * `getID` returns the ID(time ticket) of this Object.
+   * `initialize` initialize this text with context and internal text.
+   * @internal
    */
-  getID(): TimeTicket;
+  public initialize(context: ChangeContext, counter: CounterInternal): void {
+    this.context = context;
+    this.counter = counter;
+  }
+
+  /**
+   * `getValue` returns the value of this counter;
+   * @internal
+   */
+  public getValue(): number | Long {
+    return this.value;
+  }
 
   /**
    * `increase` increases numeric data.
    */
-  increase(v: number | Long): Counter;
-};
-
-/**
- * `CounterProxy` is the proxy for the `Counter`.
- *
- * @internal
- */
-export class CounterProxy {
-  private context: ChangeContext;
-  private handlers: any;
-  private counter: CounterInternal;
-
-  constructor(context: ChangeContext, counter: CounterInternal) {
-    this.context = context;
-    this.counter = counter;
-    this.handlers = {
-      get: (
-        target: JSONPrimitive,
-        method: keyof Counter,
-        receiver: any,
-      ): any => {
-        if (method === 'getID') {
-          return (): TimeTicket => {
-            return target.getCreatedAt();
-          };
-        } else if (method === 'increase') {
-          return (v: number | Long): Counter => {
-            return this.increase(v);
-          };
-        }
-
-        return Reflect.get(target, method, receiver);
-      },
-    };
-  }
-
-  /**
-   * `create` creates a new instance of CounterProxy.
-   */
-  public static create(
-    context: ChangeContext,
-    target: CounterInternal,
-  ): Counter {
-    const numberProxy = new CounterProxy(context, target);
-    return new Proxy(target, numberProxy.getHandlers()) as any;
-  }
-
-  /**
-   * `increase` adds an increase operation.
-   * Only numeric types are allowed as operand values.
-   */
   public increase(v: number | Long): Counter {
+    if (!this.context || !this.counter) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
     const ticket = this.context.issueTimeTicket();
     const value = JSONPrimitive.of(v, ticket);
     if (!value.isNumericType()) {
@@ -98,13 +72,6 @@ export class CounterProxy {
       IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
     );
 
-    return this as any;
-  }
-
-  /**
-   * `getHandlers` gets handlers.
-   */
-  public getHandlers(): any {
-    return this.handlers;
+    return this;
   }
 }

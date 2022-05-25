@@ -11,9 +11,9 @@ describe('RichText', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      const text = root.createRichText!('k1');
-      text.edit(0, 0, 'ABCD', { b: '1' });
-      text.edit(3, 3, '\n');
+      root.k1 = new RichText();
+      root.k1.edit(0, 0, 'ABCD', { b: '1' });
+      root.k1.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
 
     doc.update((root) => {
@@ -33,7 +33,7 @@ describe('RichText', function () {
     const doc = DocumentReplica.create<{ k1: RichText }>('test-doc');
 
     doc.update((root) => {
-      root.createRichText!('k1');
+      root.k1 = new RichText();
       root.k1.edit(0, 0, 'ABCD');
     });
 

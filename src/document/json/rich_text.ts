@@ -308,9 +308,9 @@ export class RichTextInternal extends TextElement {
   }
 
   /**
-   * `getValue` returns value array of this RichTextVal.
+   * `values` returns value array of this RichTextVal.
    */
-  public getValue(): Array<RichTextVal> {
+  public values(): Array<RichTextVal> {
     const values = [];
 
     for (const node of this.rgaTreeSplit) {
