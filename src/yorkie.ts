@@ -19,6 +19,9 @@ import {
   DocumentReplica,
   Indexable,
 } from '@yorkie-js-sdk/src/document/document';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 
 export {
   Client,
@@ -99,6 +102,9 @@ export function createDocument<T = Indexable>(key: string): DocumentReplica<T> {
 const yorkie = {
   createClient,
   createDocument,
+  PlainText,
+  RichText,
+  Counter,
 };
 
 export default yorkie;
