@@ -35,6 +35,7 @@ export class RichText {
   private context?: ChangeContext;
   private text?: RichTextInternal;
 
+  /** @hideconstructor */
   constructor(context?: ChangeContext, text?: RichTextInternal) {
     this.context = context;
     this.text = text;
