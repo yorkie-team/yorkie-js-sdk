@@ -159,7 +159,6 @@ export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
 
-  /** @hideconstructor */
   constructor(key: string) {
     this.key = key;
     this.root = JSONRoot.create();
