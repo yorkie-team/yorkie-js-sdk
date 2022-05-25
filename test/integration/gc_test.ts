@@ -75,7 +75,7 @@ describe('Garbage Collection', function () {
 
   it('text garbage collection test', function () {
     const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
-    doc.update((root) => root.text = new PlainText());
+    doc.update((root) => (root.text = new PlainText()));
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
 
@@ -141,9 +141,9 @@ describe('Garbage Collection', function () {
     let expected_msg =
       '{"k1":[{"attrs":{"b":"1"},"content":Hello },{"attrs":{},"content":mario},{"attrs":{},"content":\n}]}';
     doc.update((root) => {
-      const text = root.createRichText!('k1');
-      text.edit(0, 0, 'Hello world', { b: '1' });
-      text.edit(6, 11, 'mario');
+      root.k1 = new RichText();
+      root.k1.edit(0, 0, 'Hello world', { b: '1' });
+      root.k1.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON!());
     }, 'edit rich text k1');
     assert.equal(expected_msg, doc.toSortedJSON());
@@ -238,7 +238,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: PlainText; richText: RichText };
+    type TestDoc = { text: PlainText; rich: RichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = yorkie.createDocument<TestDoc>(docKey);
     const doc2 = yorkie.createDocument<TestDoc>(docKey);
@@ -255,8 +255,8 @@ describe('Garbage Collection', function () {
     doc1.update((root) => {
       root.text = new PlainText();
       root.text.edit(0, 0, 'Hello World');
-      const richText = root.createRichText!('richText');
-      richText.edit(0, 0, 'Hello World');
+      root.rich = new RichText();
+      root.rich.edit(0, 0, 'Hello World');
     }, 'sets test and richText');
 
     assert.equal(0, doc1.getGarbageLen());
@@ -269,9 +269,9 @@ describe('Garbage Collection', function () {
     await client2.sync();
 
     doc2.update((root) => {
-      root['text'].edit(0, 1, 'a');
-      root['text'].edit(1, 2, 'b');
-      root['richText'].edit(0, 1, 'a', { b: '1' });
+      root.text.edit(0, 1, 'a');
+      root.text.edit(1, 2, 'b');
+      root.rich.edit(0, 1, 'a', { b: '1' });
     }, 'edit text type elements');
     assert.equal(0, doc1.getGarbageLen());
     assert.equal(3, doc2.getGarbageLen());
@@ -335,8 +335,8 @@ describe('Garbage Collection', function () {
       root['3'] = 3;
       root['4'] = new PlainText();
       root['4'].edit(0, 0, 'hi');
-      const richText = root.createRichText!('5');
-      richText.edit(0, 0, 'hi');
+      root['5'] = new RichText();
+      root['5'].edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
 
     assert.equal(0, doc1.getGarbageLen());

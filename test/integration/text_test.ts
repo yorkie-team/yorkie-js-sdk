@@ -90,7 +90,7 @@ describe('Text', function () {
   it('should handle deletion of nested nodes', function () {
     const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
     const view = new TextView();
-    doc.update((root) => root.text = new PlainText());
+    doc.update((root) => (root.text = new PlainText()));
     doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
 
     const commands = [

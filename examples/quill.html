@@ -97,7 +97,7 @@
 
         doc.update((root) => {
           if (!root.content) {
-            root.createRichText('content');
+            root.content = new yorkie.RichText();
           }
         }, 'create content if not exists');
         doc.subscribe((event) => {
