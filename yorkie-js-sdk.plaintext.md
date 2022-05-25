@@ -2,21 +2,24 @@
 
 [Home](./index.md) &gt; [yorkie-js-sdk](./yorkie-js-sdk.md) &gt; [PlainText](./yorkie-js-sdk.plaintext.md)
 
-## PlainText type
+## PlainText class
 
 `PlainText` represents plain text element for representing contents of a text editor.
 
 <b>Signature:</b>
 
 ```typescript
-export declare type PlainText = {
-    edit(fromIdx: number, toIdx: number, context: string): boolean;
-    select(fromIdx: number, toIdx: number): boolean;
-    getAnnotatedString(): string;
-    getValue(): string;
-    createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-    onChanges(handler: (changes: Array<TextChange>) => void): void;
-};
+export declare class PlainText 
 ```
-<b>References:</b> [TextChange](./yorkie-js-sdk.textchange.md)
+
+## Methods
+
+|  Method | Modifiers | Description |
+|  --- | --- | --- |
+|  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.plaintext.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
+|  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.plaintext.edit.md) |  | <code>edit</code> edits this text with the given content. |
+|  [getAnnotatedString()](./yorkie-js-sdk.plaintext.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of the node for debugging purpose. |
+|  [onChanges(handler)](./yorkie-js-sdk.plaintext.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
+|  [select(fromIdx, toIdx)](./yorkie-js-sdk.plaintext.select.md) |  | <code>select</code> selects the given range. |
+|  [toString()](./yorkie-js-sdk.plaintext.tostring.md) |  | <code>toString</code> returns the string representation of this text. |
 
