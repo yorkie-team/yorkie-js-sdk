@@ -12,10 +12,7 @@
 export declare type JSONObject<T extends Indexable> = {
     getID?(): TimeTicket;
     toJSON?(): string;
-    createText?(key: string): PlainText;
-    createRichText?(key: string): RichText;
-    createCounter?(key: string, value: CounterType): Counter;
 } & T;
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [PlainText](./yorkie-js-sdk.plaintext.md)<!-- -->, [RichText](./yorkie-js-sdk.richtext.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

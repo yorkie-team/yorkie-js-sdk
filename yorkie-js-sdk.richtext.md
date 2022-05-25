@@ -2,22 +2,25 @@
 
 [Home](./index.md) &gt; [yorkie-js-sdk](./yorkie-js-sdk.md) &gt; [RichText](./yorkie-js-sdk.richtext.md)
 
-## RichText type
+## RichText class
 
 `RichText` is an extended data type for the contents of a text editor.
 
 <b>Signature:</b>
 
 ```typescript
-export declare type RichText = {
-    edit(fromIdx: number, toIdx: number, content: string, attributes?: Record<string, string>): boolean;
-    setStyle(fromIdx: number, toIdx: number, attributes: Record<string, string>): boolean;
-    select(fromIdx: number, toIdx: number): boolean;
-    getAnnotatedString(): string;
-    getValue(): Array<RichTextVal>;
-    createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange;
-    onChanges(handlers: (changes: Array<TextChange>) => void): void;
-};
+export declare class RichText 
 ```
-<b>References:</b> [TextChange](./yorkie-js-sdk.textchange.md)
+
+## Methods
+
+|  Method | Modifiers | Description |
+|  --- | --- | --- |
+|  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.richtext.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
+|  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.richtext.edit.md) |  | <code>edit</code> edits this text with the given content. |
+|  [getAnnotatedString()](./yorkie-js-sdk.richtext.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of the node for debugging purpose. |
+|  [onChanges(handler)](./yorkie-js-sdk.richtext.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
+|  [select(fromIdx, toIdx)](./yorkie-js-sdk.richtext.select.md) |  | <code>select</code> selects the given range. |
+|  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.richtext.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
+|  [values()](./yorkie-js-sdk.richtext.values.md) |  | <code>values</code> returns values of this text. |
 
