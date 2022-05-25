@@ -31,7 +31,6 @@ import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
 import {
-  TextProxy,
   PlainText,
 } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 import {
@@ -63,11 +62,6 @@ export type JSONObject<T extends Indexable> = {
    * `toJSON` returns the JSON encoding of this object.
    */
   toJSON?(): string;
-
-  /**
-   * `createText` creates a `Text`.
-   */
-  createText?(key: string): PlainText;
 
   /**
    * `createRichText` creates a `RichText`.
@@ -115,14 +109,7 @@ export class ObjectProxy {
           return (): string => {
             return target.toJSON();
           };
-        } else if (keyOrMethod === 'createText') {
-          return (key: string): PlainText => {
-            if (logger.isEnabled(LogLevel.Trivial)) {
-              logger.trivial(`obj[${key}]=Text`);
-            }
-            return ObjectProxy.createText(context, target, key);
-          };
-        } else if (keyOrMethod === 'createRichText') {
+        }  else if (keyOrMethod === 'createRichText') {
           return (key: string): RichText => {
             if (logger.isEnabled(LogLevel.Trivial)) {
               logger.trivial(`obj[${key}]=Text`);
@@ -224,6 +211,14 @@ export class ObjectProxy {
             ticket,
           ),
         );
+      } if (value instanceof PlainText) {
+        const text = PlainTextInternal.create(RGATreeSplit.create(), ticket);
+        target.set(key, text);
+        context.registerElement(text, target);
+        context.push(
+          SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+        );
+        value.initialize(context, text);
       } else {
         const obj = ObjectInternal.create(ticket);
         setAndRegister(obj);
@@ -259,7 +254,9 @@ export class ObjectProxy {
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
-    return TextProxy.create(context, text);
+    const plainText = new PlainText()
+    plainText.initialize(context, text);
+    return plainText;
   }
 
   /**

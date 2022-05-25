@@ -20,7 +20,7 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, PlainText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -368,6 +368,20 @@ describe('DocumentReplica', function () {
     });
   });
 
+  it('support TypeScript', function () {
+    type TestDoc = {
+      array: Array<number>;
+      text: PlainText;
+    };
+
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    doc.update((root) => {
+      root.array = [1, 2];
+      root.text = new PlainText();
+      root.text.edit(0, 0, 'hello world');
+    });
+  });
+
   it('change paths test for text', async function () {
     const doc = DocumentReplica.create('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -381,13 +395,13 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const text = root.createText!('text');
+      root.text = new PlainText();
       paths.push('$.text');
-      text.edit(0, 0, 'hello world');
+      root.text.edit(0, 0, 'hello world');
       paths.push('$.text');
-      text.select(0, 2);
+      root.text.select(0, 2);
       paths.push('$.text');
-      root.createText!('$$..#.hello');
+      root['$$..#.hello'] = new PlainText();
       paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
