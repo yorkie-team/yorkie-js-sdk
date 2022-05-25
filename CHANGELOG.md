@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.7] - 2022-05-25
+
+### Fixed
+
+- Expose constructors for user-accessible types
+
 ## [0.2.6] - 2022-05-25
 
 ### Changed
