@@ -36,7 +36,11 @@ export class PlainText {
     this.text = text;
   }
 
-  public initialize(context: ChangeContext, text: PlainTextInternal) {
+  /**
+   * `initialize` initialize this text with context and internal text.
+   * @internal
+   */
+  public initialize(context: ChangeContext, text: PlainTextInternal): void {
     this.context = context;
     this.text = text;
   }
@@ -62,7 +66,11 @@ export class PlainText {
     }
 
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = this.text.editInternal(range, content, ticket);
+    const maxCreatedAtMapByActor = this.text.editInternal(
+      range,
+      content,
+      ticket,
+    );
 
     this.context.push(
       new EditOperation(
@@ -157,4 +165,3 @@ export class PlainText {
     this.text.onChanges(handler);
   }
 }
-

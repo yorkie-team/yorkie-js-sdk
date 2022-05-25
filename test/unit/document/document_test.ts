@@ -20,7 +20,7 @@ import {
   DocumentReplica,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray, PlainText } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, PlainText, RichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('DocumentReplica', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -383,7 +383,9 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for text', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { text: PlainText };
+
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -401,13 +403,12 @@ describe('DocumentReplica', function () {
       paths.push('$.text');
       root.text.select(0, 2);
       paths.push('$.text');
-      root['$$..#.hello'] = new PlainText();
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 
   it('change paths test for rich text', async function () {
-    const doc = DocumentReplica.create('test-doc');
+    type TestDoc = { rich: RichText };
+    const doc = DocumentReplica.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -419,14 +420,12 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      const rich = root.createRichText!('rich');
+      root.rich = new RichText();
       paths.push('$.rich');
-      rich.edit(0, 0, 'hello world');
+      root.rich.edit(0, 0, 'hello world');
       paths.push('$.rich');
-      rich.setStyle(0, 1, { bold: 'true' });
+      root.rich.setStyle(0, 1, { bold: 'true' });
       paths.push('$.rich');
-      root.createRichText!('$$..#.hello');
-      paths.push('$.\\$\\$\\.\\.#\\.hello');
     });
   });
 

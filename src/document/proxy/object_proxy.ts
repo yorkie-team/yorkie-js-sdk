@@ -30,13 +30,8 @@ import { RGATreeSplit } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import {
-  PlainText,
-} from '@yorkie-js-sdk/src/document/proxy/text_proxy';
-import {
-  RichTextProxy,
-  RichText,
-} from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import {
   CounterType,
@@ -62,11 +57,6 @@ export type JSONObject<T extends Indexable> = {
    * `toJSON` returns the JSON encoding of this object.
    */
   toJSON?(): string;
-
-  /**
-   * `createRichText` creates a `RichText`.
-   */
-  createRichText?(key: string): RichText;
 
   /**
    * `createCounter` creates a `Counter`.
@@ -108,13 +98,6 @@ export class ObjectProxy {
         } else if (keyOrMethod === 'toJSON') {
           return (): string => {
             return target.toJSON();
-          };
-        }  else if (keyOrMethod === 'createRichText') {
-          return (key: string): RichText => {
-            if (logger.isEnabled(LogLevel.Trivial)) {
-              logger.trivial(`obj[${key}]=Text`);
-            }
-            return ObjectProxy.createRichText(context, target, key);
           };
         } else if (keyOrMethod === 'createCounter') {
           return (key: string, value: CounterType): Counter => {
@@ -211,12 +194,31 @@ export class ObjectProxy {
             ticket,
           ),
         );
-      } if (value instanceof PlainText) {
+      }
+      if (value instanceof PlainText) {
         const text = PlainTextInternal.create(RGATreeSplit.create(), ticket);
         target.set(key, text);
         context.registerElement(text, target);
         context.push(
-          SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+          SetOperation.create(
+            key,
+            text.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        value.initialize(context, text);
+      } else if (value instanceof RichText) {
+        const text = RichTextInternal.create(RGATreeSplit.create(), ticket);
+        target.set(key, text);
+        context.registerElement(text, target);
+        context.push(
+          SetOperation.create(
+            key,
+            text.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
         );
         value.initialize(context, text);
       } else {
@@ -254,9 +256,7 @@ export class ObjectProxy {
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
-    const plainText = new PlainText()
-    plainText.initialize(context, text);
-    return plainText;
+    return new PlainText(context, text);
   }
 
   /**
@@ -274,7 +274,7 @@ export class ObjectProxy {
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
-    return RichTextProxy.create(context, text);
+    return new RichText(context, text);
   }
 
   /**
