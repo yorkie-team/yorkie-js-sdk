@@ -286,7 +286,6 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   private eventStream: Observable<ClientEvent<M>>;
   private eventStreamObserver!: Observer<ClientEvent<M>>;
 
-  /** @hideconstructor */
   constructor(rpcAddr: string, opts?: ClientOptions<M>) {
     opts = opts || DefaultClientOptions;
 

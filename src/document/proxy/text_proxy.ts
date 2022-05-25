@@ -31,7 +31,6 @@ export class PlainText {
   private context?: ChangeContext;
   private text?: PlainTextInternal;
 
-  /** @hideconstructor */
   constructor(context?: ChangeContext, text?: PlainTextInternal) {
     this.context = context;
     this.text = text;
