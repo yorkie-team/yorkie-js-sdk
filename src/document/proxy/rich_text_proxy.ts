@@ -184,16 +184,16 @@ export class RichText {
   }
 
   /**
-   * `getValue` returns the JSON encoding of this text.
+   * `values` returns values of this text.
    */
-  getValue(): Array<RichTextVal> {
+  values(): Array<RichTextVal> {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.text.getValue();
+    return this.text.values();
   }
 
   /**
