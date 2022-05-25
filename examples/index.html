@@ -127,7 +127,7 @@
 
         doc.update((root) => {
           if (!root.content) {
-            root.content = new PlainText();
+            root.content = new yorkie.PlainText();
           }
         }, 'create content if not exists');
         doc.subscribe((event) => {
