@@ -34,7 +34,7 @@ import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import {
-  CounterType,
+  CounterValue,
   CounterInternal,
 } from '@yorkie-js-sdk/src/document/json/counter';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
@@ -271,7 +271,7 @@ export class ObjectProxy {
     context: ChangeContext,
     target: ObjectInternal,
     key: string,
-    value: CounterType,
+    value: CounterValue,
   ): Counter {
     const ticket = context.issueTimeTicket();
     const counterInternal = CounterInternal.of(value, ticket);
