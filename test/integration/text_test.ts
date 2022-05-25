@@ -102,7 +102,7 @@ describe('Text', function () {
 
     for (const cmd of commands) {
       doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content));
-      assert.equal(view.getValue(), doc.getRoot().text.getValue());
+      assert.equal(view.toString(), doc.getRoot().text.toString());
     }
   });
 

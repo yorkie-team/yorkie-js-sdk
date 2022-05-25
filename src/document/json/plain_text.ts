@@ -148,9 +148,9 @@ export class PlainTextInternal extends TextElement {
   }
 
   /**
-   * `getValue` returns the JSON encoding of rgaTreeSplit.
+   * `toString` returns the string representation of this text.
    */
-  public getValue(): string {
+  public toString(): string {
     return this.rgaTreeSplit.toJSON();
   }
 

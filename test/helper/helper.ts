@@ -94,7 +94,7 @@ export class TextView {
     }
   }
 
-  public getValue(): string {
+  public toString(): string {
     return this.value;
   }
 }

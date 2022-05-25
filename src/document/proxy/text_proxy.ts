@@ -129,15 +129,15 @@ export class PlainText {
   }
 
   /**
-   * `getValue` returns the JSON encoding of this text.
+   * `toString` returns the string representation of this text.
    */
-  getValue(): string {
+  toString(): string {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return '';
     }
 
-    return this.text.getValue();
+    return this.text.toString();
   }
 
   /**
