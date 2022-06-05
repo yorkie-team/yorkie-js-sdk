@@ -33,3 +33,28 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
         file: ./coverage/lcov.info
+    
+    - name: Run benchmark
+      run: npm run benchmark | tee output.txt
+    # Download previous benchmark result from cache (if exists)
+    - name: Download previous benchmark data
+      uses: actions/cache@v1
+      with:
+        path: ./cache
+        key: ${{ runner.os }}-benchmark
+    # Run `github-action-benchmark` action
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        # What benchmark tool the output.txt came from
+        tool: 'benchmarkjs'
+        # Where the output from the benchmark tool is stored
+        output-file-path: output.txt
+        # Where the previous data file is stored
+        external-data-json-path: ./cache/benchmark-data.json
+        # Workflow will fail when an alert happens
+        fail-on-alert: true
+        # GitHub API token to make a commit comment
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        # Enable alert commit comment
+        comment-on-alert: true

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import Long from 'long';
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import {
   Observer,
