@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  deployments: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,7 +60,7 @@ jobs:
         fail-on-alert: false
         # GitHub API token to make a commit comment
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Enable alert commit comment
-        comment-on-alert: true
+        # Enable comment always
+        comment-always: true
         # Save only on the main to compare the benchmarks between PR and base branch
         save-data-file: ${{ github.ref == 'refs/heads/main' }}
