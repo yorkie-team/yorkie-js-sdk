@@ -53,7 +53,7 @@ jobs:
         # Where the previous data file is stored
         external-data-json-path: ./cache/benchmark-data.json
         # Workflow will fail when an alert happens
-        fail-on-alert: true
+        fail-on-alert: false
         # GitHub API token to make a commit comment
         github-token: ${{ secrets.GITHUB_TOKEN }}
         # Enable alert commit comment
