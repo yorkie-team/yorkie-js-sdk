@@ -32,7 +32,8 @@ module.exports = function(config) {
 
     // list of files / patterns to exclude
     exclude: [
-      '**/*.swp'
+      '**/*.swp',
+      '../test/bench/**.ts',
     ],
 
 

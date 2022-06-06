@@ -8,6 +8,7 @@
     "outDir": "./lib",
     "strict": true,
     "baseUrl": ".",
+    "esModuleInterop": true,
     "paths": {
       "@yorkie-js-sdk/src/*": ["src/*"],
       "@yorkie-js-sdk/test/*": ["test/*"]

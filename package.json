@@ -19,7 +19,8 @@
     "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://api.yorkie.dev",
     "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "ts-patch install && npm run build"
+    "prepare": "ts-patch install && npm run build",
+    "benchmark": "ts-node-script ./test/bench/**.ts"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@microsoft/api-documenter": "^7.15.1",
     "@microsoft/api-extractor": "^7.19.4",
+    "@types/benchmark": "^2.1.1",
     "@types/chai": "^4.2.14",
     "@types/mocha": "^8.0.4",
     "@types/sinon": "^9.0.8",
@@ -48,6 +50,7 @@
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
     "@webpack-cli/serve": "^1.6.0",
+    "benchmark": "^2.1.4",
     "chai": "^4.2.0",
     "eslint": "^7.14.0",
     "eslint-plugin-jsdoc": "^32.2.0",
