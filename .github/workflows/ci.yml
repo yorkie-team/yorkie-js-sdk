@@ -58,3 +58,5 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         # Enable alert commit comment
         comment-on-alert: true
+        # Save only on the main to compare the benchmarks between PR and base branch
+        save-data-file: ${{ github.ref == 'refs/heads/main' }}
