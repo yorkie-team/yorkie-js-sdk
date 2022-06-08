@@ -9,10 +9,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: write
-  deployments: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -49,6 +45,7 @@ jobs:
     # Run `github-action-benchmark` action
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
+      if: ${{ github.event.pull_request.head.repo.full_name == 'org/repo' }}
       with:
         # What benchmark tool the output.txt came from
         tool: 'benchmarkjs'
