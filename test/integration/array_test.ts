@@ -733,4 +733,65 @@ describe('Array', function () {
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
   });
+
+  describe('should support standard array read-only operations', () => {
+    type TestDoc = {
+      list: JSONArray<number>;
+      empty: [];
+      listObjects: JSONArray<{ id: string }>;
+    };
+    let doc: DocumentReplica<TestDoc>;
+
+    beforeEach(() => {
+      doc = DocumentReplica.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+        root.listObjects = [{ id: 'first' }, { id: 'second' }];
+      });
+    });
+
+    it('find()', () => {
+      assert.strictEqual(
+        doc.getRoot().empty.find(() => true),
+        undefined,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.find((num) => num >= 2),
+        2,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.find((num) => num >= 4),
+        undefined,
+      );
+
+      assert.deepEqual(
+        doc.getRoot().listObjects.find((obj) => obj.id === 'first'),
+        { id: 'first' },
+      );
+
+      // check that in the callback, 'this' is set to the second argument of method
+      doc.getRoot().listObjects.find(
+        function () {
+          assert.strictEqual((this as any).hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('forEach()', () => {
+      doc
+        .getRoot()
+        .empty.forEach(() =>
+          assert.fail('was called', 'not called', 'callback error'),
+        );
+
+      const testList: Array<number> = [];
+      doc.getRoot().list.forEach((num) => testList.push(num + 1));
+      assert.deepStrictEqual(testList, [2, 3, 4]);
+    });
+  });
 });
