@@ -220,6 +220,11 @@ export class ArrayProxy {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
+        } else if (method === 'find' || method === 'forEach') {
+          return (...args: Array<any>) => {
+            const arr = Array.from(target).map((e) => toProxy(context, e));
+            return arr[method](...args);
+          };
         }
 
         // TODO we need to distinguish between the case we need to call default
@@ -227,11 +232,11 @@ export class ArrayProxy {
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
       },
+
       deleteProperty: (target: ArrayInternal, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
         }
-
         ArrayProxy.deleteInternalByIndex(context, target, Number.parseInt(key));
         return true;
       },
