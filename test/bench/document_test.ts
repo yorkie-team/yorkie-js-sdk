@@ -95,7 +95,7 @@ suite
     const empty = 0;
     assert.equal(empty, doc.getGarbageLen());
   })
-  .add('insert characters in sequence than delete all-1000', function () {
+  .add('insert characters in sequence then delete all-1000', function () {
     const size = 1000;
     const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
 
@@ -119,7 +119,7 @@ suite
 
     assert.equal(doc.getRoot().text.toString(), '');
   })
-  .add('insert characters in sequence than delete all-3000', function () {
+  .add('insert characters in sequence then delete all-3000', function () {
     const size = 3000;
     const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
 
