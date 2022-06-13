@@ -198,8 +198,22 @@ describe('Client', function () {
   });
 
   it('Can update its presence', async function () {
-    const c1 = new yorkie.Client(testRPCAddr, { presence: { name: 'c1' } });
-    const c2 = new yorkie.Client(testRPCAddr, { presence: { name: 'c2' } });
+    type PresenceType = {
+      name: string;
+      cursor: { x: number; y: number };
+    };
+    const c1 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: {
+        name: 'c1',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    const c2 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: {
+        name: 'c2',
+        cursor: { x: 1, y: 1 },
+      },
+    });
     await c1.activate();
     await c2.activate();
 
@@ -225,10 +239,14 @@ describe('Client', function () {
     // waiting for the response of `updatePresence` here.
     c1.updatePresence('name', 'c1+');
     await waitFor(ClientEventType.PeersChanged, emitter2);
-
     c2.updatePresence('name', 'c2+');
     await waitFor(ClientEventType.PeersChanged, emitter1);
+    assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
 
+    c1.updatePresence('cursor', { x: 3, y: 3 });
+    await waitFor(ClientEventType.PeersChanged, emitter2);
+    c2.updatePresence('cursor', { x: 4, y: 4 });
+    await waitFor(ClientEventType.PeersChanged, emitter1);
     assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
 
     unsub1();
