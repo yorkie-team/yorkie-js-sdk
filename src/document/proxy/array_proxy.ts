@@ -101,6 +101,8 @@ function isNumericString(val: any): boolean {
   return false;
 }
 
+const readOnlyArrayMethods = ['filter', 'find', 'forEach', 'reduce'];
+
 /**
  * `ArrayProxy` is a proxy representing Array.
  */
@@ -119,6 +121,7 @@ export class ArrayProxy {
         receiver: any,
       ): any => {
         // Yorkie extension API
+
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
@@ -195,35 +198,16 @@ export class ArrayProxy {
 
             return ArrayProxy.pushInternal(context, target, value);
           };
-        } else if (method === 'filter') {
-          return (
-            callback: (
-              elem: JSONElement,
-              idx: number,
-              arr: Array<JSONElement>,
-            ) => Array<JSONElement>,
-          ): Array<JSONElement> => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .filter(callback);
-          };
-        } else if (method === 'reduce') {
-          return (
-            callback: (accumulator: any, curr: JSONElement) => any,
-            accumulator: any,
-          ) => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .reduce(callback, accumulator);
-          };
         } else if (method === 'length') {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
-        } else if (method === 'find' || method === 'forEach') {
-          return (...args: Array<any>) => {
-            const arr = Array.from(target).map((e) => toProxy(context, e));
-            return arr[method](...args);
+        } else if (readOnlyArrayMethods.includes(method as string)) {
+          return (...args: any) => {
+            const arr = Array.from(target).map((elem) =>
+              toProxy(context, elem),
+            );
+            return Array.prototype[method].apply(arr, args);
           };
         }
 

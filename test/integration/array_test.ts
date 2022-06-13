@@ -736,22 +736,51 @@ describe('Array', function () {
 
   describe('should support standard array read-only operations', () => {
     type TestDoc = {
-      list: JSONArray<number>;
       empty: [];
+      list: JSONArray<number>;
       listObjects: JSONArray<{ id: string }>;
     };
-    let doc: DocumentReplica<TestDoc>;
 
-    beforeEach(() => {
-      doc = DocumentReplica.create<TestDoc>('test-doc');
+    it('filter()', () => {
+      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.deepStrictEqual(
+        doc.getRoot().empty.filter(() => true),
+        [],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.filter((num) => num % 2 === 1),
+        [1, 3],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.filter(() => true),
+        [1, 2, 3],
+      );
+
+      // check that in the callback, 'this' is set to the second argument of method
+      doc.getRoot().list.filter(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('find()', () => {
+      const doc = DocumentReplica.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
         root.listObjects = [{ id: 'first' }, { id: 'second' }];
       });
-    });
 
-    it('find()', () => {
       assert.strictEqual(
         doc.getRoot().empty.find(() => true),
         undefined,
@@ -772,10 +801,9 @@ describe('Array', function () {
         { id: 'first' },
       );
 
-      // check that in the callback, 'this' is set to the second argument of method
-      doc.getRoot().listObjects.find(
-        function () {
-          assert.strictEqual((this as any).hello, 'world');
+      doc.getRoot().list.find(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
           return true;
         },
         { hello: 'world' },
@@ -783,6 +811,12 @@ describe('Array', function () {
     });
 
     it('forEach()', () => {
+      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
       doc
         .getRoot()
         .empty.forEach(() =>
@@ -792,6 +826,46 @@ describe('Array', function () {
       const testList: Array<number> = [];
       doc.getRoot().list.forEach((num) => testList.push(num + 1));
       assert.deepStrictEqual(testList, [2, 3, 4]);
+
+      doc.getRoot().list.forEach(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('reduce()', () => {
+      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val, 0),
+        6,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val, ''),
+        '123',
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val),
+        6,
+      );
+
+      assert.strictEqual(
+        doc
+          .getRoot()
+          .list.reduce(
+            (sum, val, index) => (index % 2 === 0 ? sum + val : sum),
+            0,
+          ),
+        4,
+      );
     });
   });
 });
