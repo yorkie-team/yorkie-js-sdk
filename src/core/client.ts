@@ -506,7 +506,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     }
 
     this.presenceInfo.clock += 1;
-    (this.presenceInfo.data as any)[key] = value;
+    this.presenceInfo.data[key] = value;
 
     if (this.attachmentMap.size === 0) {
       return Promise.resolve();

@@ -85,7 +85,7 @@ import {
 function fromPresence<M>(pbPresence: PbPresence): PresenceInfo<M> {
   const data: Record<string, string> = {};
   pbPresence.getDataMap().forEach((value: string, key: string) => {
-    data[key] = value;
+    data[key] = JSON.parse(value);
   });
 
   return {
@@ -102,7 +102,7 @@ function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
   pbPresence.setClock(presence.clock);
   const pbDataMap = pbPresence.getDataMap();
   for (const [key, value] of Object.entries(presence.data)) {
-    pbDataMap.set(key, value);
+    pbDataMap.set(key, JSON.stringify(value));
   }
 
   const pbClient = new PbClient();
