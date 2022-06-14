@@ -1171,10 +1171,18 @@ describe('Array', function () {
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
+        root.listObjects = [{ id: '1' }, { id: '2' }, { id: '3' }];
       });
 
       assert.strictEqual(doc.getRoot().empty.toString(), '');
       assert.strictEqual(doc.getRoot().list.toString(), '1,2,3');
+
+      // NOTE: This is not the same as the listObjects.toString()
+      //       "[object object],[object object],[object object]"
+      assert.strictEqual(
+        doc.getRoot().listObjects.toString(),
+        '{"id":"1"},{"id":"2"},{"id":"3"}',
+      );
     });
 
     it('values()', () => {
