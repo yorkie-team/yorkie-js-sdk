@@ -102,6 +102,34 @@ function isNumericString(val: any): boolean {
 }
 
 /**
+ * `isReadOnlyArrayMethod` checks if the method is a standard array read-only operation.
+ */
+function isReadOnlyArrayMethod(method: string): boolean {
+  return [
+    'concat',
+    'entries',
+    'every',
+    'filter',
+    'find',
+    'findIndex',
+    'forEach',
+    'includes',
+    'indexOf',
+    'join',
+    'keys',
+    'lastIndexOf',
+    'map',
+    'reduce',
+    'reduceRight',
+    'slice',
+    'some',
+    'toLocaleString',
+    'toString',
+    'values',
+  ].includes(method);
+}
+
+/**
  * `ArrayProxy` is a proxy representing Array.
  */
 export class ArrayProxy {
@@ -119,6 +147,7 @@ export class ArrayProxy {
         receiver: any,
       ): any => {
         // Yorkie extension API
+
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
@@ -195,31 +224,20 @@ export class ArrayProxy {
 
             return ArrayProxy.pushInternal(context, target, value);
           };
-        } else if (method === 'filter') {
-          return (
-            callback: (
-              elem: JSONElement,
-              idx: number,
-              arr: Array<JSONElement>,
-            ) => Array<JSONElement>,
-          ): Array<JSONElement> => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .filter(callback);
-          };
-        } else if (method === 'reduce') {
-          return (
-            callback: (accumulator: any, curr: JSONElement) => any,
-            accumulator: any,
-          ) => {
-            return Array.from(target)
-              .map((e) => toProxy(context, e))
-              .reduce(callback, accumulator);
-          };
         } else if (method === 'length') {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
+        } else if (
+          typeof method === 'string' &&
+          isReadOnlyArrayMethod(method)
+        ) {
+          return (...args: any) => {
+            const arr = Array.from(target).map((elem) =>
+              toProxy(context, elem),
+            );
+            return Array.prototype[method as any].apply(arr, args);
+          };
         }
 
         // TODO we need to distinguish between the case we need to call default
@@ -227,11 +245,11 @@ export class ArrayProxy {
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
       },
+
       deleteProperty: (target: ArrayInternal, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
         }
-
         ArrayProxy.deleteInternalByIndex(context, target, Number.parseInt(key));
         return true;
       },
