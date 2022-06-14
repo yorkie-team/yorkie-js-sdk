@@ -101,7 +101,36 @@ function isNumericString(val: any): boolean {
   return false;
 }
 
-const readOnlyArrayMethods = ['filter', 'find', 'forEach', 'reduce'];
+/**
+ * `isReadOnlyArrayMethod` checks if the method is a standard array read-only operation.
+ */
+function isReadOnlyArrayMethod(method: any): boolean {
+  const readOnlyArrayMethods = [
+    'concat',
+    'entries',
+    'every',
+    'filter',
+    'find',
+    'findIndex',
+    'forEach',
+    'includes',
+    'indexOf',
+    'join',
+    'keys',
+    'lastIndexOf',
+    'map',
+    'reduce',
+    'reduceRight',
+    'slice',
+    'some',
+    'toLocaleString',
+    'toString',
+    'values',
+  ];
+
+  if (readOnlyArrayMethods.includes(method)) return true;
+  return false;
+}
 
 /**
  * `ArrayProxy` is a proxy representing Array.
@@ -202,7 +231,7 @@ export class ArrayProxy {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
-        } else if (readOnlyArrayMethods.includes(method as string)) {
+        } else if (isReadOnlyArrayMethod(method)) {
           return (...args: any) => {
             const arr = Array.from(target).map((elem) =>
               toProxy(context, elem),
