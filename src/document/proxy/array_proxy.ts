@@ -104,8 +104,8 @@ function isNumericString(val: any): boolean {
 /**
  * `isReadOnlyArrayMethod` checks if the method is a standard array read-only operation.
  */
-function isReadOnlyArrayMethod(method: any): boolean {
-  const readOnlyArrayMethods = [
+function isReadOnlyArrayMethod(method: string): boolean {
+  return [
     'concat',
     'entries',
     'every',
@@ -126,10 +126,7 @@ function isReadOnlyArrayMethod(method: any): boolean {
     'toLocaleString',
     'toString',
     'values',
-  ];
-
-  if (readOnlyArrayMethods.includes(method)) return true;
-  return false;
+  ].includes(method);
 }
 
 /**
@@ -231,12 +228,15 @@ export class ArrayProxy {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
-        } else if (isReadOnlyArrayMethod(method)) {
+        } else if (
+          typeof method === 'string' &&
+          isReadOnlyArrayMethod(method)
+        ) {
           return (...args: any) => {
             const arr = Array.from(target).map((elem) =>
               toProxy(context, elem),
             );
-            return Array.prototype[method].apply(arr, args);
+            return Array.prototype[method as any].apply(arr, args);
           };
         }
 
