@@ -758,7 +758,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     const splitNode = node.split(offset);
-    this.treeByIndex.updateSubtree(splitNode);
+    this.treeByIndex.updateWeight(splitNode);
     this.insertAfter(node, splitNode);
 
     const insNext = node.getInsNext();
@@ -783,7 +783,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const changes: Array<TextChange> = [];
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
+    if (!candidates.length) {
+      return [changes, createdAtMapByActor, removedNodeMap];
+    }
+
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
+    const deletionBoundaries: Array<RGATreeSplitNode<T>> = [];
+    deletionBoundaries.push(candidates[0].getPrev()!);
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
     for (const node of candidates) {
@@ -825,15 +831,40 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
         }
         removedNodeMap.set(node.getID().getAnnotatedString(), node);
+      } else {
+        deletionBoundaries.push(node);
       }
     }
 
     for (const node of nodesToDelete) {
       node.remove(editedAt);
-      this.treeByIndex.splayNode(node);
     }
+    deletionBoundaries.push(candidates[candidates.length - 1].getNext()!);
+    this.deleteIndexNodes(deletionBoundaries);
 
     return [changes, createdAtMapByActor, removedNodeMap];
+  }
+
+  // NOTE: deleteIndexNodes clears the index nodes of the given deletion boundaries.
+  // The boundaries mean the nodes that will not be deleted in the range.
+  private deleteIndexNodes(boundaries: Array<RGATreeSplitNode<T>>): void {
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const leftBoundary = boundaries[i];
+      const rightBoundary = boundaries[i + 1];
+
+      let toInner: RGATreeSplitNode<T> | undefined;
+      if (rightBoundary) {
+        toInner = rightBoundary.getPrev()!;
+      }
+
+      this.treeByIndex.cutOffRange(
+        leftBoundary,
+        leftBoundary.getNext(),
+        toInner,
+        rightBoundary,
+      );
+      i++;
+    }
   }
 
   /**
