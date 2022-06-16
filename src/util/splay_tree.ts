@@ -279,7 +279,7 @@ export class SplayTree<V> {
   }
 
   /**
-   * `updateWeight` recalculates weights with left and right nodes.
+   * `updateWeight` recalculates the weight of this node with the value and children.
    */
   public updateWeight(node: SplayNode<V>): void {
     node.initWeight();
@@ -292,6 +292,10 @@ export class SplayTree<V> {
     }
   }
 
+  /**
+   * `updateTreeWeight` recalculates the weight of this tree from the given node to
+   * the root.
+   */
   public updateTreeWeight(node: SplayNode<V>): void {
     while (node) {
       this.updateWeight(node);
