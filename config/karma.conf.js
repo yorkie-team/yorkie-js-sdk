@@ -4,7 +4,7 @@
 const path = require('path');
 const webpackConfig = require('./webpack.karma.config');
 
-module.exports = function(config) {
+module.exports = function (config) {
   config.set({
 
     // base path that will be used to resolve all patterns (eg. files, exclude)
@@ -55,7 +55,7 @@ module.exports = function(config) {
 
 
     coverageIstanbulReporter: {
-      reports: [ 'html', 'text-summary', 'lcovonly' ],
+      reports: ['html', 'text-summary', 'lcovonly'],
       dir: path.join(__dirname, '../coverage'),
       fixWebpackSourcePaths: true,
       'report-config': {

@@ -16,9 +16,9 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -26,12 +26,12 @@ import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
  */
 export class AddOperation extends Operation {
   private prevCreatedAt: TimeTicket;
-  private value: JSONElement;
+  private value: CRDTElement;
 
   constructor(
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
-    value: JSONElement,
+    value: CRDTElement,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -45,7 +45,7 @@ export class AddOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
-    value: JSONElement,
+    value: CRDTElement,
     executedAt: TimeTicket,
   ): AddOperation {
     return new AddOperation(parentCreatedAt, prevCreatedAt, value, executedAt);
@@ -54,10 +54,10 @@ export class AddOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof ArrayInternal) {
-      const array = parentObject as ArrayInternal;
+    if (parentObject instanceof CRDTArray) {
+      const array = parentObject as CRDTArray;
       const value = this.value.deepcopy();
       array.insertAfter(this.prevCreatedAt, value);
       root.registerElement(value, array);
@@ -94,7 +94,7 @@ export class AddOperation extends Operation {
   /**
    * `getValue` returns the value of this operation.
    */
-  public getValue(): JSONElement {
+  public getValue(): CRDTElement {
     return this.value;
   }
 }

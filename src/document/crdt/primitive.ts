@@ -17,7 +17,7 @@
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 export enum PrimitiveType {
   Null,
@@ -35,27 +35,24 @@ export type PrimitiveValue =
   null | boolean | number | Long | string | Uint8Array | Date;
 
 /**
- * `JSONPrimitive` represents JSON primitive data type including logical lock.
+ * `Primitive` represents primitive data type including logical clock.
  * This is immutable.
  */
-export class JSONPrimitive extends JSONElement {
+export class Primitive extends CRDTElement {
   private valueType: PrimitiveType;
   private value: PrimitiveValue;
 
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
     super(createdAt);
-    this.valueType = JSONPrimitive.getPrimitiveType(value)!;
+    this.valueType = Primitive.getPrimitiveType(value)!;
     this.value = value === undefined ? null : value;
   }
 
   /**
    * `of` creates a new instance of Primitive.
    */
-  public static of(
-    value: PrimitiveValue,
-    createdAt: TimeTicket,
-  ): JSONPrimitive {
-    return new JSONPrimitive(value, createdAt);
+  public static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive {
+    return new Primitive(value, createdAt);
   }
 
   /**
@@ -116,8 +113,8 @@ export class JSONPrimitive extends JSONElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): JSONPrimitive {
-    const primitive = JSONPrimitive.of(this.value, this.getCreatedAt());
+  public deepcopy(): Primitive {
+    const primitive = Primitive.of(this.value, this.getCreatedAt());
     primitive.setMovedAt(this.getMovedAt());
     return primitive;
   }
@@ -161,7 +158,7 @@ export class JSONPrimitive extends JSONElement {
    * `isSupport` check if the given value is supported type.
    */
   public static isSupport(value: unknown): boolean {
-    const primitiveType = JSONPrimitive.getPrimitiveType(value);
+    const primitiveType = Primitive.getPrimitiveType(value);
     if (primitiveType === undefined) {
       return false;
     }

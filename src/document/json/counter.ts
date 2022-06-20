@@ -14,214 +14,71 @@
  * limitations under the License.
  */
 
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import Long from 'long';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import {
-  JSONPrimitive,
-  PrimitiveType,
-} from '@yorkie-js-sdk/src/document/json/primitive';
+import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
- * @internal
+ * `Counter` is a custom data type that is used to counter.
  */
-export enum CounterType {
-  IntegerCnt,
-  LongCnt,
-  DoubleCnt,
-}
+export class Counter {
+  private value: number | Long;
+  private context?: ChangeContext;
+  private counter?: CRDTCounter;
 
-export type CounterValue = number | Long;
-
-/**
- * `CounterInternal` represents changeable number data type.
- *
- * @internal
- */
-export class CounterInternal extends JSONElement {
-  private valueType?: CounterType;
-  private value: CounterValue;
-
-  constructor(value: CounterValue, createdAt: TimeTicket) {
-    super(createdAt);
-    this.valueType = CounterInternal.getCounterType(value);
+  constructor(value: number | Long) {
     this.value = value;
   }
 
   /**
-   * `of` creates a new instance of Counter.
+   * `initialize` initialize this text with context and internal text.
+   * @internal
    */
-  public static of(
-    value: CounterValue,
-    createdAt: TimeTicket,
-  ): CounterInternal {
-    return new CounterInternal(value, createdAt);
-  }
-  /**
-   * `valueFromBytes` parses the given bytes into value.
-   */
-  public static valueFromBytes(
-    counterType: CounterType,
-    bytes: Uint8Array,
-  ): CounterValue {
-    switch (counterType) {
-      case CounterType.IntegerCnt:
-        return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
-      case CounterType.DoubleCnt: {
-        const view = new DataView(bytes.buffer);
-        bytes.forEach(function (b, i) {
-          view.setUint8(i, b);
-        });
-        return view.getFloat64(0, true);
-      }
-      case CounterType.LongCnt:
-        return Long.fromBytesLE(Array.from(bytes));
-      default:
-        throw new YorkieError(
-          Code.Unimplemented,
-          `unimplemented type: ${counterType}`,
-        );
-    }
+  public initialize(context: ChangeContext, counter: CRDTCounter): void {
+    this.context = context;
+    this.counter = counter;
   }
 
   /**
-   * `toJSON` returns the JSON encoding of the value.
+   * `getID` returns the ID of this text.
    */
-  public toJSON(): string {
-    return `${this.value}`;
+  public getID(): TimeTicket {
+    return this.counter!.getID();
   }
 
   /**
-   * `toSortedJSON` returns the sorted JSON encoding of the value.
+   * `getValue` returns the value of this counter;
+   * @internal
    */
-  public toSortedJSON(): string {
-    return this.toJSON();
-  }
-
-  /**
-   * `deepcopy` copies itself deeply.
-   */
-  public deepcopy(): CounterInternal {
-    const counter = CounterInternal.of(this.value, this.getCreatedAt());
-    counter.setMovedAt(this.getMovedAt());
-    return counter;
-  }
-
-  /**
-   * `getType` returns the type of the value.
-   */
-  public getType(): CounterType {
-    return this.valueType!;
-  }
-
-  /**
-   * `getCounterType` returns counter type of given value.
-   */
-  public static getCounterType(value: CounterValue): CounterType | undefined {
-    switch (typeof value) {
-      case 'number':
-        return CounterType.DoubleCnt;
-      case 'object':
-        if (value instanceof Long) {
-          return CounterType.LongCnt;
-        }
-    }
-
-    return;
-  }
-  /**
-   * `isSupport` check if there is a counter type of given value.
-   */
-  public static isSupport(value: CounterValue): boolean {
-    return !!CounterInternal.getCounterType(value);
-  }
-
-  /**
-   * `isInteger` checks if the num is integer.
-   */
-  public static isInteger(num: number): boolean {
-    return num % 1 === 0;
-  }
-
-  /**
-   * `isNumericType` check numeric type by JSONCounter.
-   */
-  public isNumericType(): boolean {
-    const t = this.valueType;
-    return (
-      t === CounterType.IntegerCnt ||
-      t === CounterType.LongCnt ||
-      t === CounterType.DoubleCnt
-    );
-  }
-
-  /**
-   * `getValue` get counter value.
-   */
-  public getValue(): CounterValue {
+  public getValue(): number | Long {
     return this.value;
-  }
-
-  /**
-   * `toBytes` creates an array representing the value.
-   */
-  public toBytes(): Uint8Array {
-    switch (this.valueType) {
-      case CounterType.IntegerCnt: {
-        const intVal = this.value as number;
-        return new Uint8Array([
-          intVal & 0xff,
-          (intVal >> 8) & 0xff,
-          (intVal >> 16) & 0xff,
-          (intVal >> 24) & 0xff,
-        ]);
-      }
-      case CounterType.DoubleCnt: {
-        const doubleVal = this.value as number;
-        const uint8Array = new Uint8Array(8);
-        const view = new DataView(uint8Array.buffer);
-        view.setFloat64(0, doubleVal, true);
-        return uint8Array;
-      }
-      case CounterType.LongCnt: {
-        const longVal = this.value as Long;
-        const longToBytes = longVal.toBytesLE();
-        return Uint8Array.from(longToBytes);
-      }
-      default:
-        throw new YorkieError(
-          Code.Unimplemented,
-          `unimplemented type: ${this.valueType}`,
-        );
-    }
   }
 
   /**
    * `increase` increases numeric data.
    */
-  public increase(v: JSONPrimitive): CounterInternal {
-    /**
-     * `checkNumericType` checks if the given target is a numeric type.
-     */
-    function checkNumericType(target: JSONPrimitive | CounterInternal): void {
-      if (!target.isNumericType()) {
-        throw new TypeError(
-          `Unsupported type of value: ${typeof target.getValue()}`,
-        );
-      }
+  public increase(v: number | Long): Counter {
+    if (!this.context || !this.counter) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
     }
-    checkNumericType(this);
-    checkNumericType(v);
 
-    if (this.valueType === CounterType.LongCnt) {
-      this.value = (this.value as Long).add(v.getValue() as number | Long);
-    } else {
-      (this.value as number) +=
-        v.getType() === PrimitiveType.Long
-          ? (v.getValue() as Long).toNumber()
-          : (v.getValue() as number);
+    const ticket = this.context.issueTimeTicket();
+    const value = Primitive.of(v, ticket);
+    if (!value.isNumericType()) {
+      throw new TypeError(
+        `Unsupported type of value: ${typeof value.getValue()}`,
+      );
     }
+
+    this.context.push(
+      IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
+    );
 
     return this;
   }

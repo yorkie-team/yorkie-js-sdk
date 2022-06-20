@@ -16,8 +16,8 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -58,10 +58,10 @@ export class MoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof ArrayInternal) {
-      const array = parentObject as ArrayInternal;
+    if (parentObject instanceof CRDTArray) {
+      const array = parentObject as CRDTArray;
       array.moveAfter(
         this.prevCreatedAt!,
         this.createdAt,
