@@ -18,9 +18,9 @@ import Long from 'long';
 import { assert } from 'chai';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  JSONPrimitive,
+  Primitive,
   PrimitiveType,
-} from '@yorkie-js-sdk/src/document/json/primitive';
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 describe('Primitive', function () {
   const primitiveTypes = [
@@ -59,18 +59,15 @@ describe('Primitive', function () {
   ];
   it('primitive test', function () {
     for (const { type, value } of primitiveTypes) {
-      const primVal = JSONPrimitive.of(value, InitialTimeTicket);
+      const primVal = Primitive.of(value, InitialTimeTicket);
       assert.equal(type, primVal.getType());
     }
   });
 
   it('valueFromBytes test', function () {
     for (const { type, value } of primitiveTypes) {
-      const primVal = JSONPrimitive.of(value, InitialTimeTicket);
-      const valFromBytes = JSONPrimitive.valueFromBytes(
-        type,
-        primVal.toBytes(),
-      );
+      const primVal = Primitive.of(value, InitialTimeTicket);
+      const valFromBytes = Primitive.valueFromBytes(type, primVal.toBytes());
       assert.deepEqual(valFromBytes, value);
     }
   });

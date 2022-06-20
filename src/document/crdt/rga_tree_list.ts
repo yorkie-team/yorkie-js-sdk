@@ -20,17 +20,17 @@ import {
   InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.
  */
-class RGATreeListNode extends SplayNode<JSONElement> {
+class RGATreeListNode extends SplayNode<CRDTElement> {
   private prev?: RGATreeListNode;
   private next?: RGATreeListNode;
 
-  constructor(value: JSONElement) {
+  constructor(value: CRDTElement) {
     super(value);
     this.value = value;
   }
@@ -40,7 +40,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
    */
   public static createAfter(
     prev: RGATreeListNode,
-    value: JSONElement,
+    value: CRDTElement,
   ): RGATreeListNode {
     const newNode = new RGATreeListNode(value);
     const prevNext = prev.next;
@@ -118,7 +118,7 @@ class RGATreeListNode extends SplayNode<JSONElement> {
   /**
    * `getValue` returns a element value.
    */
-  public getValue(): JSONElement {
+  public getValue(): CRDTElement {
     return this.value;
   }
 
@@ -139,11 +139,11 @@ export class RGATreeList {
   private dummyHead: RGATreeListNode;
   private last: RGATreeListNode;
   private size: number;
-  private nodeMapByIndex: SplayTree<JSONElement>;
+  private nodeMapByIndex: SplayTree<CRDTElement>;
   private nodeMapByCreatedAt: Map<string, RGATreeListNode>;
 
   constructor() {
-    const dummyValue = JSONPrimitive.of(0, InitialTimeTicket);
+    const dummyValue = Primitive.of(0, InitialTimeTicket);
     dummyValue.setRemovedAt(InitialTimeTicket);
     this.dummyHead = new RGATreeListNode(dummyValue);
     this.last = this.dummyHead;
@@ -218,7 +218,7 @@ export class RGATreeList {
    */
   public insertAfter(
     prevCreatedAt: TimeTicket,
-    value: JSONElement,
+    value: CRDTElement,
     executedAt: TimeTicket = value.getCreatedAt(),
   ): void {
     const prevNode = this.findNextBeforeExecutedAt(prevCreatedAt, executedAt);
@@ -266,14 +266,14 @@ export class RGATreeList {
   /**
    * `insert` adds the given element after  the last creation time.
    */
-  public insert(value: JSONElement): void {
+  public insert(value: CRDTElement): void {
     this.insertAfter(this.last.getCreatedAt(), value);
   }
 
   /**
    * `get` returns the element of the given index.
    */
-  public get(createdAt: TimeTicket): JSONElement | undefined {
+  public get(createdAt: TimeTicket): CRDTElement | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       return;
@@ -296,7 +296,7 @@ export class RGATreeList {
   /**
    * `purge` physically purges child element.
    */
-  public purge(element: JSONElement): void {
+  public purge(element: CRDTElement): void {
     const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
     );
@@ -346,7 +346,7 @@ export class RGATreeList {
   /**
    * `delete` deletes the node of the given creation time.
    */
-  public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
+  public delete(createdAt: TimeTicket, editedAt: TimeTicket): CRDTElement {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     const alreadyRemoved = node!.isRemoved();
     if (node!.remove(editedAt) && !alreadyRemoved) {
@@ -362,7 +362,7 @@ export class RGATreeList {
   public deleteByIndex(
     index: number,
     editedAt: TimeTicket,
-  ): JSONElement | undefined {
+  ): CRDTElement | undefined {
     const node = this.getByIndex(index);
     if (!node) {
       return;
@@ -378,14 +378,14 @@ export class RGATreeList {
   /**
    * `getHead` returns the value of head elements.
    */
-  public getHead(): JSONElement {
+  public getHead(): CRDTElement {
     return this.dummyHead.getValue();
   }
 
   /**
    * `getLast` returns the value of last elements.
    */
-  public getLast(): JSONElement {
+  public getLast(): CRDTElement {
     return this.last.getValue();
   }
 

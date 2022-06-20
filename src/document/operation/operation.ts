@@ -16,7 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 
 /**
  * `Operation` represents an operation to be executed on a document.
@@ -65,5 +65,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public abstract execute(root: JSONRoot): void;
+  public abstract execute(root: CRDTRoot): void;
 }

@@ -14,217 +14,503 @@
  * limitations under the License.
  */
 
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
+import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
-  JSONContainer,
-  JSONElement,
+  Primitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { ObjectProxy } from '@yorkie-js-sdk/src/document/json/object';
+import {
+  WrappedElement,
+  toWrappedElement,
+  toJSONElement,
 } from '@yorkie-js-sdk/src/document/json/element';
-import { RGATreeList } from '@yorkie-js-sdk/src/document/json/rga_tree_list';
 
 /**
- * `ArrayInternal` represents JSON array data structure including logical clock.
- *
- * @internal
+ * `JSONArray` represents JSON array, but unlike regular JSON, it has time
+ * tickets created by a logical clock to resolve conflicts.
  */
-export class ArrayInternal extends JSONContainer {
-  private elements: RGATreeList;
+export type JSONArray<T> = {
+  /**
+   * `getID` returns the ID, `TimeTicket` of this Object.
+   */
+  getID?(): TimeTicket;
 
-  /** @hideconstructor */
-  constructor(createdAt: TimeTicket, elements: RGATreeList) {
-    super(createdAt);
-    this.elements = elements;
+  /**
+   * `getElementByID` returns the element for the given ID.
+   */
+  getElementByID?(createdAt: TimeTicket): WrappedElement<T>;
+
+  /**
+   * `getElementByIndex` returns the element for the given index.
+   */
+  getElementByIndex?(index: number): WrappedElement<T>;
+
+  /**
+   * `getLast` returns the last element of this array.
+   */
+  getLast?(): WrappedElement<T>;
+
+  /**
+   * `deleteByID` deletes the element of the given ID.
+   */
+  deleteByID?(createdAt: TimeTicket): WrappedElement<T>;
+
+  /**
+   * `insertBefore` inserts a value before the given next element.
+   */
+  insertBefore?(nextID: TimeTicket, value: any): WrappedElement<T>;
+
+  /**
+   * `insertAfter` inserts a value after the given previous element.
+   */
+  insertAfter?(prevID: TimeTicket, value: any): WrappedElement<T>;
+
+  /**
+   * `moveBefore` moves the element before the given next element.
+   */
+  moveBefore?(nextID: TimeTicket, id: TimeTicket): void;
+
+  /**
+   * `moveAfter` moves the element after the given previous element.
+   */
+  moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
+
+  /**
+   * `moveFront` moves the element before the first element.
+   */
+  moveFront?(id: TimeTicket): void;
+
+  /**
+   * `moveLast` moves the element after the last element.
+   */
+  moveLast?(id: TimeTicket): void;
+} & Array<T>;
+
+/**
+ * `createJSONArray` creates a new instance of JSONArray.
+ */
+export function createJSONArray(
+  context: ChangeContext,
+  target: CRDTArray,
+): JSONArray<WrappedElement> {
+  const arrayProxy = new ArrayProxy(context, target);
+  return new Proxy(target, arrayProxy.getHandlers()) as any;
+}
+
+/**
+ * `isNumericString` checks if value is numeric string.
+ */
+function isNumericString(val: any): boolean {
+  if (typeof val === 'string' || val instanceof String) {
+    return !isNaN(val as any);
+  }
+  return false;
+}
+
+/**
+ * `isReadOnlyArrayMethod` checks if the method is a standard array read-only operation.
+ */
+function isReadOnlyArrayMethod(method: string): boolean {
+  return [
+    'concat',
+    'entries',
+    'every',
+    'filter',
+    'find',
+    'findIndex',
+    'forEach',
+    'includes',
+    'indexOf',
+    'join',
+    'keys',
+    'lastIndexOf',
+    'map',
+    'reduce',
+    'reduceRight',
+    'slice',
+    'some',
+    'toLocaleString',
+    'toString',
+    'values',
+  ].includes(method);
+}
+
+/**
+ * `ArrayProxy` is a proxy for Array.
+ */
+export class ArrayProxy {
+  private context: ChangeContext;
+  private handlers: any;
+  private array: CRDTArray;
+
+  constructor(context: ChangeContext, array: CRDTArray) {
+    this.context = context;
+    this.array = array;
+    this.handlers = {
+      get: (
+        target: CRDTArray,
+        method: keyof JSONArray<unknown>,
+        receiver: any,
+      ): any => {
+        if (method === 'getID') {
+          return (): TimeTicket => {
+            return target.getCreatedAt();
+          };
+        } else if (method === 'getElementByID') {
+          return (createdAt: TimeTicket): WrappedElement | undefined => {
+            return toWrappedElement(context, target.get(createdAt));
+          };
+        } else if (method === 'getElementByIndex') {
+          return (index: number): WrappedElement | undefined => {
+            const elem = target.getByIndex(index);
+            return toWrappedElement(context, elem);
+          };
+        } else if (method === 'getLast') {
+          return (): WrappedElement | undefined => {
+            return toWrappedElement(context, target.getLast());
+          };
+        } else if (method === 'deleteByID') {
+          return (createdAt: TimeTicket): WrappedElement | undefined => {
+            const deleted = ArrayProxy.deleteInternalByID(
+              context,
+              target,
+              createdAt,
+            );
+            return toWrappedElement(context, deleted);
+          };
+        } else if (method === 'insertAfter') {
+          return (
+            prevID: TimeTicket,
+            value: any,
+          ): WrappedElement | undefined => {
+            const inserted = ArrayProxy.insertAfterInternal(
+              context,
+              target,
+              prevID,
+              value,
+            );
+            return toWrappedElement(context, inserted);
+          };
+        } else if (method === 'insertBefore') {
+          return (
+            nextID: TimeTicket,
+            value: any,
+          ): WrappedElement | undefined => {
+            const inserted = ArrayProxy.insertBeforeInternal(
+              context,
+              target,
+              nextID,
+              value,
+            );
+            return toWrappedElement(context, inserted);
+          };
+        } else if (method === 'moveBefore') {
+          return (nextID: TimeTicket, id: TimeTicket): void => {
+            ArrayProxy.moveBeforeInternal(context, target, nextID, id);
+          };
+          // JavaScript Native API
+        } else if (method === 'moveAfter') {
+          return (prevID: TimeTicket, id: TimeTicket): void => {
+            ArrayProxy.moveAfterInternal(context, target, prevID, id);
+          };
+        } else if (method === 'moveFront') {
+          return (id: TimeTicket): void => {
+            ArrayProxy.moveFrontInternal(context, target, id);
+          };
+        } else if (method === 'moveLast') {
+          return (id: TimeTicket): void => {
+            ArrayProxy.moveLastInternal(context, target, id);
+          };
+        } else if (isNumericString(method)) {
+          return toJSONElement(
+            context,
+            target.getByIndex(Number(method as string)),
+          );
+        } else if (method === 'push') {
+          return (value: any): number => {
+            if (logger.isEnabled(LogLevel.Trivial)) {
+              logger.trivial(`array.push(${JSON.stringify(value)})`);
+            }
+
+            return ArrayProxy.pushInternal(context, target, value);
+          };
+        } else if (method === 'length') {
+          return target.length;
+        } else if (typeof method === 'symbol' && method === Symbol.iterator) {
+          return ArrayProxy.iteratorInternal.bind(this, context, target);
+        } else if (
+          typeof method === 'string' &&
+          isReadOnlyArrayMethod(method)
+        ) {
+          return (...args: any) => {
+            const arr = Array.from(target).map((elem) =>
+              toJSONElement(context, elem),
+            );
+            return Array.prototype[method as any].apply(arr, args);
+          };
+        }
+
+        // TODO we need to distinguish between the case we need to call default
+        // behavior and the case where we need to call an internal method
+        // throw new TypeError(`Unsupported method: ${String(method)}`);
+        return Reflect.get(target, method, receiver);
+      },
+
+      deleteProperty: (target: CRDTArray, key: string): boolean => {
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`array[${key}]`);
+        }
+        ArrayProxy.deleteInternalByIndex(context, target, Number.parseInt(key));
+        return true;
+      },
+    };
+  }
+
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public static *iteratorInternal(
+    change: ChangeContext,
+    target: CRDTArray,
+  ): IterableIterator<WrappedElement> {
+    for (const elem of target) {
+      yield toWrappedElement(change, elem)!;
+    }
   }
 
   /**
-   * `create` creates a new instance of Array.
+   * `pushInternal` pushes the value to the target array.
    */
-  public static create(createdAt: TimeTicket): ArrayInternal {
-    return new ArrayInternal(createdAt, RGATreeList.create());
+  public static pushInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    value: unknown,
+  ): number {
+    ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      target.getLastCreatedAt(),
+      value,
+    );
+    return target.length;
   }
 
   /**
-   * `keyof` returns key of the given `createdAt` element.
+   * `moveBeforeInternal` moves the given `createdAt` element
+   * after the previously created element.
    */
-  public keyOf(createdAt: TimeTicket): string | undefined {
-    return this.elements.keyOf(createdAt);
+  public static moveBeforeInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    nextCreatedAt: TimeTicket,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        prevCreatedAt,
+        createdAt,
+        ticket,
+      ),
+    );
   }
 
   /**
-   * `purge` physically purge child element.
+   * `moveAfterInternal` moves the given `createdAt` element
+   * after the specific element.
    */
-  public purge(element: JSONElement): void {
-    this.elements.purge(element);
-  }
-
-  /**
-   * `insertAfter` inserts the given element after the given previous element.
-   */
-  public insertAfter(prevCreatedAt: TimeTicket, value: JSONElement): void {
-    this.elements.insertAfter(prevCreatedAt, value);
-  }
-
-  /**
-   * `moveAfter` moves the given `createdAt` element after the `prevCreatedAt`.
-   */
-  public moveAfter(
+  public static moveAfterInternal(
+    context: ChangeContext,
+    target: CRDTArray,
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
   ): void {
-    this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
+    const ticket = context.issueTimeTicket();
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        prevCreatedAt,
+        createdAt,
+        ticket,
+      ),
+    );
   }
 
   /**
-   * `get` returns the element of the given createAt.
+   * `moveFrontInternal` moves the given `createdAt` element
+   * at the first of array.
    */
-  public get(createdAt: TimeTicket): JSONElement | undefined {
-    const node = this.elements.get(createdAt);
-    if (!node || node.isRemoved()) {
-      return;
-    }
-
-    return node;
-  }
-
-  /**
-   * `getByIndex` returns the element of the given index.
-   */
-  public getByIndex(index: number): JSONElement | undefined {
-    const node = this.elements.getByIndex(index);
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
-  }
-
-  /**
-   * `getHead` returns dummy head element.
-   */
-  public getHead(): JSONElement {
-    return this.elements.getHead();
-  }
-
-  /**
-   * `getLast` returns last element.
-   */
-  public getLast(): JSONElement {
-    return this.elements.getLast();
-  }
-
-  /**
-   * `getPrevCreatedAt` returns the creation time of
-   * the previous element of the given element.
-   */
-  public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
-    return this.elements.getPrevCreatedAt(createdAt);
-  }
-
-  /**
-   * `delete` deletes the element of the given index.
-   */
-  public delete(createdAt: TimeTicket, editedAt: TimeTicket): JSONElement {
-    return this.elements.delete(createdAt, editedAt);
-  }
-
-  /**
-   * `deleteByIndex` deletes the element of given index and editedAt.
-   */
-  public deleteByIndex(
-    index: number,
-    editedAt: TimeTicket,
-  ): JSONElement | undefined {
-    return this.elements.deleteByIndex(index, editedAt);
-  }
-
-  /**
-   * `getLastCreatedAt` get last created element.
-   */
-  public getLastCreatedAt(): TimeTicket {
-    return this.elements.getLastCreatedAt();
-  }
-
-  /**
-   * `length` returns length of this elements.
-   */
-  public get length(): number {
-    return this.elements.length;
-  }
-
-  /**
-   * eslint-disable-next-line jsdoc/require-jsdoc
-   * @internal
-   */
-  public *[Symbol.iterator](): IterableIterator<JSONElement> {
-    for (const node of this.elements) {
-      if (!node.isRemoved()) {
-        yield node.getValue();
-      }
-    }
-  }
-
-  /**
-   * `getDescendants` traverse the descendants of this array.
-   */
-  public getDescendants(
-    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  public static moveFrontInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    createdAt: TimeTicket,
   ): void {
-    for (const node of this.elements) {
-      const element = node.getValue();
-      if (callback(element, this)) {
-        return;
-      }
-
-      if (element instanceof JSONContainer) {
-        element.getDescendants(callback);
-      }
-    }
+    const ticket = context.issueTimeTicket();
+    const head = target.getHead();
+    target.moveAfter(head.getCreatedAt(), createdAt, ticket);
+    context.push(
+      MoveOperation.create(
+        target.getCreatedAt(),
+        head.getCreatedAt(),
+        createdAt,
+        ticket,
+      ),
+    );
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this array.
+   * `moveAfterInternal` moves the given `createdAt` element
+   * at the last of array.
    */
-  public toJSON(): string {
-    const json = [];
-    for (const value of this) {
-      json.push(value.toJSON());
-    }
-    return `[${json.join(',')}]`;
+  public static moveLastInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    createdAt: TimeTicket,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const last = target.getLastCreatedAt();
+    target.moveAfter(last, createdAt, ticket);
+    context.push(
+      MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
+    );
   }
 
   /**
-   * `toJS` return the javascript object of this array.
+   * `insertAfterInternal` inserts the value after the previously created element.
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
-  }
-
-  /**
-   * `toSortedJSON` returns the sorted JSON encoding of this array.
-   */
-  public toSortedJSON(): string {
-    return this.toJSON();
-  }
-
-  /**
-   * `getElements` returns an array of elements contained in this RGATreeList.
-   */
-  public getElements(): RGATreeList {
-    return this.elements;
-  }
-
-  /**
-   * `deepcopy` copies itself deeply.
-   */
-  public deepcopy(): ArrayInternal {
-    const clone = ArrayInternal.create(this.getCreatedAt());
-    for (const node of this.elements) {
-      clone.elements.insertAfter(
-        clone.getLastCreatedAt(),
-        node.getValue().deepcopy(),
+  public static insertAfterInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    prevCreatedAt: TimeTicket,
+    value: unknown,
+  ): CRDTElement {
+    const ticket = context.issueTimeTicket();
+    if (Primitive.isSupport(value)) {
+      const primitive = Primitive.of(value as PrimitiveValue, ticket);
+      const clone = primitive.deepcopy();
+      target.insertAfter(prevCreatedAt, clone);
+      context.registerElement(clone, target);
+      context.push(
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          primitive,
+          ticket,
+        ),
       );
+      return primitive;
+    } else if (Array.isArray(value)) {
+      const array = CRDTArray.create(ticket);
+      const clone = array.deepcopy();
+      target.insertAfter(prevCreatedAt, clone);
+      context.registerElement(clone, target);
+      context.push(
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          array,
+          ticket,
+        ),
+      );
+      for (const element of value) {
+        ArrayProxy.pushInternal(context, clone, element);
+      }
+      return array;
+    } else if (typeof value === 'object') {
+      const obj = CRDTObject.create(ticket);
+      target.insertAfter(prevCreatedAt, obj);
+      context.registerElement(obj, target);
+      context.push(
+        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
+      );
+
+      for (const [k, v] of Object.entries(value!)) {
+        ObjectProxy.setInternal(context, obj, k, v);
+      }
+      return obj;
     }
-    clone.remove(this.getRemovedAt());
-    return clone;
+
+    throw new TypeError(`Unsupported type of value: ${typeof value}`);
+  }
+
+  /**
+   * `insertBeforeInternal` inserts the value before the previously created element.
+   */
+  public static insertBeforeInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    nextCreatedAt: TimeTicket,
+    value: unknown,
+  ): CRDTElement {
+    return ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      target.getPrevCreatedAt(nextCreatedAt),
+      value,
+    );
+  }
+
+  /**
+   * `deleteInternalByIndex` deletes target element of given index.
+   */
+  public static deleteInternalByIndex(
+    context: ChangeContext,
+    target: CRDTArray,
+    index: number,
+  ): CRDTElement | undefined {
+    const ticket = context.issueTimeTicket();
+    const deleted = target.deleteByIndex(index, ticket);
+    if (!deleted) {
+      return;
+    }
+
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
+    context.registerRemovedElement(deleted);
+    return deleted;
+  }
+
+  /**
+   * `deleteInternalByID` deletes the element of the given index.
+   */
+  public static deleteInternalByID(
+    context: ChangeContext,
+    target: CRDTArray,
+    createdAt: TimeTicket,
+  ): CRDTElement {
+    const ticket = context.issueTimeTicket();
+    const deleted = target.delete(createdAt, ticket);
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
+    context.registerRemovedElement(deleted);
+    return deleted;
+  }
+
+  /**
+   * `getHandlers` gets handlers.
+   */
+  public getHandlers(): any {
+    return this.handlers;
   }
 }

@@ -123,18 +123,18 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0);
-      const two = root.data.getElementByIndex!(2);
-      root.data.moveBefore!(two.getID(), zero.getID());
+      const zero = root.data.getElementByIndex!(0)!;
+      const two = root.data.getElementByIndex!(2)!;
+      root.data.moveBefore!(two.getID!(), zero.getID!());
     });
     assert.equal('{"data":[1,0,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      const three = root.data.getElementByIndex!(3);
-      root.data.moveBefore!(one.getID(), three.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      const three = root.data.getElementByIndex!(3)!;
+      root.data.moveBefore!(one.getID!(), three.getID!());
       assert.equal('{"data":[1,3,0,2]}', root.toJSON!());
     });
     assert.equal('{"data":[1,3,0,2]}', doc.toSortedJSON());
@@ -151,9 +151,9 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      const three = root.data.getElementByIndex!(3);
-      root.data.moveBefore!(one.getID(), three.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      const three = root.data.getElementByIndex!(3)!;
+      root.data.moveBefore!(one.getID!(), three.getID!());
       assert.equal('{"data":[0,3,1,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,3,1,2]}', doc.toSortedJSON());
@@ -169,18 +169,18 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0);
-      const two = root.data.getElementByIndex!(2);
-      root.data.moveAfter!(two.getID(), zero.getID());
+      const zero = root.data.getElementByIndex!(0)!;
+      const two = root.data.getElementByIndex!(2)!;
+      root.data.moveAfter!(two.getID!(), zero.getID!());
     });
     assert.equal('{"data":[1,2,0]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      const three = root.data.getElementByIndex!(3);
-      root.data.moveAfter!(one.getID(), three.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      const three = root.data.getElementByIndex!(3)!;
+      root.data.moveAfter!(one.getID!(), three.getID!());
       assert.equal('{"data":[1,2,3,0]}', root.toJSON!());
     });
     assert.equal('{"data":[1,2,3,0]}', doc.toSortedJSON());
@@ -197,9 +197,9 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      const three = root.data.getElementByIndex!(3);
-      root.data.moveAfter!(one.getID(), three.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      const three = root.data.getElementByIndex!(3)!;
+      root.data.moveAfter!(one.getID!(), three.getID!());
       assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
@@ -215,16 +215,16 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(2);
-      root.data.moveFront!(two.getID());
+      const two = root.data.getElementByIndex!(2)!;
+      root.data.moveFront!(two.getID!());
     });
     assert.equal('{"data":[2,0,1]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const three = root.data.getElementByIndex!(3);
-      root.data.moveFront!(three.getID());
+      const three = root.data.getElementByIndex!(3)!;
+      root.data.moveFront!(three.getID!());
       assert.equal('{"data":[3,2,0,1]}', root.toJSON!());
     });
     assert.equal('{"data":[3,2,0,1]}', doc.toSortedJSON());
@@ -241,8 +241,8 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      root.data.moveFront!(one.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      root.data.moveFront!(one.getID!());
       assert.equal('{"data":[1,0,2,3]}', root.toJSON!());
     });
     assert.equal('{"data":[1,0,2,3]}', doc.toSortedJSON());
@@ -258,16 +258,16 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(2);
-      root.data.moveLast!(two.getID());
+      const two = root.data.getElementByIndex!(2)!;
+      root.data.moveLast!(two.getID!());
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const two = root.data.getElementByIndex!(2);
-      root.data.moveLast!(two.getID());
+      const two = root.data.getElementByIndex!(2)!;
+      root.data.moveLast!(two.getID!());
       assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
@@ -284,8 +284,8 @@ describe('DocumentReplica', function () {
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1);
-      root.data.moveLast!(one.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      root.data.moveLast!(one.getID!());
       assert.equal('{"data":[0,2,3,1]}', root.toJSON!());
     });
     assert.equal('{"data":[0,2,3,1]}', doc.toSortedJSON());
@@ -442,22 +442,22 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0);
-      root.data.insertBefore!(zero.getID(), 3);
+      const zero = root.data.getElementByIndex!(0)!;
+      root.data.insertBefore!(zero.getID!(), 3);
     });
     assert.equal('{"data":[3,0,1,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex!(2);
-      root.data.insertBefore!(one.getID(), 4);
+      const one = root.data.getElementByIndex!(2)!;
+      root.data.insertBefore!(one.getID!(), 4);
     });
     assert.equal('{"data":[3,0,4,1,2]}', doc.toSortedJSON());
     assert.equal(5, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(4);
-      root.data.insertBefore!(two.getID(), 5);
+      const two = root.data.getElementByIndex!(4)!;
+      root.data.insertBefore!(two.getID!(), 5);
     });
     assert.equal('{"data":[3,0,4,1,5,2]}', doc.toSortedJSON());
     assert.equal(6, doc.getRoot().data.length);
@@ -472,21 +472,21 @@ describe('DocumentReplica', function () {
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0);
-      root.data.deleteByID!(zero.getID());
+      const zero = root.data.getElementByIndex!(0)!;
+      root.data.deleteByID!(zero.getID!());
 
-      const one = root.data.getElementByIndex!(0);
-      root.data.insertBefore!(one.getID(), 3);
+      const one = root.data.getElementByIndex!(0)!;
+      root.data.insertBefore!(one.getID!(), 3);
     });
     assert.equal('{"data":[3,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex!(1);
-      root.data.deleteByID!(one.getID());
+      const one = root.data.getElementByIndex!(1)!;
+      root.data.deleteByID!(one.getID!());
 
-      const two = root.data.getElementByIndex!(1);
-      root.data.insertBefore!(two.getID(), 4);
+      const two = root.data.getElementByIndex!(1)!;
+      root.data.insertBefore!(two.getID!(), 4);
     });
     assert.equal('{"data":[3,4,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);

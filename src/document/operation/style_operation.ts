@@ -16,9 +16,9 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -64,11 +64,11 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof RichTextInternal) {
-      const text = parentObject as RichTextInternal;
-      text.setStyleInternal(
+    if (parentObject instanceof CRDTRichText) {
+      const text = parentObject as CRDTRichText;
+      text.setStyle(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},
         this.getExecutedAt(),

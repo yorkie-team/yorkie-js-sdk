@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import { RHT } from '@yorkie-js-sdk/src/document/json/rht';
+import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 

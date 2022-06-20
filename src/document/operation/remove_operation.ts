@@ -16,9 +16,9 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONContainer } from '@yorkie-js-sdk/src/document/json/element';
+import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
 
 /**
  * `RemoveOperation` is an operation representing removes an element from Container.
@@ -49,9 +49,9 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof JSONContainer) {
+    if (parentObject instanceof CRDTContainer) {
       const obj = parentObject;
       const elem = obj.delete(this.createdAt, this.getExecutedAt());
       root.registerRemovedElement(elem);
