@@ -4,7 +4,7 @@
 
 ## Counter class
 
-`Counter` is the counter.
+`Counter` is a custom data type that is used to counter.
 
 <b>Signature:</b>
 
@@ -22,5 +22,6 @@ export declare class Counter
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
+|  [getID()](./yorkie-js-sdk.counter.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [increase(v)](./yorkie-js-sdk.counter.increase.md) |  | <code>increase</code> increases numeric data. |
 

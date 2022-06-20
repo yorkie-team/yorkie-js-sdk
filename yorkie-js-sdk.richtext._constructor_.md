@@ -9,7 +9,7 @@ Constructs a new instance of the `RichText` class
 <b>Signature:</b>
 
 ```typescript
-constructor(context?: ChangeContext, text?: RichTextInternal);
+constructor(context?: ChangeContext, text?: CRDTRichText);
 ```
 
 ## Parameters
@@ -17,5 +17,5 @@ constructor(context?: ChangeContext, text?: RichTextInternal);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  context | ChangeContext |  |
-|  text | RichTextInternal |  |
+|  text | CRDTRichText |  |
 

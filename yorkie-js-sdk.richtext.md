@@ -25,6 +25,7 @@ export declare class RichText
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.richtext.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
 |  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.richtext.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [getAnnotatedString()](./yorkie-js-sdk.richtext.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of the node for debugging purpose. |
+|  [getID()](./yorkie-js-sdk.richtext.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [onChanges(handler)](./yorkie-js-sdk.richtext.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.richtext.select.md) |  | <code>select</code> selects the given range. |
 |  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.richtext.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |

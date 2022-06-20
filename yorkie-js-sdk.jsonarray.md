@@ -9,19 +9,19 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type JSONArray<T = unknown> = {
+export declare type JSONArray<T> = {
     getID?(): TimeTicket;
-    getElementByID?(createdAt: TimeTicket): JSONElement & T;
-    getElementByIndex?(index: number): JSONElement & T;
-    getLast?(): JSONElement;
-    deleteByID?(createdAt: TimeTicket): JSONElement & T;
-    insertBefore?(nextID: TimeTicket, value: any): JSONElement & T;
-    insertAfter?(prevID: TimeTicket, value: any): JSONElement & T;
+    getElementByID?(createdAt: TimeTicket): WrappedElement<T>;
+    getElementByIndex?(index: number): WrappedElement<T>;
+    getLast?(): WrappedElement<T>;
+    deleteByID?(createdAt: TimeTicket): WrappedElement<T>;
+    insertBefore?(nextID: TimeTicket, value: any): WrappedElement<T>;
+    insertAfter?(prevID: TimeTicket, value: any): WrappedElement<T>;
     moveBefore?(nextID: TimeTicket, id: TimeTicket): void;
     moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
     moveFront?(id: TimeTicket): void;
     moveLast?(id: TimeTicket): void;
 } & Array<T>;
 ```
-<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)
+<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [WrappedElement](./yorkie-js-sdk.wrappedelement.md)
 

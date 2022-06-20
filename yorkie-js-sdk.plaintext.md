@@ -25,6 +25,7 @@ export declare class PlainText
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.plaintext.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
 |  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.plaintext.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [getAnnotatedString()](./yorkie-js-sdk.plaintext.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of the node for debugging purpose. |
+|  [getID()](./yorkie-js-sdk.plaintext.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [onChanges(handler)](./yorkie-js-sdk.plaintext.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.plaintext.select.md) |  | <code>select</code> selects the given range. |
 |  [toString()](./yorkie-js-sdk.plaintext.tostring.md) |  | <code>toString</code> returns the string representation of this text. |

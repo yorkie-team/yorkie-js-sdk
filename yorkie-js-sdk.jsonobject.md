@@ -9,10 +9,10 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type JSONObject<T extends Indexable> = {
+export declare type JSONObject<T> = {
     getID?(): TimeTicket;
     toJSON?(): string;
 } & T;
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TimeTicket](./yorkie-js-sdk.timeticket.md)
+<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

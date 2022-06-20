@@ -9,7 +9,7 @@ Constructs a new instance of the `PlainText` class
 <b>Signature:</b>
 
 ```typescript
-constructor(context?: ChangeContext, text?: PlainTextInternal);
+constructor(context?: ChangeContext, text?: CRDTPlainText);
 ```
 
 ## Parameters
@@ -17,5 +17,5 @@ constructor(context?: ChangeContext, text?: PlainTextInternal);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  context | ChangeContext |  |
-|  text | PlainTextInternal |  |
+|  text | CRDTPlainText |  |
 

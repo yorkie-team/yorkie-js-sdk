@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class DocumentReplica<T = Indexable> implements Observable<DocEvent> 
+export declare class DocumentReplica<T> implements Observable<DocEvent> 
 ```
 <b>Implements:</b> Observable&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt;
 

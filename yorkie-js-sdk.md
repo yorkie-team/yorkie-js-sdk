@@ -9,9 +9,10 @@
 |  Class | Description |
 |  --- | --- |
 |  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the server. It has documents and sends changes of the documents in local to the server to synchronize with other replicas in remote. |
-|  [Counter](./yorkie-js-sdk.counter.md) | <code>Counter</code> is the counter. |
+|  [Counter](./yorkie-js-sdk.counter.md) | <code>Counter</code> is a custom data type that is used to counter. |
 |  [DocumentReplica](./yorkie-js-sdk.documentreplica.md) | <code>DocumentReplica</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
 |  [PlainText](./yorkie-js-sdk.plaintext.md) | <code>PlainText</code> represents plain text element for representing contents of a text editor. |
+|  [Primitive](./yorkie-js-sdk.primitive.md) | <code>Primitive</code> represents primitive data type including logical clock. This is immutable. |
 |  [RichText](./yorkie-js-sdk.richtext.md) | <code>RichText</code> is an extended data type for the contents of a text editor. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
 
@@ -54,7 +55,9 @@
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>DocumentReplica</code>. It can be delivered using <code>DocumentReplica.subscribe()</code>. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
+|  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> represents the type the user is using. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
+|  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 
