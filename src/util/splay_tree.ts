@@ -243,6 +243,11 @@ export class SplayTree<V> {
    * `insert` inserts the node at the last.
    */
   public insert(newNode: SplayNode<V>): SplayNode<V> {
+    if (!this.root) {
+      this.root = newNode;
+      return newNode;
+    }
+
     return this.insertAfter(this.root!, newNode);
   }
 
@@ -267,16 +272,16 @@ export class SplayTree<V> {
     newNode.setLeft(target);
     target.setParent(newNode);
     target.setRight();
-    this.updateSubtree(target);
-    this.updateSubtree(newNode);
+    this.updateWeight(target);
+    this.updateWeight(newNode);
 
     return newNode;
   }
 
   /**
-   * `updateSubtree` recalculates weights with left and right nodes.
+   * `updateWeight` recalculates the weight of this node with the value and children.
    */
-  public updateSubtree(node: SplayNode<V>): void {
+  public updateWeight(node: SplayNode<V>): void {
     node.initWeight();
 
     if (node.hasLeft()) {
@@ -288,9 +293,20 @@ export class SplayTree<V> {
   }
 
   /**
+   * `updateTreeWeight` recalculates the weight of this tree from the given node to
+   * the root.
+   */
+  public updateTreeWeight(node: SplayNode<V>): void {
+    while (node) {
+      this.updateWeight(node);
+      node = node.getParent()!;
+    }
+  }
+
+  /**
    * `splayNode` moves the given node to the root.
    */
-  public splayNode(node: SplayNode<V>): void {
+  public splayNode(node: SplayNode<V> | undefined): void {
     if (!node) {
       return;
     }
@@ -360,8 +376,72 @@ export class SplayTree<V> {
 
     node.unlink();
     if (this.root) {
-      this.updateSubtree(this.root);
+      this.updateWeight(this.root);
     }
+  }
+
+  /**
+   * `cutOffRange` cuts the given range from this Tree.
+   * This function separates the range from `fromInner` to `toInner` as a subtree
+   * by splaying outer nodes then cuts the subtree. 'xxxOuter' could be nil and
+   * means to delete the entire subtree in that direction.
+   *
+   * CAUTION: This function does not filter out invalid argument inputs,
+   * such as non-consecutive indices in fromOuter and fromInner.
+   */
+  public cutOffRange(
+    fromOuter: SplayNode<V> | undefined,
+    fromInner: SplayNode<V> | undefined,
+    toInner: SplayNode<V> | undefined,
+    toOuter: SplayNode<V> | undefined,
+  ): void {
+    this.splayNode(toInner);
+    this.splayNode(fromInner);
+
+    if (!fromOuter && !toOuter) {
+      this.root = undefined;
+      return;
+    }
+
+    if (!fromOuter) {
+      this.splayNode(toOuter);
+      this.cutOffLeft(toOuter!);
+      return;
+    }
+
+    if (!toOuter) {
+      this.splayNode(toOuter);
+      this.cutOffRight(fromOuter);
+      return;
+    }
+
+    this.splayNode(toOuter);
+    this.splayNode(fromOuter);
+    this.cutOffLeft(toOuter);
+  }
+
+  /**
+   * `cutOffLeft` cuts off left subtree of node.
+   */
+  public cutOffLeft(node: SplayNode<V>): void {
+    if (!node.hasLeft()) {
+      return;
+    }
+    node.getLeft()!.setParent(undefined);
+    node.setLeft(undefined);
+    this.updateTreeWeight(node);
+  }
+
+  /**
+   * `cutOffRight` cuts off right subtree of node.
+   */
+  public cutOffRight(node: SplayNode<V>): void {
+    if (!node.hasRight()) {
+      return;
+    }
+    node.getRight()!.setParent(undefined);
+    node.setRight(undefined);
+    this.updateTreeWeight(node);
   }
 
   /**
@@ -418,8 +498,8 @@ export class SplayTree<V> {
     pivot.setLeft(root);
     pivot.getLeft()!.setParent(pivot);
 
-    this.updateSubtree(root);
-    this.updateSubtree(pivot);
+    this.updateWeight(root);
+    this.updateWeight(pivot);
   }
 
   private rotateRight(pivot: SplayNode<V>): void {
@@ -443,8 +523,8 @@ export class SplayTree<V> {
     pivot.setRight(root);
     pivot.getRight()!.setParent(pivot);
 
-    this.updateSubtree(root);
-    this.updateSubtree(pivot);
+    this.updateWeight(root);
+    this.updateWeight(pivot);
   }
 
   private isLeftChild(node?: SplayNode<V>): boolean {

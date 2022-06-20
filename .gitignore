@@ -137,3 +137,6 @@ api-review
 lib/
 
 .DS_Store
+
+# vscode
+.vscode

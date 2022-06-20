@@ -87,7 +87,7 @@ export class ObjectProxy {
           return (): TimeTicket => {
             return target.getCreatedAt();
           };
-        } else if (keyOrMethod === 'toJSON') {
+        } else if (keyOrMethod === 'toJSON' || keyOrMethod === 'toString') {
           return (): string => {
             return target.toJSON();
           };
