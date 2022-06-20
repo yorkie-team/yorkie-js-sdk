@@ -33,7 +33,7 @@ import {
   JSONArray,
   ArrayProxy,
 } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/plain_text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';

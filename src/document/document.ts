@@ -149,7 +149,7 @@ export type Indexable = Record<string, any>;
  *
  * @public
  */
-export class DocumentReplica<T = Indexable> implements Observable<DocEvent> {
+export class DocumentReplica<T> implements Observable<DocEvent> {
   private key: string;
   private root: JSONRoot;
   private clone?: JSONRoot;

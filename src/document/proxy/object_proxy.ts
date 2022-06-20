@@ -30,7 +30,7 @@ import { RGATreeSplit } from '@yorkie-js-sdk/src/document/json/rga_tree_split';
 import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
 import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/plain_text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 import {
@@ -38,13 +38,12 @@ import {
   CounterInternal,
 } from '@yorkie-js-sdk/src/document/json/counter';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
-import { Indexable } from '../document';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
  * tickets created by a logical clock to resolve conflicts.
  */
-export type JSONObject<T extends Indexable> = {
+export type JSONObject<T> = {
   /**
    * `getID` returns the ID(time ticket) of this Object.
    */
@@ -121,7 +120,7 @@ export class ObjectProxy {
   /**
    * `create` creates a new instance of ObjectProxy.
    */
-  public static create<T extends Indexable>(
+  public static create<T>(
     context: ChangeContext,
     target: ObjectInternal,
   ): JSONObject<T> {

@@ -16,7 +16,7 @@
 
 import { Client } from '@yorkie-js-sdk/src/core/client';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/proxy/plain_text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 
@@ -63,7 +63,7 @@ export { JSONArray } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
 export { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
 export { JSONObject } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
 export { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
-export { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+export { PlainText } from '@yorkie-js-sdk/src/document/proxy/plain_text_proxy';
 
 /**
  * The top-level yorkie namespace with additional properties.
