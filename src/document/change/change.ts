@@ -16,7 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 
 /**
@@ -83,7 +83,7 @@ export class Change {
   /**
    * `execute` executes the operations of this change to the given root.
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     for (const operation of this.operations) {
       operation.execute(root);
     }

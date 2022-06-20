@@ -16,9 +16,9 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
-import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -27,11 +27,11 @@ import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
  */
 export class SetOperation extends Operation {
   private key: string;
-  private value: JSONElement;
+  private value: CRDTElement;
 
   constructor(
     key: string,
-    value: JSONElement,
+    value: CRDTElement,
     parentCreatedAt: TimeTicket,
     executedAt: TimeTicket,
   ) {
@@ -45,7 +45,7 @@ export class SetOperation extends Operation {
    */
   public static create(
     key: string,
-    value: JSONElement,
+    value: CRDTElement,
     parentCreatedAt: TimeTicket,
     executedAt: TimeTicket,
   ): SetOperation {
@@ -55,10 +55,10 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: JSONRoot): void {
+  public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof ObjectInternal) {
-      const obj = parentObject as ObjectInternal;
+    if (parentObject instanceof CRDTObject) {
+      const obj = parentObject as CRDTObject;
       const value = this.value.deepcopy();
       obj.set(this.key, value);
       root.registerElement(value, obj);
@@ -95,7 +95,7 @@ export class SetOperation extends Operation {
   /**
    * `getValue` returns the value of this operation.
    */
-  public getValue(): JSONElement {
+  public getValue(): CRDTElement {
     return this.value;
   }
 }

@@ -14,122 +14,100 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import {
+  Primitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import {
+  JSONObject,
+  createJSONObject,
+} from '@yorkie-js-sdk/src/document/json/object';
+import {
+  JSONArray,
+  createJSONArray,
+} from '@yorkie-js-sdk/src/document/json/array';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
- * `JSONElement` represents JSON element including logical clock.
- *
- * @internal
+ * `createJSON` create a new instance of JSONObject.
  */
-export abstract class JSONElement {
-  private createdAt: TimeTicket;
-  private movedAt?: TimeTicket;
-  private removedAt?: TimeTicket;
-
-  constructor(createdAt: TimeTicket) {
-    this.createdAt = createdAt;
-  }
-
-  /**
-   * `getCreatedAt` returns the creation time of this element.
-   */
-  public getCreatedAt(): TimeTicket {
-    return this.createdAt;
-  }
-
-  /**
-   * `getID` returns the creation time of this element.
-   */
-  public getID(): TimeTicket {
-    return this.createdAt;
-  }
-
-  /**
-   * `getMovedAt` returns the move time of this element.
-   */
-  public getMovedAt(): TimeTicket | undefined {
-    return this.movedAt;
-  }
-
-  /**
-   * `getRemovedAt` returns the removal time of this element.
-   */
-  public getRemovedAt(): TimeTicket | undefined {
-    return this.removedAt;
-  }
-
-  /**
-   * `setMovedAt` sets the move time of this element.
-   */
-  public setMovedAt(movedAt?: TimeTicket): boolean {
-    if (!this.movedAt || (movedAt && movedAt.after(this.movedAt))) {
-      this.movedAt = movedAt;
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * `setRemovedAt` sets the remove time of this element.
-   */
-  public setRemovedAt(removedAt?: TimeTicket): void {
-    this.removedAt = removedAt;
-  }
-
-  /**
-   * `remove` removes this element.
-   */
-  public remove(removedAt?: TimeTicket): boolean {
-    if (
-      removedAt &&
-      removedAt.after(this.createdAt) &&
-      (!this.removedAt || removedAt.after(this.removedAt))
-    ) {
-      this.removedAt = removedAt;
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * `isRemoved` check if this element was removed.
-   */
-  public isRemoved(): boolean {
-    return !!this.removedAt;
-  }
-
-  abstract toJSON(): string;
-  abstract toSortedJSON(): string;
-  abstract deepcopy(): JSONElement;
+export function createJSON<T>(
+  context: ChangeContext,
+  target: CRDTObject,
+): JSONObject<T> {
+  return createJSONObject(context, target);
 }
 
 /**
- *
- * `JSONContainer` represents Array or Object.
- * @internal
+ * `WrappedElement` is a wrapper of JSONElement that provides `getID()`.
  */
-export abstract class JSONContainer extends JSONElement {
-  constructor(createdAt: TimeTicket) {
-    super(createdAt);
+export type WrappedElement<T = unknown> =
+  | Primitive
+  | JSONObject<T>
+  | JSONArray<T>
+  | PlainText
+  | RichText
+  | Counter;
+
+/**
+ * `JSONElement` represents the type the user is using.
+ */
+export type JSONElement<T = unknown> =
+  | PrimitiveValue
+  | JSONObject<T>
+  | JSONArray<T>
+  | PlainText
+  | RichText
+  | Counter;
+
+/**
+ * `toWrappedElement` converts the CRDT type to WrappedElement.
+ */
+export function toWrappedElement(
+  context: ChangeContext,
+  elem?: CRDTElement,
+): WrappedElement | undefined {
+  if (!elem) {
+    return;
+  } else if (elem instanceof Primitive) {
+    return elem;
+  } else if (elem instanceof CRDTObject) {
+    return createJSONObject(context, elem);
+  } else if (elem instanceof CRDTArray) {
+    return createJSONArray(context, elem);
+  } else if (elem instanceof CRDTPlainText) {
+    return new PlainText(context, elem);
+  } else if (elem instanceof CRDTRichText) {
+    return new RichText(context, elem);
+  } else if (elem instanceof CRDTCounter) {
+    const counter = new Counter(0);
+    counter.initialize(context, elem);
+    return counter;
   }
 
-  abstract keyOf(createdAt: TimeTicket): string | undefined;
-
-  abstract purge(element: JSONElement): void;
-
-  abstract delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement;
-
-  abstract getDescendants(
-    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
-  ): void;
+  throw new TypeError(`Unsupported type of element: ${typeof elem}`);
 }
 
 /**
- * `TextElement` represents Text or RichText.
+ * `toJSONElement` converts the CRDT type to `JSONElement`.
  */
-export abstract class TextElement extends JSONElement {
-  abstract getRemovedNodesLen(): number;
-  abstract purgeTextNodesWithGarbage(ticket: TimeTicket): number;
+export function toJSONElement(
+  context: ChangeContext,
+  elem?: CRDTElement,
+): JSONElement | undefined {
+  const wrappedElement = toWrappedElement(context, elem);
+  if (wrappedElement instanceof Primitive) {
+    return wrappedElement.getValue();
+  }
+
+  return wrappedElement;
 }

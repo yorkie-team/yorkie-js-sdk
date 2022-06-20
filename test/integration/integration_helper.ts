@@ -4,7 +4,7 @@ import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
-  __karma__.config.testRPCAddr || 'http://localhost:8080';
+  __karma__?.config?.testRPCAddr || 'http://localhost:8080';
 
 export async function withTwoClientsAndDocuments<T>(
   callback: (

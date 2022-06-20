@@ -14,389 +14,219 @@
  * limitations under the License.
  */
 
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { RHT } from '@yorkie-js-sdk/src/document/json/rht';
-import { TextElement } from '@yorkie-js-sdk/src/document/json/element';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
-  TextChange,
-  TextChangeType,
-  RGATreeSplit,
   RGATreeSplitNodeRange,
-  Selection,
-} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-
-export interface RichTextVal {
-  attributes: Record<string, string>;
-  content: string;
-}
-
-/**
- * `RichTextValue` is a value of RichText
- * which has a attributes that expresses the text style.
- *
- * @internal
- */
-export class RichTextValue {
-  private attributes: RHT;
-  private content: string;
-
-  /** @hideconstructor */
-  constructor(content: string) {
-    this.attributes = RHT.create();
-    this.content = content;
-  }
-
-  /**
-   * `create` creates a instance of RichTextValue.
-   */
-  public static create(content: string): RichTextValue {
-    return new RichTextValue(content);
-  }
-
-  /**
-   * `length` returns the length of content.
-   */
-  public get length(): number {
-    return this.content.length;
-  }
-
-  /**
-   * `substring` returns a sub-string value of the given range.
-   */
-  public substring(indexStart: number, indexEnd: number): RichTextValue {
-    const value = new RichTextValue(
-      this.content.substring(indexStart, indexEnd),
-    );
-    value.attributes = this.attributes.deepcopy();
-    return value;
-  }
-
-  /**
-   * `setAttr` sets attribute of the given key, updated time and value.
-   */
-  public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
-    this.attributes.set(key, value, updatedAt);
-  }
-
-  /**
-   * `toString` returns content.
-   */
-  public toString(): string {
-    return this.content;
-  }
-
-  /**
-   * `toJSON` returns the JSON encoding of this .
-   */
-  public toJSON(): string {
-    return `{"attrs":${this.attributes.toJSON()},"content":${this.content}}`;
-  }
-
-  /**
-   * `getAttributes` returns the attributes of this value.
-   */
-  public getAttributes(): Record<string, string> {
-    return this.attributes.toObject();
-  }
-
-  /**
-   * `getContent` returns content.
-   */
-  public getContent(): string {
-    return this.content;
-  }
-}
+  TextChange,
+} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import {
+  CRDTRichText,
+  RichTextVal,
+} from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
+import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
+import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 /**
- *  `RichTextInternal` is an extended data type for the contents of a text editor.
- *
- * @internal
+ * `RichText` is an extended data type for the contents of a text editor.
  */
-export class RichTextInternal extends TextElement {
-  private onChangesHandler?: (changes: Array<TextChange>) => void;
-  private rgaTreeSplit: RGATreeSplit<RichTextValue>;
-  private selectionMap: Map<string, Selection>;
-  private remoteChangeLock: boolean;
+export class RichText {
+  private context?: ChangeContext;
+  private text?: CRDTRichText;
 
-  constructor(
-    rgaTreeSplit: RGATreeSplit<RichTextValue>,
-    createdAt: TimeTicket,
-  ) {
-    super(createdAt);
-    this.rgaTreeSplit = rgaTreeSplit;
-    this.selectionMap = new Map();
-    this.remoteChangeLock = false;
+  constructor(context?: ChangeContext, text?: CRDTRichText) {
+    this.context = context;
+    this.text = text;
   }
 
   /**
-   * `create` a instance of RichText.
-   */
-  public static create(
-    rgaTreeSplit: RGATreeSplit<RichTextValue>,
-    createdAt: TimeTicket,
-  ): RichTextInternal {
-    const text = new RichTextInternal(rgaTreeSplit, createdAt);
-    const range = text.createRange(0, 0);
-    text.editInternal(range, '\n', createdAt);
-    return text;
-  }
-
-  /**
-   * `editInternal` edits the given range with the given content and attributes.
-   *
+   * `initialize` initialize this rich text with context and internal text.
    * @internal
    */
-  public editInternal(
-    range: RGATreeSplitNodeRange,
+  public initialize(context: ChangeContext, text: CRDTRichText): void {
+    this.context = context;
+    this.text = text;
+  }
+
+  /**
+   * `getID` returns the ID of this text.
+   */
+  public getID(): TimeTicket {
+    return this.text!.getID();
+  }
+
+  /**
+   * `edit` edits this text with the given content.
+   */
+  edit(
+    fromIdx: number,
+    toIdx: number,
     content: string,
-    editedAt: TimeTicket,
     attributes?: Record<string, string>,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): Map<string, TimeTicket> {
-    const value = content ? RichTextValue.create(content) : undefined;
-    if (content && attributes) {
-      for (const [k, v] of Object.entries(attributes)) {
-        value!.setAttr(k, v, editedAt);
-      }
+  ): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
     }
 
-    const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
-      range,
-      editedAt,
-      value,
-      latestCreatedAtMapByActor,
-    );
-    if (content && attributes) {
-      const change = changes[changes.length - 1];
-      change.attributes = attributes;
+    if (fromIdx > toIdx) {
+      logger.fatal('from should be less than or equal to to');
+      return false;
     }
 
-    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
-    if (selectionChange) {
-      changes.push(selectionChange);
-    }
-
-    if (this.onChangesHandler) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler(changes);
-      this.remoteChangeLock = false;
-    }
-
-    return latestCreatedAtMap;
-  }
-
-  /**
-   * `setStyleInternal` applies the style of the given range.
-   * 01. split nodes with from and to
-   * 02. style nodes between from and to
-   *
-   * @param range - range of RGATreeSplitNode
-   * @param attributes - style attributes
-   * @param editedAt - edited time
-   * @internal
-   */
-  public setStyleInternal(
-    range: RGATreeSplitNodeRange,
-    attributes: Record<string, string>,
-    editedAt: TimeTicket,
-  ): void {
-    // 01. split nodes with from and to
-    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
-    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
-      range[0],
-      editedAt,
-    );
-
-    // 02. style nodes between from and to
-    const changes = [];
-    const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
-    for (const node of nodes) {
-      if (node.isRemoved()) {
-        continue;
-      }
-
-      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
-        node.createRange(),
+    const range = this.text.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
-      changes.push({
-        type: TextChangeType.Style,
-        actor: editedAt.getActorID()!,
-        from: fromIdx,
-        to: toIdx,
-        attributes,
-      });
-
-      for (const [key, value] of Object.entries(attributes)) {
-        node.getValue().setAttr(key, value, editedAt);
-      }
     }
 
-    if (this.onChangesHandler) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler(changes);
-      this.remoteChangeLock = false;
+    const ticket = this.context.issueTimeTicket();
+    const maxCreatedAtMapByActor = this.text.edit(
+      range,
+      content,
+      ticket,
+      attributes,
+    );
+
+    this.context.push(
+      new RichEditOperation(
+        this.text.getCreatedAt(),
+        range[0],
+        range[1],
+        maxCreatedAtMapByActor,
+        content,
+        attributes ? new Map(Object.entries(attributes)) : new Map(),
+        ticket,
+      ),
+    );
+
+    if (!range[0].equals(range[1])) {
+      this.context.registerRemovedNodeTextElement(this.text);
     }
+
+    return true;
   }
 
   /**
-   * `selectInternal` stores that the given range has been selected.
-   *
-   * @internal
+   * `setStyle` styles this text with the given attributes.
    */
-  public selectInternal(
-    range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
-  ): void {
-    if (this.remoteChangeLock) {
+  setStyle(
+    fromIdx: number,
+    toIdx: number,
+    attributes: Record<string, string>,
+  ): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
+    }
+
+    if (fromIdx > toIdx) {
+      logger.fatal('from should be less than or equal to to');
+      return false;
+    }
+
+    const range = this.text.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(
+          attributes,
+        )}`,
+      );
+    }
+
+    const ticket = this.context.issueTimeTicket();
+    this.text.setStyle(range, attributes, ticket);
+
+    this.context.push(
+      new StyleOperation(
+        this.text.getCreatedAt(),
+        range[0],
+        range[1],
+        new Map(Object.entries(attributes)),
+        ticket,
+      ),
+    );
+
+    return true;
+  }
+
+  /**
+   * `select` selects the given range.
+   */
+  select(fromIdx: number, toIdx: number): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
+    }
+
+    const range = this.text.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
+      );
+    }
+    const ticket = this.context.issueTimeTicket();
+    this.text.select(range, ticket);
+
+    this.context.push(
+      new SelectOperation(this.text.getCreatedAt(), range[0], range[1], ticket),
+    );
+
+    return true;
+  }
+
+  /**
+   * `getAnnotatedString` returns a String containing the meta data of the node
+   * for debugging purpose.
+   */
+  getAnnotatedString(): string {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
       return;
     }
 
-    const change = this.selectPriv(range, updatedAt);
-    if (this.onChangesHandler && change) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler([change]);
-      this.remoteChangeLock = false;
+    return this.text.getAnnotatedString();
+  }
+
+  /**
+   * `values` returns values of this text.
+   */
+  values(): Array<RichTextVal> {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
     }
-  }
 
-  /**
-   * `hasRemoteChangeLock` checks whether remoteChangeLock has.
-   */
-  public hasRemoteChangeLock(): boolean {
-    return this.remoteChangeLock;
-  }
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  public onChanges(handler: (changes: Array<TextChange>) => void): void {
-    this.onChangesHandler = handler;
+    return this.text.values();
   }
 
   /**
    * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
    */
-  public createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
-    const fromPos = this.rgaTreeSplit.findNodePos(fromIdx);
-    if (fromIdx === toIdx) {
-      return [fromPos, fromPos];
-    }
-
-    return [fromPos, this.rgaTreeSplit.findNodePos(toIdx)];
-  }
-
-  /**
-   * `toJSON` returns the JSON encoding of this rich text.
-   */
-  public toJSON(): string {
-    const json = [];
-
-    for (const node of this.rgaTreeSplit) {
-      if (!node.isRemoved()) {
-        json.push(node.getValue().toJSON());
-      }
-    }
-
-    return `[${json.join(',')}]`;
-  }
-
-  /**
-   * `toSortedJSON` returns the sorted JSON encoding of this rich text.
-   */
-  public toSortedJSON(): string {
-    return this.toJSON();
-  }
-
-  /**
-   * `values` returns value array of this RichTextVal.
-   */
-  public values(): Array<RichTextVal> {
-    const values = [];
-
-    for (const node of this.rgaTreeSplit) {
-      if (!node.isRemoved()) {
-        const value = node.getValue();
-        values.push({
-          attributes: value.getAttributes(),
-          content: value.getContent(),
-        });
-      }
-    }
-
-    return values;
-  }
-
-  /**
-   * `getRGATreeSplit` returns rgaTreeSplit.
-   *
-   * @internal
-   */
-  public getRGATreeSplit(): RGATreeSplit<RichTextValue> {
-    return this.rgaTreeSplit;
-  }
-
-  /**
-   * `getAnnotatedString` returns a String containing the meta data of this value
-   * for debugging purpose.
-   */
-  public getAnnotatedString(): string {
-    return this.rgaTreeSplit.getAnnotatedString();
-  }
-
-  /**
-   * `getRemovedNodesLen` returns length of removed nodes
-   */
-  public getRemovedNodesLen(): number {
-    return this.rgaTreeSplit.getRemovedNodesLen();
-  }
-
-  /**
-   * `purgeTextNodesWithGarbage` physically purges nodes that have been removed.
-   *
-   * @internal
-   */
-  public purgeTextNodesWithGarbage(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.purgeTextNodesWithGarbage(ticket);
-  }
-
-  /**
-   * `deepcopy` copies itself deeply.
-   */
-  public deepcopy(): RichTextInternal {
-    const text = new RichTextInternal(
-      this.rgaTreeSplit.deepcopy(),
-      this.getCreatedAt(),
-    );
-    text.remove(this.getRemovedAt());
-    return text;
-  }
-
-  private selectPriv(
-    range: RGATreeSplitNodeRange,
-    updatedAt: TimeTicket,
-  ): TextChange | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
-      );
+  createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
       return;
     }
 
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
-    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
-      );
+    return this.text.createRange(fromIdx, toIdx);
+  }
 
-      const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
-      return {
-        type: TextChangeType.Selection,
-        actor: updatedAt.getActorID()!,
-        from,
-        to,
-      };
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  onChanges(handler: (changes: Array<TextChange>) => void): void {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return;
     }
+
+    this.text.onChanges(handler);
   }
 }

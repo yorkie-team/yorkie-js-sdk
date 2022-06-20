@@ -18,12 +18,12 @@ import {
   TimeTicket,
   InitialDelimiter,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONRoot } from '@yorkie-js-sdk/src/document/json/root';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
-  JSONContainer,
-  JSONElement,
-  TextElement,
-} from '@yorkie-js-sdk/src/document/json/element';
+  CRDTContainer,
+  CRDTElement,
+  CRDTTextElement,
+} from '@yorkie-js-sdk/src/document/crdt/element';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
@@ -35,12 +35,12 @@ import { Change } from '@yorkie-js-sdk/src/document/change/change';
  */
 export class ChangeContext {
   private id: ChangeID;
-  private root: JSONRoot;
+  private root: CRDTRoot;
   private operations: Array<Operation>;
   private message?: string;
   private delimiter: number;
 
-  constructor(id: ChangeID, root: JSONRoot, message?: string) {
+  constructor(id: ChangeID, root: CRDTRoot, message?: string) {
     this.id = id;
     this.root = root;
     this.message = message;
@@ -53,7 +53,7 @@ export class ChangeContext {
    */
   public static create(
     id: ChangeID,
-    root: JSONRoot,
+    root: CRDTRoot,
     message?: string,
   ): ChangeContext {
     return new ChangeContext(id, root, message);
@@ -69,14 +69,14 @@ export class ChangeContext {
   /**
    * `registerElement` registers the given element to the root.
    */
-  public registerElement(element: JSONElement, parent: JSONContainer): void {
+  public registerElement(element: CRDTElement, parent: CRDTContainer): void {
     this.root.registerElement(element, parent);
   }
 
   /**
    * `registerRemovedElement` register removed element for garbage collection.
    */
-  public registerRemovedElement(deleted: JSONElement): void {
+  public registerRemovedElement(deleted: CRDTElement): void {
     this.root.registerRemovedElement(deleted);
   }
 
@@ -84,7 +84,7 @@ export class ChangeContext {
    * `registerRemovedNodeTextElement` register text element has removed node for
    * garbage collection.
    */
-  public registerRemovedNodeTextElement(text: TextElement): void {
+  public registerRemovedNodeTextElement(text: CRDTTextElement): void {
     this.root.registerTextWithGarbage(text);
   }
 

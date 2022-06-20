@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { PlainText, RichText } from '@yorkie-js-sdk/src/yorkie';
@@ -62,10 +62,10 @@ describe('Garbage Collection', function () {
     assert.equal(1, doc.garbageCollect(MaxTimeTicket));
     assert.equal(0, doc.getGarbageLen());
 
-    const root = (doc.getRootObject().get('list') as ArrayInternal)
+    const root = (doc.getRootObject().get('list') as CRDTArray)
       .getElements()
       .getAnnotatedString();
-    const clone = (doc.getClone()!.get('list') as ArrayInternal)
+    const clone = (doc.getClone()!.get('list') as CRDTArray)
       .getElements()
       .getAnnotatedString();
 
