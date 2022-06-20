@@ -16,6 +16,6 @@ constructor(value: PrimitiveValue, createdAt: TimeTicket);
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  value | PrimitiveValue |  |
+|  value | [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) |  |
 |  createdAt | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 

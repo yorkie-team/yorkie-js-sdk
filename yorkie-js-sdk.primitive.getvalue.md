@@ -13,5 +13,5 @@ getValue(): PrimitiveValue;
 ```
 <b>Returns:</b>
 
-PrimitiveValue
+[PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)
 

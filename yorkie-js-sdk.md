@@ -58,6 +58,7 @@
 |  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> represents the type the user is using. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
+|  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) |  |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

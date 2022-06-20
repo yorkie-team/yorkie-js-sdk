@@ -16,7 +16,7 @@ static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  value | PrimitiveValue |  |
+|  value | [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) |  |
 |  createdAt | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 
 <b>Returns:</b>

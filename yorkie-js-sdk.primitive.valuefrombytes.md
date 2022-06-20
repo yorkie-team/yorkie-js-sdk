@@ -21,5 +21,5 @@ static valueFromBytes(primitiveType: PrimitiveType, bytes: Uint8Array): Primitiv
 
 <b>Returns:</b>
 
-PrimitiveValue
+[PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)
 
