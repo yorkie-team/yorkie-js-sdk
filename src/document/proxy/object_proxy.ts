@@ -121,12 +121,12 @@ export class ObjectProxy {
   /**
    * `create` creates a new instance of ObjectProxy.
    */
-  public static create(
+  public static create<T extends Indexable>(
     context: ChangeContext,
     target: ObjectInternal,
-  ): ObjectInternal {
+  ): JSONObject<T> {
     const objectProxy = new ObjectProxy(context);
-    return new Proxy(target, objectProxy.getHandlers());
+    return new Proxy(target, objectProxy.getHandlers()) as any;
   }
 
   /**

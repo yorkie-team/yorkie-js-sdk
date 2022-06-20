@@ -28,7 +28,7 @@ import {
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/json/primitive';
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
-import { toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
+import { JSONType, toProxy } from '@yorkie-js-sdk/src/document/proxy/proxy';
 
 /**
  * `JSONArray` represents JSON array, but unlike regular JSON, it has time
@@ -146,18 +146,16 @@ export class ArrayProxy {
         method: keyof JSONArray<unknown>,
         receiver: any,
       ): any => {
-        // Yorkie extension API
-
         if (method === 'getID') {
           return (): TimeTicket => {
             return target.getCreatedAt();
           };
         } else if (method === 'getElementByID') {
-          return (createdAt: TimeTicket): JSONElement => {
+          return (createdAt: TimeTicket): JSONType | undefined => {
             return toProxy(context, target.get(createdAt));
           };
         } else if (method === 'getElementByIndex') {
-          return (index: number): JSONElement => {
+          return (index: number): JSONType | undefined => {
             const elem = target.getByIndex(index);
             if (elem instanceof JSONPrimitive) {
               return elem;
@@ -165,11 +163,11 @@ export class ArrayProxy {
             return toProxy(context, elem);
           };
         } else if (method === 'getLast') {
-          return (): JSONElement => {
+          return (): JSONType | undefined => {
             return toProxy(context, target.getLast());
           };
         } else if (method === 'deleteByID') {
-          return (createdAt: TimeTicket): JSONElement => {
+          return (createdAt: TimeTicket): JSONType | undefined => {
             const deleted = ArrayProxy.deleteInternalByID(
               context,
               target,
@@ -178,7 +176,7 @@ export class ArrayProxy {
             return toProxy(context, deleted);
           };
         } else if (method === 'insertAfter') {
-          return (prevID: TimeTicket, value: any): JSONElement => {
+          return (prevID: TimeTicket, value: any): JSONType | undefined => {
             const inserted = ArrayProxy.insertAfterInternal(
               context,
               target,
@@ -188,7 +186,7 @@ export class ArrayProxy {
             return toProxy(context, inserted);
           };
         } else if (method === 'insertBefore') {
-          return (nextID: TimeTicket, value: any): JSONElement => {
+          return (nextID: TimeTicket, value: any): JSONType | undefined => {
             const inserted = ArrayProxy.insertBeforeInternal(
               context,
               target,
@@ -260,9 +258,9 @@ export class ArrayProxy {
   public static *iteratorInternal(
     change: ChangeContext,
     target: ArrayInternal,
-  ): IterableIterator<any> {
+  ): IterableIterator<JSONType> {
     for (const elem of target) {
-      yield toProxy(change, elem);
+      yield toProxy(change, elem)!;
     }
   }
 
@@ -272,9 +270,9 @@ export class ArrayProxy {
   public static create(
     context: ChangeContext,
     target: ArrayInternal,
-  ): ArrayInternal {
+  ): JSONArray<JSONType> {
     const arrayProxy = new ArrayProxy(context, target);
-    return new Proxy(target, arrayProxy.getHandlers());
+    return new Proxy(target, arrayProxy.getHandlers()) as any;
   }
 
   /**

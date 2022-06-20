@@ -14,15 +14,25 @@
  * limitations under the License.
  */
 
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import { ObjectInternal } from '@yorkie-js-sdk/src/document/json/object';
 import { ArrayInternal } from '@yorkie-js-sdk/src/document/json/array';
-import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import {
+  JSONPrimitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/json/primitive';
 import { RichTextInternal } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { PlainTextInternal } from '@yorkie-js-sdk/src/document/json/plain_text';
-import { ObjectProxy } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
-import { ArrayProxy } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
+import {
+  JSONObject,
+  ObjectProxy,
+} from '@yorkie-js-sdk/src/document/proxy/object_proxy';
+import {
+  JSONArray,
+  ArrayProxy,
+} from '@yorkie-js-sdk/src/document/proxy/array_proxy';
 import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
 import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
 import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
@@ -31,17 +41,31 @@ import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
 /**
  * `createProxy` create a new instance of ObjectProxy.
  */
-export function createProxy<T>(
+export function createProxy<T extends Indexable>(
   context: ChangeContext,
   target: ObjectInternal,
-): T & ObjectInternal {
-  return ObjectProxy.create(context, target) as T & ObjectInternal;
+): JSONObject<T> {
+  return ObjectProxy.create(context, target);
 }
+
+/**
+ * `JSONType` represents the type the user is using.
+ */
+export type JSONType =
+  | PrimitiveValue
+  | JSONObject<Indexable>
+  | JSONArray<unknown>
+  | PlainText
+  | RichText
+  | Counter;
 
 /**
  * `toProxy` returns a proxy based on element.
  */
-export function toProxy(context: ChangeContext, elem?: JSONElement): any {
+export function toProxy(
+  context: ChangeContext,
+  elem?: JSONElement,
+): JSONType | undefined {
   if (elem instanceof JSONPrimitive) {
     const primitive = elem as JSONPrimitive;
     return primitive.getValue();
