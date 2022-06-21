@@ -176,6 +176,13 @@ export class SplayTree<V> {
   }
 
   /**
+   * `length` returns the size of this tree.
+   */
+  public get length(): number {
+    return this.root ? this.root.getWeight() : 0;
+  }
+
+  /**
    * `find` returns the Node and offset of the given index.
    */
   public find(pos: number): [SplayNode<V> | undefined, number] {
@@ -341,6 +348,7 @@ export class SplayTree<V> {
         } else if (this.isRightChild(node)) {
           this.rotateLeft(node);
         }
+        this.updateWeight(node);
         return;
       }
     }

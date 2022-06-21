@@ -97,21 +97,25 @@ describe('DocumentReplica', function () {
       root.data = [0, 1, 2];
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
+    assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       delete root.data[0];
     });
     assert.equal('{"data":[1,2]}', doc.toSortedJSON());
+    assert.equal(2, doc.getRoot().data.length);
 
     doc.update((root) => {
       delete root.data[1];
     });
     assert.equal('{"data":[1]}', doc.toSortedJSON());
+    assert.equal(1, doc.getRoot().data.length);
 
     doc.update((root) => {
       delete root.data[0];
     });
     assert.equal('{"data":[]}', doc.toSortedJSON());
+    assert.equal(0, doc.getRoot().data.length);
   });
 
   it('move elements before a specific node of array', function () {
