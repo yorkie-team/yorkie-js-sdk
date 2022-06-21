@@ -20,15 +20,15 @@ import {
   TicketComparator,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 /**
  * `RHTPQMapNode` is a node of RHTPQMap.
  */
-export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
+export class RHTPQMapNode extends HeapNode<TimeTicket, CRDTElement> {
   private strKey: string;
 
-  constructor(strKey: string, value: JSONElement) {
+  constructor(strKey: string, value: CRDTElement) {
     super(value.getCreatedAt(), value);
     this.strKey = strKey;
   }
@@ -36,7 +36,7 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
   /**
    * `of` creates a instance of RHTPQMapNode.
    */
-  public static of(strKey: string, value: JSONElement): RHTPQMapNode {
+  public static of(strKey: string, value: CRDTElement): RHTPQMapNode {
     return new RHTPQMapNode(strKey, value);
   }
 
@@ -68,7 +68,7 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, JSONElement> {
  * @internal
  */
 export class RHTPQMap {
-  private elementQueueMapByKey: Map<string, Heap<TimeTicket, JSONElement>>;
+  private elementQueueMapByKey: Map<string, Heap<TimeTicket, CRDTElement>>;
   private nodeMapByCreatedAt: Map<string, RHTPQMapNode>;
 
   constructor() {
@@ -86,7 +86,7 @@ export class RHTPQMap {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: JSONElement): JSONElement | undefined {
+  public set(key: string, value: CRDTElement): CRDTElement | undefined {
     let removed;
     const queue = this.elementQueueMapByKey.get(key);
     if (queue && queue.len()) {
@@ -103,7 +103,7 @@ export class RHTPQMap {
   /**
    * `setInternal` sets the value of the given key.
    */
-  public setInternal(key: string, value: JSONElement): void {
+  public setInternal(key: string, value: CRDTElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -116,7 +116,7 @@ export class RHTPQMap {
   /**
    * `delete` deletes deletes the Element of the given key.
    */
-  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
+  public delete(createdAt: TimeTicket, executedAt: TimeTicket): CRDTElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
       logger.fatal(`fail to find ${createdAt.toIDString()}`);
     }
@@ -141,7 +141,7 @@ export class RHTPQMap {
   /**
    * `purge` physically purge child element.
    */
-  public purge(element: JSONElement): void {
+  public purge(element: CRDTElement): void {
     const node = this.nodeMapByCreatedAt.get(
       element.getCreatedAt().toIDString(),
     );
@@ -168,7 +168,7 @@ export class RHTPQMap {
   public deleteByKey(
     key: string,
     removedAt: TimeTicket,
-  ): JSONElement | undefined {
+  ): CRDTElement | undefined {
     if (!this.elementQueueMapByKey.has(key)) {
       return;
     }
@@ -193,7 +193,7 @@ export class RHTPQMap {
   /**
    * `get` returns the value of the given key.
    */
-  public get(key: string): JSONElement | undefined {
+  public get(key: string): CRDTElement | undefined {
     if (!this.elementQueueMapByKey.has(key)) {
       return;
     }

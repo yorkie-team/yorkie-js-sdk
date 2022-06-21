@@ -17,19 +17,16 @@
 import { assert } from 'chai';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import Long from 'long';
-import { CounterInternal } from '@yorkie-js-sdk/src/document/json/counter';
-import { JSONPrimitive } from '@yorkie-js-sdk/src/document/json/primitive';
+import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
-    const double = CounterInternal.of(10, InitialTimeTicket);
-    const long = CounterInternal.of(Long.fromString('100'), InitialTimeTicket);
+    const double = CRDTCounter.of(10, InitialTimeTicket);
+    const long = CRDTCounter.of(Long.fromString('100'), InitialTimeTicket);
 
-    const doubleOperand = JSONPrimitive.of(10, InitialTimeTicket);
-    const longOperand = JSONPrimitive.of(
-      Long.fromString('100'),
-      InitialTimeTicket,
-    );
+    const doubleOperand = Primitive.of(10, InitialTimeTicket);
+    const longOperand = Primitive.of(Long.fromString('100'), InitialTimeTicket);
 
     double.increase(doubleOperand);
     double.increase(longOperand);
@@ -40,7 +37,7 @@ describe('Counter', function () {
     assert.equal((long.getValue() as Long).toNumber(), 210);
 
     // error process test
-    function errorTest(counter: CounterInternal, operand: JSONPrimitive): void {
+    function errorTest(counter: CRDTCounter, operand: Primitive): void {
       const errValue = !counter.isNumericType()
         ? counter.getValue()
         : operand.getValue();
@@ -50,10 +47,10 @@ describe('Counter', function () {
       }, `Unsupported type of value: ${typeof errValue}`);
     }
 
-    const str = JSONPrimitive.of('hello', InitialTimeTicket);
-    const bool = JSONPrimitive.of(true, InitialTimeTicket);
-    const uint8arr = JSONPrimitive.of(new Uint8Array(), InitialTimeTicket);
-    const date = JSONPrimitive.of(new Date(), InitialTimeTicket);
+    const str = Primitive.of('hello', InitialTimeTicket);
+    const bool = Primitive.of(true, InitialTimeTicket);
+    const uint8arr = Primitive.of(new Uint8Array(), InitialTimeTicket);
+    const date = Primitive.of(new Date(), InitialTimeTicket);
 
     errorTest(double, str);
     errorTest(double, bool);
@@ -64,11 +61,8 @@ describe('Counter', function () {
     assert.equal((long.getValue() as Long).toNumber(), 210);
 
     // subtraction test
-    const negative = JSONPrimitive.of(-50, InitialTimeTicket);
-    const negativeLong = JSONPrimitive.of(
-      Long.fromNumber(-100),
-      InitialTimeTicket,
-    );
+    const negative = Primitive.of(-50, InitialTimeTicket);
+    const negativeLong = Primitive.of(Long.fromNumber(-100), InitialTimeTicket);
     double.increase(negative);
     double.increase(negativeLong);
     assert.equal(double.getValue(), -30);

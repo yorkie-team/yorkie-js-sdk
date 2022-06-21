@@ -16,9 +16,9 @@
 
 import { Client } from '@yorkie-js-sdk/src/core/client';
 import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
-import { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
-import { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 export {
   Client,
@@ -57,13 +57,20 @@ export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export {
   TextChange,
   TextChangeType,
-} from '@yorkie-js-sdk/src/document/json/rga_tree_split';
-export { JSONElement } from '@yorkie-js-sdk/src/document/json/element';
-export { JSONArray } from '@yorkie-js-sdk/src/document/proxy/array_proxy';
-export { Counter } from '@yorkie-js-sdk/src/document/proxy/counter_proxy';
-export { JSONObject } from '@yorkie-js-sdk/src/document/proxy/object_proxy';
-export { RichText } from '@yorkie-js-sdk/src/document/proxy/rich_text_proxy';
-export { PlainText } from '@yorkie-js-sdk/src/document/proxy/text_proxy';
+} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+export {
+  Primitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
+export {
+  WrappedElement,
+  JSONElement,
+} from '@yorkie-js-sdk/src/document/json/element';
+export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+export { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
 
 /**
  * The top-level yorkie namespace with additional properties.

@@ -14,185 +14,309 @@
  * limitations under the License.
  */
 
+import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
-  JSONContainer,
-  JSONElement,
-} from '@yorkie-js-sdk/src/document/json/element';
-import { RHTPQMap } from '@yorkie-js-sdk/src/document/json/rht_pq_map';
+  Primitive,
+  PrimitiveValue,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
+import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
+import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
+import {
+  CounterValue,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
- * `ObjectInternal` represents a JSON object, but unlike regular JSON, it has time
- * tickets which is created by logical clock.
- *
- * @internal
+ * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
+ * tickets created by a logical clock to resolve conflicts.
  */
-export class ObjectInternal extends JSONContainer {
-  private memberNodes: RHTPQMap;
-
-  /** @hideconstructor */
-  constructor(createdAt: TimeTicket, memberNodes: RHTPQMap) {
-    super(createdAt);
-    this.memberNodes = memberNodes;
-  }
-
+export type JSONObject<T> = {
   /**
-   * `create` creates a new instance of Object.
+   * `getID` returns the ID(time ticket) of this Object.
    */
-  public static create(createdAt: TimeTicket): ObjectInternal {
-    return new ObjectInternal(createdAt, RHTPQMap.create());
-  }
-
-  /**
-   * `keyOf` returns a key of RHTPQMap based on the given creation time.
-   */
-  public keyOf(createdAt: TimeTicket): string | undefined {
-    return this.memberNodes.keyOf(createdAt);
-  }
-
-  /**
-   * `purge` physically purges child element.
-   */
-  public purge(value: JSONElement): void {
-    this.memberNodes.purge(value);
-  }
-
-  /**
-   * `set` sets the given element of the given key.
-   */
-  public set(key: string, value: JSONElement): JSONElement | undefined {
-    return this.memberNodes.set(key, value);
-  }
-
-  /**
-   * `delete` deletes the element of the given key.
-   */
-  public delete(createdAt: TimeTicket, executedAt: TimeTicket): JSONElement {
-    return this.memberNodes.delete(createdAt, executedAt);
-  }
-
-  /**
-   * `deleteByKey` deletes the element of the given key and execution time.
-   */
-  public deleteByKey(
-    key: string,
-    executedAt: TimeTicket,
-  ): JSONElement | undefined {
-    return this.memberNodes.deleteByKey(key, executedAt);
-  }
-
-  /**
-   * `get` returns the value of the given key.
-   */
-  public get(key: string): JSONElement | undefined {
-    return this.memberNodes.get(key);
-  }
-
-  /**
-   * `has` returns whether the element exists of the given key or not.
-   */
-  public has(key: string): boolean {
-    return this.memberNodes.has(key);
-  }
+  getID?(): TimeTicket;
 
   /**
    * `toJSON` returns the JSON encoding of this object.
    */
-  public toJSON(): string {
-    const json = [];
-    for (const [key, value] of this) {
-      json.push(`"${key}":${value.toJSON()}`);
-    }
-    return `{${json.join(',')}}`;
+  toJSON?(): string;
+} & T;
+
+/**
+ * `createJSONObject` creates a new instance of JSONObject.
+ */
+export function createJSONObject<T>(
+  context: ChangeContext,
+  target: CRDTObject,
+): JSONObject<T> {
+  const objectProxy = new ObjectProxy(context);
+  return new Proxy(target, objectProxy.getHandlers()) as any;
+}
+
+/**
+ * `ObjectProxy` is a proxy representing `Object`.
+ */
+export class ObjectProxy {
+  private context: ChangeContext;
+  private handlers: any;
+
+  constructor(context: ChangeContext) {
+    this.context = context;
+    this.handlers = {
+      set: (target: CRDTObject, key: string, value: any): boolean => {
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${key}]=${JSON.stringify(value)}`);
+        }
+
+        ObjectProxy.setInternal(context, target, key, value);
+        return true;
+      },
+
+      get: (
+        target: CRDTObject,
+        keyOrMethod: Extract<keyof JSONObject<any>, 'string'>,
+      ): any => {
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${keyOrMethod}]`);
+        }
+
+        if (keyOrMethod === 'getID') {
+          return (): TimeTicket => {
+            return target.getCreatedAt();
+          };
+        } else if (keyOrMethod === 'toJSON' || keyOrMethod === 'toString') {
+          return (): string => {
+            return target.toJSON();
+          };
+        }
+
+        return toJSONElement(context, target.get(keyOrMethod));
+      },
+
+      ownKeys: (target: CRDTObject): Array<string> => {
+        return target.getKeys();
+      },
+
+      getOwnPropertyDescriptor: () => {
+        return {
+          enumerable: true,
+          configurable: true,
+        };
+      },
+
+      deleteProperty: (target: CRDTObject, key: string): boolean => {
+        if (logger.isEnabled(LogLevel.Trivial)) {
+          logger.trivial(`obj[${key}]`);
+        }
+
+        ObjectProxy.deleteInternal(context, target, key);
+        return true;
+      },
+    };
   }
 
   /**
-   * `toJS` return the javascript object of this object.
+   * `setInternal` sets a new Object for the given key
    */
-  public toJS(): any {
-    return JSON.parse(this.toJSON());
-  }
-
-  /**
-   * `getKeys` returns array of this object.
-   */
-  public getKeys(): Array<string> {
-    const keys = Array<string>();
-    for (const [key] of this) {
-      keys.push(key);
-    }
-
-    return keys;
-  }
-
-  /**
-   * `toSortedJSON` returns the sorted JSON encoding of this object.
-   */
-  public toSortedJSON(): string {
-    const keys = Array<string>();
-    for (const [key] of this) {
-      keys.push(key);
-    }
-
-    const json = [];
-    for (const key of keys.sort()) {
-      const node = this.memberNodes.get(key);
-      json.push(`"${key}":${node!.toSortedJSON()}`);
-    }
-
-    return `{${json.join(',')}}`;
-  }
-
-  /**
-   * `getRHT` RHTNodes returns the RHTPQMap nodes.
-   */
-  public getRHT(): RHTPQMap {
-    return this.memberNodes;
-  }
-
-  /**
-   * `deepcopy` copies itself deeply.
-   */
-  public deepcopy(): ObjectInternal {
-    const clone = ObjectInternal.create(this.getCreatedAt());
-    for (const node of this.memberNodes) {
-      clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
-    }
-    clone.remove(this.getRemovedAt());
-    return clone;
-  }
-
-  /**
-   * `getDescendants` returns the descendants of this object by traversing.
-   */
-  public getDescendants(
-    callback: (elem: JSONElement, parent: JSONContainer) => boolean,
+  public static setInternal(
+    context: ChangeContext,
+    target: CRDTObject,
+    key: string,
+    value: unknown,
   ): void {
-    for (const node of this.memberNodes) {
-      const element = node.getValue();
-      if (callback(element, this)) {
-        return;
-      }
+    const ticket = context.issueTimeTicket();
 
-      if (element instanceof JSONContainer) {
-        element.getDescendants(callback);
+    const setAndRegister = function (elem: CRDTElement) {
+      const removed = target.set(key, elem);
+      context.registerElement(elem, target);
+      if (removed) {
+        context.registerRemovedElement(removed);
       }
-    }
-  }
+    };
 
-  /**
-   * eslint-disable-next-line jsdoc/require-jsdoc
-   * @internal
-   */
-  public *[Symbol.iterator](): IterableIterator<[string, JSONElement]> {
-    const keySet = new Set<string>();
-    for (const node of this.memberNodes) {
-      if (!keySet.has(node.getStrKey())) {
-        keySet.add(node.getStrKey());
-        if (!node.isRemoved()) {
-          yield [node.getStrKey(), node.getValue()];
+    if (Primitive.isSupport(value)) {
+      const primitive = Primitive.of(value as PrimitiveValue, ticket);
+      setAndRegister(primitive);
+      context.push(
+        SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
+      );
+    } else if (Array.isArray(value)) {
+      const array = CRDTArray.create(ticket);
+      setAndRegister(array);
+      context.push(
+        SetOperation.create(
+          key,
+          array.deepcopy(),
+          target.getCreatedAt(),
+          ticket,
+        ),
+      );
+      for (const element of value) {
+        ArrayProxy.pushInternal(context, array, element);
+      }
+    } else if (typeof value === 'object') {
+      if (value instanceof PlainText) {
+        const text = CRDTPlainText.create(RGATreeSplit.create(), ticket);
+        target.set(key, text);
+        context.registerElement(text, target);
+        context.push(
+          SetOperation.create(
+            key,
+            text.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        value.initialize(context, text);
+      } else if (value instanceof RichText) {
+        const text = CRDTRichText.create(RGATreeSplit.create(), ticket);
+        target.set(key, text);
+        context.registerElement(text, target);
+        context.push(
+          SetOperation.create(
+            key,
+            text.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        value.initialize(context, text);
+      } else if (value instanceof Counter) {
+        const counter = CRDTCounter.of(value.getValue(), ticket);
+        target.set(key, counter);
+        context.registerElement(counter, target);
+        context.push(
+          SetOperation.create(
+            key,
+            counter.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        value.initialize(context, counter);
+      } else {
+        const obj = CRDTObject.create(ticket);
+        setAndRegister(obj);
+        context.push(
+          SetOperation.create(
+            key,
+            obj.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        for (const [k, v] of Object.entries(value!)) {
+          ObjectProxy.setInternal(context, obj, k, v);
         }
       }
+    } else {
+      logger.fatal(`unsupported type of value: ${typeof value}`);
     }
+  }
+
+  /**
+   * `createText` creates a new Text for the given key
+   */
+  public static createText(
+    context: ChangeContext,
+    target: CRDTObject,
+    key: string,
+  ): PlainText {
+    const ticket = context.issueTimeTicket();
+    const text = CRDTPlainText.create(RGATreeSplit.create(), ticket);
+    target.set(key, text);
+    context.registerElement(text, target);
+    context.push(
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+    );
+    return new PlainText(context, text);
+  }
+
+  /**
+   * `createRichText` a new RichText for the given key.
+   */
+  public static createRichText(
+    context: ChangeContext,
+    target: CRDTObject,
+    key: string,
+  ): RichText {
+    const ticket = context.issueTimeTicket();
+    const text = CRDTRichText.create(RGATreeSplit.create(), ticket);
+    target.set(key, text);
+    context.registerElement(text, target);
+    context.push(
+      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
+    );
+    return new RichText(context, text);
+  }
+
+  /**
+   * `createCounter` a new Counter for the given key.
+   */
+  public static createCounter(
+    context: ChangeContext,
+    target: CRDTObject,
+    key: string,
+    value: CounterValue,
+  ): Counter {
+    const ticket = context.issueTimeTicket();
+    const counterInternal = CRDTCounter.of(value, ticket);
+    target.set(key, counterInternal);
+    context.registerElement(counterInternal, target);
+    context.push(
+      SetOperation.create(
+        key,
+        counterInternal.deepcopy(),
+        target.getCreatedAt(),
+        ticket,
+      ),
+    );
+    const counter = new Counter(0);
+    counter.initialize(context, counterInternal);
+    return counter;
+  }
+
+  /**
+   * `deleteInternal` deletes the value of the given key.
+   */
+  public static deleteInternal(
+    context: ChangeContext,
+    target: CRDTObject,
+    key: string,
+  ): void {
+    const ticket = context.issueTimeTicket();
+    const deleted = target.deleteByKey(key, ticket);
+    if (!deleted) {
+      return;
+    }
+
+    context.push(
+      RemoveOperation.create(
+        target.getCreatedAt(),
+        deleted.getCreatedAt(),
+        ticket,
+      ),
+    );
+    context.registerRemovedElement(deleted);
+  }
+
+  /**
+   * `getHandlers` gets handlers.
+   */
+  public getHandlers(): any {
+    return this.handlers;
   }
 }
