@@ -15,20 +15,20 @@
  */
 
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { Counter, PlainText } from '@yorkie-js-sdk/src/yorkie';
+import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: {
         ['k1.1']: boolean;
         ['k1.2']: number;
         ['k1.5']: string;
       };
       k2: Array<boolean | number | string>;
-      k3: PlainText;
+      k3: Text;
       k4: Counter;
     }>('test-doc');
 
@@ -53,7 +53,7 @@ describe('Converter', function () {
         // new Date(),
       ];
 
-      root.k3 = new PlainText();
+      root.k3 = new Text();
       root.k3.edit(0, 0, 'ㅎ');
       root.k3.edit(0, 1, '하');
       root.k3.edit(0, 1, '한');

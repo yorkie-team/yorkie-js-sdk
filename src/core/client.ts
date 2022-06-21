@@ -40,7 +40,7 @@ import { YorkieClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie_grpc_we
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
@@ -226,7 +226,7 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 }
 
 interface Attachment<M> {
-  doc: DocumentReplica<unknown>;
+  doc: Document<unknown>;
   isRealtimeSync: boolean;
   peerPresenceMap?: Map<string, PresenceInfo<M>>;
   remoteChangeEventReceived?: boolean;
@@ -395,9 +395,9 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * this client will synchronize the given document.
    */
   public attach(
-    doc: DocumentReplica<unknown>,
+    doc: Document<unknown>,
     isManualSync?: boolean,
-  ): Promise<DocumentReplica<unknown>> {
+  ): Promise<Document<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -441,8 +441,8 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * if the document is no longer used by this client, it should be detached.
    */
   public detach(
-    doc: DocumentReplica<unknown>,
-  ): Promise<DocumentReplica<unknown>> {
+    doc: Document<unknown>,
+  ): Promise<Document<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -478,7 +478,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(): Promise<Array<DocumentReplica<unknown>>> {
+  public sync(): Promise<Array<Document<unknown>>> {
     const promises = [];
     for (const [, attachment] of this.attachmentMap) {
       promises.push(this.syncInternal(attachment.doc));
@@ -791,8 +791,8 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   }
 
   private syncInternal(
-    doc: DocumentReplica<unknown>,
-  ): Promise<DocumentReplica<unknown>> {
+    doc: Document<unknown>,
+  ): Promise<Document<unknown>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
       req.setClientId(converter.toUint8Array(this.id!));

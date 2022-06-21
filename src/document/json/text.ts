@@ -21,18 +21,18 @@ import {
   RGATreeSplitNodeRange,
   TextChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 /**
- * `PlainText` represents plain text element for representing contents of a text editor.
+ * `Text` represents text element for representing contents of a text editor.
  */
-export class PlainText {
+export class Text {
   private context?: ChangeContext;
-  private text?: CRDTPlainText;
+  private text?: CRDTText;
 
-  constructor(context?: ChangeContext, text?: CRDTPlainText) {
+  constructor(context?: ChangeContext, text?: CRDTText) {
     this.context = context;
     this.text = text;
   }
@@ -41,7 +41,7 @@ export class PlainText {
    * `initialize` initialize this text with context and internal text.
    * @internal
    */
-  public initialize(context: ChangeContext, text: CRDTPlainText): void {
+  public initialize(context: ChangeContext, text: CRDTText): void {
     this.context = context;
     this.text = text;
   }

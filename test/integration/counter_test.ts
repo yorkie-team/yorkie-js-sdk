@@ -1,11 +1,11 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Counter } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: { age?: Counter; length?: Counter };
     }>('test-doc');
 

@@ -17,19 +17,19 @@
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  DocumentReplica,
+  Document,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
 import {
   JSONArray,
-  PlainText,
+  Text,
   RichText,
   Counter,
 } from '@yorkie-js-sdk/src/yorkie';
 
-describe('DocumentReplica', function () {
+describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1?: string;
       k2?: string;
       k3: Array<number>;
@@ -52,7 +52,7 @@ describe('DocumentReplica', function () {
   it('generic type parameter test', function () {
     type Todos = { todos: Array<{ title: string; done: boolean }> };
 
-    const doc = DocumentReplica.create<Todos>('test-doc');
+    const doc = Document.create<Todos>('test-doc');
     doc.update((root) => {
       root.todos = [
         {
@@ -81,7 +81,7 @@ describe('DocumentReplica', function () {
 
   it('null value test', function () {
     const doc =
-      DocumentReplica.create<{ data: { '': null; null: null } }>('test-doc');
+      Document.create<{ data: { '': null; null: null } }>('test-doc');
     doc.update((root) => {
       root.data = {
         '': null,
@@ -92,7 +92,7 @@ describe('DocumentReplica', function () {
   });
 
   it('delete elements of array test', function () {
-    const doc = DocumentReplica.create<{ data: Array<number> }>('test-doc');
+    const doc = Document.create<{ data: Array<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -119,7 +119,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -146,7 +146,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -165,7 +165,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -192,7 +192,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements after a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -211,7 +211,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -236,7 +236,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the first of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -254,7 +254,7 @@ describe('DocumentReplica', function () {
   });
 
   it('move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -279,7 +279,7 @@ describe('DocumentReplica', function () {
   });
 
   it('simple move elements at the last of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -297,7 +297,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for object', async function () {
-    const doc = DocumentReplica.create<any>('test-doc');
+    const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -328,7 +328,7 @@ describe('DocumentReplica', function () {
   });
 
   it('change paths test for array', async function () {
-    const doc = DocumentReplica.create<any>('test-doc');
+    const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -357,7 +357,7 @@ describe('DocumentReplica', function () {
 
   it('change paths test for counter', async function () {
     type TestDoc = { cnt: Counter };
-    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -379,21 +379,21 @@ describe('DocumentReplica', function () {
   it('support TypeScript', function () {
     type TestDoc = {
       array: Array<number>;
-      text: PlainText;
+      text: Text;
     };
 
-    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    const doc = Document.create<TestDoc>('test-doc');
     doc.update((root) => {
       root.array = [1, 2];
-      root.text = new PlainText();
+      root.text = new Text();
       root.text.edit(0, 0, 'hello world');
     });
   });
 
   it('change paths test for text', async function () {
-    type TestDoc = { text: PlainText };
+    type TestDoc = { text: Text };
 
-    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -405,7 +405,7 @@ describe('DocumentReplica', function () {
     });
 
     doc.update((root) => {
-      root.text = new PlainText();
+      root.text = new Text();
       paths.push('$.text');
       root.text.edit(0, 0, 'hello world');
       paths.push('$.text');
@@ -416,7 +416,7 @@ describe('DocumentReplica', function () {
 
   it('change paths test for rich text', async function () {
     type TestDoc = { rich: RichText };
-    const doc = DocumentReplica.create<TestDoc>('test-doc');
+    const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
 
@@ -438,7 +438,7 @@ describe('DocumentReplica', function () {
   });
 
   it('insert elements before a specific node of array', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -468,7 +468,7 @@ describe('DocumentReplica', function () {
   });
 
   it('can insert an element before specific position after delete operation', function () {
-    const doc = DocumentReplica.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -497,7 +497,7 @@ describe('DocumentReplica', function () {
   });
 
   it('should remove previously inserted elements in heap when running GC', function () {
-    const doc = DocumentReplica.create<{ a?: number }>('test-doc');
+    const doc = Document.create<{ a?: number }>('test-doc');
     doc.update((root) => {
       root.a = 1;
       root.a = 2;
