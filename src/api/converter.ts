@@ -45,7 +45,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTText as CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   CRDTRichText,
   RichTextValue,
@@ -200,7 +200,7 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
   } else if (element instanceof CRDTArray) {
     pbElementSimple.setType(PbValueType.JSON_ARRAY);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-  } else if (element instanceof CRDTPlainText) {
+  } else if (element instanceof CRDTText) {
     pbElementSimple.setType(PbValueType.TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof CRDTRichText) {
@@ -511,9 +511,9 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
 }
 
 /**
- * `toPlainText` converts the given model to Protobuf format.
+ * `toText` converts the given model to Protobuf format.
  */
-function toPlainText(text: CRDTPlainText): PbJSONElement {
+function toText(text: CRDTText): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
@@ -551,8 +551,8 @@ function toElement(element: CRDTElement): PbJSONElement {
     return toArray(element);
   } else if (element instanceof Primitive) {
     return toPrimitive(element);
-  } else if (element instanceof CRDTPlainText) {
-    return toPlainText(element);
+  } else if (element instanceof CRDTText) {
+    return toText(element);
   } else if (element instanceof CRDTCounter) {
     return toCounter(element);
   } else {
@@ -658,7 +658,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
     case PbValueType.JSON_ARRAY:
       return CRDTArray.create(fromTimeTicket(pbElementSimple.getCreatedAt())!);
     case PbValueType.TEXT:
-      return CRDTPlainText.create(
+      return CRDTText.create(
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
@@ -953,9 +953,9 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
 }
 
 /**
- * `fromPlainText` converts the given Protobuf format to model format.
+ * `fromText` converts the given Protobuf format to model format.
  */
-function fromPlainText(pbText: PbJSONElement.Text): CRDTPlainText {
+function fromText(pbText: PbJSONElement.Text): CRDTText {
   const rgaTreeSplit = new RGATreeSplit<string>();
 
   let prev = rgaTreeSplit.getHead();
@@ -969,7 +969,7 @@ function fromPlainText(pbText: PbJSONElement.Text): CRDTPlainText {
     prev = current;
   }
 
-  const text = CRDTPlainText.create(
+  const text = CRDTText.create(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
@@ -1031,7 +1031,7 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
   } else if (pbElement.hasPrimitive()) {
     return fromPrimitive(pbElement.getPrimitive()!);
   } else if (pbElement.hasText()) {
-    return fromPlainText(pbElement.getText()!);
+    return fromText(pbElement.getText()!);
   } else if (pbElement.hasRichText()) {
     return fromRichText(pbElement.getRichText()!);
   } else if (pbElement.hasCounter()) {

@@ -15,8 +15,8 @@
  */
 
 import { Client } from '@yorkie-js-sdk/src/core/client';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
@@ -42,7 +42,7 @@ export {
   RemoteChangeEvent,
   Indexable,
   DocEvent,
-  DocumentReplica,
+  Document,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
@@ -70,7 +70,7 @@ export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
-export { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+export { Text } from '@yorkie-js-sdk/src/document/json/text';
 
 /**
  * The top-level yorkie namespace with additional properties.
@@ -84,8 +84,8 @@ export { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
  */
 const yorkie = {
   Client,
-  Document: DocumentReplica,
-  Text: PlainText,
+  Document,
+  Text,
   RichText,
   Counter,
 };

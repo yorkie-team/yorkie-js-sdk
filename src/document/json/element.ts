@@ -23,7 +23,7 @@ import {
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
-import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   JSONObject,
   createJSONObject,
@@ -32,7 +32,7 @@ import {
   JSONArray,
   createJSONArray,
 } from '@yorkie-js-sdk/src/document/json/array';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -54,7 +54,7 @@ export type WrappedElement<T = unknown> =
   | Primitive
   | JSONObject<T>
   | JSONArray<T>
-  | PlainText
+  | Text
   | RichText
   | Counter;
 
@@ -65,7 +65,7 @@ export type JSONElement<T = unknown> =
   | PrimitiveValue
   | JSONObject<T>
   | JSONArray<T>
-  | PlainText
+  | Text
   | RichText
   | Counter;
 
@@ -84,8 +84,8 @@ export function toWrappedElement(
     return createJSONObject(context, elem);
   } else if (elem instanceof CRDTArray) {
     return createJSONArray(context, elem);
-  } else if (elem instanceof CRDTPlainText) {
-    return new PlainText(context, elem);
+  } else if (elem instanceof CRDTText) {
+    return new Text(context, elem);
   } else if (elem instanceof CRDTRichText) {
     return new RichText(context, elem);
   } else if (elem instanceof CRDTCounter) {

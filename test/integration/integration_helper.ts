@@ -1,6 +1,6 @@
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/core/client';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
@@ -9,9 +9,9 @@ export const testRPCAddr =
 export async function withTwoClientsAndDocuments<T>(
   callback: (
     c1: Client,
-    d1: DocumentReplica<T>,
+    d1: Document<T>,
     c2: Client,
-    d2: DocumentReplica<T>,
+    d2: Document<T>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {

@@ -27,10 +27,10 @@ import {
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
-import { PlainText } from '@yorkie-js-sdk/src/document/json/plain_text';
+import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import {
@@ -168,8 +168,8 @@ export class ObjectProxy {
         ArrayProxy.pushInternal(context, array, element);
       }
     } else if (typeof value === 'object') {
-      if (value instanceof PlainText) {
-        const text = CRDTPlainText.create(RGATreeSplit.create(), ticket);
+      if (value instanceof Text) {
+        const text = CRDTText.create(RGATreeSplit.create(), ticket);
         target.set(key, text);
         context.registerElement(text, target);
         context.push(
@@ -234,15 +234,15 @@ export class ObjectProxy {
     context: ChangeContext,
     target: CRDTObject,
     key: string,
-  ): PlainText {
+  ): Text {
     const ticket = context.issueTimeTicket();
-    const text = CRDTPlainText.create(RGATreeSplit.create(), ticket);
+    const text = CRDTText.create(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text, target);
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
-    return new PlainText(context, text);
+    return new Text(context, text);
   }
 
   /**

@@ -1,13 +1,13 @@
 import { assert } from 'chai';
 import Long from 'long';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
-    const doc1 = DocumentReplica.create<{ k1: string; k2: string }>('test-doc');
-    const doc2 = DocumentReplica.create('test-doc');
+    const doc1 = Document.create<{ k1: string; k2: string }>('test-doc');
+    const doc2 = Document.create('test-doc');
 
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
     assert.isFalse(doc1.hasLocalChanges());
@@ -24,7 +24,7 @@ describe('Primitive', function () {
   });
 
   it('can rollback, primitive deepcopy', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: { ['k1.1']?: number; ['k1.2']?: number };
     }>('test-doc');
 

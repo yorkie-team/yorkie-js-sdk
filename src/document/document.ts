@@ -63,8 +63,8 @@ export enum DocEventType {
 }
 
 /**
- * `DocEvent` is an event that occurs in `DocumentReplica`. It can be delivered
- * using `DocumentReplica.subscribe()`.
+ * `DocEvent` is an event that occurs in `Document`. It can be delivered
+ * using `Document.subscribe()`.
  *
  * @public
  */
@@ -144,12 +144,12 @@ export interface RemoteChangeEvent extends BaseDocEvent {
 export type Indexable = Record<string, any>;
 
 /**
- * `DocumentReplica` is a CRDT-based data type. We can representing the model
+ * `Document` is a CRDT-based data type. We can representing the model
  * of the application. And we can edit it even while offline.
  *
  * @public
  */
-export class DocumentReplica<T> implements Observable<DocEvent> {
+export class Document<T> implements Observable<DocEvent> {
   private key: string;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
@@ -173,8 +173,8 @@ export class DocumentReplica<T> implements Observable<DocEvent> {
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T>(key: string): DocumentReplica<T> {
-    return new DocumentReplica<T>(key);
+  public static create<T>(key: string): Document<T> {
+    return new Document<T>(key);
   }
 
   /**

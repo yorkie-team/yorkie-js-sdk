@@ -1,10 +1,10 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Object', function () {
   it('should apply updates inside nested map', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: { 'k1-1'?: string; 'k1-2'?: string };
       k2: Array<string | { 'k2-5': string }>;
     }>('test-doc');
@@ -59,7 +59,7 @@ describe('Object', function () {
   });
 
   it('should handle delete operations', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: { 'k1-1'?: string; 'k1-2': string; 'k1-3'?: string };
     }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -77,7 +77,7 @@ describe('Object', function () {
   });
 
   it('Object.keys, Object.values and Object.entries test', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       content: { a: number; b: number; c: number };
     }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());

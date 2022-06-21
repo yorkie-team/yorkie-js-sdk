@@ -78,7 +78,7 @@ export class StyleOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only PlainText can execute edit`);
+      logger.fatal(`fail to execute, only RichText can execute edit`);
     }
   }
 
