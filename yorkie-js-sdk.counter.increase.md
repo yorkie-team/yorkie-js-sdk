@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-increase(v: number | Long_2): Counter;
+increase(v: number | Long): Counter;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  v | number \| Long\_2 |  |
+|  v | number \| Long |  |
 
 <b>Returns:</b>
 

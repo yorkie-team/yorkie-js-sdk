@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type WrappedElement<T = unknown> = Primitive | JSONObject<T> | JSONArray<T> | PlainText | RichText | Counter;
+export declare type WrappedElement<T = unknown> = Primitive | JSONObject<T> | JSONArray<T> | Text | RichText | Counter;
 ```
-<b>References:</b> [Primitive](./yorkie-js-sdk.primitive.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [PlainText](./yorkie-js-sdk.plaintext.md)<!-- -->, [RichText](./yorkie-js-sdk.richtext.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
+<b>References:</b> [Primitive](./yorkie-js-sdk.primitive.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [RichText](./yorkie-js-sdk.richtext.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
 

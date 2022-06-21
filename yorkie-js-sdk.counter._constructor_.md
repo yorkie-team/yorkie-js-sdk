@@ -9,12 +9,12 @@ Constructs a new instance of the `Counter` class
 <b>Signature:</b>
 
 ```typescript
-constructor(value: number | Long_2);
+constructor(value: number | Long);
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  value | number \| Long\_2 |  |
+|  value | number \| Long |  |
 

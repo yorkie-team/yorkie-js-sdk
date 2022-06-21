@@ -11,16 +11,16 @@ To collect garbage things like CRDT tombstones left on the document, all the cha
 <b>Signature:</b>
 
 ```typescript
-detach(doc: DocumentReplica<unknown>): Promise<DocumentReplica<unknown>>;
+detach(doc: Observable<unknown>): Promise<Observable<unknown>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | [DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;unknown&gt; |  |
+|  doc | Observable&lt;unknown&gt; |  |
 
 <b>Returns:</b>
 
-Promise&lt;[DocumentReplica](./yorkie-js-sdk.documentreplica.md)<!-- -->&lt;unknown&gt;&gt;
+Promise&lt;Observable&lt;unknown&gt;&gt;
 

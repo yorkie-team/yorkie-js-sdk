@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-static of(lamport: Long_2, delimiter: number, actorID?: string): TimeTicket;
+static of(lamport: Long, delimiter: number, actorID?: string): TimeTicket;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  lamport | Long\_2 |  |
+|  lamport | Long |  |
 |  delimiter | number |  |
 |  actorID | string |  |
 

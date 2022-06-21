@@ -15,8 +15,8 @@ e.g) `new yorkie.Client(...);`
 ```typescript
 yorkie: {
     Client: typeof Client;
-    Document: typeof DocumentReplica;
-    Text: typeof PlainText;
+    Document: typeof Document;
+    Text: typeof Text;
     RichText: typeof RichText;
     Counter: typeof Counter;
 }

@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type PrimitiveValue = null | boolean | number | Long_2 | string | Uint8Array | Date;
+export declare type PrimitiveValue = null | boolean | number | Long | string | Uint8Array | Date;
 ```

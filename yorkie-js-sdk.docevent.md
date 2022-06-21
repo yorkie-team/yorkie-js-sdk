@@ -4,7 +4,7 @@
 
 ## DocEvent type
 
-`DocEvent` is an event that occurs in `DocumentReplica`<!-- -->. It can be delivered using `DocumentReplica.subscribe()`<!-- -->.
+`DocEvent` is an event that occurs in `Document`<!-- -->. It can be delivered using `Document.subscribe()`<!-- -->.
 
 <b>Signature:</b>
 
