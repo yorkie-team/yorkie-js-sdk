@@ -138,7 +138,6 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
 export class RGATreeList {
   private dummyHead: RGATreeListNode;
   private last: RGATreeListNode;
-  private size: number;
   private nodeMapByIndex: SplayTree<CRDTElement>;
   private nodeMapByCreatedAt: Map<string, RGATreeListNode>;
 
@@ -147,7 +146,6 @@ export class RGATreeList {
     dummyValue.setRemovedAt(InitialTimeTicket);
     this.dummyHead = new RGATreeListNode(dummyValue);
     this.last = this.dummyHead;
-    this.size = 0;
     this.nodeMapByIndex = new SplayTree();
     this.nodeMapByCreatedAt = new Map();
 
@@ -169,7 +167,7 @@ export class RGATreeList {
    * `length` returns size of RGATreeList.
    */
   public get length(): number {
-    return this.size;
+    return this.nodeMapByIndex.length;
   }
 
   /**
@@ -208,9 +206,7 @@ export class RGATreeList {
     this.nodeMapByIndex.delete(node);
     this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
 
-    if (!node.isRemoved()) {
-      this.size -= 1;
-    }
+    node.isRemoved();
   }
 
   /**
@@ -229,8 +225,6 @@ export class RGATreeList {
 
     this.nodeMapByIndex.insertAfter(prevNode, newNode);
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
-
-    this.size += 1;
   }
 
   /**
@@ -351,7 +345,6 @@ export class RGATreeList {
     const alreadyRemoved = node!.isRemoved();
     if (node!.remove(editedAt) && !alreadyRemoved) {
       this.nodeMapByIndex.splayNode(node!);
-      this.size -= 1;
     }
     return node!.getValue();
   }
@@ -370,7 +363,6 @@ export class RGATreeList {
 
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);
-      this.size -= 1;
     }
     return node.getValue();
   }
