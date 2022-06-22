@@ -240,19 +240,15 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getRoot` returns root of this tree.
+   * `getLeftMost` returns the far left node of this tree.
    */
-  public getRoot(): SplayNode<V> {
-    return this.root!;
-  }
-
-  /**
-   * `getLeftest` returns the far left node of this tree.
-   */
-  public getFarLeft(): SplayNode<V> {
-    let node = this.root!;
+  public getLeftMost(): SplayNode<V> | undefined {
+    if (!this.root) {
+      return this.root;
+    }
+    let node = this.root;
     for (;;) {
-      if (!node.getLeft()) {
+      if (!node.hasLeft()) {
         break;
       }
       node = node.getLeft()!;
@@ -261,12 +257,15 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getFarRight` returns the far right node of this tree.
+   * `getRightMost` returns the right most node of this tree.
    */
-  public getFarRight(): SplayNode<V> {
-    let node = this.root!;
+  public getRightMost(): SplayNode<V> | undefined {
+    if (!this.root) {
+      return this.root;
+    }
+    let node = this.root;
     for (;;) {
-      if (!node.getRight()) {
+      if (!node.hasRight()) {
         break;
       }
       node = node.getRight()!;
