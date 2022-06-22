@@ -240,10 +240,37 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getRoot` returns root of this tree.
+   * `getLeftmost` returns the leftmost node of this tree.
    */
-  public getRoot(): SplayNode<V> {
-    return this.root!;
+  public getLeftmost(): SplayNode<V> | undefined {
+    if (!this.root) {
+      return this.root;
+    }
+    let node = this.root;
+    for (;;) {
+      if (!node.hasLeft()) {
+        break;
+      }
+      node = node.getLeft()!;
+    }
+    return node;
+  }
+
+  /**
+   * `getRightmost` returns the rightmost node of this tree.
+   */
+  public getRightmost(): SplayNode<V> | undefined {
+    if (!this.root) {
+      return this.root;
+    }
+    let node = this.root;
+    for (;;) {
+      if (!node.hasRight()) {
+        break;
+      }
+      node = node.getRight()!;
+    }
+    return node;
   }
 
   /**

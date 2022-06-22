@@ -15,11 +15,7 @@
  */
 import { assert } from 'chai';
 import * as Benchmark from 'benchmark';
-import {
-  JSONArray,
-  Text,
-  Document,
-} from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 
