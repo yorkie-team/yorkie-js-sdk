@@ -9,6 +9,8 @@ import {
   Primitive,
   TimeTicket,
 } from '@yorkie-js-sdk/src/yorkie';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
@@ -1185,6 +1187,12 @@ describe('Array', function () {
         doc.getRoot().objects.toString(),
         '{"id":"1"},{"id":"2"},{"id":"3"}',
       );
+
+      // check toString with Primitive
+      const num1 = Primitive.of(1, InitialTimeTicket);
+      const num2 = Primitive.of(2, InitialTimeTicket);
+      const crdtArray: JSONArray<CRDTElement> = [num1, num2];
+      assert.strictEqual(crdtArray.toString(), '1,2');
     });
 
     it('values()', () => {

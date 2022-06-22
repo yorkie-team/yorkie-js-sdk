@@ -237,11 +237,30 @@ export class ArrayProxy {
           );
         } else if (method === 'push') {
           return (value: any): number => {
-            if (logger.isEnabled(LogLevel.Trivial)) {
-              logger.trivial(`array.push(${JSON.stringify(value)})`);
-            }
-
             return ArrayProxy.pushInternal(context, target, value);
+          };
+        } else if (method === 'splice') {
+          return (
+            start: number,
+            deleteCount?: number,
+            ...items: Array<any>
+          ): JSONArray<CRDTElement> => {
+            const to =
+              deleteCount === undefined
+                ? target.length
+                : start + deleteCount > target.length
+                ? target.length
+                : start + deleteCount;
+            const removeds: JSONArray<CRDTElement> = [];
+            for (let i = start; i < to; i++) {
+              removeds.push(
+                ArrayProxy.deleteInternalByIndex(context, target, start)!,
+              );
+            }
+            if (items) {
+              // TODO(chacha912): Add the items to the array
+            }
+            return removeds;
           };
         } else if (method === 'length') {
           return target.length;
@@ -487,7 +506,7 @@ export class ArrayProxy {
   }
 
   /**
-   * `deleteInternalByID` deletes the element of the given index.
+   * `deleteInternalByID` deletes the element of the given ID.
    */
   public static deleteInternalByID(
     context: ChangeContext,
