@@ -18,7 +18,6 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -118,34 +117,25 @@ describe('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[0,1,2,3,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(
-        1,
-        1,
-      ) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(1, 1);
       assert.equal(res.toString(), '1');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,2,3,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(
-        1,
-        2,
-      ) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(1, 2);
       assert.equal(res.toString(), '2,3');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(3) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(3);
       assert.equal(res.toString(), '6,7,8,9');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,4,5]}');
 
     doc.update((root) => {
-      const res = root.list.splice(
-        1,
-        200,
-      ) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(1, 200);
       assert.equal(res.toString(), '4,5');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0]}');
@@ -158,7 +148,7 @@ describe('Document', function () {
     //     1,
     //     2,
     //     3,
-    //   ) as Array<any> as JSONArray<CRDTElement>;
+    //   ) ;
     //   assert.equal(res.toString(), '');
     // });
     // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
@@ -173,10 +163,7 @@ describe('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":["a","b","c"]}');
 
     doc.update((root) => {
-      const res = root.list.splice(
-        1,
-        1,
-      ) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(1, 1);
       assert.equal(res.toString(), '"b"');
     });
     assert.equal(doc.toSortedJSON(), '{"list":["a","c"]}');
@@ -191,10 +178,7 @@ describe('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[{"id":1},{"id":2}]}');
 
     doc.update((root) => {
-      const res = root.list.splice(
-        1,
-        1,
-      ) as Array<any> as JSONArray<CRDTElement>;
+      const res = root.list.splice(1, 1);
       assert.equal(res.toString(), '{"id":2}');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[{"id":1}]}');
