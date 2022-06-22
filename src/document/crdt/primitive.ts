@@ -104,6 +104,13 @@ export class Primitive extends CRDTElement {
   }
 
   /**
+   * `toString` returns the JSON encoding of the value.
+   */
+  public toString(): string {
+    return this.toJSON();
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of the value.
    */
   public toSortedJSON(): string {

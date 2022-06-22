@@ -109,6 +109,81 @@ describe('Document', function () {
     assert.equal(0, doc.getRoot().data.length);
   });
 
+  it('splice array with number', function () {
+    const doc = Document.create<{ list: Array<number> }>('test-doc');
+    doc.update((root) => {
+      root.list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,1,2,3,4,5,6,7,8,9]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1);
+      assert.equal(res.toString(), '1');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,2,3,4,5,6,7,8,9]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 2);
+      assert.equal(res.toString(), '2,3');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,4,5,6,7,8,9]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(3);
+      assert.equal(res.toString(), '6,7,8,9');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,4,5]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 200);
+      assert.equal(res.toString(), '4,5');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0]}');
+
+    // TODO(chacha912): test adding elements
+    // doc.update((root) => {
+    //   const res = root.list.splice(
+    //     0,
+    //     0,
+    //     1,
+    //     2,
+    //     3,
+    //   ) ;
+    //   assert.equal(res.toString(), '');
+    // });
+    // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
+  });
+
+  it('splice array with string', function () {
+    const doc = Document.create<{ list: Array<string> }>('test-doc');
+
+    doc.update((root) => {
+      root.list = ['a', 'b', 'c'];
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":["a","b","c"]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1);
+      assert.equal(res.toString(), '"b"');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":["a","c"]}');
+  });
+
+  it('splice array with object', function () {
+    const doc = Document.create<{ list: Array<{ id: number }> }>('test-doc');
+
+    doc.update((root) => {
+      root.list = [{ id: 1 }, { id: 2 }];
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[{"id":1},{"id":2}]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1);
+      assert.equal(res.toString(), '{"id":2}');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[{"id":1}]}');
+  });
+
   it('move elements before a specific node of array', function () {
     const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
