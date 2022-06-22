@@ -110,7 +110,7 @@ describe('Document', function () {
     assert.equal(0, doc.getRoot().data.length);
   });
 
-  it('splice elements of array test', function () {
+  it('splice array with number', function () {
     const doc = Document.create<{ list: Array<number> }>('test-doc');
     doc.update((root) => {
       root.list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -153,6 +153,21 @@ describe('Document', function () {
     //   assert.equal(res.toString(), '');
     // });
     // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
+  });
+
+  it('splice array with string', function () {
+    const doc = Document.create<{ list: Array<string> }>('test-doc');
+
+    doc.update((root) => {
+      root.list = ['a', 'b', 'c'];
+    });
+    assert.equal('{"list":["a","b","c"]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1) as unknown as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '"b"');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":["a","c"]}');
   });
 
   it('move elements before a specific node of array', function () {
