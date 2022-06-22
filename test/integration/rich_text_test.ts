@@ -1,9 +1,5 @@
 import { assert } from 'chai';
-import {
-  Document,
-  RichText,
-  TextChangeType,
-} from '@yorkie-js-sdk/src/yorkie';
+import { Document, RichText, TextChangeType } from '@yorkie-js-sdk/src/yorkie';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {

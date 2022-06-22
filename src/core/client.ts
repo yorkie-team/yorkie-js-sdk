@@ -440,9 +440,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach(
-    doc: Document<unknown>,
-  ): Promise<Document<unknown>> {
+  public detach(doc: Document<unknown>): Promise<Document<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -790,9 +788,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     }
   }
 
-  private syncInternal(
-    doc: Document<unknown>,
-  ): Promise<Document<unknown>> {
+  private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
       req.setClientId(converter.toUint8Array(this.id!));

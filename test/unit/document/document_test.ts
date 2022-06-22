@@ -16,16 +16,8 @@
 
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import {
-  Document,
-  DocEventType,
-} from '@yorkie-js-sdk/src/document/document';
-import {
-  JSONArray,
-  Text,
-  RichText,
-  Counter,
-} from '@yorkie-js-sdk/src/yorkie';
+import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -80,8 +72,7 @@ describe('Document', function () {
   });
 
   it('null value test', function () {
-    const doc =
-      Document.create<{ data: { '': null; null: null } }>('test-doc');
+    const doc = Document.create<{ data: { '': null; null: null } }>('test-doc');
     doc.update((root) => {
       root.data = {
         '': null,
