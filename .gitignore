@@ -140,3 +140,6 @@ lib/
 
 # vscode
 .vscode
+
+# profile output
+*.cpuprofile

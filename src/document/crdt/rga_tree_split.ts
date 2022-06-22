@@ -780,13 +780,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     Map<string, RGATreeSplitNode<T>>,
   ] {
     const isRemote = !!latestCreatedAtMapByActor;
-    const changes: Array<TextChange> = [];
+    let changes: Array<TextChange> = [];
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     if (!candidates.length) {
       return [changes, createdAtMapByActor, removedNodeMap];
     }
-
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const deletionBoundaries: Array<RGATreeSplitNode<T>> = [];
     deletionBoundaries.push(candidates[0].getPrev()!);
@@ -804,26 +803,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       // Delete nodes created before the latest time remaining in the replica that performed the deletion.
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
-
-        if (!node.isRemoved()) {
-          const [fromIdx, toIdx] = this.findIndexesFromRange(
-            node.createRange(),
-          );
-          const change = {
-            type: TextChangeType.Content,
-            actor: editedAt.getActorID()!,
-            from: fromIdx,
-            to: toIdx,
-          };
-
-          // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
-          if (changes.length && changes[0].to === change.from) {
-            changes[0].to = change.to;
-          } else {
-            changes.unshift(change);
-          }
-        }
-
         if (
           !createdAtMapByActor.has(actorID) ||
           node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
@@ -836,13 +815,44 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
     }
 
+    deletionBoundaries.push(candidates[candidates.length - 1].getNext()!);
+    changes = this.makeChanges(deletionBoundaries, editedAt);
     for (const node of nodesToDelete) {
       node.remove(editedAt);
     }
-    deletionBoundaries.push(candidates[candidates.length - 1].getNext()!);
     this.deleteIndexNodes(deletionBoundaries);
 
     return [changes, createdAtMapByActor, removedNodeMap];
+  }
+
+  private makeChanges(
+    boundaries: Array<RGATreeSplitNode<T>>,
+    editedAt: TimeTicket,
+  ): Array<TextChange> {
+    const changes: Array<TextChange> = [];
+    let fromIdx: number, toIdx: number, temp: number;
+
+    [temp, fromIdx] = this.findIndexesFromRange(boundaries[0].createRange());
+
+    for (let i = 1; i < boundaries.length; i++) {
+      if (boundaries[i]) {
+        [toIdx, temp] = this.findIndexesFromRange(boundaries[i].createRange());
+      } else {
+        toIdx = this.treeByIndex.getFarRight().getWeight();
+      }
+      if (fromIdx < toIdx) {
+        const change = {
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+        };
+        changes.push(change);
+      }
+      fromIdx = temp;
+    }
+
+    return changes.reverse();
   }
 
   // NOTE: deleteIndexNodes clears the index nodes of the given deletion boundaries.
@@ -863,7 +873,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         toInner,
         rightBoundary,
       );
-      i++;
     }
   }
 
