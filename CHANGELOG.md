@@ -7,6 +7,24 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.8] - 2022-06-22
+
+### Added
+
+- Add read-only Array methods to ArrayProxy: #310
+- Add Array.splice to ArrayProxy: #317
+
+### Changed
+
+- Use types more strictly in Document.update: #314
+- Revert Document and Text: #47478e7
+- Improve performance deletion in Text: #312, #316
+
+### Fixed
+
+- Remove size cache from RGATreeList and use SplayTree instead: #315
+- Fix bug when setting non-string values in Presence: #311
+
 ## [0.2.7] - 2022-05-25
 
 ### Fixed
