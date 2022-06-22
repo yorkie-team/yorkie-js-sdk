@@ -3,7 +3,7 @@ import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { PlainText, RichText } from '@yorkie-js-sdk/src/yorkie';
+import { Text, RichText } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
@@ -73,8 +73,8 @@ describe('Garbage Collection', function () {
   });
 
   it('text garbage collection test', function () {
-    const doc = new yorkie.Document<{ text: PlainText }>('test-doc');
-    doc.update((root) => (root.text = new PlainText()));
+    const doc = new yorkie.Document<{ text: Text }>('test-doc');
+    doc.update((root) => (root.text = new Text()));
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
 
@@ -101,12 +101,12 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text', function () {
-    const doc = new yorkie.Document<{ k1: PlainText }>('test-doc');
+    const doc = new yorkie.Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg = '{"k1":"Hello mario"}';
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'Hello world');
       root.k1.edit(6, 11, 'mario');
       assert.equal(expected_msg, root.toJSON!());
@@ -237,7 +237,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: PlainText; rich: RichText };
+    type TestDoc = { text: Text; rich: RichText };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
@@ -252,7 +252,7 @@ describe('Garbage Collection', function () {
     await client2.attach(doc2);
 
     doc1.update((root) => {
-      root.text = new PlainText();
+      root.text = new Text();
       root.text.edit(0, 0, 'Hello World');
       root.rich = new RichText();
       root.rich.edit(0, 0, 'Hello World');
@@ -312,7 +312,7 @@ describe('Garbage Collection', function () {
       1: number;
       2?: Array<number>;
       3: number;
-      4: PlainText;
+      4: Text;
       5: RichText;
     };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
@@ -332,7 +332,7 @@ describe('Garbage Collection', function () {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
-      root['4'] = new PlainText();
+      root['4'] = new Text();
       root['4'].edit(0, 0, 'hi');
       root['5'] = new RichText();
       root['5'].edit(0, 0, 'hi');

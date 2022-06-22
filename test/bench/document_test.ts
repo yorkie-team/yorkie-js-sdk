@@ -17,8 +17,8 @@ import { assert } from 'chai';
 import * as Benchmark from 'benchmark';
 import {
   JSONArray,
-  PlainText,
-  DocumentReplica,
+  Text,
+  Document,
 } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
@@ -28,7 +28,7 @@ const suite = new Benchmark.Suite();
 suite
   .add('constructor test', function () {
     for (let i = 0; i < 100; i++) {
-      const doc = DocumentReplica.create<{ k1: JSONArray<string> }>(`test-doc`);
+      const doc = Document.create<{ k1: JSONArray<string> }>(`test-doc`);
       assert.equal('{}', doc.toSortedJSON());
       assert.equal(doc.getCheckpoint(), InitialCheckpoint);
       assert.isFalse(doc.hasLocalChanges());
@@ -36,12 +36,12 @@ suite
   })
   .add('garbage collection test for large size text 1', function () {
     const size = 100;
-    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. initial
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       const text = root.k1;
       for (let i = 0; i < size; i++) {
         text.edit(i, i, 'a');
@@ -65,12 +65,12 @@ suite
   })
   .add('garbage collection test for large size text 2', function () {
     const size = 100;
-    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. long text by one node
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       let str = '';
       for (let i = 0; i < size; i++) {
         str += 'a';
@@ -97,10 +97,10 @@ suite
   })
   .add('insert characters in sequence then delete all-1000', function () {
     const size = 1000;
-    const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
+    const doc = Document.create<{ text: Text }>('test-doc');
 
     doc.update((root) => {
-      root.text = new PlainText();
+      root.text = new Text();
     }, 'initialize');
 
     // 01. inserts many chracters
@@ -121,10 +121,10 @@ suite
   })
   .add('insert characters in sequence then delete all-3000', function () {
     const size = 3000;
-    const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
+    const doc = Document.create<{ text: Text }>('test-doc');
 
     doc.update((root) => {
-      root.text = new PlainText();
+      root.text = new Text();
     }, 'initialize');
 
     // 01. inserts many chracters

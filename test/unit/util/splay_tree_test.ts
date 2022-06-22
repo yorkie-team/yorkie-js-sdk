@@ -64,14 +64,19 @@ describe('SplayTree', function () {
 
     const nodeH = tree.insert(StringNode.create('H'));
     assert.equal('[1,1]H', tree.getAnnotatedString());
+    assert.equal(tree.length, 1);
     const nodeE = tree.insert(StringNode.create('E'));
     assert.equal('[1,1]H[2,1]E', tree.getAnnotatedString());
+    assert.equal(tree.length, 2);
     const nodeL = tree.insert(StringNode.create('LL'));
     assert.equal('[1,1]H[2,1]E[4,2]LL', tree.getAnnotatedString());
+    assert.equal(tree.length, 4);
     const nodeO = tree.insert(StringNode.create('O'));
     assert.equal('[1,1]H[2,1]E[4,2]LL[5,1]O', tree.getAnnotatedString());
+    assert.equal(tree.length, 5);
 
     tree.delete(nodeE);
+    assert.equal(tree.length, 4);
     assert.equal('[4,1]H[3,2]LL[1,1]O', tree.getAnnotatedString());
 
     assert.equal(tree.indexOf(nodeH), 0);

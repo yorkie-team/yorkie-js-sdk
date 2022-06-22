@@ -2,22 +2,22 @@ import { assert } from 'chai';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
-  DocumentReplica,
-  PlainText,
+  Document,
+  Text,
   TextChange,
   TextChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
     //           |            |      |
     // [init] - [A] - [12] - {BC} - [D]
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
       root.k1.edit(1, 3, '12');
     }, 'set {"k1":"A12D"}');
@@ -48,14 +48,14 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
     //           |              |
     // [init] - [ABC] - [\n] - [D]
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
       root.k1.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
@@ -71,11 +71,11 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = DocumentReplica.create<{ k1: PlainText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.k1 = new PlainText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'ㅎ');
       root.k1.edit(0, 1, '하');
       root.k1.edit(0, 1, '한');
@@ -88,9 +88,9 @@ describe('Text', function () {
   });
 
   it('should handle deletion of nested nodes', function () {
-    const doc = DocumentReplica.create<{ text: PlainText }>('test-doc');
+    const doc = Document.create<{ text: Text }>('test-doc');
     const view = new TextView();
-    doc.update((root) => (root.text = new PlainText()));
+    doc.update((root) => (root.text = new Text()));
     doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
 
     const commands = [
@@ -107,12 +107,12 @@ describe('Text', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = DocumentReplica.create<{
-      text: PlainText;
+    const doc = Document.create<{
+      text: Text;
     }>('test-doc');
 
     doc.update((root) => {
-      root.text = new PlainText();
+      root.text = new Text();
       root.text.edit(0, 0, 'ABCD');
     });
 
@@ -126,10 +126,10 @@ describe('Text', function () {
   });
 
   it('should handle edit operations', async function () {
-    await withTwoClientsAndDocuments<{ k1: PlainText }>(
+    await withTwoClientsAndDocuments<{ k1: Text }>(
       async (c1, d1, c2, d2) => {
         d1.update((root) => {
-          root.k1 = new PlainText();
+          root.k1 = new Text();
           root.k1.edit(0, 0, 'ABCD');
         }, 'set new text by c1');
         await c1.sync();
@@ -138,7 +138,7 @@ describe('Text', function () {
         assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
         d1.update((root) => {
-          root.k1 = new PlainText();
+          root.k1 = new Text();
           root.k1.edit(0, 0, '1234');
         }, 'edit 0,0 1234 by c1');
         await c1.sync();
@@ -152,10 +152,10 @@ describe('Text', function () {
   });
 
   it('should handle concurrent edit operations', async function () {
-    await withTwoClientsAndDocuments<{ k1: PlainText }>(
+    await withTwoClientsAndDocuments<{ k1: Text }>(
       async (c1, d1, c2, d2) => {
         d1.update((root) => {
-          root.k1 = new PlainText();
+          root.k1 = new Text();
         }, 'set new text by c1');
         await c1.sync();
         await c2.sync();

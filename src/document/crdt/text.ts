@@ -25,12 +25,12 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 
 /**
- * `CRDTPlainText` represents plain text element
+ * `CRDTText` represents plain text element
  * Text is an extended data type for the contents of a text editor
  *
  * @internal
  */
-export class CRDTPlainText extends CRDTTextElement {
+export class CRDTText extends CRDTTextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
@@ -45,13 +45,13 @@ export class CRDTPlainText extends CRDTTextElement {
   }
 
   /**
-   * `create` creates a new instance of `PlainText`.
+   * `create` creates a new instance of `CRDTText`.
    */
   public static create(
     rgaTreeSplit: RGATreeSplit<string>,
     createdAt: TimeTicket,
-  ): CRDTPlainText {
-    return new CRDTPlainText(rgaTreeSplit, createdAt);
+  ): CRDTText {
+    return new CRDTText(rgaTreeSplit, createdAt);
   }
 
   /**
@@ -186,8 +186,8 @@ export class CRDTPlainText extends CRDTTextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): CRDTPlainText {
-    const text = CRDTPlainText.create(
+  public deepcopy(): CRDTText {
+    const text = CRDTText.create(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );

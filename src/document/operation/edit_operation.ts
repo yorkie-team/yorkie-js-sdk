@@ -18,7 +18,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTPlainText } from '@yorkie-js-sdk/src/document/crdt/plain_text';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -71,8 +71,8 @@ export class EditOperation extends Operation {
    */
   public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTPlainText) {
-      const text = parentObject as CRDTPlainText;
+    if (parentObject instanceof CRDTText) {
+      const text = parentObject as CRDTText;
       text.edit(
         [this.fromPos, this.toPos],
         this.content,
@@ -87,7 +87,7 @@ export class EditOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only PlainText can execute edit`);
+      logger.fatal(`fail to execute, only Text can execute edit`);
     }
   }
 

@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { DocumentReplica } from '@yorkie-js-sdk/src/document/document';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
@@ -12,7 +12,7 @@ import {
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = DocumentReplica.create<{ k1: JSONArray<string> }>('test-doc');
+    const doc = Document.create<{ k1: JSONArray<string> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -29,7 +29,7 @@ describe('Array', function () {
 
   it('can push array element after delete operation', function () {
     const doc =
-      DocumentReplica.create<{ k1: JSONArray<string | Array<number>> }>(
+      Document.create<{ k1: JSONArray<string | Array<number>> }>(
         'test-doc',
       );
     assert.equal('{}', doc.toSortedJSON());
@@ -53,7 +53,7 @@ describe('Array', function () {
   });
 
   it('can push object element after delete operation', function () {
-    const doc = DocumentReplica.create<{
+    const doc = Document.create<{
       k1: JSONArray<string | { a: string; b: string }>;
     }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -78,7 +78,7 @@ describe('Array', function () {
 
   it('can push array', function () {
     const doc =
-      DocumentReplica.create<{ arr: Array<number | Array<number>> }>(
+      Document.create<{ arr: Array<number | Array<number>> }>(
         'test-doc',
       );
 
@@ -91,7 +91,7 @@ describe('Array', function () {
   });
 
   it('can push element then delete it by ID in array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let target: WrappedElement;
@@ -118,7 +118,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let prev: WrappedElement;
@@ -155,7 +155,7 @@ describe('Array', function () {
   });
 
   it('can move an element before the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -178,7 +178,7 @@ describe('Array', function () {
   });
 
   it('can move an element after the given element in array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -201,7 +201,7 @@ describe('Array', function () {
   });
 
   it('can insert an element at the first of array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -228,7 +228,7 @@ describe('Array', function () {
   });
 
   it('can move an element at the last of array', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -697,7 +697,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist after GC', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {
@@ -719,7 +719,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist', function () {
-    const doc = DocumentReplica.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {
@@ -748,7 +748,7 @@ describe('Array', function () {
     };
 
     it('concat()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -760,7 +760,7 @@ describe('Array', function () {
     });
 
     it('entries()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -785,7 +785,7 @@ describe('Array', function () {
     });
 
     it('every()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -818,7 +818,7 @@ describe('Array', function () {
     });
 
     it('filter()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -849,7 +849,7 @@ describe('Array', function () {
     });
 
     it('find()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -886,7 +886,7 @@ describe('Array', function () {
     });
 
     it('findIndex()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -917,7 +917,7 @@ describe('Array', function () {
     });
 
     it('forEach()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -943,7 +943,7 @@ describe('Array', function () {
     });
 
     it('includes()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -955,7 +955,7 @@ describe('Array', function () {
     });
 
     it('indexOf()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -967,7 +967,7 @@ describe('Array', function () {
     });
 
     it('indexOf() with objects', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -980,7 +980,7 @@ describe('Array', function () {
     });
 
     it('join()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -993,7 +993,7 @@ describe('Array', function () {
     });
 
     it('keys()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -1007,7 +1007,7 @@ describe('Array', function () {
     });
 
     it('lastIndexOf()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -1019,7 +1019,7 @@ describe('Array', function () {
     });
 
     it('map()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1050,7 +1050,7 @@ describe('Array', function () {
     });
 
     it('reduce()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1088,7 +1088,7 @@ describe('Array', function () {
     });
 
     it('reduceRight()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1126,7 +1126,7 @@ describe('Array', function () {
     });
 
     it('slice()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1141,7 +1141,7 @@ describe('Array', function () {
     });
 
     it('some()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1173,7 +1173,7 @@ describe('Array', function () {
     });
 
     it('toString()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -1192,7 +1192,7 @@ describe('Array', function () {
     });
 
     it('values()', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -1206,7 +1206,7 @@ describe('Array', function () {
     });
 
     it('should allow mutation of objects returned from built in list iteration', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -1226,7 +1226,7 @@ describe('Array', function () {
     });
 
     it('should allow mutation of objects returned from readonly list methods', () => {
-      const doc = DocumentReplica.create<TestDoc>('test-doc');
+      const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
