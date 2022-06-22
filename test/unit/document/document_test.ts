@@ -115,28 +115,37 @@ describe('Document', function () {
     doc.update((root) => {
       root.list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     });
-    assert.equal('{"list":[0,1,2,3,4,5,6,7,8,9]}', doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{"list":[0,1,2,3,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, 1) as unknown as JSONArray<CRDTElement>;
+      const res = root.list.splice(
+        1,
+        1,
+      ) as Array<any> as JSONArray<CRDTElement>;
       assert.equal(res.toString(), '1');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,2,3,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, 2) as unknown as JSONArray<CRDTElement>;
+      const res = root.list.splice(
+        1,
+        2,
+      ) as Array<any> as JSONArray<CRDTElement>;
       assert.equal(res.toString(), '2,3');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,4,5,6,7,8,9]}');
 
     doc.update((root) => {
-      const res = root.list.splice(3) as unknown as JSONArray<CRDTElement>;
+      const res = root.list.splice(3) as Array<any> as JSONArray<CRDTElement>;
       assert.equal(res.toString(), '6,7,8,9');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0,4,5]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, 200) as unknown as JSONArray<CRDTElement>;
+      const res = root.list.splice(
+        1,
+        200,
+      ) as Array<any> as JSONArray<CRDTElement>;
       assert.equal(res.toString(), '4,5');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0]}');
@@ -149,7 +158,7 @@ describe('Document', function () {
     //     1,
     //     2,
     //     3,
-    //   ) as unknown as JSONArray<CRDTElement>;
+    //   ) as Array<any> as JSONArray<CRDTElement>;
     //   assert.equal(res.toString(), '');
     // });
     // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
@@ -161,13 +170,34 @@ describe('Document', function () {
     doc.update((root) => {
       root.list = ['a', 'b', 'c'];
     });
-    assert.equal('{"list":["a","b","c"]}', doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{"list":["a","b","c"]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, 1) as unknown as JSONArray<CRDTElement>;
+      const res = root.list.splice(
+        1,
+        1,
+      ) as Array<any> as JSONArray<CRDTElement>;
       assert.equal(res.toString(), '"b"');
     });
     assert.equal(doc.toSortedJSON(), '{"list":["a","c"]}');
+  });
+
+  it('splice array with object', function () {
+    const doc = Document.create<{ list: Array<{ id: number }> }>('test-doc');
+
+    doc.update((root) => {
+      root.list = [{ id: 1 }, { id: 2 }];
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[{"id":1},{"id":2}]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(
+        1,
+        1,
+      ) as Array<any> as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '{"id":2}');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[{"id":1}]}');
   });
 
   it('move elements before a specific node of array', function () {
