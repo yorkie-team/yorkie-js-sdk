@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -107,6 +108,51 @@ describe('Document', function () {
     });
     assert.equal('{"data":[]}', doc.toSortedJSON());
     assert.equal(0, doc.getRoot().data.length);
+  });
+
+  it('splice elements of array test', function () {
+    const doc = Document.create<{ list: Array<number> }>('test-doc');
+    doc.update((root) => {
+      root.list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    });
+    assert.equal('{"list":[0,1,2,3,4,5,6,7,8,9]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1) as unknown as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '1');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,2,3,4,5,6,7,8,9]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 2) as unknown as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '2,3');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,4,5,6,7,8,9]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(3) as unknown as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '6,7,8,9');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0,4,5]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 200) as unknown as JSONArray<CRDTElement>;
+      assert.equal(res.toString(), '4,5');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[0]}');
+
+    // TODO(chacha912): test adding elements
+    // doc.update((root) => {
+    //   const res = root.list.splice(
+    //     0,
+    //     0,
+    //     1,
+    //     2,
+    //     3,
+    //   ) as unknown as JSONArray<CRDTElement>;
+    //   assert.equal(res.toString(), '');
+    // });
+    // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
   });
 
   it('move elements before a specific node of array', function () {
