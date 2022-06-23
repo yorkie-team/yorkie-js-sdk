@@ -15,9 +15,19 @@
  */
 
 import { assert } from 'chai';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  MaxTimeTicket,
+  InitialTimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import {
+  JSONArray,
+  Text,
+  RichText,
+  Counter,
+  Primitive,
+} from '@yorkie-js-sdk/src/yorkie';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -199,6 +209,527 @@ describe('Document', function () {
       assert.equal(res.toString(), '{"id":2}');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[{"id":1}]}');
+  });
+
+  describe('should support standard array read-only operations', () => {
+    type TestDoc = {
+      empty: [];
+      list: JSONArray<number>;
+      objects: JSONArray<{ id: string }>;
+    };
+
+    it('concat()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.concat([4, 5, 6]),
+        [1, 2, 3, 4, 5, 6],
+      );
+    });
+
+    it('entries()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      const copy = [];
+      for (const x of doc.getRoot().list.entries()) {
+        copy.push(x);
+      }
+      assert.deepStrictEqual(copy, [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+      ]);
+      assert.deepStrictEqual(
+        [...doc.getRoot().list.entries()],
+        [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+        ],
+      );
+    });
+
+    it('every()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.every(() => false),
+        true,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.every((val) => val > 0),
+        true,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.every((val) => val > 2),
+        false,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.every((val, index) => index < 3),
+        true,
+      );
+      // check that in the callback, 'this' is set to the second argument of method
+      doc.getRoot().list.every(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('filter()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.deepStrictEqual(
+        doc.getRoot().empty.filter(() => true),
+        [],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.filter((num) => num % 2 === 1),
+        [1, 3],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.filter(() => true),
+        [1, 2, 3],
+      );
+
+      doc.getRoot().list.filter(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('find()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.find(() => true),
+        undefined,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.find((num) => num >= 2),
+        2,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.find((num) => num >= 4),
+        undefined,
+      );
+
+      assert.deepEqual(
+        doc.getRoot().objects.find((obj) => obj.id === 'first'),
+        { id: 'first' },
+      );
+
+      doc.getRoot().list.find(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('findIndex()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.findIndex(() => true),
+        -1,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.findIndex((num) => num >= 2),
+        1,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.findIndex((num) => num >= 4),
+        -1,
+      );
+
+      doc.getRoot().list.findIndex(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('forEach()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      doc
+        .getRoot()
+        .empty.forEach(() =>
+          assert.fail('was called', 'not called', 'callback error'),
+        );
+
+      const testList: Array<number> = [];
+      doc.getRoot().list.forEach((num) => testList.push(num + 1));
+      assert.deepStrictEqual(testList, [2, 3, 4]);
+
+      doc.getRoot().list.forEach(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('includes()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(doc.getRoot().list.includes(3), true);
+      assert.strictEqual(doc.getRoot().list.includes(0), false);
+      assert.strictEqual(doc.getRoot().list.includes(1, 1), false);
+      assert.strictEqual(doc.getRoot().list.includes(2, -2), true);
+    });
+
+    it('includes() with objects', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      // TODO: test always fails because doc.getRoot() returns a new proxy of cloned root.
+      // assert.strictEqual(
+      //   doc.getRoot().objects.includes(doc.getRoot().objects[0]),
+      //   true,
+      // );
+    });
+
+    it('indexOf()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(doc.getRoot().list.indexOf(3), 2);
+      assert.strictEqual(doc.getRoot().list.indexOf(0), -1);
+      assert.strictEqual(doc.getRoot().list.indexOf(1, 1), -1);
+      assert.strictEqual(doc.getRoot().list.indexOf(2, -2), 1);
+    });
+
+    it('indexOf() with objects', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      // TODO: test always fails because doc.getRoot() returns a new proxy of cloned root.
+      // assert.strictEqual(
+      //   doc.getRoot().objects.indexOf(doc.getRoot().objects[0]),
+      //   0,
+      // );
+    });
+
+    it('join()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(doc.getRoot().empty.join(','), '');
+      assert.strictEqual(doc.getRoot().list.join(), '1,2,3');
+      assert.strictEqual(doc.getRoot().list.join(''), '123');
+      assert.strictEqual(doc.getRoot().list.join(', '), '1, 2, 3');
+    });
+
+    it('keys()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      const keys = [];
+      for (const x of doc.getRoot().list.keys()) {
+        keys.push(x);
+      }
+      assert.deepStrictEqual(keys, [0, 1, 2]);
+      assert.deepStrictEqual([...doc.getRoot().list.keys()], [0, 1, 2]);
+    });
+
+    it('lastIndexOf()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3), 2);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(0), -1);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3, 1), -1);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3, -1), 2);
+    });
+
+    it('map()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.deepStrictEqual(
+        doc.getRoot().empty.map((num) => num * 2),
+        [],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.map((num) => num * 2),
+        [2, 4, 6],
+      );
+
+      assert.deepStrictEqual(
+        doc.getRoot().list.map((num, index) => index + '->' + num),
+        ['0->1', '1->2', '2->3'],
+      );
+
+      doc.getRoot().list.map(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('reduce()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.reduce((sum, val) => sum + val, 0),
+        0,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val, 0),
+        6,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val, ''),
+        '123',
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduce((sum, val) => sum + val),
+        6,
+      );
+
+      assert.strictEqual(
+        doc
+          .getRoot()
+          .list.reduce(
+            (sum, val, index) => (index % 2 === 0 ? sum + val : sum),
+            0,
+          ),
+        4,
+      );
+    });
+
+    it('reduceRight()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.reduceRight((sum, val) => sum + val, 0),
+        0,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduceRight((sum, val) => sum + val, 0),
+        6,
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduceRight((sum, val) => sum + val, ''),
+        '321',
+      );
+
+      assert.strictEqual(
+        doc.getRoot().list.reduceRight((sum, val) => sum + val),
+        6,
+      );
+
+      assert.strictEqual(
+        doc
+          .getRoot()
+          .list.reduceRight(
+            (sum, val, index) => (index % 2 === 0 ? sum + val : sum),
+            0,
+          ),
+        4,
+      );
+    });
+
+    it('slice()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.deepStrictEqual(doc.getRoot().empty.slice(), []);
+      assert.deepStrictEqual(doc.getRoot().list.slice(2), [3]);
+      assert.deepStrictEqual(doc.getRoot().list.slice(-2), [2, 3]);
+      assert.deepStrictEqual(doc.getRoot().list.slice(0, 0), []);
+      assert.deepStrictEqual(doc.getRoot().list.slice(0, 1), [1]);
+      assert.deepStrictEqual(doc.getRoot().list.slice(0, -1), [1, 2]);
+    });
+
+    it('some()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().empty.some(() => true),
+        false,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.some((val) => val > 2),
+        true,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.some((val) => val > 4),
+        false,
+      );
+      assert.strictEqual(
+        doc.getRoot().list.some((val, index) => index > 2),
+        false,
+      );
+      doc.getRoot().list.some(
+        function (this: any) {
+          assert.strictEqual(this.hello, 'world');
+          return true;
+        },
+        { hello: 'world' },
+      );
+    });
+
+    it('toString()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.empty = [];
+        root.list = [1, 2, 3];
+        root.objects = [{ id: '1' }, { id: '2' }, { id: '3' }];
+      });
+
+      assert.strictEqual(doc.getRoot().empty.toString(), '');
+      assert.strictEqual(doc.getRoot().list.toString(), '1,2,3');
+
+      // NOTE: This is not the same as the listObjects.toString()
+      //       "[object object],[object object],[object object]"
+      assert.strictEqual(
+        doc.getRoot().objects.toString(),
+        '{"id":"1"},{"id":"2"},{"id":"3"}',
+      );
+
+      // check toString with Primitive
+      const num1 = Primitive.of(1, InitialTimeTicket);
+      const num2 = Primitive.of(2, InitialTimeTicket);
+      const crdtArray: JSONArray<CRDTElement> = [num1, num2];
+      assert.strictEqual(crdtArray.toString(), '1,2');
+    });
+
+    it('values()', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.list = [1, 2, 3];
+      });
+
+      const values = [];
+      for (const x of doc.getRoot().list.values()) {
+        values.push(x);
+      }
+      assert.deepStrictEqual(values, [1, 2, 3]);
+      assert.deepStrictEqual([...doc.getRoot().list.values()], [1, 2, 3]);
+    });
+
+    it('should allow mutation of objects returned from built in list iteration', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      doc.update((root) => {
+        for (const obj of root.objects) {
+          if (obj.id === 'first') {
+            obj.id = 'FIRST';
+          }
+        }
+      });
+
+      assert.equal(
+        doc.toSortedJSON(),
+        '{"objects":[{"id":"FIRST"},{"id":"second"}]}',
+      );
+    });
+
+    it('should allow mutation of objects returned from readonly list methods', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      doc.update((root) => {
+        root.objects.find((obj) => obj.id === 'first')!.id = 'FIRST';
+      });
+
+      assert.equal(
+        doc.toSortedJSON(),
+        '{"objects":[{"id":"FIRST"},{"id":"second"}]}',
+      );
+    });
   });
 
   it('move elements before a specific node of array', function () {
