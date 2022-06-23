@@ -29,6 +29,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/json/object';
 import {
+  JSONElement,
   WrappedElement,
   toWrappedElement,
   toJSONElement,
@@ -244,18 +245,23 @@ export class ArrayProxy {
             start: number,
             deleteCount?: number,
             ...items: Array<any>
-          ): JSONArray<CRDTElement> => {
+          ): JSONArray<JSONElement> => {
             const to =
               deleteCount === undefined
                 ? target.length
                 : start + deleteCount > target.length
                 ? target.length
                 : start + deleteCount;
-            const removeds: JSONArray<CRDTElement> = [];
+            const removeds: JSONArray<JSONElement> = [];
             for (let i = start; i < to; i++) {
-              removeds.push(
-                ArrayProxy.deleteInternalByIndex(context, target, start)!,
+              const removed = ArrayProxy.deleteInternalByIndex(
+                context,
+                target,
+                start,
               );
+              if (removed) {
+                removeds.push(toJSONElement(context, removed)!);
+              }
             }
             if (items) {
               const insertIndex = start > target.length ? target.length : start;

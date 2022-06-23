@@ -107,13 +107,6 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `toString` returns the JSON encoding of this object.
-   */
-  public toString(): string {
-    return this.toJSON();
-  }
-
-  /**
    * `toJS` return the javascript object of this object.
    */
   public toJS(): any {

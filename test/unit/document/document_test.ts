@@ -15,19 +15,9 @@
  */
 
 import { assert } from 'chai';
-import {
-  MaxTimeTicket,
-  InitialTimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import {
-  JSONArray,
-  Text,
-  RichText,
-  Counter,
-  Primitive,
-} from '@yorkie-js-sdk/src/yorkie';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -179,6 +169,12 @@ describe('Document', function () {
       assert.equal(res.toString(), '');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[1,4,3,2,1,2]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, -2, 5);
+      assert.equal(res.toString(), '');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,1,2]}');
   });
 
   it('splice array with string', function () {
@@ -191,7 +187,7 @@ describe('Document', function () {
 
     doc.update((root) => {
       const res = root.list.splice(1, 1);
-      assert.equal(res.toString(), '"b"');
+      assert.equal(res.toString(), 'b');
     });
     assert.equal(doc.toSortedJSON(), '{"list":["a","c"]}');
   });
@@ -673,12 +669,6 @@ describe('Document', function () {
         doc.getRoot().objects.toString(),
         '{"id":"1"},{"id":"2"},{"id":"3"}',
       );
-
-      // check toString with Primitive
-      const num1 = Primitive.of(1, InitialTimeTicket);
-      const num2 = Primitive.of(2, InitialTimeTicket);
-      const crdtArray: JSONArray<CRDTElement> = [num1, num2];
-      assert.strictEqual(crdtArray.toString(), '1,2');
     });
 
     it('values()', () => {
