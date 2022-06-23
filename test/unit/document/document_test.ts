@@ -140,18 +140,35 @@ describe('Document', function () {
     });
     assert.equal(doc.toSortedJSON(), '{"list":[0]}');
 
-    // TODO(chacha912): test adding elements
-    // doc.update((root) => {
-    //   const res = root.list.splice(
-    //     0,
-    //     0,
-    //     1,
-    //     2,
-    //     3,
-    //   ) ;
-    //   assert.equal(res.toString(), '');
-    // });
-    // assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
+    doc.update((root) => {
+      const res = root.list.splice(0, 0, 1, 2, 3);
+      assert.equal(res.toString(), '');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,2,3,0]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 2, 4);
+      assert.equal(res.toString(), '2,3');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,4,0]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(2, 200, 2);
+      assert.equal(res.toString(), '0');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,4,2]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(2, 0, 3);
+      assert.equal(res.toString(), '');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,4,3,2]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(5, 10, 1, 2);
+      assert.equal(res.toString(), '');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[1,4,3,2,1,2]}');
   });
 
   it('splice array with string', function () {

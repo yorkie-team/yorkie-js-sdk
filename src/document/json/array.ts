@@ -258,7 +258,17 @@ export class ArrayProxy {
               );
             }
             if (items) {
-              // TODO(chacha912): Add the items to the array
+              const insertIndex = start > target.length ? target.length : start;
+              let id = target.getByIndex(insertIndex - 1)!.getID();
+              for (const item of items) {
+                const newElem = ArrayProxy.insertAfterInternal(
+                  context,
+                  target,
+                  id,
+                  item,
+                );
+                id = newElem.getID();
+              }
             }
             return removeds;
           };
