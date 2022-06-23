@@ -186,7 +186,7 @@ export class SplayTree<V> {
    * `find` returns the Node and offset of the given index.
    */
   public find(pos: number): [SplayNode<V> | undefined, number] {
-    if (!this.root) {
+    if (!this.root || pos < 0) {
       return [undefined, 0];
     }
 

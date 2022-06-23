@@ -57,6 +57,8 @@ describe('SplayTree', function () {
     assert.equal(tree.indexOf(nodeB), 2);
     assert.equal(tree.indexOf(nodeC), 5);
     assert.equal(tree.indexOf(nodeD), 9);
+
+    assert.deepEqual([undefined, 0], tree.find(-1));
   });
 
   it('Can delete the given node', function () {

@@ -29,6 +29,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { ObjectProxy } from '@yorkie-js-sdk/src/document/json/object';
 import {
+  JSONElement,
   WrappedElement,
   toWrappedElement,
   toJSONElement,
@@ -145,6 +146,26 @@ function isReadOnlyArrayMethod(method: string): boolean {
 }
 
 /**
+ * `getPrevioudID` returns the ID of the previous element of the given index.
+ * If the index is negative, it means -n is the index of the nth last element.
+ */
+function getPreviousID(target: CRDTArray, index: number): TimeTicket {
+  let previousID;
+  if (index == 0) {
+    previousID = target.getHead().getID();
+  } else {
+    const insertIndex =
+      index < 0
+        ? target.length + index
+        : index > target.length
+        ? target.length
+        : index;
+    previousID = target.getByIndex(insertIndex - 1)!.getID();
+  }
+  return previousID;
+}
+
+/**
  * `ArrayProxy` is a proxy for Array.
  */
 export class ArrayProxy {
@@ -244,21 +265,35 @@ export class ArrayProxy {
             start: number,
             deleteCount?: number,
             ...items: Array<any>
-          ): JSONArray<CRDTElement> => {
+          ): JSONArray<JSONElement> => {
             const to =
               deleteCount === undefined
                 ? target.length
                 : start + deleteCount > target.length
                 ? target.length
                 : start + deleteCount;
-            const removeds: JSONArray<CRDTElement> = [];
+            const removeds: JSONArray<JSONElement> = [];
             for (let i = start; i < to; i++) {
-              removeds.push(
-                ArrayProxy.deleteInternalByIndex(context, target, start)!,
+              const removed = ArrayProxy.deleteInternalByIndex(
+                context,
+                target,
+                start,
               );
+              if (removed) {
+                removeds.push(toJSONElement(context, removed)!);
+              }
             }
             if (items) {
-              // TODO(chacha912): Add the items to the array
+              let previousID = getPreviousID(target, start);
+              for (const item of items) {
+                const newElem = ArrayProxy.insertAfterInternal(
+                  context,
+                  target,
+                  previousID,
+                  item,
+                );
+                previousID = newElem.getID();
+              }
             }
             return removeds;
           };
