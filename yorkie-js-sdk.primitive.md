@@ -33,6 +33,5 @@ export declare class Primitive
 |  [toBytes()](./yorkie-js-sdk.primitive.tobytes.md) |  | <code>toBytes</code> creates an array representing the value. |
 |  [toJSON()](./yorkie-js-sdk.primitive.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of the value. |
 |  [toSortedJSON()](./yorkie-js-sdk.primitive.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of the value. |
-|  [toString()](./yorkie-js-sdk.primitive.tostring.md) |  | <code>toString</code> returns the JSON encoding of the value. |
 |  [valueFromBytes(primitiveType, bytes)](./yorkie-js-sdk.primitive.valuefrombytes.md) | <code>static</code> | <code>valueFromBytes</code> parses the given bytes into value. |
 
