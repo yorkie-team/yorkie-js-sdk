@@ -146,6 +146,26 @@ function isReadOnlyArrayMethod(method: string): boolean {
 }
 
 /**
+ * `getPrevioudID` returns the ID of the previous element of the given index.
+ * If the index is negative, it means -n is the index of the nth last element.
+ */
+function getPreviousID(target: CRDTArray, index: number): TimeTicket {
+  let previousID;
+  if (index == 0) {
+    previousID = target.getHead().getID();
+  } else {
+    const insertIndex =
+      index < 0
+        ? target.length + index
+        : index > target.length
+        ? target.length
+        : index;
+    previousID = target.getByIndex(insertIndex - 1)!.getID();
+  }
+  return previousID;
+}
+
+/**
  * `ArrayProxy` is a proxy for Array.
  */
 export class ArrayProxy {
@@ -264,16 +284,15 @@ export class ArrayProxy {
               }
             }
             if (items) {
-              const insertIndex = start > target.length ? target.length : start;
-              let id = target.getByIndex(insertIndex - 1)!.getID();
+              let previousID = getPreviousID(target, start);
               for (const item of items) {
                 const newElem = ArrayProxy.insertAfterInternal(
                   context,
                   target,
-                  id,
+                  previousID,
                   item,
                 );
-                id = newElem.getID();
+                previousID = newElem.getID();
               }
             }
             return removeds;
