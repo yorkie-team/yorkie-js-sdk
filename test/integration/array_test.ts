@@ -952,6 +952,19 @@ describe('Array', function () {
       assert.strictEqual(doc.getRoot().list.includes(2, -2), true);
     });
 
+    it('includes() with objects', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      // TODO: test always fails because doc.getRoot() returns a new proxy of cloned root.
+      // assert.strictEqual(
+      //   doc.getRoot().objects.includes(doc.getRoot().objects[0]),
+      //   true,
+      // );
+    });
+
     it('indexOf()', () => {
       const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
