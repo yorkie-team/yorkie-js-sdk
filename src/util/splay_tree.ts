@@ -248,7 +248,7 @@ export class SplayTree<V> {
     }
     let node = this.root;
     while (node.hasLeft()) {
-      node = node.getLeft()!;  
+      node = node.getLeft()!;
     }
     return node;
   }
@@ -262,7 +262,7 @@ export class SplayTree<V> {
     }
     let node = this.root;
     while (node.hasRight()) {
-      node = node.getRight()!;  
+      node = node.getRight()!;
     }
     return node;
   }

@@ -832,8 +832,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
   // Find the 2 edges outside `candidates`,
   // which has not already been deleted, or be undefined.
-  // left, right edge is undefined means `candidates` contains
-  // end of text in that direction.
+  // right edge is undefined means `candidates` contains the end of text.
   private findEdgesOfCandidates(
     candidates: Array<RGATreeSplitNode<T>>,
   ): [RGATreeSplitNode<T>, RGATreeSplitNode<T> | undefined] {
@@ -861,7 +860,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     [, fromIdx] = this.findIndexesFromRange(nodesToKeep[0]!.createRange());
     for (let i = 1; i < nodesToKeep.length; i++) {
       if (nodesToKeep[i]) {
-        [toIdx, temp] = this.findIndexesFromRange(nodesToKeep[i]!.createRange());
+        [toIdx, temp] = this.findIndexesFromRange(
+          nodesToKeep[i]!.createRange(),
+        );
       } else {
         toIdx = this.treeByIndex.length;
       }
