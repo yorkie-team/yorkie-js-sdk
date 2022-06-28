@@ -247,10 +247,7 @@ export class SplayTree<V> {
       return this.root;
     }
     let node = this.root;
-    for (;;) {
-      if (!node.hasLeft()) {
-        break;
-      }
+    while (node.hasLeft()) {
       node = node.getLeft()!;
     }
     return node;
@@ -264,10 +261,7 @@ export class SplayTree<V> {
       return this.root;
     }
     let node = this.root;
-    for (;;) {
-      if (!node.hasRight()) {
-        break;
-      }
+    while (node.hasRight()) {
       node = node.getRight()!;
     }
     return node;
@@ -416,43 +410,43 @@ export class SplayTree<V> {
   }
 
   /**
-   * `cutOffRange` cuts the given range from this Tree.
-   * This function separates the range from `fromInner` to `toInner` as a subtree
-   * by splaying outer nodes then cuts the subtree. 'xxxOuter' could be nil and
-   * means to delete the entire subtree in that direction.
-   *
-   * CAUTION: This function does not filter out invalid argument inputs,
-   * such as non-consecutive indices in fromOuter and fromInner.
+   * `cutOffRange` cuts the range between given 2 boundaries from this Tree.
+   * This function separates the range as a subtree
+   * by splaying outer nodes then cuts the subtree.
+   * leftBoundary, rightBoundary are not included in the range to cut,
+   * and they could be nil, meaning to delete to the end of the tree.
    */
   public cutOffRange(
-    fromOuter: SplayNode<V> | undefined,
-    fromInner: SplayNode<V> | undefined,
-    toInner: SplayNode<V> | undefined,
-    toOuter: SplayNode<V> | undefined,
+    leftBoundary: SplayNode<V> | undefined,
+    rightBoundary: SplayNode<V> | undefined,
   ): void {
-    this.splayNode(toInner);
-    this.splayNode(fromInner);
-
-    if (!fromOuter && !toOuter) {
+    // Absence of both boundaries means the deletion of the entire.
+    if (!leftBoundary && !rightBoundary) {
       this.root = undefined;
       return;
     }
-
-    if (!fromOuter) {
-      this.splayNode(toOuter);
-      this.cutOffLeft(toOuter!);
+    // Absence of leftBoundary means the deletion
+    // from start of the tree to rightBoundary.
+    if (!leftBoundary) {
+      this.splayNode(rightBoundary);
+      this.cutOffLeft(rightBoundary!);
       return;
     }
-
-    if (!toOuter) {
-      this.splayNode(toOuter);
-      this.cutOffRight(fromOuter);
+    // Absence of rightBoundary means the deletion
+    // from leftBoundary to the end of the tree.
+    if (!rightBoundary) {
+      this.splayNode(leftBoundary);
+      this.cutOffRight(leftBoundary);
       return;
     }
-
-    this.splayNode(toOuter);
-    this.splayNode(fromOuter);
-    this.cutOffLeft(toOuter);
+    // The other cases, separate range as a subtree to splay 2 boundaries.
+    this.splayNode(rightBoundary);
+    this.splayNode(leftBoundary);
+    this.cutOffLeft(rightBoundary);
+    if (leftBoundary.getRight() != rightBoundary) {
+      this.cutOffLeft(leftBoundary.getRight()!);
+      this.delete(leftBoundary.getRight()!);
+    }
   }
 
   /**
