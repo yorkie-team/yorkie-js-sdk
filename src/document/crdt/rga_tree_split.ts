@@ -787,12 +787,16 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
-    const deletionBoundaries: Array<RGATreeSplitNode<T>> = [];
+    const deletionBoundaries: Array<RGATreeSplitNode<T> | undefined> = [];
 
     // There are 2 types of nodes in `candidates` : should delete, should not delete.
     // `deletionBoundaries` contains nodes should not delete,
     // then is used to find the boundary of the range to be deleted.
-    deletionBoundaries.push(candidates[0].getPrev()!);
+    const [leftEdge, rightEdge] = this.findDeletionBoundariesEdges(
+      candidates[0].getPrev()!,
+      candidates[candidates.length - 1].getNext()!,
+    );
+    deletionBoundaries.push(leftEdge);
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
       const latestCreatedAt = isRemote
@@ -805,13 +809,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       // that performed the deletion.
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
-      } else {
+      } else if (!node.isRemoved()) {
         deletionBoundaries.push(node);
       }
     }
     // When editing the end of a document, the last elememt of
     // deletionBoundaries can be undefined.
-    deletionBoundaries.push(candidates[candidates.length - 1].getNext()!);
+    deletionBoundaries.push(rightEdge);
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
     const changes = this.makeChanges(deletionBoundaries, editedAt);
@@ -831,20 +835,33 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
+  private findDeletionBoundariesEdges(
+    leftEdge: RGATreeSplitNode<T> | undefined,
+    rightEdge: RGATreeSplitNode<T> | undefined,
+  ): [RGATreeSplitNode<T> | undefined, RGATreeSplitNode<T> | undefined] {
+    while (leftEdge && leftEdge.isRemoved()) {
+      leftEdge = leftEdge.getPrev()!;
+    }
+    while (rightEdge && rightEdge.isRemoved()) {
+      rightEdge = rightEdge.getNext()!;
+    }
+    return [leftEdge, rightEdge];
+  }
+
   private makeChanges(
-    boundaries: Array<RGATreeSplitNode<T>>,
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
   ): Array<TextChange> {
     const changes: Array<TextChange> = [];
     let fromIdx: number, toIdx: number;
     let temp = -1;
 
-    [, fromIdx] = this.findIndexesFromRange(boundaries[0].createRange());
+    [, fromIdx] = this.findIndexesFromRange(boundaries[0]!.createRange());
     for (let i = 1; i < boundaries.length; i++) {
       if (boundaries[i]) {
-        [toIdx, temp] = this.findIndexesFromRange(boundaries[i].createRange());
+        [toIdx, temp] = this.findIndexesFromRange(boundaries[i]!.createRange());
       } else {
-        toIdx = this.treeByIndex.getRightmost()!.getWeight();
+        toIdx = this.treeByIndex.length;
       }
 
       // NOTE: filtering meaningless change where fromIdx equals toIdx
@@ -864,22 +881,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   // NOTE: deleteIndexNodes clears the index nodes of the given deletion boundaries.
-  private deleteIndexNodes(boundaries: Array<RGATreeSplitNode<T>>): void {
+  private deleteIndexNodes(
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+  ): void {
     for (let i = 0; i < boundaries.length - 1; i++) {
-      const leftBoundary = boundaries[i];
-      const rightBoundary = boundaries[i + 1];
-
-      let toInner: RGATreeSplitNode<T> | undefined;
-      if (rightBoundary) {
-        toInner = rightBoundary.getPrev()!;
-      }
-
-      this.treeByIndex.cutOffRange(
-        leftBoundary,
-        leftBoundary.getNext(),
-        toInner,
-        rightBoundary,
-      );
+      this.treeByIndex.cutOffRange(boundaries[i], boundaries[i + 1]);
     }
   }
 
@@ -897,7 +903,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
       if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
-        this.treeByIndex.delete(node);
+        node.unlink();
         this.purge(node);
         this.treeByID.remove(node.getID());
         this.removedNodeMap.delete(node.getID().getAnnotatedString());
