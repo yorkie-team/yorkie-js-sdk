@@ -813,8 +813,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         deletionBoundaries.push(node);
       }
     }
-    // When editing the end of a document, the last elememt of
-    // deletionBoundaries can be undefined.
     deletionBoundaries.push(rightEdge);
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
@@ -835,6 +833,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
+  // Find the outermost 2 boundaries that surrounds `candidates`.
+  // which has not already been deleted, or be nil.
+  // nil means `candidates` contains the edge of text.
   private findDeletionBoundariesEdges(
     leftEdge: RGATreeSplitNode<T> | undefined,
     rightEdge: RGATreeSplitNode<T> | undefined,
