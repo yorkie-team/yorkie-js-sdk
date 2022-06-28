@@ -787,16 +787,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
-    const deletionBoundaries: Array<RGATreeSplitNode<T> | undefined> = [];
+    const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
 
     // There are 2 types of nodes in `candidates` : should delete, should not delete.
-    // `deletionBoundaries` contains nodes should not delete,
+    // `nodesToKeep` contains nodes should not delete,
     // then is used to find the boundary of the range to be deleted.
-    const [leftEdge, rightEdge] = this.findDeletionBoundariesEdges(
-      candidates[0].getPrev()!,
-      candidates[candidates.length - 1].getNext()!,
-    );
-    deletionBoundaries.push(leftEdge);
+    const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
+    nodesToKeep.push(leftEdge);
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
       const latestCreatedAt = isRemote
@@ -810,13 +807,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
       } else if (!node.isRemoved()) {
-        deletionBoundaries.push(node);
+        nodesToKeep.push(node);
       }
     }
-    deletionBoundaries.push(rightEdge);
+    nodesToKeep.push(rightEdge);
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
-    const changes = this.makeChanges(deletionBoundaries, editedAt);
+    const changes = this.makeChanges(nodesToKeep, editedAt);
     for (const node of nodesToDelete) {
       const actorID = node.getCreatedAt().getActorID();
       if (
@@ -828,39 +825,43 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       removedNodeMap.set(node.getID().getAnnotatedString(), node);
       node.remove(editedAt);
     }
-    this.deleteIndexNodes(deletionBoundaries);
+    this.deleteIndexNodes(nodesToKeep);
 
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
-  // Find the outermost 2 boundaries that surrounds `candidates`.
-  // which has not already been deleted, or be nil.
-  // nil means `candidates` contains the edge of text.
-  private findDeletionBoundariesEdges(
-    leftEdge: RGATreeSplitNode<T> | undefined,
-    rightEdge: RGATreeSplitNode<T> | undefined,
-  ): [RGATreeSplitNode<T> | undefined, RGATreeSplitNode<T> | undefined] {
+  // Find the 2 edges outside `candidates`,
+  // which has not already been deleted, or be undefined.
+  // left, right edge is undefined means `candidates` contains
+  // end of text in that direction.
+  private findEdgesOfCandidates(
+    candidates: Array<RGATreeSplitNode<T>>,
+  ): [RGATreeSplitNode<T>, RGATreeSplitNode<T> | undefined] {
+    let leftEdge = candidates[0].getPrev()!;
     while (leftEdge && leftEdge.isRemoved()) {
       leftEdge = leftEdge.getPrev()!;
     }
+
+    let rightEdge = candidates[candidates.length - 1].getNext();
     while (rightEdge && rightEdge.isRemoved()) {
-      rightEdge = rightEdge.getNext()!;
+      rightEdge = rightEdge.getNext();
     }
+
     return [leftEdge, rightEdge];
   }
 
   private makeChanges(
-    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+    nodesToKeep: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
   ): Array<TextChange> {
     const changes: Array<TextChange> = [];
     let fromIdx: number, toIdx: number;
     let temp = -1;
 
-    [, fromIdx] = this.findIndexesFromRange(boundaries[0]!.createRange());
-    for (let i = 1; i < boundaries.length; i++) {
-      if (boundaries[i]) {
-        [toIdx, temp] = this.findIndexesFromRange(boundaries[i]!.createRange());
+    [, fromIdx] = this.findIndexesFromRange(nodesToKeep[0]!.createRange());
+    for (let i = 1; i < nodesToKeep.length; i++) {
+      if (nodesToKeep[i]) {
+        [toIdx, temp] = this.findIndexesFromRange(nodesToKeep[i]!.createRange());
       } else {
         toIdx = this.treeByIndex.length;
       }
