@@ -559,12 +559,24 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       logger.fatal(
         `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
       );
+    } 
+    let index: number, offset: number;
+    if (node!.isRemoved()) {
+      const indexNode = this.findNearLivingNode(node!);
+      index = this.treeByIndex.indexOf(indexNode) + indexNode.getLength();
+      offset = 0;
+    } else {
+      index = this.treeByIndex.indexOf(node!);
+      offset = absoluteID.getOffset() - node!.getID().getOffset();
     }
-    const index = this.treeByIndex.indexOf(node!);
-    const offset = node!.isRemoved()
-      ? 0
-      : absoluteID.getOffset() - node!.getID().getOffset();
     return index + offset;
+  }
+
+  private findNearLivingNode(node: RGATreeSplitNode<T>): RGATreeSplitNode<T> {
+    while (node.isRemoved()) {
+      node = node.getPrev()!;
+    }
+    return node;
   }
 
   /**
@@ -826,7 +838,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       node.remove(editedAt);
     }
     this.deleteIndexNodes(nodesToKeep);
-
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
@@ -866,7 +877,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       } else {
         toIdx = this.treeByIndex.length;
       }
-
       // NOTE: filtering meaningless change where fromIdx equals toIdx
       // when 2 boundary nodes are continuous.
       if (fromIdx < toIdx) {
@@ -876,10 +886,15 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           from: fromIdx,
           to: toIdx,
         });
+        console.log('change', {
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+        })
       }
       fromIdx = temp;
     }
-
     return changes.reverse();
   }
 
