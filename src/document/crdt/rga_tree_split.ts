@@ -888,16 +888,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           from: fromIdx,
           to: toIdx,
         });
-        console.log('change', {
-          type: TextChangeType.Content,
-          actor: editedAt.getActorID()!,
-          from: fromIdx,
-          to: toIdx,
-        });
       }
       fromIdx = temp;
     }
-    
+
     return changes.reverse();
   }
 
