@@ -191,7 +191,7 @@ export class SplayTree<V> {
     }
 
     let node = this.root;
-    for (; ;) {
+    for (;;) {
       if (node.hasLeft() && pos <= node.getLeftWeight()) {
         node = node.getLeft()!;
       } else if (
@@ -222,7 +222,7 @@ export class SplayTree<V> {
   public indexOf(node: SplayNode<V>): number {
     if (!node.hasLinks()) {
       if (node == this.root) {
-        return 0
+        return 0;
       }
       return -1;
     }
@@ -342,7 +342,7 @@ export class SplayTree<V> {
       return;
     }
 
-    for (; ;) {
+    for (;;) {
       if (this.isLeftChild(node.getParent()) && this.isRightChild(node)) {
         // zig-zag
         this.rotateLeft(node);
@@ -432,14 +432,14 @@ export class SplayTree<V> {
     // from start of the tree to rightBoundary.
     if (!leftBoundary) {
       this.splayNode(rightBoundary);
-      //this.cutOffLeft(rightBoundary!);
+      this.cutOffLeft(rightBoundary!);
       return;
     }
     // Absence of rightBoundary means the deletion
     // from leftBoundary to the end of the tree.
     if (!rightBoundary) {
       this.splayNode(leftBoundary);
-      //this.cutOffRight(leftBoundary);
+      this.cutOffRight(leftBoundary);
       return;
     }
     // The other cases, separate range as a subtree to splay 2 boundaries.
@@ -447,8 +447,8 @@ export class SplayTree<V> {
     this.splayNode(leftBoundary);
     //this.cutOffLeft(rightBoundary);
     if (leftBoundary.getRight() != rightBoundary) {
-      //this.cutOffLeft(leftBoundary.getRight()!);
-      //this.delete(leftBoundary.getRight()!);
+      this.cutOffLeft(leftBoundary.getRight()!);
+      this.delete(leftBoundary.getRight()!);
     }
   }
 

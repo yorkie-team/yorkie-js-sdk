@@ -198,7 +198,7 @@ export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
  */
 export class RGATreeSplitNode<
   T extends RGATreeSplitValue,
-  > extends SplayNode<T> {
+> extends SplayNode<T> {
   private id: RGATreeSplitNodeID;
   private removedAt?: TimeTicket;
 
@@ -546,7 +546,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `findIndexesFromOuterRange` finds indexes based on range.
    */
-  public findIndexesFromOuterRange(range: RGATreeSplitNodeRange): [number, number] {
+  public findIndexesFromOuterRange(
+    range: RGATreeSplitNodeRange,
+  ): [number, number] {
     const [fromPos, toPos] = range;
     return [
       this.findIdxFromNodePos(fromPos, true),
@@ -579,7 +581,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         return this.treeByIndex.indexOf(indexNode) + indexNode.getLength();
       }
       const [indexNode, isNext] = this.findLivingNodePreferToNext(node);
-      return this.treeByIndex.indexOf(indexNode) + (isNext ? 0 : indexNode.getLength());
+      return (
+        this.treeByIndex.indexOf(indexNode) +
+        (isNext ? 0 : indexNode.getLength())
+      );
     }
 
     const index = this.treeByIndex.indexOf(node);
@@ -587,14 +592,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return index + offset;
   }
 
-  private findPreviousLivingNode(node: RGATreeSplitNode<T>): RGATreeSplitNode<T> {
+  private findPreviousLivingNode(
+    node: RGATreeSplitNode<T>,
+  ): RGATreeSplitNode<T> {
     while (node.isRemoved()) {
       node = node.getPrev()!;
     }
     return node;
   }
 
-  private findLivingNodePreferToNext(node: RGATreeSplitNode<T>): [RGATreeSplitNode<T>, boolean] {
+  private findLivingNodePreferToNext(
+    node: RGATreeSplitNode<T>,
+  ): [RGATreeSplitNode<T>, boolean] {
     let current: RGATreeSplitNode<T> | undefined = node;
     while (current && current.isRemoved()) {
       current = current.getNext();
@@ -815,10 +824,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-      Array<TextChange>,
-      Map<string, TimeTicket>,
-      Map<string, RGATreeSplitNode<T>>,
-    ] {
+    Array<TextChange>,
+    Map<string, TimeTicket>,
+    Map<string, RGATreeSplitNode<T>>,
+  ] {
     if (!candidates.length) {
       return [[], new Map(), new Map()];
     }
