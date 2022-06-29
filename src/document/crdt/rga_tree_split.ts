@@ -559,7 +559,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       logger.fatal(
         `the node of the given id should be found: ${absoluteID.getAnnotatedString()}`,
       );
-    } 
+    }
     let index: number, offset: number;
     if (node!.isRemoved()) {
       const indexNode = this.findNearLivingNode(node!);
@@ -891,7 +891,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           actor: editedAt.getActorID()!,
           from: fromIdx,
           to: toIdx,
-        })
+        });
       }
       fromIdx = temp;
     }
