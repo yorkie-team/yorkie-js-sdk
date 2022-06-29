@@ -838,6 +838,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       node.remove(editedAt);
     }
     this.deleteIndexNodes(nodesToKeep);
+
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
@@ -877,6 +878,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       } else {
         toIdx = this.treeByIndex.length;
       }
+
       // NOTE: filtering meaningless change where fromIdx equals toIdx
       // when 2 boundary nodes are continuous.
       if (fromIdx < toIdx) {
@@ -895,6 +897,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
       fromIdx = temp;
     }
+    
     return changes.reverse();
   }
 

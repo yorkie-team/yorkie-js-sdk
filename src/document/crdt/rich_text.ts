@@ -386,6 +386,7 @@ export class CRDTRichText extends CRDTTextElement {
         updatedAt.getActorID()!,
         Selection.of(range, updatedAt),
       );
+      
       const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
       return {
         type: TextChangeType.Selection,
