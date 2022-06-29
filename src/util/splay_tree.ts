@@ -445,7 +445,7 @@ export class SplayTree<V> {
     // The other cases, separate range as a subtree to splay 2 boundaries.
     this.splayNode(rightBoundary);
     this.splayNode(leftBoundary);
-    //this.cutOffLeft(rightBoundary);
+    this.cutOffLeft(rightBoundary);
     if (leftBoundary.getRight() != rightBoundary) {
       this.cutOffLeft(leftBoundary.getRight()!);
       this.delete(leftBoundary.getRight()!);
