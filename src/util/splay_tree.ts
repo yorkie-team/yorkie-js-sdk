@@ -178,7 +178,7 @@ export class SplayTree<V> {
   /**
    * `length` returns the size of this tree.
    */
-  public get length(): number {
+   public get length(): number {
     return this.root ? this.root.getWeight() : 0;
   }
 
@@ -240,42 +240,16 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getLeftmost` returns the leftmost node of this tree.
+   * `getRoot` returns root of this tree.
    */
-  public getLeftmost(): SplayNode<V> | undefined {
-    if (!this.root) {
-      return this.root;
-    }
-    let node = this.root;
-    while (node.hasLeft()) {
-      node = node.getLeft()!;
-    }
-    return node;
-  }
-
-  /**
-   * `getRightmost` returns the rightmost node of this tree.
-   */
-  public getRightmost(): SplayNode<V> | undefined {
-    if (!this.root) {
-      return this.root;
-    }
-    let node = this.root;
-    while (node.hasRight()) {
-      node = node.getRight()!;
-    }
-    return node;
+  public getRoot(): SplayNode<V> {
+    return this.root!;
   }
 
   /**
    * `insert` inserts the node at the last.
    */
   public insert(newNode: SplayNode<V>): SplayNode<V> {
-    if (!this.root) {
-      this.root = newNode;
-      return newNode;
-    }
-
     return this.insertAfter(this.root!, newNode);
   }
 
@@ -307,7 +281,7 @@ export class SplayTree<V> {
   }
 
   /**
-   * `updateWeight` recalculates the weight of this node with the value and children.
+   * `updateWeight` recalculates weights with left and right nodes.
    */
   public updateWeight(node: SplayNode<V>): void {
     node.initWeight();
@@ -321,20 +295,9 @@ export class SplayTree<V> {
   }
 
   /**
-   * `updateTreeWeight` recalculates the weight of this tree from the given node to
-   * the root.
-   */
-  public updateTreeWeight(node: SplayNode<V>): void {
-    while (node) {
-      this.updateWeight(node);
-      node = node.getParent()!;
-    }
-  }
-
-  /**
    * `splayNode` moves the given node to the root.
    */
-  public splayNode(node: SplayNode<V> | undefined): void {
+  public splayNode(node: SplayNode<V>): void {
     if (!node) {
       return;
     }
@@ -407,70 +370,6 @@ export class SplayTree<V> {
     if (this.root) {
       this.updateWeight(this.root);
     }
-  }
-
-  /**
-   * `cutOffRange` cuts the range between given 2 boundaries from this Tree.
-   * This function separates the range as a subtree
-   * by splaying outer nodes then cuts the subtree.
-   * leftBoundary, rightBoundary are not included in the range to cut,
-   * and they could be nil, meaning to delete to the end of the tree.
-   */
-  public cutOffRange(
-    leftBoundary: SplayNode<V> | undefined,
-    rightBoundary: SplayNode<V> | undefined,
-  ): void {
-    // Absence of both boundaries means the deletion of the entire.
-    if (!leftBoundary && !rightBoundary) {
-      this.root = undefined;
-      return;
-    }
-    // Absence of leftBoundary means the deletion
-    // from start of the tree to rightBoundary.
-    if (!leftBoundary) {
-      this.splayNode(rightBoundary);
-      this.cutOffLeft(rightBoundary!);
-      return;
-    }
-    // Absence of rightBoundary means the deletion
-    // from leftBoundary to the end of the tree.
-    if (!rightBoundary) {
-      this.splayNode(leftBoundary);
-      this.cutOffRight(leftBoundary);
-      return;
-    }
-    // The other cases, separate range as a subtree to splay 2 boundaries.
-    this.splayNode(rightBoundary);
-    this.splayNode(leftBoundary);
-    this.cutOffLeft(rightBoundary);
-    if (leftBoundary.getRight() != rightBoundary) {
-      this.cutOffLeft(leftBoundary.getRight()!);
-      this.delete(leftBoundary.getRight()!);
-    }
-  }
-
-  /**
-   * `cutOffLeft` cuts off left subtree of node.
-   */
-  public cutOffLeft(node: SplayNode<V>): void {
-    if (!node.hasLeft()) {
-      return;
-    }
-    node.getLeft()!.setParent(undefined);
-    node.setLeft(undefined);
-    this.updateTreeWeight(node);
-  }
-
-  /**
-   * `cutOffRight` cuts off right subtree of node.
-   */
-  public cutOffRight(node: SplayNode<V>): void {
-    if (!node.hasRight()) {
-      return;
-    }
-    node.getRight()!.setParent(undefined);
-    node.setRight(undefined);
-    this.updateTreeWeight(node);
   }
 
   /**
