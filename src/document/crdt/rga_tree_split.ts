@@ -873,12 +873,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const rightBoundary = boundaries[i+1]
       if (leftBoundary!.getNext() == rightBoundary) {
         // If there is no node to delete between boundaries, do notting.
-        return;
+        continue;
       }
       if (leftBoundary!.getNext() && leftBoundary!.getNext()!.getNext() == rightBoundary) {
         // TODO(Eithea): If there is one node to delete between boundaries, delete that.
         // this.treeByIndex.delete(leftBoundary!.getNext()!);
-        return;
+        continue;
       }
       this.treeByIndex.cutOffRange(leftBoundary, rightBoundary);
     }
