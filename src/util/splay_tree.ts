@@ -242,8 +242,8 @@ export class SplayTree<V> {
   /**
    * `getRoot` returns root of this tree.
    */
-  public getRoot(): SplayNode<V> {
-    return this.root!;
+  public getRoot(): SplayNode<V> | undefined {
+    return this.root;
   }
 
   /**
@@ -370,6 +370,60 @@ export class SplayTree<V> {
     node.unlink();
     if (this.root) {
       this.updateWeight(this.root);
+    }
+  }
+
+  /**
+   * `cutOffRange` cuts the range between given 2 boundaries from this Tree.
+   * This function separates the range as a subtree
+   * by splaying outer nodes (then cuts the subtree but not yet implemented).
+   * leftBoundary, rightBoundary are not included in the range to cut,
+   * and they could be nil, meaning to delete to the end of the tree.
+   */
+  public cutOffRange(
+    leftBoundary: SplayNode<V> | undefined,
+    rightBoundary: SplayNode<V> | undefined,
+  ): void {
+    if (!leftBoundary && !rightBoundary) {
+      // Absence of both boundaries means the deletion of the entire.
+      this.root = undefined;
+      return;
+    }
+
+    if (!leftBoundary) {
+      // Absence of leftBoundary means the deletion
+      // from start of the tree to rightBoundary.
+      this.splayNode(rightBoundary);
+      return;
+    }
+
+    if (!rightBoundary) {
+      // Absence of rightBoundary means the deletion
+      // from leftBoundary to the end of the tree.
+      this.splayNode(leftBoundary);
+      return;
+    }
+    // The other cases, separate range as a subtree to splay 2 boundaries.
+    this.splayNode(rightBoundary);
+    this.splayNode(leftBoundary);
+    this.checkRangeSeparation(leftBoundary, rightBoundary);
+  }
+
+  private checkRangeSeparation(
+    leftBoundary: SplayNode<V>,
+    rightBoundary: SplayNode<V>,
+  ) {
+    // leftBoundary must be root
+    if (this.root != leftBoundary) {
+      logger.fatal('Invalid argument for Boundary');
+    }
+    // rightBoundary must be root.right or root.right.right
+    if (
+      !this.root!.getRight() ||
+      (this.root!.getRight() != rightBoundary &&
+        this.root!.getRight()!.getRight() != rightBoundary)
+    ) {
+      logger.fatal('Invalid argument for Boundary');
     }
   }
 

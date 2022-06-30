@@ -779,11 +779,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
+    if (!candidates.length) {
+      return [[], new Map(), new Map()];
+    }
+
     const isRemote = !!latestCreatedAtMapByActor;
     const changes: Array<TextChange> = [];
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
+    const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
+
+    // There are 2 types of nodes in `candidates` : should delete, should not delete.
+    // `nodesToKeep` contains nodes should not delete,
+    // then is used to find the boundary of the range to be deleted.
+    const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
+    nodesToKeep.push(leftEdge);
 
     // NOTE: We need to collect indexes for change first then delete the nodes.
     for (const node of candidates) {
@@ -825,15 +836,41 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
         }
         removedNodeMap.set(node.getID().getAnnotatedString(), node);
+      } else if (!node.isRemoved()) {
+        nodesToKeep.push(node);
       }
     }
+    nodesToKeep.push(rightEdge);
 
     for (const node of nodesToDelete) {
       node.remove(editedAt);
       this.treeByIndex.splayNode(node);
     }
+    this.deleteIndexNodes(nodesToKeep);
 
     return [changes, createdAtMapByActor, removedNodeMap];
+  }
+
+  // `findEdgesOfCandidates` finds the edges outside `candidates`,
+  // (which has not already been deleted, or be undefined but not yet implemented)
+  // right edge is undefined means `candidates` contains the end of text.
+  private findEdgesOfCandidates(
+    candidates: Array<RGATreeSplitNode<T>>,
+  ): [RGATreeSplitNode<T>, RGATreeSplitNode<T> | undefined] {
+    return [
+      candidates[0].getPrev()!,
+      candidates[candidates.length - 1].getNext(),
+    ];
+  }
+
+  // NOTE: deleteIndexNodes clears the index nodes of the given deletion boundaries.
+  // The boundaries mean the nodes that will not be deleted in the range.
+  private deleteIndexNodes(
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+  ): void {
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      this.treeByIndex.cutOffRange(boundaries[i], boundaries[i + 1]);
+    }
   }
 
   /**
