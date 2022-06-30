@@ -178,7 +178,7 @@ export class SplayTree<V> {
   /**
    * `length` returns the size of this tree.
    */
-   public get length(): number {
+  public get length(): number {
     return this.root ? this.root.getWeight() : 0;
   }
 
@@ -250,16 +250,17 @@ export class SplayTree<V> {
    * `insert` inserts the node at the last.
    */
   public insert(newNode: SplayNode<V>): SplayNode<V> {
-    return this.insertAfter(this.root!, newNode);
+    return this.insertAfter(this.root, newNode);
   }
 
   /**
    * `insertAfter` inserts the node after the given previous node.
    */
   public insertAfter(
-    target: SplayNode<V>,
+    target: SplayNode<V> | undefined,
     newNode: SplayNode<V>,
   ): SplayNode<V> {
+    // TODO(Eithea): Consider moving the code below to insert()
     if (!target) {
       this.root = newNode;
       return newNode;
@@ -281,7 +282,7 @@ export class SplayTree<V> {
   }
 
   /**
-   * `updateWeight` recalculates weights with left and right nodes.
+   * `updateWeight` recalculates the weight of this node with the value and children.
    */
   public updateWeight(node: SplayNode<V>): void {
     node.initWeight();
@@ -297,7 +298,7 @@ export class SplayTree<V> {
   /**
    * `splayNode` moves the given node to the root.
    */
-  public splayNode(node: SplayNode<V>): void {
+  public splayNode(node: SplayNode<V> | undefined): void {
     if (!node) {
       return;
     }
