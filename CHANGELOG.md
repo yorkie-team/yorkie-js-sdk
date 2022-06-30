@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.9] - 2022-06-30
+
+### Changed
+
+- Implement inserting elements with splice() method: #318
+
+### Fixed
+
+- Revert text deletion improvements: #323
+
 ## [0.2.8] - 2022-06-22
 
 ### Added
