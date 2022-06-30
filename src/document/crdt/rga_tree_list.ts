@@ -344,7 +344,7 @@ export class RGATreeList {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     const alreadyRemoved = node!.isRemoved();
     if (node!.remove(editedAt) && !alreadyRemoved) {
-      this.nodeMapByIndex.splayNode(node!);
+      this.nodeMapByIndex.splayNode(node);
     }
     return node!.getValue();
   }
