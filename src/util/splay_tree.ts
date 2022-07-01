@@ -296,6 +296,16 @@ export class SplayTree<V> {
   }
 
   /**
+   * `freeWeight` set the weiht is 0. This function only uses in range deletion.
+   */
+  public freeWeight(node: SplayNode<V>): void {
+    node.initWeight();
+    if (node.getWeight()) {
+      logger.fatal("node is not removed");
+    }
+  }
+
+  /**
    * `splayNode` moves the given node to the root.
    */
   public splayNode(node: SplayNode<V> | undefined): void {

@@ -844,7 +844,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     for (const node of nodesToDelete) {
       node.remove(editedAt);
-      this.treeByIndex.splayNode(node);
+      this.treeByIndex.freeWeight(node);
     }
     this.deleteIndexNodes(nodesToKeep);
 
@@ -869,18 +869,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
   ): void {
     for (let i = 0; i < boundaries.length - 1; i++) {
-      const leftBoundary = boundaries[i]
-      const rightBoundary = boundaries[i+1]
+      const leftBoundary = boundaries[i];
+      const rightBoundary = boundaries[i + 1];
       if (leftBoundary!.getNext() == rightBoundary) {
         // If there is no node to delete between boundaries, do notting.
-        continue;
+      } else {
+        this.treeByIndex.cutOffRange(leftBoundary, rightBoundary);
       }
-      if (leftBoundary!.getNext() && leftBoundary!.getNext()!.getNext() == rightBoundary) {
-        // TODO(Eithea): If there is one node to delete between boundaries, delete that.
-        // this.treeByIndex.delete(leftBoundary!.getNext()!);
-        continue;
-      }
-      this.treeByIndex.cutOffRange(leftBoundary, rightBoundary);
     }
   }
 
