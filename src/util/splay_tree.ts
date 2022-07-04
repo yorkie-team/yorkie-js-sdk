@@ -84,10 +84,10 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `setRight` sets a right node.
+   * `getParent` returns parent of this node.
    */
-  public setRight(right?: SplayNode<V>): void {
-    this.right = right;
+  public getParent(): SplayNode<V> | undefined {
+    return this.parent;
   }
 
   /**
@@ -112,13 +112,6 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `setParent` sets a parent node.
-   */
-  public setParent(parent?: SplayNode<V>): void {
-    this.parent = parent;
-  }
-
-  /**
    * `setLeft` sets a left node.
    */
   public setLeft(left?: SplayNode<V>): void {
@@ -126,10 +119,17 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `getParent` returns parent of this node.
+   * `setRight` sets a right node.
    */
-  public getParent(): SplayNode<V> | undefined {
-    return this.parent;
+  public setRight(right?: SplayNode<V>): void {
+    this.right = right;
+  }
+
+  /**
+   * `setParent` sets a parent node.
+   */
+  public setParent(parent?: SplayNode<V>): void {
+    this.parent = parent;
   }
 
   /**
@@ -156,10 +156,16 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `initWeight` set initial weight of this node.
+   * `initWeight` sets initial weight of this node.
    */
   public initWeight(): void {
     this.weight = this.getLength();
+  }
+  /**
+   * `setWeight` forcely sets weight of this node.
+   */
+  public setWeight(weight: number): void {
+    this.weight = weight;
   }
 }
 
@@ -295,13 +301,10 @@ export class SplayTree<V> {
     }
   }
 
-  /**
-   * `freeWeight` set the weiht is 0. This function only uses in range deletion.
-   */
-  public freeWeight(node: SplayNode<V>): void {
-    node.initWeight();
-    if (node.getWeight()) {
-      logger.fatal("node is not removed");
+  private updateTreeWeight(node: SplayNode<V>): void {
+    while (node) {
+      this.updateWeight(node);
+      node = node.getParent()!;
     }
   }
 
@@ -384,57 +387,41 @@ export class SplayTree<V> {
   }
 
   /**
-   * `cutOffRange` cuts the range between given 2 boundaries from this Tree.
-   * This function separates the range as a subtree
-   * by splaying outer nodes (then cuts the subtree but not yet implemented).
-   * leftBoundary, rightBoundary are not included in the range to cut,
-   * and they could be nil, meaning to delete to the end of the tree.
+   * `rangeDelete` separates the range between given 2 boundaries from this Tree.
+   * This function separates the range to delete as a subtree
+   * by splaying outer boundary nodes.
+   * leftBoundary must exist because of 0-indexed initial dummy node of tree,
+   * but rightBoundary can be nil means range to delete includes the end of tree.
    */
-  public cutOffRange(
-    leftBoundary: SplayNode<V> | undefined,
+  public rangeDelete(
+    leftBoundary: SplayNode<V>,
     rightBoundary: SplayNode<V> | undefined,
   ): void {
-    if (!leftBoundary && !rightBoundary) {
-      // Absence of both boundaries means the deletion of the entire.
-      this.root = undefined;
-      return;
-    }
-
-    if (!leftBoundary) {
-      // Absence of leftBoundary means the deletion
-      // from start of the tree to rightBoundary.
-      this.splayNode(rightBoundary);
-      return;
-    }
-
     if (!rightBoundary) {
-      // Absence of rightBoundary means the deletion
-      // from leftBoundary to the end of the tree.
       this.splayNode(leftBoundary);
+      // After splaying, all the range is the right subtree of leftBoundary.
+      this.cutOffRight(leftBoundary);
       return;
     }
-    // The other cases, separate range as a subtree to splay 2 boundaries.
     this.splayNode(rightBoundary);
     this.splayNode(leftBoundary);
-    this.checkRangeSeparation(leftBoundary, rightBoundary);
+    // After splaying twice, leftBoundary must be the root and
+    // rightBoundary is root.right(case 1) or root.right.right(case 2)
+    // In case 1, all the range is the left subtree of rightBoundary.
+    this.cutOffLeft(rightBoundary);
+    // In case 2, there are additional nodes to delete :
+    // leftBoundary.right and its left subtree
+    if (leftBoundary.getRight() != rightBoundary) {
+      this.cutOffLeft(leftBoundary.getRight()!);
+    }
   }
 
-  private checkRangeSeparation(
-    leftBoundary: SplayNode<V>,
-    rightBoundary: SplayNode<V>,
-  ) {
-    // leftBoundary must be root
-    if (this.root != leftBoundary) {
-      logger.fatal('Invalid argument for Boundary');
-    }
-    // rightBoundary must be root.right or root.right.right
-    if (
-      !this.root!.getRight() ||
-      (this.root!.getRight() != rightBoundary &&
-        this.root!.getRight()!.getRight() != rightBoundary)
-    ) {
-      logger.fatal('Invalid argument for Boundary');
-    }
+  private cutOffLeft(node: SplayNode<V>): void {
+    this.updateTreeWeight(node);
+  }
+
+  private cutOffRight(node: SplayNode<V>): void {
+    this.updateTreeWeight(node);
   }
 
   /**
