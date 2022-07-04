@@ -171,16 +171,22 @@ describe('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[1,4,3,2,1,2]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, -2, 5);
+      const res = root.list.splice(1, -3, 5);
       assert.equal(res.toString(), '');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,1,2]}');
 
     doc.update((root) => {
-      const res = root.list.splice(-1, -2, 5, 6);
+      const res = root.list.splice(-2, -11, 5, 6);
       assert.equal(res.toString(), '');
     });
-    assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,1,5,6,2]}');
+    assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,5,6,1,2]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(-11, 2, 7, 8);
+      assert.equal(res.toString(), '1,5');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[7,8,4,3,2,5,6,1,2]}');
   });
 
   it('splice array with string', function () {

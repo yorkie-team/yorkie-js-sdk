@@ -146,26 +146,6 @@ function isReadOnlyArrayMethod(method: string): boolean {
 }
 
 /**
- * `getPrevioudID` returns the ID of the previous element of the given index.
- * If the index is negative, it means -n is the index of the nth last element.
- */
-function getPreviousID(target: CRDTArray, index: number): TimeTicket {
-  let previousID;
-  if (index == 0) {
-    previousID = target.getHead().getID();
-  } else {
-    const insertIndex =
-      index < 0
-        ? target.length + index
-        : index > target.length
-        ? target.length
-        : index;
-    previousID = target.getByIndex(insertIndex - 1)!.getID();
-  }
-  return previousID;
-}
-
-/**
  * `ArrayProxy` is a proxy for Array.
  */
 export class ArrayProxy {
@@ -266,25 +246,33 @@ export class ArrayProxy {
             deleteCount?: number,
             ...items: Array<any>
           ): JSONArray<JSONElement> => {
+            const length = target.length;
+            const from =
+              start >= 0
+                ? Math.min(start, length)
+                : Math.max(length + start, 0);
             const to =
               deleteCount === undefined
-                ? target.length
-                : start + deleteCount > target.length
-                ? target.length
-                : start + deleteCount;
+                ? length
+                : deleteCount < 0
+                ? from
+                : Math.min(from + deleteCount, length);
             const removeds: JSONArray<JSONElement> = [];
-            for (let i = start; i < to; i++) {
+            for (let i = from; i < to; i++) {
               const removed = ArrayProxy.deleteInternalByIndex(
                 context,
                 target,
-                start,
+                from,
               );
               if (removed) {
                 removeds.push(toJSONElement(context, removed)!);
               }
             }
             if (items) {
-              let previousID = getPreviousID(target, start);
+              let previousID =
+                from === 0
+                  ? target.getHead().getID()
+                  : target.getByIndex(from - 1)!.getID();
               for (const item of items) {
                 const newElem = ArrayProxy.insertAfterInternal(
                   context,
