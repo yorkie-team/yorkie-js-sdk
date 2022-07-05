@@ -857,7 +857,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       node.initWeight();
     }
     this.deleteIndexNodes(nodesToKeep);
-    this.treeByIndex.checkWeight(this.treeByIndex.getRoot());
 
     return [changes, createdAtMapByActor, removedNodeMap];
   }
