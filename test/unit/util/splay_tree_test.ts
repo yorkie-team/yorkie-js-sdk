@@ -52,6 +52,7 @@ function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
   return [tree, nodes];
 }
 
+// Make nodes in given range the same state as tombstone.
 function removeNodes(nodes: Array<StringNode>, from: number, to: number): void {
   for (let i = from; i <= to; i++) {
     nodes[i].removed = true;
@@ -127,7 +128,7 @@ describe('SplayTree', function () {
     // check the filtering of rangeDelete
     removeNodes(nodes, 7, 8);
     tree.rangeDelete(nodes[6], undefined);
-    assert.equal(nodes[6], tree.getRoot()!);
+    assert.equal(nodes[6], tree.getRoot());
     assert.equal(nodes[6].getWeight(), 22);
     assert.equal(sumOfWeight(nodes, 7, 8), 0);
 
@@ -136,7 +137,7 @@ describe('SplayTree', function () {
     removeNodes(nodes, 3, 6);
     tree.rangeDelete(nodes[2], nodes[7]);
     assert.equal(nodes[2], tree.getRoot());
-    assert.equal(nodes[7], tree.getRoot()!.getRight());
+    assert.equal(nodes[7], tree.getRoot().getRight());
     assert.equal(nodes[2].getWeight(), 9);
     assert.equal(nodes[7].getWeight(), 3);
     assert.equal(sumOfWeight(nodes, 3, 6), 0);

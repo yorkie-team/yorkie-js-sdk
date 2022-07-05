@@ -248,9 +248,9 @@ export class SplayTree<V> {
   /**
    * `getRoot` returns root of this tree.
    */
-  public getRoot(): SplayNode<V> | undefined {
-    return this.root;
-  }
+   public getRoot(): SplayNode<V> {
+    return this.root!;
+   }
 
   /**
    * `insert` inserts the node at the last.
@@ -414,10 +414,10 @@ export class SplayTree<V> {
     // In case 2, since rightBoundary is leftBoundary.right,
     // all the range nodes between 2 boundaries are in the left subtree of rightBoundary.
     this.cutOffLeft(rightBoundary);
-    
   }
 
   private cutOffLeft(node: SplayNode<V>): void {
+    // TODO(Eithea): The node to delete is not actually disconnected from the tree yet.
     this.updateTreeWeight(node);
   }
 
