@@ -37,7 +37,7 @@ class StringNode extends SplayNode<string> {
 
 function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
   const tree = new SplayTree<string>();
-  let nodes = new Array<StringNode>();
+  const nodes = new Array<StringNode>();
 
   nodes.push(tree.insert(StringNode.create('A')) as StringNode);
   nodes.push(tree.insert(StringNode.create('BB')) as StringNode);
@@ -52,15 +52,11 @@ function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
   return [tree, nodes];
 }
 
-function removeNodes(
-  nodes: Array<StringNode>,
-  from: number,
-  to: number,
-): void {
+function removeNodes(nodes: Array<StringNode>, from: number, to: number): void {
   for (let i = from; i <= to; i++) {
-		nodes[i].removed = true;
+    nodes[i].removed = true;
     nodes[i].setWeight(0);
-	}
+  }
 }
 
 function sumOfWeight(
@@ -70,8 +66,8 @@ function sumOfWeight(
 ): number {
   let sum = 0;
   for (let i = from; i <= to; i++) {
-		sum += nodes[i].getWeight();
-	}
+    sum += nodes[i].getWeight();
+  }
   return sum;
 }
 
@@ -126,38 +122,35 @@ describe('SplayTree', function () {
     assert.equal(tree.indexOf(nodeO), 3);
   });
 
-  it('Can separate given range', function () {
-    let [tree, nodes] =  makeSampleTree();
+  it('Can delete range between the given 2 boundary nodes', function () {
+    let [tree, nodes] = makeSampleTree();
     // check the filtering of rangeDelete
     removeNodes(nodes, 7, 8);
-		tree.rangeDelete(nodes[6], undefined);
-		assert.equal(nodes[6], tree.getRoot()!);
-		assert.equal(nodes[6].getWeight(), 22);
-		assert.equal(sumOfWeight(nodes, 7, 8), 0);
-    
+    tree.rangeDelete(nodes[6], undefined);
+    assert.equal(nodes[6], tree.getRoot()!);
+    assert.equal(nodes[6].getWeight(), 22);
+    assert.equal(sumOfWeight(nodes, 7, 8), 0);
 
-		[tree, nodes] =  makeSampleTree();
-		// check the case 1 of rangeDelete
-		removeNodes(nodes, 3, 6);
-		tree.rangeDelete(nodes[2], nodes[7]);
-		assert.equal(nodes[2], tree.getRoot());
-		assert.equal(nodes[7], tree.getRoot()!.getRight());
-		assert.equal(nodes[2].getWeight(), 9);
-		assert.equal(nodes[7].getWeight(), 3);	
+    [tree, nodes] = makeSampleTree();
+    // check the case 1 of rangeDelete
+    removeNodes(nodes, 3, 6);
+    tree.rangeDelete(nodes[2], nodes[7]);
+    assert.equal(nodes[2], tree.getRoot());
+    assert.equal(nodes[7], tree.getRoot()!.getRight());
+    assert.equal(nodes[2].getWeight(), 9);
+    assert.equal(nodes[7].getWeight(), 3);
     assert.equal(sumOfWeight(nodes, 3, 6), 0);
 
-		[tree, nodes] = makeSampleTree();
-		tree.splayNode(nodes[6]);
-		tree.splayNode(nodes[2]);
-		// check the case 2 of rangeDelete
-		removeNodes(nodes, 3, 7);
-		tree.rangeDelete(nodes[2], nodes[8]);
-		assert.equal(nodes[2], tree.getRoot());
-		assert.equal(nodes[8], tree.getRoot()!.getRight()!.getRight());
-		assert.equal(nodes[2].getWeight(), 7);
-		assert.equal(nodes[8].getWeight(), 1);
-		assert.equal(sumOfWeight(nodes, 3, 4), 0); 14
-		assert.equal(1, nodes[5].getWeight());
-		assert.equal(sumOfWeight(nodes, 6, 7), 0);
+    [tree, nodes] = makeSampleTree();
+    tree.splayNode(nodes[6]);
+    tree.splayNode(nodes[2]);
+    // check the case 2 of rangeDelete
+    removeNodes(nodes, 3, 7);
+    tree.rangeDelete(nodes[2], nodes[8]);
+    assert.equal(nodes[2], tree.getRoot());
+    assert.equal(nodes[8], tree.getRoot()!.getRight());
+    assert.equal(nodes[2].getWeight(), 7);
+    assert.equal(nodes[8].getWeight(), 1);
+    assert.equal(sumOfWeight(nodes, 3, 7), 0);
   });
 });

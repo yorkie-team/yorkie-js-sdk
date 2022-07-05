@@ -406,14 +406,15 @@ export class SplayTree<V> {
     this.splayNode(rightBoundary);
     this.splayNode(leftBoundary);
     // After splaying twice, leftBoundary must be the root and
-    // rightBoundary is root.right(case 1) or root.right.right(case 2)
-    // In case 1, all the range is the left subtree of rightBoundary.
-    this.cutOffLeft(rightBoundary);
-    // In case 2, there are additional nodes to delete :
-    // leftBoundary.right and its left subtree
+    // rightBoundary is leftBoundary.right.right(case 1) or leftBoundary.right(case 2)
     if (leftBoundary.getRight() != rightBoundary) {
-      this.cutOffLeft(leftBoundary.getRight()!);
+      // If case 1, changes to case 2 by rotateLeft (makes rightBoundary be leftBoundary.right).
+      this.rotateLeft(rightBoundary);
     }
+    // In case 2, since rightBoundary is leftBoundary.right,
+    // all the range nodes between 2 boundaries are in the left subtree of rightBoundary.
+    this.cutOffLeft(rightBoundary);
+    
   }
 
   private cutOffLeft(node: SplayNode<V>): void {

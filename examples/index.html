@@ -111,7 +111,7 @@
     async function main() {
       try {
         // 01. create client with RPCAddr(envoy) then activate it.
-        const client = new yorkie.Client('http://localhost:8080');
+        const client = new yorkie.Client('https://7042-211-187-102-71.jp.ngrok.io');
         client.subscribe(network.statusListener(statusHolder));
         await client.activate();
 
