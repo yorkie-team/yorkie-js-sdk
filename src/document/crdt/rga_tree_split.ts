@@ -795,7 +795,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     const isRemote = !!latestCreatedAtMapByActor;
-    const changes: Array<TextChange> = [];
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
@@ -820,39 +819,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       // Delete nodes created before the latest time remaining in the replica that performed the deletion.
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
-
-        if (!node.isRemoved()) {
-          const [fromIdx, toIdx] = this.findIndexesFromRange(
-            node.createRange(),
-          );
-          const change = {
-            type: TextChangeType.Content,
-            actor: editedAt.getActorID()!,
-            from: fromIdx,
-            to: toIdx,
-          };
-          // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
-          if (changes.length && changes[0].to === change.from) {
-            changes[0].to = change.to;
-          } else {
-            changes.unshift(change);
-          }
-        }
-
-        if (
-          !createdAtMapByActor.has(actorID) ||
-          node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
-        ) {
-          createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
-        }
-        removedNodeMap.set(node.getID().getAnnotatedString(), node);
       } else if (!node.isRemoved()) {
         nodesToKeep.push(node);
       }
     }
     nodesToKeep.push(rightEdge);
 
+    const changes = this.makeChanges(nodesToKeep, editedAt);
     for (const node of nodesToDelete) {
+      const actorID = node.getCreatedAt().getActorID();
+      if (
+        !createdAtMapByActor.has(actorID) ||
+        node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
+      ) {
+        createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
+      }
+      removedNodeMap.set(node.getID().getAnnotatedString(), node);
       node.remove(editedAt);
       node.initWeight();
     }
@@ -860,7 +842,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     return [changes, createdAtMapByActor, removedNodeMap];
   }
-
   /**
    * `findEdgesOfCandidates` finds the edges outside `candidates`,
    * (which has not already been deleted, or be undefined but not yet implemented)
@@ -873,6 +854,41 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       candidates[0].getPrev()!,
       candidates[candidates.length - 1].getNext(),
     ];
+  }
+
+  private makeChanges(
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+    editedAt: TimeTicket,
+  ): Array<TextChange> {
+    const changes: Array<TextChange> = [];
+    let fromIdx: number, toIdx: number;
+
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const leftBoundary = boundaries[i];
+      const rightBoundary = boundaries[i + 1];
+      
+      if (leftBoundary!.getNext() == rightBoundary) {
+        continue;
+      }
+
+      [fromIdx,] = this.findIndexesFromRange(leftBoundary!.getNext()!.createRange());
+      if (rightBoundary) {
+        [, toIdx] = this.findIndexesFromRange(rightBoundary.getPrev()!.createRange());
+      } else {
+        toIdx = this.treeByIndex.length;
+      }
+
+      if (fromIdx < toIdx) {
+        changes.push({
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+        });
+      }
+    }
+
+    return changes.reverse();
   }
 
   /**
