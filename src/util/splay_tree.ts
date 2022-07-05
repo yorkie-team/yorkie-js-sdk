@@ -161,12 +161,6 @@ export abstract class SplayNode<V> {
   public initWeight(): void {
     this.weight = this.getLength();
   }
-  /**
-   * `setWeight` forcely sets weight of this node.
-   */
-  public setWeight(weight: number): void {
-    this.weight = weight;
-  }
 }
 
 /**
@@ -248,9 +242,9 @@ export class SplayTree<V> {
   /**
    * `getRoot` returns root of this tree.
    */
-   public getRoot(): SplayNode<V> {
+  public getRoot(): SplayNode<V> {
     return this.root!;
-   }
+  }
 
   /**
    * `insert` inserts the node at the last.
@@ -387,13 +381,13 @@ export class SplayTree<V> {
   }
 
   /**
-   * `rangeDelete` separates the range between given 2 boundaries from this Tree.
+   * `deleteRange` separates the range between given 2 boundaries from this Tree.
    * This function separates the range to delete as a subtree
    * by splaying outer boundary nodes.
    * leftBoundary must exist because of 0-indexed initial dummy node of tree,
    * but rightBoundary can be nil means range to delete includes the end of tree.
    */
-  public rangeDelete(
+  public deleteRange(
     leftBoundary: SplayNode<V>,
     rightBoundary: SplayNode<V> | undefined,
   ): void {

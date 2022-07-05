@@ -56,7 +56,7 @@ function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
 function removeNodes(nodes: Array<StringNode>, from: number, to: number): void {
   for (let i = from; i <= to; i++) {
     nodes[i].removed = true;
-    nodes[i].setWeight(0);
+    nodes[i].initWeight();
   }
 }
 
@@ -127,7 +127,7 @@ describe('SplayTree', function () {
     let [tree, nodes] = makeSampleTree();
     // check the filtering of rangeDelete
     removeNodes(nodes, 7, 8);
-    tree.rangeDelete(nodes[6], undefined);
+    tree.deleteRange(nodes[6], undefined);
     assert.equal(nodes[6], tree.getRoot());
     assert.equal(nodes[6].getWeight(), 22);
     assert.equal(sumOfWeight(nodes, 7, 8), 0);
@@ -135,7 +135,7 @@ describe('SplayTree', function () {
     [tree, nodes] = makeSampleTree();
     // check the case 1 of rangeDelete
     removeNodes(nodes, 3, 6);
-    tree.rangeDelete(nodes[2], nodes[7]);
+    tree.deleteRange(nodes[2], nodes[7]);
     assert.equal(nodes[2], tree.getRoot());
     assert.equal(nodes[7], tree.getRoot().getRight());
     assert.equal(nodes[2].getWeight(), 9);
@@ -147,7 +147,7 @@ describe('SplayTree', function () {
     tree.splayNode(nodes[2]);
     // check the case 2 of rangeDelete
     removeNodes(nodes, 3, 7);
-    tree.rangeDelete(nodes[2], nodes[8]);
+    tree.deleteRange(nodes[2], nodes[8]);
     assert.equal(nodes[2], tree.getRoot());
     assert.equal(nodes[8], tree.getRoot()!.getRight());
     assert.equal(nodes[2].getWeight(), 7);

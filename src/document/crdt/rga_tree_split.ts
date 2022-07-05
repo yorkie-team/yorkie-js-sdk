@@ -502,13 +502,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
 
-      changes.push({
-        type: TextChangeType.Content,
-        actor: editedAt.getActorID()!,
-        from: idx,
-        to: idx,
-        content: value.toString(),
-      });
+      if (changes.length && changes[changes.length - 1].from === idx) {
+        changes[changes.length - 1].content = value.toString();
+      } else {
+        changes.push({
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: idx,
+          to: idx,
+          content: value.toString(),
+        });
+      }
 
       caretPos = RGATreeSplitNodePos.of(
         inserted.getID(),
@@ -572,6 +576,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   public findNode(id: RGATreeSplitNodeID): RGATreeSplitNode<T> {
     return this.findFloorNode(id)!;
+  }
+
+  /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.treeByIndex.length;
   }
 
   /**
@@ -820,7 +831,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
             from: fromIdx,
             to: toIdx,
           };
-
           // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
           if (changes.length && changes[0].to === change.from) {
             changes[0].to = change.to;
@@ -844,16 +854,19 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     for (const node of nodesToDelete) {
       node.remove(editedAt);
-      node.setWeight(0);
+      node.initWeight();
     }
     this.deleteIndexNodes(nodesToKeep);
+    this.treeByIndex.checkWeight(this.treeByIndex.getRoot());
 
     return [changes, createdAtMapByActor, removedNodeMap];
   }
 
-  // `findEdgesOfCandidates` finds the edges outside `candidates`,
-  // (which has not already been deleted, or be undefined but not yet implemented)
-  // right edge is undefined means `candidates` contains the end of text.
+  /**
+   * `findEdgesOfCandidates` finds the edges outside `candidates`,
+   * (which has not already been deleted, or be undefined but not yet implemented)
+   * right edge is undefined means `candidates` contains the end of text.
+   */
   private findEdgesOfCandidates(
     candidates: Array<RGATreeSplitNode<T>>,
   ): [RGATreeSplitNode<T>, RGATreeSplitNode<T> | undefined] {
@@ -863,8 +876,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     ];
   }
 
-  // NOTE: deleteIndexNodes clears the index nodes of the given deletion boundaries.
-  // The boundaries mean the nodes that will not be deleted in the range.
+  /**
+   * `deleteIndexNodes` clears the index nodes of the given deletion boundaries.
+   * The boundaries mean the nodes that will not be deleted in the range.
+   */
   private deleteIndexNodes(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
   ): void {
@@ -873,7 +888,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const rightBoundary = boundaries[i + 1];
       // If there is no node to delete between boundaries, do notting.
       if (leftBoundary!.getNext() != rightBoundary) {
-        this.treeByIndex.rangeDelete(leftBoundary!, rightBoundary);
+        this.treeByIndex.deleteRange(leftBoundary!, rightBoundary);
       }
     }
   }
