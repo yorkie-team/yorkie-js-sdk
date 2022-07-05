@@ -195,4 +195,37 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
   });
+
+  it('should handle concurrent block deletions', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, '123');
+        root.k1.edit(3, 3, '456');
+        root.k1.edit(6, 6, '789');
+      }, 'set new text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":"123456789"}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      const view1 = new TextView();
+      d1.getRoot().k1.onChanges((changes) => view1.applyChanges(changes));
+
+      d1.update((root) => {
+        root.k1.edit(1, 7, '');
+      });
+      assert.equal(d1.toSortedJSON(), `{"k1":"189"}`);
+
+      d2.update((root) => {
+        root.k1.edit(2, 5, '');
+      });
+      assert.equal(d2.toSortedJSON(), `{"k1":"126789"}`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+    }, this.test!.title);
+  });
+
 });

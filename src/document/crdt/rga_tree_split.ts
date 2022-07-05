@@ -380,7 +380,11 @@ export class RGATreeSplitNode<
    * `split` creates a new split node of the given offset.
    */
   public split(offset: number): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(this.id.split(offset), this.splitValue(offset));
+    return new RGATreeSplitNode(
+      this.id.split(offset),
+      this.splitValue(offset),
+      this.removedAt,
+    );
   }
 
   /**
