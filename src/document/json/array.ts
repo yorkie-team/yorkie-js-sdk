@@ -129,11 +129,8 @@ function isReadOnlyArrayMethod(method: string): boolean {
     'find',
     'findIndex',
     'forEach',
-    'includes',
-    'indexOf',
     'join',
     'keys',
-    'lastIndexOf',
     'map',
     'reduce',
     'reduceRight',
@@ -289,6 +286,93 @@ export class ArrayProxy {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
+        } else if (method === 'includes') {
+          return (searchElement: JSONElement, fromIndex?: number): boolean => {
+            const length = target.length;
+            const from =
+              fromIndex === undefined
+                ? 0
+                : fromIndex < 0
+                ? Math.max(fromIndex + length, 0)
+                : fromIndex;
+
+            if (from >= length) return false;
+
+            if (Primitive.isSupport(searchElement)) {
+              const arr = Array.from(target).map((elem) =>
+                toJSONElement(context, elem),
+              );
+              return arr.includes(searchElement, from);
+            }
+
+            for (let i = from; i < length; i++) {
+              if (
+                target.getByIndex(i)?.getID() ===
+                (searchElement as CRDTElement).getID()
+              ) {
+                return true;
+              }
+            }
+            return false;
+          };
+        } else if (method === 'indexOf') {
+          return (searchElement: JSONElement, fromIndex?: number): number => {
+            const length = target.length;
+            const from =
+              fromIndex === undefined
+                ? 0
+                : fromIndex < 0
+                ? Math.max(fromIndex + length, 0)
+                : fromIndex;
+
+            if (from >= length) return -1;
+
+            if (Primitive.isSupport(searchElement)) {
+              const arr = Array.from(target).map((elem) =>
+                toJSONElement(context, elem),
+              );
+              return arr.indexOf(searchElement, from);
+            }
+
+            for (let i = from; i < length; i++) {
+              if (
+                target.getByIndex(i)?.getID() ===
+                (searchElement as CRDTElement).getID()
+              ) {
+                return i;
+              }
+            }
+            return -1;
+          };
+        } else if (method === 'lastIndexOf') {
+          return (searchElement: JSONElement, fromIndex?: number): number => {
+            const length = target.length;
+            const from =
+              fromIndex === undefined || fromIndex >= length
+                ? length - 1
+                : fromIndex < 0
+                ? fromIndex + length
+                : fromIndex;
+
+            if (from < 0) return -1;
+
+            if (Primitive.isSupport(searchElement)) {
+              const arr = Array.from(target).map((elem) =>
+                toJSONElement(context, elem),
+              );
+              return arr.lastIndexOf(searchElement, from);
+            }
+
+            for (let i = from; i > 0; i--) {
+              if (
+                target.getByIndex(i)?.getID() ===
+                (searchElement as CRDTElement).getID()
+              ) {
+                return i;
+              }
+            }
+            return -1;
+          };
         } else if (
           typeof method === 'string' &&
           isReadOnlyArrayMethod(method)
