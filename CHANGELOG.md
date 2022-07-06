@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.10] - 2022-07-06
+
+### Added
+
+- Implement array methods with objects: #327
+
+### Changed
+
+- Improve performance deletion in Text: #326
+
+### Fixed
+
+- Fix a bug when deleting blocks concurrently: #328
+
 ## [0.2.9] - 2022-06-30
 
 ### Changed
