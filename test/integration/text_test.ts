@@ -278,7 +278,4 @@ describe('Text', function () {
       await c1.sync();
     }, this.test!.title);
   });
-
-
-
 });
