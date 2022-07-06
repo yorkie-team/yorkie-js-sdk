@@ -171,16 +171,22 @@ describe('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[1,4,3,2,1,2]}');
 
     doc.update((root) => {
-      const res = root.list.splice(1, -2, 5);
+      const res = root.list.splice(1, -3, 5);
       assert.equal(res.toString(), '');
     });
     assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,1,2]}');
 
     doc.update((root) => {
-      const res = root.list.splice(-1, -2, 5, 6);
+      const res = root.list.splice(-2, -11, 5, 6);
       assert.equal(res.toString(), '');
     });
-    assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,1,5,6,2]}');
+    assert.equal(doc.toSortedJSON(), '{"list":[1,5,4,3,2,5,6,1,2]}');
+
+    doc.update((root) => {
+      const res = root.list.splice(-11, 2, 7, 8);
+      assert.equal(res.toString(), '1,5');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[7,8,4,3,2,5,6,1,2]}');
   });
 
   it('splice array with string', function () {
@@ -416,15 +422,23 @@ describe('Document', function () {
     });
 
     it('includes()', () => {
+      type TestDoc = {
+        list: JSONArray<number | string>;
+      };
       const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
-        root.list = [1, 2, 3];
+        root.list = [1, 2, 3, NaN, '4'];
       });
 
-      assert.strictEqual(doc.getRoot().list.includes(3), true);
-      assert.strictEqual(doc.getRoot().list.includes(0), false);
-      assert.strictEqual(doc.getRoot().list.includes(1, 1), false);
-      assert.strictEqual(doc.getRoot().list.includes(2, -2), true);
+      assert.strictEqual(doc.getRoot().list.includes(3), true, '1');
+      assert.strictEqual(doc.getRoot().list.includes(0), false, '2');
+      assert.strictEqual(doc.getRoot().list.includes(1, 1), false, '3');
+      assert.strictEqual(doc.getRoot().list.includes(3, -4), true, '4');
+      assert.strictEqual(doc.getRoot().list.includes(3, -100), true, '5');
+      assert.strictEqual(doc.getRoot().list.includes(3, 100), false, '6');
+      assert.strictEqual(doc.getRoot().list.includes(NaN), true, '7');
+      assert.strictEqual(doc.getRoot().list.includes(4), false, '8');
+      assert.strictEqual(doc.getRoot().list.includes('4'), true, '9');
     });
 
     it('includes() with objects', () => {
@@ -433,23 +447,22 @@ describe('Document', function () {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
 
-      // TODO: test always fails because doc.getRoot() returns a new proxy of cloned root.
-      // assert.strictEqual(
-      //   doc.getRoot().objects.includes(doc.getRoot().objects[0]),
-      //   true,
-      // );
+      assert.strictEqual(
+        doc.getRoot().objects.includes(doc.getRoot().objects[0]),
+        true,
+      );
     });
 
     it('indexOf()', () => {
       const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
-        root.list = [1, 2, 3];
+        root.list = [1, 2, 3, 3];
       });
 
       assert.strictEqual(doc.getRoot().list.indexOf(3), 2);
       assert.strictEqual(doc.getRoot().list.indexOf(0), -1);
       assert.strictEqual(doc.getRoot().list.indexOf(1, 1), -1);
-      assert.strictEqual(doc.getRoot().list.indexOf(2, -2), 1);
+      assert.strictEqual(doc.getRoot().list.indexOf(2, -3), 1);
     });
 
     it('indexOf() with objects', () => {
@@ -458,11 +471,10 @@ describe('Document', function () {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
 
-      // TODO: test always fails because doc.getRoot() returns a new proxy of cloned root.
-      // assert.strictEqual(
-      //   doc.getRoot().objects.indexOf(doc.getRoot().objects[0]),
-      //   0,
-      // );
+      assert.strictEqual(
+        doc.getRoot().objects.indexOf(doc.getRoot().objects[1]),
+        1,
+      );
     });
 
     it('join()', () => {
@@ -495,13 +507,26 @@ describe('Document', function () {
     it('lastIndexOf()', () => {
       const doc = Document.create<TestDoc>('test-doc');
       doc.update((root) => {
-        root.list = [1, 2, 3];
+        root.list = [1, 2, 3, 3];
       });
 
-      assert.strictEqual(doc.getRoot().list.lastIndexOf(3), 2);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3), 3);
       assert.strictEqual(doc.getRoot().list.lastIndexOf(0), -1);
       assert.strictEqual(doc.getRoot().list.lastIndexOf(3, 1), -1);
-      assert.strictEqual(doc.getRoot().list.lastIndexOf(3, -1), 2);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3, 2), 2);
+      assert.strictEqual(doc.getRoot().list.lastIndexOf(3, -1), 3);
+    });
+
+    it('lastIndexOf() with objects', () => {
+      const doc = Document.create<TestDoc>('test-doc');
+      doc.update((root) => {
+        root.objects = [{ id: 'first' }, { id: 'second' }];
+      });
+
+      assert.strictEqual(
+        doc.getRoot().objects.lastIndexOf(doc.getRoot().objects[1]),
+        1,
+      );
     });
 
     it('map()', () => {
