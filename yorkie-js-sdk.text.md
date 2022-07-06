@@ -18,6 +18,12 @@ declare class Text
 |  --- | --- | --- |
 |  [(constructor)(context, text)](./yorkie-js-sdk.text._constructor_.md) |  | Constructs a new instance of the <code>Text</code> class |
 
+## Properties
+
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [length](./yorkie-js-sdk.text.length.md) |  | number | <code>length</code> returns size of RGATreeList. |
+
 ## Methods
 
 |  Method | Modifiers | Description |
