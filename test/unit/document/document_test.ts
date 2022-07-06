@@ -430,15 +430,15 @@ describe('Document', function () {
         root.list = [1, 2, 3, NaN, '4'];
       });
 
-      assert.strictEqual(doc.getRoot().list.includes(3), true);
-      assert.strictEqual(doc.getRoot().list.includes(0), false);
-      assert.strictEqual(doc.getRoot().list.includes(1, 1), false);
-      assert.strictEqual(doc.getRoot().list.includes(3, -4), true);
-      assert.strictEqual(doc.getRoot().list.includes(3, -100), true);
-      assert.strictEqual(doc.getRoot().list.includes(3, 100), false);
-      assert.strictEqual(doc.getRoot().list.includes(NaN), true);
-      assert.strictEqual(doc.getRoot().list.includes(4), false);
-      assert.strictEqual(doc.getRoot().list.includes('4'), true);
+      assert.strictEqual(doc.getRoot().list.includes(3), true, '1');
+      assert.strictEqual(doc.getRoot().list.includes(0), false, '2');
+      assert.strictEqual(doc.getRoot().list.includes(1, 1), false, '3');
+      assert.strictEqual(doc.getRoot().list.includes(3, -4), true, '4');
+      assert.strictEqual(doc.getRoot().list.includes(3, -100), true, '5');
+      assert.strictEqual(doc.getRoot().list.includes(3, 100), false, '6');
+      assert.strictEqual(doc.getRoot().list.includes(NaN), true, '7');
+      assert.strictEqual(doc.getRoot().list.includes(4), false, '8');
+      assert.strictEqual(doc.getRoot().list.includes('4'), true, '9');
     });
 
     it('includes() with objects', () => {

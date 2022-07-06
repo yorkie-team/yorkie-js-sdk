@@ -243,44 +243,13 @@ export class ArrayProxy {
             deleteCount?: number,
             ...items: Array<any>
           ): JSONArray<JSONElement> => {
-            const length = target.length;
-            const from =
-              start >= 0
-                ? Math.min(start, length)
-                : Math.max(length + start, 0);
-            const to =
-              deleteCount === undefined
-                ? length
-                : deleteCount < 0
-                ? from
-                : Math.min(from + deleteCount, length);
-            const removeds: JSONArray<JSONElement> = [];
-            for (let i = from; i < to; i++) {
-              const removed = ArrayProxy.deleteInternalByIndex(
-                context,
-                target,
-                from,
-              );
-              if (removed) {
-                removeds.push(toJSONElement(context, removed)!);
-              }
-            }
-            if (items) {
-              let previousID =
-                from === 0
-                  ? target.getHead().getID()
-                  : target.getByIndex(from - 1)!.getID();
-              for (const item of items) {
-                const newElem = ArrayProxy.insertAfterInternal(
-                  context,
-                  target,
-                  previousID,
-                  item,
-                );
-                previousID = newElem.getID();
-              }
-            }
-            return removeds;
+            return ArrayProxy.splice(
+              context,
+              target,
+              start,
+              deleteCount,
+              ...items,
+            );
           };
         } else if (method === 'length') {
           return target.length;
@@ -288,90 +257,30 @@ export class ArrayProxy {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
         } else if (method === 'includes') {
           return (searchElement: JSONElement, fromIndex?: number): boolean => {
-            const length = target.length;
-            const from =
-              fromIndex === undefined
-                ? 0
-                : fromIndex < 0
-                ? Math.max(fromIndex + length, 0)
-                : fromIndex;
-
-            if (from >= length) return false;
-
-            if (Primitive.isSupport(searchElement)) {
-              const arr = Array.from(target).map((elem) =>
-                toJSONElement(context, elem),
-              );
-              return arr.includes(searchElement, from);
-            }
-
-            for (let i = from; i < length; i++) {
-              if (
-                target.getByIndex(i)?.getID() ===
-                (searchElement as CRDTElement).getID()
-              ) {
-                return true;
-              }
-            }
-            return false;
+            return ArrayProxy.includes(
+              context,
+              target,
+              searchElement,
+              fromIndex,
+            );
           };
         } else if (method === 'indexOf') {
           return (searchElement: JSONElement, fromIndex?: number): number => {
-            const length = target.length;
-            const from =
-              fromIndex === undefined
-                ? 0
-                : fromIndex < 0
-                ? Math.max(fromIndex + length, 0)
-                : fromIndex;
-
-            if (from >= length) return -1;
-
-            if (Primitive.isSupport(searchElement)) {
-              const arr = Array.from(target).map((elem) =>
-                toJSONElement(context, elem),
-              );
-              return arr.indexOf(searchElement, from);
-            }
-
-            for (let i = from; i < length; i++) {
-              if (
-                target.getByIndex(i)?.getID() ===
-                (searchElement as CRDTElement).getID()
-              ) {
-                return i;
-              }
-            }
-            return -1;
+            return ArrayProxy.indexOf(
+              context,
+              target,
+              searchElement,
+              fromIndex,
+            );
           };
         } else if (method === 'lastIndexOf') {
           return (searchElement: JSONElement, fromIndex?: number): number => {
-            const length = target.length;
-            const from =
-              fromIndex === undefined || fromIndex >= length
-                ? length - 1
-                : fromIndex < 0
-                ? fromIndex + length
-                : fromIndex;
-
-            if (from < 0) return -1;
-
-            if (Primitive.isSupport(searchElement)) {
-              const arr = Array.from(target).map((elem) =>
-                toJSONElement(context, elem),
-              );
-              return arr.lastIndexOf(searchElement, from);
-            }
-
-            for (let i = from; i > 0; i--) {
-              if (
-                target.getByIndex(i)?.getID() ===
-                (searchElement as CRDTElement).getID()
-              ) {
-                return i;
-              }
-            }
-            return -1;
+            return ArrayProxy.lastIndexOf(
+              context,
+              target,
+              searchElement,
+              fromIndex,
+            );
           };
         } else if (
           typeof method === 'string' &&
@@ -631,6 +540,158 @@ export class ArrayProxy {
     );
     context.registerRemovedElement(deleted);
     return deleted;
+  }
+
+  /**
+   * `splice` is a method to remove elements from the array.
+   */
+  public static splice(
+    context: ChangeContext,
+    target: CRDTArray,
+    start: number,
+    deleteCount?: number,
+    ...items: Array<any>
+  ): JSONArray<JSONElement> {
+    const length = target.length;
+    const from =
+      start >= 0 ? Math.min(start, length) : Math.max(length + start, 0);
+    const to =
+      deleteCount === undefined
+        ? length
+        : deleteCount < 0
+        ? from
+        : Math.min(from + deleteCount, length);
+    const removeds: JSONArray<JSONElement> = [];
+    for (let i = from; i < to; i++) {
+      const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
+      if (removed) {
+        removeds.push(toJSONElement(context, removed)!);
+      }
+    }
+    if (items) {
+      let previousID =
+        from === 0
+          ? target.getHead().getID()
+          : target.getByIndex(from - 1)!.getID();
+      for (const item of items) {
+        const newElem = ArrayProxy.insertAfterInternal(
+          context,
+          target,
+          previousID,
+          item,
+        );
+        previousID = newElem.getID();
+      }
+    }
+    return removeds;
+  }
+
+  /**
+   * `includes` returns true if the given element is in the array.
+   */
+  public static includes(
+    context: ChangeContext,
+    target: CRDTArray,
+    searchElement: JSONElement,
+    fromIndex?: number,
+  ): boolean {
+    const length = target.length;
+    const from =
+      fromIndex === undefined
+        ? 0
+        : fromIndex < 0
+        ? Math.max(fromIndex + length, 0)
+        : fromIndex;
+
+    if (from >= length) return false;
+
+    if (Primitive.isSupport(searchElement)) {
+      const arr = Array.from(target).map((elem) =>
+        toJSONElement(context, elem),
+      );
+      return arr.includes(searchElement, from);
+    }
+
+    for (let i = from; i < length; i++) {
+      if (
+        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * `indexOf` returns the index of the given element.
+   */
+  public static indexOf(
+    context: ChangeContext,
+    target: CRDTArray,
+    searchElement: JSONElement,
+    fromIndex?: number,
+  ): number {
+    const length = target.length;
+    const from =
+      fromIndex === undefined
+        ? 0
+        : fromIndex < 0
+        ? Math.max(fromIndex + length, 0)
+        : fromIndex;
+
+    if (from >= length) return -1;
+
+    if (Primitive.isSupport(searchElement)) {
+      const arr = Array.from(target).map((elem) =>
+        toJSONElement(context, elem),
+      );
+      return arr.indexOf(searchElement, from);
+    }
+
+    for (let i = from; i < length; i++) {
+      if (
+        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+      ) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * `lastIndexOf` returns the last index of the given element.
+   */
+  public static lastIndexOf(
+    context: ChangeContext,
+    target: CRDTArray,
+    searchElement: JSONElement,
+    fromIndex?: number,
+  ): number {
+    const length = target.length;
+    const from =
+      fromIndex === undefined || fromIndex >= length
+        ? length - 1
+        : fromIndex < 0
+        ? fromIndex + length
+        : fromIndex;
+
+    if (from < 0) return -1;
+
+    if (Primitive.isSupport(searchElement)) {
+      const arr = Array.from(target).map((elem) =>
+        toJSONElement(context, elem),
+      );
+      return arr.lastIndexOf(searchElement, from);
+    }
+
+    for (let i = from; i > 0; i--) {
+      if (
+        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+      ) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**
