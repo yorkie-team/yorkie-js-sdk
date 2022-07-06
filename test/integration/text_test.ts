@@ -106,6 +106,57 @@ describe('Text', function () {
     }
   });
 
+  it('should handle deletion of the last nodes', function () {
+    const doc = Document.create<{ text: Text }>('test-doc');
+    const view = new TextView();
+    doc.update((root) => (root.text = new Text()));
+    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+
+    const commands = [
+      { from: 0, to: 0, content: 'A' },
+      { from: 1, to: 1, content: 'B' },
+      { from: 2, to: 2, content: 'C' },
+      { from: 3, to: 3, content: 'DE' },
+      { from: 5, to: 5, content: 'F' },
+      { from: 6, to: 6, content: 'GHI' },
+      { from: 9, to: 9 }, // delete no last node
+      { from: 8, to: 9 }, // delete one last node with split
+      { from: 6, to: 8 }, // delete one last node without split
+      { from: 4, to: 6 }, // delete last nodes with split
+      { from: 2, to: 4 }, // delete last nodes without split
+      { from: 0, to: 2 }, // delete last nodes containing the first
+    ];
+
+    for (const cmd of commands) {
+      doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content!));
+      assert.equal(view.toString(), doc.getRoot().text.toString());
+    }
+  });
+
+  it('should handle deletion with boundary nodes already removed', function () {
+    const doc = Document.create<{ text: Text }>('test-doc');
+    const view = new TextView();
+    doc.update((root) => (root.text = new Text()));
+    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+
+    const commands = [
+      { from: 0, to: 0, content: '1A1BCXEF1' },
+      { from: 8, to: 9 },
+      { from: 2, to: 3 },
+      { from: 0, to: 1 }, // ABCXEF
+      { from: 0, to: 1 }, // delete A with two removed boundaries
+      { from: 0, to: 1 }, // delete B with removed left boundary
+      { from: 3, to: 4 }, // delete F with removed right boundary
+      { from: 1, to: 2 },
+      { from: 0, to: 2 }, // delete CE with removed inner node X
+    ];
+
+    for (const cmd of commands) {
+      doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content!));
+      assert.equal(view.toString(), doc.getRoot().text.toString());
+    }
+  });
+
   it('should handle select operations', async function () {
     const doc = Document.create<{
       text: Text;
@@ -227,5 +278,4 @@ describe('Text', function () {
       await c1.sync();
     }, this.test!.title);
   });
-
 });

@@ -84,10 +84,10 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `setRight` sets a right node.
+   * `getParent` returns parent of this node.
    */
-  public setRight(right?: SplayNode<V>): void {
-    this.right = right;
+  public getParent(): SplayNode<V> | undefined {
+    return this.parent;
   }
 
   /**
@@ -112,13 +112,6 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `setParent` sets a parent node.
-   */
-  public setParent(parent?: SplayNode<V>): void {
-    this.parent = parent;
-  }
-
-  /**
    * `setLeft` sets a left node.
    */
   public setLeft(left?: SplayNode<V>): void {
@@ -126,10 +119,17 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `getParent` returns parent of this node.
+   * `setRight` sets a right node.
    */
-  public getParent(): SplayNode<V> | undefined {
-    return this.parent;
+  public setRight(right?: SplayNode<V>): void {
+    this.right = right;
+  }
+
+  /**
+   * `setParent` sets a parent node.
+   */
+  public setParent(parent?: SplayNode<V>): void {
+    this.parent = parent;
   }
 
   /**
@@ -156,7 +156,7 @@ export abstract class SplayNode<V> {
   }
 
   /**
-   * `initWeight` set initial weight of this node.
+   * `initWeight` sets initial weight of this node.
    */
   public initWeight(): void {
     this.weight = this.getLength();
@@ -295,6 +295,13 @@ export class SplayTree<V> {
     }
   }
 
+  private updateTreeWeight(node: SplayNode<V>): void {
+    while (node) {
+      this.updateWeight(node);
+      node = node.getParent()!;
+    }
+  }
+
   /**
    * `splayNode` moves the given node to the root.
    */
@@ -371,6 +378,45 @@ export class SplayTree<V> {
     if (this.root) {
       this.updateWeight(this.root);
     }
+  }
+
+  /**
+   * `deleteRange` separates the range between given 2 boundaries from this Tree.
+   * This function separates the range to delete as a subtree
+   * by splaying outer boundary nodes.
+   * leftBoundary must exist because of 0-indexed initial dummy node of tree,
+   * but rightBoundary can be nil means range to delete includes the end of tree.
+   */
+  public deleteRange(
+    leftBoundary: SplayNode<V>,
+    rightBoundary: SplayNode<V> | undefined,
+  ): void {
+    if (!rightBoundary) {
+      this.splayNode(leftBoundary);
+      // After splaying, all the range is the right subtree of leftBoundary.
+      this.cutOffRight(leftBoundary);
+      return;
+    }
+    this.splayNode(rightBoundary);
+    this.splayNode(leftBoundary);
+    // After splaying twice, leftBoundary must be the root and
+    // rightBoundary is leftBoundary.right.right(case 1) or leftBoundary.right(case 2)
+    if (leftBoundary.getRight() != rightBoundary) {
+      // If case 1, changes to case 2 by rotateLeft (makes rightBoundary be leftBoundary.right).
+      this.rotateLeft(rightBoundary);
+    }
+    // In case 2, since rightBoundary is leftBoundary.right,
+    // all the range nodes between 2 boundaries are in the left subtree of rightBoundary.
+    this.cutOffLeft(rightBoundary);
+  }
+
+  private cutOffLeft(node: SplayNode<V>): void {
+    // TODO(Eithea): The node to delete is not actually disconnected from the tree yet.
+    this.updateTreeWeight(node);
+  }
+
+  private cutOffRight(node: SplayNode<V>): void {
+    this.updateTreeWeight(node);
   }
 
   /**
