@@ -1145,4 +1145,12 @@ describe('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
     assert.equal(0, doc.getGarbageLen());
   });
+
+  it.only('escape string', function () {
+    const doc = Document.create<{ a?: string }>('test-doc');
+    doc.update((root) => {
+      root.a = '"hello"';
+    });
+    assert.equal('{"a": "\\"hello\\""}', doc.toSortedJSON());
+  });
 });
