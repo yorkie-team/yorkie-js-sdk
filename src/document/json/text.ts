@@ -133,6 +133,13 @@ export class Text {
   }
 
   /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.text!.length;
+  }
+
+  /**
    * `toString` returns the string representation of this text.
    */
   toString(): string {

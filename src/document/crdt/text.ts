@@ -131,6 +131,13 @@ export class CRDTText extends CRDTTextElement {
   }
 
   /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.rgaTreeSplit.length;
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {

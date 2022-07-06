@@ -506,13 +506,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
 
-      changes.push({
-        type: TextChangeType.Content,
-        actor: editedAt.getActorID()!,
-        from: idx,
-        to: idx,
-        content: value.toString(),
-      });
+      if (changes.length && changes[changes.length - 1].from === idx) {
+        changes[changes.length - 1].content = value.toString();
+      } else {
+        changes.push({
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: idx,
+          to: idx,
+          content: value.toString(),
+        });
+      }
 
       caretPos = RGATreeSplitNodePos.of(
         inserted.getID(),
@@ -576,6 +580,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   public findNode(id: RGATreeSplitNodeID): RGATreeSplitNode<T> {
     return this.findFloorNode(id)!;
+  }
+
+  /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.treeByIndex.length;
   }
 
   /**
@@ -783,13 +794,54 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
-    const isRemote = !!latestCreatedAtMapByActor;
-    const changes: Array<TextChange> = [];
+    if (!candidates.length) {
+      return [[], new Map(), new Map()];
+    }
+
+    // There are 2 types of nodes in `candidates`: should delete, should not delete.
+    // `nodesToKeep` contains nodes should not delete,
+    // then is used to find the boundary of the range to be deleted.
+    const [nodesToDelete, nodesToKeep] =
+      this.filterNodes(candidates, editedAt, latestCreatedAtMapByActor)
+
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
-    const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
+    // First we need to collect indexes for change.
+    const changes = this.makeChanges(nodesToKeep, editedAt);
+    for (const node of nodesToDelete) {
+      // Then make nodes be tombstones and map that.
+      const actorID = node.getCreatedAt().getActorID();
+      if (
+        !createdAtMapByActor.has(actorID) ||
+        node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
+      ) {
+        createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
+      }
+      removedNodeMap.set(node.getID().getAnnotatedString(), node);
+      node.remove(editedAt);
+      node.initWeight();
+    }
+    // Finally remove index nodes of tombstones.
+    this.deleteIndexNodes(nodesToKeep);
 
-    // NOTE: We need to collect indexes for change first then delete the nodes.
+    return [changes, createdAtMapByActor, removedNodeMap];
+  }
+
+  private filterNodes(
+    candidates: Array<RGATreeSplitNode<T>>,
+    editedAt: TimeTicket,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ): [
+    Array<RGATreeSplitNode<T>>,
+    Array<RGATreeSplitNode<T> | undefined>,
+  ] {
+    const isRemote = !!latestCreatedAtMapByActor;
+    const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
+    const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
+
+    const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
+    nodesToKeep.push(leftEdge);
+
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
 
@@ -799,45 +851,85 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
           : InitialTimeTicket
         : MaxTimeTicket;
 
-      // Delete nodes created before the latest time remaining in the replica that performed the deletion.
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
+      } else if (!node.isRemoved()) {
+        nodesToKeep.push(node);
+      }
+    }
+    nodesToKeep.push(rightEdge);
 
-        if (!node.isRemoved()) {
-          const [fromIdx, toIdx] = this.findIndexesFromRange(
-            node.createRange(),
-          );
-          const change = {
-            type: TextChangeType.Content,
-            actor: editedAt.getActorID()!,
-            from: fromIdx,
-            to: toIdx,
-          };
+    return [nodesToDelete, nodesToKeep];
+  }
 
-          // Reduce adjacent deletions: i.g) [(1, 2), (2, 3)] => [(1, 3)]
-          if (changes.length && changes[0].to === change.from) {
-            changes[0].to = change.to;
-          } else {
-            changes.unshift(change);
-          }
-        }
+  /**
+   * `findEdgesOfCandidates` finds the edges outside `candidates`,
+   * (which has not already been deleted, or be undefined but not yet implemented)
+   * right edge is undefined means `candidates` contains the end of text.
+   */
+  private findEdgesOfCandidates(
+    candidates: Array<RGATreeSplitNode<T>>,
+  ): [RGATreeSplitNode<T>, RGATreeSplitNode<T> | undefined] {
+    return [
+      candidates[0].getPrev()!,
+      candidates[candidates.length - 1].getNext(),
+    ];
+  }
 
-        if (
-          !createdAtMapByActor.has(actorID) ||
-          node.getID().getCreatedAt().after(createdAtMapByActor.get(actorID))
-        ) {
-          createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
-        }
-        removedNodeMap.set(node.getID().getAnnotatedString(), node);
+  private makeChanges(
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+    editedAt: TimeTicket,
+  ): Array<TextChange> {
+    const changes: Array<TextChange> = [];
+    let fromIdx: number, toIdx: number;
+
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const leftBoundary = boundaries[i];
+      const rightBoundary = boundaries[i + 1];
+
+      if (leftBoundary!.getNext() == rightBoundary) {
+        continue;
+      }
+
+      [fromIdx] = this.findIndexesFromRange(
+        leftBoundary!.getNext()!.createRange(),
+      );
+      if (rightBoundary) {
+        [, toIdx] = this.findIndexesFromRange(
+          rightBoundary.getPrev()!.createRange(),
+        );
+      } else {
+        toIdx = this.treeByIndex.length;
+      }
+
+      if (fromIdx < toIdx) {
+        changes.push({
+          type: TextChangeType.Content,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+        });
       }
     }
 
-    for (const node of nodesToDelete) {
-      node.remove(editedAt);
-      this.treeByIndex.splayNode(node);
-    }
+    return changes.reverse();
+  }
 
-    return [changes, createdAtMapByActor, removedNodeMap];
+  /**
+   * `deleteIndexNodes` clears the index nodes of the given deletion boundaries.
+   * The boundaries mean the nodes that will not be deleted in the range.
+   */
+  private deleteIndexNodes(
+    boundaries: Array<RGATreeSplitNode<T> | undefined>,
+  ): void {
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const leftBoundary = boundaries[i];
+      const rightBoundary = boundaries[i + 1];
+      // If there is no node to delete between boundaries, do notting.
+      if (leftBoundary!.getNext() != rightBoundary) {
+        this.treeByIndex.deleteRange(leftBoundary!, rightBoundary);
+      }
+    }
   }
 
   /**

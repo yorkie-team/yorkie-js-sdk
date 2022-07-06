@@ -31,8 +31,14 @@
     const textLogHolder = document.getElementById('text-log-holder');
     const selectionMap = new Map();
 
-    function displayLog(doc) {
+    function displayLog(doc, codemirror) {
       logHolder.innerText = doc.toJSON();
+      const textLength = codemirror.getValue().length;
+      if (
+        doc.getRoot().content.length != doc.getRoot().content.toString().length ||
+        (textLength != doc.getRoot().content.length && textLength != 0)) {
+        debugger;
+      }
       textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
@@ -131,7 +137,7 @@
           }
         }, 'create content if not exists');
         doc.subscribe((event) => {
-          displayLog(doc);
+          displayLog(doc, codemirror);
         });
         await client.sync();
 
@@ -200,7 +206,7 @@
         });
 
         // 05. set initial value.
-        displayLog(doc);
+        displayLog(doc, codemirror);
         codemirror.setValue(text.toString());
       } catch (e) {
         console.error(e);
