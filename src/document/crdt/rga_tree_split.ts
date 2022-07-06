@@ -801,8 +801,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     // There are 2 types of nodes in `candidates`: should delete, should not delete.
     // `nodesToKeep` contains nodes should not delete,
     // then is used to find the boundary of the range to be deleted.
-    const [nodesToDelete, nodesToKeep] =
-      this.filterNodes(candidates, editedAt, latestCreatedAtMapByActor)
+    const [nodesToDelete, nodesToKeep] = this.filterNodes(
+      candidates,
+      editedAt,
+      latestCreatedAtMapByActor,
+    );
 
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
@@ -831,10 +834,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [
-    Array<RGATreeSplitNode<T>>,
-    Array<RGATreeSplitNode<T> | undefined>,
-  ] {
+  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>] {
     const isRemote = !!latestCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
