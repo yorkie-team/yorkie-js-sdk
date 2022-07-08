@@ -1,14 +1,14 @@
+const hex = '0123456789abcdef';
 /**
  * `EscapeString` escapes string
  *
  */
-const hex = '0123456789abcdef';
-
 function EscapeString(s: string) {
-  let buf = [];
+  const buf = [];
 
   for (let i = 0; i < s.length; i++) {
     const charCode = s.charCodeAt(i);
+
     if (
       charCode >= 0x20 &&
       charCode !== '\\'.charCodeAt(0) &&
@@ -44,10 +44,7 @@ function EscapeString(s: string) {
         buf.push('t'.charCodeAt(0));
         break;
       default:
-        let tempBuf = '0x00';
-        tempBuf += hex[charCode >> 4];
-        tempBuf += hex[charCode & 0xf];
-        buf.push(Number(tempBuf));
+        buf.push(Number(`0x00${hex[charCode >> 4]}${hex[charCode & 0xf]}`));
     }
     continue;
   }
