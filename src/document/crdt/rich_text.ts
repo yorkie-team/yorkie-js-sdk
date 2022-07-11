@@ -24,6 +24,7 @@ import {
   RGATreeSplitNodeRange,
   Selection,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 export interface RichTextVal {
   attributes: Record<string, string>;
@@ -89,7 +90,9 @@ export class RichTextValue {
    * `toJSON` returns the JSON encoding of this .
    */
   public toJSON(): string {
-    return `{"attrs":${this.attributes.toJSON()},"content":${this.content}}`;
+    return `{"attrs":${this.attributes.toJSON()},"content":"${escapeString(
+      this.content,
+    )}"`;
   }
 
   /**

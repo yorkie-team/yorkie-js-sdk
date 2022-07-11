@@ -3,7 +3,7 @@ const hex = '0123456789abcdef';
  * `EscapeString` escapes string
  *
  */
-function EscapeString(s: string) {
+export function escapeString(s: string) {
   const buf = [];
 
   for (let i = 0; i < s.length; i++) {
@@ -37,7 +37,7 @@ function EscapeString(s: string) {
         break;
       case '\r'.charCodeAt(0):
         buf.push('\\'.charCodeAt(0));
-        buf.push('z'.charCodeAt(0));
+        buf.push('r'.charCodeAt(0));
         break;
       case '\t'.charCodeAt(0):
         buf.push('\\'.charCodeAt(0));
