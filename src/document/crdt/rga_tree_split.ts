@@ -24,6 +24,7 @@ import {
   MaxTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 /**
  * `TextChangeType` is the type of TextChange.
