@@ -28,9 +28,7 @@ export function escapeString(string: string): string {
         case '\u2029':
           return '\\u2029';
         default:
-          return `\\u00${hex[character.charCodeAt(0) >> 4]}${
-            hex[character.charCodeAt(0) & 0xf]
-          }`;
+          return '';
       }
     },
   );
