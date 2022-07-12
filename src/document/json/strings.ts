@@ -1,5 +1,3 @@
-const hex = '0123456789abcdef';
-
 /**
  * `EscapeString` escapes string
  *
