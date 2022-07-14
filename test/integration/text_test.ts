@@ -67,7 +67,7 @@ describe('Text', function () {
       );
     });
 
-    assert.equal('{"k1":"ABC\nD"}', doc.toSortedJSON());
+    assert.equal('{"k1":"ABC\\nD"}', doc.toSortedJSON());
   });
 
   it('should handle type 하늘', function () {

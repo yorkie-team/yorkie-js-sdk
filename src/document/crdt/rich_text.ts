@@ -92,7 +92,7 @@ export class RichTextValue {
   public toJSON(): string {
     return `{"attrs":${this.attributes.toJSON()},"content":"${escapeString(
       this.content,
-    )}"`;
+    )}"}`;
   }
 
   /**

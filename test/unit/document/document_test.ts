@@ -1146,7 +1146,7 @@ describe('Document', function () {
     assert.equal(0, doc.getGarbageLen());
   });
 
-  it.only('escapes string for object', function () {
+  it('escapes string for object', function () {
     const doc = Document.create<{ a?: string }>('test-doc');
     doc.update((root) => {
       root.a = '"hello"\n\f\b\r\t\\';
@@ -1154,7 +1154,7 @@ describe('Document', function () {
     assert.equal(`{"a":"\\"hello\\"\\n\\f\\b\\r\\t\\\\"}`, doc.toSortedJSON());
   });
 
-  it.only('escapes string for text', function () {
+  it('escapes string for text', function () {
     const doc = Document.create<{ text?: Text }>('test-doc');
     doc.update((root) => {
       root.text = new Text();
@@ -1163,7 +1163,7 @@ describe('Document', function () {
     assert.equal('{"text":"\\"hello\\""}', doc.toSortedJSON());
   });
 
-  it.only('escapes string for rich text', function () {
+  it('escapes string for rich text', function () {
     type TestDoc = { rich: RichText };
     const doc = Document.create<TestDoc>('test-doc');
     doc.update((root) => {
@@ -1171,12 +1171,12 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\"",{"attrs":{},"content":"\\n"]}',
+      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });
 
-  it.only('escapes string for elements in array', function () {
+  it('escapes string for elements in array', function () {
     const doc = Document.create<{ data: JSONArray<string> }>('test-doc');
     doc.update((root) => {
       root.data = ['"hello"', '\n', '\b', '\t', '\f', '\r', '\\'];
