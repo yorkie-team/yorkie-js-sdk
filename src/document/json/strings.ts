@@ -1,6 +1,5 @@
 /**
- * `EscapeString` escapes string
- *
+ * `EscapeString` escapes string.
  */
 export function escapeString(str: string): string {
   return str.replace(
