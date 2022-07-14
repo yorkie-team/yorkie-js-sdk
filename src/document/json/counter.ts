@@ -41,6 +41,7 @@ export class Counter {
   public initialize(context: ChangeContext, counter: CRDTCounter): void {
     this.context = context;
     this.counter = counter;
+    this.value = counter.getValue();
   }
 
   /**
