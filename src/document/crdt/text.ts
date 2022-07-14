@@ -23,6 +23,7 @@ import {
   RGATreeSplitNodeRange,
   Selection,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 /**
  * `CRDTText` represents plain text element
@@ -141,7 +142,7 @@ export class CRDTText extends CRDTTextElement {
    * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {
-    return `"${this.rgaTreeSplit.toJSON()}"`;
+    return `"${escapeString(this.rgaTreeSplit.toJSON())}"`;
   }
 
   /**
