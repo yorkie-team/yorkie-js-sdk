@@ -837,7 +837,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>, Array<RGATreeSplitNode<T>>] {
+  ): [
+    Array<RGATreeSplitNode<T>>,
+    Array<RGATreeSplitNode<T> | undefined>,
+    Array<RGATreeSplitNode<T>>,
+  ] {
     const isRemote = !!latestCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
@@ -859,6 +863,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         nodesToDelete.push(node);
       } else if (!node.isRemoved()) {
         nodesToKeep.push(node);
+        console.log(nodesToKeep)
       } else {
         nodesAlreadyDeleted.push(node);
       }
