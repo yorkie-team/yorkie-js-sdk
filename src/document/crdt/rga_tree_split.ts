@@ -863,7 +863,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         nodesToDelete.push(node);
       } else if (!node.isRemoved()) {
         nodesToKeep.push(node);
-        console.log(nodesToKeep)
+        console.log(nodesToKeep);
       } else {
         nodesAlreadyDeleted.push(node);
       }

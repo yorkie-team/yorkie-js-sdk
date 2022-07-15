@@ -381,7 +381,7 @@ export class SplayTree<V> {
   }
 
   /**
-   * DeleteRange separates the range between given 2 boundaries from this Tree.
+   * `deleteRange` separates the range between given 2 boundaries from this Tree.
    * This function separates the range to delete as a subtree
    * by splaying outer boundary nodes.
    * leftBoundary must exist because of 0-indexed initial dummy node of tree,
