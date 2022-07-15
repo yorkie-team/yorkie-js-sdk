@@ -822,7 +822,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
       removedNodeMap.set(node.getID().getAnnotatedString(), node);
       node.remove(editedAt);
-      node.initWeight();
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);

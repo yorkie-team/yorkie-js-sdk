@@ -381,11 +381,12 @@ export class SplayTree<V> {
   }
 
   /**
-   * `deleteRange` separates the range between given 2 boundaries from this Tree.
+   * DeleteRange separates the range between given 2 boundaries from this Tree.
    * This function separates the range to delete as a subtree
    * by splaying outer boundary nodes.
    * leftBoundary must exist because of 0-indexed initial dummy node of tree,
    * but rightBoundary can be nil means range to delete includes the end of tree.
+   * Refer to the design document in https://github.com/yorkie-team/yorkie/tree/main/design
    */
   public deleteRange(
     leftBoundary: SplayNode<V>,
@@ -393,29 +394,24 @@ export class SplayTree<V> {
   ): void {
     if (!rightBoundary) {
       this.splayNode(leftBoundary);
-      // After splaying, all the range is the right subtree of leftBoundary.
       this.cutOffRight(leftBoundary);
       return;
     }
-    this.splayNode(rightBoundary);
     this.splayNode(leftBoundary);
-    // After splaying twice, leftBoundary must be the root and
-    // rightBoundary is leftBoundary.right.right(case 1) or leftBoundary.right(case 2)
-    if (leftBoundary.getRight() != rightBoundary) {
-      // If case 1, changes to case 2 by rotateLeft (makes rightBoundary be leftBoundary.right).
-      this.rotateLeft(rightBoundary);
+    this.splayNode(rightBoundary);
+    if (rightBoundary.getLeft() != leftBoundary) {
+      this.rotateRight(leftBoundary);
     }
-    // In case 2, since rightBoundary is leftBoundary.right,
-    // all the range nodes between 2 boundaries are in the left subtree of rightBoundary.
-    this.cutOffLeft(rightBoundary);
+    this.cutOffRight(leftBoundary);
   }
 
-  private cutOffLeft(node: SplayNode<V>): void {
+  private cutOffRight(node: SplayNode<V>): void {   
+    const nodesToFree: Array<SplayNode<V>> = [];
+    this.traversePostorder(node.getRight(), nodesToFree);
+    for (const nod of nodesToFree) {
+      this.updateWeight(nod);
+    }
     // TODO(Eithea): The node to delete is not actually disconnected from the tree yet.
-    this.updateTreeWeight(node);
-  }
-
-  private cutOffRight(node: SplayNode<V>): void {
     this.updateTreeWeight(node);
   }
 
@@ -450,6 +446,19 @@ export class SplayTree<V> {
     this.traverseInorder(node.getLeft(), stack);
     stack.push(node);
     this.traverseInorder(node.getRight(), stack);
+  }
+
+  private traversePostorder(
+    node: SplayNode<V> | undefined,
+    stack: Array<SplayNode<V>>,
+  ): void {
+    if (!node) {
+      return;
+    }
+
+    this.traversePostorder(node.getLeft(), stack);
+    this.traversePostorder(node.getRight(), stack);
+    stack.push(node);
   }
 
   private rotateLeft(pivot: SplayNode<V>): void {
@@ -515,4 +524,5 @@ export class SplayTree<V> {
     }
     return false;
   }
+
 }
