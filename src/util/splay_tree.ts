@@ -405,12 +405,7 @@ export class SplayTree<V> {
     this.cutOffRight(leftBoundary);
   }
 
-  private cutOffRight(node: SplayNode<V>): void {   
-    const nodesToFree: Array<SplayNode<V>> = [];
-    this.traversePostorder(node.getRight(), nodesToFree);
-    for (const nod of nodesToFree) {
-      this.updateWeight(nod);
-    }
+  private cutOffRight(node: SplayNode<V>): void {
     // TODO(Eithea): The node to delete is not actually disconnected from the tree yet.
     this.updateTreeWeight(node);
   }
@@ -446,19 +441,6 @@ export class SplayTree<V> {
     this.traverseInorder(node.getLeft(), stack);
     stack.push(node);
     this.traverseInorder(node.getRight(), stack);
-  }
-
-  private traversePostorder(
-    node: SplayNode<V> | undefined,
-    stack: Array<SplayNode<V>>,
-  ): void {
-    if (!node) {
-      return;
-    }
-
-    this.traversePostorder(node.getLeft(), stack);
-    this.traversePostorder(node.getRight(), stack);
-    stack.push(node);
   }
 
   private rotateLeft(pivot: SplayNode<V>): void {
@@ -524,5 +506,4 @@ export class SplayTree<V> {
     }
     return false;
   }
-
 }
