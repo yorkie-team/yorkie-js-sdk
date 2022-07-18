@@ -67,10 +67,7 @@ suite
     // 01. long text by one node
     doc.update((root) => {
       root.text = new Text();
-      let str = '';
-      for (let i = 0; i < size; i++) {
-        str += 'a';
-      }
+      const str = 'a'.repeat(size);
       root.text.edit(0, 0, str);
     }, 'initial large size');
 
