@@ -56,7 +56,6 @@ function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
 function removeNodes(nodes: Array<StringNode>, from: number, to: number): void {
   for (let i = from; i <= to; i++) {
     nodes[i].removed = true;
-    nodes[i].initWeight();
   }
 }
 

@@ -801,7 +801,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     // There are 2 types of nodes in `candidates`: should delete, should not delete.
     // `nodesToKeep` contains nodes should not delete,
     // then is used to find the boundary of the range to be deleted.
-    const [nodesToDelete, nodesToKeep, nodesAlreadyDeleted] = this.filterNodes(
+    const [nodesToDelete, nodesToKeep] = this.filterNodes(
       candidates,
       editedAt,
       latestCreatedAtMapByActor,
@@ -822,10 +822,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
       removedNodeMap.set(node.getID().getAnnotatedString(), node);
       node.remove(editedAt);
-      node.initWeight();
-    }
-    for (const node of nodesAlreadyDeleted) {
-      node.initWeight();
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);
@@ -840,12 +836,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   ): [
     Array<RGATreeSplitNode<T>>,
     Array<RGATreeSplitNode<T> | undefined>,
-    Array<RGATreeSplitNode<T>>,
   ] {
     const isRemote = !!latestCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
-    const nodesAlreadyDeleted: Array<RGATreeSplitNode<T>> = [];
 
     const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
     nodesToKeep.push(leftEdge);
@@ -863,13 +857,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         nodesToDelete.push(node);
       } else if (!node.isRemoved()) {
         nodesToKeep.push(node);
-      } else {
-        nodesAlreadyDeleted.push(node);
       }
     }
     nodesToKeep.push(rightEdge);
 
-    return [nodesToDelete, nodesToKeep, nodesAlreadyDeleted];
+    return [nodesToDelete, nodesToKeep];
   }
 
   /**
