@@ -1186,4 +1186,12 @@ describe('Document', function () {
       doc.toSortedJSON(),
     );
   });
+
+  it('Get the value of the counter', function () {
+    const doc = Document.create<{ counter: Counter }>('test-doc');
+    doc.update((root) => {
+      root.counter = new Counter(155);
+    });
+    assert.equal(155, doc.getRoot().counter.getValue());
+  });
 });
