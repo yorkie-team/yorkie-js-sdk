@@ -308,8 +308,8 @@ describe('Text', function () {
       await c2.sync();
       await c1.sync();
 
-      assert.equal(d1.getRoot().k1.checkWeight(), true);
-      assert.equal(d2.getRoot().k1.checkWeight(), true);
+      assert.isOk(d1.getRoot().k1.checkWeight());
+      assert.isOk(d2.getRoot().k1.checkWeight());
     }, this.test!.title);
   });
 });
