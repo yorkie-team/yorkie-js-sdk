@@ -278,4 +278,38 @@ describe('Text', function () {
       await c1.sync();
     }, this.test!.title);
   });
+
+  it('should maintain the correct weight for nodes newly created then concurrently removed', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+      }, 'set new text by c1');
+
+      d1.update((root) => {
+        root.k1.edit(0, 0, 'O');
+        root.k1.edit(1, 1, 'O');
+        root.k1.edit(2, 2, 'O');
+      });
+
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => {
+        root.k1.edit(1, 2, 'X');
+        root.k1.edit(1, 2, 'X');
+        root.k1.edit(1, 2, '');
+      });
+
+      d2.update((root) => {
+        root.k1.edit(0, 3, 'N');
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.isOk(d1.getRoot().k1.checkWeight());
+      assert.isOk(d2.getRoot().k1.checkWeight());
+    }, this.test!.title);
+  });
 });

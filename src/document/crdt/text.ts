@@ -139,6 +139,14 @@ export class CRDTText extends CRDTTextElement {
   }
 
   /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.rgaTreeSplit.checkWeight();
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {

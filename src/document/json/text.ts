@@ -140,6 +140,14 @@ export class Text {
   }
 
   /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.text!.checkWeight();
+  }
+
+  /**
    * `toString` returns the string representation of this text.
    */
   toString(): string {
