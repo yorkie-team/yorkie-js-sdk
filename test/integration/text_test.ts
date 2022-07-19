@@ -279,7 +279,7 @@ describe('Text', function () {
     }, this.test!.title);
   });
 
-  it('should maintain the correct weight for nodes concurrently edited then removed', async function () {
+  it('should maintain the correct weight for nodes newly created then concurrently removed', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
