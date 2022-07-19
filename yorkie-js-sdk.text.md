@@ -28,6 +28,7 @@ declare class Text
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
+|  [checkWeight()](./yorkie-js-sdk.text.checkweight.md) |  | <code>checkWeight</code> returns false when there is an incorrect weight node. for debugging purpose. |
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.text.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
 |  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.text.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [getAnnotatedString()](./yorkie-js-sdk.text.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a String containing the meta data of the node for debugging purpose. |
