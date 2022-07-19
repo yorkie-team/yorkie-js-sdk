@@ -434,7 +434,10 @@ export class SplayTree<V> {
     const nodes: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root!, nodes);
     for (const node of nodes) {
-      if (node.getWeight() != node.getLength() + node.getLeftWeight() + node.getRightWeight()) {
+      if (
+        node.getWeight() !=
+        node.getLength() + node.getLeftWeight() + node.getRightWeight()
+      ) {
         return false;
       }
     }

@@ -279,7 +279,7 @@ describe('Text', function () {
     }, this.test!.title);
   });
 
-  it.only('should maintain the correct weight for nodes concurrently edited then removed', async function () {
+  it('should maintain the correct weight for nodes concurrently edited then removed', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -304,14 +304,12 @@ describe('Text', function () {
         root.k1.edit(0, 3, 'N');
       });
 
-
       await c1.sync();
       await c2.sync();
       await c1.sync();
 
       assert.equal(d1.getRoot().k1.checkWeight(), true);
       assert.equal(d2.getRoot().k1.checkWeight(), true);
-
     }, this.test!.title);
   });
 });
