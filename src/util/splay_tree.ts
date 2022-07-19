@@ -426,6 +426,21 @@ export class SplayTree<V> {
       .join('');
   }
 
+  /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    const nodes: Array<SplayNode<V>> = [];
+    this.traverseInorder(this.root!, nodes);
+    for (const node of nodes) {
+      if (node.getWeight() != node.getLength() + node.getLeftWeight() + node.getRightWeight()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private getMaximum(): SplayNode<V> {
     let node = this.root!;
     while (node.hasRight()) {

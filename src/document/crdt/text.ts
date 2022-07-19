@@ -137,6 +137,14 @@ export class CRDTText extends CRDTTextElement {
   public get length(): number {
     return this.rgaTreeSplit.length;
   }
+  
+/**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.rgaTreeSplit.checkWeight();
+  }
 
   /**
    * `toJSON` returns the JSON encoding of this text.

@@ -590,6 +590,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.treeByIndex.checkWeight();
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this Array.
    */
   public toJSON(): string {
@@ -833,10 +841,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [
-    Array<RGATreeSplitNode<T>>,
-    Array<RGATreeSplitNode<T> | undefined>,
-  ] {
+  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>] {
     const isRemote = !!latestCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
