@@ -855,7 +855,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
-      } else if (!node.isRemoved()) {
+      } else {
         nodesToKeep.push(node);
       }
     }

@@ -411,7 +411,6 @@ export class SplayTree<V> {
     for (const node of nodesToFreeWeight) {
       node.initWeight();
     }
-    // TODO(Eithea): The node to delete is not actually disconnected from the tree yet.
     this.updateTreeWeight(root);
   }
 
