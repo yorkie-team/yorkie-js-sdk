@@ -36,14 +36,23 @@
       textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
+    function embedAttributeToContent(val) {
+      const { embed, ...attributes } = val.attributes ?? {};
+
+      const delta = embed
+        ? { insert: JSON.parse(embed), attributes } :
+        {
+          insert: val.content || ' ',
+          attributes: val.attributes,
+        };
+      return delta;
+    }
+
     function toDelta(doc) {
       const obj = doc.getRoot();
       const deltas = [];
       for (const val of obj.content.values()) {
-        deltas.push({
-          insert: val.content,
-          attributes: val.attributes,
-        });
+        deltas.push(embedAttributeToContent(val));
       }
       return deltas;
     }
@@ -122,6 +131,7 @@
               [{ 'color': [] }, { 'background': [] }],
               [{ 'font': [] }],
               [{ 'align': [] }],
+              ['image', 'video'],
               ['clean']
             ],
             cursors: true
@@ -155,7 +165,12 @@
                   if (to < from) {
                     to = from;
                   }
-                  root.content.edit(from, to, op.insert, toAttributes(op.attributes));
+
+                  if (typeof op.insert === 'object') {
+                    root.content.edit(from, to, ' ', { embed: JSON.stringify(op.insert), ...toAttributes(op.attributes) })
+                  } else {
+                    root.content.edit(from, to, op.insert, toAttributes(op.attributes))
+                  }
                   from = to + op.insert.length;
                 }
               }, `update style by ${client.getID()}`);
@@ -199,8 +214,10 @@
             const to = change.to;
             const retainFrom = from - prevTo;
             const retainTo = to - from;
+
+            const deltaOp = { insert: change.insert, attributes: change.attributes }
+            const { insert: content, attributes } = embedAttributeToContent(deltaOp);
             if (change.type === 'content') {
-              const content = change.content || '';
               console.log(
                 `%c remote: ${from}-${to}: ${content}`,
                 'color: skyblue'
@@ -214,22 +231,22 @@
               }
               if (content) {
                 const op = { insert: content };
-                if (change.attributes) {
-                  op.attributes = change.attributes;
+                if (attributes) {
+                  op.attributes = attributes;
                 }
                 delta.push(op);
               }
             } else if (change.type === 'style') {
               console.log(
-                `%c remote: ${from}-${to}: ${JSON.stringify(change.attributes)}`,
+                `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
                 'color: skyblue'
               );
 
               if (retainFrom) {
                 delta.push({ retain: retainFrom });
               }
-              if (change.attributes) {
-                const op = { attributes: change.attributes };
+              if (attributes) {
+                const op = { attributes };
                 if (retainTo) {
                   op.retain = retainTo;
                 }
