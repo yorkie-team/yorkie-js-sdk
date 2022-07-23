@@ -6,3 +6,9 @@
 }
 .green { background-color: green }
 .red { background-color: red; }
+
+.ql-editor {
+  min-height: 300px;
+  overflow-y: auto;
+  resize: vertical;
+}
