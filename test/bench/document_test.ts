@@ -30,6 +30,20 @@ suite
       assert.isFalse(doc.hasLocalChanges());
     }
   })
+  .add('equals test', function () {
+    for (let i = 0; i < 100; i++) {
+      const doc1 = Document.create<{ text: string }>('d1');
+      const doc2 = Document.create<{ text: string }>('d2');
+      const doc3 = Document.create<{ text: string }>('d3');
+
+      doc1.update((root) => {
+        root.text = 'value';
+      }, 'update text');
+
+      assert.notEqual(doc1.toSortedJSON(), doc2.toSortedJSON());
+      assert.equal(doc2.toSortedJSON(), doc3.toSortedJSON());
+    }
+  })
   .add('garbage collection test for large size text 1', function () {
     const size = 100;
     const doc = Document.create<{ text: Text }>('test-doc');
