@@ -82,11 +82,11 @@
     async function main() {
       try {
         let peers;
-        const metadata = {username: `username-${shortUniqueID()}`};
+        const presence = {username: `username-${shortUniqueID()}`};
 
         // 01. create client with RPCAddr(envoy) then activate it.
         const client = new yorkie.Client('http://localhost:8080', {
-          metadata,
+          presence,
           syncLoopDuration: 50,
           reconnectStreamDelay: 1000,
         });
@@ -100,7 +100,7 @@
         client.subscribe((event) => {
           if (event.type === 'peers-changed') {
             peers = event.value[doc.getKey()];
-            displayPeers(peers, metadata['username']);
+            displayPeers(peers, presence['username']);
           }
         });
 
