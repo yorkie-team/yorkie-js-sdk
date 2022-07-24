@@ -36,23 +36,23 @@
       textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
-    function embedAttributeToContent(val) {
-      const { embed, ...attributes } = val.attributes ?? {};
+    function toDelta(change) {
+      const { embed, ...attributes } = change.attributes ?? {};
 
       const delta = embed
         ? { insert: JSON.parse(embed), attributes } :
         {
-          insert: val.content || ' ',
-          attributes: val.attributes,
+          insert: change.content || ' ',
+          attributes: change.attributes,
         };
       return delta;
     }
 
-    function toDelta(doc) {
+    function toDeltaList(doc) {
       const obj = doc.getRoot();
       const deltas = [];
       for (const val of obj.content.values()) {
-        deltas.push(embedAttributeToContent(val));
+        deltas.push(toDelta(val));
       }
       return deltas;
     }
@@ -215,8 +215,7 @@
             const retainFrom = from - prevTo;
             const retainTo = to - from;
 
-            const deltaOp = { insert: change.insert, attributes: change.attributes }
-            const { insert: content, attributes } = embedAttributeToContent(deltaOp);
+            const { insert: content, attributes } = toDelta(change);
             if (change.type === 'content') {
               console.log(
                 `%c remote: ${from}-${to}: ${content}`,
@@ -274,7 +273,7 @@
         // 05. set initial value.
         displayLog(doc);
         quill.setContents({
-          ops: toDelta(doc)
+          ops: toDeltaList(doc)
         }, 'yorkie');
       } catch (e) {
         console.error(e);
