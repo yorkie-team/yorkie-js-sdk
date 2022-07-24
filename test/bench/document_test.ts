@@ -44,6 +44,27 @@ suite
       assert.equal(doc2.toSortedJSON(), doc3.toSortedJSON());
     }
   })
+  .add('nested update test', function () {
+    const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
+
+    for (let i = 0; i < 100; i++) {
+      const doc =
+        Document.create<{ k1: string; k2: { k4: string }; k3: Array<string> }>(
+          'test-doc',
+        );
+      assert.equal('{}', doc.toSortedJSON());
+      assert.isFalse(doc.hasLocalChanges());
+
+      doc.update((root) => {
+        root.k1 = 'v1';
+        root.k2 = { k4: 'v4' };
+        root.k3 = ['v5', 'v6'];
+      }, 'updates k1,k2,k3');
+
+      assert.equal(expected, doc.toSortedJSON());
+      assert.isTrue(doc.hasLocalChanges());
+    }
+  })
   .add('garbage collection test for large size text 1', function () {
     const size = 100;
     const doc = Document.create<{ text: Text }>('test-doc');
