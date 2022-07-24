@@ -36,14 +36,23 @@
       textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
     }
 
-    function toDelta(doc) {
+    function toDelta(change) {
+      const { embed, ...attributes } = change.attributes ?? {};
+
+      const delta = embed
+        ? { insert: JSON.parse(embed), attributes } :
+        {
+          insert: change.content || ' ',
+          attributes: change.attributes,
+        };
+      return delta;
+    }
+
+    function toDeltaList(doc) {
       const obj = doc.getRoot();
       const deltas = [];
       for (const val of obj.content.values()) {
-        deltas.push({
-          insert: val.content,
-          attributes: val.attributes,
-        });
+        deltas.push(toDelta(val));
       }
       return deltas;
     }
@@ -122,6 +131,7 @@
               [{ 'color': [] }, { 'background': [] }],
               [{ 'font': [] }],
               [{ 'align': [] }],
+              ['image', 'video'],
               ['clean']
             ],
             cursors: true
@@ -155,7 +165,12 @@
                   if (to < from) {
                     to = from;
                   }
-                  root.content.edit(from, to, op.insert, toAttributes(op.attributes));
+
+                  if (typeof op.insert === 'object') {
+                    root.content.edit(from, to, ' ', { embed: JSON.stringify(op.insert), ...toAttributes(op.attributes) })
+                  } else {
+                    root.content.edit(from, to, op.insert, toAttributes(op.attributes))
+                  }
                   from = to + op.insert.length;
                 }
               }, `update style by ${client.getID()}`);
@@ -199,8 +214,9 @@
             const to = change.to;
             const retainFrom = from - prevTo;
             const retainTo = to - from;
+
+            const { insert: content, attributes } = toDelta(change);
             if (change.type === 'content') {
-              const content = change.content || '';
               console.log(
                 `%c remote: ${from}-${to}: ${content}`,
                 'color: skyblue'
@@ -214,22 +230,22 @@
               }
               if (content) {
                 const op = { insert: content };
-                if (change.attributes) {
-                  op.attributes = change.attributes;
+                if (attributes) {
+                  op.attributes = attributes;
                 }
                 delta.push(op);
               }
             } else if (change.type === 'style') {
               console.log(
-                `%c remote: ${from}-${to}: ${JSON.stringify(change.attributes)}`,
+                `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
                 'color: skyblue'
               );
 
               if (retainFrom) {
                 delta.push({ retain: retainFrom });
               }
-              if (change.attributes) {
-                const op = { attributes: change.attributes };
+              if (attributes) {
+                const op = { attributes };
                 if (retainTo) {
                   op.retain = retainTo;
                 }
@@ -257,7 +273,7 @@
         // 05. set initial value.
         displayLog(doc);
         quill.setContents({
-          ops: toDelta(doc)
+          ops: toDeltaList(doc)
         }, 'yorkie');
       } catch (e) {
         console.error(e);
