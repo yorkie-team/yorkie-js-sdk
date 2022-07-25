@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.12] - 2022-07-20
+
+### Fixed
+
+- Fix incorrect index for nodes newly created then concurrently removed: #334
+- Fix initial value bug in counter proxy: #333
+
+## [0.2.11] - 2022-07-14
+
+### Fixed
+
+- Escape string to return valid json: #330
+
 ## [0.2.10] - 2022-07-06
 
 ### Added
