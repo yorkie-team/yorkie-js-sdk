@@ -90,9 +90,9 @@ export class RichTextValue {
    * `toJSON` returns the JSON encoding of this .
    */
   public toJSON(): string {
-    return `{"attrs":${this.attributes.toJSON()},"content":"${escapeString(
-      this.content,
-    )}"}`;
+    const attrs = this.attributes.toJSON();
+    const content = escapeString(this.content);
+    return `{"attrs":${attrs},"content":"${content}"}`;
   }
 
   /**
