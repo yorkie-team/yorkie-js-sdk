@@ -590,6 +590,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.treeByIndex.checkWeight();
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this Array.
    */
   public toJSON(): string {
@@ -822,7 +830,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
       removedNodeMap.set(node.getID().getAnnotatedString(), node);
       node.remove(editedAt);
-      node.initWeight();
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);
@@ -853,7 +860,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       if (node.canDelete(editedAt, latestCreatedAt!)) {
         nodesToDelete.push(node);
-      } else if (!node.isRemoved()) {
+      } else {
         nodesToKeep.push(node);
       }
     }

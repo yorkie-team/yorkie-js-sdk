@@ -24,21 +24,56 @@ const suite = new Benchmark.Suite();
 suite
   .add('constructor test', function () {
     for (let i = 0; i < 100; i++) {
-      const doc = Document.create<{ k1: JSONArray<string> }>(`test-doc`);
+      const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
       assert.equal('{}', doc.toSortedJSON());
       assert.equal(doc.getCheckpoint(), InitialCheckpoint);
       assert.isFalse(doc.hasLocalChanges());
     }
   })
+  .add('equals test', function () {
+    for (let i = 0; i < 100; i++) {
+      const doc1 = Document.create<{ text: string }>('d1');
+      const doc2 = Document.create<{ text: string }>('d2');
+      const doc3 = Document.create<{ text: string }>('d3');
+
+      doc1.update((root) => {
+        root.text = 'value';
+      }, 'update text');
+
+      assert.notEqual(doc1.toSortedJSON(), doc2.toSortedJSON());
+      assert.equal(doc2.toSortedJSON(), doc3.toSortedJSON());
+    }
+  })
+  .add('nested update test', function () {
+    const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
+
+    for (let i = 0; i < 100; i++) {
+      const doc =
+        Document.create<{ k1: string; k2: { k4: string }; k3: Array<string> }>(
+          'test-doc',
+        );
+      assert.equal('{}', doc.toSortedJSON());
+      assert.isFalse(doc.hasLocalChanges());
+
+      doc.update((root) => {
+        root.k1 = 'v1';
+        root.k2 = { k4: 'v4' };
+        root.k3 = ['v5', 'v6'];
+      }, 'updates k1,k2,k3');
+
+      assert.equal(expected, doc.toSortedJSON());
+      assert.isTrue(doc.hasLocalChanges());
+    }
+  })
   .add('garbage collection test for large size text 1', function () {
     const size = 100;
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = Document.create<{ text: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. initial
     doc.update((root) => {
-      root.k1 = new Text();
-      const text = root.k1;
+      root.text = new Text();
+      const { text } = root;
       for (let i = 0; i < size; i++) {
         text.edit(i, i, 'a');
       }
@@ -46,7 +81,7 @@ suite
 
     // 02. 100 nodes modified
     doc.update((root) => {
-      const text = root['k1'];
+      const { text } = root;
       for (let i = 0; i < size; i++) {
         text.edit(i, i + 1, 'b');
       }
@@ -61,22 +96,19 @@ suite
   })
   .add('garbage collection test for large size text 2', function () {
     const size = 100;
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = Document.create<{ text: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     // 01. long text by one node
     doc.update((root) => {
-      root.k1 = new Text();
-      let str = '';
-      for (let i = 0; i < size; i++) {
-        str += 'a';
-      }
-      root.k1.edit(0, 0, str);
+      root.text = new Text();
+      const str = 'a'.repeat(size);
+      root.text.edit(0, 0, str);
     }, 'initial large size');
 
     // 02. Modify one node multiple times
     doc.update((root) => {
-      const text = root['k1'];
+      const { text } = root;
       for (let i = 0; i < size; i++) {
         if (i !== size) {
           text.edit(i, i + 1, 'b');
@@ -102,14 +134,14 @@ suite
     // 01. inserts many chracters
     for (let i = 0; i < size; i++) {
       doc.update((root) => {
-        const text = root.text;
+        const { text } = root;
         text.edit(i, i, 'a');
       }, 'insert chracter');
     }
 
     // 02. deletes them
     doc.update((root) => {
-      const text = root.text;
+      const { text } = root;
       text.edit(0, size, '');
     }, 'delete them');
 
@@ -126,14 +158,14 @@ suite
     // 01. inserts many chracters
     for (let i = 0; i < size; i++) {
       doc.update((root) => {
-        const text = root.text;
+        const { text } = root;
         text.edit(i, i, 'a');
       }, 'insert chracter');
     }
 
     // 02. deletes them
     doc.update((root) => {
-      const text = root.text;
+      const { text } = root;
       text.edit(0, size, '');
     }, 'delete them');
 
