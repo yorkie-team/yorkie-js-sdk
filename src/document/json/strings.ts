@@ -26,5 +26,4 @@ export function escapeString(str: string): string {
         return character;
     }
   });
-)
 }
