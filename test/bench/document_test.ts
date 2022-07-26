@@ -65,6 +65,33 @@ suite
       assert.isTrue(doc.hasLocalChanges());
     }
   })
+  .add('delete test', function () {
+    for (let i = 0; i < 100; i++) {
+      const doc = Document.create<{
+        k1?: string;
+        k2?: { k4: string };
+        k3?: Array<string>;
+      }>('test-doc');
+      assert.equal('{}', doc.toJSON());
+      assert.isFalse(doc.hasLocalChanges());
+
+      let expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
+      doc.update((root) => {
+        root.k1 = 'v1';
+        root.k2 = { k4: 'v4' };
+        root.k3 = ['v5', 'v6'];
+        assert.equal(expected, root.toJSON?.());
+      }, 'updates k1,k2,k3');
+      assert.equal(expected, doc.toJSON());
+
+      expected = `{"k1":"v1","k3":["v5","v6"]}`;
+      doc.update((root) => {
+        delete root.k2;
+        assert.equal(expected, root.toJSON?.());
+      }, 'deletes k2');
+      assert.equal(expected, doc.toJSON());
+    }
+  })
   .add('garbage collection test for large size text 1', function () {
     const size = 100;
     const doc = Document.create<{ text: Text }>('test-doc');
