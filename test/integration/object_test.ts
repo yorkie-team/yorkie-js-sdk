@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { DocEventType, Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Object', function () {
@@ -150,6 +150,56 @@ describe('Object', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it('should show a reduced version of paths in cases when a nested object is instantiated', async function () {
+    await withTwoClientsAndDocuments<{
+      k1: {
+        id: string;
+        selected: boolean;
+        test: string;
+        layers: Array<{ a: string; b: string }>;
+      };
+      k2: number;
+    }>(async (c1, d1, c2, d2) => {
+      d2.subscribe((event) => {
+        if (event.type === DocEventType.RemoteChange) {
+          assert.deepEqual(event.value[0].paths, ['$.k1', '$.k2']);
+        }
+      });
+      d1.subscribe((event) => {
+        if (event.type === DocEventType.RemoteChange) {
+          assert.deepEqual(event.value[0].paths, [
+            '$.k1.selected',
+            '$.k1.layers.0.a',
+            '$.k2',
+          ]);
+        }
+      });
+      d1.update((root) => {
+        root['k1'] = {
+          id: 'id7fb51ad',
+          selected: false,
+          test: 'hi',
+          layers: [{ a: 'hi', b: 'bhi' }],
+        };
+        root['k1']['selected'] = true;
+        root['k1']['test'] = 'change';
+        root['k2'] = 5;
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      d2.update((root) => {
+        root['k1']['selected'] = false;
+        root['k1']['layers'][0]['a'] = 'hi2';
+        root['k2']++;
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
     }, this.test!.title);
   });
 });

@@ -486,13 +486,104 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   private createPaths(change: Change): Array<string> {
-    const paths: Array<string> = [];
+    const pathTree = new PathTree();
     for (const op of change.getOperations()) {
       const createdAt = op.getEffectedCreatedAt();
       if (createdAt) {
-        paths.push(this.root.createPath(createdAt)!);
+        const path = this.root.createPath(createdAt)!;
+        const pathArray = path.split('.');
+        pathArray.shift();
+        pathTree.insert(pathArray);
       }
     }
-    return paths;
+    //return a reduced number of paths
+    return pathTree.getValidPaths();
+  }
+}
+
+/**
+ * `PathTree` is a tree data structure to reduce the number of paths
+ */
+class PathTree {
+  private root: PathNode;
+  constructor() {
+    this.root = new PathNode('$', null);
+  }
+  /**
+   * `insert` inserts the paths passed as params to the PathTree
+   */
+  insert(keys: string[]) {
+    let tempParentNode = this.root;
+    for (const key of keys) {
+      if (tempParentNode.children.length === 0) {
+        const newNode = new PathNode(key, tempParentNode);
+        tempParentNode.addChildrenNode(newNode);
+        tempParentNode = newNode;
+      } else {
+        for (const child of tempParentNode.children) {
+          if (child.key === key) {
+            tempParentNode = child;
+          }
+        }
+        if (tempParentNode.key !== key) {
+          const newNode = new PathNode(key, tempParentNode);
+          tempParentNode.addChildrenNode(newNode);
+          tempParentNode = newNode;
+        }
+      }
+    }
+    tempParentNode.isLeaf = true;
+  }
+
+  /**
+   * `traverseKeys` traverses the nodes and pushes valid paths to the validPaths array
+   */
+  traverseKeys(node: PathNode, validPaths: string[]): void {
+    for (const child of node.children) {
+      if (child.isLeaf) {
+        validPaths.push(child.path);
+      } else {
+        this.traverseKeys(child, validPaths);
+      }
+    }
+  }
+
+  /**
+   * `getValidPaths` returns the necessary paths
+   */
+  getValidPaths(): string[] {
+    const validPaths: string[] = [];
+    this.traverseKeys(this.root, validPaths);
+    return validPaths;
+  }
+}
+
+/**
+ * `PathNode` is a node for `PathTree` class
+ */
+class PathNode {
+  public key: string;
+  public parent: PathNode | null;
+  public children: PathNode[];
+  public path: string;
+  public isLeaf: boolean;
+
+  constructor(key: string, parent: PathNode | null) {
+    this.key = key;
+    this.children = [];
+    this.parent = parent;
+    if (parent) {
+      this.path = parent.path.concat(`.${key}`);
+    } else {
+      this.path = key;
+    }
+    this.isLeaf = false;
+  }
+
+  /**
+   * `addChildrenNode` adds the node to children
+   */
+  public addChildrenNode(node: PathNode): void {
+    this.children.push(node);
   }
 }
