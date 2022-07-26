@@ -507,12 +507,12 @@ export class Document<T> implements Observable<DocEvent> {
 class PathTree {
   private root: PathNode;
   constructor() {
-    this.root = new PathNode('$', null);
+    this.root = new PathNode('$', undefined);
   }
   /**
    * `insert` inserts the paths passed as params to the PathTree
    */
-  insert(keys: string[]) {
+  insert(keys: Array<string>) {
     let tempParentNode = this.root;
     for (const key of keys) {
       if (tempParentNode.children.length === 0) {
@@ -538,7 +538,7 @@ class PathTree {
   /**
    * `traverseKeys` traverses the nodes and pushes valid paths to the validPaths array
    */
-  traverseKeys(node: PathNode, validPaths: string[]): void {
+  traverseKeys(node: PathNode, validPaths: Array<string>): void {
     for (const child of node.children) {
       if (child.isLeaf) {
         validPaths.push(child.path);
@@ -551,8 +551,8 @@ class PathTree {
   /**
    * `getValidPaths` returns the necessary paths
    */
-  getValidPaths(): string[] {
-    const validPaths: string[] = [];
+  getValidPaths(): Array<string> {
+    const validPaths: Array<string> = [];
     this.traverseKeys(this.root, validPaths);
     return validPaths;
   }
@@ -563,12 +563,12 @@ class PathTree {
  */
 class PathNode {
   public key: string;
-  public parent: PathNode | null;
-  public children: PathNode[];
+  public parent: PathNode | undefined;
+  public children: Array<PathNode>;
   public path: string;
   public isLeaf: boolean;
 
-  constructor(key: string, parent: PathNode | null) {
+  constructor(key: string, parent: PathNode | undefined) {
     this.key = key;
     this.children = [];
     this.parent = parent;
