@@ -20,7 +20,7 @@
     "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build",
-    "benchmark": "ts-node-script ./test/bench/document_test.ts"
+    "benchmark": "ts-node-script ./test/bench"
   },
   "engines": {
     "node": ">=16.0.0",
