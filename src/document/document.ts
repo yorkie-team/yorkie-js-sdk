@@ -416,10 +416,6 @@ export class Document<T> implements Observable<DocEvent> {
   private applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
     const obj = converter.bytesToObject(snapshot);
     this.root = new CRDTRoot(obj);
-
-    for (const change of this.localChanges) {
-      change.execute(this.root);
-    }
     this.changeID = this.changeID.syncLamport(serverSeq);
 
     // drop clone because it is contaminated.
