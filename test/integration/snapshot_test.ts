@@ -30,7 +30,6 @@ describe('Snapshot', function () {
 
   it('should handle snapshot for text object', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
-      
       for (let idx = 0; idx < 700; idx++) {
         d1.update((root) => {
           root.k1 = new Text();
