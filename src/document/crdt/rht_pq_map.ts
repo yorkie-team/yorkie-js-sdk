@@ -57,8 +57,8 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, CRDTElement> {
   /**
    * `remove` removes a value base on removing time.
    */
-  public remove(removedAt: TimeTicket): void {
-    this.getValue().remove(removedAt);
+  public remove(removedAt: TimeTicket): boolean {
+    return this.getValue().remove(removedAt);
   }
 }
 
