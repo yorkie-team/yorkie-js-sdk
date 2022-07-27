@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.13] - 2022-07-27
+
+### Added
+
+- Support Quill embeds type to example project: #344
+
+### Changed
+
+- Bump up Typescript to `4.x.x` and ESLint to `8.x.x`: #349
+
 ## [0.2.12] - 2022-07-20
 
 ### Fixed
