@@ -31,7 +31,7 @@ export class TrieNode<V extends number | string | symbol> {
   }
 
   /**
-   * `getPath` returns the path from the Trie root to this node
+   * `getPath` returns the path from the Trie root to this node.
    * @returns array of path from Trie root to this node
    */
   public getPath(): Array<V> {
