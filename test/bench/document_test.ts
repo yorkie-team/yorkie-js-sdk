@@ -49,7 +49,7 @@ const tests = [
     },
   },
   {
-    name: 'Document#nested update test',
+    name: 'Document#nested update',
     run: (): void => {
       const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
 
