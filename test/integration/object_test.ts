@@ -163,6 +163,7 @@ describe('Object', function () {
       };
       k2: number;
     }>(async (c1, d1, c2, d2) => {
+      // TODO(hackerwins): consider replacing the below code with `createEmitterAndSpy`.
       d2.subscribe((event) => {
         if (event.type === DocEventType.RemoteChange) {
           assert.deepEqual(event.value[0].paths.sort(), ['$.k1', '$.k2']);
