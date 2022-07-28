@@ -96,6 +96,21 @@ const tests = [
     },
   },
   {
+    name: 'Document#object',
+    run: (): void => {
+      for (let i = 0; i < 100; i++) {
+        const doc = Document.create<{ k1: string }>('test-doc');
+        doc.update((root) => {
+          root.k1 = 'v1';
+          assert.equal(`{"k1":"v1"}`, root.toJSON?.());
+          root.k1 = 'v2';
+          assert.equal(`{"k1":"v2"}`, root.toJSON?.());
+        });
+        assert.equal(`{"k1":"v2"}`, doc.toJSON());
+      }
+    },
+  },
+  {
     name: 'Document#garbage collection test for large size text 1',
     run: (): void => {
       const size = 100;
