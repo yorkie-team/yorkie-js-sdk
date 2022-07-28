@@ -46,7 +46,7 @@ export class TrieNode<V extends number | string | symbol> {
 }
 
 /**
- * Trie is a type of k-ary search tree for locating specific values or common prefixes
+ * `Trie` is a type of k-ary search tree for locating specific values or common prefixes.
  */
 export class Trie<V extends number | string | symbol> {
   private root: TrieNode<V>;
