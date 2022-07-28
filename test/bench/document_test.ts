@@ -23,29 +23,25 @@ const tests = [
   {
     name: 'Document#constructor',
     run: (): void => {
-      for (let i = 0; i < 100; i++) {
-        const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
-        assert.equal('{}', doc.toSortedJSON());
-        assert.equal(doc.getCheckpoint(), InitialCheckpoint);
-        assert.isFalse(doc.hasLocalChanges());
-      }
+      const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
+      assert.equal('{}', doc.toJSON());
+      assert.equal(doc.getCheckpoint(), InitialCheckpoint);
+      assert.isFalse(doc.hasLocalChanges());
     },
   },
   {
     name: 'Document#equals',
     run: (): void => {
-      for (let i = 0; i < 100; i++) {
-        const doc1 = Document.create<{ text: string }>('d1');
-        const doc2 = Document.create<{ text: string }>('d2');
-        const doc3 = Document.create<{ text: string }>('d3');
+      const doc1 = Document.create<{ text: string }>('d1');
+      const doc2 = Document.create<{ text: string }>('d2');
+      const doc3 = Document.create<{ text: string }>('d3');
 
-        doc1.update((root) => {
-          root.text = 'value';
-        }, 'update text');
+      doc1.update((root) => {
+        root.text = 'value';
+      }, 'update text');
 
-        assert.notEqual(doc1.toSortedJSON(), doc2.toSortedJSON());
-        assert.equal(doc2.toSortedJSON(), doc3.toSortedJSON());
-      }
+      assert.notEqual(doc1.toJSON(), doc2.toJSON());
+      assert.equal(doc2.toJSON(), doc3.toJSON());
     },
   },
   {
@@ -53,54 +49,50 @@ const tests = [
     run: (): void => {
       const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
 
-      for (let i = 0; i < 100; i++) {
-        const doc = Document.create<{
-          k1: string;
-          k2: { k4: string };
-          k3: Array<string>;
-        }>('test-doc');
-        assert.equal('{}', doc.toSortedJSON());
-        assert.isFalse(doc.hasLocalChanges());
+      const doc = Document.create<{
+        k1: string;
+        k2: { k4: string };
+        k3: Array<string>;
+      }>('test-doc');
+      assert.equal('{}', doc.toJSON());
+      assert.isFalse(doc.hasLocalChanges());
 
-        doc.update((root) => {
-          root.k1 = 'v1';
-          root.k2 = { k4: 'v4' };
-          root.k3 = ['v5', 'v6'];
-        }, 'updates k1,k2,k3');
+      doc.update((root) => {
+        root.k1 = 'v1';
+        root.k2 = { k4: 'v4' };
+        root.k3 = ['v5', 'v6'];
+      }, 'updates k1,k2,k3');
 
-        assert.equal(expected, doc.toSortedJSON());
-        assert.isTrue(doc.hasLocalChanges());
-      }
+      assert.equal(expected, doc.toJSON());
+      assert.isTrue(doc.hasLocalChanges());
     },
   },
   {
     name: 'Document#delete',
     run: (): void => {
-      for (let i = 0; i < 100; i++) {
-        const doc = Document.create<{
-          k1?: string;
-          k2?: { k4: string };
-          k3?: Array<string>;
-        }>('test-doc');
-        assert.equal('{}', doc.toJSON());
-        assert.isFalse(doc.hasLocalChanges());
+      const doc = Document.create<{
+        k1?: string;
+        k2?: { k4: string };
+        k3?: Array<string>;
+      }>('test-doc');
+      assert.equal('{}', doc.toJSON());
+      assert.isFalse(doc.hasLocalChanges());
 
-        let expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
-        doc.update((root) => {
-          root.k1 = 'v1';
-          root.k2 = { k4: 'v4' };
-          root.k3 = ['v5', 'v6'];
-          assert.equal(expected, root.toJSON?.());
-        }, 'updates k1,k2,k3');
-        assert.equal(expected, doc.toJSON());
+      let expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
+      doc.update((root) => {
+        root.k1 = 'v1';
+        root.k2 = { k4: 'v4' };
+        root.k3 = ['v5', 'v6'];
+        assert.equal(expected, root.toJSON?.());
+      }, 'updates k1,k2,k3');
+      assert.equal(expected, doc.toJSON());
 
-        expected = `{"k1":"v1","k3":["v5","v6"]}`;
-        doc.update((root) => {
-          delete root.k2;
-          assert.equal(expected, root.toJSON?.());
-        }, 'deletes k2');
-        assert.equal(expected, doc.toJSON());
-      }
+      expected = `{"k1":"v1","k3":["v5","v6"]}`;
+      doc.update((root) => {
+        delete root.k2;
+        assert.equal(expected, root.toJSON?.());
+      }, 'deletes k2');
+      assert.equal(expected, doc.toJSON());
     },
   },
   {
@@ -108,7 +100,7 @@ const tests = [
     run: (): void => {
       const size = 100;
       const doc = Document.create<{ text: Text }>('test-doc');
-      assert.equal('{}', doc.toSortedJSON());
+      assert.equal('{}', doc.toJSON());
 
       // 01. initial
       doc.update((root) => {
@@ -140,7 +132,7 @@ const tests = [
     run: (): void => {
       const size = 100;
       const doc = Document.create<{ text: Text }>('test-doc');
-      assert.equal('{}', doc.toSortedJSON());
+      assert.equal('{}', doc.toJSON());
 
       // 01. long text by one node
       doc.update((root) => {
