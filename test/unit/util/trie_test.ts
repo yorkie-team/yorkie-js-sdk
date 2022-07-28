@@ -17,11 +17,11 @@
 import { Trie } from '@yorkie-js-sdk/src/util/trie';
 import { assert } from 'chai';
 
-const philWords = ['phil', 'philosophy', 'philanthropy', 'philadelphia'];
-const unWords = ['un', 'undo', 'unpack', 'unhappy'];
-const otherWords = ['english', 'hello'];
-const words = [...philWords, ...unWords, ...otherWords];
 describe('Trie', function () {
+  const philWords = ['phil', 'philosophy', 'philanthropy', 'philadelphia'];
+  const unWords = ['un', 'undo', 'unpack', 'unhappy'];
+  const otherWords = ['english', 'hello'];
+  const words = [...philWords, ...unWords, ...otherWords];
   it('can find words with specific prefix', function () {
     const trie = new Trie<string>('');
     for (const word of words) {
