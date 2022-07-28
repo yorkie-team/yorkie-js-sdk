@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Yorkie Authors. All rights reserved.
+ * Copyright 2022 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,49 +17,58 @@
 /**
  * `TrieNode` is node of Trie.
  */
-export class TrieNode<V> {
-  public key: V;
-  public children: { [key: string]: TrieNode<V> };
+export class TrieNode<V extends number | string | symbol> {
+  public value: V;
+  public children: Record<V, TrieNode<V>>;
   public parent?: TrieNode<V>;
-  public isLeaf: boolean;
-  public path: Array<V>;
+  public isTerminal: boolean;
 
-  constructor(key: V, parent?: TrieNode<V>) {
-    this.key = key;
-    this.children = {};
-    this.isLeaf = false;
-    if (parent) {
-      this.path = parent.path.concat(key);
-    } else {
-      this.path = [key];
+  constructor(value: V, parent?: TrieNode<V>) {
+    this.value = value;
+    this.children = {} as Record<V, TrieNode<V>>;
+    this.isTerminal = false;
+    this.parent = parent;
+  }
+
+  /**
+   * `getPath` returns the path from the Trie root to this node
+   * @returns array of path from Trie root to this node
+   */
+  public getPath(): Array<V> {
+    const path: Array<V> = [];
+    let node: TrieNode<V> | undefined = this;
+    while (node) {
+      path.unshift(node.value);
+      node = node.parent;
     }
+    return path;
   }
 }
 
 /**
- * Trie is a type of k-ary search tree for locating specific keys or common prefixes
+ * Trie is a type of k-ary search tree for locating specific values or common prefixes
  */
-export class Trie<V> {
+export class Trie<V extends number | string | symbol> {
   private root: TrieNode<V>;
 
-  constructor(key: V) {
-    this.root = new TrieNode<V>(key);
+  constructor(value: V) {
+    this.root = new TrieNode<V>(value);
   }
 
   /**
-   * `insert` inserts the key to the Trie
-   * @param keys - keys array
-   * @returns Array of find result
+   * `insert` inserts the value to the Trie
+   * @param values - values array
+   * @returns array of find result
    */
-  public insert(keys: Array<V>): void {
+  public insert(values: Array<V>): void {
     let node = this.root;
-    for (const key of keys) {
-      if (!node.children[String(key)]) {
-        node.children[String(key)] = new TrieNode(key, node);
+    for (const value of values) {
+      if (!node.children[value]) {
+        node.children[value] = new TrieNode(value, node);
       }
-      node = node.children[String(key)];
+      node = node.children[value];
     }
-    node.isLeaf = true;
+    node.isTerminal = true;
   }
 
   /**
@@ -69,57 +78,49 @@ export class Trie<V> {
   public find(prefix: Array<V>): Array<Array<V>> {
     let node = this.root;
     const output: Array<Array<V>> = [];
-    for (const key of prefix) {
-      if (node.children[String(key)]) {
-        node = node.children[String(key)];
+    for (const value of prefix) {
+      if (node.children[value]) {
+        node = node.children[value];
       } else {
         return output;
       }
     }
-    this.traverseFind(node, output);
+    this.traverse(node, true, output);
     return output;
   }
 
   /**
-   * `traverseFind` is a recursive function for find method. See also {@link find}
-   * @param node - node of the Trie
-   * @param output - output of the find result
+   * `traverse` does a depth first to push necessary elements to the output
+   * @param node - node to start the depth first search
+   * @param isLeafIncluded - whether to travserse till the leaf or not
+   * @param output - the output array
    */
-  private traverseFind(node: TrieNode<V>, output: Array<Array<V>>): void {
-    if (node.isLeaf) {
-      output.unshift(node.path);
+  public traverse(
+    node: TrieNode<V>,
+    isLeafIncluded: boolean,
+    output: Array<Array<V>>,
+  ): void {
+    if (node.isTerminal) {
+      output.push(node.getPath());
+      if (!isLeafIncluded) {
+        return;
+      }
     }
-    for (const key in node.children) {
-      this.traverseFind(node.children[key], output);
+    for (const [, value] of Object.entries(node.children)) {
+      this.traverse(value as TrieNode<V>, isLeafIncluded, output);
     }
   }
 
   /**
-   * `findPrefixes` finds prefixes if any prefix has been added already
-   * @returns Array of Prefixes
+   * `findPrefixes` finds the prefixes added to the Trie
+   * @returns array of prefixes
    */
   public findPrefixes(): Array<Array<V>> {
     const prefixes: Array<Array<V>> = [];
-    this.traverseFindPrefixes(this.root, prefixes);
-    return prefixes;
-  }
-
-  /**
-   * `traverseFindPrefixes` is a recursive function for findPrefixes method. See also {@link findPrefixes}
-   * @param node - node of the Trie
-   * @param output - output of the find prefixes result
-   */
-  private traverseFindPrefixes(
-    node: TrieNode<V>,
-    output: Array<Array<V>>,
-  ): void {
-    for (const key in node.children) {
-      const child = node.children[key];
-      if (child.isLeaf) {
-        output.push(child.path);
-      } else {
-        this.traverseFindPrefixes(child, output);
-      }
+    for (const [, value] of Object.entries(this.root.children)) {
+      const child = value as TrieNode<V>;
+      this.traverse(child, false, prefixes);
     }
+    return prefixes;
   }
 }

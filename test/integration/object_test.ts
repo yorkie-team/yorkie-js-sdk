@@ -165,7 +165,7 @@ describe('Object', function () {
     }>(async (c1, d1, c2, d2) => {
       d2.subscribe((event) => {
         if (event.type === DocEventType.RemoteChange) {
-          assert.deepEqual(event.value[0].paths, ['$.k1', '$.k2']);
+          assert.deepEqual(event.value[0].paths.sort(), ['$.k1', '$.k2']);
         }
       });
       d1.subscribe((event) => {

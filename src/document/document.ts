@@ -491,13 +491,11 @@ export class Document<T> implements Observable<DocEvent> {
     for (const op of change.getOperations()) {
       const createdAt = op.getEffectedCreatedAt();
       if (createdAt) {
-        const path = this.root.createPath(createdAt)!;
-        const pathArray = path.split('.');
+        const pathArray = this.root.createPathArray(createdAt)!;
         pathArray.shift();
-        pathTrie.insert(pathArray.map((element) => `.${element}`));
+        pathTrie.insert(pathArray);
       }
     }
-    //return a reduced number of paths
-    return pathTrie.findPrefixes().map((element) => element.join(''));
+    return pathTrie.findPrefixes().map((element) => element.join('.'));
   }
 }
