@@ -112,7 +112,7 @@ export class Trie<V extends number | string | symbol> {
   }
 
   /**
-   * `findPrefixes` finds the prefixes added to the Trie
+   * `findPrefixes` finds the prefixes added to the Trie.
    * @returns array of prefixes
    */
   public findPrefixes(): Array<Array<V>> {
