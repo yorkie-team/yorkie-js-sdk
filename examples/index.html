@@ -141,6 +141,7 @@
         // 02-2. subscribe document event.
         doc.subscribe((event) => {
           if (event.type === 'snapshot') {
+            // The text is replaced to snapshot and must be re-synced.
             syncText();
           }
           displayLog(doc, codemirror);
