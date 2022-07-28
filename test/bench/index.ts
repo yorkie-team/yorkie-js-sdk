@@ -28,4 +28,4 @@ suite
   .on('cycle', (event: Benchmark.Event) => {
     console.log(String(event.target));
   })
-  .run();
+  .run({ async: true });
