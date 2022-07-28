@@ -27,10 +27,6 @@ services:
     command: [
       'server',
       '--enable-pprof',
-      '--backend-snapshot-threshold',
-      '2',
-      '--backend-snapshot-interval',
-      '2',
     ]
     restart: always
     ports:
