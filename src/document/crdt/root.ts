@@ -84,12 +84,12 @@ export class CRDTRoot {
   }
 
   /**
-   * `createPath` creates path of the given element.
+   * `createPathArray` creates path of the given element.
    */
-  public createPath(createdAt: TimeTicket): string | undefined {
+  public createPathArray(createdAt: TimeTicket): Array<string> {
     let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
     if (!pair) {
-      return;
+      return [];
     }
 
     const keys: Array<string> = [];
@@ -109,7 +109,14 @@ export class CRDTRoot {
     }
 
     keys.unshift('$');
-    return keys.join('.');
+    return keys;
+  }
+
+  /**
+   * `createPath` creates path of the given element.
+   */
+  public createPath(createdAt: TimeTicket): string {
+    return this.createPathArray(createdAt).join('.');
   }
 
   /**

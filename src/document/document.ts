@@ -42,6 +42,7 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONObject } from './json/object';
+import { Trie } from '../util/trie';
 
 /**
  * `DocEventType` is document event types
@@ -482,13 +483,15 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   private createPaths(change: Change): Array<string> {
-    const paths: Array<string> = [];
+    const pathTrie = new Trie<string>('$');
     for (const op of change.getOperations()) {
       const createdAt = op.getEffectedCreatedAt();
       if (createdAt) {
-        paths.push(this.root.createPath(createdAt)!);
+        const pathArray = this.root.createPathArray(createdAt)!;
+        pathArray.shift();
+        pathTrie.insert(pathArray);
       }
     }
-    return paths;
+    return pathTrie.findPrefixes().map((element) => element.join('.'));
   }
 }

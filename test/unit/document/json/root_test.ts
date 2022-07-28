@@ -19,7 +19,7 @@ describe('ROOT', function () {
     );
     const cc = ChangeContext.create(InitialChangeID, root);
     assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
-    assert.isUndefined(root.createPath(MaxTimeTicket));
+    assert.equal(root.createPath(MaxTimeTicket), '');
 
     // set '$.k1'
     const k1 = Primitive.of('k1', cc.issueTimeTicket());
