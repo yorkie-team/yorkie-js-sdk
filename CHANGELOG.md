@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.14] - 2022-08-03
+
+### Added
+
+- Reduce the number of paths of change events: #351
+
+### Fixed
+
+- Fix the problem local changes were applied twice: #356
+- Update CodeMirror example to handle snapshot events: #360
+
 ## [0.2.13] - 2022-07-27
 
 ### Added
