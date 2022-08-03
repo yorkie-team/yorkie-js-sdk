@@ -92,22 +92,22 @@ export class Trie<V extends number | string | symbol> {
   /**
    * `traverse` does a depth first to push necessary elements to the output
    * @param node - node to start the depth first search
-   * @param isLeafIncluded - whether to travserse till the leaf or not
+   * @param isTerminalIncluded - whether to travserse till the leaf or not
    * @param output - the output array
    */
   public traverse(
     node: TrieNode<V>,
-    isLeafIncluded: boolean,
+    isTerminalIncluded: boolean,
     output: Array<Array<V>>,
   ): void {
     if (node.isTerminal) {
       output.push(node.getPath());
-      if (!isLeafIncluded) {
+      if (!isTerminalIncluded) {
         return;
       }
     }
     for (const [, value] of Object.entries(node.children)) {
-      this.traverse(value as TrieNode<V>, isLeafIncluded, output);
+      this.traverse(value as TrieNode<V>, isTerminalIncluded, output);
     }
   }
 
