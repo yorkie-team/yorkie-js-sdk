@@ -1203,7 +1203,7 @@ describe('Document', function () {
       root.rich.setStyle(0, 3, { italic: true });
       root.rich.setStyle(0, 3, { italic: null });
       root.rich.setStyle(0, 3, { indent: 1 });
-      root.rich.setStyle(0, 3, { color: "red" });
+      root.rich.setStyle(0, 3, { color: 'red' });
     });
     assert.equal(
       '{"rich":[{"attrs":{"bold":"true","italic":"null","indent":"1","color":"\\"red\\""},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',

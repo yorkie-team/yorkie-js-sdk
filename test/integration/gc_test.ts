@@ -139,7 +139,7 @@ describe('Garbage Collection', function () {
 
     let expected_msg =
       '{"k1":[{"attrs":{"b":"\\"1\\""},"content":"Hello "},{"attrs":{},"content":"mario"},{"attrs":{},"content":"\\n"}]}';
-      
+
     doc.update((root) => {
       root.k1 = new RichText();
       root.k1.edit(0, 0, 'Hello world', { b: '1' });
