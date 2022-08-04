@@ -138,7 +138,8 @@ describe('Garbage Collection', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =
-      '{"k1":[{"attrs":{"b":"1"},"content":"Hello "},{"attrs":{},"content":"mario"},{"attrs":{},"content":"\\n"}]}';
+      '{"k1":[{"attrs":{"b":"\\"1\\""},"content":"Hello "},{"attrs":{},"content":"mario"},{"attrs":{},"content":"\\n"}]}';
+      
     doc.update((root) => {
       root.k1 = new RichText();
       root.k1.edit(0, 0, 'Hello world', { b: '1' });
@@ -149,7 +150,7 @@ describe('Garbage Collection', function () {
     assert.equal(1, doc.getGarbageLen());
 
     expected_msg =
-      '{"k1":[{"attrs":{"b":"1"},"content":"Hi"},{"attrs":{"b":"1"},"content":" "},{"attrs":{},"content":"j"},{"attrs":{"b":"1"},"content":"ane"},{"attrs":{},"content":"\\n"}]}';
+      '{"k1":[{"attrs":{"b":"\\"1\\""},"content":"Hi"},{"attrs":{"b":"\\"1\\""},"content":" "},{"attrs":{},"content":"j"},{"attrs":{"b":"\\"1\\""},"content":"ane"},{"attrs":{},"content":"\\n"}]}';
 
     doc.update((root) => {
       const text = root['k1'];

@@ -1171,7 +1171,7 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"b":"\\"\\\\n\\""},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });

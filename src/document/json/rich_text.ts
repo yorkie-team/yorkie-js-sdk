@@ -82,7 +82,9 @@ export class RichText {
         `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
-    const attrs = attributes ? this.text.stringifyAttributes(attributes) : undefined;
+    const attrs = attributes
+      ? this.text.stringifyAttributes(attributes)
+      : undefined;
     const ticket = this.context.issueTimeTicket();
     const maxCreatedAtMapByActor = this.text.edit(
       range,

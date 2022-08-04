@@ -400,6 +400,9 @@ export class CRDTRichText extends CRDTTextElement {
     }
   }
 
+  /**
+   * `stringifyAttributes` makes values of attributes to JSON parsable string.
+   */
   public stringifyAttributes(
     attributes: Record<string, any>,
   ): Record<string, string> {
@@ -410,9 +413,10 @@ export class CRDTRichText extends CRDTTextElement {
     return attrs;
   }
 
-  private parseAttributes(
-    attrs: Record<string, string>,
-  ): Record<string, any> {
+  /**
+   * `parseAttributes` returns the JSON parsable string values to the origin states.
+   */
+  private parseAttributes(attrs: Record<string, string>): Record<string, any> {
     const attributes: Record<string, string> = {};
     Object.entries(attrs).forEach(([key, value]) => {
       attributes[key] = JSON.parse(value);
