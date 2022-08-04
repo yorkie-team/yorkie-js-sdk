@@ -64,7 +64,7 @@ export class RichText {
     fromIdx: number,
     toIdx: number,
     content: string,
-    attributes?: Record<string, string>,
+    attributes?: Record<string, any>,
   ): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
@@ -82,13 +82,13 @@ export class RichText {
         `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
-
+    const attrs = attributes ? this.text.stringifyAttributes(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
     const maxCreatedAtMapByActor = this.text.edit(
       range,
       content,
       ticket,
-      attributes,
+      attrs,
     );
 
     this.context.push(
@@ -98,7 +98,7 @@ export class RichText {
         range[1],
         maxCreatedAtMapByActor,
         content,
-        attributes ? new Map(Object.entries(attributes)) : new Map(),
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
     );
@@ -116,7 +116,7 @@ export class RichText {
   setStyle(
     fromIdx: number,
     toIdx: number,
-    attributes: Record<string, string>,
+    attributes: Record<string, any>,
   ): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
@@ -137,15 +137,16 @@ export class RichText {
       );
     }
 
+    const attrs = this.text.stringifyAttributes(attributes);
     const ticket = this.context.issueTimeTicket();
-    this.text.setStyle(range, attributes, ticket);
+    this.text.setStyle(range, attrs, ticket);
 
     this.context.push(
       new StyleOperation(
         this.text.getCreatedAt(),
         range[0],
         range[1],
-        new Map(Object.entries(attributes)),
+        new Map(Object.entries(attrs)),
         ticket,
       ),
     );

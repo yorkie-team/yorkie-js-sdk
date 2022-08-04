@@ -171,7 +171,7 @@ export class CRDTRichText extends CRDTTextElement {
     );
     if (content && attributes) {
       const change = changes[changes.length - 1];
-      change.attributes = attributes;
+      change.attributes = this.parseAttributes(attributes);
     }
 
     const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
@@ -226,7 +226,7 @@ export class CRDTRichText extends CRDTTextElement {
         actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
-        attributes,
+        attributes: this.parseAttributes(attributes),
       });
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -398,5 +398,25 @@ export class CRDTRichText extends CRDTTextElement {
         to,
       };
     }
+  }
+
+  public stringifyAttributes(
+    attributes: Record<string, any>,
+  ): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    Object.entries(attributes).forEach(([key, value]) => {
+      attrs[key] = JSON.stringify(value);
+    });
+    return attrs;
+  }
+
+  private parseAttributes(
+    attrs: Record<string, string>,
+  ): Record<string, any> {
+    const attributes: Record<string, string> = {};
+    Object.entries(attrs).forEach(([key, value]) => {
+      attributes[key] = JSON.parse(value);
+    });
+    return attributes;
   }
 }
