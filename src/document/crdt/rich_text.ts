@@ -27,7 +27,7 @@ import {
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 export interface RichTextVal {
-  attributes: Record<string, string>;
+  attributes: Record<string, any>;
   content: string;
 }
 
@@ -317,7 +317,7 @@ export class CRDTRichText extends CRDTTextElement {
       if (!node.isRemoved()) {
         const value = node.getValue();
         values.push({
-          attributes: value.getAttributes(),
+          attributes: this.parseAttributes(value.getAttributes()),
           content: value.getContent(),
         });
       }
