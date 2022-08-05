@@ -17,7 +17,8 @@
 const path = require('path');
 const webpack = require('webpack');
 const pkg = require('../package.json');
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 
 const date = new Date().toISOString().replace(/:\d+\.\d+Z$/, 'Z');
 const banner = `
@@ -77,5 +78,13 @@ module.exports = {
       banner,
     }),
     new NodePolyfillPlugin(),
+    new CopyPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, '../src/api/resources_pb.d.ts'),
+          to: path.resolve(__dirname, '../lib/src/api/resources_pb.d.ts'),
+        },
+      ],
+    }),
   ],
 };

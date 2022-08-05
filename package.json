@@ -52,6 +52,7 @@
     "@webpack-cli/serve": "^1.6.0",
     "benchmark": "^2.1.4",
     "chai": "^4.2.0",
+    "copy-webpack-plugin": "^11.0.0",
     "eslint": "^8.19.0",
     "eslint-plugin-jsdoc": "^39.3.3",
     "eslint-plugin-prettier": "^4.2.1",
