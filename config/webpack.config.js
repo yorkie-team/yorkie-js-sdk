@@ -78,6 +78,9 @@ module.exports = {
       banner,
     }),
     new NodePolyfillPlugin(),
+    // TODO(chacha912): When we exposed the converter, the resources_pb.d.ts
+    // was not in the lib, so we got a compile error. For now, we bypass it by
+    // directly copying the file. Let's delete this later when we know a more correct fix.
     new CopyPlugin({
       patterns: [
         {
