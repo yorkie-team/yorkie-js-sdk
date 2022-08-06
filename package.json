@@ -10,7 +10,7 @@
   "scripts": {
     "build": "webpack --config ./config/webpack.config.js && npm run api-report && npm run prune",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
-    "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/*.proto",
+    "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/yorkie/v1/*.proto",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "predoc": "ts-node-script ./scripts/api-extractor.ts && sed -i.bak 's/_2//g' temp/yorkie-js-sdk.api.json temp/yorkie-js-sdk.api.md",
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
@@ -91,4 +91,4 @@
       "pre-commit": "npm run lint"
     }
   }
-}
+  }
