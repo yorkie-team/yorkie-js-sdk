@@ -8,6 +8,7 @@
 
 |  Class | Description |
 |  --- | --- |
+|  [Change](./yorkie-js-sdk.change.md) | <code>Change</code> represents a unit of modification in the document. |
 |  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the server. It has documents and sends changes of the documents in local to the server to synchronize with other replicas in remote. |
 |  [Counter](./yorkie-js-sdk.counter.md) | <code>Counter</code> is a custom data type that is used to counter. |
 |  [Document](./yorkie-js-sdk.document.md) | <code>Document</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
@@ -44,6 +45,7 @@
 
 |  Variable | Description |
 |  --- | --- |
+|  [converter](./yorkie-js-sdk.converter.md) |  |
 |  [yorkie](./yorkie-js-sdk.yorkie.md) | The top-level yorkie namespace with additional properties.<!-- -->In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.<!-- -->e.g) <code>new yorkie.Client(...);</code> |
 
 ## Type Aliases

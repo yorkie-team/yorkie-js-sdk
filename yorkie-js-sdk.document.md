@@ -23,6 +23,8 @@ declare class Document<T> implements Observable<DocEvent>
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
+|  [applyChanges(changes)](./yorkie-js-sdk.document.applychanges.md) |  | <code>applyChanges</code> applies the given changes into this document. |
+|  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
 |  [create(key)](./yorkie-js-sdk.document.create.md) | <code>static</code> | <code>create</code> creates a new instance of Document. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> adds the given observer to the fan-out list. |
