@@ -72,7 +72,7 @@ import {
   TextNodePos as PbTextNodePos,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
-} from '@yorkie-js-sdk/src/api/resources_pb';
+} from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
   CounterType,
@@ -153,21 +153,21 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
 function toValueType(valueType: PrimitiveType): PbValueType {
   switch (valueType) {
     case PrimitiveType.Null:
-      return PbValueType.NULL;
+      return PbValueType.VALUE_TYPE_NULL;
     case PrimitiveType.Boolean:
-      return PbValueType.BOOLEAN;
+      return PbValueType.VALUE_TYPE_BOOLEAN;
     case PrimitiveType.Integer:
-      return PbValueType.INTEGER;
+      return PbValueType.VALUE_TYPE_INTEGER;
     case PrimitiveType.Long:
-      return PbValueType.LONG;
+      return PbValueType.VALUE_TYPE_LONG;
     case PrimitiveType.Double:
-      return PbValueType.DOUBLE;
+      return PbValueType.VALUE_TYPE_DOUBLE;
     case PrimitiveType.String:
-      return PbValueType.STRING;
+      return PbValueType.VALUE_TYPE_STRING;
     case PrimitiveType.Bytes:
-      return PbValueType.BYTES;
+      return PbValueType.VALUE_TYPE_BYTES;
     case PrimitiveType.Date:
-      return PbValueType.DATE;
+      return PbValueType.VALUE_TYPE_DATE;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -179,11 +179,11 @@ function toValueType(valueType: PrimitiveType): PbValueType {
 function toCounterType(valueType: CounterType): PbValueType {
   switch (valueType) {
     case CounterType.IntegerCnt:
-      return PbValueType.INTEGER_CNT;
+      return PbValueType.VALUE_TYPE_INTEGER_CNT;
     case CounterType.LongCnt:
-      return PbValueType.LONG_CNT;
+      return PbValueType.VALUE_TYPE_LONG_CNT;
     case CounterType.DoubleCnt:
-      return PbValueType.DOUBLE_CNT;
+      return PbValueType.VALUE_TYPE_DOUBLE_CNT;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -195,16 +195,16 @@ function toCounterType(valueType: CounterType): PbValueType {
 function toElementSimple(element: CRDTElement): PbJSONElementSimple {
   const pbElementSimple = new PbJSONElementSimple();
   if (element instanceof CRDTObject) {
-    pbElementSimple.setType(PbValueType.JSON_OBJECT);
+    pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_OBJECT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof CRDTArray) {
-    pbElementSimple.setType(PbValueType.JSON_ARRAY);
+    pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_ARRAY);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof CRDTText) {
-    pbElementSimple.setType(PbValueType.TEXT);
+    pbElementSimple.setType(PbValueType.VALUE_TYPE_TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof CRDTRichText) {
-    pbElementSimple.setType(PbValueType.RICH_TEXT);
+    pbElementSimple.setType(PbValueType.VALUE_TYPE_RICH_TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof Primitive) {
     const primitive = element as Primitive;
@@ -607,21 +607,21 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
  */
 function fromValueType(pbValueType: PbValueType): PrimitiveType {
   switch (pbValueType) {
-    case PbValueType.NULL:
+    case PbValueType.VALUE_TYPE_NULL:
       return PrimitiveType.Null;
-    case PbValueType.BOOLEAN:
+    case PbValueType.VALUE_TYPE_BOOLEAN:
       return PrimitiveType.Boolean;
-    case PbValueType.INTEGER:
+    case PbValueType.VALUE_TYPE_INTEGER:
       return PrimitiveType.Integer;
-    case PbValueType.LONG:
+    case PbValueType.VALUE_TYPE_LONG:
       return PrimitiveType.Long;
-    case PbValueType.DOUBLE:
+    case PbValueType.VALUE_TYPE_DOUBLE:
       return PrimitiveType.Double;
-    case PbValueType.STRING:
+    case PbValueType.VALUE_TYPE_STRING:
       return PrimitiveType.String;
-    case PbValueType.BYTES:
+    case PbValueType.VALUE_TYPE_BYTES:
       return PrimitiveType.Bytes;
-    case PbValueType.DATE:
+    case PbValueType.VALUE_TYPE_DATE:
       return PrimitiveType.Date;
   }
   throw new YorkieError(
@@ -635,11 +635,11 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
  */
 function fromCounterType(pbValueType: PbValueType): CounterType {
   switch (pbValueType) {
-    case PbValueType.INTEGER_CNT:
+    case PbValueType.VALUE_TYPE_INTEGER_CNT:
       return CounterType.IntegerCnt;
-    case PbValueType.LONG_CNT:
+    case PbValueType.VALUE_TYPE_LONG_CNT:
       return CounterType.LongCnt;
-    case PbValueType.DOUBLE_CNT:
+    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
       return CounterType.DoubleCnt;
   }
   throw new YorkieError(
@@ -653,28 +653,28 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
  */
 function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
   switch (pbElementSimple.getType()) {
-    case PbValueType.JSON_OBJECT:
+    case PbValueType.VALUE_TYPE_JSON_OBJECT:
       return CRDTObject.create(fromTimeTicket(pbElementSimple.getCreatedAt())!);
-    case PbValueType.JSON_ARRAY:
+    case PbValueType.VALUE_TYPE_JSON_ARRAY:
       return CRDTArray.create(fromTimeTicket(pbElementSimple.getCreatedAt())!);
-    case PbValueType.TEXT:
+    case PbValueType.VALUE_TYPE_TEXT:
       return CRDTText.create(
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
-    case PbValueType.RICH_TEXT:
+    case PbValueType.VALUE_TYPE_RICH_TEXT:
       return CRDTRichText.create(
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
-    case PbValueType.NULL:
-    case PbValueType.BOOLEAN:
-    case PbValueType.INTEGER:
-    case PbValueType.LONG:
-    case PbValueType.DOUBLE:
-    case PbValueType.STRING:
-    case PbValueType.BYTES:
-    case PbValueType.DATE:
+    case PbValueType.VALUE_TYPE_NULL:
+    case PbValueType.VALUE_TYPE_BOOLEAN:
+    case PbValueType.VALUE_TYPE_INTEGER:
+    case PbValueType.VALUE_TYPE_LONG:
+    case PbValueType.VALUE_TYPE_DOUBLE:
+    case PbValueType.VALUE_TYPE_STRING:
+    case PbValueType.VALUE_TYPE_BYTES:
+    case PbValueType.VALUE_TYPE_DATE:
       return Primitive.of(
         Primitive.valueFromBytes(
           fromValueType(pbElementSimple.getType()),
@@ -682,9 +682,9 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         ),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
-    case PbValueType.INTEGER_CNT:
-    case PbValueType.DOUBLE_CNT:
-    case PbValueType.LONG_CNT:
+    case PbValueType.VALUE_TYPE_INTEGER_CNT:
+    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
+    case PbValueType.VALUE_TYPE_LONG_CNT:
       return CRDTCounter.of(
         CRDTCounter.valueFromBytes(
           fromCounterType(pbElementSimple.getType()),
