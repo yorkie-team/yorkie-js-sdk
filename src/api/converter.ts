@@ -1082,6 +1082,7 @@ export const converter = {
   toClient,
   toChangePack,
   fromChangePack,
+  fromChanges,
   objectToBytes,
   bytesToObject,
   toHexString,

@@ -71,6 +71,8 @@ export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
+export { Change } from '@yorkie-js-sdk/src/document/change/change';
+export { converter } from '@yorkie-js-sdk/src/api/converter';
 
 /**
  * The top-level yorkie namespace with additional properties.
