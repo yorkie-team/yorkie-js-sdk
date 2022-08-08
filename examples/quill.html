@@ -93,10 +93,7 @@
         client.subscribe(network.statusListener(statusHolder));
         await client.activate();
 
-        // 02. create a document then attach it into the client.
-        const doc = new yorkie.Document('quill');
-        await client.attach(doc);
-
+        // 01-2. subscribe client event.
         client.subscribe((event) => {
           if (event.type === 'peers-changed') {
             peers = event.value[doc.getKey()];
@@ -104,12 +101,22 @@
           }
         });
 
+        // 02. create a document then attach it into the client.
+        const doc = new yorkie.Document('quill');
+        await client.attach(doc);
+
         doc.update((root) => {
           if (!root.content) {
             root.content = new yorkie.RichText();
           }
         }, 'create content if not exists');
+
+        // 02-2. subscribe document event.
         doc.subscribe((event) => {
+          if (event.type === 'snapshot') {
+            // The text is replaced to snapshot and must be re-synced.
+            syncText();
+          }
           displayLog(doc);
         });
         await client.sync();
@@ -198,9 +205,8 @@
           }, `update selection by ${client.getID()}`);
         });
 
-        // 04-2. document to codemirror(remote).
-        const text = doc.getRoot().content;
-        text.onChanges((changes) => {
+        // 04-2. document to Quill(remote).
+        function changeEventHandler(changes) {
           const delta = [];
           let prevTo = 0;
           for (const change of changes) {
@@ -269,13 +275,19 @@
             console.log(`%c to quill: ${JSON.stringify(delta)}`, 'color: green');
             quill.updateContents(delta, 'yorkie');
           }
-        });
+        }
 
-        // 05. set initial value.
-        displayLog(doc);
-        quill.setContents({
+        // 05. synchronize text of document and Quill.
+        function syncText() {
+          const text = doc.getRoot().content;
+          text.onChanges(changeEventHandler);
+          quill.setContents({
           ops: toDeltaList(doc)
         }, 'yorkie');
+        }
+        syncText();
+
+        displayLog(doc);
       } catch (e) {
         console.error(e);
       }

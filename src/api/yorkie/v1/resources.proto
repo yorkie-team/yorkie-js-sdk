@@ -15,9 +15,12 @@
  */
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
+package yorkie.v1;
 
-package api;
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+option go_package = ".;v1";
 
 /////////////////////////////////////////
 // Messages for ChangePack             //
@@ -39,8 +42,8 @@ message Change {
 
 message ChangeID {
   uint32 client_seq = 1;
-  uint64 server_seq = 2 [jstype = JS_STRING];
-  uint64 lamport = 3 [jstype = JS_STRING];
+  int64 server_seq = 2 [jstype = JS_STRING];
+  int64 lamport = 3 [jstype = JS_STRING];
   bytes actor_id = 4;
 }
 
@@ -169,7 +172,7 @@ message JSONElement {
     TimeTicket removed_at = 5;
   }
 
-  oneof Body {
+  oneof body {
     JSONObject json_object = 1;
     JSONArray json_array = 2;
     Primitive primitive = 3;
@@ -219,6 +222,12 @@ message TextNodeID {
 // Messages for Common                 //
 /////////////////////////////////////////
 
+message User {
+  string id = 1;
+  string username = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
 message Project {
   string id = 1;
   string name = 2;
@@ -227,12 +236,26 @@ message Project {
   string auth_webhook_url = 5;
   repeated string auth_webhook_methods = 6;
   google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message UpdatableProjectFields {
+  message AuthWebhookMethods {
+    repeated string methods = 1;
+  }
+
+  google.protobuf.StringValue name = 1;
+  google.protobuf.StringValue auth_webhook_url = 2;
+  AuthWebhookMethods auth_webhook_methods = 3;
 }
 
 message DocumentSummary {
   string id = 1;
   string key = 2;
   string snapshot = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp accessed_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message Presence {
@@ -250,7 +273,7 @@ message Clients {
 }
 
 message Checkpoint {
-  uint64 server_seq = 1 [jstype = JS_STRING];
+  int64 server_seq = 1 [jstype = JS_STRING];
   uint32 client_seq = 2;
 }
 
@@ -261,34 +284,34 @@ message TextNodePos {
 }
 
 message TimeTicket {
-  uint64 lamport = 1 [jstype = JS_STRING];
+  int64 lamport = 1 [jstype = JS_STRING];
   uint32 delimiter = 2;
   bytes actor_id = 3;
 }
 
 enum ValueType {
-  NULL = 0;
-  BOOLEAN = 1;
-  INTEGER = 2;
-  LONG = 3;
-  DOUBLE = 4;
-  STRING = 5;
-  BYTES = 6;
-  DATE = 7;
-  JSON_OBJECT = 8;
-  JSON_ARRAY = 9;
-  TEXT = 10;
-  RICH_TEXT = 11;
-  INTEGER_CNT = 12;
-  LONG_CNT = 13;
-  DOUBLE_CNT = 14;
+  VALUE_TYPE_NULL = 0;
+  VALUE_TYPE_BOOLEAN = 1;
+  VALUE_TYPE_INTEGER = 2;
+  VALUE_TYPE_LONG = 3;
+  VALUE_TYPE_DOUBLE = 4;
+  VALUE_TYPE_STRING = 5;
+  VALUE_TYPE_BYTES = 6;
+  VALUE_TYPE_DATE = 7;
+  VALUE_TYPE_JSON_OBJECT = 8;
+  VALUE_TYPE_JSON_ARRAY = 9;
+  VALUE_TYPE_TEXT = 10;
+  VALUE_TYPE_RICH_TEXT = 11;
+  VALUE_TYPE_INTEGER_CNT = 12;
+  VALUE_TYPE_LONG_CNT = 13;
+  VALUE_TYPE_DOUBLE_CNT = 14;
 }
 
 enum DocEventType {
-  DOCUMENTS_CHANGED = 0;
-  DOCUMENTS_WATCHED = 1;
-  DOCUMENTS_UNWATCHED = 2;
-  PRESENCE_CHANGED = 3;
+  DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0;
+  DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1;
+  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2;
+  DOC_EVENT_TYPE_PRESENCE_CHANGED = 3;
 }
 
 message DocEvent {

@@ -414,7 +414,10 @@ export class Document<T> implements Observable<DocEvent> {
     return this.root.toSortedJSON();
   }
 
-  private applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
+  /**
+   * `applySnapshot` applies the given snapshot into this document.
+   */
+  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
     const obj = converter.bytesToObject(snapshot);
     this.root = new CRDTRoot(obj);
     this.changeID = this.changeID.syncLamport(serverSeq);
@@ -430,7 +433,10 @@ export class Document<T> implements Observable<DocEvent> {
     }
   }
 
-  private applyChanges(changes: Array<Change>): void {
+  /**
+   * `applyChanges` applies the given changes into this document.
+   */
+  public applyChanges(changes: Array<Change>): void {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
