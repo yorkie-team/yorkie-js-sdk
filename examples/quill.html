@@ -79,6 +79,16 @@
       peersHolder.innerHTML = JSON.stringify(usernames).replace(username, `<b>${username}</b>`);
     }
 
+    function findDefectors(peers, newPeers) {
+      const usernames = [];
+      for (const [clientID, peer] of Object.entries(peers)) {
+        if (!newPeers[clientID]) {
+          usernames.push(peer['username']);
+        }
+      }
+      return usernames;
+    }
+
     async function main() {
       try {
         let peers;
@@ -96,7 +106,13 @@
         // 01-2. subscribe client event.
         client.subscribe((event) => {
           if (event.type === 'peers-changed') {
-            peers = event.value[doc.getKey()];
+            const newPeers = event.value[doc.getKey()];
+            if (peers) {
+              for (const username of findDefectors(peers, newPeers)){
+                cursors.removeCursor(username);
+              }
+            }
+            peers = newPeers;
             displayPeers(peers, presence['username']);
           }
         });
@@ -145,6 +161,7 @@
           },
           theme: 'snow'
         });
+        const cursors = quill.getModule('cursors');
 
         // 04. bind the document with the Quill.
         // 04-1. Quill to Document.
@@ -260,7 +277,6 @@
                 delta.push(op);
               }
             } else if (change.type === 'selection') {
-              const cursors = quill.getModule('cursors');
               cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
               cursors.moveCursor(actorName, {
                 index: from,
