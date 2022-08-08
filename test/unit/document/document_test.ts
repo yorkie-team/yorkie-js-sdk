@@ -1172,7 +1172,7 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\"\\\\n\\""},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{""b"":"\\"\\\\n\\""},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -1207,7 +1207,7 @@ describe('Document', function () {
       root.rich.setStyle(0, 3, { color: 'red' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"bold":"true","italic":"null","indent":"1","color":"\\"red\\""},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{""bold"":"true",""italic"":"null",""indent"":"1",""color"":"\\"red\\""},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });
