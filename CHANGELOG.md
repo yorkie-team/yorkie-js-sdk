@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.15] - 2022-08-08
+
+### Added
+
+- Add snapshot event observer to Quill example: #365
+
+### Changed
+
+- Bump up proto files to the latest: #367
+- Export Change APIs to generate history snapshots in admin: #368
+- Change trie traverse parameter name to isTerminalIncluded: #363
+
 ## [0.2.14] - 2022-08-03
 
 ### Added

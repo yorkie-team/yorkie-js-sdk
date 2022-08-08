@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -92,4 +92,4 @@
       "pre-commit": "npm run lint"
     }
   }
-  }
+}
