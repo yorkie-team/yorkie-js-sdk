@@ -406,7 +406,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
   public stringifyAttributes(attributes: A): Record<string, string> {
     const attrs: Record<string, string> = {};
     Object.entries(attributes).forEach(([key, value]) => {
-      attrs[key] = JSON.stringify(value);
+      attrs[JSON.stringify(key)] = JSON.stringify(value);
     });
     return attrs;
   }
@@ -417,7 +417,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
   private parseAttributes(attrs: Record<string, string>): A {
     const attributes: Record<any, unknown> = {};
     Object.entries(attrs).forEach(([key, value]) => {
-      attributes[key] = JSON.parse(value);
+      attributes[JSON.parse(key)] = JSON.parse(value);
     });
     return attributes as A;
   }
