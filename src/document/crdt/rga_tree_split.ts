@@ -40,13 +40,13 @@ export enum TextChangeType {
  * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type TextChange = {
+export type TextChange<A> = {
   type: TextChangeType;
   actor: ActorID;
   from: number;
   to: number;
   content?: string;
-  attributes?: Record<string, any>;
+  attributes?: A;
 };
 
 interface RGATreeSplitValue {
@@ -444,7 +444,7 @@ export class RGATreeSplitNode<
  *
  * @internal
  */
-export class RGATreeSplit<T extends RGATreeSplitValue> {
+export class RGATreeSplit<T extends RGATreeSplitValue, A> {
   private head: RGATreeSplitNode<T>;
   private treeByIndex: SplayTree<T>;
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
@@ -463,7 +463,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `create` creates a instance RGATreeSplit.
    */
-  public static create<T extends RGATreeSplitValue>(): RGATreeSplit<T> {
+  public static create<T extends RGATreeSplitValue, A>(): RGATreeSplit<T, A> {
     return new RGATreeSplit();
   }
 
@@ -484,7 +484,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -631,8 +631,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): RGATreeSplit<T> {
-    const clone = new RGATreeSplit<T>();
+  public deepcopy(): RGATreeSplit<T, A> {
+    const clone = new RGATreeSplit<T, A>();
 
     let node = this.head.getNext();
 
@@ -798,7 +798,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<TextChange>,
+    Array<TextChange<A>>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -886,8 +886,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<TextChange> {
-    const changes: Array<TextChange> = [];
+  ): Array<TextChange<A>> {
+    const changes: Array<TextChange<A>> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {

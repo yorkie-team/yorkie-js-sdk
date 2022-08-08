@@ -4,6 +4,7 @@ import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Text, RichText } from '@yorkie-js-sdk/src/yorkie';
+import { Indexable } from '../helper/helper';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
@@ -134,7 +135,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for rich text', function () {
-    const doc = new yorkie.Document<{ k1: RichText }>('test-doc');
+    const doc = new yorkie.Document<{ k1: RichText<Indexable> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =
@@ -238,7 +239,7 @@ describe('Garbage Collection', function () {
   });
 
   it('Can handle garbage collection for text type', async function () {
-    type TestDoc = { text: Text; rich: RichText };
+    type TestDoc = { text: Text; rich: RichText<Indexable> };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
@@ -314,7 +315,7 @@ describe('Garbage Collection', function () {
       2?: Array<number>;
       3: number;
       4: Text;
-      5: RichText;
+      5: RichText<Indexable>;
     };
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const doc1 = new yorkie.Document<TestDoc>(docKey);

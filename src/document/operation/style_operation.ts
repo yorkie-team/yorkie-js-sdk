@@ -64,10 +64,10 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given document(`root`).
    */
-  public execute(root: CRDTRoot): void {
+  public execute<A>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof CRDTRichText) {
-      const text = parentObject as CRDTRichText;
+      const text = parentObject as CRDTRichText<A>;
       text.setStyle(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},

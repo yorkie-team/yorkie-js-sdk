@@ -32,9 +32,7 @@ export function range(from: number, to: number): Array<number> {
   return list;
 }
 
-export type Indexable = {
-  [index: string]: any;
-};
+export type Indexable = Record<string, any>;
 
 export function waitFor(
   eventName: string,
@@ -71,7 +69,10 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(changes: Array<TextChange>, enableLog = false): void {
+  public applyChanges(
+    changes: Array<TextChange<undefined>>,
+    enableLog = false,
+  ): void {
     const oldValue = this.value;
     const changeLogs = [];
     for (const change of changes) {

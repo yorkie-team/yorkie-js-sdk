@@ -26,8 +26,8 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
-export interface RichTextVal {
-  attributes: Record<string, any>;
+export interface RichTextVal<A> {
+  attributes: A;
   content: string;
 }
 
@@ -115,14 +115,14 @@ export class RichTextValue {
  *
  * @internal
  */
-export class CRDTRichText extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange>) => void;
-  private rgaTreeSplit: RGATreeSplit<RichTextValue>;
+export class CRDTRichText<A> extends CRDTTextElement {
+  private onChangesHandler?: (changes: Array<TextChange<A>>) => void;
+  private rgaTreeSplit: RGATreeSplit<RichTextValue, A>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
   constructor(
-    rgaTreeSplit: RGATreeSplit<RichTextValue>,
+    rgaTreeSplit: RGATreeSplit<RichTextValue, A>,
     createdAt: TimeTicket,
   ) {
     super(createdAt);
@@ -134,10 +134,10 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `create` a instance of RichText.
    */
-  public static create(
-    rgaTreeSplit: RGATreeSplit<RichTextValue>,
+  public static create<A>(
+    rgaTreeSplit: RGATreeSplit<RichTextValue, A>,
     createdAt: TimeTicket,
-  ): CRDTRichText {
+  ): CRDTRichText<A> {
     const text = new CRDTRichText(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
     text.edit(range, '\n', createdAt);
@@ -269,7 +269,7 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TextChange>) => void): void {
+  public onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -310,7 +310,7 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `values` returns value array of this RichTextVal.
    */
-  public values(): Array<RichTextVal> {
+  public values(): Array<RichTextVal<A>> {
     const values = [];
 
     for (const node of this.rgaTreeSplit) {
@@ -331,7 +331,7 @@ export class CRDTRichText extends CRDTTextElement {
    *
    * @internal
    */
-  public getRGATreeSplit(): RGATreeSplit<RichTextValue> {
+  public getRGATreeSplit(): RGATreeSplit<RichTextValue, A> {
     return this.rgaTreeSplit;
   }
 
@@ -362,8 +362,8 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): CRDTRichText {
-    const text = new CRDTRichText(
+  public deepcopy(): CRDTRichText<A> {
+    const text = new CRDTRichText<A>(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );
@@ -374,7 +374,7 @@ export class CRDTRichText extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange | undefined {
+  ): TextChange<A> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
@@ -403,9 +403,7 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `stringifyAttributes` makes values of attributes to JSON parsable string.
    */
-  public stringifyAttributes(
-    attributes: Record<string, any>,
-  ): Record<string, string> {
+  public stringifyAttributes(attributes: A): Record<string, string> {
     const attrs: Record<string, string> = {};
     Object.entries(attributes).forEach(([key, value]) => {
       attrs[key] = JSON.stringify(value);
@@ -416,11 +414,11 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `parseAttributes` returns the JSON parsable string values to the origin states.
    */
-  private parseAttributes(attrs: Record<string, string>): Record<string, any> {
-    const attributes: Record<string, string> = {};
+  private parseAttributes(attrs: Record<string, string>): A {
+    const attributes: Record<string, any> = {};
     Object.entries(attrs).forEach(([key, value]) => {
       attributes[key] = JSON.parse(value);
     });
-    return attributes;
+    return attributes as A;
   }
 }

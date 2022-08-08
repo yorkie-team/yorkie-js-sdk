@@ -450,7 +450,9 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
+function toTextNodes<A>(
+  rgaTreeSplit: RGATreeSplit<string, A>,
+): Array<PbTextNode> {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
@@ -956,7 +958,7 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
  * `fromText` converts the given Protobuf format to model format.
  */
 function fromText(pbText: PbJSONElement.Text): CRDTText {
-  const rgaTreeSplit = new RGATreeSplit<string>();
+  const rgaTreeSplit = new RGATreeSplit<string, undefined>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {
@@ -981,8 +983,8 @@ function fromText(pbText: PbJSONElement.Text): CRDTText {
 /**
  * `fromRichText` converts the given Protobuf format to model format.
  */
-function fromRichText(pbText: PbJSONElement.RichText): CRDTRichText {
-  const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
+function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
+  const rgaTreeSplit = new RGATreeSplit<RichTextValue, A>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {

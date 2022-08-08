@@ -1,9 +1,10 @@
 import { assert } from 'chai';
 import { Document, RichText, TextChangeType } from '@yorkie-js-sdk/src/yorkie';
+import { Indexable } from '../helper/helper';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = Document.create<{ k1: RichText }>('test-doc');
+    const doc = Document.create<{ k1: RichText<Indexable> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -26,7 +27,7 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{ k1: RichText }>('test-doc');
+    const doc = Document.create<{ k1: RichText<Indexable> }>('test-doc');
 
     doc.update((root) => {
       root.k1 = new RichText();

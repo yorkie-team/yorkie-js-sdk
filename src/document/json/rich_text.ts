@@ -32,11 +32,11 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 /**
  * `RichText` is an extended data type for the contents of a text editor.
  */
-export class RichText {
+export class RichText<A> {
   private context?: ChangeContext;
-  private text?: CRDTRichText;
+  private text?: CRDTRichText<A>;
 
-  constructor(context?: ChangeContext, text?: CRDTRichText) {
+  constructor(context?: ChangeContext, text?: CRDTRichText<A>) {
     this.context = context;
     this.text = text;
   }
@@ -45,7 +45,7 @@ export class RichText {
    * `initialize` initialize this rich text with context and internal text.
    * @internal
    */
-  public initialize(context: ChangeContext, text: CRDTRichText): void {
+  public initialize(context: ChangeContext, text: CRDTRichText<A>): void {
     this.context = context;
     this.text = text;
   }
@@ -64,7 +64,7 @@ export class RichText {
     fromIdx: number,
     toIdx: number,
     content: string,
-    attributes?: Record<string, any>,
+    attributes?: A,
   ): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
@@ -115,11 +115,7 @@ export class RichText {
   /**
    * `setStyle` styles this text with the given attributes.
    */
-  setStyle(
-    fromIdx: number,
-    toIdx: number,
-    attributes: Record<string, any>,
-  ): boolean {
+  setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -198,7 +194,7 @@ export class RichText {
   /**
    * `values` returns values of this text.
    */
-  values(): Array<RichTextVal> {
+  values(): Array<RichTextVal<A>> {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -224,7 +220,7 @@ export class RichText {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  onChanges(handler: (changes: Array<TextChange>) => void): void {
+  onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return;

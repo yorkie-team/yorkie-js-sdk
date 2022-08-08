@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -1050,7 +1051,7 @@ describe('Document', function () {
   });
 
   it('change paths test for rich text', async function () {
-    type TestDoc = { rich: RichText };
+    type TestDoc = { rich: RichText<Indexable> };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
@@ -1164,7 +1165,7 @@ describe('Document', function () {
   });
 
   it('escapes string for rich text', function () {
-    type TestDoc = { rich: RichText };
+    type TestDoc = { rich: RichText<Indexable> };
     const doc = Document.create<TestDoc>('test-doc');
     doc.update((root) => {
       root.rich = new RichText();
@@ -1196,7 +1197,7 @@ describe('Document', function () {
   });
 
   it('stringifies any type of rich text attributes to JSON parsable string', function () {
-    const doc = Document.create<{ rich: RichText }>('test-doc');
+    const doc = Document.create<{ rich: RichText<Indexable> }>('test-doc');
     doc.update((root) => {
       root.rich = new RichText();
       root.rich.edit(0, 0, 'aaa', { bold: true });

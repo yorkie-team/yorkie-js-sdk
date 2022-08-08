@@ -32,13 +32,16 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  * @internal
  */
 export class CRDTText extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange>) => void;
-  private rgaTreeSplit: RGATreeSplit<string>;
+  private onChangesHandler?: (changes: Array<TextChange<undefined>>) => void;
+  private rgaTreeSplit: RGATreeSplit<string, undefined>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
   /** @hideconstructor */
-  constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
+  constructor(
+    rgaTreeSplit: RGATreeSplit<string, undefined>,
+    createdAt: TimeTicket,
+  ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
@@ -49,7 +52,7 @@ export class CRDTText extends CRDTTextElement {
    * `create` creates a new instance of `CRDTText`.
    */
   public static create(
-    rgaTreeSplit: RGATreeSplit<string>,
+    rgaTreeSplit: RGATreeSplit<string, undefined>,
     createdAt: TimeTicket,
   ): CRDTText {
     return new CRDTText(rgaTreeSplit, createdAt);
@@ -115,7 +118,9 @@ export class CRDTText extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TextChange>) => void): void {
+  public onChanges(
+    handler: (changes: Array<TextChange<undefined>>) => void,
+  ): void {
     this.onChangesHandler = handler;
   }
 
@@ -172,7 +177,7 @@ export class CRDTText extends CRDTTextElement {
    *
    * @internal
    */
-  public getRGATreeSplit(): RGATreeSplit<string> {
+  public getRGATreeSplit(): RGATreeSplit<string, undefined> {
     return this.rgaTreeSplit;
   }
 
@@ -214,7 +219,7 @@ export class CRDTText extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange | undefined {
+  ): TextChange<undefined> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,

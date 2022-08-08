@@ -50,23 +50,23 @@ export function createJSON<T>(
 /**
  * `WrappedElement` is a wrapper of JSONElement that provides `getID()`.
  */
-export type WrappedElement<T = unknown> =
+export type WrappedElement<T = unknown, A = unknown> =
   | Primitive
   | JSONObject<T>
   | JSONArray<T>
   | Text
-  | RichText
+  | RichText<A>
   | Counter;
 
 /**
  * `JSONElement` represents the type the user is using.
  */
-export type JSONElement<T = unknown> =
+export type JSONElement<T = unknown, A = unknown> =
   | PrimitiveValue
   | JSONObject<T>
   | JSONArray<T>
   | Text
-  | RichText
+  | RichText<A>
   | Counter;
 
 /**
