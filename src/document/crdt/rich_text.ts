@@ -415,7 +415,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
    * `parseAttributes` returns the JSON parsable string values to the origin states.
    */
   private parseAttributes(attrs: Record<string, string>): A {
-    const attributes: Record<string, any> = {};
+    const attributes: Record<any, unknown> = {};
     Object.entries(attrs).forEach(([key, value]) => {
       attributes[key] = JSON.parse(value);
     });
