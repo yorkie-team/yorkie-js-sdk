@@ -92,7 +92,7 @@ export class Trie<V extends number | string | symbol> {
   /**
    * `traverse` does a depth first to push necessary elements to the output
    * @param node - node to start the depth first search
-   * @param isTerminalIncluded - whether to travserse till the leaf or not
+   * @param isTerminalIncluded - whether to traverse till the terminal or not
    * @param output - the output array
    */
   public traverse(
