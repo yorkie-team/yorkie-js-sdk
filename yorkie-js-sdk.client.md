@@ -19,6 +19,12 @@ export declare class Client<M = Indexable> implements Observable<ClientEvent<M>>
 |  --- | --- | --- |
 |  [(constructor)(rpcAddr, opts)](./yorkie-js-sdk.client._constructor_.md) |  | Constructs a new instance of the <code>Client</code> class |
 
+## Properties
+
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [getPeersWithDocKey](./yorkie-js-sdk.client.getpeerswithdockey.md) |  | (peersMap: Record&lt;string, Record&lt;string, M&gt;&gt;, key: string) =&gt; Record&lt;string, Record&lt;string, M&gt;&gt; | <code>getPeersWithDocKey</code> returns the peers of the given document wrapped in an object. |
+
 ## Methods
 
 |  Method | Modifiers | Description |
