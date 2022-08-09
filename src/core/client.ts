@@ -33,10 +33,10 @@ import {
   WatchDocumentsRequest,
   WatchDocumentsResponse,
   UpdatePresenceRequest,
-} from '@yorkie-js-sdk/src/api/yorkie_pb';
-import { DocEventType } from '@yorkie-js-sdk/src/api/resources_pb';
+} from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
+import { DocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { YorkieClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie_grpc_web_pb';
+import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
@@ -760,16 +760,16 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       const attachment = this.attachmentMap.get(key)!;
       const peerPresenceMap = attachment.peerPresenceMap!;
       switch (pbWatchEvent.getType()) {
-        case DocEventType.DOCUMENTS_WATCHED:
+        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
           peerPresenceMap!.set(publisher, presence);
           break;
-        case DocEventType.DOCUMENTS_UNWATCHED:
+        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED:
           peerPresenceMap!.delete(publisher);
           break;
-        case DocEventType.DOCUMENTS_CHANGED:
+        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
           attachment.remoteChangeEventReceived = true;
           break;
-        case DocEventType.PRESENCE_CHANGED:
+        case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
           if (
             peerPresenceMap!.has(publisher) &&
             peerPresenceMap!.get(publisher)!.clock > presence.clock
@@ -781,15 +781,19 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       }
     }
 
-    if (pbWatchEvent!.getType() === DocEventType.DOCUMENTS_CHANGED) {
+    if (
+      pbWatchEvent!.getType() === DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED
+    ) {
       this.eventStreamObserver.next({
         type: ClientEventType.DocumentsChanged,
         value: respKeys,
       });
     } else if (
-      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_WATCHED ||
-      pbWatchEvent!.getType() === DocEventType.DOCUMENTS_UNWATCHED ||
-      pbWatchEvent!.getType() === DocEventType.PRESENCE_CHANGED
+      pbWatchEvent!.getType() ===
+        DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED ||
+      pbWatchEvent!.getType() ===
+        DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED ||
+      pbWatchEvent!.getType() === DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED
     ) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
