@@ -510,6 +510,19 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       return Promise.resolve();
     }
 
+    const getPeers = (
+      peersMap: Record<string, Record<string, M>>,
+      key: string,
+    ) => {
+      const attachment = this.attachmentMap.get(key);
+      const peers: Record<string, M> = {};
+      for (const [key, value] of attachment!.peerPresenceMap!) {
+        peers[key] = value.data;
+      }
+      peersMap[key] = peers;
+      return peersMap;
+    };
+
     const keys: Array<string> = [];
     for (const [, attachment] of this.attachmentMap) {
       if (!attachment.isRealtimeSync) {
@@ -523,6 +536,13 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     const req = new UpdatePresenceRequest();
     req.setClient(converter.toClient(this.id!, this.presenceInfo));
     req.setDocumentKeysList(keys);
+
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next({
+        type: ClientEventType.PeersChanged,
+        value: keys.reduce(getPeers, {}),
+      });
+    }
 
     return new Promise((resolve, reject) => {
       this.rpcClient.updatePresence(req, {}, (err) => {
