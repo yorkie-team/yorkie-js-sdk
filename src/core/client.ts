@@ -510,19 +510,6 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
       return Promise.resolve();
     }
 
-    const getPeers = (
-      peersMap: Record<string, Record<string, M>>,
-      key: string,
-    ) => {
-      const attachment = this.attachmentMap.get(key);
-      const peers: Record<string, M> = {};
-      for (const [key, value] of attachment!.peerPresenceMap!) {
-        peers[key] = value.data;
-      }
-      peersMap[key] = peers;
-      return peersMap;
-    };
-
     const keys: Array<string> = [];
     for (const [, attachment] of this.attachmentMap) {
       if (!attachment.isRealtimeSync) {
@@ -540,7 +527,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
-        value: keys.reduce(getPeers, {}),
+        value: keys.reduce(this.getPeersWithDocKey, {}),
       });
     }
 
@@ -619,6 +606,22 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     }
     return peers;
   }
+
+  /**
+   * `getPeersWithDocKey` returns the peers of the given document wrapped in an object.
+   */
+  getPeersWithDocKey = (
+    peersMap: Record<string, Record<string, M>>,
+    key: string,
+  ) => {
+    const attachment = this.attachmentMap.get(key);
+    const peers: Record<string, M> = {};
+    for (const [key, value] of attachment!.peerPresenceMap!) {
+      peers[key] = value.data;
+    }
+    peersMap[key] = peers;
+    return peersMap;
+  };
 
   private runSyncLoop(): void {
     const doLoop = (): void => {
@@ -726,19 +729,6 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     keys: Array<string>,
     resp: WatchDocumentsResponse,
   ) {
-    const getPeers = (
-      peersMap: Record<string, Record<string, M>>,
-      key: string,
-    ) => {
-      const attachment = this.attachmentMap.get(key);
-      const peers: Record<string, M> = {};
-      for (const [key, value] of attachment!.peerPresenceMap!) {
-        peers[key] = value.data;
-      }
-      peersMap[key] = peers;
-      return peersMap;
-    };
-
     if (resp.hasInitialization()) {
       const pbPeersMap = resp.getInitialization()!.getPeersMapByDocMap();
       pbPeersMap.forEach((pbPeers, docID) => {
@@ -753,7 +743,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
 
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
-        value: keys.reduce(getPeers, {}),
+        value: keys.reduce(this.getPeersWithDocKey, {}),
       });
       return;
     }
@@ -803,7 +793,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     ) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
-        value: respKeys.reduce(getPeers, {}),
+        value: respKeys.reduce(this.getPeersWithDocKey, {}),
       });
     }
   }
