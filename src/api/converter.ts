@@ -663,7 +663,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
     case PbValueType.VALUE_TYPE_RICH_TEXT:
-      return CRDTRichText.create(
+      return new CRDTRichText(
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
@@ -741,9 +741,18 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
 function fromRichTextNode(
   pbTextNode: PbRichTextNode,
 ): RGATreeSplitNode<RichTextValue> {
+  const richTextValue = RichTextValue.create(pbTextNode.getValue());
+  pbTextNode.getAttributesMap().forEach((value) => {
+    richTextValue.setAttr(
+      value.getKey(),
+      value.getValue(),
+      fromTimeTicket(value.getUpdatedAt())!,
+    );
+  });
+
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()!),
-    RichTextValue.create(pbTextNode.getValue()),
+    richTextValue,
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
@@ -994,8 +1003,7 @@ function fromRichText(pbText: PbJSONElement.RichText): CRDTRichText {
     }
     prev = current;
   }
-
-  const text = CRDTRichText.create(
+  const text = new CRDTRichText(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
