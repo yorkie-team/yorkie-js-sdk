@@ -468,7 +468,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `create` creates a instance RGATreeSplit.
    */
-  public static create<T extends RGATreeSplitValue, A>(): RGATreeSplit<T> {
+  public static create<T extends RGATreeSplitValue>(): RGATreeSplit<T> {
     return new RGATreeSplit();
   }
 
