@@ -450,9 +450,7 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(
-  rgaTreeSplit: RGATreeSplit<string>,
-): Array<PbTextNode> {
+function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();

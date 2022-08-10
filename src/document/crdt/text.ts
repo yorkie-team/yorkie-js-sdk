@@ -38,10 +38,7 @@ export class CRDTText extends CRDTTextElement {
   private remoteChangeLock: boolean;
 
   /** @hideconstructor */
-  constructor(
-    rgaTreeSplit: RGATreeSplit<string>,
-    createdAt: TimeTicket,
-  ) {
+  constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
