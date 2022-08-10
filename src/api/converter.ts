@@ -450,8 +450,8 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes<A>(
-  rgaTreeSplit: RGATreeSplit<string, A>,
+function toTextNodes(
+  rgaTreeSplit: RGATreeSplit<string>,
 ): Array<PbTextNode> {
   const pbTextNodes = [];
   for (const textNode of rgaTreeSplit) {
@@ -958,7 +958,7 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
  * `fromText` converts the given Protobuf format to model format.
  */
 function fromText(pbText: PbJSONElement.Text): CRDTText {
-  const rgaTreeSplit = new RGATreeSplit<string, undefined>();
+  const rgaTreeSplit = new RGATreeSplit<string>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {
@@ -984,7 +984,7 @@ function fromText(pbText: PbJSONElement.Text): CRDTText {
  * `fromRichText` converts the given Protobuf format to model format.
  */
 function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
-  const rgaTreeSplit = new RGATreeSplit<RichTextValue, A>();
+  const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {
@@ -997,7 +997,7 @@ function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
     prev = current;
   }
 
-  const text = CRDTRichText.create(
+  const text = CRDTRichText.create<A>(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );

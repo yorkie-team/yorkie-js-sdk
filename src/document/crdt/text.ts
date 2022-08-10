@@ -33,13 +33,13 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  */
 export class CRDTText extends CRDTTextElement {
   private onChangesHandler?: (changes: Array<TextChange>) => void;
-  private rgaTreeSplit: RGATreeSplit<string, undefined>;
+  private rgaTreeSplit: RGATreeSplit<string>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
   /** @hideconstructor */
   constructor(
-    rgaTreeSplit: RGATreeSplit<string, undefined>,
+    rgaTreeSplit: RGATreeSplit<string>,
     createdAt: TimeTicket,
   ) {
     super(createdAt);
@@ -52,7 +52,7 @@ export class CRDTText extends CRDTTextElement {
    * `create` creates a new instance of `CRDTText`.
    */
   public static create(
-    rgaTreeSplit: RGATreeSplit<string, undefined>,
+    rgaTreeSplit: RGATreeSplit<string>,
     createdAt: TimeTicket,
   ): CRDTText {
     return new CRDTText(rgaTreeSplit, createdAt);
@@ -118,9 +118,7 @@ export class CRDTText extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(
-    handler: (changes: Array<TextChange>) => void,
-  ): void {
+  public onChanges(handler: (changes: Array<TextChange>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -177,7 +175,7 @@ export class CRDTText extends CRDTTextElement {
    *
    * @internal
    */
-  public getRGATreeSplit(): RGATreeSplit<string, undefined> {
+  public getRGATreeSplit(): RGATreeSplit<string> {
     return this.rgaTreeSplit;
   }
 

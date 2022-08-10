@@ -52,7 +52,7 @@ export type TextChange = {
  * `RichTextChange` is the value passed as an argument to `RichText.onChanges()`.
  * `RichText.onChanges()` is called when the `RichText` is modified.
  */
-export type RichTextChange<A> = TextChange & { attributes?: A }
+export type RichTextChange<A> = TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;
@@ -449,7 +449,7 @@ export class RGATreeSplitNode<
  *
  * @internal
  */
-export class RGATreeSplit<T extends RGATreeSplitValue, A> {
+export class RGATreeSplit<T extends RGATreeSplitValue> {
   private head: RGATreeSplitNode<T>;
   private treeByIndex: SplayTree<T>;
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
@@ -468,7 +468,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue, A> {
   /**
    * `create` creates a instance RGATreeSplit.
    */
-  public static create<T extends RGATreeSplitValue, A>(): RGATreeSplit<T, A> {
+  public static create<T extends RGATreeSplitValue, A>(): RGATreeSplit<T> {
     return new RGATreeSplit();
   }
 
@@ -636,8 +636,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue, A> {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): RGATreeSplit<T, A> {
-    const clone = new RGATreeSplit<T, A>();
+  public deepcopy(): RGATreeSplit<T> {
+    const clone = new RGATreeSplit<T>();
 
     let node = this.head.getNext();
 

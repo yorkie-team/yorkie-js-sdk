@@ -117,12 +117,12 @@ export class RichTextValue {
  */
 export class CRDTRichText<A> extends CRDTTextElement {
   private onChangesHandler?: (changes: Array<RichTextChange<A>>) => void;
-  private rgaTreeSplit: RGATreeSplit<RichTextValue, A>;
+  private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
   constructor(
-    rgaTreeSplit: RGATreeSplit<RichTextValue, A>,
+    rgaTreeSplit: RGATreeSplit<RichTextValue>,
     createdAt: TimeTicket,
   ) {
     super(createdAt);
@@ -135,10 +135,10 @@ export class CRDTRichText<A> extends CRDTTextElement {
    * `create` a instance of RichText.
    */
   public static create<A>(
-    rgaTreeSplit: RGATreeSplit<RichTextValue, A>,
+    rgaTreeSplit: RGATreeSplit<RichTextValue>,
     createdAt: TimeTicket,
   ): CRDTRichText<A> {
-    const text = new CRDTRichText(rgaTreeSplit, createdAt);
+    const text = new CRDTRichText<A>(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
     text.edit(range, '\n', createdAt);
     return text;
@@ -331,7 +331,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
    *
    * @internal
    */
-  public getRGATreeSplit(): RGATreeSplit<RichTextValue, A> {
+  public getRGATreeSplit(): RGATreeSplit<RichTextValue> {
     return this.rgaTreeSplit;
   }
 
