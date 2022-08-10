@@ -83,14 +83,14 @@ const tests = [
         root.k1 = 'v1';
         root.k2 = { k4: 'v4' };
         root.k3 = ['v5', 'v6'];
-        assert.equal(expected, root.toJSON?.());
+        assert.equal(expected, root.toJSON!());
       }, 'updates k1,k2,k3');
       assert.equal(expected, doc.toJSON());
 
       expected = `{"k1":"v1","k3":["v5","v6"]}`;
       doc.update((root) => {
         delete root.k2;
-        assert.equal(expected, root.toJSON?.());
+        assert.equal(expected, root.toJSON!());
       }, 'deletes k2');
       assert.equal(expected, doc.toJSON());
     },
