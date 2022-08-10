@@ -175,7 +175,7 @@ export class Text {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  onChanges(handler: (changes: Array<TextChange<undefined>>) => void): void {
+  onChanges(handler: (changes: Array<TextChange>) => void): void {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return;

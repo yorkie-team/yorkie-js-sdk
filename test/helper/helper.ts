@@ -70,7 +70,7 @@ export class TextView {
   }
 
   public applyChanges(
-    changes: Array<TextChange<undefined>>,
+    changes: Array<TextChange>,
     enableLog = false,
   ): void {
     const oldValue = this.value;

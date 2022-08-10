@@ -169,7 +169,7 @@ describe('Text', function () {
 
     doc
       .getRoot()
-      .text.onChanges((changes: Array<TextChange<undefined>>): void => {
+      .text.onChanges((changes: Array<TextChange>): void => {
         if (changes[0].type === TextChangeType.Selection) {
           assert.equal(changes[0].from, 2);
           assert.equal(changes[0].to, 4);

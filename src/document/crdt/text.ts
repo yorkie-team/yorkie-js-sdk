@@ -32,7 +32,7 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  * @internal
  */
 export class CRDTText extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange<undefined>>) => void;
+  private onChangesHandler?: (changes: Array<TextChange>) => void;
   private rgaTreeSplit: RGATreeSplit<string, undefined>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -119,7 +119,7 @@ export class CRDTText extends CRDTTextElement {
    * `onChanges` registers a handler of onChanges event.
    */
   public onChanges(
-    handler: (changes: Array<TextChange<undefined>>) => void,
+    handler: (changes: Array<TextChange>) => void,
   ): void {
     this.onChangesHandler = handler;
   }
@@ -219,7 +219,7 @@ export class CRDTText extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange<undefined> | undefined {
+  ): TextChange | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,

@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
-  TextChange,
+  RichTextChange,
   TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
@@ -116,7 +116,7 @@ export class RichTextValue {
  * @internal
  */
 export class CRDTRichText<A> extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange<A>>) => void;
+  private onChangesHandler?: (changes: Array<RichTextChange<A>>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue, A>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -170,7 +170,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
       latestCreatedAtMapByActor,
     );
     if (content && attributes) {
-      const change = changes[changes.length - 1];
+      const change = changes[changes.length - 1] as RichTextChange<A>;
       change.attributes = this.parseAttributes(attributes);
     }
 
@@ -269,7 +269,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
+  public onChanges(handler: (changes: Array<RichTextChange<A>>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -374,7 +374,7 @@ export class CRDTRichText<A> extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange<A> | undefined {
+  ): RichTextChange<A> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
