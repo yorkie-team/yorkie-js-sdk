@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class RichText 
+export declare class RichText<A> 
 ```
 
 ## Constructors

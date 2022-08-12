@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-values(): Array<RichTextVal>;
+values(): Array<RichTextVal<A>>;
 ```
 <b>Returns:</b>
 
-Array&lt;RichTextVal&gt;
+Array&lt;RichTextVal&lt;A&gt;&gt;
 

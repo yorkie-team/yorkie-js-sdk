@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type JSONElement<T = unknown> = PrimitiveValue | JSONObject<T> | JSONArray<T> | Text | RichText | Counter;
+export declare type JSONElement<T = unknown, A = unknown> = PrimitiveValue | JSONObject<T> | JSONArray<T> | Text | RichText<A> | Counter;
 ```
 <b>References:</b> [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [RichText](./yorkie-js-sdk.richtext.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
 

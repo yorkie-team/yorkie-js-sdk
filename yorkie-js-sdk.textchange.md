@@ -15,7 +15,6 @@ export declare type TextChange = {
     from: number;
     to: number;
     content?: string;
-    attributes?: Record<string, string>;
 };
 ```
 <b>References:</b> [ActorID](./yorkie-js-sdk.actorid.md)

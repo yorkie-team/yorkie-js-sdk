@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-setStyle(fromIdx: number, toIdx: number, attributes: Record<string, string>): boolean;
+setStyle(fromIdx: number, toIdx: number, attributes: A): boolean;
 ```
 
 ## Parameters
@@ -18,7 +18,7 @@ setStyle(fromIdx: number, toIdx: number, attributes: Record<string, string>): bo
 |  --- | --- | --- |
 |  fromIdx | number |  |
 |  toIdx | number |  |
-|  attributes | Record&lt;string, string&gt; |  |
+|  attributes | A |  |
 
 <b>Returns:</b>
 

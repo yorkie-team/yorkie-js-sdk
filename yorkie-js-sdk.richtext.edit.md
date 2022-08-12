@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-edit(fromIdx: number, toIdx: number, content: string, attributes?: Record<string, string>): boolean;
+edit(fromIdx: number, toIdx: number, content: string, attributes?: A): boolean;
 ```
 
 ## Parameters
@@ -19,7 +19,7 @@ edit(fromIdx: number, toIdx: number, content: string, attributes?: Record<string
 |  fromIdx | number |  |
 |  toIdx | number |  |
 |  content | string |  |
-|  attributes | Record&lt;string, string&gt; |  |
+|  attributes | A |  |
 
 <b>Returns:</b>
 
