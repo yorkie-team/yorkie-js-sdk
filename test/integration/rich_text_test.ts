@@ -3,7 +3,7 @@ import { Document, RichText, TextChangeType } from '@yorkie-js-sdk/src/yorkie';
 
 describe('RichText', function () {
   it('should handle rich text edit operations', function () {
-    const doc = Document.create<{ k1: RichText }>('test-doc');
+    const doc = Document.create<{ k1: RichText<{ b: string }> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {

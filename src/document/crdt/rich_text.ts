@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
-  TextChange,
+  RichTextChange,
   TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
@@ -26,8 +26,8 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
-export interface RichTextVal {
-  attributes: Record<string, string>;
+export interface RichTextVal<A> {
+  attributes: A;
   content: string;
 }
 
@@ -90,9 +90,18 @@ export class RichTextValue {
    * `toJSON` returns the JSON encoding of this .
    */
   public toJSON(): string {
-    const attrs = this.attributes.toJSON();
+    const obj = this.attributes.toObject();
     const content = escapeString(this.content);
-    return `{"attrs":${attrs},"content":"${content}"}`;
+    const attrs = [];
+    for (const [key, v] of Object.entries(obj)) {
+      const value = JSON.parse(v);
+      const item =
+        typeof value === 'string'
+          ? `"${key}":"${escapeString(value)}"`
+          : `"${key}":${String(value)}`;
+      attrs.push(item);
+    }
+    return `{"attrs":{${attrs.join(',')}},"content":"${content}"}`;
   }
 
   /**
@@ -115,8 +124,8 @@ export class RichTextValue {
  *
  * @internal
  */
-export class CRDTRichText extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange>) => void;
+export class CRDTRichText<A> extends CRDTTextElement {
+  private onChangesHandler?: (changes: Array<RichTextChange<A>>) => void;
   private rgaTreeSplit: RGATreeSplit<RichTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -134,11 +143,11 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `create` a instance of RichText.
    */
-  public static create(
+  public static create<A>(
     rgaTreeSplit: RGATreeSplit<RichTextValue>,
     createdAt: TimeTicket,
-  ): CRDTRichText {
-    const text = new CRDTRichText(rgaTreeSplit, createdAt);
+  ): CRDTRichText<A> {
+    const text = new CRDTRichText<A>(rgaTreeSplit, createdAt);
     const range = text.createRange(0, 0);
     text.edit(range, '\n', createdAt);
     return text;
@@ -170,8 +179,8 @@ export class CRDTRichText extends CRDTTextElement {
       latestCreatedAtMapByActor,
     );
     if (content && attributes) {
-      const change = changes[changes.length - 1];
-      change.attributes = attributes;
+      const change = changes[changes.length - 1] as RichTextChange<A>;
+      change.attributes = this.parseAttributes(attributes);
     }
 
     const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
@@ -226,7 +235,7 @@ export class CRDTRichText extends CRDTTextElement {
         actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
-        attributes,
+        attributes: this.parseAttributes(attributes),
       });
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -269,7 +278,7 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TextChange>) => void): void {
+  public onChanges(handler: (changes: Array<RichTextChange<A>>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -310,14 +319,14 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `values` returns value array of this RichTextVal.
    */
-  public values(): Array<RichTextVal> {
+  public values(): Array<RichTextVal<A>> {
     const values = [];
 
     for (const node of this.rgaTreeSplit) {
       if (!node.isRemoved()) {
         const value = node.getValue();
         values.push({
-          attributes: value.getAttributes(),
+          attributes: this.parseAttributes(value.getAttributes()),
           content: value.getContent(),
         });
       }
@@ -362,8 +371,8 @@ export class CRDTRichText extends CRDTTextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): CRDTRichText {
-    const text = new CRDTRichText(
+  public deepcopy(): CRDTRichText<A> {
+    const text = new CRDTRichText<A>(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );
@@ -374,7 +383,7 @@ export class CRDTRichText extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange | undefined {
+  ): RichTextChange<A> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
@@ -398,5 +407,27 @@ export class CRDTRichText extends CRDTTextElement {
         to,
       };
     }
+  }
+
+  /**
+   * `stringifyAttributes` makes values of attributes to JSON parsable string.
+   */
+  public stringifyAttributes(attributes: A): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    for (const [key, value] of Object.entries(attributes)) {
+      attrs[key] = JSON.stringify(value);
+    }
+    return attrs;
+  }
+
+  /**
+   * `parseAttributes` returns the JSON parsable string values to the origin states.
+   */
+  private parseAttributes(attrs: Record<string, string>): A {
+    const attributes: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      attributes[key] = JSON.parse(value);
+    }
+    return attributes as A;
   }
 }

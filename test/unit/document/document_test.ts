@@ -1187,11 +1187,36 @@ describe('Document', function () {
     );
   });
 
-  it('Get the value of the counter', function () {
+  it('gets the value of the counter', function () {
     const doc = Document.create<{ counter: Counter }>('test-doc');
     doc.update((root) => {
       root.counter = new Counter(155);
     });
     assert.equal(155, doc.getRoot().counter.getValue());
+  });
+
+  it('sets any type of custom attribute values and can returns JSON parsable string', function () {
+    type AttrsType = {
+      bold?: boolean;
+      indent?: number;
+      italic?: boolean | null;
+      color?: string;
+    };
+    const doc = Document.create<{ rich: RichText<AttrsType> }>('test-doc');
+    doc.update((root) => {
+      root.rich = new RichText();
+      root.rich.edit(0, 0, 'aaa', { bold: true });
+      root.rich.setStyle(0, 3, { italic: true });
+      root.rich.setStyle(0, 3, { italic: null });
+      root.rich.setStyle(0, 3, { indent: 1 });
+      root.rich.setStyle(0, 3, { color: 'red' });
+    });
+    assert.equal(
+      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
+      doc.toSortedJSON(),
+    );
+    assert.doesNotThrow(() => {
+      JSON.parse(doc.toSortedJSON());
+    });
   });
 });

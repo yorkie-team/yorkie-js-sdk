@@ -248,13 +248,13 @@ export class ObjectProxy {
   /**
    * `createRichText` a new RichText for the given key.
    */
-  public static createRichText(
+  public static createRichText<A>(
     context: ChangeContext,
     target: CRDTObject,
     key: string,
-  ): RichText {
+  ): RichText<A> {
     const ticket = context.issueTimeTicket();
-    const text = CRDTRichText.create(RGATreeSplit.create(), ticket);
+    const text = CRDTRichText.create<A>(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text, target);
     context.push(

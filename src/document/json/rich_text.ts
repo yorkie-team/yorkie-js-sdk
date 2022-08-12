@@ -15,11 +15,12 @@
  */
 
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   RGATreeSplitNodeRange,
-  TextChange,
+  RichTextChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTRichText,
@@ -32,11 +33,11 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 /**
  * `RichText` is an extended data type for the contents of a text editor.
  */
-export class RichText {
+export class RichText<A = Indexable> {
   private context?: ChangeContext;
-  private text?: CRDTRichText;
+  private text?: CRDTRichText<A>;
 
-  constructor(context?: ChangeContext, text?: CRDTRichText) {
+  constructor(context?: ChangeContext, text?: CRDTRichText<A>) {
     this.context = context;
     this.text = text;
   }
@@ -45,7 +46,7 @@ export class RichText {
    * `initialize` initialize this rich text with context and internal text.
    * @internal
    */
-  public initialize(context: ChangeContext, text: CRDTRichText): void {
+  public initialize(context: ChangeContext, text: CRDTRichText<A>): void {
     this.context = context;
     this.text = text;
   }
@@ -64,7 +65,7 @@ export class RichText {
     fromIdx: number,
     toIdx: number,
     content: string,
-    attributes?: Record<string, string>,
+    attributes?: A,
   ): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
@@ -82,13 +83,15 @@ export class RichText {
         `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
       );
     }
-
+    const attrs = attributes
+      ? this.text.stringifyAttributes(attributes)
+      : undefined;
     const ticket = this.context.issueTimeTicket();
     const maxCreatedAtMapByActor = this.text.edit(
       range,
       content,
       ticket,
-      attributes,
+      attrs,
     );
 
     this.context.push(
@@ -98,7 +101,7 @@ export class RichText {
         range[1],
         maxCreatedAtMapByActor,
         content,
-        attributes ? new Map(Object.entries(attributes)) : new Map(),
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
     );
@@ -113,11 +116,7 @@ export class RichText {
   /**
    * `setStyle` styles this text with the given attributes.
    */
-  setStyle(
-    fromIdx: number,
-    toIdx: number,
-    attributes: Record<string, string>,
-  ): boolean {
+  setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -137,15 +136,16 @@ export class RichText {
       );
     }
 
+    const attrs = this.text.stringifyAttributes(attributes);
     const ticket = this.context.issueTimeTicket();
-    this.text.setStyle(range, attributes, ticket);
+    this.text.setStyle(range, attrs, ticket);
 
     this.context.push(
       new StyleOperation(
         this.text.getCreatedAt(),
         range[0],
         range[1],
-        new Map(Object.entries(attributes)),
+        new Map(Object.entries(attrs)),
         ticket,
       ),
     );
@@ -195,7 +195,7 @@ export class RichText {
   /**
    * `values` returns values of this text.
    */
-  values(): Array<RichTextVal> {
+  values(): Array<RichTextVal<A>> {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -221,7 +221,7 @@ export class RichText {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  onChanges(handler: (changes: Array<TextChange>) => void): void {
+  onChanges(handler: (changes: Array<RichTextChange<A>>) => void): void {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return;

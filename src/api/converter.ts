@@ -990,7 +990,7 @@ function fromText(pbText: PbJSONElement.Text): CRDTText {
 /**
  * `fromRichText` converts the given Protobuf format to model format.
  */
-function fromRichText(pbText: PbJSONElement.RichText): CRDTRichText {
+function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
   const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
 
   let prev = rgaTreeSplit.getHead();
@@ -1003,7 +1003,7 @@ function fromRichText(pbText: PbJSONElement.RichText): CRDTRichText {
     }
     prev = current;
   }
-  const text = new CRDTRichText(
+  const text = new CRDTRichText<A>(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );

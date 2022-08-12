@@ -46,8 +46,13 @@ export type TextChange = {
   from: number;
   to: number;
   content?: string;
-  attributes?: Record<string, string>;
 };
+
+/**
+ * `RichTextChange` is the value passed as an argument to `RichText.onChanges()`.
+ * `RichText.onChanges()` is called when the `RichText` is modified.
+ */
+export type RichTextChange<A> = TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;

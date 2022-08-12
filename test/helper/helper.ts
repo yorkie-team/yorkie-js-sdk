@@ -32,9 +32,7 @@ export function range(from: number, to: number): Array<number> {
   return list;
 }
 
-export type Indexable = {
-  [index: string]: any;
-};
+export type Indexable = Record<string, any>;
 
 export function waitFor(
   eventName: string,
