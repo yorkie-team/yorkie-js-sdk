@@ -1172,7 +1172,7 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -1203,18 +1203,22 @@ describe('Document', function () {
       italic?: boolean | null;
       color?: string;
     };
-    const doc = Document.create<{ rich: RichText<AttributesFormat> }>('test-doc');
+    const doc =
+      Document.create<{ rich: RichText<AttributesFormat> }>('test-doc');
     doc.update((root) => {
       root.rich = new RichText();
-      root.rich.edit(0, 0, 'aaa', { bold: true });  // "true"
+      root.rich.edit(0, 0, 'aaa', { bold: true }); // "true"
       root.rich.setStyle(0, 3, { italic: true });
-      root.rich.setStyle(0, 3, { italic: null });   // "null"
-      root.rich.setStyle(0, 3, { indent: 1 });      // "1"
-      root.rich.setStyle(0, 3, { color: 'red' });   // "\\"red\\""
+      root.rich.setStyle(0, 3, { italic: null }); // "null"
+      root.rich.setStyle(0, 3, { indent: 1 }); // "1"
+      root.rich.setStyle(0, 3, { color: 'red' }); // "\\"red\\""
     });
     assert.equal(
       '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
+    assert.doesNotThrow(() => {
+      JSON.parse(doc.toSortedJSON());
+    });
   });
 });
