@@ -1172,7 +1172,7 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\"\\\\n\\""},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"b":"\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -1196,7 +1196,7 @@ describe('Document', function () {
     assert.equal(155, doc.getRoot().counter.getValue());
   });
 
-  it('set any type of custom attribute values and consider as JSON parsable string', function () {
+  it('sets any type of custom attribute values and can returns JSON parsable string', function () {
     type AttributesFormat = {
       bold?: boolean;
       indent?: number;
@@ -1213,7 +1213,7 @@ describe('Document', function () {
       root.rich.setStyle(0, 3, { color: 'red' });   // "\\"red\\""
     });
     assert.equal(
-      '{"rich":[{"attrs":{"bold":"true","italic":"null","indent":"1","color":"\\"red\\""},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });

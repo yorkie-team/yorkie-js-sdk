@@ -21,7 +21,7 @@ describe('RichText', function () {
     });
 
     assert.equal(
-      '{"k1":[{"attrs":{"b":"\\"1\\""},"content":"ABC"},{"attrs":{},"content":"\\n"},{"attrs":{"b":"\\"1\\""},"content":"D"},{"attrs":{},"content":"\\n"}]}',
+      '{"k1":[{"attrs":{"b":"1"},"content":"ABC"},{"attrs":{},"content":"\\n"},{"attrs":{"b":"1"},"content":"D"},{"attrs":{},"content":"\\n"}]}',
       doc.toSortedJSON(),
     );
   });

@@ -90,9 +90,15 @@ export class RichTextValue {
    * `toJSON` returns the JSON encoding of this .
    */
   public toJSON(): string {
-    const attrs = this.attributes.toJSON();
+    const obj = this.attributes.toObject();
     const content = escapeString(this.content);
-    return `{"attrs":${attrs},"content":"${content}"}`;
+    const attrs = [];
+    for (const [key, v] of Object.entries(obj)) {
+      const value = JSON.parse(v);
+      const item = typeof value === 'string' ? `"${key}":"${value}"` : `"${key}":${String(value)}`
+      attrs.push(item);
+    }
+    return `{"attrs":{${attrs.join(',')}},"content":"${content}"}`;
   }
 
   /**
