@@ -4,6 +4,8 @@
 
 ## ClientOptions.syncLoopDuration property
 
+`syncLoopDuration` is the duration of the sync loop. After each sync loop, the client waits for the duration to next sync. The default value is `50`<!-- -->(ms).
+
 <b>Signature:</b>
 
 ```typescript

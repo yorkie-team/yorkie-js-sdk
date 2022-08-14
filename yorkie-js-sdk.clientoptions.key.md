@@ -4,6 +4,8 @@
 
 ## ClientOptions.key property
 
+`key` is the client key. It is used to identify the client. If not set, a random key is generated.
+
 <b>Signature:</b>
 
 ```typescript

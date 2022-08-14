@@ -4,6 +4,8 @@
 
 ## ClientOptions.presence property
 
+`presence` is the presence information of this client. If the client attaches a document, the presence information is sent to the other peers attached to the document.
+
 <b>Signature:</b>
 
 ```typescript

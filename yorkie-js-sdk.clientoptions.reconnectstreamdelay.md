@@ -4,6 +4,8 @@
 
 ## ClientOptions.reconnectStreamDelay property
 
+`reconnectStreamDelay` is the delay of the reconnect stream. If the stream is disconnected, the client waits for the delay to reconnect the stream. The default value is `1000`<!-- -->(ms).
+
 <b>Signature:</b>
 
 ```typescript
