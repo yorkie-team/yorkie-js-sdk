@@ -31,13 +31,17 @@ export enum PrimitiveType {
   Date,
 }
 
+/**
+ * `PrimitiveValue` represents a value of primitive type. Only values of type
+ * included in `PrimitiveValue` can be set to the document.
+ */
 export type PrimitiveValue =
   // eslint-disable-next-line @typescript-eslint/ban-types
   null | boolean | number | Long | string | Uint8Array | Date;
 
 /**
  * `Primitive` represents primitive data type including logical clock.
- * This is immutable.
+ * It has a type and a value.
  */
 export class Primitive extends CRDTElement {
   private valueType: PrimitiveType;

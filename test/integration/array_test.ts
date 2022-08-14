@@ -28,8 +28,9 @@ describe('Array', function () {
   });
 
   it('can push array element after delete operation', function () {
-    const doc =
-      Document.create<{ k1: JSONArray<string | Array<number>> }>('test-doc');
+    const doc = Document.create<{ k1: JSONArray<string | Array<number>> }>(
+      'test-doc',
+    );
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -75,8 +76,9 @@ describe('Array', function () {
   });
 
   it('can push array', function () {
-    const doc =
-      Document.create<{ arr: Array<number | Array<number>> }>('test-doc');
+    const doc = Document.create<{ arr: Array<number | Array<number>> }>(
+      'test-doc',
+    );
 
     doc.update((root) => {
       root.arr = [1, 2, 3];

@@ -1085,6 +1085,10 @@ function toUint8Array(hex: string): Uint8Array {
   return Uint8Array.from(Buffer.from(hex, 'hex'));
 }
 
+/**
+ * `converter` is a converter that converts the given model to protobuf format.
+ * is also used to convert models to bytes and vice versa.
+ */
 export const converter = {
   fromPresence,
   toClient,

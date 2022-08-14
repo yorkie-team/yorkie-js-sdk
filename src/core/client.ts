@@ -125,10 +125,10 @@ export enum ClientEventType {
  *
  * @public
  */
-export type ClientEvent<M = Indexable> =
+export type ClientEvent<P = Indexable> =
   | StatusChangedEvent
   | DocumentsChangedEvent
-  | PeersChangedEvent<M>
+  | PeersChangedEvent<P>
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -178,7 +178,7 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
  *
  * @public
  */
-export interface PeersChangedEvent<M> extends BaseClientEvent {
+export interface PeersChangedEvent<P> extends BaseClientEvent {
   /**
    * enum {@link ClientEventType}.PeersChangedEvent
    */
@@ -186,7 +186,7 @@ export interface PeersChangedEvent<M> extends BaseClientEvent {
   /**
    * `PeersChangedEvent` value
    */
-  value: Record<string, Record<string, M>>;
+  value: Record<string, Record<string, P>>;
 }
 
 /**
@@ -225,10 +225,10 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
   value: DocumentSyncResultType;
 }
 
-interface Attachment<M> {
+interface Attachment<P> {
   doc: Document<unknown>;
   isRealtimeSync: boolean;
-  peerPresenceMap?: Map<string, PresenceInfo<M>>;
+  peerPresenceMap?: Map<string, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
 }
 
@@ -237,9 +237,9 @@ interface Attachment<M> {
  *
  * @public
  */
-export type PresenceInfo<M> = {
+export type PresenceInfo<P> = {
   clock: number;
-  data: M;
+  data: P;
 };
 
 /**
@@ -247,12 +247,44 @@ export type PresenceInfo<M> = {
  *
  * @public
  */
-export interface ClientOptions<M> {
+export interface ClientOptions<P> {
+  /**
+   * `key` is the client key. It is used to identify the client.
+   * If not set, a random key is generated.
+   */
   key?: string;
-  presence?: M;
+
+  /**
+   * `presence` is the presence information of this client. If the client
+   * attaches a document, the presence information is sent to the other peers
+   * attached to the document.
+   */
+  presence?: P;
+
+  /**
+   * `apiKey` is the API key of the project. It is used to identify the project.
+   * If not set, API key of the default project is used.
+   */
   apiKey?: string;
+
+  /**
+   * `token` is the authentication token of this client. It is used to identify
+   * the user of the client.
+   */
   token?: string;
+
+  /**
+   * `syncLoopDuration` is the duration of the sync loop. After each sync loop,
+   * the client waits for the duration to next sync. The default value is
+   * `50`(ms).
+   */
   syncLoopDuration?: number;
+
+  /**
+   * `reconnectStreamDelay` is the delay of the reconnect stream. If the stream
+   * is disconnected, the client waits for the delay to reconnect the stream. The
+   * default value is `1000`(ms).
+   */
   reconnectStreamDelay?: number;
 }
 
@@ -271,28 +303,32 @@ const DefaultClientOptions = {
  *
  * @public
  */
-export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
+export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private id?: ActorID;
   private key: string;
-  private presenceInfo: PresenceInfo<M>;
+  private presenceInfo: PresenceInfo<P>;
   private status: ClientStatus;
-  private attachmentMap: Map<string, Attachment<M>>;
+  private attachmentMap: Map<string, Attachment<P>>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
 
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream?: any;
-  private eventStream: Observable<ClientEvent<M>>;
-  private eventStreamObserver!: Observer<ClientEvent<M>>;
+  private eventStream: Observable<ClientEvent<P>>;
+  private eventStreamObserver!: Observer<ClientEvent<P>>;
 
-  constructor(rpcAddr: string, opts?: ClientOptions<M>) {
+  /**
+   * @param rpcAddr - the address of the RPC server.
+   * @param opts - the options of the client.
+   */
+  constructor(rpcAddr: string, opts?: ClientOptions<P>) {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
     this.presenceInfo = {
       clock: 0,
-      data: opts.presence ? opts.presence : ({} as M),
+      data: opts.presence ? opts.presence : ({} as P),
     };
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
@@ -312,7 +348,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
-    this.eventStream = createObservable<ClientEvent<M>>((observer) => {
+    this.eventStream = createObservable<ClientEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
   }
@@ -498,7 +534,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   /**
    * `updatePresence` updates the presence of this client.
    */
-  public updatePresence<K extends keyof M>(key: K, value: M[K]): Promise<void> {
+  public updatePresence<K extends keyof P>(key: K, value: P[K]): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -549,12 +585,12 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
    * `subscribe` subscribes to the given topics.
    */
   public subscribe(
-    nextOrObserver: Observer<ClientEvent<M>> | NextFn<ClientEvent<M>>,
+    nextOrObserver: Observer<ClientEvent<P>> | NextFn<ClientEvent<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
     return this.eventStream.subscribe(
-      nextOrObserver as NextFn<ClientEvent<M>>,
+      nextOrObserver as NextFn<ClientEvent<P>>,
       error,
       complete,
     );
@@ -591,15 +627,15 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   /**
    * `getPresence` returns the presence of this client.
    */
-  public getPresence(): M {
+  public getPresence(): P {
     return this.presenceInfo.data;
   }
 
   /**
    * `getPeers` returns the peers of the given document.
    */
-  public getPeers(key: string): Record<string, M> {
-    const peers: Record<string, M> = {};
+  public getPeers(key: string): Record<string, P> {
+    const peers: Record<string, P> = {};
     const attachment = this.attachmentMap.get(key);
     for (const [key, value] of attachment!.peerPresenceMap!) {
       peers[key] = value.data;
@@ -610,12 +646,12 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
   /**
    * `getPeersWithDocKey` returns the peers of the given document wrapped in an object.
    */
-  getPeersWithDocKey = (
-    peersMap: Record<string, Record<string, M>>,
+  private getPeersWithDocKey = (
+    peersMap: Record<string, Record<string, P>>,
     key: string,
-  ): Record<string, Record<string, M>> => {
+  ): Record<string, Record<string, P>> => {
     const attachment = this.attachmentMap.get(key);
-    const peers: Record<string, M> = {};
+    const peers: Record<string, P> = {};
     for (const [key, value] of attachment!.peerPresenceMap!) {
       peers[key] = value.data;
     }
@@ -753,7 +789,7 @@ export class Client<M = Indexable> implements Observable<ClientEvent<M>> {
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
-    const presence = converter.fromPresence<M>(
+    const presence = converter.fromPresence<P>(
       pbWatchEvent.getPublisher()!.getPresence()!,
     );
     for (const key of respKeys) {
