@@ -4,6 +4,8 @@
 
 ## PrimitiveValue type
 
+`PrimitiveValue` represents a value of primitive type. Only values of type included in `PrimitiveValue` can be set to the document.
+
 <b>Signature:</b>
 
 ```typescript

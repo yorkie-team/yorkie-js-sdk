@@ -4,7 +4,7 @@
 
 ## Primitive class
 
-`Primitive` represents primitive data type including logical clock. This is immutable.
+`Primitive` represents primitive data type including logical clock. It has a type and a value.
 
 <b>Signature:</b>
 

@@ -12,7 +12,7 @@
 |  [Client](./yorkie-js-sdk.client.md) | <code>Client</code> is a normal client that can communicate with the server. It has documents and sends changes of the documents in local to the server to synchronize with other replicas in remote. |
 |  [Counter](./yorkie-js-sdk.counter.md) | <code>Counter</code> is a custom data type that is used to counter. |
 |  [Document](./yorkie-js-sdk.document.md) | <code>Document</code> is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline. |
-|  [Primitive](./yorkie-js-sdk.primitive.md) | <code>Primitive</code> represents primitive data type including logical clock. This is immutable. |
+|  [Primitive](./yorkie-js-sdk.primitive.md) | <code>Primitive</code> represents primitive data type including logical clock. It has a type and a value. |
 |  [RichText](./yorkie-js-sdk.richtext.md) | <code>RichText</code> is an extended data type for the contents of a text editor. |
 |  [Text](./yorkie-js-sdk.text.md) | <code>Text</code> represents text element for representing contents of a text editor. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
@@ -45,7 +45,7 @@
 
 |  Variable | Description |
 |  --- | --- |
-|  [converter](./yorkie-js-sdk.converter.md) |  |
+|  [converter](./yorkie-js-sdk.converter.md) | <code>converter</code> is a converter that converts the given model to protobuf format. is also used to convert models to bytes and vice versa. |
 |  [yorkie](./yorkie-js-sdk.yorkie.md) | The top-level yorkie namespace with additional properties.<!-- -->In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.<!-- -->e.g) <code>new yorkie.Client(...);</code> |
 
 ## Type Aliases
@@ -60,7 +60,7 @@
 |  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> represents the type the user is using. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
-|  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) |  |
+|  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 
