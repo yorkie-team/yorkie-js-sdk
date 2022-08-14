@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-getPresence(): M;
+getPresence(): P;
 ```
 <b>Returns:</b>
 
-M
+P
 

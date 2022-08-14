@@ -9,8 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type PresenceInfo<M> = {
+export declare type PresenceInfo<P> = {
     clock: number;
-    data: M;
+    data: P;
 };
 ```

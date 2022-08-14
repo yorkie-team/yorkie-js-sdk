@@ -9,13 +9,13 @@ Constructs a new instance of the `Client` class
 <b>Signature:</b>
 
 ```typescript
-constructor(rpcAddr: string, opts?: ClientOptions<M>);
+constructor(rpcAddr: string, opts?: ClientOptions<P>);
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  rpcAddr | string |  |
-|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md)<!-- -->&lt;M&gt; |  |
+|  rpcAddr | string | the address of the RPC server. |
+|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md)<!-- -->&lt;P&gt; | the options of the client. |
 

@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-subscribe(nextOrObserver: Observer<ClientEvent<M>> | NextFn<ClientEvent<M>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe(nextOrObserver: Observer<ClientEvent<P>> | NextFn<ClientEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  nextOrObserver | Observer&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;M&gt;&gt; \| NextFn&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;M&gt;&gt; |  |
+|  nextOrObserver | Observer&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;P&gt;&gt; \| NextFn&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;P&gt;&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class Client<M = Indexable> implements Observable<ClientEvent<M>> 
+export declare class Client<P = Indexable> implements Observable<ClientEvent<P>> 
 ```
-<b>Implements:</b> Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;M&gt;&gt;
+<b>Implements:</b> Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&lt;P&gt;&gt;
 
 ## Constructors
 
@@ -23,7 +23,7 @@ export declare class Client<M = Indexable> implements Observable<ClientEvent<M>>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [getPeersWithDocKey](./yorkie-js-sdk.client.getpeerswithdockey.md) |  | (peersMap: Record&lt;string, Record&lt;string, M&gt;&gt;, key: string) =&gt; Record&lt;string, Record&lt;string, M&gt;&gt; | <code>getPeersWithDocKey</code> returns the peers of the given document wrapped in an object. |
+|  [getPeersWithDocKey](./yorkie-js-sdk.client.getpeerswithdockey.md) |  | (peersMap: Record&lt;string, Record&lt;string, P&gt;&gt;, key: string) =&gt; Record&lt;string, Record&lt;string, P&gt;&gt; | <code>getPeersWithDocKey</code> returns the peers of the given document wrapped in an object. |
 
 ## Methods
 

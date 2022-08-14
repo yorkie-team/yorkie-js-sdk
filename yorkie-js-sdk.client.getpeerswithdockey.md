@@ -9,5 +9,5 @@
 <b>Signature:</b>
 
 ```typescript
-getPeersWithDocKey: (peersMap: Record<string, Record<string, M>>, key: string) => Record<string, Record<string, M>>;
+getPeersWithDocKey: (peersMap: Record<string, Record<string, P>>, key: string) => Record<string, Record<string, P>>;
 ```

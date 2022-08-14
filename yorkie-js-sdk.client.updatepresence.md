@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-updatePresence<K extends keyof M>(key: K, value: M[K]): Promise<void>;
+updatePresence<K extends keyof P>(key: K, value: P[K]): Promise<void>;
 ```
 
 ## Parameters
@@ -17,7 +17,7 @@ updatePresence<K extends keyof M>(key: K, value: M[K]): Promise<void>;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  key | K |  |
-|  value | M\[K\] |  |
+|  value | P\[K\] |  |
 
 <b>Returns:</b>
 

@@ -9,5 +9,5 @@
 <b>Signature:</b>
 
 ```typescript
-presence?: M;
+presence?: P;
 ```

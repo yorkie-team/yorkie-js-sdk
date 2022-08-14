@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface PeersChangedEvent<M> 
+export declare interface PeersChangedEvent<P> 
 ```
 
 ## Properties
@@ -17,5 +17,5 @@ export declare interface PeersChangedEvent<M>
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [type](./yorkie-js-sdk.peerschangedevent.type.md) | [ClientEventType.PeersChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.PeersChangedEvent |
-|  [value](./yorkie-js-sdk.peerschangedevent.value.md) | Record&lt;string, Record&lt;string, M&gt;&gt; | <code>PeersChangedEvent</code> value |
+|  [value](./yorkie-js-sdk.peerschangedevent.value.md) | Record&lt;string, Record&lt;string, P&gt;&gt; | <code>PeersChangedEvent</code> value |
 
