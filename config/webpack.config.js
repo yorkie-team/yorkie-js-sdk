@@ -71,6 +71,7 @@ module.exports = {
     library: 'yorkie',
     libraryTarget: 'umd',
     filename: 'yorkie-js-sdk.js',
+    globalObject: 'this',
     path: path.resolve(__dirname, '../dist'),
   },
   plugins: [
