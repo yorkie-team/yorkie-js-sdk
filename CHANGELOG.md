@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.16] - 2022-08-16
+
+### Changed
+
+- Change global object of webpack build output from `self` to `this`: #378
+- Apply generics to support any types of properties in RichText: #354
+
+### Fixed
+
+- Send peers-changed event to the user who updated one's own presence: #371
+
 ## [0.2.15] - 2022-08-08
 
 ### Added
