@@ -11,12 +11,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ### Changed
 
-- Change global object of webpack build output from `self` to `this`: #378
 - Apply generics to support any types of properties in RichText: #354
 
 ### Fixed
 
 - Send peers-changed event to the user who updated one's own presence: #371
+- Fix the error that occurs when importing JS SDK in Next.js: #378
 
 ## [0.2.15] - 2022-08-08
 
