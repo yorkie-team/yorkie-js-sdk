@@ -187,9 +187,7 @@
                 }
               }, `update style by ${client.getID()}`);
             } else if (op.delete !== undefined) {
-              if (op.delete !== undefined) {
-                to = from + op.delete;
-              }
+              to = from + op.delete;
               console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
               doc.update((root) => {
