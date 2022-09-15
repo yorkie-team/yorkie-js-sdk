@@ -66,11 +66,9 @@ export class RHTNode {
  */
 export class RHT {
   private nodeMapByKey: Map<string, RHTNode>;
-  private nodeMapByCreatedAt: Map<string, RHTNode>;
 
   constructor() {
     this.nodeMapByKey = new Map();
-    this.nodeMapByCreatedAt = new Map();
   }
 
   /**
@@ -89,7 +87,6 @@ export class RHT {
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
       const node = RHTNode.of(key, value, executedAt);
       this.nodeMapByKey.set(key, node);
-      this.nodeMapByCreatedAt.set(executedAt.toIDString(), node);
     }
   }
 
