@@ -64,10 +64,10 @@ describe('Garbage Collection', function () {
 
     const root = (doc.getRootObject().get('list') as CRDTArray)
       .getElements()
-      .getAnnotatedString();
+      .getStructureAsString();
     const clone = (doc.getClone()!.get('list') as CRDTArray)
       .getElements()
-      .getAnnotatedString();
+      .getStructureAsString();
 
     assert.equal(root, clone);
   });
@@ -80,7 +80,7 @@ describe('Garbage Collection', function () {
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 AB}[2:00:1:2 CD]',
-      doc.getRoot().text.getAnnotatedString(),
+      doc.getRoot().text.getStructureAsString(),
     );
 
     assert.equal(1, doc.getGarbageLen());
@@ -89,14 +89,14 @@ describe('Garbage Collection', function () {
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12][2:00:1:2 CD]',
-      doc.getRoot().text.getAnnotatedString(),
+      doc.getRoot().text.getStructureAsString(),
     );
 
     doc.update((root) => root.text.edit(2, 4, ''));
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12]{2:00:1:2 CD}',
-      doc.getRoot().text.getAnnotatedString(),
+      doc.getRoot().text.getStructureAsString(),
     );
   });
 

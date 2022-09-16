@@ -72,10 +72,10 @@ export class RemoveOperation extends Operation {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.REMOVE`;
+  public getStructureAsString(): string {
+    return `${this.getParentCreatedAt().getStructureAsString()}.REMOVE`;
   }
 
   /**

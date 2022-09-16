@@ -90,11 +90,11 @@ export class Change {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data of this change.
+   * `getStructureAsString` returns a string containing the meta data of this change.
    */
-  public getAnnotatedString(): string {
+  public getStructureAsString(): string {
     return `${this.operations
-      .map((operation) => operation.getAnnotatedString())
+      .map((operation) => operation.getStructureAsString())
       .join(',')}`;
   }
 }

@@ -75,10 +75,10 @@ export class IncreaseOperation extends Operation {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.INCREASE`;
+  public getStructureAsString(): string {
+    return `${this.getParentCreatedAt().getStructureAsString()}.INCREASE`;
   }
 
   /**

@@ -120,7 +120,7 @@ describe('ROOT', function () {
     assert.equal(2, root.getGarbageLen());
 
     assert.equal(2, root.garbageCollect(MaxTimeTicket));
-    assert.equal('[0:00:0:0 ][0:00:3:0 Yorkie]', text.getAnnotatedString());
+    assert.equal('[0:00:0:0 ][0:00:3:0 Yorkie]', text.getStructureAsString());
     assert.equal(0, root.getGarbageLen());
   });
 
@@ -135,7 +135,7 @@ describe('ROOT', function () {
     text.edit(0, 0, 'Hello World');
     assert.equal(
       '[0:00:0:0 ][0:00:2:0 Hello World][0:00:1:0 \n]',
-      text.getAnnotatedString(),
+      text.getStructureAsString(),
     );
     assert.equal(0, root.getGarbageLen());
 
@@ -148,7 +148,7 @@ describe('ROOT', function () {
     assert.equal(2, root.garbageCollect(MaxTimeTicket));
     assert.equal(
       '[0:00:0:0 ][0:00:3:0 Yorkie][0:00:1:0 \n]',
-      text.getAnnotatedString(),
+      text.getStructureAsString(),
     );
     assert.equal(0, root.getGarbageLen());
   });

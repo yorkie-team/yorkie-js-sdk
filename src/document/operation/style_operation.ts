@@ -90,12 +90,12 @@ export class StyleOperation extends Operation {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public getAnnotatedString(): string {
-    const parent = this.getParentCreatedAt().getAnnotatedString();
-    const fromPos = this.fromPos.getAnnotatedString();
-    const toPos = this.toPos.getAnnotatedString();
+  public getStructureAsString(): string {
+    const parent = this.getParentCreatedAt().getStructureAsString();
+    const fromPos = this.fromPos.getStructureAsString();
+    const toPos = this.toPos.getStructureAsString();
     const attributes = this.attributes;
     return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`;
   }

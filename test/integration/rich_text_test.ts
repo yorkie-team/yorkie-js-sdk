@@ -15,7 +15,7 @@ describe('RichText', function () {
     doc.update((root) => {
       assert.equal(
         '[0:00:0:0 ][1:00:2:0 ABC][1:00:3:0 \n][1:00:2:3 D][1:00:1:0 \n]',
-        root['k1'].getAnnotatedString(),
+        root['k1'].getStructureAsString(),
       );
     });
 

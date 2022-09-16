@@ -79,10 +79,10 @@ export class SetOperation extends Operation {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.SET`;
+  public getStructureAsString(): string {
+    return `${this.getParentCreatedAt().getStructureAsString()}.SET`;
   }
 
   /**
