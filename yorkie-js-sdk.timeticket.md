@@ -20,9 +20,9 @@ export declare class TimeTicket
 |  [compare(other)](./yorkie-js-sdk.timeticket.compare.md) |  | <code>compare</code> returns an integer comparing two Ticket. The result will be 0 if id==other, -1 if <code>id &lt; other</code>, and +1 if <code>id &gt; other</code>. If the receiver or argument is nil, it would panic at runtime. |
 |  [equals(other)](./yorkie-js-sdk.timeticket.equals.md) |  | <code>equals</code> returns whether the given ticket was created. |
 |  [getActorID()](./yorkie-js-sdk.timeticket.getactorid.md) |  | <code>getActorID</code> returns actorID. |
-|  [getAnnotatedString()](./yorkie-js-sdk.timeticket.getannotatedstring.md) |  | <code>getAnnotatedString</code> returns a string containing the meta data of the ticket for debugging purpose. |
 |  [getDelimiter()](./yorkie-js-sdk.timeticket.getdelimiter.md) |  | <code>getDelimiter</code> returns delimiter. |
 |  [getLamportAsString()](./yorkie-js-sdk.timeticket.getlamportasstring.md) |  | <code>getLamportAsString</code> returns the lamport string. |
+|  [getStructureAsString()](./yorkie-js-sdk.timeticket.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a string containing the meta data of the ticket for debugging purpose. |
 |  [of(lamport, delimiter, actorID)](./yorkie-js-sdk.timeticket.of.md) | <code>static</code> | <code>of</code> creates an instance of Ticket. |
 |  [setActor(actorID)](./yorkie-js-sdk.timeticket.setactor.md) |  | <code>setActor</code> creates a new instance of Ticket with the given actorID. |
 |  [toIDString()](./yorkie-js-sdk.timeticket.toidstring.md) |  | <code>toIDString</code> returns the lamport string for this Ticket. |
