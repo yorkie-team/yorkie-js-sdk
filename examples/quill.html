@@ -33,7 +33,7 @@
 
     function displayLog(doc) {
       logHolder.innerText = doc.toJSON();
-      textLogHolder.innerText = doc.getRoot().content.getAnnotatedString();
+      textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
     }
 
     function toDelta(change) {

@@ -58,9 +58,9 @@ export abstract class Operation {
   public abstract getEffectedCreatedAt(): TimeTicket;
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public abstract getAnnotatedString(): string;
+  public abstract getStructureAsString(): string;
 
   /**
    * `execute` executes this operation on the given document(`root`).

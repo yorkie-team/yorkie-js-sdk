@@ -84,10 +84,10 @@ export class MoveOperation extends Operation {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data.
+   * `getStructureAsString` returns a string containing the meta data.
    */
-  public getAnnotatedString(): string {
-    return `${this.getParentCreatedAt().getAnnotatedString()}.MOV`;
+  public getStructureAsString(): string {
+    return `${this.getParentCreatedAt().getStructureAsString()}.MOV`;
   }
 
   /**

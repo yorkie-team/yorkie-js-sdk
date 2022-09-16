@@ -363,8 +363,8 @@ export class SplayTree<V> {
     }
 
     if (leftTree.root) {
-      const maxNode = leftTree.getMaximum();
-      leftTree.splayNode(maxNode);
+      const rightmostNode = leftTree.getRightmost();
+      leftTree.splayNode(rightmostNode);
       leftTree.root.setRight(rightTree.root);
       if (rightTree.root) {
         rightTree.root.setParent(leftTree.root);
@@ -415,10 +415,10 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getAnnotatedString` returns a string containing the meta data of the Node
+   * `getStructureAsString` returns a string containing the meta data of the Node
    * for debugging purpose.
    */
-  public getAnnotatedString(): string {
+  public getStructureAsString(): string {
     const metaString: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root!, metaString);
     return metaString
@@ -444,7 +444,7 @@ export class SplayTree<V> {
     return true;
   }
 
-  private getMaximum(): SplayNode<V> {
+  private getRightmost(): SplayNode<V> {
     let node = this.root!;
     while (node.hasRight()) {
       node = node.getRight()!;

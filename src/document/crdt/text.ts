@@ -177,10 +177,10 @@ export class CRDTText extends CRDTTextElement {
   }
 
   /**
-   * `getAnnotatedString` returns a String containing the meta data of the text.
+   * `getStructureAsString` returns a String containing the meta data of the text.
    */
-  public getAnnotatedString(): string {
-    return this.rgaTreeSplit.getAnnotatedString();
+  public getStructureAsString(): string {
+    return this.rgaTreeSplit.getStructureAsString();
   }
 
   /**

@@ -451,7 +451,7 @@ export class Document<T> implements Observable<DocEvent> {
             (change) =>
               `${change
                 .getID()
-                .getAnnotatedString()}\t${change.getAnnotatedString()}`,
+                .getStructureAsString()}\t${change.getStructureAsString()}`,
           )
           .join('\n'),
       );

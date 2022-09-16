@@ -345,11 +345,11 @@ export class CRDTRichText<A> extends CRDTTextElement {
   }
 
   /**
-   * `getAnnotatedString` returns a String containing the meta data of this value
+   * `getStructureAsString` returns a String containing the meta data of this value
    * for debugging purpose.
    */
-  public getAnnotatedString(): string {
-    return this.rgaTreeSplit.getAnnotatedString();
+  public getStructureAsString(): string {
+    return this.rgaTreeSplit.getStructureAsString();
   }
 
   /**

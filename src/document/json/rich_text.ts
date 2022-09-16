@@ -80,7 +80,7 @@ export class RichText<A = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} c:${content}`,
+        `EDIT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} c:${content}`,
       );
     }
     const attrs = attributes
@@ -130,7 +130,7 @@ export class RichText<A = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `STYL: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()} a:${JSON.stringify(
+        `STYL: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} a:${JSON.stringify(
           attributes,
         )}`,
       );
@@ -165,7 +165,7 @@ export class RichText<A = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getAnnotatedString()}, t:${toIdx}->${range[1].getAnnotatedString()}`,
+        `SELT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
@@ -179,17 +179,17 @@ export class RichText<A = Indexable> {
   }
 
   /**
-   * `getAnnotatedString` returns a String containing the meta data of the node
+   * `getStructureAsString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  getAnnotatedString(): string {
+  getStructureAsString(): string {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.text.getAnnotatedString();
+    return this.text.getStructureAsString();
   }
 
   /**
