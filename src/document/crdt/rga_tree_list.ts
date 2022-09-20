@@ -205,8 +205,6 @@ export class RGATreeList {
     node.release();
     this.nodeMapByIndex.delete(node);
     this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
-
-    node.isRemoved();
   }
 
   /**
