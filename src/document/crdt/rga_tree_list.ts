@@ -208,7 +208,7 @@ export class RGATreeList {
   }
 
   /**
-   * `insertAfter` adds a new node with the value after the given node, prevCreatedAt.
+   * `insertAfter` adds a new node with the value after the given node.
    */
   public insertAfter(
     prevCreatedAt: TimeTicket,
