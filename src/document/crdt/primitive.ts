@@ -105,6 +105,8 @@ export class Primitive extends CRDTElement {
       return `"${escapeString(this.value as string)}"`;
     }
 
+    // TODO(hackerwins): We need to consider the case where the value is
+    // a byte array and a date.
     return `${this.value}`;
   }
 

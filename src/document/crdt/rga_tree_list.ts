@@ -36,7 +36,7 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
   }
 
   /**
-   * `createAfter` creates a new node after the previous node.
+   * `createAfter` creates a new node after the given node.
    */
   public static createAfter(
     prev: RGATreeListNode,
@@ -208,7 +208,7 @@ export class RGATreeList {
   }
 
   /**
-   * `insertAfter` adds next element of previously created node.
+   * `insertAfter` adds a new node with the value after the given node.
    */
   public insertAfter(
     prevCreatedAt: TimeTicket,
@@ -256,14 +256,14 @@ export class RGATreeList {
   }
 
   /**
-   * `insert` adds the given element after  the last creation time.
+   * `insert` adds the given element after the last node.
    */
   public insert(value: CRDTElement): void {
     this.insertAfter(this.last.getCreatedAt(), value);
   }
 
   /**
-   * `get` returns the element of the given index.
+   * `get` returns the element of the given creation time.
    */
   public get(createdAt: TimeTicket): CRDTElement | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
@@ -286,7 +286,7 @@ export class RGATreeList {
   }
 
   /**
-   * `purge` physically purges child element.
+   * `purge` physically purges element.
    */
   public purge(element: CRDTElement): void {
     const node = this.nodeMapByCreatedAt.get(
