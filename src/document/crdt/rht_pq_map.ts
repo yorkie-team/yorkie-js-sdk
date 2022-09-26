@@ -103,7 +103,7 @@ export class RHTPQMap {
   /**
    * `setInternal` sets the value of the given key.
    */
-  public setInternal(key: string, value: CRDTElement): void {
+  private setInternal(key: string, value: CRDTElement): void {
     if (!this.elementQueueMapByKey.has(key)) {
       this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
     }
@@ -152,9 +152,7 @@ export class RHTPQMap {
 
     const queue = this.elementQueueMapByKey.get(node.getStrKey());
     if (!queue) {
-      logger.fatal(
-        `fail to find queue of ${element.getCreatedAt().toIDString()}`,
-      );
+      logger.fatal(`fail to find queue of ${node.getStrKey()}`);
       return;
     }
 
