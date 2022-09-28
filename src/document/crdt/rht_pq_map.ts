@@ -127,9 +127,9 @@ export class RHTPQMap {
   }
 
   /**
-   * `keyOf` returns a key of node based on creation time
+   * `subPathOf` returns the sub path of the given element.
    */
-  public keyOf(createdAt: TimeTicket): string | undefined {
+  public subPathOf(createdAt: TimeTicket): string | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       return;

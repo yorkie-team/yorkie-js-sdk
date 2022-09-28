@@ -275,9 +275,9 @@ export class RGATreeList {
   }
 
   /**
-   * `keyOf` key based on the creation time of the node.
+   * `subPathOf` returns the sub path of the given element.
    */
-  public keyOf(createdAt: TimeTicket): string | undefined {
+  public subPathOf(createdAt: TimeTicket): string | undefined {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       return;

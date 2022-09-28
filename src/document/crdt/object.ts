@@ -44,10 +44,10 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `keyOf` returns a key of RHTPQMap based on the given creation time.
+   * `subPathOf` returns the sub path of the given element.
    */
-  public keyOf(createdAt: TimeTicket): string | undefined {
-    return this.memberNodes.keyOf(createdAt);
+  public subPathOf(createdAt: TimeTicket): string | undefined {
+    return this.memberNodes.subPathOf(createdAt);
   }
 
   /**

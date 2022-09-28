@@ -115,7 +115,10 @@ export abstract class CRDTContainer extends CRDTElement {
     super(createdAt);
   }
 
-  abstract keyOf(createdAt: TimeTicket): string | undefined;
+  /**
+   * `subPathOf` returns the sub path of the given element.
+   */
+  abstract subPathOf(createdAt: TimeTicket): string | undefined;
 
   abstract purge(element: CRDTElement): void;
 
