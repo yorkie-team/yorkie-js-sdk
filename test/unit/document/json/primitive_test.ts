@@ -46,7 +46,7 @@ describe('Primitive', function () {
     },
     {
       type: PrimitiveType.Long,
-      value: Long.fromString('9223372036854775807'),
+      value: Long.MAX_VALUE,
     },
     {
       type: PrimitiveType.Bytes,
