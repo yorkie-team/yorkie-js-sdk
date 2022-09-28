@@ -43,10 +43,10 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `keyof` returns key of the given `createdAt` element.
+   * `subPathOf` returns the sub path of the given element.
    */
-  public keyOf(createdAt: TimeTicket): string | undefined {
-    return this.elements.keyOf(createdAt);
+  public subPathOf(createdAt: TimeTicket): string | undefined {
+    return this.elements.subPathOf(createdAt);
   }
 
   /**

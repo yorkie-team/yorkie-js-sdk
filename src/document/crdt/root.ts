@@ -84,39 +84,39 @@ export class CRDTRoot {
   }
 
   /**
-   * `createPathArray` creates path of the given element.
+   * `createSubPaths` creates an array of the sub paths for the given element.
    */
-  public createPathArray(createdAt: TimeTicket): Array<string> {
+  public createSubPaths(createdAt: TimeTicket): Array<string> {
     let pair = this.elementPairMapByCreatedAt.get(createdAt.toIDString());
     if (!pair) {
       return [];
     }
 
-    const keys: Array<string> = [];
+    const subPaths: Array<string> = [];
     while (pair.parent) {
       const createdAt = pair.element.getCreatedAt();
-      let key = pair.parent.keyOf(createdAt);
-      if (key === undefined) {
+      let subPath = pair.parent.subPathOf(createdAt);
+      if (subPath === undefined) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
       } else {
-        key = key.replace(/[$.]/g, '\\$&');
+        subPath = subPath.replace(/[$.]/g, '\\$&');
       }
 
-      keys.unshift(key!);
+      subPaths.unshift(subPath!);
       pair = this.elementPairMapByCreatedAt.get(
         pair.parent.getCreatedAt().toIDString(),
       )!;
     }
 
-    keys.unshift('$');
-    return keys;
+    subPaths.unshift('$');
+    return subPaths;
   }
 
   /**
    * `createPath` creates path of the given element.
    */
   public createPath(createdAt: TimeTicket): string {
-    return this.createPathArray(createdAt).join('.');
+    return this.createSubPaths(createdAt).join('.');
   }
 
   /**
