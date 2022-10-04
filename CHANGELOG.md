@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.19] - 2022-10-04
+
+### Changed
+
+- Rename keyOf to subPathOf: #391
+
+### Fixed
+
+- Remove unused nodeMapByCreatedAt in RHT: #386
+- Change lamport from uint64 to int64: #390
+
 ## [0.2.16] - 2022-08-16
 
 ### Changed
