@@ -37,7 +37,7 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `create` creates a new instance of Object.
+   * `create` creates a new instance of CRDTObject.
    */
   public static create(createdAt: TimeTicket): CRDTObject {
     return new CRDTObject(createdAt, RHTPQMap.create());
@@ -51,7 +51,7 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `purge` physically purges child element.
+   * `purge` physically purges the given element.
    */
   public purge(value: CRDTElement): void {
     this.memberNodes.purge(value);
@@ -107,14 +107,14 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `toJS` return the javascript object of this object.
+   * `toJS` returns the JavaScript object of this object.
    */
   public toJS(): any {
     return JSON.parse(this.toJSON());
   }
 
   /**
-   * `getKeys` returns array of this object.
+   * `getKeys` returns array of keys in this object.
    */
   public getKeys(): Array<string> {
     const keys = Array<string>();

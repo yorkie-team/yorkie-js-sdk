@@ -380,7 +380,7 @@ export class RGATreeList {
   }
 
   /**
-   * `getLastCreatedAt` returns the creation time of last elements.
+   * `getLastCreatedAt` returns the creation time of last element.
    */
   public getLastCreatedAt(): TimeTicket {
     return this.last.getCreatedAt();
