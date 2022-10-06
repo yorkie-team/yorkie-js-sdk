@@ -50,14 +50,14 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `purge` physically purge child element.
+   * `purge` physically purge the given element.
    */
   public purge(element: CRDTElement): void {
     this.elements.purge(element);
   }
 
   /**
-   * `insertAfter` inserts the given element after the given previous element.
+   * `insertAfter` adds a new node after the the given node.
    */
   public insertAfter(prevCreatedAt: TimeTicket, value: CRDTElement): void {
     this.elements.insertAfter(prevCreatedAt, value);
@@ -113,15 +113,14 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `getPrevCreatedAt` returns the creation time of
-   * the previous element of the given element.
+   * `getPrevCreatedAt` returns the creation time of the previous node.
    */
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     return this.elements.getPrevCreatedAt(createdAt);
   }
 
   /**
-   * `delete` deletes the element of the given index.
+   * `delete` deletes the element of the given creation time.
    */
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): CRDTElement {
     return this.elements.delete(createdAt, editedAt);

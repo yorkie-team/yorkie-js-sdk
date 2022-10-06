@@ -59,7 +59,7 @@ describe('Primitive', function () {
         root['k0'] = null;
         root['k1'] = true;
         root['k2'] = 2147483647;
-        root['k3'] = Long.MAX_VALUE,
+        root['k3'] = Long.MAX_VALUE;
         root['k4'] = 1.79;
         root['k5'] = '4';
         root['k6'] = new Uint8Array([65, 66]);

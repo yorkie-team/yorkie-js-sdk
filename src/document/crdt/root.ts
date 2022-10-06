@@ -140,7 +140,7 @@ export class CRDTRoot {
   }
 
   /**
-   * `registerRemovedElement` registers the given element to hash table.
+   * `registerRemovedElement` registers the given element to the hash set.
    */
   public registerRemovedElement(element: CRDTElement): void {
     this.removedElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
@@ -175,7 +175,7 @@ export class CRDTRoot {
   }
 
   /**
-   * `getGarbageLen` returns length of nodes which should garbage collection task
+   * `getGarbageLen` returns length of nodes which can be garbage collected.
    */
   public getGarbageLen(): number {
     let count = 0;
