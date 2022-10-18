@@ -53,7 +53,7 @@ export abstract class Operation {
   }
 
   /**
-   * `getEffectedCreatedAt` returns the time of the effected element.
+   * `getEffectedCreatedAt` returns the creation time of the effected element.
    */
   public abstract getEffectedCreatedAt(): TimeTicket;
 

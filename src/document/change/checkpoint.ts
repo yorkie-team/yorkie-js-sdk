@@ -50,8 +50,8 @@ export class Checkpoint {
   }
 
   /**
-   * `forward` updates the given checkpoint with those values when it is greater
-   * than the values of internal properties.
+   * `forward` creates a new instance with the given checkpoint if it is
+   * greater than the values of internal properties.
    */
   public forward(other: Checkpoint): Checkpoint {
     if (this.equals(other)) {

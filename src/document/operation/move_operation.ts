@@ -72,12 +72,12 @@ export class MoveOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only array can execute add`);
+      logger.fatal(`fail to execute, only array can execute move`);
     }
   }
 
   /**
-   * `getEffectedCreatedAt` returns the time of the effected element.
+   * `getEffectedCreatedAt` returns the creation time of the effected element.
    */
   public getEffectedCreatedAt(): TimeTicket {
     return this.createdAt;
@@ -87,7 +87,7 @@ export class MoveOperation extends Operation {
    * `getStructureAsString` returns a string containing the meta data.
    */
   public getStructureAsString(): string {
-    return `${this.getParentCreatedAt().getStructureAsString()}.MOV`;
+    return `${this.getParentCreatedAt().getStructureAsString()}.MOVE`;
   }
 
   /**
