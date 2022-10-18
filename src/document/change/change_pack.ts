@@ -37,13 +37,14 @@ export class ChangePack {
   private changes: Array<Change>;
 
   /**
-   * `snapshot` is a byte array that encode the document.
+   * `snapshot` is a byte array that encodes the document.
    */
   private snapshot?: Uint8Array;
 
   /**
    * `minSyncedTicket` is the minimum logical time taken by clients who attach
-   * the document. It used to collect garbage on the replica on the client.
+   * to the document. It is used to collect garbage on the replica on the
+   * client.
    */
   private minSyncedTicket?: TimeTicket;
 

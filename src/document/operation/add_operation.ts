@@ -71,7 +71,7 @@ export class AddOperation extends Operation {
   }
 
   /**
-   * `getEffectedCreatedAt` returns the time of the effected element.
+   * `getEffectedCreatedAt` returns the creation time of the effected element.
    */
   public getEffectedCreatedAt(): TimeTicket {
     return this.value.getCreatedAt();
