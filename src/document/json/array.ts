@@ -614,7 +614,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+        target.getByIndex(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return true;
       }
@@ -650,7 +650,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+        target.getByIndex(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return i;
       }
@@ -686,7 +686,7 @@ export class ArrayProxy {
 
     for (let i = from; i > 0; i--) {
       if (
-        target.getByIndex(i)?.getID() === (searchElement as CRDTElement).getID()
+        target.getByIndex(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return i;
       }

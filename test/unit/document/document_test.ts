@@ -943,6 +943,7 @@ describe('Document', function () {
       }
     });
 
+    // NOTE(hackerwins): We skip nested paths after introducing the trie.
     doc.update((root) => {
       root[''] = {};
       paths.push('$.');
@@ -950,15 +951,15 @@ describe('Document', function () {
       root.obj = {};
       paths.push('$.obj');
       root.obj.a = 1;
-      paths.push('$.obj.a');
+      // paths.push('$.obj.a');
       delete root.obj.a;
-      paths.push('$.obj');
+      // paths.push('$.obj');
       root.obj['$.hello'] = 1;
-      paths.push('$.obj.\\$\\.hello');
+      // paths.push('$.obj.\\$\\.hello');
       delete root.obj['$.hello'];
-      paths.push('$.obj');
+      // paths.push('$.obj');
       delete root.obj;
-      paths.push('$');
+      // paths.push('$');
     });
   });
 
@@ -974,19 +975,20 @@ describe('Document', function () {
       }
     });
 
+    // NOTE(hackerwins): We skip nested paths after introducing the trie.
     doc.update((root) => {
       root.arr = [];
       paths.push('$.arr');
       root.arr.push(0);
-      paths.push('$.arr.0');
+      // paths.push('$.arr.0');
       root.arr.push(1);
-      paths.push('$.arr.1');
+      // paths.push('$.arr.1');
       delete root.arr[1];
-      paths.push('$.arr');
+      // paths.push('$.arr');
       root['$$...hello'] = [];
       paths.push('$.\\$\\$\\.\\.\\.hello');
       root['$$...hello'].push(0);
-      paths.push('$.\\$\\$\\.\\.\\.hello.0');
+      // paths.push('$.\\$\\$\\.\\.\\.hello.0');
     });
   });
 
