@@ -86,5 +86,18 @@ describe('Heap', function () {
 
       assert.equal(0, heap.len());
     });
+
+    it('if a heap has two nodes', function () {
+      const heap = new Heap<number, number>();
+      const node0 = new HeapNode(0, 0);
+      heap.push(node0);
+
+      const node1 = new HeapNode(1, 1);
+      heap.push(node1);
+
+      heap.release(node0);
+
+      assert.equal(1, heap.len());
+    });
   });
 });
