@@ -1,0 +1,128 @@
+.kanban {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+
+  background: #026aa7;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  height: 450px;
+  align-items: flex-start;
+  overflow: scroll;
+  user-select: none;
+}
+
+.kanban .add-list {
+  padding: 10px;
+  color: #fff;
+  cursor: pointer;
+  background: #ffffff3d;
+  margin: 10px 0 10px 10px;
+  width: 260px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.kanban .add-list:hover {
+  background: #ffffff52;
+}
+
+.kaban .add-list-opener::before {
+  content: '＋ ';
+}
+
+.delete {
+  position: absolute;
+  cursor: pointer;
+  top: 2px;
+  right: 2px;
+  display: none;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.add-form input[type=text] {
+  border: none;
+  overflow: auto;
+  outline: none;
+
+  font-size: 1em;
+
+  margin: 5px 0;
+  padding: 5px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(9, 30, 66, .25);
+  position: relative;
+  word-break: break-word;
+}
+
+.add-form input[type=button] {
+  font-size: 1em;
+  padding: 5px;
+}
+
+.add-form input[type=button].pull-right {
+  float: right;
+}
+
+.list {
+  background: #ebecf0;
+  margin: 10px 0 10px 10px;
+  border-radius: 3px;
+  padding: 10px;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.list:hover>.delete {
+  display: inherit;
+}
+
+.list .title {
+  font-weight: bold;
+  padding: 3px;
+}
+
+.list .card {
+  font-size: 1em;
+
+  margin: 5px 0;
+  padding: 5px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(9, 30, 66, .25);
+  position: relative;
+  word-break: break-word;
+}
+
+.list .card:hover {
+  background: #091e4214;
+}
+
+.list .card:hover .delete {
+  display: inherit;
+}
+
+.add-card-opener {
+  margin: 5px 0;
+  padding: 5px;
+  color: #444;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.add-card-opener:hover {
+  background: #091e4214;
+}
+
+.add-card-opener::before {
+  content: '＋ ';
+}
