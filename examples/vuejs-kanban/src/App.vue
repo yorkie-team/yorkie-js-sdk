@@ -35,7 +35,7 @@ const defaultLists = [
 ];
 
 const client = new yorkie.Client('http://localhost:8080');
-const doc = new yorkie.Document('kanban');
+const doc = new yorkie.Document('vuejs-kanban');
 
 export default {
   data() {
