@@ -71,7 +71,7 @@ docker-compose -f docker/docker-compose.yml up --build -d
 Start the webpack-dev-server in another terminal session.
 
 ```bash
-npm run start
+npm run dev
 ```
 
 Open the co-editing example page served by webpack-dev-server in your browser.
