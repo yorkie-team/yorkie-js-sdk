@@ -80,13 +80,17 @@ export class Heap<K, V> {
    * `release` deletes the given value from this Heap.
    */
   public release(node: HeapNode<K, V>): void {
-    let lastIndexBeforeRelease = this.nodes.length - 1;
+    const lastIndexBeforeRelease = this.nodes.length - 1;
     const targetIndex = this.nodes.findIndex(
       (_node) => _node.getValue() === node.getValue(),
     );
     const lastNode = this.nodes.pop()!;
 
-    if (targetIndex < 0 || !this.len() || targetIndex === lastIndexBeforeRelease) {
+    if (
+      targetIndex < 0 ||
+      !this.len() ||
+      targetIndex === lastIndexBeforeRelease
+    ) {
       return;
     }
 
