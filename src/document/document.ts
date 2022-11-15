@@ -530,4 +530,11 @@ export class Document<T, P = any> implements Observable<DocEvent> {
   public getPresenceOf(actorID: ActorID): PresenceInfo<P> | undefined {
     return this.actorPresenceMap.get(actorID);
   }
+
+  /**
+   * `getPresenceMap` gets the presence map of this document.
+   */
+  public getPresenceMap(): Map<string, PresenceInfo<P>> {
+    return this.actorPresenceMap;
+  }
 }

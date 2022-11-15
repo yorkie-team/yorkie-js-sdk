@@ -638,7 +638,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   public getPeers(key: string): Record<string, P> {
     const peers: Record<string, P> = {};
     const attachment = this.attachmentMap.get(key);
-    for (const [key, value] of attachment!.peerPresenceMap!) {
+    for (const [key, value] of attachment!.doc.getPresenceMap()) {
       peers[key] = value.data;
     }
     return peers;
