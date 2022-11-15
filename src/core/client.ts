@@ -228,7 +228,6 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 interface Attachment<P> {
   doc: Document<unknown, P>;
   isRealtimeSync: boolean;
-  peerPresenceMap?: Map<string, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
 }
 
@@ -458,7 +457,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         this.attachmentMap.set(doc.getKey(), {
           doc,
           isRealtimeSync: !isManualSync,
-          peerPresenceMap: new Map(),
         });
         this.runWatchLoop();
 
@@ -552,7 +550,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         continue;
       }
 
-      attachment.peerPresenceMap!.set(this.getID()!, this.presenceInfo);
       attachment.doc.updatePresenceOf(this.getID()!, this.presenceInfo);
       keys.push(attachment.doc.getKey());
     }
@@ -771,10 +768,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       pbPeersMap.forEach((pbPeers, docID) => {
         const attachment = this.attachmentMap.get(docID)!;
         for (const pbClient of pbPeers.getClientsList()) {
-          attachment.peerPresenceMap!.set(
-            converter.toHexString(pbClient.getId_asU8()),
-            converter.fromPresence(pbClient.getPresence()!),
-          );
           attachment.doc.updatePresenceOf(
             converter.toHexString(pbClient.getId_asU8()),
             converter.fromPresence(pbClient.getPresence()!),
@@ -799,14 +792,11 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     );
     for (const key of respKeys) {
       const attachment = this.attachmentMap.get(key)!;
-      const peerPresenceMap = attachment.peerPresenceMap!;
       switch (pbWatchEvent.getType()) {
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-          peerPresenceMap!.set(publisher, presence);
           attachment.doc.updatePresenceOf(publisher, presence);
           break;
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED:
-          peerPresenceMap!.delete(publisher);
           attachment.doc.removePresenceOf(publisher);
           break;
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
@@ -814,18 +804,11 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           break;
         case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
           if (
-            peerPresenceMap!.has(publisher) &&
-            peerPresenceMap!.get(publisher)!.clock > presence.clock
-          ) {
-            break;
-          }
-          if (
             attachment.doc.getPresenceOf(publisher) &&
             attachment.doc.getPresenceOf(publisher)!.clock > presence.clock
           ) {
             break;
           }
-          peerPresenceMap!.set(publisher, presence);
           attachment.doc.updatePresenceOf(publisher, presence);
           break;
       }
