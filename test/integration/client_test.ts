@@ -221,8 +221,8 @@ describe('Client', function () {
     const [emitter2, spy2] = createEmitterAndSpy();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = new yorkie.Document(docKey);
-    const d2 = new yorkie.Document(docKey);
+    const d1 = new yorkie.Document<unknown, PresenceType>(docKey);
+    const d2 = new yorkie.Document<unknown, PresenceType>(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);
@@ -282,8 +282,8 @@ describe('Client', function () {
     const [emitter2, spy2] = createEmitterAndSpy();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = new yorkie.Document(docKey);
-    const d2 = new yorkie.Document(docKey);
+    const d1 = new yorkie.Document<unknown, PresenceType>(docKey);
+    const d2 = new yorkie.Document<unknown, PresenceType>(docKey);
 
     await c1.attach(d1);
     await c2.attach(d2);
