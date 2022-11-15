@@ -226,7 +226,7 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 }
 
 interface Attachment<P> {
-  doc: Document<unknown>;
+  doc: Document<unknown, P>;
   isRealtimeSync: boolean;
   peerPresenceMap?: Map<string, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
@@ -431,9 +431,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * this client will synchronize the given document.
    */
   public attach(
-    doc: Document<unknown>,
+    doc: Document<unknown, P>,
     isManualSync?: boolean,
-  ): Promise<Document<unknown>> {
+  ): Promise<Document<unknown, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -476,7 +476,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach(doc: Document<unknown>): Promise<Document<unknown>> {
+  public detach(doc: Document<unknown, P>): Promise<Document<unknown, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -512,7 +512,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(): Promise<Array<Document<unknown>>> {
+  public sync(): Promise<Array<Document<unknown, P>>> {
     const promises = [];
     for (const [, attachment] of this.attachmentMap) {
       promises.push(this.syncInternal(attachment.doc));
@@ -838,7 +838,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
   }
 
-  private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
+  private syncInternal(
+    doc: Document<unknown, P>,
+  ): Promise<Document<unknown, P>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
       req.setClientId(converter.toUint8Array(this.id!));

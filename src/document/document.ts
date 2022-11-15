@@ -43,6 +43,7 @@ import {
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
+import { PresenceInfo } from '@yorkie-js-sdk/src/core/client';
 
 /**
  * `DocEventType` is document event types
@@ -150,7 +151,7 @@ export type Indexable = Record<string, any>;
  *
  * @public
  */
-export class Document<T> implements Observable<DocEvent> {
+export class Document<T, P = any> implements Observable<DocEvent> {
   private key: string;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
@@ -159,6 +160,7 @@ export class Document<T> implements Observable<DocEvent> {
   private localChanges: Array<Change>;
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
+  private actorPresenceMap: Map<string, PresenceInfo<P>>;
 
   constructor(key: string) {
     this.key = key;
@@ -169,13 +171,14 @@ export class Document<T> implements Observable<DocEvent> {
     this.eventStream = createObservable<DocEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
+    this.actorPresenceMap = new Map();
   }
 
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T>(key: string): Document<T> {
-    return new Document<T>(key);
+  public static create<T, P = any>(key: string): Document<T, P> {
+    return new Document<T, P>(key);
   }
 
   /**
