@@ -553,6 +553,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       }
 
       attachment.peerPresenceMap!.set(this.getID()!, this.presenceInfo);
+      attachment.doc.updatePresenceOf(this.getID()!, this.presenceInfo);
       keys.push(attachment.doc.getKey());
     }
 
@@ -768,9 +769,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     if (resp.hasInitialization()) {
       const pbPeersMap = resp.getInitialization()!.getPeersMapByDocMap();
       pbPeersMap.forEach((pbPeers, docID) => {
-        const attachment = this.attachmentMap.get(docID);
+        const attachment = this.attachmentMap.get(docID)!;
         for (const pbClient of pbPeers.getClientsList()) {
-          attachment!.peerPresenceMap!.set(
+          attachment.peerPresenceMap!.set(
+            converter.toHexString(pbClient.getId_asU8()),
+            converter.fromPresence(pbClient.getPresence()!),
+          );
+          attachment.doc.updatePresenceOf(
             converter.toHexString(pbClient.getId_asU8()),
             converter.fromPresence(pbClient.getPresence()!),
           );
@@ -798,9 +803,11 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       switch (pbWatchEvent.getType()) {
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
           peerPresenceMap!.set(publisher, presence);
+          attachment.doc.updatePresenceOf(publisher, presence);
           break;
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED:
           peerPresenceMap!.delete(publisher);
+          attachment.doc.removePresenceOf(publisher);
           break;
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
           attachment.remoteChangeEventReceived = true;
@@ -812,7 +819,14 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           ) {
             break;
           }
+          if (
+            attachment.doc.getPresenceOf(publisher) &&
+            attachment.doc.getPresenceOf(publisher)!.clock > presence.clock
+          ) {
+            break;
+          }
           peerPresenceMap!.set(publisher, presence);
+          attachment.doc.updatePresenceOf(publisher, presence);
           break;
       }
     }

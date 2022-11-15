@@ -160,6 +160,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
   private localChanges: Array<Change>;
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
+  private localActor: ActorID;
   private actorPresenceMap: Map<string, PresenceInfo<P>>;
 
   constructor(key: string) {
@@ -171,6 +172,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
     this.eventStream = createObservable<DocEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
+    this.localActor = '';
     this.actorPresenceMap = new Map();
   }
 
@@ -333,6 +335,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
    * @internal
    */
   public setActor(actorID: ActorID): void {
+    this.localActor = actorID;
     for (const change of this.localChanges) {
       change.setActor(actorID);
     }
@@ -502,5 +505,29 @@ export class Document<T, P = any> implements Observable<DocEvent> {
       }
     }
     return pathTrie.findPrefixes().map((element) => element.join('.'));
+  }
+
+  /**
+   * `updatePresenceOf` updates the presence of given actor.
+   */
+  public updatePresenceOf(
+    actorID: ActorID,
+    presenceInfo: PresenceInfo<P>,
+  ): void {
+    this.actorPresenceMap.set(actorID, presenceInfo);
+  }
+
+  /**
+   * `removePresenceOf` removes the presence of given actor.
+   */
+  public removePresenceOf(actorID: ActorID): void {
+    this.actorPresenceMap.delete(actorID);
+  }
+
+  /**
+   * `getPresenceOf` gets the presence of given actor.
+   */
+  public getPresenceOf(actorID: ActorID): PresenceInfo<P> | undefined {
+    return this.actorPresenceMap.get(actorID);
   }
 }
