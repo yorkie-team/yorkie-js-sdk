@@ -62,6 +62,10 @@ export enum DocEventType {
    * remote document change event type
    */
   RemoteChange = 'remote-change',
+  /**
+   * presence event type
+   */
+  Presence = 'presence',
 }
 
 /**
@@ -70,7 +74,7 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
+export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent | PresenceEvent;
 
 /**
  * @internal
@@ -137,6 +141,22 @@ export interface RemoteChangeEvent extends BaseDocEvent {
    * RemoteChangeEvent type
    */
   value: Array<ChangeInfo>;
+}
+
+/**
+ * `PresenceEvent` is an event that occurs when some actor's presence is updated.
+ *
+ * @public
+ */
+export interface PresenceEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.Presence
+   */
+  type: DocEventType.Presence;
+  /**
+   * PresenceEvent type
+   */
+  value: string; // temporary type before applying generics
 }
 
 /**
@@ -515,6 +535,13 @@ export class Document<T, P = any> implements Observable<DocEvent> {
     presenceInfo: PresenceInfo<P>,
   ): void {
     this.actorPresenceMap.set(actorID, presenceInfo);
+
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next({
+        type: DocEventType.Presence,
+        value: 'for test: update',
+      });
+    }
   }
 
   /**
@@ -522,6 +549,13 @@ export class Document<T, P = any> implements Observable<DocEvent> {
    */
   public removePresenceOf(actorID: ActorID): void {
     this.actorPresenceMap.delete(actorID);
+
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next({
+        type: DocEventType.Presence,
+        value: 'for test: remove',
+      });
+    }
   }
 
   /**

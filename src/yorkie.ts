@@ -40,6 +40,7 @@ export {
   SnapshotEvent,
   LocalChangeEvent,
   RemoteChangeEvent,
+  PresenceEvent,
   Indexable,
   DocEvent,
   Document,
