@@ -47,13 +47,13 @@ export function delay(timeout: number): Promise<void> {
   });
 }
 
-export function createEmitterAndSpy(
-  fn?: (event: ClientEvent | DocEvent) => string,
-): [EventEmitter, NextFn<ClientEvent | DocEvent>] {
+export function createEmitterAndSpy<P = Indexable>(
+  fn?: (event: ClientEvent | DocEvent<P>) => string,
+): [EventEmitter, NextFn<ClientEvent | DocEvent<P>>] {
   const emitter = new EventEmitter();
   return [
     emitter,
-    (event: ClientEvent | DocEvent) =>
+    (event: ClientEvent | DocEvent<P>) =>
       emitter.emit(fn ? fn(event) : event.type),
   ];
 }

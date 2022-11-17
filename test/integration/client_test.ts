@@ -217,8 +217,8 @@ describe('Client', function () {
     await c1.activate();
     await c2.activate();
 
-    const [emitter1, spy1] = createEmitterAndSpy();
-    const [emitter2, spy2] = createEmitterAndSpy();
+    const [emitter1, spy1] = createEmitterAndSpy<PresenceType>();
+    const [emitter2, spy2] = createEmitterAndSpy<PresenceType>();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = new yorkie.Document<unknown, PresenceType>(docKey);
@@ -278,8 +278,8 @@ describe('Client', function () {
     await c1.activate();
     await c2.activate();
 
-    const [emitter1, spy1] = createEmitterAndSpy();
-    const [emitter2, spy2] = createEmitterAndSpy();
+    const [emitter1, spy1] = createEmitterAndSpy<PresenceType>();
+    const [emitter2, spy2] = createEmitterAndSpy<PresenceType>();
 
     const docKey = `${this.test!.title}-${new Date().getTime()}`;
     const d1 = new yorkie.Document<unknown, PresenceType>(docKey);

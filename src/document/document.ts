@@ -74,7 +74,11 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent | PresenceEvent;
+export type DocEvent<P = Indexable> =
+  | SnapshotEvent
+  | LocalChangeEvent
+  | RemoteChangeEvent
+  | PresenceEvent<P>;
 
 /**
  * @internal
@@ -144,11 +148,20 @@ export interface RemoteChangeEvent extends BaseDocEvent {
 }
 
 /**
+ * `PresenceUpdate` represents a pair of `PresenceInfo` and the actor of the updated presence.
+ * element.
+ */
+export interface PresenceUpdate<P> {
+  actor: ActorID;
+  presence: PresenceInfo<P> | undefined;
+}
+
+/**
  * `PresenceEvent` is an event that occurs when some actor's presence is updated.
  *
  * @public
  */
-export interface PresenceEvent extends BaseDocEvent {
+export interface PresenceEvent<P> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.Presence
    */
@@ -156,7 +169,7 @@ export interface PresenceEvent extends BaseDocEvent {
   /**
    * PresenceEvent type
    */
-  value: string; // temporary type before applying generics
+  value: PresenceUpdate<P>;
 }
 
 /**
@@ -171,15 +184,15 @@ export type Indexable = Record<string, any>;
  *
  * @public
  */
-export class Document<T, P = any> implements Observable<DocEvent> {
+export class Document<T, P = Indexable> implements Observable<DocEvent<P>> {
   private key: string;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change>;
-  private eventStream: Observable<DocEvent>;
-  private eventStreamObserver!: Observer<DocEvent>;
+  private eventStream: Observable<DocEvent<P>>;
+  private eventStreamObserver!: Observer<DocEvent<P>>;
   private localActor: ActorID;
   private actorPresenceMap: Map<string, PresenceInfo<P>>;
 
@@ -189,7 +202,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.eventStream = createObservable<DocEvent>((observer) => {
+    this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
     this.localActor = '';
@@ -199,7 +212,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T, P = any>(key: string): Document<T, P> {
+  public static create<T, P = Indexable>(key: string): Document<T, P> {
     return new Document<T, P>(key);
   }
 
@@ -259,7 +272,7 @@ export class Document<T, P = any> implements Observable<DocEvent> {
    * `subscribe` adds the given observer to the fan-out list.
    */
   public subscribe(
-    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
+    nextOrObserver: Observer<DocEvent<P>> | NextFn<DocEvent<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
@@ -539,7 +552,10 @@ export class Document<T, P = any> implements Observable<DocEvent> {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.Presence,
-        value: 'for test: update',
+        value: {
+          actor: actorID,
+          presence: presenceInfo,
+        },
       });
     }
   }
@@ -553,7 +569,10 @@ export class Document<T, P = any> implements Observable<DocEvent> {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.Presence,
-        value: 'for test: remove',
+        value: {
+          actor: actorID,
+          presence: undefined,
+        },
       });
     }
   }
