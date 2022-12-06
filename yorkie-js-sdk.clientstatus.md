@@ -4,7 +4,7 @@
 
 ## ClientStatus enum
 
-`ClientStatus` is client status types
+`ClientStatus` represents the status of the client.
 
 <b>Signature:</b>
 
@@ -16,6 +16,6 @@ export declare enum ClientStatus
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Activated | <code>&quot;activated&quot;</code> | client activated status |
-|  Deactivated | <code>&quot;deactivated&quot;</code> | client deactivated status |
+|  Activated | <code>&quot;activated&quot;</code> | <code>Activated</code> means that the client is activated. If the client is activated, all <code>Document</code>s of the client are also ready to be used. |
+|  Deactivated | <code>&quot;deactivated&quot;</code> | <code>Deactivated</code> means that the client is not activated. It is the initial status of the client. If the client is deactivated, all <code>Document</code>s of the client are also not used. |
 

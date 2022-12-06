@@ -4,7 +4,7 @@
 
 ## Document class
 
-`Document` is a CRDT-based data type. We can representing the model of the application. And we can edit it even while offline.
+`Document` is a CRDT-based data type. We can represent the model of the application and edit it even while offline.
 
 <b>Signature:</b>
 

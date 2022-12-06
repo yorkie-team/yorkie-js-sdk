@@ -4,7 +4,7 @@
 
 ## DocumentSyncResultType enum
 
-`DocumentSyncResultType` is document sync result types
+`DocumentSyncResultType` represents the result of synchronizing the document with the server.
 
 <b>Signature:</b>
 
@@ -16,6 +16,6 @@ export declare enum DocumentSyncResultType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Synced | <code>&quot;synced&quot;</code> | type when Document synced. |
+|  Synced | <code>&quot;synced&quot;</code> | type when Document synced successfully. |
 |  SyncFailed | <code>&quot;sync-failed&quot;</code> | type when Document sync failed. |
 

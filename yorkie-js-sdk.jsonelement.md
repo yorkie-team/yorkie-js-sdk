@@ -4,7 +4,7 @@
 
 ## JSONElement type
 
-`JSONElement` represents the type the user is using.
+`JSONElement` is a wrapper for `CRDTElement` that provides users with an easy-to-use interface for manipulating `Document`<!-- -->s.
 
 <b>Signature:</b>
 

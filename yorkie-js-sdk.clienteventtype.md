@@ -4,7 +4,7 @@
 
 ## ClientEventType enum
 
-`ClientEventType` is client event types
+`ClientEventType` represents the type of the event that the client can emit.
 
 <b>Signature:</b>
 
@@ -16,9 +16,9 @@ export declare enum ClientEventType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  DocumentsChanged | <code>&quot;documents-changed&quot;</code> | client event type when documents changed. |
-|  DocumentSynced | <code>&quot;document-synced&quot;</code> | client event type when document synced. |
-|  PeersChanged | <code>&quot;peers-changed&quot;</code> | client event type when peers changed. |
-|  StatusChanged | <code>&quot;status-changed&quot;</code> | client event type when status changed. |
-|  StreamConnectionStatusChanged | <code>&quot;stream-connection-status-changed&quot;</code> | client event type when stream connection changed. |
+|  DocumentsChanged | <code>&quot;documents-changed&quot;</code> | <code>DocumentsChanged</code> means that the documents of the client has changed. |
+|  DocumentSynced | <code>&quot;document-synced&quot;</code> | <code>DocumentSynced</code> means that the document has been synced with the server. |
+|  PeersChanged | <code>&quot;peers-changed&quot;</code> | <code>PeersChanged</code> means that the presences of the peer clients has changed. |
+|  StatusChanged | <code>&quot;status-changed&quot;</code> | <code>StatusChanged</code> means that the status of the client has changed. |
+|  StreamConnectionStatusChanged | <code>&quot;stream-connection-status-changed&quot;</code> | <code>StreamConnectionStatusChanged</code> means that the stream connection status of the client has changed. |
 

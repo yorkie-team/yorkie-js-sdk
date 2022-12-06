@@ -4,7 +4,7 @@
 
 ## StreamConnectionStatus enum
 
-`StreamConnectionStatus` is stream connection status types
+`StreamConnectionStatus` represents whether the stream connection between the client and the server is connected or not.
 
 <b>Signature:</b>
 
@@ -16,6 +16,6 @@ export declare enum StreamConnectionStatus
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  Connected | <code>&quot;connected&quot;</code> | stream connected |
-|  Disconnected | <code>&quot;disconnected&quot;</code> | stream disconnected |
+|  Connected | <code>&quot;connected&quot;</code> | <code>Connected</code> means that the stream connection is connected. |
+|  Disconnected | <code>&quot;disconnected&quot;</code> | <code>Disconnected</code> means that the stream connection is disconnected. |
 

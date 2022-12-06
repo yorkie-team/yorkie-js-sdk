@@ -23,7 +23,7 @@ export declare class Client<P = Indexable> implements Observable<ClientEvent<P>>
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [activate()](./yorkie-js-sdk.client.activate.md) |  | <code>ativate</code> activates this client. That is, it register itself to the server and receives a unique ID from the server. The given ID is used to distinguish different clients. |
+|  [activate()](./yorkie-js-sdk.client.activate.md) |  | <code>ativate</code> activates this client. That is, it registers itself to the server and receives a unique ID from the server. The given ID is used to distinguish different clients. |
 |  [attach(doc, isManualSync)](./yorkie-js-sdk.client.attach.md) |  | <code>attach</code> attaches the given document to this client. It tells the server that this client will synchronize the given document. |
 |  [deactivate()](./yorkie-js-sdk.client.deactivate.md) |  | <code>deactivate</code> deactivates this client. |
 |  [detach(doc)](./yorkie-js-sdk.client.detach.md) |  | <code>detach</code> detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.<!-- -->To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached. |
