@@ -59,7 +59,8 @@ export type WrappedElement<T = unknown, A = unknown> =
   | Counter;
 
 /**
- * `JSONElement` represents the type the user is using.
+ * `JSONElement` is a wrapper for `CRDTElement` that provides users with an
+ * easy-to-use interface for manipulating `Document`s.
  */
 export type JSONElement<T = unknown, A = unknown> =
   | PrimitiveValue
@@ -70,7 +71,7 @@ export type JSONElement<T = unknown, A = unknown> =
   | Counter;
 
 /**
- * `toWrappedElement` converts the CRDT type to WrappedElement.
+ * `toWrappedElement` converts the CRDT type to `WrappedElement`.
  */
 export function toWrappedElement(
   context: ChangeContext,

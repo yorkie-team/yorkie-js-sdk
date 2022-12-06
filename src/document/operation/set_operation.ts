@@ -53,7 +53,7 @@ export class SetOperation extends Operation {
   }
 
   /**
-   * `execute` executes this operation on the given document(`root`).
+   * `execute` executes this operation on the given `CRDTRoot`.
    */
   public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());

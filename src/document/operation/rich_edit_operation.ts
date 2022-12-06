@@ -73,7 +73,7 @@ export class RichEditOperation extends Operation {
   }
 
   /**
-   * `execute` executes this operation on the given document(`root`).
+   * `execute` executes this operation on the given `CRDTRoot`.
    */
   public execute<A>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());

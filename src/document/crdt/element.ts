@@ -17,7 +17,7 @@
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
- * `CRDTElement` represents element type containing logical clock.
+ * `CRDTElement` represents an element that has `TimeTicket`s.
  *
  * @internal
  */
