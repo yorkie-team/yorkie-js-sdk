@@ -1,5 +1,5 @@
 /**
- * `EscapeString` escapes string.
+ * `EscapeString` escapes the given string.
  */
 export function escapeString(str: string): string {
   return str.replace(/["'\\\n\r\f\b\t\u2028\u2029]/g, function (character) {

@@ -24,7 +24,7 @@ import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
- * Among Primitives, numeric types Integer, Long, and Double are used as values.
+ * Among Primitives, numeric types Integer, Long are used as values.
  */
 export class IncreaseOperation extends Operation {
   private value: CRDTElement;
@@ -50,7 +50,7 @@ export class IncreaseOperation extends Operation {
   }
 
   /**
-   * `execute` executes this operation on the given document(`root`).
+   * `execute` executes this operation on the given `CRDTRoot`.
    */
   public execute(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());

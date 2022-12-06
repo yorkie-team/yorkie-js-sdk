@@ -63,7 +63,8 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, CRDTElement> {
 }
 
 /**
- * RHTPQMap is replicated hash table with priority queue by creation time.
+ * RHTPQMap is a replicated hash table that uses a priority queue based on
+ * creation time.
  *
  * @internal
  */

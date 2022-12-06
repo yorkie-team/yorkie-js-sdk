@@ -22,8 +22,8 @@ import {
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
 
 /**
- * `CRDTObject` represents object datatype, but unlike regular JSON, it has time
- * tickets which is created by logical clock.
+ * `CRDTObject` represents an object data type, but unlike regular JSON,
+ * it has `TimeTicket`s which are created by logical clock.
  *
  * @internal
  */

@@ -48,42 +48,48 @@ import {
 import type { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
- * `ClientStatus` is client status types
+ * `ClientStatus` represents the status of the client.
  * @public
  */
 export enum ClientStatus {
   /**
-   * client deactivated status
+   * `Deactivated` means that the client is not activated. It is the initial
+   * status of the client. If the client is deactivated, all `Document`s of the
+   * client are also not used.
    */
   Deactivated = 'deactivated',
+
   /**
-   * client activated status
+   * `Activated` means that the client is activated. If the client is activated,
+   * all `Document`s of the client are also ready to be used.
    */
   Activated = 'activated',
 }
 
 /**
- * `StreamConnectionStatus` is stream connection status types
+ * `StreamConnectionStatus` represents whether the stream connection between the
+ * client and the server is connected or not.
  * @public
  */
 export enum StreamConnectionStatus {
   /**
-   * stream connected
+   * `Connected` means that the stream connection is connected.
    */
   Connected = 'connected',
   /**
-   * stream disconnected
+   * `Disconnected` means that the stream connection is disconnected.
    */
   Disconnected = 'disconnected',
 }
 
 /**
- * `DocumentSyncResultType` is document sync result types
+ * `DocumentSyncResultType` represents the result of synchronizing the document
+ *  with the server.
  * @public
  */
 export enum DocumentSyncResultType {
   /**
-   * type when Document synced.
+   * type when Document synced successfully.
    */
   Synced = 'synced',
   /**
@@ -93,28 +99,29 @@ export enum DocumentSyncResultType {
 }
 
 /**
- * `ClientEventType` is client event types
+ * `ClientEventType` represents the type of the event that the client can emit.
  * @public
  */
 export enum ClientEventType {
   /**
-   * client event type when status changed.
+   * `StatusChanged` means that the status of the client has changed.
    */
   StatusChanged = 'status-changed',
   /**
-   * client event type when documents changed.
+   * `DocumentsChanged` means that the documents of the client has changed.
    */
   DocumentsChanged = 'documents-changed',
   /**
-   * client event type when peers changed.
+   * `PeersChanged` means that the presences of the peer clients has changed.
    */
   PeersChanged = 'peers-changed',
   /**
-   * client event type when stream connection changed.
+   * `StreamConnectionStatusChanged` means that the stream connection status of
+   * the client has changed.
    */
   StreamConnectionStatusChanged = 'stream-connection-status-changed',
   /**
-   * client event type when document synced.
+   * `DocumentSynced` means that the document has been synced with the server.
    */
   DocumentSynced = 'document-synced',
 }
@@ -354,7 +361,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `ativate` activates this client. That is, it register itself to the server
+   * `ativate` activates this client. That is, it registers itself to the server
    * and receives a unique ID from the server. The given ID is used to
    * distinguish different clients.
    */
@@ -644,7 +651,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `getPeersWithDocKey` returns the peers of the given document wrapped in an object.
+   * `getPeersWithDocKey` returns the peers of the given document wrapped in an
+   * object.
    */
   private getPeersWithDocKey = (
     peersMap: Record<string, Record<string, P>>,

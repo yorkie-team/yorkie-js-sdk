@@ -240,7 +240,10 @@ export class Primitive extends CRDTElement {
       }
       case PrimitiveType.Date: {
         const dateVal = this.value as Date;
-        const dateToBytes = Long.fromNumber(dateVal.getTime(), true).toBytesLE();
+        const dateToBytes = Long.fromNumber(
+          dateVal.getTime(),
+          true,
+        ).toBytesLE();
         return Uint8Array.from(dateToBytes);
       }
       default:

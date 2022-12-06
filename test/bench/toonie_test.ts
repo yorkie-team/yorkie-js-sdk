@@ -12,20 +12,23 @@ function stringToUint(string: string) {
   return new Uint8Array(uintArray);
 }
 
-const tests = [{
-  name: 'Toonie#hello',
-  run: (): void => {
-    const snapshot = stringToUint(helloBuffer);
-    const root = new CRDTRoot(converter.bytesToObject(snapshot));
-    root.deepcopy();
-  }
-}, {
-  name: 'Toonie#nXIQ0KX',
-  run: (): void => {
-    const snapshot = stringToUint(nXIQ0KXbuffer);
-    const root = new CRDTRoot(converter.bytesToObject(snapshot));
-    root.deepcopy();
-  }
-}];
+const tests = [
+  {
+    name: 'Toonie#hello',
+    run: (): void => {
+      const snapshot = stringToUint(helloBuffer);
+      const root = new CRDTRoot(converter.bytesToObject(snapshot));
+      root.deepcopy();
+    },
+  },
+  {
+    name: 'Toonie#nXIQ0KX',
+    run: (): void => {
+      const snapshot = stringToUint(nXIQ0KXbuffer);
+      const root = new CRDTRoot(converter.bytesToObject(snapshot));
+      root.deepcopy();
+    },
+  },
+];
 
 export default tests;
