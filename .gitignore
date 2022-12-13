@@ -123,6 +123,8 @@ dist/
 # Docs files
 docs/
 
+# ghpages
+ghpages/
 
 # temp folder used by api-extractor
 temp

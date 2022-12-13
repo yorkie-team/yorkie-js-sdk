@@ -9,11 +9,13 @@
   ],
   "scripts": {
     "build": "webpack --config ./config/webpack.config.js && npm run api-report && npm run prune",
-    "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/yorkie/v1/*.proto",
+    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
+    "build:examples": "npm run build --workspaces",
+    "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
+    "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "predoc": "ts-node-script ./scripts/api-extractor.ts && sed -i.bak 's/_2//g' temp/yorkie-js-sdk.api.json temp/yorkie-js-sdk.api.md",
-    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "dev": "webpack serve --config config/webpack.dev.config.js",
     "test": "karma start ./config/karma.conf.js --single-run",
     "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://api.yorkie.dev",
@@ -91,5 +93,8 @@
     "hooks": {
       "pre-commit": "npm run lint"
     }
-  }
+  },
+  "workspaces": [
+    "examples/*"
+  ]
 }
