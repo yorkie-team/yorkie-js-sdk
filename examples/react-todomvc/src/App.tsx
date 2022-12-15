@@ -92,7 +92,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    const client = new yorkie.Client('http://localhost:8080');
+    const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+      apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+    });
 
     async function attachDoc(doc: Document<{ todos: JSONArray<Todo> }>, callback: (todos: any) => void) {
       // 01. create client with RPCAddr(envoy) then activate it.

@@ -27,7 +27,9 @@ const networkStatusElem = document.getElementById('network-status')!;
 
 async function main() {
   // 01. create client with RPCAddr(envoy) then activate it.
-  const client = new yorkie.Client('http://localhost:8080');
+  const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+    apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+  });
   await client.activate();
 
   // subscribe peer change event
@@ -39,7 +41,7 @@ async function main() {
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>('codemirror');
+  const doc = new yorkie.Document<YorkieDoc>('vanilla-codemirror6');
   await client.attach(doc);
   doc.update((root) => {
     if (!root.content) {
