@@ -1,15 +1,18 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
 .kanban {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  margin-bottom: 10px;
 
-  background: #026aa7;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  height: 450px;
+  background: #807b77;
   align-items: flex-start;
-  overflow: scroll;
+  overflow: hidden;
+  min-height: 100vh;
   user-select: none;
 }
 
@@ -45,7 +48,7 @@
   flex-direction: column;
 }
 
-.add-form input[type=text] {
+.add-form input[type='text'] {
   border: none;
   overflow: auto;
   outline: none;
@@ -56,17 +59,17 @@
   padding: 5px;
   background: #fff;
   border-radius: 3px;
-  box-shadow: 0 1px 0 rgba(9, 30, 66, .25);
+  box-shadow: 0 1px 0 rgba(9, 30, 66, 0.25);
   position: relative;
   word-break: break-word;
 }
 
-.add-form input[type=button] {
+.add-form input[type='button'] {
   font-size: 1em;
   padding: 5px;
 }
 
-.add-form input[type=button].pull-right {
+.add-form input[type='button'].pull-right {
   float: right;
 }
 
@@ -82,7 +85,7 @@
   position: relative;
 }
 
-.list:hover>.delete {
+.list:hover > .delete {
   display: inherit;
 }
 
@@ -98,7 +101,7 @@
   padding: 5px;
   background: #fff;
   border-radius: 3px;
-  box-shadow: 0 1px 0 rgba(9, 30, 66, .25);
+  box-shadow: 0 1px 0 rgba(9, 30, 66, 0.25);
   position: relative;
   word-break: break-word;
 }
