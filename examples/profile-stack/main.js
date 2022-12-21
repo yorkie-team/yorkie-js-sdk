@@ -4,6 +4,7 @@ import { getRandomName, getRandomColor } from './util.js';
 async function main() {
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+    // set the client's name and color to presence.
     presence: {
       name: getRandomName(),
       color: getRandomColor(),
@@ -17,9 +18,17 @@ async function main() {
 
   client.subscribe((event) => {
     if (event.type === 'peers-changed') {
+      // get presence of all clients connected to the Document.
+      // {<clientID>: {name: string, color: string}}
       const peers = event.value[doc.getKey()];
+
+      // show peer list
       displayPeerList(peers, myClientID);
     }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    client.deactivate();
   });
 }
 
@@ -45,7 +54,9 @@ const createPeer = (name, color, type) => {
 };
 
 const displayPeerList = (peers, myClientID) => {
-  const peerList = Object.entries(peers).filter(([id]) => id !== myClientID);
+  const peerList = Object.entries(peers)
+    .filter(([id]) => id !== myClientID)
+    .filter(([, presence]) => presence.name && presence.color);
   const peerCount = peerList.length + 1;
   const hasMorePeers = peerCount > MAX_PEER_VIEW;
   const $peerList = document.getElementById('peerList');
