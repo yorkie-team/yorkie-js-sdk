@@ -4,6 +4,7 @@ import { getRandomName, getRandomColor } from './util.js';
 async function main() {
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+    // set the client's name and color to presence.
     presence: {
       name: getRandomName(),
       color: getRandomColor(),
@@ -17,7 +18,11 @@ async function main() {
 
   client.subscribe((event) => {
     if (event.type === 'peers-changed') {
+      // get presence of all clients connected to the Document.
+      // {<clientID>: {name: string, color: string}}
       const peers = event.value[doc.getKey()];
+
+      // show peer list
       displayPeerList(peers, myClientID);
     }
   });
