@@ -26,6 +26,10 @@ async function main() {
       displayPeerList(peers, myClientID);
     }
   });
+
+  window.addEventListener('beforeunload', () => {
+    client.deactivate();
+  });
 }
 
 const MAX_PEER_VIEW = 4;
@@ -50,7 +54,9 @@ const createPeer = (name, color, type) => {
 };
 
 const displayPeerList = (peers, myClientID) => {
-  const peerList = Object.entries(peers).filter(([id]) => id !== myClientID);
+  const peerList = Object.entries(peers)
+    .filter(([id]) => id !== myClientID)
+    .filter(([, presence]) => presence.name && presence.color);
   const peerCount = peerList.length + 1;
   const hasMorePeers = peerCount > MAX_PEER_VIEW;
   const $peerList = document.getElementById('peerList');
