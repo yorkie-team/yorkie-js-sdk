@@ -7,6 +7,27 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.2.20] - 2022-12-30
+
+### Added
+
+Add benchmark tests by @parkeunae in #358, #359
+Add CodeMirror6 integration example by @blurfx in #394
+Add vuejs-kanban example by @hackerwins in #399
+Add profile-stack example by @chacha912 #414
+
+### Changed
+
+Bump socket.io-parser from 4.0.4 to 4.0.5 by @dependabot in #403
+Bump engine.io and socket.io by @dependabot in #407
+Bump express from 4.17.1 to 4.18.2 by @dependabot in #411
+Bump minimatch from 3.0.4 to 3.1.2 by @dependabot in #412
+
+### Fixed
+
+Fix issues identified during iOS SDK development by @hackerwins in #398
+Use uint64 for date value by @hackerwins in #408
+
 ## [0.2.19] - 2022-10-04
 
 ### Changed
