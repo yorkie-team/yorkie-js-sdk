@@ -1,18 +1,15 @@
-html,
 body {
   margin: 0;
   padding: 0;
+  background: #807b77;
 }
 
 .kanban {
+  margin: 20px;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-
-  background: #807b77;
   align-items: flex-start;
-  overflow: hidden;
-  min-height: 100vh;
   user-select: none;
 }
 
@@ -21,7 +18,7 @@ body {
   color: #fff;
   cursor: pointer;
   background: #ffffff3d;
-  margin: 10px 0 10px 10px;
+  margin-right: 10px;
   width: 260px;
   border-radius: 3px;
   flex-shrink: 0;
@@ -75,7 +72,7 @@ body {
 
 .list {
   background: #ebecf0;
-  margin: 10px 0 10px 10px;
+  margin-right: 10px;
   border-radius: 3px;
   padding: 10px;
   width: 260px;
@@ -95,8 +92,6 @@ body {
 }
 
 .list .card {
-  font-size: 1em;
-
   margin: 5px 0;
   padding: 5px;
   background: #fff;
@@ -104,6 +99,7 @@ body {
   box-shadow: 0 1px 0 rgba(9, 30, 66, 0.25);
   position: relative;
   word-break: break-word;
+  font-size: 1em;
 }
 
 .list .card:hover {
