@@ -11,3 +11,20 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.filters li button {
+  color: inherit;
+  margin: 0px 3px 0px 3px;
+  padding: 0px 3px 0px 3px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.filters li button:hover {
+  border-color: #DB7676;
+}
+
+.filters li button.selected {
+  border-color: #CE4646;
+}

@@ -36,14 +36,14 @@ export default function Footer(props: FooterProps) {
         {
           ['SHOW_ALL', 'SHOW_ACTIVE', 'SHOW_COMPLETED'].map((filter) => (
             <li key={filter}>
-              <a
-                href="/#"
+              <button
+                type="button"
                 className={classnames({ selected: filter === selectedFilter })}
                 style={{ cursor: 'pointer' }}
                 onClick={() => onShow(filter)}
               >
                 {FILTER_TITLES[filter]}
-              </a>
+              </button>
             </li>
           ))
         }
