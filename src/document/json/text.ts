@@ -203,6 +203,33 @@ export class Text<A = Indexable> {
   }
 
   /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.text!.length;
+  }
+
+  /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.text!.checkWeight();
+  }
+
+  /**
+   * `toString` returns the string representation of this text.
+   */
+  toString(): string {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return '';
+    }
+
+    return this.text.toString();
+  }
+
+  /**
    * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
    */
   createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {

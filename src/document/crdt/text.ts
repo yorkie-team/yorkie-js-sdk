@@ -28,7 +28,7 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 export interface CRDTTextVal<A> {
   attributes: A;
-  content: string;
+  value: string;
 }
 
 /**
@@ -39,35 +39,33 @@ export interface CRDTTextVal<A> {
  */
 export class CRDTTextValue {
   private attributes: RHT;
-  private content: string;
+  private value: string;
 
   /** @hideconstructor */
-  constructor(content: string) {
+  constructor(value: string) {
     this.attributes = RHT.create();
-    this.content = content;
+    this.value = value;
   }
 
   /**
    * `create` creates a instance of CRDTTextValue.
    */
-  public static create(content: string): CRDTTextValue {
-    return new CRDTTextValue(content);
+  public static create(value: string): CRDTTextValue {
+    return new CRDTTextValue(value);
   }
 
   /**
-   * `length` returns the length of content.
+   * `length` returns the length of value.
    */
   public get length(): number {
-    return this.content.length;
+    return this.value.length;
   }
 
   /**
    * `substring` returns a sub-string value of the given range.
    */
   public substring(indexStart: number, indexEnd: number): CRDTTextValue {
-    const value = new CRDTTextValue(
-      this.content.substring(indexStart, indexEnd),
-    );
+    const value = new CRDTTextValue(this.value.substring(indexStart, indexEnd));
     value.attributes = this.attributes.deepcopy();
     return value;
   }
@@ -80,18 +78,18 @@ export class CRDTTextValue {
   }
 
   /**
-   * `toString` returns content.
+   * `toString` returns the string representation of this value.
    */
   public toString(): string {
-    return this.content;
+    return this.value;
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this .
+   * `toJSON` returns the JSON encoding of this value.
    */
   public toJSON(): string {
     const obj = this.attributes.toObject();
-    const content = escapeString(this.content);
+    const content = escapeString(this.value);
     const attrs = [];
     for (const [key, v] of Object.entries(obj)) {
       const value = JSON.parse(v);
@@ -101,7 +99,7 @@ export class CRDTTextValue {
           : `"${key}":${String(value)}`;
       attrs.push(item);
     }
-    return `{"attrs":{${attrs.join(',')}},"content":"${content}"}`;
+    return `{"attrs":{${attrs.join(',')}},"val":"${content}"}`;
   }
 
   /**
@@ -112,10 +110,10 @@ export class CRDTTextValue {
   }
 
   /**
-   * `getContent` returns content.
+   * `getValue` returns the internal value.
    */
-  public getContent(): string {
-    return this.content;
+  public getValue(): string {
+    return this.value;
   }
 }
 
@@ -147,38 +145,35 @@ export class CRDTText<A> extends CRDTTextElement {
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
     createdAt: TimeTicket,
   ): CRDTText<A> {
-    const text = new CRDTText<A>(rgaTreeSplit, createdAt);
-    const range = text.createRange(0, 0);
-    text.edit(range, '\n', createdAt);
-    return text;
+    return new CRDTText<A>(rgaTreeSplit, createdAt);
   }
 
   /**
-   * `edit` edits the given range with the given content and attributes.
+   * `edit` edits the given range with the given value and attributes.
    *
    * @internal
    */
   public edit(
     range: RGATreeSplitNodeRange,
-    content: string,
+    value: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
-    const value = content ? CRDTTextValue.create(content) : undefined;
-    if (content && attributes) {
+    const val = value ? CRDTTextValue.create(value) : undefined;
+    if (value && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
-        value!.setAttr(k, v, editedAt);
+        val!.setAttr(k, v, editedAt);
       }
     }
 
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
       editedAt,
-      value,
+      val,
       latestCreatedAtMapByActor,
     );
-    if (content && attributes) {
+    if (value && attributes) {
       const change = changes[changes.length - 1] as TextChange<A>;
       change.attributes = this.parseAttributes(attributes);
     }
@@ -295,6 +290,21 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
+   * `length` returns size of RGATreeList.
+   */
+  public get length(): number {
+    return this.rgaTreeSplit.length;
+  }
+
+  /**
+   * `checkWeight` returns false when there is an incorrect weight node.
+   * for debugging purpose.
+   */
+  public checkWeight(): boolean {
+    return this.rgaTreeSplit.checkWeight();
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this rich text.
    */
   public toJSON(): string {
@@ -317,6 +327,13 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
+   * `toString` returns the string representation of this text.
+   */
+  public toString(): string {
+    return this.rgaTreeSplit.toString();
+  }
+
+  /**
    * `values` returns value array of this CRDTTextVal.
    */
   public values(): Array<CRDTTextVal<A>> {
@@ -327,7 +344,7 @@ export class CRDTText<A> extends CRDTTextElement {
         const value = node.getValue();
         values.push({
           attributes: this.parseAttributes(value.getAttributes()),
-          content: value.getContent(),
+          value: value.getValue(),
         });
       }
     }

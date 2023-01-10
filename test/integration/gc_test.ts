@@ -104,7 +104,8 @@ describe('Garbage Collection', function () {
     const doc = new yorkie.Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let expected_msg = '{"k1":"Hello mario"}';
+    let expected_msg =
+      '{"k1":[{"attrs":{},"val":"Hello "},{"attrs":{},"val":"mario"}]}';
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'Hello world');
@@ -114,7 +115,8 @@ describe('Garbage Collection', function () {
     assert.equal(expected_msg, doc.toSortedJSON());
     assert.equal(1, doc.getGarbageLen());
 
-    expected_msg = '{"k1":"Hi jane"}';
+    expected_msg =
+      '{"k1":[{"attrs":{},"val":"Hi"},{"attrs":{},"val":" "},{"attrs":{},"val":"j"},{"attrs":{},"val":"ane"}]}';
 
     doc.update((root) => {
       const text = root['k1'];
@@ -138,7 +140,7 @@ describe('Garbage Collection', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     let expected_msg =
-      '{"k1":[{"attrs":{"b":"1"},"content":"Hello "},{"attrs":{},"content":"mario"},{"attrs":{},"content":"\\n"}]}';
+      '{"k1":[{"attrs":{"b":"1"},"val":"Hello "},{"attrs":{},"val":"mario"}]}';
 
     doc.update((root) => {
       root.k1 = new Text();
@@ -150,7 +152,7 @@ describe('Garbage Collection', function () {
     assert.equal(1, doc.getGarbageLen());
 
     expected_msg =
-      '{"k1":[{"attrs":{"b":"1"},"content":"Hi"},{"attrs":{"b":"1"},"content":" "},{"attrs":{},"content":"j"},{"attrs":{"b":"1"},"content":"ane"},{"attrs":{},"content":"\\n"}]}';
+      '{"k1":[{"attrs":{"b":"1"},"val":"Hi"},{"attrs":{"b":"1"},"val":" "},{"attrs":{},"val":"j"},{"attrs":{"b":"1"},"val":"ane"}]}';
 
     doc.update((root) => {
       const text = root['k1'];

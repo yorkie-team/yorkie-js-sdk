@@ -427,10 +427,12 @@ function toTextNodes(
   rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
 ): Array<PbTextNode> {
   const pbTextNodes = [];
+
   for (const textNode of rgaTreeSplit) {
+    // TODO(chacha912): Implement attributes converting.
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue().toJSON());
+    pbTextNode.setValue(textNode.getValue().getValue());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     pbTextNodes.push(pbTextNode);

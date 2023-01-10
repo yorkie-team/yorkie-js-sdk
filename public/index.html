@@ -216,10 +216,7 @@
           const text = doc.getRoot().content;
           text.onChanges(changeEventHandler);
           codemirror.setValue(
-              text
-                .values()
-                .map((value) => value.content)
-                .join(''),
+              text.toString(),
             );
         }
         syncText();

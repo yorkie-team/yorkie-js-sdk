@@ -1162,7 +1162,10 @@ describe('Document', function () {
       root.text = new Text();
       root.text.edit(0, 0, '"hello"');
     });
-    assert.equal('{"text":"\\"hello\\""}', doc.toSortedJSON());
+    assert.equal(
+      '{"text":[{"attrs":{},"val":"\\"hello\\""}]}',
+      doc.toSortedJSON(),
+    );
   });
 
   it('escapes string for rich text', function () {
@@ -1173,7 +1176,7 @@ describe('Document', function () {
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"b":"\\n"},"val":"\\"hello\\""}]}',
       doc.toSortedJSON(),
     );
   });
@@ -1214,7 +1217,7 @@ describe('Document', function () {
       root.rich.setStyle(0, 3, { color: 'red' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
+      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"val":"aaa"}]}',
       doc.toSortedJSON(),
     );
     assert.doesNotThrow(() => {

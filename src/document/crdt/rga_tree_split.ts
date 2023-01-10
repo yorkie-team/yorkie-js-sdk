@@ -588,7 +588,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `length` returns size of RGATreeList.
+   * `length` returns size of RGATreeSplit.
    */
   public get length(): number {
     return this.treeByIndex.length;
@@ -603,18 +603,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this Array.
+   * `toString` returns the string encoding of this RGATreeSplit.
    */
-  public toJSON(): string {
-    const json = [];
+  public toString(): string {
+    const str = [];
 
     for (const node of this) {
       if (!node.isRemoved()) {
-        json.push(node.getValue());
+        str.push(node.getValue());
       }
     }
 
-    return json.join('');
+    return str.join('');
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
