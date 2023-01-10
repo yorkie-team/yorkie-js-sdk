@@ -1217,7 +1217,7 @@ describe('Document', function () {
       root.rich.setStyle(0, 3, { color: 'red' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"val":"aaa"}]}',
+      '{"rich":[{"attrs":{"bold":true,"color":"red","indent":1,"italic":null},"val":"aaa"}]}',
       doc.toSortedJSON(),
     );
     assert.doesNotThrow(() => {

@@ -78,6 +78,13 @@ export class CRDTTextValue {
   }
 
   /**
+   * `getAttr` returns the attributes of this value.
+   */
+  public getAttr(): RHT {
+    return this.attributes;
+  }
+
+  /**
    * `toString` returns the string representation of this value.
    */
   public toString(): string {
@@ -88,10 +95,10 @@ export class CRDTTextValue {
    * `toJSON` returns the JSON encoding of this value.
    */
   public toJSON(): string {
-    const obj = this.attributes.toObject();
     const content = escapeString(this.value);
+    const attrsObj = this.attributes.toObject();
     const attrs = [];
-    for (const [key, v] of Object.entries(obj)) {
+    for (const [key, v] of Object.entries(attrsObj)) {
       const value = JSON.parse(v);
       const item =
         typeof value === 'string'
@@ -99,6 +106,7 @@ export class CRDTTextValue {
           : `"${key}":${String(value)}`;
       attrs.push(item);
     }
+    attrs.sort();
     return `{"attrs":{${attrs.join(',')}},"val":"${content}"}`;
   }
 

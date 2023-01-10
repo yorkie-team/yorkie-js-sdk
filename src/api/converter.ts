@@ -64,6 +64,7 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeAttr as PbTextNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
@@ -429,11 +430,20 @@ function toTextNodes(
   const pbTextNodes = [];
 
   for (const textNode of rgaTreeSplit) {
-    // TODO(chacha912): Implement attributes converting.
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
     pbTextNode.setValue(textNode.getValue().getValue());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
+
+    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const attrs = textNode.getValue().getAttr();
+    for (const attr of attrs) {
+      const pbTextNodeAttr = new PbTextNodeAttr();
+      pbTextNodeAttr.setKey(attr.getKey());
+      pbTextNodeAttr.setValue(attr.getValue());
+      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+    }
 
     pbTextNodes.push(pbTextNode);
   }
