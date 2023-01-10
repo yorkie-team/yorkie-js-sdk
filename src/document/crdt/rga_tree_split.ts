@@ -37,10 +37,10 @@ export enum TextChangeType {
 }
 
 /**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
+ * `_TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type TextChange = {
+export type _TextChange = {
   type: TextChangeType;
   actor: ActorID;
   from: number;
@@ -49,10 +49,10 @@ export type TextChange = {
 };
 
 /**
- * `RichTextChange` is the value passed as an argument to `RichText.onChanges()`.
- * `RichText.onChanges()` is called when the `RichText` is modified.
+ * `TextChange` is the value passed as an argument to `Text.onChanges()`.
+ * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type RichTextChange<A> = TextChange & { attributes?: A };
+export type TextChange<A> = _TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;
@@ -489,7 +489,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<_TextChange>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -803,7 +803,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<TextChange>,
+    Array<_TextChange>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -891,8 +891,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<TextChange> {
-    const changes: Array<TextChange> = [];
+  ): Array<_TextChange> {
+    const changes: Array<_TextChange> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {

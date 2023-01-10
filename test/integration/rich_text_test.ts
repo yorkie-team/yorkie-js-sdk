@@ -1,13 +1,13 @@
 import { assert } from 'chai';
-import { Document, RichText, TextChangeType } from '@yorkie-js-sdk/src/yorkie';
+import { Document, Text, TextChangeType } from '@yorkie-js-sdk/src/yorkie';
 
-describe('RichText', function () {
+describe('Text', function () {
   it('should handle rich text edit operations', function () {
-    const doc = Document.create<{ k1: RichText<{ b: string }> }>('test-doc');
+    const doc = Document.create<{ k1: Text<{ b: string }> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.k1 = new RichText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD', { b: '1' });
       root.k1.edit(3, 3, '\n');
     }, 'set {"k1":"ABC\nD"}');
@@ -26,10 +26,10 @@ describe('RichText', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{ k1: RichText }>('test-doc');
+    const doc = Document.create<{ k1: Text }>('test-doc');
 
     doc.update((root) => {
-      root.k1 = new RichText();
+      root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
     });
 

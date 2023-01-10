@@ -215,7 +215,12 @@
         function syncText() {
           const text = doc.getRoot().content;
           text.onChanges(changeEventHandler);
-          codemirror.setValue(text.toString());
+          codemirror.setValue(
+              text
+                .values()
+                .map((value) => value.content)
+                .join(''),
+            );
         }
         syncText();
         

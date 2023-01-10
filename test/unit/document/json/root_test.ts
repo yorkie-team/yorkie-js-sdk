@@ -130,7 +130,7 @@ describe('ROOT', function () {
     );
     const obj = new CRDTObject(InitialTimeTicket, RHTPQMap.create());
     const change = ChangeContext.create(InitialChangeID, root);
-    const text = ObjectProxy.createRichText(change, obj, 'k1');
+    const text = ObjectProxy.createText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');
     assert.equal(

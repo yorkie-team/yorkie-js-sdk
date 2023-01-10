@@ -19,7 +19,6 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -58,10 +57,7 @@ export class SelectOperation extends Operation {
   public execute<A>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof CRDTText) {
-      const text = parentObject as CRDTText;
-      text.select([this.fromPos, this.toPos], this.getExecutedAt());
-    } else if (parentObject instanceof CRDTRichText) {
-      const text = parentObject as CRDTRichText<A>;
+      const text = parentObject as CRDTText<A>;
       text.select([this.fromPos, this.toPos], this.getExecutedAt());
     } else {
       if (!parentObject) {

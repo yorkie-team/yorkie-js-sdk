@@ -17,7 +17,7 @@
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -1052,7 +1052,7 @@ describe('Document', function () {
   });
 
   it('change paths test for rich text', async function () {
-    type TestDoc = { rich: RichText };
+    type TestDoc = { rich: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
@@ -1065,7 +1065,7 @@ describe('Document', function () {
     });
 
     doc.update((root) => {
-      root.rich = new RichText();
+      root.rich = new Text();
       paths.push('$.rich');
       root.rich.edit(0, 0, 'hello world');
       paths.push('$.rich');
@@ -1166,10 +1166,10 @@ describe('Document', function () {
   });
 
   it('escapes string for rich text', function () {
-    type TestDoc = { rich: RichText };
+    type TestDoc = { rich: Text };
     const doc = Document.create<TestDoc>('test-doc');
     doc.update((root) => {
-      root.rich = new RichText();
+      root.rich = new Text();
       root.rich.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
@@ -1204,9 +1204,9 @@ describe('Document', function () {
       italic?: boolean | null;
       color?: string;
     };
-    const doc = Document.create<{ rich: RichText<AttrsType> }>('test-doc');
+    const doc = Document.create<{ rich: Text<AttrsType> }>('test-doc');
     doc.update((root) => {
-      root.rich = new RichText();
+      root.rich = new Text();
       root.rich.edit(0, 0, 'aaa', { bold: true });
       root.rich.setStyle(0, 3, { italic: true });
       root.rich.setStyle(0, 3, { italic: null });

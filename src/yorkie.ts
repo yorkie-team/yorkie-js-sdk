@@ -17,7 +17,6 @@
 import { Client } from '@yorkie-js-sdk/src/core/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 export {
@@ -69,7 +68,6 @@ export {
 export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
@@ -88,7 +86,6 @@ const yorkie = {
   Client,
   Document,
   Text,
-  RichText,
   Counter,
 };
 
