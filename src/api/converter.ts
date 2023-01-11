@@ -182,8 +182,6 @@ function toCounterType(valueType: CounterType): PbValueType {
       return PbValueType.VALUE_TYPE_INTEGER_CNT;
     case CounterType.LongCnt:
       return PbValueType.VALUE_TYPE_LONG_CNT;
-    case CounterType.DoubleCnt:
-      return PbValueType.VALUE_TYPE_DOUBLE_CNT;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -639,8 +637,6 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.IntegerCnt;
     case PbValueType.VALUE_TYPE_LONG_CNT:
       return CounterType.LongCnt;
-    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
-      return CounterType.DoubleCnt;
   }
   throw new YorkieError(
     Code.Unimplemented,
@@ -683,9 +679,9 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
     case PbValueType.VALUE_TYPE_INTEGER_CNT:
-    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
     case PbValueType.VALUE_TYPE_LONG_CNT:
       return CRDTCounter.of(
+        fromCounterType(pbElementSimple.getType()),
         CRDTCounter.valueFromBytes(
           fromCounterType(pbElementSimple.getType()),
           pbElementSimple.getValue_asU8(),
@@ -1017,6 +1013,7 @@ function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
  */
 function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
   const counter = CRDTCounter.of(
+    fromCounterType(pbCounter.getType()),
     CRDTCounter.valueFromBytes(
       fromCounterType(pbCounter.getType()),
       pbCounter.getValue_asU8(),

@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -1006,7 +1007,7 @@ describe('Document', function () {
     });
 
     doc.update((root) => {
-      root.cnt = new Counter(0);
+      root.cnt = new Counter(CounterType.IntegerCnt, 0);
       paths.push('$.cnt');
       root.cnt.increase(1);
       paths.push('$.cnt');
@@ -1192,7 +1193,7 @@ describe('Document', function () {
   it('gets the value of the counter', function () {
     const doc = Document.create<{ counter: Counter }>('test-doc');
     doc.update((root) => {
-      root.counter = new Counter(155);
+      root.counter = new Counter(CounterType.IntegerCnt, 155);
     });
     assert.equal(155, doc.getRoot().counter.getValue());
   });

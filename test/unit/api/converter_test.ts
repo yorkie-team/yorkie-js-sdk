@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -60,7 +61,7 @@ describe('Converter', function () {
       root.k3.edit(0, 1, '하');
       root.k3.edit(1, 1, '느');
       root.k3.edit(1, 2, '늘');
-      root.k4 = new Counter(0);
+      root.k4 = new Counter(CounterType.IntegerCnt, 0);
       root.k4.increase(1).increase(2).increase(3);
     });
 

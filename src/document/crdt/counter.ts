@@ -29,7 +29,6 @@ import {
 export enum CounterType {
   IntegerCnt,
   LongCnt,
-  DoubleCnt,
 }
 
 export type CounterValue = number | Long;
@@ -41,20 +40,52 @@ export type CounterValue = number | Long;
  * @internal
  */
 export class CRDTCounter extends CRDTElement {
-  private valueType?: CounterType;
+  private valueType: CounterType;
   private value: CounterValue;
 
-  constructor(value: CounterValue, createdAt: TimeTicket) {
+  constructor(
+    valueType: CounterType,
+    value: CounterValue,
+    createdAt: TimeTicket,
+  ) {
     super(createdAt);
-    this.valueType = CRDTCounter.getCounterType(value);
-    this.value = value;
+    this.valueType = valueType;
+    switch (valueType) {
+      case CounterType.IntegerCnt:
+        if (typeof value === 'number') {
+          if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
+            this.value = Long.fromNumber(value).toInt();
+          } else {
+            this.value = Math.floor(value);
+          }
+        } else {
+          this.value = value.toInt();
+        }
+        break;
+      case CounterType.LongCnt:
+        if (typeof value === 'number') {
+          this.value = Long.fromNumber(value);
+        } else {
+          this.value = value;
+        }
+        break;
+      default:
+        throw new YorkieError(
+          Code.Unimplemented,
+          `unimplemented type: ${valueType}`,
+        );
+    }
   }
 
   /**
    * `of` creates a new instance of Counter.
    */
-  public static of(value: CounterValue, createdAt: TimeTicket): CRDTCounter {
-    return new CRDTCounter(value, createdAt);
+  public static of(
+    valueType: CounterType,
+    value: CounterValue,
+    createdAt: TimeTicket,
+  ): CRDTCounter {
+    return new CRDTCounter(valueType, value, createdAt);
   }
   /**
    * `valueFromBytes` parses the given bytes into value.
@@ -66,13 +97,6 @@ export class CRDTCounter extends CRDTElement {
     switch (counterType) {
       case CounterType.IntegerCnt:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
-      case CounterType.DoubleCnt: {
-        const view = new DataView(bytes.buffer);
-        bytes.forEach(function (b, i) {
-          view.setUint8(i, b);
-        });
-        return view.getFloat64(0, true);
-      }
       case CounterType.LongCnt:
         return Long.fromBytesLE(Array.from(bytes));
       default:
@@ -101,7 +125,11 @@ export class CRDTCounter extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTCounter {
-    const counter = CRDTCounter.of(this.value, this.getCreatedAt());
+    const counter = CRDTCounter.of(
+      this.valueType,
+      this.value,
+      this.getCreatedAt(),
+    );
     counter.setMovedAt(this.getMovedAt());
     return counter;
   }
@@ -110,7 +138,7 @@ export class CRDTCounter extends CRDTElement {
    * `getType` returns the type of the value.
    */
   public getType(): CounterType {
-    return this.valueType!;
+    return this.valueType;
   }
 
   /**
@@ -118,15 +146,21 @@ export class CRDTCounter extends CRDTElement {
    */
   public static getCounterType(value: CounterValue): CounterType | undefined {
     switch (typeof value) {
-      case 'number':
-        return CounterType.DoubleCnt;
       case 'object':
         if (value instanceof Long) {
           return CounterType.LongCnt;
+        } else {
+          return;
         }
+      case 'number':
+        if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
+          return CounterType.LongCnt;
+        } else {
+          return CounterType.IntegerCnt;
+        }
+      default:
+        return;
     }
-
-    return;
   }
   /**
    * `isSupport` check if there is a counter type of given value.
@@ -147,11 +181,14 @@ export class CRDTCounter extends CRDTElement {
    */
   public isNumericType(): boolean {
     const t = this.valueType;
-    return (
-      t === CounterType.IntegerCnt ||
-      t === CounterType.LongCnt ||
-      t === CounterType.DoubleCnt
-    );
+    return t === CounterType.IntegerCnt || t === CounterType.LongCnt;
+  }
+
+  /**
+   * `getValueType` get counter value type.
+   */
+  public getValueType(): CounterType {
+    return this.valueType;
   }
 
   /**
@@ -174,13 +211,6 @@ export class CRDTCounter extends CRDTElement {
           (intVal >> 16) & 0xff,
           (intVal >> 24) & 0xff,
         ]);
-      }
-      case CounterType.DoubleCnt: {
-        const doubleVal = this.value as number;
-        const uint8Array = new Uint8Array(8);
-        const view = new DataView(uint8Array.buffer);
-        view.setFloat64(0, doubleVal, true);
-        return uint8Array;
       }
       case CounterType.LongCnt: {
         const longVal = this.value as Long;
@@ -215,10 +245,13 @@ export class CRDTCounter extends CRDTElement {
     if (this.valueType === CounterType.LongCnt) {
       this.value = (this.value as Long).add(v.getValue() as number | Long);
     } else {
-      (this.value as number) +=
-        v.getType() === PrimitiveType.Long
-          ? (v.getValue() as Long).toNumber()
-          : (v.getValue() as number);
+      if (v.getType() === PrimitiveType.Long) {
+        this.value = (this.value as number) + (v.getValue() as Long).toInt();
+      } else {
+        this.value = Long.fromNumber(
+          (this.value as number) + Math.floor(v.getValue() as number),
+        ).toInt();
+      }
     }
 
     return this;
