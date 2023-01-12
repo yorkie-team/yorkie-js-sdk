@@ -31,11 +31,7 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import {
-  CounterType,
-  CounterValue,
-  CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
+import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 
 /**
@@ -215,54 +211,6 @@ export class ObjectProxy {
     } else {
       logger.fatal(`unsupported type of value: ${typeof value}`);
     }
-  }
-
-  /**
-   * `createText` creates a new Text for the given key.
-   */
-  public static createText<A>(
-    context: ChangeContext,
-    target: CRDTObject,
-    key: string,
-  ): Text<A> {
-    const ticket = context.issueTimeTicket();
-    const text = CRDTText.create<A>(RGATreeSplit.create(), ticket);
-    target.set(key, text);
-    context.registerElement(text, target);
-    context.push(
-      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
-    );
-    return new Text(context, text);
-  }
-
-  /**
-   * `createCounter` a new Counter for the given key.
-   */
-  public static createCounter(
-    context: ChangeContext,
-    target: CRDTObject,
-    key: string,
-    value: CounterValue,
-  ): Counter {
-    const ticket = context.issueTimeTicket();
-    const counterInternal = CRDTCounter.of(
-      CRDTCounter.getCounterType(value)!,
-      value,
-      ticket,
-    );
-    target.set(key, counterInternal);
-    context.registerElement(counterInternal, target);
-    context.push(
-      SetOperation.create(
-        key,
-        counterInternal.deepcopy(),
-        target.getCreatedAt(),
-        ticket,
-      ),
-    );
-    const counter = new Counter(CounterType.IntegerCnt, 0);
-    counter.initialize(context, counterInternal);
-    return counter;
   }
 
   /**
