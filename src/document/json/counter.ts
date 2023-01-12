@@ -20,17 +20,22 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import Long from 'long';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {
+  CounterType,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
  * `Counter` is a custom data type that is used to counter.
  */
 export class Counter {
+  private valueType: CounterType;
   private value: number | Long;
   private context?: ChangeContext;
   private counter?: CRDTCounter;
 
-  constructor(value: number | Long) {
+  constructor(valueType: CounterType, value: number | Long) {
+    this.valueType = valueType;
     this.value = value;
   }
 
@@ -39,6 +44,7 @@ export class Counter {
    * @internal
    */
   public initialize(context: ChangeContext, counter: CRDTCounter): void {
+    this.valueType = counter.getValueType();
     this.context = context;
     this.counter = counter;
     this.value = counter.getValue();
@@ -57,6 +63,13 @@ export class Counter {
    */
   public getValue(): number | Long {
     return this.value;
+  }
+
+  /**
+   * `getValueType` returns the value type of this counter.
+   */
+  public getValueType(): CounterType {
+    return this.valueType;
   }
 
   /**

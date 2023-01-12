@@ -17,13 +17,24 @@
 import { assert } from 'chai';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import Long from 'long';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {
+  CounterType,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
-    const double = CRDTCounter.of(10, InitialTimeTicket);
-    const long = CRDTCounter.of(Long.fromString('100'), InitialTimeTicket);
+    const double = CRDTCounter.of(
+      CounterType.IntegerCnt,
+      10,
+      InitialTimeTicket,
+    );
+    const long = CRDTCounter.of(
+      CounterType.LongCnt,
+      Long.fromString('100'),
+      InitialTimeTicket,
+    );
 
     const doubleOperand = Primitive.of(10, InitialTimeTicket);
     const longOperand = Primitive.of(Long.fromString('100'), InitialTimeTicket);
