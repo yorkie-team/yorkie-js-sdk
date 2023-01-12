@@ -15,9 +15,10 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
-  TextChange,
+  TextChangeWithAttrs,
   TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
@@ -25,20 +26,120 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
+export interface CRDTTextVal<A> {
+  attributes: A;
+  value: string;
+}
+
 /**
- * `CRDTText` represents plain text element
- * Text is an extended data type for the contents of a text editor
+ * `CRDTTextValue` is a value of Text
+ * which has a attributes that expresses the text style.
  *
  * @internal
  */
-export class CRDTText extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange>) => void;
-  private rgaTreeSplit: RGATreeSplit<string>;
+export class CRDTTextValue {
+  private attributes: RHT;
+  private value: string;
+
+  /** @hideconstructor */
+  constructor(value: string) {
+    this.attributes = RHT.create();
+    this.value = value;
+  }
+
+  /**
+   * `create` creates a instance of CRDTTextValue.
+   */
+  public static create(value: string): CRDTTextValue {
+    return new CRDTTextValue(value);
+  }
+
+  /**
+   * `length` returns the length of value.
+   */
+  public get length(): number {
+    return this.value.length;
+  }
+
+  /**
+   * `substring` returns a sub-string value of the given range.
+   */
+  public substring(indexStart: number, indexEnd: number): CRDTTextValue {
+    const value = new CRDTTextValue(this.value.substring(indexStart, indexEnd));
+    value.attributes = this.attributes.deepcopy();
+    return value;
+  }
+
+  /**
+   * `setAttr` sets attribute of the given key, updated time and value.
+   */
+  public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
+    this.attributes.set(key, value, updatedAt);
+  }
+
+  /**
+   * `getAttr` returns the attributes of this value.
+   */
+  public getAttr(): RHT {
+    return this.attributes;
+  }
+
+  /**
+   * `toString` returns the string representation of this value.
+   */
+  public toString(): string {
+    return this.value;
+  }
+
+  /**
+   * `toJSON` returns the JSON encoding of this value.
+   */
+  public toJSON(): string {
+    const content = escapeString(this.value);
+    const attrsObj = this.attributes.toObject();
+    const attrs = [];
+    for (const [key, v] of Object.entries(attrsObj)) {
+      const value = JSON.parse(v);
+      const item =
+        typeof value === 'string'
+          ? `"${key}":"${escapeString(value)}"`
+          : `"${key}":${String(value)}`;
+      attrs.push(item);
+    }
+    attrs.sort();
+    return `{"attrs":{${attrs.join(',')}},"val":"${content}"}`;
+  }
+
+  /**
+   * `getAttributes` returns the attributes of this value.
+   */
+  public getAttributes(): Record<string, string> {
+    return this.attributes.toObject();
+  }
+
+  /**
+   * `getValue` returns the internal value.
+   */
+  public getValue(): string {
+    return this.value;
+  }
+}
+
+/**
+ *  `CRDTText` is a custom CRDT data type to represent the contents of text editors.
+ *
+ * @internal
+ */
+export class CRDTText<A> extends CRDTTextElement {
+  private onChangesHandler?: (changes: Array<TextChangeWithAttrs<A>>) => void;
+  private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
 
-  /** @hideconstructor */
-  constructor(rgaTreeSplit: RGATreeSplit<string>, createdAt: TimeTicket) {
+  constructor(
+    rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
+    createdAt: TimeTicket,
+  ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
@@ -46,32 +147,44 @@ export class CRDTText extends CRDTTextElement {
   }
 
   /**
-   * `create` creates a new instance of `CRDTText`.
+   * `create` a instance of Text.
    */
-  public static create(
-    rgaTreeSplit: RGATreeSplit<string>,
+  public static create<A>(
+    rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
     createdAt: TimeTicket,
-  ): CRDTText {
-    return new CRDTText(rgaTreeSplit, createdAt);
+  ): CRDTText<A> {
+    return new CRDTText<A>(rgaTreeSplit, createdAt);
   }
 
   /**
-   * `edit` edits the given range with the given content.
+   * `edit` edits the given range with the given value and attributes.
    *
    * @internal
    */
   public edit(
     range: RGATreeSplitNodeRange,
-    content: string,
+    value: string,
     editedAt: TimeTicket,
+    attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
+    const val = value ? CRDTTextValue.create(value) : undefined;
+    if (value && attributes) {
+      for (const [k, v] of Object.entries(attributes)) {
+        val!.setAttr(k, v, editedAt);
+      }
+    }
+
     const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
       range,
       editedAt,
-      content,
+      val,
       latestCreatedAtMapByActor,
     );
+    if (value && attributes) {
+      const change = changes[changes.length - 1] as TextChangeWithAttrs<A>;
+      change.attributes = this.parseAttributes(attributes);
+    }
 
     const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
     if (selectionChange) {
@@ -88,7 +201,60 @@ export class CRDTText extends CRDTTextElement {
   }
 
   /**
-   * `select` updates selection info of the given selection range.
+   * `setStyle` applies the style of the given range.
+   * 01. split nodes with from and to
+   * 02. style nodes between from and to
+   *
+   * @param range - range of RGATreeSplitNode
+   * @param attributes - style attributes
+   * @param editedAt - edited time
+   * @internal
+   */
+  public setStyle(
+    range: RGATreeSplitNodeRange,
+    attributes: Record<string, string>,
+    editedAt: TimeTicket,
+  ): void {
+    // 01. split nodes with from and to
+    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
+    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+      range[0],
+      editedAt,
+    );
+
+    // 02. style nodes between from and to
+    const changes = [];
+    const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
+    for (const node of nodes) {
+      if (node.isRemoved()) {
+        continue;
+      }
+
+      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+        node.createRange(),
+      );
+      changes.push({
+        type: TextChangeType.Style,
+        actor: editedAt.getActorID()!,
+        from: fromIdx,
+        to: toIdx,
+        attributes: this.parseAttributes(attributes),
+      });
+
+      for (const [key, value] of Object.entries(attributes)) {
+        node.getValue().setAttr(key, value, editedAt);
+      }
+    }
+
+    if (this.onChangesHandler) {
+      this.remoteChangeLock = true;
+      this.onChangesHandler(changes);
+      this.remoteChangeLock = false;
+    }
+  }
+
+  /**
+   * `select` stores that the given range has been selected.
    *
    * @internal
    */
@@ -115,7 +281,9 @@ export class CRDTText extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TextChange>) => void): void {
+  public onChanges(
+    handler: (changes: Array<TextChangeWithAttrs<A>>) => void,
+  ): void {
     this.onChangesHandler = handler;
   }
 
@@ -150,7 +318,15 @@ export class CRDTText extends CRDTTextElement {
    * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {
-    return `"${escapeString(this.rgaTreeSplit.toJSON())}"`;
+    const json = [];
+
+    for (const node of this.rgaTreeSplit) {
+      if (!node.isRemoved()) {
+        json.push(node.getValue().toJSON());
+      }
+    }
+
+    return `[${json.join(',')}]`;
   }
 
   /**
@@ -164,27 +340,47 @@ export class CRDTText extends CRDTTextElement {
    * `toString` returns the string representation of this text.
    */
   public toString(): string {
-    return this.rgaTreeSplit.toJSON();
+    return this.rgaTreeSplit.toString();
   }
 
   /**
-   * `getRGATreeSplit` returns the rgaTreeSplit.
+   * `values` returns value array of this CRDTTextVal.
+   */
+  public values(): Array<CRDTTextVal<A>> {
+    const values = [];
+
+    for (const node of this.rgaTreeSplit) {
+      if (!node.isRemoved()) {
+        const value = node.getValue();
+        values.push({
+          attributes: this.parseAttributes(value.getAttributes()),
+          value: value.getValue(),
+        });
+      }
+    }
+
+    return values;
+  }
+
+  /**
+   * `getRGATreeSplit` returns rgaTreeSplit.
    *
    * @internal
    */
-  public getRGATreeSplit(): RGATreeSplit<string> {
+  public getRGATreeSplit(): RGATreeSplit<CRDTTextValue> {
     return this.rgaTreeSplit;
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the text.
+   * `getStructureAsString` returns a String containing the meta data of this value
+   * for debugging purpose.
    */
   public getStructureAsString(): string {
     return this.rgaTreeSplit.getStructureAsString();
   }
 
   /**
-   * `getRemovedNodesLen` returns length of removed nodes.
+   * `getRemovedNodesLen` returns length of removed nodes
    */
   public getRemovedNodesLen(): number {
     return this.rgaTreeSplit.getRemovedNodesLen();
@@ -202,8 +398,8 @@ export class CRDTText extends CRDTTextElement {
   /**
    * `deepcopy` copies itself deeply.
    */
-  public deepcopy(): CRDTText {
-    const text = CRDTText.create(
+  public deepcopy(): CRDTText<A> {
+    const text = new CRDTText<A>(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );
@@ -214,7 +410,7 @@ export class CRDTText extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChange | undefined {
+  ): TextChangeWithAttrs<A> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
@@ -238,5 +434,27 @@ export class CRDTText extends CRDTTextElement {
         to,
       };
     }
+  }
+
+  /**
+   * `stringifyAttributes` makes values of attributes to JSON parsable string.
+   */
+  public stringifyAttributes(attributes: A): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    for (const [key, value] of Object.entries(attributes)) {
+      attrs[key] = JSON.stringify(value);
+    }
+    return attrs;
+  }
+
+  /**
+   * `parseAttributes` returns the JSON parsable string values to the origin states.
+   */
+  private parseAttributes(attrs: Record<string, string>): A {
+    const attributes: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      attributes[key] = JSON.parse(value);
+    }
+    return attributes as A;
   }
 }

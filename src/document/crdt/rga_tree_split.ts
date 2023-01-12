@@ -36,10 +36,6 @@ export enum TextChangeType {
   Style = 'style',
 }
 
-/**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
- */
 export type TextChange = {
   type: TextChangeType;
   actor: ActorID;
@@ -49,10 +45,10 @@ export type TextChange = {
 };
 
 /**
- * `RichTextChange` is the value passed as an argument to `RichText.onChanges()`.
- * `RichText.onChanges()` is called when the `RichText` is modified.
+ * `TextChangeWithAttrs` is the value passed as an argument to `Text.onChanges()`.
+ * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type RichTextChange<A> = TextChange & { attributes?: A };
+export type TextChangeWithAttrs<A> = TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;
@@ -588,7 +584,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `length` returns size of RGATreeList.
+   * `length` returns size of RGATreeSplit.
    */
   public get length(): number {
     return this.treeByIndex.length;
@@ -603,18 +599,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this Array.
+   * `toString` returns the string encoding of this RGATreeSplit.
    */
-  public toJSON(): string {
-    const json = [];
+  public toString(): string {
+    const str = [];
 
     for (const node of this) {
       if (!node.isRemoved()) {
-        json.push(node.getValue());
+        str.push(node.getValue());
       }
     }
 
-    return json.join('');
+    return str.join('');
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc

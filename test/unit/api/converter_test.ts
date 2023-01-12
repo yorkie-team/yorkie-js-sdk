@@ -29,7 +29,12 @@ describe('Converter', function () {
         ['k1.5']: string;
       };
       k2: Array<boolean | number | string>;
-      k3: Text;
+      k3: Text<{
+        bold?: boolean;
+        indent?: number;
+        italic?: boolean | null;
+        color?: string;
+      }>;
       k4: Counter;
     }>('test-doc');
 
@@ -61,6 +66,12 @@ describe('Converter', function () {
       root.k3.edit(0, 1, '하');
       root.k3.edit(1, 1, '느');
       root.k3.edit(1, 2, '늘');
+      root.k3.setStyle(0, 2, {
+        bold: true,
+        indent: 2,
+        italic: false,
+        color: 'red',
+      });
       root.k4 = new Counter(CounterType.IntegerCnt, 0);
       root.k4.increase(1).increase(2).increase(3);
     });

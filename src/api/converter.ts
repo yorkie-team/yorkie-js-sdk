@@ -27,7 +27,6 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
-import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
@@ -45,11 +44,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText as CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import {
-  CRDTRichText,
-  RichTextValue,
-} from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Primitive,
   PrimitiveType,
@@ -66,10 +61,10 @@ import {
   Operation as PbOperation,
   RGANode as PbRGANode,
   RHTNode as PbRHTNode,
-  RichTextNode as PbRichTextNode,
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeAttr as PbTextNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
@@ -201,9 +196,6 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
   } else if (element instanceof CRDTText) {
     pbElementSimple.setType(PbValueType.VALUE_TYPE_TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-  } else if (element instanceof CRDTRichText) {
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_RICH_TEXT);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof Primitive) {
     const primitive = element as Primitive;
     pbElementSimple.setType(toValueType(primitive.getType()));
@@ -311,6 +303,10 @@ function toOperation(operation: Operation): PbOperation {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
     }
     pbEditOperation.setContent(editOperation.getContent());
+    const pbAttributes = pbEditOperation.getAttributesMap();
+    for (const [key, value] of editOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
   } else if (operation instanceof SelectOperation) {
@@ -325,28 +321,6 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(selectOperation.getExecutedAt()),
     );
     pbOperation.setSelect(pbSelectOperation);
-  } else if (operation instanceof RichEditOperation) {
-    const richEditOperation = operation as RichEditOperation;
-    const pbRichEditOperation = new PbOperation.RichEdit();
-    pbRichEditOperation.setParentCreatedAt(
-      toTimeTicket(richEditOperation.getParentCreatedAt()),
-    );
-    pbRichEditOperation.setFrom(toTextNodePos(richEditOperation.getFromPos()));
-    pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
-    const pbCreatedAtMapByActor =
-      pbRichEditOperation.getCreatedAtMapByActorMap();
-    for (const [key, value] of richEditOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
-    }
-    pbRichEditOperation.setContent(richEditOperation.getContent());
-    const pbAttributes = pbRichEditOperation.getAttributesMap();
-    for (const [key, value] of richEditOperation.getAttributes()) {
-      pbAttributes.set(key, value);
-    }
-    pbRichEditOperation.setExecutedAt(
-      toTimeTicket(richEditOperation.getExecutedAt()),
-    );
-    pbOperation.setRichEdit(pbRichEditOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
@@ -448,13 +422,26 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
+function toTextNodes(
+  rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
+): Array<PbTextNode> {
   const pbTextNodes = [];
+
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue());
+    pbTextNode.setValue(textNode.getValue().getValue());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
+
+    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const attrs = textNode.getValue().getAttr();
+    for (const attr of attrs) {
+      const pbTextNodeAttr = new PbTextNodeAttr();
+      pbTextNodeAttr.setKey(attr.getKey());
+      pbTextNodeAttr.setValue(attr.getValue());
+      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+    }
 
     pbTextNodes.push(pbTextNode);
   }
@@ -511,7 +498,7 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
 /**
  * `toText` converts the given model to Protobuf format.
  */
-function toText(text: CRDTText): PbJSONElement {
+function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
@@ -658,11 +645,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
-    case PbValueType.VALUE_TYPE_RICH_TEXT:
-      return new CRDTRichText(
-        RGATreeSplit.create(),
-        fromTimeTicket(pbElementSimple.getCreatedAt())!,
-      );
     case PbValueType.VALUE_TYPE_NULL:
     case PbValueType.VALUE_TYPE_BOOLEAN:
     case PbValueType.VALUE_TYPE_INTEGER:
@@ -722,24 +704,10 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 /**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
-function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
-  const textNode = RGATreeSplitNode.create(
-    fromTextNodeID(pbTextNode.getId()!),
-    pbTextNode.getValue(),
-  );
-  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
-  return textNode;
-}
-
-/**
- * `fromRichTextNode` converts the given Protobuf format to model format.
- */
-function fromRichTextNode(
-  pbTextNode: PbRichTextNode,
-): RGATreeSplitNode<RichTextValue> {
-  const richTextValue = RichTextValue.create(pbTextNode.getValue());
+function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
+  const textValue = CRDTTextValue.create(pbTextNode.getValue());
   pbTextNode.getAttributesMap().forEach((value) => {
-    richTextValue.setAttr(
+    textValue.setAttr(
       value.getKey(),
       value.getValue(),
       fromTimeTicket(value.getUpdatedAt())!,
@@ -748,7 +716,7 @@ function fromRichTextNode(
 
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()!),
-    richTextValue,
+    textValue,
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
@@ -793,20 +761,6 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbRemoveOperation!.getCreatedAt())!,
         fromTimeTicket(pbRemoveOperation!.getExecutedAt())!,
       );
-    } else if (pbOperation.hasEdit()) {
-      const pbEditOperation = pbOperation.getEdit();
-      const createdAtMapByActor = new Map();
-      pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      });
-      operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbEditOperation!.getFrom()!),
-        fromTextNodePos(pbEditOperation!.getTo()!),
-        createdAtMapByActor,
-        pbEditOperation!.getContent(),
-        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
-      );
     } else if (pbOperation.hasSelect()) {
       const pbSelectOperation = pbOperation.getSelect();
       operation = SelectOperation.create(
@@ -815,8 +769,8 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTextNodePos(pbSelectOperation!.getTo()!),
         fromTimeTicket(pbSelectOperation!.getExecutedAt())!,
       );
-    } else if (pbOperation.hasRichEdit()) {
-      const pbEditOperation = pbOperation.getRichEdit();
+    } else if (pbOperation.hasEdit()) {
+      const pbEditOperation = pbOperation.getEdit();
       const createdAtMapByActor = new Map();
       pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
         createdAtMapByActor.set(key, fromTimeTicket(value));
@@ -825,7 +779,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbEditOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
       });
-      operation = RichEditOperation.create(
+      operation = EditOperation.create(
         fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbEditOperation!.getFrom()!),
         fromTextNodePos(pbEditOperation!.getTo()!),
@@ -960,8 +914,8 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
 /**
  * `fromText` converts the given Protobuf format to model format.
  */
-function fromText(pbText: PbJSONElement.Text): CRDTText {
-  const rgaTreeSplit = new RGATreeSplit<string>();
+function fromText<A>(pbText: PbJSONElement.Text): CRDTText<A> {
+  const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {
@@ -973,33 +927,7 @@ function fromText(pbText: PbJSONElement.Text): CRDTText {
     }
     prev = current;
   }
-
-  const text = CRDTText.create(
-    rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt())!,
-  );
-  text.setMovedAt(fromTimeTicket(pbText.getMovedAt()));
-  text.setRemovedAt(fromTimeTicket(pbText.getRemovedAt()));
-  return text;
-}
-
-/**
- * `fromRichText` converts the given Protobuf format to model format.
- */
-function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
-  const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
-
-  let prev = rgaTreeSplit.getHead();
-  for (const pbNode of pbText.getNodesList()) {
-    const current = rgaTreeSplit.insertAfter(prev, fromRichTextNode(pbNode));
-    if (pbNode.hasInsPrevId()) {
-      current.setInsPrev(
-        rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId()!)),
-      );
-    }
-    prev = current;
-  }
-  const text = new CRDTRichText<A>(
+  const text = new CRDTText<A>(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
@@ -1037,8 +965,6 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
     return fromPrimitive(pbElement.getPrimitive()!);
   } else if (pbElement.hasText()) {
     return fromText(pbElement.getText()!);
-  } else if (pbElement.hasRichText()) {
-    return fromRichText(pbElement.getRichText()!);
   } else if (pbElement.hasCounter()) {
     return fromCounter(pbElement.getCounter()!);
   } else {

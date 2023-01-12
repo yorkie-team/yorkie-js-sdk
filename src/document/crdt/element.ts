@@ -130,7 +130,7 @@ export abstract class CRDTContainer extends CRDTElement {
 }
 
 /**
- * `CRDTTextElement` represents CRDTText or CRDTRichText.
+ * `CRDTTextElement` represents CRDTText.
  */
 export abstract class CRDTTextElement extends CRDTElement {
   abstract getRemovedNodesLen(): number;

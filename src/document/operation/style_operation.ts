@@ -18,11 +18,11 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- *  `StyleOperation` is an operation applies the style of the given range to RichText.
+ *  `StyleOperation` is an operation applies the style of the given range to Text.
  */
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -66,8 +66,8 @@ export class StyleOperation extends Operation {
    */
   public execute<A>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTRichText) {
-      const text = parentObject as CRDTRichText<A>;
+    if (parentObject instanceof CRDTText) {
+      const text = parentObject as CRDTText<A>;
       text.setStyle(
         [this.fromPos, this.toPos],
         this.attributes ? Object.fromEntries(this.attributes) : {},
@@ -78,7 +78,7 @@ export class StyleOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only RichText can execute edit`);
+      logger.fatal(`fail to execute, only Text can execute edit`);
     }
   }
 

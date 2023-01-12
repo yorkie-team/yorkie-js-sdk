@@ -22,13 +22,15 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- * `EditOperation` is an operation representing editing Text.
+ * `EditOperation` is an operation representing editing Text. Most of the same as
+ * Edit, but with additional style properties, attributes.
  */
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
   private toPos: RGATreeSplitNodePos;
   private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private content: string;
+  private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -36,6 +38,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -43,6 +46,7 @@ export class EditOperation extends Operation {
     this.toPos = toPos;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.content = content;
+    this.attributes = attributes;
   }
 
   /**
@@ -54,6 +58,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitNodePos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): EditOperation {
     return new EditOperation(
@@ -62,6 +67,7 @@ export class EditOperation extends Operation {
       toPos,
       maxCreatedAtMapByActor,
       content,
+      attributes,
       executedAt,
     );
   }
@@ -69,14 +75,15 @@ export class EditOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute<A>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof CRDTText) {
-      const text = parentObject as CRDTText;
+      const text = parentObject as CRDTText<A>;
       text.edit(
         [this.fromPos, this.toPos],
         this.content,
         this.getExecutedAt(),
+        Object.fromEntries(this.attributes),
         this.maxCreatedAtMapByActor,
       );
       if (!this.fromPos.equals(this.toPos)) {
@@ -128,6 +135,13 @@ export class EditOperation extends Operation {
    */
   public getContent(): string {
     return this.content;
+  }
+
+  /**
+   * `getAttributes` returns the attributes of this Edit.
+   */
+  public getAttributes(): Map<string, string> {
+    return this.attributes || new Map();
   }
 
   /**

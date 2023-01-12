@@ -1,231 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Codemirror Example</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.css">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
-</head>
-<body>
-  <div>
-    <div>status: <span id="network-status"></span></div>
-    <textarea id="placeholder" cols="30" rows="10"></textarea>
-    <div>peers:</div>
-    <pre style="white-space: pre-wrap;"><code id="peers-holder"></code></pre>
-    <div>document:</div>
-    <pre style="white-space: pre-wrap;"><code id="log-holder"></code></pre>
-    <div>text:</div>
-    <pre style="white-space: pre-wrap;"><code id="text-log-holder"></code></pre>
-  </div>
-  <script src="./yorkie.js"></script>
-  <script src="./util.js"></script>
-  <script>
-    const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
-    let nextColorIdx = 0;
+  <head>
+    <meta charset="UTF-8" />
+    <title>Codemirror Example</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
+  </head>
+  <body>
+    <div>
+      <div>status: <span id="network-status"></span></div>
+      <textarea id="placeholder" cols="30" rows="10"></textarea>
+      <div>peers:</div>
+      <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
+      <div>document:</div>
+      <pre style="white-space: pre-wrap"><code id="log-holder"></code></pre>
+      <div>text:</div>
+      <pre
+        style="white-space: pre-wrap"
+      ><code id="text-log-holder"></code></pre>
+    </div>
+    <script src="./yorkie.js"></script>
+    <script src="./util.js"></script>
+    <script>
+      const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
+      let nextColorIdx = 0;
 
-    const statusHolder = document.getElementById('network-status');
-    const placeholder = document.getElementById('placeholder');
-    const peersHolder = document.getElementById('peers-holder');
-    const logHolder = document.getElementById('log-holder');
-    const textLogHolder = document.getElementById('text-log-holder');
-    const selectionMap = new Map();
+      const statusHolder = document.getElementById('network-status');
+      const placeholder = document.getElementById('placeholder');
+      const peersHolder = document.getElementById('peers-holder');
+      const logHolder = document.getElementById('log-holder');
+      const textLogHolder = document.getElementById('text-log-holder');
+      const selectionMap = new Map();
 
-    function displayLog(doc, codemirror) {
-      logHolder.innerText = doc.toJSON();
-      const textLength = codemirror.getValue().length;
-      if (
-        doc.getRoot().content.length != doc.getRoot().content.toString().length ||
-        (textLength != doc.getRoot().content.length && textLength != 0)) {
-        debugger;
-      }
-      textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
-    }
-
-    function displayPeers(peers, clientID) {
-      const clientIDs = [];
-
-      for (const [clientID, _] of Object.entries(peers)) {
-        clientIDs.push(clientID);
-      }
-
-      peersHolder.innerHTML = JSON.stringify(clientIDs).replace(clientID, `<b>${clientID}</b>`);
-    }
-
-    // https://github.com/codemirror/CodeMirror/pull/5619
-    function replaceRangeFix(cm, text, from, to, origin) {
-      const adjust = cm.listSelections().findIndex(({anchor, head}) => {
-        return CodeMirror.cmpPos(anchor, head) === 0 && CodeMirror.cmpPos(anchor, from) === 0;
-      });
-      cm.operation(() => {
-        cm.replaceRange(text, from, to, origin);
-        if (adjust > -1) {
-          const range = cm.listSelections()[adjust];
-          if (range && CodeMirror.cmpPos(range.head, CodeMirror.changeEnd({from, to, text})) === 0) {
-            const ranges = cm.listSelections().slice();
-            ranges[adjust] = {anchor: from, head: from};
-            cm.setSelections(ranges);
-          }
+      function displayLog(doc, codemirror) {
+        logHolder.innerText = doc.toJSON();
+        const textLength = codemirror.getValue().length;
+        if (
+          doc.getRoot().content.length !=
+            doc.getRoot().content.toString().length ||
+          (textLength != doc.getRoot().content.length && textLength != 0)
+        ) {
+          debugger;
         }
-      });
-    }
-
-    function displayRemoteSelection(cm, change) {
-      let color;
-      if (selectionMap.has(change.actor)) {
-        const selection = selectionMap.get(change.actor);
-        color = selection.color;
-        selection.marker.clear();
-      } else {
-        color = colors[nextColorIdx];
-        nextColorIdx = (nextColorIdx + 1) % colors.length;
+        textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
       }
 
-      if (change.from === change.to) {
-        const pos = cm.posFromIndex(change.from);
-        const cursorCoords = cm.cursorCoords(pos);
-        const cursorElement = document.createElement('span');
-        cursorElement.style.borderLeftWidth = '2px';
-        cursorElement.style.borderLeftStyle = 'solid';
-        cursorElement.style.borderLeftColor = color;
-        cursorElement.style.marginLeft = cursorElement.style.marginRight = '-1px';
-        cursorElement.style.height = (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
-        cursorElement.setAttribute('data-actor-id', change.actor);
-        cursorElement.style.zIndex = 0;
+      function displayPeers(peers, clientID) {
+        const clientIDs = [];
 
-        selectionMap.set(change.actor, {
-          color: color,
-          marker: cm.setBookmark(pos, {
-            widget: cursorElement,
-            insertLeft: true
-          })
+        for (const [clientID, _] of Object.entries(peers)) {
+          clientIDs.push(clientID);
+        }
+
+        peersHolder.innerHTML = JSON.stringify(clientIDs).replace(
+          clientID,
+          `<b>${clientID}</b>`,
+        );
+      }
+
+      // https://github.com/codemirror/CodeMirror/pull/5619
+      function replaceRangeFix(cm, text, from, to, origin) {
+        const adjust = cm.listSelections().findIndex(({ anchor, head }) => {
+          return (
+            CodeMirror.cmpPos(anchor, head) === 0 &&
+            CodeMirror.cmpPos(anchor, from) === 0
+          );
         });
-      } else {
-        const fromPos = cm.posFromIndex(Math.min(change.from, change.to));
-        const toPos = cm.posFromIndex(Math.max(change.from, change.to));
-
-        selectionMap.set(change.actor, {
-          color: color,
-          marker: cm.markText(fromPos, toPos, {
-            css: `background: ${color}`,
-            insertLeft: true
-          })
+        cm.operation(() => {
+          cm.replaceRange(text, from, to, origin);
+          if (adjust > -1) {
+            const range = cm.listSelections()[adjust];
+            if (
+              range &&
+              CodeMirror.cmpPos(
+                range.head,
+                CodeMirror.changeEnd({ from, to, text }),
+              ) === 0
+            ) {
+              const ranges = cm.listSelections().slice();
+              ranges[adjust] = { anchor: from, head: from };
+              cm.setSelections(ranges);
+            }
+          }
         });
       }
-    }
 
-    async function main() {
-      try {
-        // 01. create client with RPCAddr(envoy) then activate it.
-        const client = new yorkie.Client('http://localhost:8080');
-        client.subscribe(network.statusListener(statusHolder));
-        await client.activate();
+      function displayRemoteSelection(cm, change) {
+        let color;
+        if (selectionMap.has(change.actor)) {
+          const selection = selectionMap.get(change.actor);
+          color = selection.color;
+          selection.marker.clear();
+        } else {
+          color = colors[nextColorIdx];
+          nextColorIdx = (nextColorIdx + 1) % colors.length;
+        }
 
-        // 01-2. subscribe client event.
-        client.subscribe((event) => {
-          if (event.type === 'peers-changed') {
-            displayPeers(event.value[doc.getKey()], client.getID());
-          }
-        });
+        if (change.from === change.to) {
+          const pos = cm.posFromIndex(change.from);
+          const cursorCoords = cm.cursorCoords(pos);
+          const cursorElement = document.createElement('span');
+          cursorElement.style.borderLeftWidth = '2px';
+          cursorElement.style.borderLeftStyle = 'solid';
+          cursorElement.style.borderLeftColor = color;
+          cursorElement.style.marginLeft = cursorElement.style.marginRight =
+            '-1px';
+          cursorElement.style.height =
+            (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
+          cursorElement.setAttribute('data-actor-id', change.actor);
+          cursorElement.style.zIndex = 0;
 
-        // 02. create a document then attach it into the client.
-        const doc = new yorkie.Document('codemirror');
-        await client.attach(doc);
+          selectionMap.set(change.actor, {
+            color: color,
+            marker: cm.setBookmark(pos, {
+              widget: cursorElement,
+              insertLeft: true,
+            }),
+          });
+        } else {
+          const fromPos = cm.posFromIndex(Math.min(change.from, change.to));
+          const toPos = cm.posFromIndex(Math.max(change.from, change.to));
 
-        doc.update((root) => {
-          if (!root.content) {
-            root.content = new yorkie.Text();
-          }
-        }, 'create content if not exists');
+          selectionMap.set(change.actor, {
+            color: color,
+            marker: cm.markText(fromPos, toPos, {
+              css: `background: ${color}`,
+              insertLeft: true,
+            }),
+          });
+        }
+      }
 
-        // 02-2. subscribe document event.
-        doc.subscribe((event) => {
-          if (event.type === 'snapshot') {
-            // The text is replaced to snapshot and must be re-synced.
-            syncText();
-          }
-          displayLog(doc, codemirror);
-        });
-        await client.sync();
+      async function main() {
+        try {
+          // 01. create client with RPCAddr(envoy) then activate it.
+          const client = new yorkie.Client('http://localhost:8080');
+          client.subscribe(network.statusListener(statusHolder));
+          await client.activate();
 
-        // 03. create an instance of codemirror.
-        const codemirror = CodeMirror.fromTextArea(placeholder, {
-          lineNumbers: true
-        });
+          // 01-2. subscribe client event.
+          client.subscribe((event) => {
+            if (event.type === 'peers-changed') {
+              displayPeers(event.value[doc.getKey()], client.getID());
+            }
+          });
 
-        // 04. bind the document with the codemirror.
-        // 04-1. codemirror to document(applying local).
-        codemirror.on('beforeChange', (cm, change) => {
-          if (change.origin === 'yorkie' || change.origin === 'setValue') {
-            return;
-          }
-
-          const from = cm.indexFromPos(change.from);
-          const to = cm.indexFromPos(change.to);
-          const content = change.text.join('\n');
-
-          doc.update((root) => {
-            root.content.edit(from, to, content);
-          }, `update content by ${client.getID()}`);
-
-          console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
-        });
-        codemirror.on('beforeSelectionChange', (cm, change) => {
-          // Fix concurrent issue.
-          // NOTE: The following conditional statement ignores cursor changes
-          //       that occur while applying remote changes to CodeMirror
-          //       and handles only movement by keyboard and mouse.
-          if (!change.origin) {
-            return;
-          }
-
-          const from = cm.indexFromPos(change.ranges[0].anchor);
-          const to = cm.indexFromPos(change.ranges[0].head);
+          // 02. create a document then attach it into the client.
+          const doc = new yorkie.Document('codemirror');
+          await client.attach(doc);
 
           doc.update((root) => {
-            root.content.select(from, to);
-          }, `update selection by ${client.getID()}`);
-        });
+            if (!root.content) {
+              root.content = new yorkie.Text();
+            }
+          }, 'create content if not exists');
 
-        // 04-2. document to codemirror(applying remote).
-        function changeEventHandler(changes) {
-          for (const change of changes) {
-            if (change.type === 'content') {
-              const actor = change.actor;
-              const from = change.from;
-              const to = change.to;
-              const content = change.content || '';
+          // 02-2. subscribe document event.
+          doc.subscribe((event) => {
+            if (event.type === 'snapshot') {
+              // The text is replaced to snapshot and must be re-synced.
+              syncText();
+            }
+            displayLog(doc, codemirror);
+          });
+          await client.sync();
 
-              if (actor !== client.getID()) {
-                console.log(`%c remote: ${from}-${to}: ${content}`, 'color: skyblue');
-                const fromIdx = codemirror.posFromIndex(from);
-                const toIdx = codemirror.posFromIndex(to);
-                replaceRangeFix(codemirror, content, fromIdx, toIdx, 'yorkie');
-              }
-            } else if (change.type === 'selection') {
-              const actor = change.actor;
-              if (actor !== client.getID()) {
-                displayRemoteSelection(codemirror, change);
+          // 03. create an instance of codemirror.
+          const codemirror = CodeMirror.fromTextArea(placeholder, {
+            lineNumbers: true,
+          });
+
+          // 04. bind the document with the codemirror.
+          // 04-1. codemirror to document(applying local).
+          codemirror.on('beforeChange', (cm, change) => {
+            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+              return;
+            }
+
+            const from = cm.indexFromPos(change.from);
+            const to = cm.indexFromPos(change.to);
+            const content = change.text.join('\n');
+
+            doc.update((root) => {
+              root.content.edit(from, to, content);
+            }, `update content by ${client.getID()}`);
+
+            console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
+          });
+          codemirror.on('beforeSelectionChange', (cm, change) => {
+            // Fix concurrent issue.
+            // NOTE: The following conditional statement ignores cursor changes
+            //       that occur while applying remote changes to CodeMirror
+            //       and handles only movement by keyboard and mouse.
+            if (!change.origin) {
+              return;
+            }
+
+            const from = cm.indexFromPos(change.ranges[0].anchor);
+            const to = cm.indexFromPos(change.ranges[0].head);
+
+            doc.update((root) => {
+              root.content.select(from, to);
+            }, `update selection by ${client.getID()}`);
+          });
+
+          // 04-2. document to codemirror(applying remote).
+          function changeEventHandler(changes) {
+            for (const change of changes) {
+              if (change.type === 'content') {
+                const actor = change.actor;
+                const from = change.from;
+                const to = change.to;
+                const content = change.content || '';
+
+                if (actor !== client.getID()) {
+                  console.log(
+                    `%c remote: ${from}-${to}: ${content}`,
+                    'color: skyblue',
+                  );
+                  const fromIdx = codemirror.posFromIndex(from);
+                  const toIdx = codemirror.posFromIndex(to);
+                  replaceRangeFix(
+                    codemirror,
+                    content,
+                    fromIdx,
+                    toIdx,
+                    'yorkie',
+                  );
+                }
+              } else if (change.type === 'selection') {
+                const actor = change.actor;
+                if (actor !== client.getID()) {
+                  displayRemoteSelection(codemirror, change);
+                }
               }
             }
           }
-        }
 
-        // 05. synchronize text of document and codemirror.
-        function syncText() {
-          const text = doc.getRoot().content;
-          text.onChanges(changeEventHandler);
-          codemirror.setValue(text.toString());
+          // 05. synchronize text of document and codemirror.
+          function syncText() {
+            const text = doc.getRoot().content;
+            text.onChanges(changeEventHandler);
+            codemirror.setValue(text.toString());
+          }
+          syncText();
+
+          displayLog(doc, codemirror);
+        } catch (e) {
+          console.error(e);
         }
-        syncText();
-        
-        displayLog(doc, codemirror);
-      } catch (e) {
-        console.error(e);
       }
-    }
 
-    main();
-  </script>
-</body>
+      main();
+    </script>
+  </body>
 </html>

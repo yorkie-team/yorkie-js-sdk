@@ -22,7 +22,6 @@ import {
   Primitive,
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   JSONObject,
@@ -33,7 +32,6 @@ import {
   createJSONArray,
 } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import {
   CounterType,
@@ -57,8 +55,7 @@ export type WrappedElement<T = unknown, A = unknown> =
   | Primitive
   | JSONObject<T>
   | JSONArray<T>
-  | Text
-  | RichText<A>
+  | Text<A>
   | Counter;
 
 /**
@@ -69,8 +66,7 @@ export type JSONElement<T = unknown, A = unknown> =
   | PrimitiveValue
   | JSONObject<T>
   | JSONArray<T>
-  | Text
-  | RichText<A>
+  | Text<A>
   | Counter;
 
 /**
@@ -90,8 +86,6 @@ export function toWrappedElement(
     return createJSONArray(context, elem);
   } else if (elem instanceof CRDTText) {
     return new Text(context, elem);
-  } else if (elem instanceof CRDTRichText) {
-    return new RichText(context, elem);
   } else if (elem instanceof CRDTCounter) {
     const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, elem);

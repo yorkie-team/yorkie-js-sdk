@@ -111,6 +111,10 @@ describe('ROOT', function () {
     const text = ObjectProxy.createText(change, obj, 'k1');
 
     text.edit(0, 0, 'Hello World');
+    assert.equal(
+      '[0:00:0:0 ][0:00:2:0 Hello World]',
+      text.getStructureAsString(),
+    );
     assert.equal(0, root.getGarbageLen());
 
     text.edit(6, 11, 'Yorkie');
@@ -121,35 +125,6 @@ describe('ROOT', function () {
 
     assert.equal(2, root.garbageCollect(MaxTimeTicket));
     assert.equal('[0:00:0:0 ][0:00:3:0 Yorkie]', text.getStructureAsString());
-    assert.equal(0, root.getGarbageLen());
-  });
-
-  it('garbage collection test for rich text', function () {
-    const root = new CRDTRoot(
-      new CRDTObject(InitialTimeTicket, RHTPQMap.create()),
-    );
-    const obj = new CRDTObject(InitialTimeTicket, RHTPQMap.create());
-    const change = ChangeContext.create(InitialChangeID, root);
-    const text = ObjectProxy.createRichText(change, obj, 'k1');
-
-    text.edit(0, 0, 'Hello World');
-    assert.equal(
-      '[0:00:0:0 ][0:00:2:0 Hello World][0:00:1:0 \n]',
-      text.getStructureAsString(),
-    );
-    assert.equal(0, root.getGarbageLen());
-
-    text.edit(6, 11, 'Yorkie');
-    assert.equal(1, root.getGarbageLen());
-
-    text.edit(0, 6, '');
-    assert.equal(2, root.getGarbageLen());
-
-    assert.equal(2, root.garbageCollect(MaxTimeTicket));
-    assert.equal(
-      '[0:00:0:0 ][0:00:3:0 Yorkie][0:00:1:0 \n]',
-      text.getStructureAsString(),
-    );
     assert.equal(0, root.getGarbageLen());
   });
 });

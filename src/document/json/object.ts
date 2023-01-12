@@ -28,10 +28,8 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import {
   CounterType,
@@ -182,19 +180,6 @@ export class ObjectProxy {
           ),
         );
         value.initialize(context, text);
-      } else if (value instanceof RichText) {
-        const text = CRDTRichText.create(RGATreeSplit.create(), ticket);
-        target.set(key, text);
-        context.registerElement(text, target);
-        context.push(
-          SetOperation.create(
-            key,
-            text.deepcopy(),
-            target.getCreatedAt(),
-            ticket,
-          ),
-        );
-        value.initialize(context, text);
       } else if (value instanceof Counter) {
         const counter = CRDTCounter.of(
           value.getValueType(),
@@ -233,39 +218,21 @@ export class ObjectProxy {
   }
 
   /**
-   * `createText` creates a new Text for the given key
+   * `createText` creates a new Text for the given key.
    */
-  public static createText(
+  public static createText<A>(
     context: ChangeContext,
     target: CRDTObject,
     key: string,
-  ): Text {
+  ): Text<A> {
     const ticket = context.issueTimeTicket();
-    const text = CRDTText.create(RGATreeSplit.create(), ticket);
+    const text = CRDTText.create<A>(RGATreeSplit.create(), ticket);
     target.set(key, text);
     context.registerElement(text, target);
     context.push(
       SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
     );
     return new Text(context, text);
-  }
-
-  /**
-   * `createRichText` a new RichText for the given key.
-   */
-  public static createRichText<A>(
-    context: ChangeContext,
-    target: CRDTObject,
-    key: string,
-  ): RichText<A> {
-    const ticket = context.issueTimeTicket();
-    const text = CRDTRichText.create<A>(RGATreeSplit.create(), ticket);
-    target.set(key, text);
-    context.registerElement(text, target);
-    context.push(
-      SetOperation.create(key, text.deepcopy(), target.getCreatedAt(), ticket),
-    );
-    return new RichText(context, text);
   }
 
   /**
