@@ -16,12 +16,13 @@ export declare class Counter
 
 |  Constructor | Modifiers | Description |
 |  --- | --- | --- |
-|  [(constructor)(value)](./yorkie-js-sdk.counter._constructor_.md) |  | Constructs a new instance of the <code>Counter</code> class |
+|  [(constructor)(valueType, value)](./yorkie-js-sdk.counter._constructor_.md) |  | Constructs a new instance of the <code>Counter</code> class |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [getID()](./yorkie-js-sdk.counter.getid.md) |  | <code>getID</code> returns the ID of this text. |
+|  [getValueType()](./yorkie-js-sdk.counter.getvaluetype.md) |  | <code>getValueType</code> returns the value type of this counter. |
 |  [increase(v)](./yorkie-js-sdk.counter.increase.md) |  | <code>increase</code> increases numeric data. |
 
