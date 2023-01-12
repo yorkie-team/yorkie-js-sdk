@@ -4,13 +4,15 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { ObjectProxy } from '@yorkie-js-sdk/src/document/json/object';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('ROOT', function () {
   it('basic test', function () {
@@ -108,7 +110,13 @@ describe('ROOT', function () {
     );
     const obj = new CRDTObject(InitialTimeTicket, RHTPQMap.create());
     const change = ChangeContext.create(InitialChangeID, root);
-    const text = ObjectProxy.createText(change, obj, 'k1');
+    const crdtText = CRDTText.create(
+      RGATreeSplit.create(),
+      change.issueTimeTicket(),
+    );
+    obj.set('k1', crdtText);
+    change.registerElement(crdtText, obj);
+    const text = new Text(change, crdtText);
 
     text.edit(0, 0, 'Hello World');
     assert.equal(
