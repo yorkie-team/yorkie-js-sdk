@@ -143,7 +143,11 @@ export class Primitive extends CRDTElement {
       case 'boolean':
         return PrimitiveType.Boolean;
       case 'number':
-        return PrimitiveType.Double;
+        if (this.isInteger(value)) {
+          return PrimitiveType.Integer;
+        } else {
+          return PrimitiveType.Double;
+        }
       case 'string':
         return PrimitiveType.String;
       case 'object':

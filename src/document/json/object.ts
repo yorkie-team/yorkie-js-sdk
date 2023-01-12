@@ -32,6 +32,7 @@ import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import {
+  CounterType,
   CounterValue,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -180,7 +181,11 @@ export class ObjectProxy {
         );
         value.initialize(context, text);
       } else if (value instanceof Counter) {
-        const counter = CRDTCounter.of(value.getValue(), ticket);
+        const counter = CRDTCounter.of(
+          value.getValueType(),
+          value.getValue(),
+          ticket,
+        );
         target.set(key, counter);
         context.registerElement(counter, target);
         context.push(
@@ -240,7 +245,11 @@ export class ObjectProxy {
     value: CounterValue,
   ): Counter {
     const ticket = context.issueTimeTicket();
-    const counterInternal = CRDTCounter.of(value, ticket);
+    const counterInternal = CRDTCounter.of(
+      CRDTCounter.getCounterType(value)!,
+      value,
+      ticket,
+    );
     target.set(key, counterInternal);
     context.registerElement(counterInternal, target);
     context.push(
@@ -251,7 +260,7 @@ export class ObjectProxy {
         ticket,
       ),
     );
-    const counter = new Counter(0);
+    const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, counterInternal);
     return counter;
   }

@@ -33,7 +33,10 @@ import {
 } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {
+  CounterType,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
  * `createJSON` create a new instance of JSONObject.
@@ -84,7 +87,7 @@ export function toWrappedElement(
   } else if (elem instanceof CRDTText) {
     return new Text(context, elem);
   } else if (elem instanceof CRDTCounter) {
-    const counter = new Counter(0);
+    const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, elem);
     return counter;
   }

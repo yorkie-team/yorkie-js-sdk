@@ -1,0 +1,28 @@
+{
+  "name": "react-tldraw",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tldraw/tldraw": "1.26.3",
+    "@react-hook/throttle": "^2.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "yorkie-js-sdk": "^0.2.19",
+    "randomcolor": "^0.6.2",
+    "unique-names-generator": "^4.7.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.24",
+    "@types/react-dom": "^18.0.8",
+    "@vitejs/plugin-react": "^2.2.0",
+    "@types/randomcolor": "^0.5.5",
+    "typescript": "^4.6.4",
+    "vite": "^3.2.3"
+  }
+}
