@@ -13,8 +13,7 @@
 |  [Counter](./yorkie-js-sdk.counter.md) | <code>Counter</code> is a custom data type that is used to counter. |
 |  [Document](./yorkie-js-sdk.document.md) | <code>Document</code> is a CRDT-based data type. We can represent the model of the application and edit it even while offline. |
 |  [Primitive](./yorkie-js-sdk.primitive.md) | <code>Primitive</code> represents primitive data type including logical clock. It has a type and a value. |
-|  [RichText](./yorkie-js-sdk.richtext.md) | <code>RichText</code> is an extended data type for the contents of a text editor. |
-|  [Text](./yorkie-js-sdk.text.md) | <code>Text</code> represents text element for representing contents of a text editor. |
+|  [Text](./yorkie-js-sdk.text.md) | <code>Text</code> is an extended data type for the contents of a text editor. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
 
 ## Enumerations
@@ -61,6 +60,6 @@
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
 |  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
-|  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
+|  [TextChange](./yorkie-js-sdk.textchange.md) |  |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

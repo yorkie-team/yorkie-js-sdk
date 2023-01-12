@@ -4,12 +4,12 @@
 
 ## Text class
 
-`Text` represents text element for representing contents of a text editor.
+`Text` is an extended data type for the contents of a text editor.
 
 <b>Signature:</b>
 
 ```typescript
-declare class Text 
+declare class Text<A = Indexable> 
 ```
 
 ## Constructors
@@ -30,10 +30,12 @@ declare class Text
 |  --- | --- | --- |
 |  [checkWeight()](./yorkie-js-sdk.text.checkweight.md) |  | <code>checkWeight</code> returns false when there is an incorrect weight node. for debugging purpose. |
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.text.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
-|  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.text.edit.md) |  | <code>edit</code> edits this text with the given content. |
+|  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.text.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [getID()](./yorkie-js-sdk.text.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [getStructureAsString()](./yorkie-js-sdk.text.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a String containing the meta data of the node for debugging purpose. |
 |  [onChanges(handler)](./yorkie-js-sdk.text.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.text.select.md) |  | <code>select</code> selects the given range. |
+|  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.text.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
 |  [toString()](./yorkie-js-sdk.text.tostring.md) |  | <code>toString</code> returns the string representation of this text. |
+|  [values()](./yorkie-js-sdk.text.values.md) |  | <code>values</code> returns values of this text. |
 

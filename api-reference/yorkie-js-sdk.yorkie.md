@@ -17,7 +17,6 @@ yorkie: {
     Client: typeof Client;
     Document: typeof Document;
     Text: typeof Text;
-    RichText: typeof RichText;
     Counter: typeof Counter;
 }
 ```

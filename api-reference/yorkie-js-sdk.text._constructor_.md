@@ -9,7 +9,7 @@ Constructs a new instance of the `Text` class
 <b>Signature:</b>
 
 ```typescript
-constructor(context?: ChangeContext, text?: CRDTText);
+constructor(context?: ChangeContext, text?: CRDTText<A>);
 ```
 
 ## Parameters
@@ -17,5 +17,5 @@ constructor(context?: ChangeContext, text?: CRDTText);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  context | ChangeContext |  |
-|  text | CRDTText |  |
+|  text | CRDTText&lt;A&gt; |  |
 
