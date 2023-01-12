@@ -24,6 +24,7 @@ import {
   MaxTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -37,22 +38,17 @@ export enum TextChangeType {
 }
 
 /**
- * `_TextChange` is the value passed as an argument to `Text.onChanges()`.
+ * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type _TextChange = {
+export type TextChange<A = Indexable> = {
   type: TextChangeType;
   actor: ActorID;
   from: number;
   to: number;
   content?: string;
+  attributes?: A;
 };
-
-/**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
- */
-export type TextChange<A> = _TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;
@@ -489,7 +485,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<_TextChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -803,7 +799,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<_TextChange>,
+    Array<TextChange>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -891,8 +887,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<_TextChange> {
-    const changes: Array<_TextChange> = [];
+  ): Array<TextChange> {
+    const changes: Array<TextChange> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {
