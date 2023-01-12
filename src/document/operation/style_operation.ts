@@ -22,7 +22,7 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- *  `StyleOperation` is an operation applies the style of the given range to RichText.
+ *  `StyleOperation` is an operation applies the style of the given range to Text.
  */
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitNodePos;
@@ -78,7 +78,7 @@ export class StyleOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only RichText can execute edit`);
+      logger.fatal(`fail to execute, only Text can execute edit`);
     }
   }
 

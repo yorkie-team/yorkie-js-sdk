@@ -32,7 +32,7 @@ export interface CRDTTextVal<A> {
 }
 
 /**
- * `CRDTTextValue` is a value of RichText
+ * `CRDTTextValue` is a value of Text
  * which has a attributes that expresses the text style.
  *
  * @internal
@@ -147,7 +147,7 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
-   * `create` a instance of RichText.
+   * `create` a instance of Text.
    */
   public static create<A>(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
@@ -313,7 +313,7 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this rich text.
+   * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {
     const json = [];
@@ -328,7 +328,7 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
-   * `toSortedJSON` returns the sorted JSON encoding of this rich text.
+   * `toSortedJSON` returns the sorted JSON encoding of this text.
    */
   public toSortedJSON(): string {
     return this.toJSON();

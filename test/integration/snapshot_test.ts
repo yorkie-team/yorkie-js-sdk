@@ -58,7 +58,7 @@ describe('Snapshot', function () {
     }, this.test!.title);
   });
 
-  it('should handle snapshot for rich text object', async function () {
+  it('should handle snapshot for text with attributes', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();

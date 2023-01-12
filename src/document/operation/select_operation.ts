@@ -64,7 +64,7 @@ export class SelectOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only Text, RichText can execute select`);
+      logger.fatal(`fail to execute, only Text can execute select`);
     }
   }
 

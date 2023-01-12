@@ -28,7 +28,7 @@ import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_oper
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 /**
- * `RichText` is an extended data type for the contents of a text editor.
+ * `Text` is an extended data type for the contents of a text editor.
  */
 export class Text<A = Indexable> {
   private context?: ChangeContext;
@@ -40,7 +40,7 @@ export class Text<A = Indexable> {
   }
 
   /**
-   * `initialize` initialize this rich text with context and internal text.
+   * `initialize` initialize this text with context and internal text.
    * @internal
    */
   public initialize(context: ChangeContext, text: CRDTText<A>): void {

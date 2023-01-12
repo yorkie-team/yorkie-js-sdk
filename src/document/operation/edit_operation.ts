@@ -22,7 +22,7 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- * `EditOperation` is an operation representing editing RichText. Most of the same as
+ * `EditOperation` is an operation representing editing Text. Most of the same as
  * Edit, but with additional style properties, attributes.
  */
 export class EditOperation extends Operation {
@@ -94,7 +94,7 @@ export class EditOperation extends Operation {
         logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
       }
 
-      logger.fatal(`fail to execute, only RichText can execute edit`);
+      logger.fatal(`fail to execute, only Text can execute edit`);
     }
   }
 
@@ -131,7 +131,7 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `getContent` returns the content of RichEdit.
+   * `getContent` returns the content of Edit.
    */
   public getContent(): string {
     return this.content;
