@@ -24,7 +24,6 @@ import {
   MaxTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -37,18 +36,19 @@ export enum TextChangeType {
   Style = 'style',
 }
 
-/**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
- */
-export type TextChange<A = Indexable> = {
+export type TextChange = {
   type: TextChangeType;
   actor: ActorID;
   from: number;
   to: number;
   content?: string;
-  attributes?: A;
 };
+
+/**
+ * `TextChangeWithAttrs` is the value passed as an argument to `Text.onChanges()`.
+ * `Text.onChanges()` is called when the `Text` is modified.
+ */
+export type TextChangeWithAttrs<A> = TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;

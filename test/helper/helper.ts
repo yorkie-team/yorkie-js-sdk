@@ -69,10 +69,7 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(
-    changes: Array<TextChange<Indexable>>,
-    enableLog = false,
-  ): void {
+  public applyChanges(changes: Array<TextChange>, enableLog = false): void {
     const oldValue = this.value;
     const changeLogs = [];
     for (const change of changes) {

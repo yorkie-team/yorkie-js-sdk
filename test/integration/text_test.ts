@@ -3,7 +3,6 @@ import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
   Document,
-  Indexable,
   Text,
   TextChange,
   TextChangeType,
@@ -177,14 +176,12 @@ describe('Text', function () {
       root.text.edit(0, 0, 'ABCD');
     });
 
-    doc
-      .getRoot()
-      .text.onChanges((changes: Array<TextChange<Indexable>>): void => {
-        if (changes[0].type === TextChangeType.Selection) {
-          assert.equal(changes[0].from, 2);
-          assert.equal(changes[0].to, 4);
-        }
-      });
+    doc.getRoot().text.onChanges((changes: Array<TextChange>): void => {
+      if (changes[0].type === TextChangeType.Selection) {
+        assert.equal(changes[0].from, 2);
+        assert.equal(changes[0].to, 4);
+      }
+    });
     doc.update((root) => root.text.select(2, 4));
   });
 

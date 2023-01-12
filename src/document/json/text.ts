@@ -20,7 +20,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   RGATreeSplitNodeRange,
-  TextChange,
+  TextChangeWithAttrs,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextVal } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
@@ -245,7 +245,7 @@ export class Text<A = Indexable> {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
+  onChanges(handler: (changes: Array<TextChangeWithAttrs<A>>) => void): void {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return;
