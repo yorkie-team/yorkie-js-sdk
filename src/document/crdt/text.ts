@@ -80,7 +80,7 @@ export class CRDTTextValue {
   /**
    * `getAttr` returns the attributes of this value.
    */
-  public getAttr(): RHT {
+  public getAttrs(): RHT {
     return this.attributes;
   }
 

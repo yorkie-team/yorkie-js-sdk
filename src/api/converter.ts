@@ -434,7 +434,7 @@ function toTextNodes(
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
-    const attrs = textNode.getValue().getAttr();
+    const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
       const pbTextNodeAttr = new PbTextNodeAttr();
       pbTextNodeAttr.setValue(attr.getValue());
