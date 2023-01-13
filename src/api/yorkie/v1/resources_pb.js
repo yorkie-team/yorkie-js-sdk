@@ -7373,8 +7373,7 @@ proto.yorkie.v1.TextNodeAttr.prototype.toObject = function(opt_includeInstance) 
  */
 proto.yorkie.v1.TextNodeAttr.toObject = function(includeInstance, msg) {
   var f, obj = {
-    key: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    value: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    value: jspb.Message.getFieldWithDefault(msg, 1, ""),
     updatedAt: (f = msg.getUpdatedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f)
   };
 
@@ -7414,13 +7413,9 @@ proto.yorkie.v1.TextNodeAttr.deserializeBinaryFromReader = function(msg, reader)
     switch (field) {
     case 1:
       var value = /** @type {string} */ (reader.readString());
-      msg.setKey(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
       msg.setValue(value);
       break;
-    case 3:
+    case 2:
       var value = new proto.yorkie.v1.TimeTicket;
       reader.readMessage(value,proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader);
       msg.setUpdatedAt(value);
@@ -7454,24 +7449,17 @@ proto.yorkie.v1.TextNodeAttr.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.TextNodeAttr.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getKey();
+  f = message.getValue();
   if (f.length > 0) {
     writer.writeString(
       1,
       f
     );
   }
-  f = message.getValue();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
   f = message.getUpdatedAt();
   if (f != null) {
     writer.writeMessage(
-      3,
+      2,
       f,
       proto.yorkie.v1.TimeTicket.serializeBinaryToWriter
     );
@@ -7480,10 +7468,10 @@ proto.yorkie.v1.TextNodeAttr.serializeBinaryToWriter = function(message, writer)
 
 
 /**
- * optional string key = 1;
+ * optional string value = 1;
  * @return {string}
  */
-proto.yorkie.v1.TextNodeAttr.prototype.getKey = function() {
+proto.yorkie.v1.TextNodeAttr.prototype.getValue = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
@@ -7492,36 +7480,18 @@ proto.yorkie.v1.TextNodeAttr.prototype.getKey = function() {
  * @param {string} value
  * @return {!proto.yorkie.v1.TextNodeAttr} returns this
  */
-proto.yorkie.v1.TextNodeAttr.prototype.setKey = function(value) {
+proto.yorkie.v1.TextNodeAttr.prototype.setValue = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
- * optional string value = 2;
- * @return {string}
- */
-proto.yorkie.v1.TextNodeAttr.prototype.getValue = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.yorkie.v1.TextNodeAttr} returns this
- */
-proto.yorkie.v1.TextNodeAttr.prototype.setValue = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional TimeTicket updated_at = 3;
+ * optional TimeTicket updated_at = 2;
  * @return {?proto.yorkie.v1.TimeTicket}
  */
 proto.yorkie.v1.TextNodeAttr.prototype.getUpdatedAt = function() {
   return /** @type{?proto.yorkie.v1.TimeTicket} */ (
-    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 3));
+    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 2));
 };
 
 
@@ -7530,7 +7500,7 @@ proto.yorkie.v1.TextNodeAttr.prototype.getUpdatedAt = function() {
  * @return {!proto.yorkie.v1.TextNodeAttr} returns this
 */
 proto.yorkie.v1.TextNodeAttr.prototype.setUpdatedAt = function(value) {
-  return jspb.Message.setWrapperField(this, 3, value);
+  return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
@@ -7548,7 +7518,7 @@ proto.yorkie.v1.TextNodeAttr.prototype.clearUpdatedAt = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.TextNodeAttr.prototype.hasUpdatedAt = function() {
-  return jspb.Message.getField(this, 3) != null;
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -10786,8 +10756,7 @@ proto.yorkie.v1.ValueType = {
   VALUE_TYPE_JSON_ARRAY: 9,
   VALUE_TYPE_TEXT: 10,
   VALUE_TYPE_INTEGER_CNT: 11,
-  VALUE_TYPE_LONG_CNT: 12,
-  VALUE_TYPE_DOUBLE_CNT: 13
+  VALUE_TYPE_LONG_CNT: 12
 };
 
 /**

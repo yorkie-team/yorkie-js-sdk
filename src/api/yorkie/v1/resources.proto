@@ -180,9 +180,8 @@ message RGANode {
 }
 
 message TextNodeAttr {
-  string key = 1;
-  string value = 2;
-  TimeTicket updated_at = 3;
+  string value = 1;
+  TimeTicket updated_at = 2;
 }
 
 message TextNode {
@@ -283,7 +282,6 @@ enum ValueType {
   VALUE_TYPE_TEXT = 10;
   VALUE_TYPE_INTEGER_CNT = 11;
   VALUE_TYPE_LONG_CNT = 12;
-  VALUE_TYPE_DOUBLE_CNT = 13;
 }
 
 enum DocEventType {
