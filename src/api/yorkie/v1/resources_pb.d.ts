@@ -849,9 +849,6 @@ export namespace RGANode {
 }
 
 export class TextNodeAttr extends jspb.Message {
-  getKey(): string;
-  setKey(value: string): TextNodeAttr;
-
   getValue(): string;
   setValue(value: string): TextNodeAttr;
 
@@ -870,7 +867,6 @@ export class TextNodeAttr extends jspb.Message {
 
 export namespace TextNodeAttr {
   export type AsObject = {
-    key: string,
     value: string,
     updatedAt?: TimeTicket.AsObject,
   }
@@ -1307,7 +1303,6 @@ export enum ValueType {
   VALUE_TYPE_TEXT = 10,
   VALUE_TYPE_INTEGER_CNT = 11,
   VALUE_TYPE_LONG_CNT = 12,
-  VALUE_TYPE_DOUBLE_CNT = 13,
 }
 export enum DocEventType { 
   DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,
