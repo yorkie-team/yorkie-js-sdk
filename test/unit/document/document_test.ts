@@ -1163,10 +1163,7 @@ describe('Document', function () {
       root.text = new Text();
       root.text.edit(0, 0, '"hello"');
     });
-    assert.equal(
-      '{"text":[{"attrs":{},"val":"\\"hello\\""}]}',
-      doc.toSortedJSON(),
-    );
+    assert.equal('{"text":[{"val":"\\"hello\\""}]}', doc.toSortedJSON());
   });
 
   it('escapes string for text with Attributes', function () {
