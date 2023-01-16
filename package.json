@@ -22,7 +22,8 @@
     "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build",
-    "benchmark": "ts-node-script ./test/bench"
+    "benchmark": "ts-node-script ./test/bench",
+    "publish:prepare": "mkdir -p bundle && cp -r dist package.json README.md LICENSE CHANGELOG.md bundle && cp package.publish.json bundle/package.json"
   },
   "engines": {
     "node": ">=16.0.0",
