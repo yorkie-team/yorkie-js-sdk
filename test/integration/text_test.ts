@@ -45,7 +45,7 @@ describe('Text', function () {
     });
 
     assert.equal(
-      '{"k1":[{"attrs":{},"val":"A"},{"attrs":{},"val":"12"},{"attrs":{},"val":"D"}]}',
+      '{"k1":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -71,7 +71,7 @@ describe('Text', function () {
     });
 
     assert.equal(
-      '{"k1":[{"attrs":{},"val":"ABC"},{"attrs":{},"val":"\\n"},{"attrs":{},"val":"D"}]}',
+      '{"k1":[{"val":"ABC"},{"val":"\\n"},{"val":"D"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -90,10 +90,7 @@ describe('Text', function () {
       root.k1.edit(1, 2, '늘');
     }, 'set {"k1":"하늘"}');
 
-    assert.equal(
-      '{"k1":[{"attrs":{},"val":"하"},{"attrs":{},"val":"늘"}]}',
-      doc.toSortedJSON(),
-    );
+    assert.equal('{"k1":[{"val":"하"},{"val":"늘"}]}', doc.toSortedJSON());
   });
 
   it('should handle deletion of nested nodes', function () {
@@ -193,7 +190,7 @@ describe('Text', function () {
       }, 'set new text by c1');
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toSortedJSON(), `{"k1":[{"attrs":{},"val":"ABCD"}]}`);
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"ABCD"}]}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
@@ -203,7 +200,7 @@ describe('Text', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      assert.equal(d1.toSortedJSON(), `{"k1":[{"attrs":{},"val":"1234"}]}`);
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"1234"}]}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
   });
@@ -226,7 +223,7 @@ describe('Text', function () {
     });
 
     assert.equal(
-      '{"k1":[{"attrs":{"b":"1"},"val":"ABC"},{"attrs":{},"val":"\\n"},{"attrs":{"b":"1"},"val":"D"}]}',
+      '{"k1":[{"attrs":{"b":"1"},"val":"ABC"},{"val":"\\n"},{"attrs":{"b":"1"},"val":"D"}]}',
       doc.toSortedJSON(),
     );
   });
@@ -244,11 +241,11 @@ describe('Text', function () {
       d1.update((root) => {
         root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');
-      assert.equal(d1.toSortedJSON(), `{"k1":[{"attrs":{},"val":"ABCD"}]}`);
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"ABCD"}]}`);
       d2.update((root) => {
         root['k1'].edit(0, 0, '1234');
       }, 'edit 0,0 1234 by c2');
-      assert.equal(d2.toSortedJSON(), `{"k1":[{"attrs":{},"val":"1234"}]}`);
+      assert.equal(d2.toSortedJSON(), `{"k1":[{"val":"1234"}]}`);
       await c1.sync();
       await c2.sync();
       await c1.sync();
@@ -291,7 +288,7 @@ describe('Text', function () {
       await c2.sync();
       assert.equal(
         d1.toSortedJSON(),
-        `{"k1":[{"attrs":{},"val":"123"},{"attrs":{},"val":"456"},{"attrs":{},"val":"789"}]}`,
+        `{"k1":[{"val":"123"},{"val":"456"},{"val":"789"}]}`,
       );
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
@@ -301,17 +298,14 @@ describe('Text', function () {
       d1.update((root) => {
         root.k1.edit(1, 7, '');
       });
-      assert.equal(
-        d1.toSortedJSON(),
-        `{"k1":[{"attrs":{},"val":"1"},{"attrs":{},"val":"89"}]}`,
-      );
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"1"},{"val":"89"}]}`);
 
       d2.update((root) => {
         root.k1.edit(2, 5, '');
       });
       assert.equal(
         d2.toSortedJSON(),
-        `{"k1":[{"attrs":{},"val":"12"},{"attrs":{},"val":"6"},{"attrs":{},"val":"789"}]}`,
+        `{"k1":[{"val":"12"},{"val":"6"},{"val":"789"}]}`,
       );
 
       await c1.sync();

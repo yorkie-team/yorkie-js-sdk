@@ -107,6 +107,9 @@ export class CRDTTextValue {
       attrs.push(item);
     }
     attrs.sort();
+    if (attrs.length === 0) {
+      return `{"val":"${content}"}`;
+    }
     return `{"attrs":{${attrs.join(',')}},"val":"${content}"}`;
   }
 
