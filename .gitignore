@@ -118,6 +118,7 @@ tags
 
 # Dist files
 dist/
+bundle/
 
 # Docs files
 docs/
