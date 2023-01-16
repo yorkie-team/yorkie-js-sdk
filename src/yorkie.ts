@@ -56,7 +56,7 @@ export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export {
   TextChange,
   TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+} from '@yorkie-js-sdk/src/document/crdt/text';
 export {
   Primitive,
   PrimitiveValue,

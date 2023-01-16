@@ -22,7 +22,7 @@ import { DocEvent } from '@yorkie-js-sdk/src/document/document';
 import {
   TextChange,
   TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+} from '@yorkie-js-sdk/src/document/crdt/text';
 
 export function range(from: number, to: number): Array<number> {
   const list = [];
