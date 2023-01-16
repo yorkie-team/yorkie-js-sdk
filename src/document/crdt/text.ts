@@ -15,16 +15,40 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
-  TextChangeWithAttrs,
-  TextChangeType,
   RGATreeSplit,
   RGATreeSplitNodeRange,
   Selection,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
+
+/**
+ * `TextChangeType` is the type of TextChange.
+ *
+ * @internal
+ */
+export enum TextChangeType {
+  Content = 'content',
+  Selection = 'selection',
+  Style = 'style',
+}
+
+/**
+ * `TextChange` is the value passed as an argument to `Text.onChanges()`.
+ * `Text.onChanges()` is called when the `Text` is modified.
+ */
+export type TextChange<A = Indexable> = {
+  type: TextChangeType;
+  actor: ActorID;
+  from: number;
+  to: number;
+  content?: string;
+  attributes?: A;
+};
 
 export interface CRDTTextVal<A> {
   attributes: A;
@@ -134,7 +158,7 @@ export class CRDTTextValue {
  * @internal
  */
 export class CRDTText<A> extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChangeWithAttrs<A>>) => void;
+  private onChangesHandler?: (changes: Array<TextChange<A>>) => void;
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
   private selectionMap: Map<string, Selection>;
   private remoteChangeLock: boolean;
@@ -178,14 +202,15 @@ export class CRDTText<A> extends CRDTTextElement {
       }
     }
 
-    const [caretPos, latestCreatedAtMap, changes] = this.rgaTreeSplit.edit(
-      range,
-      editedAt,
-      val,
-      latestCreatedAtMapByActor,
-    );
+    const [caretPos, latestCreatedAtMap, contentChanges] =
+      this.rgaTreeSplit.edit(range, editedAt, val, latestCreatedAtMapByActor);
+
+    const changes: Array<TextChange<A>> = contentChanges.map((change) => ({
+      ...change,
+      type: TextChangeType.Content,
+    }));
     if (value && attributes) {
-      const change = changes[changes.length - 1] as TextChangeWithAttrs<A>;
+      const change = changes[changes.length - 1];
       change.attributes = this.parseAttributes(attributes);
     }
 
@@ -284,9 +309,7 @@ export class CRDTText<A> extends CRDTTextElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(
-    handler: (changes: Array<TextChangeWithAttrs<A>>) => void,
-  ): void {
+  public onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
     this.onChangesHandler = handler;
   }
 
@@ -413,7 +436,7 @@ export class CRDTText<A> extends CRDTTextElement {
   private selectPriv(
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
-  ): TextChangeWithAttrs<A> | undefined {
+  ): TextChange<A> | undefined {
     if (!this.selectionMap.has(updatedAt.getActorID()!)) {
       this.selectionMap.set(
         updatedAt.getActorID()!,

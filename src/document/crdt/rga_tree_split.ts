@@ -25,30 +25,12 @@ import {
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 
-/**
- * `TextChangeType` is the type of TextChange.
- *
- * @internal
- */
-export enum TextChangeType {
-  Content = 'content',
-  Selection = 'selection',
-  Style = 'style',
-}
-
-export type TextChange = {
-  type: TextChangeType;
+export type ContentChange = {
   actor: ActorID;
   from: number;
   to: number;
   content?: string;
 };
-
-/**
- * `TextChangeWithAttrs` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
- */
-export type TextChangeWithAttrs<A> = TextChange & { attributes?: A };
 
 interface RGATreeSplitValue {
   length: number;
@@ -485,7 +467,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<ContentChange>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -511,7 +493,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         changes[changes.length - 1].content = value.toString();
       } else {
         changes.push({
-          type: TextChangeType.Content,
           actor: editedAt.getActorID()!,
           from: idx,
           to: idx,
@@ -799,7 +780,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<TextChange>,
+    Array<ContentChange>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -887,8 +868,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<TextChange> {
-    const changes: Array<TextChange> = [];
+  ): Array<ContentChange> {
+    const changes: Array<ContentChange> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {
@@ -912,7 +893,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       if (fromIdx < toIdx) {
         changes.push({
-          type: TextChangeType.Content,
           actor: editedAt.getActorID()!,
           from: fromIdx,
           to: toIdx,
