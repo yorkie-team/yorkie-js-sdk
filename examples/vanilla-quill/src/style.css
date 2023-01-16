@@ -1,0 +1,54 @@
+body {
+  background: white;
+}
+
+.green {
+  background-color: green;
+}
+.red {
+  background-color: red;
+}
+
+#network-status span {
+  display: inline-block;
+  height: 0.8rem;
+  width: 0.8rem;
+  border-radius: 0.4rem;
+}
+
+#network-status:before {
+  content: 'network: ';
+  font-size: 1rem;
+}
+
+#peers:before {
+  display: block;
+  content: 'peers: ';
+  font-size: 1rem;
+}
+
+#document:before {
+  display: block;
+  content: 'document: ';
+  font-size: 1rem;
+}
+
+#document-text:before {
+  display: block;
+  content: 'text: ';
+  font-size: 1rem;
+}
+
+#network-status,
+#peers,
+#document,
+#document-text {
+  margin: 1rem 0;
+  font-family: monospace;
+}
+
+.ql-editor {
+  min-height: 300px;
+  overflow-y: auto;
+  resize: vertical;
+}
