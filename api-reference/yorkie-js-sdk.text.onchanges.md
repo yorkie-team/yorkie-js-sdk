@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-onChanges(handler: (changes: Array<TextChangeWithAttrs<A>>) => void): void;
+onChanges(handler: (changes: Array<TextChange<A>>) => void): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  handler | (changes: Array&lt;TextChangeWithAttrs&lt;A&gt;&gt;) =&gt; void |  |
+|  handler | (changes: Array&lt;[TextChange](./yorkie-js-sdk.textchange.md)<!-- -->&lt;A&gt;&gt;) =&gt; void |  |
 
 <b>Returns:</b>
 

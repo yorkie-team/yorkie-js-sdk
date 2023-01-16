@@ -4,16 +4,19 @@
 
 ## TextChange type
 
+`TextChange` is the value passed as an argument to `Text.onChanges()`<!-- -->. `Text.onChanges()` is called when the `Text` is modified.
+
 <b>Signature:</b>
 
 ```typescript
-export declare type TextChange = {
+export declare type TextChange<A = Indexable> = {
     type: TextChangeType;
     actor: ActorID;
     from: number;
     to: number;
     content?: string;
+    attributes?: A;
 };
 ```
-<b>References:</b> [ActorID](./yorkie-js-sdk.actorid.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [ActorID](./yorkie-js-sdk.actorid.md)
 
