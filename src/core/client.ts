@@ -374,7 +374,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       const req = new ActivateClientRequest();
       req.setClientKey(this.key);
 
-      this.rpcClient.activateClient(req, {}, (err, res) => {
+      this.rpcClient.activateClient(req, {}, async (err, res) => {
         if (err) {
           logger.error(`[AC] c:"${this.getKey()}" err :`, err);
           reject(err);
@@ -384,7 +384,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         this.id = converter.toHexString(res.getClientId_asU8());
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
-        this.runWatchLoop();
+        await this.runWatchLoop();
 
         this.eventStreamObserver.next({
           type: ClientEventType.StatusChanged,
@@ -493,7 +493,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       req.setClientId(converter.toUint8Array(this.id!));
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
-      this.rpcClient.detachDocument(req, {}, (err, res) => {
+      this.rpcClient.detachDocument(req, {}, async (err, res) => {
         if (err) {
           logger.error(`[DD] c:"${this.getKey()}" err :`, err);
           reject(err);
@@ -506,7 +506,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         if (this.attachmentMap.has(doc.getKey())) {
           this.attachmentMap.delete(doc.getKey());
         }
-        this.runWatchLoop();
+        await this.runWatchLoop();
 
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         resolve(doc);
@@ -740,7 +740,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       req.setClient(converter.toClient(this.id!, this.presenceInfo));
       req.setDocumentKeysList(realtimeSyncDocKeys);
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const onStreamDisconnect = () => {
           this.remoteChangeEventStream = undefined;
           this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
@@ -748,7 +748,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             type: ClientEventType.StreamConnectionStatusChanged,
             value: StreamConnectionStatus.Disconnected,
           });
-          resolve();
+          reject();
         };
 
         const stream = this.rpcClient.watchDocuments(req, {});
