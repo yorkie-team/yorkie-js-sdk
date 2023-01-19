@@ -19,12 +19,16 @@ describe('Counter', function () {
       root.k1.length.increase(3.5);
     });
     assert.equal(`{"k1":{"age":6,"length":13}}`, doc.toSortedJSON());
+    assert.equal(6, doc.getRoot().k1.age?.getValue());
+    assert.equal(13, doc.getRoot().k1.length?.getValue());
 
     doc.update((root) => {
       root.k1.age?.increase(1.5).increase(1);
       root.k1.length?.increase(3.5).increase(1);
     });
     assert.equal(`{"k1":{"age":8,"length":17}}`, doc.toSortedJSON());
+    assert.equal(8, doc.getRoot().k1.age?.getValue());
+    assert.equal(17, doc.getRoot().k1.length?.getValue());
 
     // error test
     assert.Throw(() => {
@@ -33,6 +37,8 @@ describe('Counter', function () {
       });
     }, 'Unsupported type of value: boolean');
     assert.equal(`{"k1":{"age":8,"length":17}}`, doc.toSortedJSON());
+    assert.equal(8, doc.getRoot().k1.age?.getValue());
+    assert.equal(17, doc.getRoot().k1.length?.getValue());
   });
 
   it('Can handle increase operation', async function () {
