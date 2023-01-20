@@ -4,11 +4,36 @@
   width: 0.8rem;
   border-radius: 0.4rem;
 }
-.green { background-color: green }
-.red { background-color: red; }
+.green {
+  background-color: green;
+}
+.red {
+  background-color: red;
+}
 
 .ql-editor {
   min-height: 300px;
   overflow-y: auto;
   resize: vertical;
+}
+
+.wrap {
+  display: flex;
+  align-items: center;
+  margin: 1em 0;
+  padding: 2em;
+  border-radius: 1em;
+  border: 1px solid black;
+}
+#counter {
+  display: inline-block;
+  margin-right: 2rem;
+  font-size: 2rem;
+  font-weight: bold;
+}
+button {
+  margin-right: 1em;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
 }
