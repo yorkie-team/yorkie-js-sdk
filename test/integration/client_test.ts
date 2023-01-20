@@ -8,7 +8,6 @@ import yorkie, {
 import {
   createEmitterAndSpy,
   waitFor,
-  delay,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
   testRPCAddr,
@@ -197,123 +196,52 @@ describe('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can update its presence', async function () {
+  it('Eventually sync presences with its peers', async function () {
     type PresenceType = {
       name: string;
       cursor: { x: number; y: number };
     };
     const c1 = new yorkie.Client<PresenceType>(testRPCAddr, {
       presence: {
-        name: 'c1',
+        name: 'a',
         cursor: { x: 0, y: 0 },
       },
     });
     const c2 = new yorkie.Client<PresenceType>(testRPCAddr, {
       presence: {
-        name: 'c2',
+        name: 'b',
         cursor: { x: 1, y: 1 },
       },
     });
-    await c1.activate();
-    await c2.activate();
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const doc = new yorkie.Document(docKey);
 
     const [emitter1, spy1] = createEmitterAndSpy();
     const [emitter2, spy2] = createEmitterAndSpy();
-
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = new yorkie.Document(docKey);
-    const d2 = new yorkie.Document(docKey);
-
-    await c1.attach(d1);
-    await c2.attach(d2);
-
-    // Since attach's response doesn't wait for the watch ready,
-    // We need to wait here until the threshold.
-    await delay(100);
-
     const unsub1 = c1.subscribe(spy1);
     const unsub2 = c2.subscribe(spy2);
 
-    // Since `updatePresence` handles event publishing synchronously with
-    // Memory Coordinator, We need to wait for the event from the peer wihout
-    // waiting for the response of `updatePresence` here.
-    c1.updatePresence('name', 'c1+');
-    await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2.updatePresence('name', 'c2+');
-    await waitFor(ClientEventType.PeersChanged, emitter1);
-    assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
-
-    c1.updatePresence('cursor', { x: 3, y: 3 });
-    await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2.updatePresence('cursor', { x: 4, y: 4 });
-    await waitFor(ClientEventType.PeersChanged, emitter1);
-    assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
-
-    unsub1();
-    unsub2();
-
-    await c1.detach(d1);
-    await c2.detach(d2);
-    await c1.deactivate();
-    await c2.deactivate();
-  });
-
-  it('Sends peer-changed event to the user who updated presence', async function () {
-    type PresenceType = {
-      name: string;
-      cursor: { x: number; y: number };
-    };
-    const c1 = new yorkie.Client<PresenceType>(testRPCAddr, {
-      presence: {
-        name: 'c1',
-        cursor: { x: 0, y: 0 },
-      },
-    });
-    const c2 = new yorkie.Client<PresenceType>(testRPCAddr, {
-      presence: {
-        name: 'c2',
-        cursor: { x: 1, y: 1 },
-      },
-    });
     await c1.activate();
     await c2.activate();
 
-    const [emitter1, spy1] = createEmitterAndSpy();
-    const [emitter2, spy2] = createEmitterAndSpy();
+    await c1.attach(doc);
+    await c2.attach(doc);
+    await c1.updatePresence('name', 'A');
+    await c2.updatePresence('name', 'B');
+    await c2.updatePresence('name', 'Z');
+    await c1.updatePresence('cursor', { x: 2, y: 2 });
+    await c1.updatePresence('name', 'Y');
 
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
-    const d1 = new yorkie.Document(docKey);
-    const d2 = new yorkie.Document(docKey);
-
-    await c1.attach(d1);
-    await c2.attach(d2);
-
-    // Since attach's response doesn't wait for the watch ready,
-    // We need to wait here until the threshold.
-    await delay(100);
-
-    const unsub1 = c1.subscribe(spy1);
-    const unsub2 = c2.subscribe(spy2);
-
-    // Since `updatePresence` handles event publishing synchronously with
-    // Memory Coordinator, We need to wait for the event from the peer wihout
-    // waiting for the response of `updatePresence` here.
-    c1.updatePresence('name', 'c1+');
     await waitFor(ClientEventType.PeersChanged, emitter1);
-    assert.equal(c1.getPresence().name, 'c1+');
     await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2.updatePresence('name', 'c2+');
-    await waitFor(ClientEventType.PeersChanged, emitter2);
-    assert.equal(c2.getPresence().name, 'c2+');
-    await waitFor(ClientEventType.PeersChanged, emitter1);
-    assert.deepEqual(c1.getPeers(d1.getKey()), c2.getPeers(d2.getKey()));
+    assert.deepEqual(c1.getPeers(docKey), c2.getPeers(docKey));
+
+    await c1.detach(doc);
+    await c2.detach(doc);
+    await c1.deactivate();
+    await c2.deactivate();
 
     unsub1();
     unsub2();
-
-    await c1.detach(d1);
-    await c2.detach(d2);
-    await c1.deactivate();
-    await c2.deactivate();
   });
 });
