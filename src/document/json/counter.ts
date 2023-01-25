@@ -90,6 +90,7 @@ export class Counter {
       );
     }
 
+    this.counter.increase(value);
     this.context.push(
       IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
     );
