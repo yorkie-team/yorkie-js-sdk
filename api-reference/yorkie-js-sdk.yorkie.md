@@ -18,5 +18,7 @@ yorkie: {
     Document: typeof Document;
     Text: typeof Text;
     Counter: typeof Counter;
+    IntType: CounterType;
+    LongType: CounterType;
 }
 ```
