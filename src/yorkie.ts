@@ -18,6 +18,7 @@ import { Client } from '@yorkie-js-sdk/src/core/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 export {
   Client,
@@ -87,6 +88,8 @@ const yorkie = {
   Document,
   Text,
   Counter,
+  IntType: CounterType.IntegerCnt,
+  LongType: CounterType.LongCnt,
 };
 
 export default yorkie;

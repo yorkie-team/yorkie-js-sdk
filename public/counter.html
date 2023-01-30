@@ -53,7 +53,7 @@
           // 03. initialize document properties
           doc.update((root) => {
             if (!root.counter) {
-              root.counter = new yorkie.Counter(0, 0);
+              root.counter = new yorkie.Counter(yorkie.IntType, 0);
             }
           }, 'create counter if not exists');
 
@@ -71,7 +71,6 @@
 
           // 05. subscribe to document changes
           doc.subscribe((event) => {
-            console.log(event, doc.getRoot().counter);
             displayCount();
           });
 
