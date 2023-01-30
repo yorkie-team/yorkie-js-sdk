@@ -401,14 +401,14 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this array.
+   * `toJSON` returns the JSON encoding of this document.
    */
   public toJSON(): string {
     return this.root.toJSON();
   }
 
   /**
-   * `toJSON` returns the sorted JSON encoding of this array.
+   * `toSortedJSON` returns the sorted JSON encoding of this document.
    */
   public toSortedJSON(): string {
     return this.root.toSortedJSON();
