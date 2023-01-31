@@ -7,26 +7,37 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-01-31
+
+### Changed
+- Merge Text and RichText by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/425
+- Fix the value type of Counter and remove double type from Counter by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/426
+- Let Client.attach wait until stream initialization is finished by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/440
+- Add the toJS method to the ObjectProxy's handler by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/449
+
+### Fixed
+- Increase CRDT Counter in local change by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/441
+
 ## [0.2.20] - 2022-12-30
 
 ### Added
 
-Add benchmark tests by @parkeunae in #358, #359
-Add CodeMirror6 integration example by @blurfx in #394
-Add vuejs-kanban example by @hackerwins in #399
-Add profile-stack example by @chacha912 #414
+- Add benchmark tests by @parkeunae in #358, #359
+- Add CodeMirror6 integration example by @blurfx in #394
+- Add vuejs-kanban example by @hackerwins in #399
+- Add profile-stack example by @chacha912 #414
 
 ### Changed
 
-Bump socket.io-parser from 4.0.4 to 4.0.5 by @dependabot in #403
-Bump engine.io and socket.io by @dependabot in #407
-Bump express from 4.17.1 to 4.18.2 by @dependabot in #411
-Bump minimatch from 3.0.4 to 3.1.2 by @dependabot in #412
+- Bump socket.io-parser from 4.0.4 to 4.0.5 by @dependabot in #403
+- Bump engine.io and socket.io by @dependabot in #407
+- Bump express from 4.17.1 to 4.18.2 by @dependabot in #411
+- Bump minimatch from 3.0.4 to 3.1.2 by @dependabot in #412
 
 ### Fixed
 
-Fix issues identified during iOS SDK development by @hackerwins in #398
-Use uint64 for date value by @hackerwins in #408
+- Fix issues identified during iOS SDK development by @hackerwins in #398
+- Use uint64 for date value by @hackerwins in #408
 
 ## [0.2.19] - 2022-10-04
 
