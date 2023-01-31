@@ -12,7 +12,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Changed
 - Merge Text and RichText by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/425
 - Fix the value type of Counter and remove double type from Counter by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/426
-- Let Client.attach wait until stream initialization is finished by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/
+- Let Client.attach wait until stream initialization is finished by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/440
+- Add the toJS method to the ObjectProxy's handler by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/449
 
 ### Fixed
 - Increase CRDT Counter in local change by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/441
