@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-getRoot(): T;
+getRoot(): JSONObject<T>;
 ```
 <b>Returns:</b>
 
-T
+[JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->&lt;T&gt;
 

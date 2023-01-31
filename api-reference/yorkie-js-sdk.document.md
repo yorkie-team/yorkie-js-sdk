@@ -28,7 +28,7 @@ declare class Document<T> implements Observable<DocEvent>
 |  [create(key)](./yorkie-js-sdk.document.create.md) | <code>static</code> | <code>create</code> creates a new instance of Document. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> adds the given observer to the fan-out list. |
-|  [toJSON()](./yorkie-js-sdk.document.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this array. |
-|  [toSortedJSON()](./yorkie-js-sdk.document.tosortedjson.md) |  | <code>toJSON</code> returns the sorted JSON encoding of this array. |
+|  [toJSON()](./yorkie-js-sdk.document.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this document. |
+|  [toSortedJSON()](./yorkie-js-sdk.document.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of this document. |
 |  [update(updater, message)](./yorkie-js-sdk.document.update.md) |  | <code>update</code> executes the given updater to update this document. |
 

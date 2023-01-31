@@ -4,7 +4,7 @@
 
 ## Document.toSortedJSON() method
 
-`toJSON` returns the sorted JSON encoding of this array.
+`toSortedJSON` returns the sorted JSON encoding of this document.
 
 <b>Signature:</b>
 

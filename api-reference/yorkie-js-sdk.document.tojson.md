@@ -4,7 +4,7 @@
 
 ## Document.toJSON() method
 
-`toJSON` returns the JSON encoding of this array.
+`toJSON` returns the JSON encoding of this document.
 
 <b>Signature:</b>
 

@@ -12,6 +12,7 @@
 export declare type JSONObject<T> = {
     getID?(): TimeTicket;
     toJSON?(): string;
+    toJS?(): T;
 } & T;
 ```
 <b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)
