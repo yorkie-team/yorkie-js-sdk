@@ -1,4 +1,5 @@
 import { assert } from 'chai';
+import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
 import { DocEventType, Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
@@ -74,6 +75,22 @@ describe('Object', function () {
       root['k1']['k1-3'] = 'v4';
     }, 'set {"k1":{"k1-2":"v2"}}');
     assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"}}', doc.toSortedJSON());
+  });
+
+  it('should support toJS and toJSON methods', function () {
+    const doc = Document.create<{
+      content: JSONObject<{ a: number; b: number; c: number }>;
+    }>('test-doc');
+    doc.update((root) => {
+      root.content = { a: 1, b: 2, c: 3 };
+    }, 'set a, b, c');
+    assert.equal(doc.toSortedJSON(), '{"content":{"a":1,"b":2,"c":3}}');
+
+    const root = doc.getRoot();
+    assert.equal(root.toJSON!(), '{"content":{"a":1,"b":2,"c":3}}');
+    assert.deepEqual(root.toJS!(), { content: { a: 1, b: 2, c: 3 } });
+    assert.equal(root.content.toJSON!(), '{"a":1,"b":2,"c":3}');
+    assert.deepEqual(root.content.toJS!(), { a: 1, b: 2, c: 3 });
   });
 
   it('Object.keys, Object.values and Object.entries test', function () {

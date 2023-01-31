@@ -48,6 +48,11 @@ export type JSONObject<T> = {
    * `toJSON` returns the JSON encoding of this object.
    */
   toJSON?(): string;
+
+  /**
+   * `toJS` returns the JSON object of this object.
+   */
+  toJS?(): T;
 } & T;
 
 /**

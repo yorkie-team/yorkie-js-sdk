@@ -363,7 +363,7 @@ export class Document<T> implements Observable<DocEvent> {
   /**
    * `getRoot` returns a new proxy of cloned root.
    */
-  public getRoot(): T {
+  public getRoot(): JSONObject<T> {
     this.ensureClone();
 
     const context = ChangeContext.create(this.changeID.next(), this.clone!);
