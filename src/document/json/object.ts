@@ -48,6 +48,11 @@ export type JSONObject<T> = {
    * `toJSON` returns the JSON encoding of this object.
    */
   toJSON?(): string;
+
+  /**
+   * `toJS` returns the JSON object of this object.
+   */
+  toJS?(): T;
 } & T;
 
 /**
@@ -95,6 +100,10 @@ export class ObjectProxy {
         } else if (keyOrMethod === 'toJSON' || keyOrMethod === 'toString') {
           return (): string => {
             return target.toJSON();
+          };
+        } else if (keyOrMethod === 'toJS') {
+          return (): object => {
+            return target.toJS();
           };
         }
 
