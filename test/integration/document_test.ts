@@ -4,6 +4,7 @@ import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper'
 import {
   createEmitterAndSpy,
   waitFor,
+  delay,
 } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Document', function () {
@@ -40,6 +41,39 @@ describe('Document', function () {
 
     await client1.deactivate();
     await client2.deactivate();
+  });
+
+  it.only('Can attach/detach multiple documents', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const d1 = new yorkie.Document<{ k1: string }>('doc1');
+    const d2 = new yorkie.Document<{ k1: string }>('doc2');
+
+    await c1.attach(d1);
+    await c2.attach(d1);
+    await delay(1000);
+    await c1.attach(d2);
+
+    d1.update((root) => {
+      root.k1 = 'v1';
+    }, 'set k1');
+    assert.equal(d1.toSortedJSON(), '{"k1":"v1"}');
+
+    await c1.detach(d1);
+    await c2.detach(d1);
+    await c1.detach(d2);
+
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    await c1.detach(d1);
+    await c2.detach(d2);
+
+    await c1.deactivate();
+    await c2.deactivate();
   });
 
   it('Can watch documents', async function () {
