@@ -1,20 +1,20 @@
+body {
+  background: white;
+}
+
 #network-status span {
   display: inline-block;
   height: 0.8rem;
   width: 0.8rem;
   border-radius: 0.4rem;
 }
+
 .green {
   background-color: green;
 }
+
 .red {
   background-color: red;
-}
-
-.ql-editor {
-  min-height: 300px;
-  overflow-y: auto;
-  resize: vertical;
 }
 
 .wrap {
@@ -25,15 +25,54 @@
   border-radius: 1em;
   border: 1px solid black;
 }
+
 #counter {
   display: inline-block;
   margin-right: 2rem;
   font-size: 2rem;
   font-weight: bold;
 }
+
 button {
   margin-right: 1em;
   width: 30px;
   height: 30px;
   cursor: pointer;
+}
+
+#network-status:before {
+  content: 'network: ';
+  font-size: 1rem;
+}
+
+#peers:before {
+  display: block;
+  content: 'peers: ';
+  font-size: 1rem;
+}
+
+#document:before {
+  display: block;
+  content: 'document: ';
+  font-size: 1rem;
+}
+
+#document-text:before {
+  display: block;
+  content: 'text: ';
+  font-size: 1rem;
+}
+
+#network-status,
+#peers,
+#document,
+#document-text {
+  margin: 1rem 0;
+  font-family: monospace;
+}
+
+.ql-editor {
+  min-height: 300px;
+  overflow-y: auto;
+  resize: vertical;
 }
