@@ -13,9 +13,6 @@ async function main() {
   await client.activate();
   const myClientID = client.getID();
 
-  const doc = new yorkie.Document('profile-stack');
-  await client.attach(doc);
-
   client.subscribe((event) => {
     if (event.type === 'peers-changed') {
       // get presence of all clients connected to the Document.
@@ -26,6 +23,9 @@ async function main() {
       displayPeerList(peers, myClientID);
     }
   });
+
+  const doc = new yorkie.Document('profile-stack');
+  await client.attach(doc);
 
   window.addEventListener('beforeunload', () => {
     client.deactivate();

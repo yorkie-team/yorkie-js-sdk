@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { Document, Indexable, RichText } from 'yorkie-js-sdk';
+import { Document, Indexable, Text } from 'yorkie-js-sdk';
 
 // function to display peers
 export function displayPeers(
@@ -19,7 +19,7 @@ export function displayPeers(
 }
 
 // function to display document content
-export function displayLog<T extends { content: RichText }>(
+export function displayLog<T extends { content: Text }>(
   elem: HTMLElement,
   textElem: HTMLElement,
   doc: Document<T>,

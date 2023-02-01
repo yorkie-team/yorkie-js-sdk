@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Quill Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yorkie + Quill Example</title>
     <link
       href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
       rel="stylesheet"
@@ -14,70 +15,56 @@
     <script src="https://cdn.jsdelivr.net/npm/short-unique-id@latest/dist/short-unique-id.min.js"></script>
   </head>
   <body>
-    <div>status: <span id="network-status"></span></div>
-    <div id="toolbar"></div>
+    <div id="network-status"></div>
     <div id="editor"></div>
-    <div>peers:</div>
-    <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
-    <div>document:</div>
-    <pre style="white-space: pre-wrap"><code id="log-holder"></code></pre>
-    <div>text:</div>
-    <pre style="white-space: pre-wrap"><code id="text-log-holder"></code></pre>
+    <div id="peers"></div>
+    <div id="document"></div>
+    <div id="document-text"></div>
 
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
+      const peersElem = document.getElementById('peers');
+      const documentElem = document.getElementById('document');
+      const documentTextElem = document.getElementById('document-text');
+      const networkStatusElem = document.getElementById('network-status');
       const shortUniqueID = new ShortUniqueId();
-      const statusHolder = document.getElementById('network-status');
-      const peersHolder = document.getElementById('peers-holder');
-      const logHolder = document.getElementById('log-holder');
-      const textLogHolder = document.getElementById('text-log-holder');
       const colorHash = new ColorHash();
+      const documentKey = 'quill';
 
-      function displayLog(doc) {
-        logHolder.innerText = doc.toJSON();
-        textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
+      function displayLog(elem, textElem, doc) {
+        elem.innerText = doc.toJSON();
+        textElem.innerText = doc.getRoot().content.getStructureAsString();
       }
 
-      function toDelta(change) {
-        const { embed, ...attributes } = change.attributes ?? {};
+      function toDeltaOperation(textValue) {
+        const { embed, ...restAttributes } = textValue.attributes ?? {};
 
-        const delta = embed
-          ? { insert: JSON.parse(embed), attributes }
-          : {
-              insert: change.content || '',
-              attributes: change.attributes,
-            };
-        return delta;
-      }
-
-      function toDeltaList(doc) {
-        const obj = doc.getRoot();
-        const deltas = [];
-        for (const val of obj.content.values()) {
-          deltas.push(toDelta(val));
+        if (embed) {
+          return { insert: JSON.parse(embed), attributes: restAttributes }
         }
-        return deltas;
+
+        return {
+          insert: textValue.value || '',
+          attributes: textValue.attributes,
+        };
       }
 
-      function displayPeers(peers, username) {
+      function displayPeers(elem, peers, clientID) {
         const usernames = [];
-
-        for (const [_, peer] of Object.entries(peers)) {
-          usernames.push(peer['username']);
+        for (const [clientID, presence] of Object.entries(peers)) {
+          usernames.push(
+            clientID === clientID ? `<b>${presence.username}</b>` : presence.username,
+          );
         }
-
-        peersHolder.innerHTML = JSON.stringify(usernames).replace(
-          username,
-          `<b>${username}</b>`,
-        );
+        elem.innerHTML = JSON.stringify(usernames);
       }
 
       function findDefectors(peers, newPeers) {
         const usernames = [];
-        for (const [clientID, peer] of Object.entries(peers)) {
+        for (const [clientID, presence] of Object.entries(peers)) {
           if (!newPeers[clientID]) {
-            usernames.push(peer['username']);
+            usernames.push(presence.username);
           }
         }
         return usernames;
@@ -86,19 +73,18 @@
       async function main() {
         try {
           let peers;
-          const presence = { username: `username-${shortUniqueID()}` };
 
-          // 01. create client with RPCAddr(envoy) then activate it.
+          // 01-1. create client with RPCAddr(envoy) then activate it.
           const client = new yorkie.Client('http://localhost:8080', {
-            presence,
-            syncLoopDuration: 50,
-            reconnectStreamDelay: 1000,
+            presence: {
+              username: `username-${shortUniqueID()}`,
+            },
           });
-          client.subscribe(network.statusListener(statusHolder));
           await client.activate();
 
           // 01-2. subscribe client event.
           client.subscribe((event) => {
+            network.statusListener(networkStatusElem)(event);
             if (event.type === 'peers-changed') {
               const newPeers = event.value[doc.getKey()];
               if (peers) {
@@ -107,17 +93,18 @@
                 }
               }
               peers = newPeers;
-              displayPeers(peers, presence['username']);
+              displayPeers(peersElem, event.value[doc.getKey()], client.getID() || '');
             }
           });
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('quill');
+          const doc = new yorkie.Document(documentKey);
           await client.attach(doc);
 
           doc.update((root) => {
             if (!root.content) {
               root.content = new yorkie.Text();
+              root.content.edit(0, 0, '\n');
             }
           }, 'create content if not exists');
 
@@ -127,7 +114,7 @@
               // The text is replaced to snapshot and must be re-synced.
               syncText();
             }
-            displayLog(doc);
+            displayLog(documentElem, documentTextElem, doc);
           });
           await client.sync();
 
@@ -160,8 +147,8 @@
           // 04. bind the document with the Quill.
           // 04-1. Quill to Document.
           quill
-            .on('text-change', (delta, oldDelta, source) => {
-              if (source === 'yorkie' || !delta.ops) {
+            .on('text-change', (delta, _, source) => {
+              if (source === 'api' || !delta.ops) {
                 return;
               }
 
@@ -218,8 +205,8 @@
                 }
               }
             })
-            .on('selection-change', (range, oldRange, source) => {
-              if (source === 'yorkie' || source === 'api' || !range) {
+            .on('selection-change', (range, _, source) => {
+              if (source === 'api' || !range) {
                 return;
               }
 
@@ -230,7 +217,7 @@
 
           // 04-2. document to Quill(remote).
           function changeEventHandler(changes) {
-            const delta = [];
+            const deltaOperations = [];
             let prevTo = 0;
             for (const change of changes) {
               const actor = change.actor;
@@ -245,34 +232,34 @@
               const retainTo = to - from;
 
               if (change.type === 'content') {
-                const { insert, attributes } = toDelta(change);
+                const { insert, attributes } = toDeltaOperation(change);
                 console.log(
                   `%c remote: ${from}-${to}: ${insert}`,
                   'color: skyblue',
                 );
 
                 if (retainFrom) {
-                  delta.push({ retain: retainFrom });
+                  deltaOperations.push({ retain: retainFrom });
                 }
                 if (retainTo) {
-                  delta.push({ delete: retainTo });
+                  deltaOperations.push({ delete: retainTo });
                 }
                 if (insert) {
                   const op = { insert };
                   if (attributes) {
                     op.attributes = attributes;
                   }
-                  delta.push(op);
+                  deltaOperations.push(op);
                 }
               } else if (change.type === 'style') {
-                const { attributes } = toDelta(change);
+                const { attributes } = toDeltaOperation(change);
                 console.log(
                   `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
                   'color: skyblue',
                 );
 
                 if (retainFrom) {
-                  delta.push({ retain: retainFrom });
+                  deltaOperations.push({ retain: retainFrom });
                 }
                 if (attributes) {
                   const op = { attributes };
@@ -280,7 +267,7 @@
                     op.retain = retainTo;
                   }
 
-                  delta.push(op);
+                  deltaOperations.push(op);
                 }
               } else if (change.type === 'selection') {
                 cursors.createCursor(
@@ -297,12 +284,12 @@
               prevTo = to;
             }
 
-            if (delta.length) {
+            if (deltaOperations.length) {
               console.log(
-                `%c to quill: ${JSON.stringify(delta)}`,
+                `%c to quill: ${JSON.stringify(deltaOperations)}`,
                 'color: green',
               );
-              quill.updateContents(delta, 'yorkie');
+              quill.updateContents({ ops: deltaOperations }, 'api');
             }
           }
 
@@ -310,16 +297,15 @@
           function syncText() {
             const text = doc.getRoot().content;
             text.onChanges(changeEventHandler);
-            quill.setContents(
-              {
-                ops: toDeltaList(doc),
-              },
-              'yorkie',
-            );
-          }
-          syncText();
 
-          displayLog(doc);
+            const delta = {
+              ops: text.values().map((val) => toDeltaOperation(val)),
+            };
+            quill.setContents(delta, 'api');
+          }
+
+          syncText();
+          displayLog(documentElem, documentTextElem, doc);
         } catch (e) {
           console.error(e);
         }

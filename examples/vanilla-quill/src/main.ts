@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { type TextChange, RichText, Indexable } from 'yorkie-js-sdk';
+import yorkie, { type TextChange, Text, Indexable } from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
 import ShortUniqueId from 'short-unique-id';
@@ -10,15 +10,13 @@ import 'quill/dist/quill.snow.css';
 import './style.css';
 
 type YorkieDoc = {
-  content: RichText;
+  content: Text;
 };
 
-type RichTextVal = {
+type TextVal = {
   attributes?: Indexable;
-  content?: string;
+  value?: string;
 };
-
-type RichTextChange = Array<TextChange & { attributes?: Indexable }>;
 
 const peersElem = document.getElementById('peers')!;
 const documentElem = document.getElementById('document')!;
@@ -26,18 +24,17 @@ const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
 const shortUniqueID = new ShortUniqueId();
 const colorHash = new ColorHash();
+const documentKey = 'quill';
 
-function toDeltaOperation<T extends RichTextVal>(
-  richTextValue: T,
-): DeltaOperation {
-  const { embed, ...restAttributes } = richTextValue.attributes ?? {};
+function toDeltaOperation<T extends TextVal>(textValue: T): DeltaOperation {
+  const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
     return { insert: JSON.parse(embed), attributes: restAttributes };
   }
 
   return {
-    insert: richTextValue.content || '',
-    attributes: richTextValue.attributes,
+    insert: textValue.value || '',
+    attributes: textValue.attributes,
   };
 }
 
@@ -57,7 +54,7 @@ function findDefectors(
 async function main() {
   let peers: Record<string, Indexable>;
 
-  // 01. create client with RPCAddr(envoy) then activate it.
+  // 01-1. create client with RPCAddr(envoy) then activate it.
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
     presence: {
@@ -82,12 +79,13 @@ async function main() {
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>('vanilla-quill');
+  const doc = new yorkie.Document<YorkieDoc>(documentKey);
   await client.attach(doc);
 
   doc.update((root) => {
     if (!root.content) {
-      root.content = new yorkie.RichText();
+      root.content = new yorkie.Text();
+      root.content.edit(0, 0, '\n');
     }
   }, 'create content if not exists');
 
@@ -193,7 +191,7 @@ async function main() {
     });
 
   // 04-2. document to Quill(remote).
-  function changeEventHandler(changes: RichTextChange) {
+  function changeEventHandler(changes: Array<TextChange>) {
     const deltaOperations = [];
     let prevTo = 0;
     for (const change of changes) {
@@ -276,6 +274,7 @@ async function main() {
     } as DeltaStatic;
     quill.setContents(delta, 'api');
   }
+
   syncText();
   displayLog(documentElem, documentTextElem, doc);
 }
