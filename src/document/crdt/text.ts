@@ -32,7 +32,7 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  * @internal
  */
 export enum TextChangeType {
-  Content = 'content',
+  Value = 'value',
   Selection = 'selection',
   Style = 'style',
 }
@@ -46,7 +46,7 @@ export type TextChange<A = Indexable> = {
   actor: ActorID;
   from: number;
   to: number;
-  content?: string;
+  value?: string;
   attributes?: A;
 };
 
@@ -207,7 +207,7 @@ export class CRDTText<A> extends CRDTTextElement {
 
     const changes: Array<TextChange<A>> = contentChanges.map((change) => ({
       ...change,
-      type: TextChangeType.Content,
+      type: TextChangeType.Value,
     }));
     if (value && attributes) {
       const change = changes[changes.length - 1];
