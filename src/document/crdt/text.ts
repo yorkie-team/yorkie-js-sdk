@@ -207,6 +207,7 @@ export class CRDTText<A> extends CRDTTextElement {
 
     const changes: Array<TextChange<A>> = contentChanges.map((change) => ({
       ...change,
+      value: change.content,
       type: TextChangeType.Value,
     }));
     if (value && attributes) {
