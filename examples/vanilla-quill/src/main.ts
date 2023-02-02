@@ -206,7 +206,7 @@ async function main() {
       const retainFrom = from - prevTo;
       const retainTo = to - from;
 
-      if (change.type === 'content') {
+      if (change.type === 'value') {
         const { insert, attributes } = toDeltaOperation(change);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
