@@ -45,7 +45,7 @@
         }
 
         return {
-          insert: textValue.value || '',
+          insert: textValue.text || '',
           attributes: textValue.attributes,
         };
       }
@@ -231,8 +231,8 @@
               const retainFrom = from - prevTo;
               const retainTo = to - from;
 
-              if (change.type === 'content') {
-                const { insert, attributes } = toDeltaOperation(change);
+              if (change.type === 'text') {
+                const { insert, attributes } = toDeltaOperation(change.value);
                 console.log(
                   `%c remote: ${from}-${to}: ${insert}`,
                   'color: skyblue',
@@ -252,7 +252,7 @@
                   deltaOperations.push(op);
                 }
               } else if (change.type === 'style') {
-                const { attributes } = toDeltaOperation(change);
+                const { attributes } = toDeltaOperation(change.value);
                 console.log(
                   `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
                   'color: skyblue',

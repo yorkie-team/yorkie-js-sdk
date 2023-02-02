@@ -15,7 +15,6 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -23,6 +22,7 @@ import {
   RGATreeSplit,
   RGATreeSplitNodeRange,
   Selection,
+  ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
@@ -32,64 +32,66 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  * @internal
  */
 export enum TextChangeType {
-  Content = 'content',
+  Text = 'text',
   Selection = 'selection',
   Style = 'style',
+}
+
+/**
+ * `CRDTTextValueType` is a value of Text
+ * which has a attributes that expresses the text style.
+ * Attributes are represented by Indexable generic type.
+ */
+export interface CRDTTextValueType<A = Indexable> {
+  attributes?: A;
+  text?: string;
 }
 
 /**
  * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  */
-export type TextChange<A = Indexable> = {
+export interface TextChange<A = Indexable>
+  extends ValueChange<CRDTTextValueType<A>> {
   type: TextChangeType;
-  actor: ActorID;
-  from: number;
-  to: number;
-  content?: string;
-  attributes?: A;
-};
-
-export interface CRDTTextVal<A> {
-  attributes: A;
-  value: string;
 }
 
 /**
  * `CRDTTextValue` is a value of Text
  * which has a attributes that expresses the text style.
+ * Attributes are represented by RHT.
  *
  * @internal
  */
 export class CRDTTextValue {
   private attributes: RHT;
-  private value: string;
+  private text: string;
 
   /** @hideconstructor */
-  constructor(value: string) {
+  constructor(text: string) {
     this.attributes = RHT.create();
-    this.value = value;
+    this.text = text;
   }
 
   /**
    * `create` creates a instance of CRDTTextValue.
    */
-  public static create(value: string): CRDTTextValue {
-    return new CRDTTextValue(value);
+  public static create(text: string): CRDTTextValue {
+    return new CRDTTextValue(text);
   }
 
   /**
    * `length` returns the length of value.
    */
   public get length(): number {
-    return this.value.length;
+    return this.text.length;
   }
 
   /**
    * `substring` returns a sub-string value of the given range.
    */
   public substring(indexStart: number, indexEnd: number): CRDTTextValue {
-    const value = new CRDTTextValue(this.value.substring(indexStart, indexEnd));
+    const value = new CRDTTextValue(this.text.substring(indexStart, indexEnd));
     value.attributes = this.attributes.deepcopy();
     return value;
   }
@@ -97,8 +99,8 @@ export class CRDTTextValue {
   /**
    * `setAttr` sets attribute of the given key, updated time and value.
    */
-  public setAttr(key: string, value: string, updatedAt: TimeTicket): void {
-    this.attributes.set(key, value, updatedAt);
+  public setAttr(key: string, text: string, updatedAt: TimeTicket): void {
+    this.attributes.set(key, text, updatedAt);
   }
 
   /**
@@ -112,14 +114,14 @@ export class CRDTTextValue {
    * `toString` returns the string representation of this value.
    */
   public toString(): string {
-    return this.value;
+    return this.text;
   }
 
   /**
    * `toJSON` returns the JSON encoding of this value.
    */
   public toJSON(): string {
-    const content = escapeString(this.value);
+    const content = escapeString(this.text);
     const attrsObj = this.attributes.toObject();
     const attrs = [];
     for (const [key, v] of Object.entries(attrsObj)) {
@@ -145,10 +147,10 @@ export class CRDTTextValue {
   }
 
   /**
-   * `getValue` returns the internal value.
+   * `getText` returns the internal text.
    */
-  public getValue(): string {
-    return this.value;
+  public getText(): string {
+    return this.text;
   }
 }
 
@@ -157,7 +159,7 @@ export class CRDTTextValue {
  *
  * @internal
  */
-export class CRDTText<A> extends CRDTTextElement {
+export class CRDTText<A = Indexable> extends CRDTTextElement {
   private onChangesHandler?: (changes: Array<TextChange<A>>) => void;
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
   private selectionMap: Map<string, Selection>;
@@ -176,7 +178,7 @@ export class CRDTText<A> extends CRDTTextElement {
   /**
    * `create` a instance of Text.
    */
-  public static create<A>(
+  public static create<A = Indexable>(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
     createdAt: TimeTicket,
   ): CRDTText<A> {
@@ -190,29 +192,35 @@ export class CRDTText<A> extends CRDTTextElement {
    */
   public edit(
     range: RGATreeSplitNodeRange,
-    value: string,
+    text: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
-    const val = value ? CRDTTextValue.create(value) : undefined;
-    if (value && attributes) {
+    const crdtTextValue = text ? CRDTTextValue.create(text) : undefined;
+    if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
-        val!.setAttr(k, v, editedAt);
+        crdtTextValue.setAttr(k, v, editedAt);
       }
     }
 
-    const [caretPos, latestCreatedAtMap, contentChanges] =
-      this.rgaTreeSplit.edit(range, editedAt, val, latestCreatedAtMapByActor);
+    const [caretPos, latestCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
+      range,
+      editedAt,
+      crdtTextValue,
+      latestCreatedAtMapByActor,
+    );
 
-    const changes: Array<TextChange<A>> = contentChanges.map((change) => ({
+    const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
-      type: TextChangeType.Content,
+      value: change.value
+        ? {
+            attributes: change.value.getAttributes() as A,
+            text: change.value.getText(),
+          }
+        : undefined,
+      type: TextChangeType.Text,
     }));
-    if (value && attributes) {
-      const change = changes[changes.length - 1];
-      change.attributes = this.parseAttributes(attributes);
-    }
 
     const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
     if (selectionChange) {
@@ -251,7 +259,7 @@ export class CRDTText<A> extends CRDTTextElement {
     );
 
     // 02. style nodes between from and to
-    const changes = [];
+    const changes: Array<TextChange<A>> = [];
     const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
     for (const node of nodes) {
       if (node.isRemoved()) {
@@ -266,7 +274,10 @@ export class CRDTText<A> extends CRDTTextElement {
         actor: editedAt.getActorID()!,
         from: fromIdx,
         to: toIdx,
-        attributes: this.parseAttributes(attributes),
+        value: {
+          attributes: this.parseAttributes(attributes) as A,
+          text: undefined,
+        },
       });
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -370,9 +381,9 @@ export class CRDTText<A> extends CRDTTextElement {
   }
 
   /**
-   * `values` returns value array of this CRDTTextVal.
+   * `values` returns the text-attributes pair array of this text.
    */
-  public values(): Array<CRDTTextVal<A>> {
+  public values(): Array<CRDTTextValueType<A>> {
     const values = [];
 
     for (const node of this.rgaTreeSplit) {
@@ -380,7 +391,7 @@ export class CRDTText<A> extends CRDTTextElement {
         const value = node.getValue();
         values.push({
           attributes: this.parseAttributes(value.getAttributes()),
-          value: value.getValue(),
+          text: value.getText(),
         });
       }
     }

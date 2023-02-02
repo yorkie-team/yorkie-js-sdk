@@ -13,9 +13,11 @@ type YorkieDoc = {
   content: Text;
 };
 
+// TODO: unify 'value' and 'content to 'text' at 0.3.1
 type TextVal = {
   attributes?: Indexable;
   value?: string;
+  content?: string;
 };
 
 const peersElem = document.getElementById('peers')!;
@@ -33,7 +35,8 @@ function toDeltaOperation<T extends TextVal>(textValue: T): DeltaOperation {
   }
 
   return {
-    insert: textValue.value || '',
+    // TODO: change 'value' to 'text' at 0.3.1
+    insert: textValue.value || textValue.content || '',
     attributes: textValue.attributes,
   };
 }
@@ -206,7 +209,9 @@ async function main() {
       const retainFrom = from - prevTo;
       const retainTo = to - from;
 
+      // TODO: change 'content' to 'text' at 0.3.1
       if (change.type === 'content') {
+        // TODO: change 'change' to 'change.value' at 0.3.1
         const { insert, attributes } = toDeltaOperation(change);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
@@ -224,6 +229,7 @@ async function main() {
           deltaOperations.push(op);
         }
       } else if (change.type === 'style') {
+        // TODO: change 'change' to 'change.value' at 0.3.1
         const { attributes } = toDeltaOperation(change);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
