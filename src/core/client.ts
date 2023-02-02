@@ -660,7 +660,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   ): Record<string, Record<string, P>> => {
     const attachment = this.attachmentMap.get(key);
     const peers: Record<string, P> = {};
-    for (const [key, value] of attachment!.peerPresenceMap!) {
+    if (!attachment) {
+      return peersMap;
+    }
+    for (const [key, value] of attachment.peerPresenceMap!) {
       peers[key] = value.data;
     }
     peersMap[key] = peers;
@@ -803,7 +806,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       pbWatchEvent.getPublisher()!.getPresence()!,
     );
     for (const key of respKeys) {
-      const attachment = this.attachmentMap.get(key)!;
+      const attachment = this.attachmentMap.get(key);
+      if (!attachment) continue;
       const peerPresenceMap = attachment.peerPresenceMap!;
       switch (pbWatchEvent.getType()) {
         case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:

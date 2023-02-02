@@ -54,6 +54,7 @@ describe('Document', function () {
 
     await c1.attach(d1);
     await c2.attach(d1);
+    // The timing of attaching the document can differ.
     await delay(1000);
     await c1.attach(d2);
 
