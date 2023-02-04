@@ -228,6 +228,34 @@ describe('Text', function () {
     );
   });
 
+  it('should handle text delete operations', function () {
+    const doc = Document.create<{ k1: Text }>('test-doc');
+    doc.update((root) => {
+      root.k1 = new Text();
+      root.k1.edit(0, 0, 'ABCD');
+    }, 'set ABCD');
+    assert.equal(doc.getRoot().k1.toString(), `ABCD`);
+
+    doc.update((root) => {
+      root.k1.delete(1, 3);
+    }, 'delete BC');
+    assert.equal(doc.getRoot().k1.toString(), `AD`);
+  });
+
+  it('should handle text empty operations', function () {
+    const doc = Document.create<{ k1: Text }>('test-doc');
+    doc.update((root) => {
+      root.k1 = new Text();
+      root.k1.edit(0, 0, 'ABCD');
+    }, 'set ABCD');
+    assert.equal(doc.getRoot().k1.toString(), `ABCD`);
+
+    doc.update((root) => {
+      root.k1.empty();
+    }, 'empty');
+    assert.equal(doc.getRoot().k1.toString(), ``);
+  });
+
   it('should handle concurrent edit operations', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {

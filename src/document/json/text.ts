@@ -112,6 +112,20 @@ export class Text<A = Indexable> {
   }
 
   /**
+   * `delete` deletes the text in the given range.
+   */
+  delete(fromIdx: number, toIdx: number): boolean {
+    return this.edit(fromIdx, toIdx, '');
+  }
+
+  /**
+   * `empty` makes the text empty.
+   */
+  empty(): boolean {
+    return this.edit(0, this.length, '');
+  }
+
+  /**
    * `setStyle` styles this text with the given attributes.
    */
   setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
