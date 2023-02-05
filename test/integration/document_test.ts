@@ -1,10 +1,12 @@
 import { assert } from 'chai';
-import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, {
+  DocEventType,
+  ClientEventType,
+} from '@yorkie-js-sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
   createEmitterAndSpy,
   waitFor,
-  delay,
 } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Document', function () {
@@ -43,38 +45,34 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
-  it.only('Can attach/detach multiple documents', async function () {
+  it('Can attach multiple documents', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
+
+    const [emitter1, spy1] = createEmitterAndSpy();
+    const unsub1 = c1.subscribe(spy1);
+
     await c1.activate();
     await c2.activate();
 
-    const d1 = new yorkie.Document<{ k1: string }>('doc1');
-    const d2 = new yorkie.Document<{ k1: string }>('doc2');
+    const d1Key = 'doc1';
+    const d2Key = 'doc2';
+    const c1_d1 = new yorkie.Document<{ k1: string }>(d1Key);
+    const c1_d2 = new yorkie.Document<{ k1: string }>(d2Key);
+    const c2_d1 = new yorkie.Document<{ k1: string }>(d1Key);
 
-    await c1.attach(d1);
-    await c2.attach(d1);
+    await c1.attach(c1_d1);
+    await c2.attach(c2_d1);
+    await waitFor(ClientEventType.PeersChanged, emitter1);
+
     // The timing of attaching the document can differ.
-    await delay(1000);
-    await c1.attach(d2);
-
-    d1.update((root) => {
-      root.k1 = 'v1';
-    }, 'set k1');
-    assert.equal(d1.toSortedJSON(), '{"k1":"v1"}');
-
-    await c1.detach(d1);
-    await c2.detach(d1);
-    await c1.detach(d2);
-
-    await c1.attach(d1);
-    await c2.attach(d2);
-
-    await c1.detach(d1);
-    await c2.detach(d2);
+    await c1.attach(c1_d2);
+    assert.deepEqual(c1.getPeers(d1Key), c2.getPeers(d1Key));
 
     await c1.deactivate();
     await c2.deactivate();
+
+    unsub1();
   });
 
   it('Can watch documents', async function () {
