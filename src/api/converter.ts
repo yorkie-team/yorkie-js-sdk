@@ -994,17 +994,39 @@ function objectToBytes(obj: CRDTObject): Uint8Array {
 }
 
 /**
+ * `bytesToHex` creates an hex string from the given byte array.
+ */
+function bytesToHex(bytes?: Uint8Array): string {
+  if (!bytes) {
+    return '';
+  }
+
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
  * `toHexString` converts the given byte array to hex string.
  */
 function toHexString(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('hex');
+  return bytesToHex(bytes);
+}
+
+/**
+ * `hexToBytes` converts the given hex string to byte array.
+ */
+function hexToBytes(hex: string): Uint8Array {
+  return new Uint8Array(
+    hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
+  );
 }
 
 /**
  * `toUnit8Array` converts the given hex string to byte array.
  */
 function toUint8Array(hex: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
+  return hexToBytes(hex);
 }
 
 /**
