@@ -15,6 +15,8 @@
  */
 
 const path = require('path');
+const webpack = require('webpack');
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 const WebpackBundleAnalyzer = require('webpack-bundle-analyzer');
 
 module.exports = {
@@ -71,5 +73,8 @@ module.exports = {
       },
     },
   },
-  plugins: [new WebpackBundleAnalyzer.BundleAnalyzerPlugin()],
+  plugins: [
+    new WebpackBundleAnalyzer.BundleAnalyzerPlugin(),
+    new NodePolyfillPlugin(),
+  ],
 };
