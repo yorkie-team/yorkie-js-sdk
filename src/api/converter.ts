@@ -73,6 +73,7 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Indexable } from '../yorkie';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
@@ -913,7 +914,9 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
 /**
  * `fromText` converts the given Protobuf format to model format.
  */
-function fromText<A>(pbText: PbJSONElement.Text): CRDTText<A> {
+function fromText<A extends Indexable>(
+  pbText: PbJSONElement.Text,
+): CRDTText<A> {
   const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
