@@ -431,7 +431,7 @@ function toTextNodes(
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue().getText());
+    pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();

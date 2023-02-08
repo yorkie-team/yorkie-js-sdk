@@ -32,7 +32,7 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
  * @internal
  */
 export enum TextChangeType {
-  Text = 'text',
+  Content = 'content',
   Selection = 'selection',
   Style = 'style',
 }
@@ -44,7 +44,7 @@ export enum TextChangeType {
  */
 export interface CRDTTextValueType<A extends Indexable = Indexable> {
   attributes?: A;
-  text?: string;
+  content?: string;
 }
 
 /**
@@ -65,33 +65,35 @@ export interface TextChange<A extends Indexable = Indexable>
  */
 export class CRDTTextValue {
   private attributes: RHT;
-  private text: string;
+  private content: string;
 
   /** @hideconstructor */
-  constructor(text: string) {
+  constructor(content: string) {
     this.attributes = RHT.create();
-    this.text = text;
+    this.content = content;
   }
 
   /**
    * `create` creates a instance of CRDTTextValue.
    */
-  public static create(text: string): CRDTTextValue {
-    return new CRDTTextValue(text);
+  public static create(content: string): CRDTTextValue {
+    return new CRDTTextValue(content);
   }
 
   /**
    * `length` returns the length of value.
    */
   public get length(): number {
-    return this.text.length;
+    return this.content.length;
   }
 
   /**
    * `substring` returns a sub-string value of the given range.
    */
   public substring(indexStart: number, indexEnd: number): CRDTTextValue {
-    const value = new CRDTTextValue(this.text.substring(indexStart, indexEnd));
+    const value = new CRDTTextValue(
+      this.content.substring(indexStart, indexEnd),
+    );
     value.attributes = this.attributes.deepcopy();
     return value;
   }
@@ -99,8 +101,8 @@ export class CRDTTextValue {
   /**
    * `setAttr` sets attribute of the given key, updated time and value.
    */
-  public setAttr(key: string, text: string, updatedAt: TimeTicket): void {
-    this.attributes.set(key, text, updatedAt);
+  public setAttr(key: string, content: string, updatedAt: TimeTicket): void {
+    this.attributes.set(key, content, updatedAt);
   }
 
   /**
@@ -114,14 +116,14 @@ export class CRDTTextValue {
    * `toString` returns the string representation of this value.
    */
   public toString(): string {
-    return this.text;
+    return this.content;
   }
 
   /**
    * `toJSON` returns the JSON encoding of this value.
    */
   public toJSON(): string {
-    const content = escapeString(this.text);
+    const content = escapeString(this.content);
     const attrsObj = this.attributes.toObject();
     const attrs = [];
     for (const [key, v] of Object.entries(attrsObj)) {
@@ -147,10 +149,10 @@ export class CRDTTextValue {
   }
 
   /**
-   * `getText` returns the internal text.
+   * `getContent` returns the internal content.
    */
-  public getText(): string {
-    return this.text;
+  public getContent(): string {
+    return this.content;
   }
 }
 
@@ -192,12 +194,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
    */
   public edit(
     range: RGATreeSplitNodeRange,
-    text: string,
+    content: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Map<string, TimeTicket> {
-    const crdtTextValue = text ? CRDTTextValue.create(text) : undefined;
+    const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
         crdtTextValue.setAttr(k, v, editedAt);
@@ -216,10 +218,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       value: change.value
         ? {
             attributes: change.value.getAttributes() as A,
-            text: change.value.getText(),
+            content: change.value.getContent(),
           }
-        : undefined,
-      type: TextChangeType.Text,
+        : {
+            attributes: undefined,
+            content: '',
+          },
+      type: TextChangeType.Content,
     }));
 
     const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
@@ -276,7 +281,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
         to: toIdx,
         value: {
           attributes: this.parseAttributes(attributes) as A,
-          text: undefined,
+          content: undefined,
         },
       });
 
@@ -381,7 +386,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   }
 
   /**
-   * `values` returns the text-attributes pair array of this text.
+   * `values` returns the content-attributes pair array of this text.
    */
   public values(): Array<CRDTTextValueType<A>> {
     const values = [];
@@ -391,7 +396,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
         const value = node.getValue();
         values.push({
           attributes: this.parseAttributes(value.getAttributes()),
-          text: value.getText(),
+          content: value.getContent(),
         });
       }
     }

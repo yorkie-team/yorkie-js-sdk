@@ -73,10 +73,10 @@ export class TextView {
     const oldValue = this.value;
     const changeLogs = [];
     for (const change of changes) {
-      if (change.type === TextChangeType.Text) {
+      if (change.type === TextChangeType.Content) {
         this.value = [
           this.value.substring(0, change.from),
-          change.value?.text,
+          change.value?.content,
           this.value.substring(change.to),
         ].join('');
         changeLogs.push(
