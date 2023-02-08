@@ -45,7 +45,7 @@
         }
 
         return {
-          insert: textValue.text || '',
+          insert: textValue.content || '',
           attributes: textValue.attributes,
         };
       }
@@ -231,7 +231,7 @@
               const retainFrom = from - prevTo;
               const retainTo = to - from;
 
-              if (change.type === 'text') {
+              if (change.type === 'content') {
                 const { insert, attributes } = toDeltaOperation(change.value);
                 console.log(
                   `%c remote: ${from}-${to}: ${insert}`,

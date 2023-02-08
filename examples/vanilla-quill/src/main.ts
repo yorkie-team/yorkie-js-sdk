@@ -13,7 +13,7 @@ type YorkieDoc = {
   content: Text;
 };
 
-// TODO: unify 'value' and 'content to 'text' at 0.3.1
+// TODO: unify 'value' to 'content' at 0.3.1
 type TextVal = {
   attributes?: Indexable;
   value?: string;
@@ -35,7 +35,7 @@ function toDeltaOperation<T extends TextVal>(textValue: T): DeltaOperation {
   }
 
   return {
-    // TODO: change 'value' to 'text' at 0.3.1
+    // TODO: unify 'value' to 'content' at 0.3.1
     insert: textValue.value || textValue.content || '',
     attributes: textValue.attributes,
   };
@@ -209,7 +209,6 @@ async function main() {
       const retainFrom = from - prevTo;
       const retainTo = to - from;
 
-      // TODO: change 'content' to 'text' at 0.3.1
       if (change.type === 'content') {
         // TODO: change 'change' to 'change.value' at 0.3.1
         const { insert, attributes } = toDeltaOperation(change);
