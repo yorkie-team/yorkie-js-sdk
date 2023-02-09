@@ -795,9 +795,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     const pbWatchEvent = resp.getEvent()!;
-    const respKeys = pbWatchEvent
-      .getDocumentKeysList()
-      .filter((key) => this.attachmentMap.has(key));
+    const respKeys = pbWatchEvent.getDocumentKeysList();
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
