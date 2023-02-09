@@ -14,7 +14,7 @@ type YorkieDoc = {
 };
 
 // TODO: unify 'value' to 'content' at 0.3.1
-type TextVal = {
+type TextValueType = {
   attributes?: Indexable;
   value?: string;
   content?: string;
@@ -28,7 +28,9 @@ const shortUniqueID = new ShortUniqueId();
 const colorHash = new ColorHash();
 const documentKey = 'quill';
 
-function toDeltaOperation<T extends TextVal>(textValue: T): DeltaOperation {
+function toDeltaOperation<T extends TextValueType>(
+  textValue: T,
+): DeltaOperation {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
     return { insert: JSON.parse(embed), attributes: restAttributes };

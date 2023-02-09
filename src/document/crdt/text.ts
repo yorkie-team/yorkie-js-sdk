@@ -38,11 +38,11 @@ export enum TextChangeType {
 }
 
 /**
- * `CRDTTextValueType` is a value of Text
+ * `TextValueType` is a value of Text
  * which has a attributes that expresses the text style.
  * Attributes are represented by Indexable generic type.
  */
-export interface CRDTTextValueType<A extends Indexable = Indexable> {
+export interface TextValueType<A extends Indexable = Indexable> {
   attributes?: A;
   content?: string;
 }
@@ -52,7 +52,7 @@ export interface CRDTTextValueType<A extends Indexable = Indexable> {
  * `Text.onChanges()` is called when the `Text` is modified.
  */
 export interface TextChange<A extends Indexable = Indexable>
-  extends ValueChange<CRDTTextValueType<A>> {
+  extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
 }
 
@@ -388,7 +388,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   /**
    * `values` returns the content-attributes pair array of this text.
    */
-  public values(): Array<CRDTTextValueType<A>> {
+  public values(): Array<TextValueType<A>> {
     const values = [];
 
     for (const node of this.rgaTreeSplit) {
