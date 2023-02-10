@@ -9,9 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-values(): Array<CRDTTextVal<A>>;
+values(): Array<TextValueType<A>>;
 ```
 <b>Returns:</b>
 
-Array&lt;CRDTTextVal&lt;A&gt;&gt;
+Array&lt;TextValueType&lt;A&gt;&gt;
 

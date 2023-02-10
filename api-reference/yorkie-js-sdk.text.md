@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-declare class Text<A = Indexable> 
+declare class Text<A extends Indexable = Indexable> 
 ```
 
 ## Constructors

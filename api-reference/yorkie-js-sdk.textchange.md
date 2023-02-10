@@ -2,21 +2,19 @@
 
 [Home](./index.md) &gt; [yorkie-js-sdk](./yorkie-js-sdk.md) &gt; [TextChange](./yorkie-js-sdk.textchange.md)
 
-## TextChange type
+## TextChange interface
 
 `TextChange` is the value passed as an argument to `Text.onChanges()`<!-- -->. `Text.onChanges()` is called when the `Text` is modified.
 
 <b>Signature:</b>
 
 ```typescript
-export declare type TextChange<A = Indexable> = {
-    type: TextChangeType;
-    actor: ActorID;
-    from: number;
-    to: number;
-    content?: string;
-    attributes?: A;
-};
+export declare interface TextChange<A = Indexable> 
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [ActorID](./yorkie-js-sdk.actorid.md)
+
+## Properties
+
+|  Property | Type | Description |
+|  --- | --- | --- |
+|  [type](./yorkie-js-sdk.textchange.type.md) | TextChangeType |  |
 
