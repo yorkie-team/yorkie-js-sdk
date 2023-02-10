@@ -37,6 +37,7 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Indexable } from '../document';
 
 /**
  * `createJSON` create a new instance of JSONObject.
@@ -51,7 +52,7 @@ export function createJSON<T>(
 /**
  * `WrappedElement` is a wrapper of JSONElement that provides `getID()`.
  */
-export type WrappedElement<T = unknown, A = unknown> =
+export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | Primitive
   | JSONObject<T>
   | JSONArray<T>
@@ -62,7 +63,7 @@ export type WrappedElement<T = unknown, A = unknown> =
  * `JSONElement` is a wrapper for `CRDTElement` that provides users with an
  * easy-to-use interface for manipulating `Document`s.
  */
-export type JSONElement<T = unknown, A = unknown> =
+export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | PrimitiveValue
   | JSONObject<T>
   | JSONArray<T>

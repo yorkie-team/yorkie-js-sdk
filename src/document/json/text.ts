@@ -21,7 +21,7 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { RGATreeSplitNodeRange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTText,
-  CRDTTextVal,
+  TextValueType,
   TextChange,
 } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
@@ -31,7 +31,7 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 /**
  * `Text` is an extended data type for the contents of a text editor.
  */
-export class Text<A = Indexable> {
+export class Text<A extends Indexable = Indexable> {
   private context?: ChangeContext;
   private text?: CRDTText<A>;
 
@@ -207,7 +207,7 @@ export class Text<A = Indexable> {
   /**
    * `values` returns values of this text.
    */
-  values(): Array<CRDTTextVal<A>> {
+  values(): Array<TextValueType<A>> {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore

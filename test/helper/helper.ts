@@ -76,11 +76,11 @@ export class TextView {
       if (change.type === TextChangeType.Content) {
         this.value = [
           this.value.substring(0, change.from),
-          change.content,
+          change.value?.content,
           this.value.substring(change.to),
         ].join('');
         changeLogs.push(
-          `{f:${change.from}, t:${change.to}, c:${change.content || ''}}`,
+          `{f:${change.from}, t:${change.to}, c:${change.value || ''}}`,
         );
       }
     }

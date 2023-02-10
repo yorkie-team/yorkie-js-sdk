@@ -20,6 +20,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Indexable } from '../document';
 
 /**
  *  `SelectOperation` represents an operation that selects an area in the text.
@@ -54,7 +55,7 @@ export class SelectOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A>(root: CRDTRoot): void {
+  public execute<A extends Indexable>(root: CRDTRoot): void {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (parentObject instanceof CRDTText) {
       const text = parentObject as CRDTText<A>;

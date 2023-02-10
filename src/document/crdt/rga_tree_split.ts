@@ -25,12 +25,12 @@ import {
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 
-export type ContentChange = {
+export interface ValueChange<T> {
   actor: ActorID;
   from: number;
   to: number;
-  content?: string;
-};
+  value?: T;
+}
 
 interface RGATreeSplitValue {
   length: number;
@@ -467,7 +467,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<ContentChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -490,13 +490,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       );
 
       if (changes.length && changes[changes.length - 1].from === idx) {
-        changes[changes.length - 1].content = value.toString();
+        changes[changes.length - 1].value = value;
       } else {
         changes.push({
           actor: editedAt.getActorID()!,
           from: idx,
           to: idx,
-          content: value.toString(),
+          value,
         });
       }
 
@@ -780,7 +780,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<ContentChange>,
+    Array<ValueChange<T>>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -868,8 +868,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<ContentChange> {
-    const changes: Array<ContentChange> = [];
+  ): Array<ValueChange<T>> {
+    const changes: Array<ValueChange<T>> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {
