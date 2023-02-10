@@ -215,7 +215,7 @@
                 const actor = change.actor;
                 const from = change.from;
                 const to = change.to;
-                const content = change.content || '';
+                const content = change.value.content || '';
 
                 if (actor !== client.getID()) {
                   console.log(
