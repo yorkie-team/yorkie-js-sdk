@@ -40,9 +40,8 @@ export enum TextChangeType {
 /**
  * `TextValueType` is a value of Text
  * which has a attributes that expresses the text style.
- * Attributes are represented by Indexable generic type.
  */
-export interface TextValueType<A extends Indexable = Indexable> {
+export interface TextValueType<A> {
   attributes?: A;
   content?: string;
 }
@@ -51,7 +50,7 @@ export interface TextValueType<A extends Indexable = Indexable> {
  * `TextChange` is the value passed as an argument to `Text.onChanges()`.
  * `Text.onChanges()` is called when the `Text` is modified.
  */
-export interface TextChange<A extends Indexable = Indexable>
+export interface TextChange<A = Indexable>
   extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
 }
@@ -180,7 +179,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   /**
    * `create` a instance of Text.
    */
-  public static create<A extends Indexable = Indexable>(
+  public static create<A = Indexable>(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
     createdAt: TimeTicket,
   ): CRDTText<A> {
@@ -313,13 +312,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       this.onChangesHandler([change]);
       this.remoteChangeLock = false;
     }
-  }
-
-  /**
-   * `hasRemoteChangeLock` checks whether remoteChangeLock has.
-   */
-  public hasRemoteChangeLock(): boolean {
-    return this.remoteChangeLock;
   }
 
   /**
