@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Yorkie Authors. All rights reserved.
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
+import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
@@ -392,7 +392,7 @@ function toChanges(changes: Array<Change>): Array<PbChange> {
 /**
  * `toRHTNodes` converts the given model to Protobuf format.
  */
-function toRHTNodes(rht: RHTPQMap): Array<PbRHTNode> {
+function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
@@ -864,7 +864,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
  * `fromObject` converts the given Protobuf format to model format.
  */
 function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
-  const rht = new RHTPQMap();
+  const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
     rht.set(pbRHTNode.getKey(), fromElement(pbRHTNode.getElement()!));
