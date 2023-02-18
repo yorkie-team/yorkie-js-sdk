@@ -5,6 +5,7 @@ import {
   createEmitterAndSpy,
   waitFor,
 } from '@yorkie-js-sdk/test/helper/helper';
+import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
@@ -74,5 +75,42 @@ describe('Document', function () {
     await c2.detach(d2);
     await c1.deactivate();
     await c2.deactivate();
+  });
+
+  it('Can handle tombstone', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    d1.update((root) => {
+      root['k1'] = [1, 2];
+    }, 'set array');
+
+    await c1.sync();
+    await c2.sync();
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    let prevArray: CRDTElement | undefined;
+    d1.update((root) => {
+      root.k1.push(3);
+      prevArray = d1.getRootObject().get('k1') as unknown as CRDTElement;
+    }, 'push element to k1');
+    d2.update((root) => {
+      root.k1 = [];
+    }, 'reassign k1 with new array');
+    await c2.sync();
+    await c1.sync();
+
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.isTrue(prevArray?.isRemoved());
   });
 });

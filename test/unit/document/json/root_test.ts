@@ -2,7 +2,7 @@ import { assert } from 'chai';
 import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
+import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
@@ -17,7 +17,7 @@ import { Text } from '@yorkie-js-sdk/src/yorkie';
 describe('ROOT', function () {
   it('basic test', function () {
     const root = new CRDTRoot(
-      new CRDTObject(InitialTimeTicket, RHTPQMap.create()),
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
     const cc = ChangeContext.create(InitialChangeID, root);
     assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
@@ -75,7 +75,7 @@ describe('ROOT', function () {
 
   it('garbage collection test for array', function () {
     const root = new CRDTRoot(
-      new CRDTObject(InitialTimeTicket, RHTPQMap.create()),
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
     const arr = new CRDTArray(InitialTimeTicket, RGATreeList.create());
     const change = ChangeContext.create(InitialChangeID, root);
@@ -106,9 +106,9 @@ describe('ROOT', function () {
 
   it('garbage collection test for text', function () {
     const root = new CRDTRoot(
-      new CRDTObject(InitialTimeTicket, RHTPQMap.create()),
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
-    const obj = new CRDTObject(InitialTimeTicket, RHTPQMap.create());
+    const obj = new CRDTObject(InitialTimeTicket, ElementRHT.create());
     const change = ChangeContext.create(InitialChangeID, root);
     const crdtText = CRDTText.create(
       RGATreeSplit.create(),

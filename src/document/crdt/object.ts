@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Yorkie Authors. All rights reserved.
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import {
   CRDTContainer,
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
-import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
+import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,
@@ -28,10 +28,10 @@ import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
  * @internal
  */
 export class CRDTObject extends CRDTContainer {
-  private memberNodes: RHTPQMap;
+  private memberNodes: ElementRHT;
 
   /** @hideconstructor */
-  constructor(createdAt: TimeTicket, memberNodes: RHTPQMap) {
+  constructor(createdAt: TimeTicket, memberNodes: ElementRHT) {
     super(createdAt);
     this.memberNodes = memberNodes;
   }
@@ -40,7 +40,7 @@ export class CRDTObject extends CRDTContainer {
    * `create` creates a new instance of CRDTObject.
    */
   public static create(createdAt: TimeTicket): CRDTObject {
-    return new CRDTObject(createdAt, RHTPQMap.create());
+    return new CRDTObject(createdAt, ElementRHT.create());
   }
 
   /**
@@ -146,7 +146,7 @@ export class CRDTObject extends CRDTContainer {
   /**
    * `getRHT` RHTNodes returns the RHTPQMap nodes.
    */
-  public getRHT(): RHTPQMap {
+  public getRHT(): ElementRHT {
     return this.memberNodes;
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Yorkie Authors. All rights reserved.
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,36 +15,33 @@
  */
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
-import { HeapNode, Heap } from '@yorkie-js-sdk/src/util/heap';
-import {
-  TicketComparator,
-  TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 /**
- * `RHTPQMapNode` is a node of RHTPQMap.
+ * `ElementRHTNode` is a node of ElementRHT.
  */
-export class RHTPQMapNode extends HeapNode<TimeTicket, CRDTElement> {
+export class ElementRHTNode {
   private strKey: string;
+  private value: CRDTElement;
 
   constructor(strKey: string, value: CRDTElement) {
-    super(value.getCreatedAt(), value);
     this.strKey = strKey;
+    this.value = value;
   }
 
   /**
-   * `of` creates a instance of RHTPQMapNode.
+   * `of` creates a instance of ElementRHTNode.
    */
-  public static of(strKey: string, value: CRDTElement): RHTPQMapNode {
-    return new RHTPQMapNode(strKey, value);
+  public static of(strKey: string, value: CRDTElement): ElementRHTNode {
+    return new ElementRHTNode(strKey, value);
   }
 
   /**
    * `isRemoved` checks whether this value was removed.
    */
   public isRemoved(): boolean {
-    return this.getValue().isRemoved();
+    return this.value.isRemoved();
   }
 
   /**
@@ -55,33 +52,39 @@ export class RHTPQMapNode extends HeapNode<TimeTicket, CRDTElement> {
   }
 
   /**
+   * `getValue` return the value(element) of this node
+   */
+  public getValue(): CRDTElement {
+    return this.value;
+  }
+
+  /**
    * `remove` removes a value base on removing time.
    */
   public remove(removedAt: TimeTicket): boolean {
-    return this.getValue().remove(removedAt);
+    return this.value.remove(removedAt);
   }
 }
 
 /**
- * RHTPQMap is a replicated hash table that uses a priority queue based on
- * creation time.
+ * ElementRHT is a hashtable with logical clock(Replicated hashtable)
  *
  * @internal
  */
-export class RHTPQMap {
-  private elementQueueMapByKey: Map<string, Heap<TimeTicket, CRDTElement>>;
-  private nodeMapByCreatedAt: Map<string, RHTPQMapNode>;
+export class ElementRHT {
+  private nodeMapByKey: Map<string, ElementRHTNode>;
+  private nodeMapByCreatedAt: Map<string, ElementRHTNode>;
 
   constructor() {
-    this.elementQueueMapByKey = new Map();
+    this.nodeMapByKey = new Map();
     this.nodeMapByCreatedAt = new Map();
   }
 
   /**
-   * `create` creates a instance of RHTPQMap.
+   * `create` creates an instance of ElementRHT.
    */
-  public static create(): RHTPQMap {
-    return new RHTPQMap();
+  public static create(): ElementRHT {
+    return new ElementRHT();
   }
 
   /**
@@ -89,33 +92,28 @@ export class RHTPQMap {
    */
   public set(key: string, value: CRDTElement): CRDTElement | undefined {
     let removed;
-    const queue = this.elementQueueMapByKey.get(key);
-    if (queue && queue.len()) {
-      const node = queue.peek() as RHTPQMapNode;
-      if (!node.isRemoved() && node.remove(value.getCreatedAt())) {
-        removed = node.getValue();
-      }
+    const node = this.nodeMapByKey.get(key);
+    if (
+      node != null &&
+      !node.isRemoved() &&
+      node.remove(value.getCreatedAt())
+    ) {
+      removed = node.getValue();
     }
 
-    this.setInternal(key, value);
+    const newNode = ElementRHTNode.of(key, value);
+    this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
+    if (
+      node == null ||
+      value.getCreatedAt().after(node.getValue().getCreatedAt())
+    ) {
+      this.nodeMapByKey.set(key, newNode);
+    }
     return removed;
   }
 
   /**
-   * `setInternal` sets the value of the given key.
-   */
-  private setInternal(key: string, value: CRDTElement): void {
-    if (!this.elementQueueMapByKey.has(key)) {
-      this.elementQueueMapByKey.set(key, new Heap(TicketComparator));
-    }
-
-    const node = RHTPQMapNode.of(key, value);
-    this.elementQueueMapByKey.get(key)!.push(node);
-    this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), node);
-  }
-
-  /**
-   * `delete` deletes deletes the Element of the given key.
+   * `delete` deletes the Element of the given key.
    */
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): CRDTElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
@@ -151,13 +149,11 @@ export class RHTPQMap {
       return;
     }
 
-    const queue = this.elementQueueMapByKey.get(node.getStrKey());
-    if (!queue) {
-      logger.fatal(`fail to find queue of ${node.getStrKey()}`);
-      return;
+    const nodeByKey = this.nodeMapByKey.get(node.getStrKey());
+    if (node === nodeByKey) {
+      this.nodeMapByKey.delete(nodeByKey.getStrKey());
     }
 
-    queue.release(node);
     this.nodeMapByCreatedAt.delete(node.getValue().getCreatedAt().toIDString());
   }
 
@@ -168,12 +164,15 @@ export class RHTPQMap {
     key: string,
     removedAt: TimeTicket,
   ): CRDTElement | undefined {
-    if (!this.elementQueueMapByKey.has(key)) {
+    const node = this.nodeMapByKey.get(key);
+    if (node == null) {
       return;
     }
 
-    const node = this.elementQueueMapByKey.get(key)!.peek() as RHTPQMapNode;
-    node.remove(removedAt);
+    if (!node.remove(removedAt)) {
+      return;
+    }
+
     return node.getValue();
   }
 
@@ -181,11 +180,10 @@ export class RHTPQMap {
    * `has` returns whether the element exists of the given key or not.
    */
   public has(key: string): boolean {
-    if (!this.elementQueueMapByKey.has(key)) {
+    const node = this.nodeMapByKey.get(key);
+    if (node == null) {
       return false;
     }
-
-    const node = this.elementQueueMapByKey.get(key)!.peek() as RHTPQMapNode;
     return !node.isRemoved();
   }
 
@@ -193,19 +191,18 @@ export class RHTPQMap {
    * `get` returns the value of the given key.
    */
   public get(key: string): CRDTElement | undefined {
-    if (!this.elementQueueMapByKey.has(key)) {
+    const node = this.nodeMapByKey.get(key);
+    if (node == null) {
       return;
     }
 
-    return this.elementQueueMapByKey!.get(key)!.peek()!.getValue();
+    return node.getValue();
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public *[Symbol.iterator](): IterableIterator<RHTPQMapNode> {
-    for (const [, heap] of this.elementQueueMapByKey) {
-      for (const node of heap) {
-        yield node as RHTPQMapNode;
-      }
+  public *[Symbol.iterator](): IterableIterator<ElementRHTNode> {
+    for (const [, node] of this.nodeMapByKey) {
+      yield node;
     }
   }
 }
