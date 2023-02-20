@@ -220,7 +220,7 @@ export class SplayTree<V> {
    * @returns the index of given node
    */
   public indexOf(node: SplayNode<V>): number {
-    if (!node || !node.hasLinks()) {
+    if (!node || (node !== this.root && !node.hasLinks())) {
       return -1;
     }
 
