@@ -153,4 +153,12 @@ describe('SplayTree', function () {
     assert.equal(nodes[2].getWeight(), 6);
     assert.equal(sumOfWeight(nodes, 3, 7), 0);
   });
+
+  it('should handle indexOf correctly with single node', function () {
+    const tree = new SplayTree<string>();
+    const nodeA = tree.insert(StringNode.create('A'));
+    assert.equal(tree.indexOf(nodeA), 0);
+    tree.delete(nodeA);
+    assert.equal(tree.indexOf(nodeA), -1);
+  });
 });
