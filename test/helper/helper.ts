@@ -54,6 +54,24 @@ export function createEmitterAndSpy<
   return [emitter, (event: E) => emitter.emit(fn ? fn(event) : event.type)];
 }
 
+export function deepSortObject(object: Record<string, any>) {
+  for (const [key, value] of Object.entries(object)) {
+    if (typeof value === 'object') {
+      object[key] = deepSortObject(value);
+    }
+  }
+  return sortObject(object);
+}
+
+function sortObject(unordered: Record<string, any>) {
+  return Object.keys(unordered)
+    .sort()
+    .reduce((obj, key: string) => {
+      obj[key] = unordered[key];
+      return obj;
+    }, {} as Record<string, any>);
+}
+
 /**
  * TextView emulates an external editor like CodeMirror to test whether change
  * events are delivered properly.

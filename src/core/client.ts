@@ -322,6 +322,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream?: any;
+  private docKeysConnectedStream: Array<string>;
   private eventStream: Observable<ClientEvent<P>>;
   private eventStreamObserver!: Observer<ClientEvent<P>>;
 
@@ -355,6 +356,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
+    this.docKeysConnectedStream = [];
     this.eventStream = createObservable<ClientEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -384,7 +386,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         this.id = converter.toHexString(res.getClientId_asU8());
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
-        await this.runWatchLoop();
 
         this.eventStreamObserver.next({
           type: ClientEventType.StatusChanged,
@@ -406,8 +407,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     if (this.remoteChangeEventStream) {
-      this.remoteChangeEventStream.cancel();
-      this.remoteChangeEventStream = undefined;
+      this.disconnectWatchStream();
     }
 
     return new Promise((resolve, reject) => {
@@ -667,6 +667,16 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     return peersMap;
   };
 
+  private getRealtimeSyncDocKeys(): Array<string> {
+    const realtimeSyncDocKeys: Array<string> = [];
+    for (const [, attachment] of this.attachmentMap) {
+      if (attachment.isRealtimeSync) {
+        realtimeSyncDocKeys.push(attachment.doc.getKey());
+      }
+    }
+    return realtimeSyncDocKeys;
+  }
+
   private runSyncLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
@@ -710,8 +720,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private async runWatchLoop(): Promise<void> {
     const doLoop = (): Promise<void> => {
       if (this.remoteChangeEventStream) {
-        this.remoteChangeEventStream.cancel();
-        this.remoteChangeEventStream = undefined;
+        this.disconnectWatchStream();
       }
 
       if (this.watchLoopTimerID) {
@@ -724,13 +733,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         return Promise.resolve();
       }
 
-      const realtimeSyncDocKeys: Array<string> = [];
-      for (const [, attachment] of this.attachmentMap) {
-        if (attachment.isRealtimeSync) {
-          realtimeSyncDocKeys.push(attachment.doc.getKey());
-        }
-      }
-
+      const realtimeSyncDocKeys = this.getRealtimeSyncDocKeys();
       if (!realtimeSyncDocKeys.length) {
         logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
         return Promise.resolve();
@@ -743,11 +746,17 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return new Promise((resolve, reject) => {
         const onStreamDisconnect = () => {
           this.remoteChangeEventStream = undefined;
+          this.docKeysConnectedStream = [];
           this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
           this.eventStreamObserver.next({
             type: ClientEventType.StreamConnectionStatusChanged,
             value: StreamConnectionStatus.Disconnected,
           });
+          logger.debug(
+            `[WD] c:"${this.getKey()}" unwatches d:"${
+              this.docKeysConnectedStream
+            }"`,
+          );
           reject();
         };
 
@@ -759,6 +768,11 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         stream.on('end', onStreamDisconnect);
         stream.on('error', onStreamDisconnect);
         this.remoteChangeEventStream = stream;
+        this.docKeysConnectedStream = realtimeSyncDocKeys;
+        this.eventStreamObserver.next({
+          type: ClientEventType.StreamConnectionStatusChanged,
+          value: StreamConnectionStatus.Connected,
+        });
 
         logger.info(
           `[WD] c:"${this.getKey()}" watches d:"${realtimeSyncDocKeys}"`,
@@ -848,6 +862,19 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
   }
 
+  private disconnectWatchStream() {
+    this.remoteChangeEventStream.cancel();
+    logger.debug(
+      `[WD] c:"${this.getKey()}" unwatches d:"${this.docKeysConnectedStream}"`,
+    );
+
+    this.remoteChangeEventStream = undefined;
+    this.docKeysConnectedStream = [];
+    this.eventStreamObserver.next({
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+  }
   private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();

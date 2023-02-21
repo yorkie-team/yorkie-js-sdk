@@ -4,7 +4,7 @@ import yorkie, {
   Indexable,
   ClientEvent,
   ClientStatus,
-  // StreamConnectionStatus,
+  StreamConnectionStatus,
   DocumentSyncResultType,
   DocEventType,
   ClientEventType,
@@ -12,6 +12,7 @@ import yorkie, {
 import {
   createEmitterAndSpy,
   waitFor,
+  deepSortObject,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
   testRPCAddr,
@@ -275,13 +276,18 @@ describe('Client', function () {
     const doc1_c2 = new yorkie.Document(docKey1);
     const doc2_c1 = new yorkie.Document(docKey2);
 
-    const c1_events: Array<ClientEvent> = [];
-    const c1_expectedEvents: Array<ClientEvent> = [];
-    const c2_events: Array<ClientEvent> = [];
-    const c2_expectedEvents: Array<ClientEvent> = [];
+    const c1_events: Array<string> = [];
+    const c1_expectedEvents: Array<string> = [];
+    const c2_events: Array<string> = [];
+    const c2_expectedEvents: Array<string> = [];
+    function pushEvent(array: Array<string>, event: ClientEvent) {
+      const sortedEvent = deepSortObject(event);
+      array.push(JSON.stringify(sortedEvent));
+    }
+
     const [emitter1, spy1] = createEmitterAndSpy<ClientEvent<Indexable>>(
       (event) => {
-        c1_events.push(event);
+        pushEvent(c1_events, event);
         switch (event.type) {
           case ClientEventType.StatusChanged:
           case ClientEventType.StreamConnectionStatusChanged:
@@ -294,7 +300,7 @@ describe('Client', function () {
     );
     const [emitter2, spy2] = createEmitterAndSpy<ClientEvent<Indexable>>(
       (event) => {
-        c2_events.push(event);
+        pushEvent(c2_events, event);
         switch (event.type) {
           case ClientEventType.StatusChanged:
           case ClientEventType.StreamConnectionStatusChanged:
@@ -310,34 +316,38 @@ describe('Client', function () {
 
     await c1.activate();
     const c1_ID = c1.getID()!;
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Activated,
     });
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 activate: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 activate: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await c2.activate();
     const c2_ID = c2.getID()!;
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Activated,
     });
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 activate: ${JSON.stringify(c2_events)}`,
+      `[c2] c2 activate: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
     await c1.attach(doc1_c1);
-    // expectedEvents.push({
-    //   type: ClientEventType.StreamConnectionStatusChanged,
-    //   value: StreamConnectionStatus.Connected,
-    // });
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Connected,
+    });
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -348,11 +358,18 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 attach doc1: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 attach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await c2.attach(doc1_c2);
-    c2_expectedEvents.push({
+    await waitFor(ClientEventType.PeersChanged, emitter1);
+    pushEvent(c2_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Connected,
+    });
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -364,11 +381,12 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 attach doc1: ${JSON.stringify(c2_events)}`,
+      `[c2] c2 attach doc1: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
-    await waitFor(ClientEventType.PeersChanged, emitter1);
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -380,11 +398,14 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c2 attach doc1: ${JSON.stringify(c1_events)}`,
+      `[c1] c2 attach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await c1.updatePresence('name', 'z');
-    c1_expectedEvents.push({
+    await waitFor(ClientEventType.PeersChanged, emitter2);
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -396,11 +417,12 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 updatePresence: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 updatePresence: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
-    await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -412,11 +434,21 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c1 updatePresence: ${JSON.stringify(c2_events)}`,
+      `[c2] c1 updatePresence: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
     await c1.attach(doc2_c1);
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Connected,
+    });
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -431,11 +463,13 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 attach doc2: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 attach doc2: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -443,7 +477,7 @@ describe('Client', function () {
         },
       },
     });
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -452,14 +486,25 @@ describe('Client', function () {
         },
       },
     });
+
     assert.deepEqual(
       c2_expectedEvents.sort(),
       c2_events.sort(),
-      `[c2] c1 attach doc2: ${JSON.stringify(c2_events)}`,
+      `[c2] c1 attach doc2: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
     await c1.detach(doc1_c1);
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Connected,
+    });
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey2]: {
@@ -470,11 +515,13 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 detach doc1: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 detach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await waitFor(ClientEventType.PeersChanged, emitter2);
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
         [docKey1]: {
@@ -485,32 +532,46 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c1 detach doc1: ${JSON.stringify(c2_events)}`,
+      `[c2] c1 detach doc1: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
     await c1.deactivate();
-    c1_expectedEvents.push({
+    pushEvent(c1_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+    pushEvent(c1_expectedEvents, {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 deactivate: ${JSON.stringify(c1_events)}`,
+      `[c1] c1 deactivate: ${JSON.stringify(c1_events)}, ${JSON.stringify(
+        c1_expectedEvents,
+      )}`,
     );
 
     await c2.deactivate();
-    c2_expectedEvents.push({
+    pushEvent(c2_expectedEvents, {
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+    pushEvent(c2_expectedEvents, {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 deactivate: ${JSON.stringify(c2_events)}`,
+      `[c2] c2 deactivate: ${JSON.stringify(c2_events)}, ${JSON.stringify(
+        c2_expectedEvents,
+      )}`,
     );
 
     unsub1();
     unsub2();
-  });
+  }).timeout(10000);
 });
