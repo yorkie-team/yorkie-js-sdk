@@ -71,22 +71,41 @@ export async function waitStubCallCount(
   });
 }
 
-export function deepSortObject(object: Record<string, any>) {
-  for (const [key, value] of Object.entries(object)) {
-    if (typeof value === 'object') {
-      object[key] = deepSortObject(value);
-    }
+export function deepSort(target: any): any {
+  if (Array.isArray(target)) {
+    return target.map(deepSort).sort(compareFunction);
   }
-  return sortObject(object);
+  if (typeof target === 'object') {
+    return Object.keys(target)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = deepSort(target[key]);
+        return result;
+      }, {} as Record<string, any>);
+  }
+  return target;
 }
 
-function sortObject(unordered: Record<string, any>) {
-  return Object.keys(unordered)
-    .sort()
-    .reduce((obj, key: string) => {
-      obj[key] = unordered[key];
-      return obj;
-    }, {} as Record<string, any>);
+function compareFunction(a: any, b: any): number {
+  if (
+    typeof a === 'object' &&
+    typeof b === 'object' &&
+    a !== null &&
+    b !== null
+  ) {
+    const aKeys = Object.keys(a).sort();
+    const bKeys = Object.keys(b).sort();
+    const len = Math.min(aKeys.length, bKeys.length);
+    for (let i = 0; i < len; i++) {
+      const key = aKeys[i];
+      const result = compareFunction(a[key], b[key]);
+      if (result !== 0) {
+        return result;
+      }
+    }
+    return aKeys.length - bKeys.length;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**

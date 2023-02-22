@@ -12,7 +12,7 @@ import {
   createEmitterAndSpy,
   waitFor,
   waitStubCallCount,
-  deepSortObject,
+  deepSort,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
   testRPCAddr,
@@ -239,7 +239,7 @@ describe('Client', function () {
 
     await waitFor(ClientEventType.PeersChanged, emitter1);
     await waitFor(ClientEventType.PeersChanged, emitter2);
-    assert.deepEqual(c1.getPeers(docKey), c2.getPeers(docKey));
+    assert.deepEqual(c1.getPeersByDocKey(docKey), c2.getPeersByDocKey(docKey));
 
     await c1.detach(doc);
     await c2.detach(doc);
@@ -281,7 +281,7 @@ describe('Client', function () {
     const c2_events: Array<string> = [];
     const c2_expectedEvents: Array<string> = [];
     function pushEvent(array: Array<string>, event: ClientEvent) {
-      const sortedEvent = deepSortObject(event);
+      const sortedEvent = deepSort(event);
       array.push(JSON.stringify(sortedEvent));
     }
 
@@ -304,9 +304,9 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 activate: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 activate: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     await c2.activate();
@@ -319,9 +319,9 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 activate: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c2 activate: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     await c1.attach(doc1_c1);
@@ -332,8 +332,12 @@ describe('Client', function () {
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence },
+        type: 'initialization',
+        changedPeers: {
+          [docKey1]: [{ clientID: c1_ID, presence: { ...c1_presence } }],
+        },
+        peers: {
+          [docKey1]: [{ clientID: c1_ID, presence: { ...c1_presence } }],
         },
       },
     });
@@ -341,9 +345,9 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 attach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 attach doc1: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     await c2.attach(doc1_c2);
@@ -354,9 +358,18 @@ describe('Client', function () {
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence },
-          [c2_ID]: { ...c2_presence },
+        type: 'initialization',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
+        },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
         },
       },
     });
@@ -364,17 +377,23 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 attach doc1: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c2 attach doc1: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence },
-          [c2_ID]: { ...c2_presence },
+        type: 'watched',
+        changedPeers: {
+          [docKey1]: [{ clientID: c2_ID, presence: { ...c2_presence } }],
+        },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
         },
       },
     });
@@ -383,18 +402,26 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c2 attach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c2 attach doc1: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     await c1.updatePresence('name', 'z');
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
-          [c2_ID]: { ...c2_presence },
+        type: 'presence-changed',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
         },
       },
     });
@@ -402,17 +429,25 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 updatePresence: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 updatePresence: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
-          [c2_ID]: { ...c2_presence },
+        type: 'presence-changed',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
         },
       },
     });
@@ -421,9 +456,9 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c1 updatePresence: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c1 updatePresence: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     await c1.attach(doc2_c1);
@@ -438,12 +473,24 @@ describe('Client', function () {
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
-          [c2_ID]: { ...c2_presence },
+        type: 'initialization',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
+          [docKey2]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
         },
-        [docKey2]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
+          [docKey2]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
         },
       },
     });
@@ -451,25 +498,39 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 attach doc2: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 attach doc2: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c2_ID]: { ...c2_presence },
+        type: 'unwatched',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey1]: [{ clientID: c2_ID, presence: { ...c2_presence } }],
         },
       },
     });
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
-          [c2_ID]: { ...c2_presence },
+        type: 'watched',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+            { clientID: c2_ID, presence: { ...c2_presence } },
+          ],
         },
       },
     });
@@ -480,9 +541,9 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents.sort(),
       c2_events.sort(),
-      `[c2] c1 attach doc2: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c1 attach doc2: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     await c1.detach(doc1_c1);
@@ -497,8 +558,16 @@ describe('Client', function () {
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey2]: {
-          [c1_ID]: { ...c1_presence, name: 'z' },
+        type: 'initialization',
+        changedPeers: {
+          [docKey2]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey2]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
         },
       },
     });
@@ -506,16 +575,22 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 detach doc1: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 detach doc1: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        [docKey1]: {
-          [c2_ID]: { ...c2_presence },
+        type: 'unwatched',
+        changedPeers: {
+          [docKey1]: [
+            { clientID: c1_ID, presence: { ...c1_presence, name: 'z' } },
+          ],
+        },
+        peers: {
+          [docKey1]: [{ clientID: c2_ID, presence: { ...c2_presence } }],
         },
       },
     });
@@ -524,9 +599,9 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c1 detach doc1: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c1 detach doc1: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     await c1.deactivate();
@@ -542,16 +617,26 @@ describe('Client', function () {
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
-      `[c1] c1 deactivate: ${JSON.stringify(c1_events)}, ${JSON.stringify(
-        c1_expectedEvents,
-      )}`,
+      `[c1] c1 deactivate: \n actual: ${JSON.stringify(
+        c1_events,
+      )} \n expected: ${JSON.stringify(c1_expectedEvents)}`,
     );
 
-    await c2.deactivate();
+    await c2.detach(doc1_c2);
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
     });
+    assert.equal(8, stub2.callCount);
+    assert.deepEqual(
+      c2_expectedEvents,
+      c2_events,
+      `[c2] c2 detach doc1: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
+    );
+
+    await c2.deactivate();
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
@@ -560,9 +645,9 @@ describe('Client', function () {
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
-      `[c2] c2 deactivate: ${JSON.stringify(c2_events)}, ${JSON.stringify(
-        c2_expectedEvents,
-      )}`,
+      `[c2] c2 deactivate: \n actual: ${JSON.stringify(
+        c2_events,
+      )} \n expected: ${JSON.stringify(c2_expectedEvents)}`,
     );
 
     unsub1();
