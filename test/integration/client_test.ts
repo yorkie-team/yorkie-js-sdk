@@ -1,7 +1,6 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import yorkie, {
-  Indexable,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,
@@ -12,6 +11,7 @@ import yorkie, {
 import {
   createEmitterAndSpy,
   waitFor,
+  waitStubCallCount,
   deepSortObject,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
@@ -285,34 +285,14 @@ describe('Client', function () {
       array.push(JSON.stringify(sortedEvent));
     }
 
-    const [emitter1, spy1] = createEmitterAndSpy<ClientEvent<Indexable>>(
-      (event) => {
-        pushEvent(c1_events, event);
-        switch (event.type) {
-          case ClientEventType.StatusChanged:
-          case ClientEventType.StreamConnectionStatusChanged:
-          case ClientEventType.DocumentSynced:
-            return event.value;
-          default:
-            return event.type;
-        }
-      },
-    );
-    const [emitter2, spy2] = createEmitterAndSpy<ClientEvent<Indexable>>(
-      (event) => {
-        pushEvent(c2_events, event);
-        switch (event.type) {
-          case ClientEventType.StatusChanged:
-          case ClientEventType.StreamConnectionStatusChanged:
-          case ClientEventType.DocumentSynced:
-            return event.value;
-          default:
-            return event.type;
-        }
-      },
-    );
-    const unsub1 = c1.subscribe(spy1);
-    const unsub2 = c2.subscribe(spy2);
+    const stub1 = sinon.stub().callsFake((event) => {
+      pushEvent(c1_events, event);
+    });
+    const stub2 = sinon.stub().callsFake((event) => {
+      pushEvent(c2_events, event);
+    });
+    const unsub1 = c1.subscribe(stub1);
+    const unsub2 = c2.subscribe(stub2);
 
     await c1.activate();
     const c1_ID = c1.getID()!;
@@ -320,6 +300,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Activated,
     });
+    assert.equal(1, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -334,6 +315,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Activated,
     });
+    assert.equal(1, stub2.callCount);
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
@@ -355,6 +337,7 @@ describe('Client', function () {
         },
       },
     });
+    assert.equal(3, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -364,7 +347,6 @@ describe('Client', function () {
     );
 
     await c2.attach(doc1_c2);
-    await waitFor(ClientEventType.PeersChanged, emitter1);
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Connected,
@@ -378,6 +360,7 @@ describe('Client', function () {
         },
       },
     });
+    assert.equal(3, stub2.callCount);
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
@@ -395,6 +378,8 @@ describe('Client', function () {
         },
       },
     });
+    await waitStubCallCount(stub1, 4);
+    assert.equal(4, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -404,7 +389,6 @@ describe('Client', function () {
     );
 
     await c1.updatePresence('name', 'z');
-    await waitFor(ClientEventType.PeersChanged, emitter2);
     pushEvent(c1_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
@@ -414,6 +398,7 @@ describe('Client', function () {
         },
       },
     });
+    assert.equal(5, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -431,6 +416,8 @@ describe('Client', function () {
         },
       },
     });
+    await waitStubCallCount(stub2, 4);
+    assert.equal(4, stub2.callCount);
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
@@ -460,6 +447,7 @@ describe('Client', function () {
         },
       },
     });
+    assert.equal(8, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -468,7 +456,6 @@ describe('Client', function () {
       )}`,
     );
 
-    await waitFor(ClientEventType.PeersChanged, emitter2);
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
@@ -486,7 +473,10 @@ describe('Client', function () {
         },
       },
     });
-
+    await waitStubCallCount(stub2, 6);
+    assert.equal(6, stub2.callCount);
+    // NOTE(chacha912): The events have to be sorted because
+    // the 'peers-changed' event does not guarantee order.
     assert.deepEqual(
       c2_expectedEvents.sort(),
       c2_events.sort(),
@@ -512,6 +502,7 @@ describe('Client', function () {
         },
       },
     });
+    assert.equal(11, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -520,7 +511,6 @@ describe('Client', function () {
       )}`,
     );
 
-    await waitFor(ClientEventType.PeersChanged, emitter2);
     pushEvent(c2_expectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
@@ -529,6 +519,8 @@ describe('Client', function () {
         },
       },
     });
+    await waitStubCallCount(stub2, 7);
+    assert.equal(7, stub2.callCount);
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
@@ -546,6 +538,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
+    assert.equal(13, stub1.callCount);
     assert.deepEqual(
       c1_expectedEvents,
       c1_events,
@@ -563,6 +556,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
+    assert.equal(9, stub2.callCount);
     assert.deepEqual(
       c2_expectedEvents,
       c2_events,
@@ -573,5 +567,5 @@ describe('Client', function () {
 
     unsub1();
     unsub2();
-  }).timeout(10000);
+  });
 });

@@ -54,6 +54,23 @@ export function createEmitterAndSpy<
   return [emitter, (event: E) => emitter.emit(fn ? fn(event) : event.type)];
 }
 
+export async function waitStubCallCount(
+  stub: sinon.SinonStub,
+  callCount: number,
+) {
+  return new Promise<void>((resolve) => {
+    const doLoop = () => {
+      if (stub.callCount === callCount) {
+        resolve();
+      }
+      return false;
+    };
+    if (!doLoop()) {
+      setTimeout(doLoop, 1000);
+    }
+  });
+}
+
 export function deepSortObject(object: Record<string, any>) {
   for (const [key, value] of Object.entries(object)) {
     if (typeof value === 'object') {
