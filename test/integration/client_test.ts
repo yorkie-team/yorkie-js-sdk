@@ -10,6 +10,7 @@ import {
   waitFor,
 } from '@yorkie-js-sdk/test/helper/helper';
 import {
+  toDocKey,
   testRPCAddr,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
@@ -123,7 +124,7 @@ describe('Client', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ k1: string }>(docKey);
     const d2 = new yorkie.Document<{ k1: string }>(docKey);
 
@@ -213,7 +214,7 @@ describe('Client', function () {
         cursor: { x: 1, y: 1 },
       },
     });
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document(docKey);
 
     const [emitter1, spy1] = createEmitterAndSpy();

@@ -6,6 +6,13 @@ const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
   __karma__?.config?.testRPCAddr || 'http://localhost:8080';
 
+export function toDocKey(title: string): string {
+  return title
+    .substring(0, 120)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-');
+}
+
 export async function withTwoClientsAndDocuments<T>(
   callback: (
     c1: Client,
@@ -20,7 +27,7 @@ export async function withTwoClientsAndDocuments<T>(
   await client1.activate();
   await client2.activate();
 
-  const docKey = `${title}-${new Date().getTime()}`;
+  const docKey = `${toDocKey(title)}-${new Date().getTime()}`;
   const doc1 = new yorkie.Document<T>(docKey);
   const doc2 = new yorkie.Document<T>(docKey);
 
