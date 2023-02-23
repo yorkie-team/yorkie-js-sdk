@@ -2,7 +2,10 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
-import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  testRPCAddr,
+  toDocKey,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Garbage Collection', function () {
@@ -172,7 +175,7 @@ describe('Garbage Collection', function () {
 
   it('Can handle garbage collection for container type', async function () {
     type TestDoc = { 1: number; 2?: Array<number>; 3: number };
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -240,7 +243,7 @@ describe('Garbage Collection', function () {
 
   it('Can handle garbage collection for text type', async function () {
     type TestDoc = { text: Text; textWithAttr: Text };
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -317,7 +320,7 @@ describe('Garbage Collection', function () {
       4: Text;
       5: Text;
     };
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
