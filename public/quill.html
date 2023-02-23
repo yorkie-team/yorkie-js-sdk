@@ -41,7 +41,7 @@
         const { embed, ...restAttributes } = textValue.attributes ?? {};
 
         if (embed) {
-          return { insert: JSON.parse(embed), attributes: restAttributes }
+          return { insert: JSON.parse(embed), attributes: restAttributes };
         }
 
         return {
@@ -50,50 +50,57 @@
         };
       }
 
-      function displayPeers(elem, peers, clientID) {
+      function displayPeers(peers, myClientID) {
         const usernames = [];
-        for (const [clientID, presence] of Object.entries(peers)) {
+        for (const { clientID, presence } of peers) {
           usernames.push(
-            clientID === clientID ? `<b>${presence.username}</b>` : presence.username,
+            myClientID === clientID
+              ? `<b>${presence.username}</b>`
+              : presence.username,
           );
         }
-        elem.innerHTML = JSON.stringify(usernames);
+        peersElem.innerHTML = JSON.stringify(usernames);
       }
 
-      function findDefectors(peers, newPeers) {
-        const usernames = [];
-        for (const [clientID, presence] of Object.entries(peers)) {
-          if (!newPeers[clientID]) {
-            usernames.push(presence.username);
+      function getPeerPresence(peers, peerID) {
+        for (const peer of peers) {
+          if (peer.clientID === peerID) {
+            return peer.presence;
           }
         }
-        return usernames;
+        return null;
       }
 
       async function main() {
         try {
-          let peers;
+          let quillPeers;
 
-          // 01-1. create client with RPCAddr(envoy) then activate it.
+          // 01. create client with RPCAddr(envoy) then activate it.
           const client = new yorkie.Client('http://localhost:8080', {
             presence: {
               username: `username-${shortUniqueID()}`,
             },
           });
           await client.activate();
-
-          // 01-2. subscribe client event.
+          client.subscribe(network.statusListener(networkStatusElem));
           client.subscribe((event) => {
-            network.statusListener(networkStatusElem)(event);
-            if (event.type === 'peers-changed') {
-              const newPeers = event.value[doc.getKey()];
-              if (peers) {
-                for (const username of findDefectors(peers, newPeers)) {
-                  cursors.removeCursor(username);
-                }
+            if (event.type !== 'peers-changed') return;
+
+            const { type, changedPeers, peers } = event.value;
+            const quillChangedPeers = changedPeers[doc.getKey()];
+            quillPeers = peers[doc.getKey()];
+
+            switch (type) {
+              case 'unwatched': {
+                cursors.removeCursor(
+                  quillChangedPeers.map((peer) => peer.presence.username),
+                );
+                break;
               }
-              peers = newPeers;
-              displayPeers(peersElem, event.value[doc.getKey()], client.getID() || '');
+              default: {
+                displayPeers(quillPeers, client.getID());
+                break;
+              }
             }
           });
 
@@ -220,12 +227,12 @@
             const deltaOperations = [];
             let prevTo = 0;
             for (const change of changes) {
-              const actor = change.actor;
-              if (actor === client.getID()) {
+              const actorID = change.actor;
+              if (actorID === client.getID()) {
                 continue;
               }
 
-              const actorName = peers[actor]['username'];
+              const actorName = getPeerPresence(quillPeers, actorID).username;
               const from = change.from;
               const to = change.to;
               const retainFrom = from - prevTo;
