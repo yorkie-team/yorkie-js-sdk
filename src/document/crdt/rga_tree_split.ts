@@ -528,8 +528,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   public findIndexesFromRange(range: RGATreeSplitNodeRange): [number, number] {
     const [fromPos, toPos] = range;
+    if (fromPos.equals(toPos)) {
+      const idx = this.findIdxFromNodePos(fromPos, true);
+      return [idx, idx];
+    }
+
     return [
-      this.findIdxFromNodePos(fromPos, false),
+      this.findIdxFromNodePos(fromPos, true),
       this.findIdxFromNodePos(toPos, true),
     ];
   }

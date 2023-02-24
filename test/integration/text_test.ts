@@ -375,4 +375,47 @@ describe('Text', function () {
       // assert.isOk(d2.getRoot().k1.checkWeight());
     }, this.test!.title);
   });
+
+  it('should return correct changes from remote selection', async function () {
+    await withTwoClientsAndDocuments<{ text: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.text = new Text();
+        root.text.edit(0, 0, '12');
+        root.text.edit(2, 2, 'ab');
+        root.text.edit(1, 2, '-');
+        root.text.edit(3, 3, '-');
+      });
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        '{"text":[{"val":"1"},{"val":"-"},{"val":"a"},{"val":"-"},{"val":"b"}]}',
+        d1.toSortedJSON(),
+      );
+      assert.equal(
+        '{"text":[{"val":"1"},{"val":"-"},{"val":"a"},{"val":"-"},{"val":"b"}]}',
+        d2.toSortedJSON(),
+      );
+
+      d2.update((root) => {
+        root.text.onChanges((changes) => {
+          for (const change of changes) {
+            assert.equal(
+              change.from,
+              change.to,
+              'selection should be collapsed',
+            );
+          }
+        });
+      });
+
+      d1.update((root) => {
+        for (let i = 0; i < root.text.length; i++) {
+          root.text.select(i, i);
+        }
+      });
+      await c1.sync();
+      await c2.sync();
+    }, this.test!.title);
+  });
 });
