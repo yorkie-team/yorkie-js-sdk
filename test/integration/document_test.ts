@@ -1,6 +1,9 @@
 import { assert } from 'chai';
 import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
-import { testRPCAddr } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  testRPCAddr,
+  toDocKey,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
   createEmitterAndSpy,
   waitFor,
@@ -10,7 +13,7 @@ import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
     type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string> };
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -49,7 +52,7 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ k1: string }>(docKey);
     const d2 = new yorkie.Document<{ k1: string }>(docKey);
     await c1.attach(d1);
@@ -79,7 +82,7 @@ describe('Document', function () {
 
   it('Can handle tombstone', async function () {
     type TestDoc = { k1: Array<number> };
-    const docKey = `${this.test!.title}-${new Date().getTime()}`;
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
 
