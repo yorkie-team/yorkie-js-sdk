@@ -439,7 +439,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    */
   public attach(
     doc: Document<unknown>,
-    isManualSync?: boolean,
+    isRealtimeSync = true,
   ): Promise<Document<unknown>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
@@ -464,7 +464,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
         this.attachmentMap.set(doc.getKey(), {
           doc,
-          isRealtimeSync: !isManualSync,
+          isRealtimeSync,
           peerPresenceMap: new Map(),
         });
         await this.runWatchLoop();
@@ -512,6 +512,41 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         resolve(doc);
       });
     });
+  }
+
+  /**
+   * `pause` pauses the given document. It tells the server that this client
+   */
+  public pause(
+    doc: Document<unknown>,
+    isRealtimeSync = false,
+  ): Promise<Document<unknown>> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const docInfo = this.attachmentMap.get(doc.getKey());
+
+      if (!docInfo) {
+        reject(new Error('Document is not attached'));
+      }
+
+      if (docInfo) {
+        docInfo.isRealtimeSync = isRealtimeSync;
+      }
+
+      this.runWatchLoop();
+
+      resolve(doc);
+    });
+  }
+
+  /**
+   * `resume` resumes the given document. It tells the server that this client
+   */
+  public resume(doc: Document<unknown>): Promise<Document<unknown>> {
+    return this.pause(doc, true);
   }
 
   /**

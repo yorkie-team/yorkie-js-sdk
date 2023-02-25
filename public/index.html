@@ -9,57 +9,313 @@
     />
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
+    <script src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
+    <style type="text/css" id="codemirror-custom-style"></style>
   </head>
   <body>
-    <div>
-      <div>status: <span id="network-status"></span></div>
-      <textarea id="placeholder" cols="30" rows="10"></textarea>
-      <div>peers:</div>
-      <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
-      <div>document:</div>
-      <pre style="white-space: pre-wrap"><code id="log-holder"></code></pre>
-      <div>text:</div>
-      <pre
-        style="white-space: pre-wrap"
-      ><code id="text-log-holder"></code></pre>
+    <div class="layout">
+      <div class="toolbar">
+        <div class="left-tools">
+          <button type="button" onclick="pause()">pause</button>
+          <button type="button" onclick="resume()">resume</button>
+          <span>status: <span id="network-status"></span></span>
+        </div>
+        <div class="right-tools">
+          <div style="padding: 10px 0px" id="peers-holder"></div>
+        </div>
+
+      </div>
+
+      <div class="content">
+        <div class="editor-area">
+          <div>
+            <textarea id="placeholder" cols="30" rows="10"></textarea>
+          </div>
+          <div>
+            <div class="tab">
+              <div class="tab-header">
+                <button class="tablinks active" onclick="openTab(event, 'text')">Text</button>
+                <button class="tablinks" onclick="openTab(event, 'structure')">Structure</button>
+              </div>
+              <div class="tab-body">
+                <div id="text" class="tabcontent active">
+                  <div id="text-log-holder"></div>
+                </div>
+                <div id="structure" class="tabcontent">
+                  <div id="structure-log-holder"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+        <div class="tree-area">
+          <div id="tree-log-holder"></div>      
+        </div>
+        
+
+      </div>
+
+      <!-- <div>document:</div>
+      <div id="log-holder" style="white-space: pre-wrap"></div> -->
+
     </div>
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
-      const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
-      let nextColorIdx = 0;
+      const peerColors = ["#619ED6", "#6BA547", "#F7D027", "#E48F1B", "#B77EA3", "#E64345", "#60CEED", "#9CF168", "#F7EA4A", "#FBC543", "#FFC9ED", "#E6696E"] // peer colors for each client
 
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
       const peersHolder = document.getElementById('peers-holder');
-      const logHolder = document.getElementById('log-holder');
+      // const logHolder = document.getElementById('log-holder');
       const textLogHolder = document.getElementById('text-log-holder');
+      const structureLogHolder = document.getElementById('structure-log-holder');
+      const treeLogHolder = document.getElementById('tree-log-holder');
+      const treeArea = document.querySelector('.tree-area');
       const selectionMap = new Map();
 
-      function displayLog(doc, codemirror) {
-        logHolder.innerText = doc.toJSON();
-        const textLength = codemirror.getValue().length;
-        if (
-          doc.getRoot().content.length !=
-            doc.getRoot().content.toString().length ||
-          (textLength != doc.getRoot().content.length && textLength != 0)
-        ) {
-          debugger;
+      window.peerCount = 0;
+      window.peers = {};
+      window.selectedNodeElement = null;
+      window.selectedNodeCharElement = null;
+      window.selectedNodeStructureElement = null;
+
+      function openTab (e, target) {
+        const tablinks = document.querySelectorAll('.tablinks');
+        const tabcontents = document.querySelectorAll('.tabcontent');
+
+        tablinks.forEach(it => it.classList.remove('active'));
+        tabcontents.forEach(it => it.classList.remove('active'));
+
+        e.target.classList.add('active');
+        document.getElementById(target).classList.add('active');
+      }
+
+      function getEditBlock(block) {
+        const [_, key] = block;
+        const [time, ...valueList] = key.split(' ')
+        const value = valueList.join(' ')
+        const [lamport, ticker, t, offset] = time.split(":")
+
+        const color = Object.values(window.peersInfo).find(it => it.ticker === ticker)?.color;
+
+
+        return {
+          key,
+          value,
+          color,
+          time,
+          lamport,
+          ticker,
+          t,
+          offset,
+          blockKey: `${lamport}:${ticker}:${t}`
+        }        
+      }
+
+      function getDeleteBlock(block) {
+        const [_, key] = block;
+        const [time, value] = key.split(' ')
+        const [lamport, ticker, t, offset] = time.split(":")
+
+        const color = Object.values(window.peersInfo).find(it => it.ticker === ticker)?.color;
+
+        return {
+          deleted : true,
+          key,
+          value,
+          color,
+          time,
+          lamport,
+          ticker,
+          t,
+          offset,
+          blockKey: `${lamport}:${ticker}:${t}`
         }
-        textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
+      }      
+
+      function displayLog(doc, codemirror) {
+
+        window.blocks = {}
+        window.blockList = []
+
+        let maxDepth = 0;
+
+        function getNewNode(node, depth = 0, parent = null) {
+
+          if (depth > maxDepth) {
+            maxDepth = depth;
+          }
+
+          const currentNode = {
+            parent,
+            depth,
+            actorID: node.key.createdAt.actorID,
+            isRemoved: node.value.isRemoved(),
+            removeAt: node.value.removedAt,
+            key: node.key.getStructureAsString(),
+            weight: node.value.weight,
+            value: node.value.value?.content,
+            isRed: node.isRed,
+          }
+
+          // left, right
+          currentNode.left = node.left ? getNewNode(node.left, depth + 1, currentNode) : null;
+          currentNode.right = node.right ? getNewNode(node.right, depth + 1, currentNode) : null;
+
+          return currentNode;
+        }
+
+        const head = getNewNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
+        window.textHeadNode = head;
+
+        function generateTreeHTML(node) {
+          if (!node) {
+            return '';
+          }
+
+          // console.log(node);
+
+          return `
+            <div 
+                  class="node-item ${node.isRemoved ? 'is-removed' : ''} ${node.isRed ? 'is-red' : ''}" 
+                  style="--ticker-color: ${window.peersInfo[node.actorID]?.color}" 
+                  data-key="${node.key}"
+              >
+              <div class="content">
+                    <div class="inner-description ${node.left || node.right ? 'has-children' : ''}">
+                      ${!node.isRemoved ? `<div class="prev-view">&lt;</div>` : ''}
+                      <div class="key-area">${node.key}</div>
+                      <div class="value-area">
+                        <div class="weight">${node.weight === 0 ? "Ø" : node.weight}</div>
+                        <div class="value">${node.value === ' ' ? '&lt;space&gt;' : node.value}</div>
+                      </div>
+                      ${!node.isRemoved ? `<div class="next-view">&gt;</div>` : ''}
+                    </div>
+                    ${node.left || node.right ? `
+                      <div class="children">
+                        <div class="left">
+                          ${node.left ? generateTreeHTML(node.left) : `<div class="node-item empty">&times;</div>`}
+                        </div>
+                        <div class="right">
+                          ${node.right ? generateTreeHTML(node.right) : `<div class="node-item empty">&times;</div>`}
+                        </div>
+                      </div>                      
+                      ` : ''}
+
+              </div>
+
+          </div>`
+        }
+
+        treeLogHolder.innerHTML = generateTreeHTML(head);
+
+        textLogHolder.innerHTML = [...doc.getRoot().content.getStructureAsString().matchAll(/(\[[^\]]*\]|\{[^\}]*})/g)].map(it => {
+
+
+          let block = null;
+
+          let defaultClass = 'tree-item';
+
+          if (it[0].startsWith('[')) {
+            block = getEditBlock(it[0].match(/\[([^\]]*)\]/))
+
+            defaultClass += ' real'
+          } else {
+            block = getDeleteBlock(it[0].match(/\{([^\}]*)\}/));
+
+            defaultClass += ' deleted'
+          }
+
+          window.blockList.push(block);
+
+          defaultClass += ' ' + block.value === "\n" ? 'line-break' : ''
+
+          let defaultAttributes = [
+            `data-time="${block.time}"`,
+            `title="${block.key}"`,
+            `data-has-length="${block.value.length > 1}"`
+          ].join(" ");          
+
+          if (window.blocks[block.blockKey]) {
+            window.blocks[block.blockKey].push(block);
+          } else {
+            window.blocks[block.blockKey] = [block];
+          }
+
+
+
+          if (block.deleted) {
+            return `<span class="${defaultClass}" ${defaultAttributes} style="background-color: ${block.color}">
+              <div class="time">${block.time}</div>
+              <div>${block.value === '' ? '&nbsp;' : block.value}</div>
+            </span>`
+          } else {
+            return `<span class="${defaultClass}" ${defaultAttributes} style="border: 1px solid ${block.color}">
+              <div class="time">${block.time}</div>
+              <div>${block.value === '' ? '&nbsp;' : block.value}</div>
+            </span>`
+          }
+        }).join("");
+
+
+        structureLogHolder.innerHTML = window.blockList.map(it => {
+
+          const value = `${it.time} ${it.value === ' ' ? '&lt;space&gt;' : it.value}`
+          const style = `--client-color: ${it.color};`
+          const attribute = `data-time="${it.time}" style="${style}"`
+
+          if (it.deleted) {
+            return `<div  class="structure-item delete" ${attribute}><span class="icon" ></span>{${value}}</div>`
+          }
+          return `<div class="structure-item edit"  ${attribute}><span class="icon" ></span>[${value}]</div>`
+        }).join("");
+      }
+
+      function getPeerColor(peerID) {
+        const sortedPeersId = Object.keys(peers).sort()
+
+        return peerColors[sortedPeersId.findIndex(it => it === peerID)%peerColors.length];
       }
 
       function displayPeers(peers, clientID) {
+
+        window.peers = peers;
+
+        window.peersInfo = Object.fromEntries(Object.entries(peers).map(([id, peer]) => {
+          return [id, {
+            id,
+            ticker: id.substring(id.length-2),
+            peer,
+            color: getPeerColor(id),
+          }];
+        }));
+
         const clientIDs = [];
 
         for (const [clientID, _] of Object.entries(peers)) {
           clientIDs.push(clientID);
         }
 
-        peersHolder.innerHTML = JSON.stringify(clientIDs).replace(
-          clientID,
-          `<b>${clientID}</b>`,
-        );
+        peersHolder.innerHTML = clientIDs
+          .map((id) => {
+            const peer = peers[id];
+            const color = window.peersInfo[id].color;
+            const ticker = window.peersInfo[id].ticker;
+
+            const idString = `<span class="client-info ${id === clientID ? "me" : ""}" style="--client-color: ${color}" data-id="${id}" title="${id}"> ${ticker}</span>`;
+
+            return idString;
+          })
+          .join('');
+
+        document.head.querySelector("#codemirror-custom-style").textContent = `
+          .CodeMirror-selected {
+            background-color: ${window.peersInfo[clientID]?.color} !important;
+          }
+        `
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619
@@ -90,14 +346,12 @@
       }
 
       function displayRemoteSelection(cm, change) {
-        let color;
+        let color = peersInfo[window.client.id].color;
+
         if (selectionMap.has(change.actor)) {
           const selection = selectionMap.get(change.actor);
-          color = selection.color;
+          color = peersInfo[change.actor].color;
           selection.marker.clear();
-        } else {
-          color = colors[nextColorIdx];
-          nextColorIdx = (nextColorIdx + 1) % colors.length;
         }
 
         if (change.from === change.to) {
@@ -115,7 +369,7 @@
           cursorElement.style.zIndex = 0;
 
           selectionMap.set(change.actor, {
-            color: color,
+            color: peersInfo[change.actor].color,
             marker: cm.setBookmark(pos, {
               widget: cursorElement,
               insertLeft: true,
@@ -126,19 +380,28 @@
           const toPos = cm.posFromIndex(Math.max(change.from, change.to));
 
           selectionMap.set(change.actor, {
-            color: color,
+            color: peersInfo[change.actor].color,
             marker: cm.markText(fromPos, toPos, {
-              css: `background: ${color}`,
+              css: `background: ${peersInfo[change.actor].color}`,
               insertLeft: true,
             }),
           });
         }
       }
 
+      async function pause() {
+        await window.client.pause(window.doc);
+      }
+
+      async function resume() {
+        await window.client.resume(window.doc);
+      }
+
       async function main() {
         try {
           // 01. create client with RPCAddr(envoy) then activate it.
           const client = new yorkie.Client('http://localhost:8080');
+          window.client = client;
           client.subscribe(network.statusListener(statusHolder));
           await client.activate();
 
@@ -150,8 +413,10 @@
           });
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('codemirror');
+          const doc = new yorkie.Document('codemirror8');
           await client.attach(doc);
+
+          window.doc = doc;
 
           doc.update((root) => {
             if (!root.content) {
@@ -161,6 +426,7 @@
 
           // 02-2. subscribe document event.
           doc.subscribe((event) => {
+            console.log(event);
             if (event.type === 'snapshot') {
               // The text is replaced to snapshot and must be re-synced.
               syncText();
@@ -256,6 +522,291 @@
       }
 
       main();
+
+      function accumulatePosition(elem) {
+        var top = 0, left = 0;
+
+        const innerDescription = elem.querySelector(".inner-description");
+
+        top += innerDescription.offsetTop;
+        left += innerDescription.offsetLeft;
+
+        do {
+          top += elem.offsetTop  || 0;
+          left += elem.offsetLeft || 0;
+          if (!elem.closest(".node-item")) {
+            break;
+          }
+
+          elem = elem.offsetParent;
+
+        } while(elem);
+
+        return {
+          y: top,
+          x: left
+        };
+      }
+
+      function traverseTree(node, callback) {
+        if (node.left) {
+          const left = traverseTree(node.left, callback);
+          if (left) {
+            return left;
+          }
+        }
+
+        if (callback(node)) {
+          return node;
+        }
+
+        if (node.right) {
+          const right = traverseTree(node.right, callback);
+          if (right) {
+            return right;
+          }
+        }
+      }
+
+      function displayTreeDepthView(node, depth) {
+        const element = document.querySelector(`.structure-item[data-time="${node.key}"]`);
+
+        if (element) {
+          element.setAttribute("data-tree-depth", depth);
+          element.setAttribute("data-tree-parent", node.parent?.key);
+        }
+
+        if (node.left) {
+          displayTreeDepthView(node.left, depth + 1);
+        }
+
+        if (node.right) {
+          displayTreeDepthView(node.right, depth + 1);
+        }
+      }
+
+      function selectNodeItem(selectedKey) {
+
+        const selectedItem = traverseTree(textHeadNode, (node) => {
+            if (node.key === selectedKey) {
+              return true;
+            }
+        })
+
+        if (selectedNodeElement) {
+          selectedNodeElement.classList.remove("selected");
+        }
+
+        if (selectedNodeCharElement) {
+          selectedNodeCharElement.classList.remove("selected");
+        }
+
+        if (selectedNodeStructureElement) {
+          selectedNodeStructureElement.classList.remove("selected");
+        }        
+
+        selectedNodeElement = document.querySelector(`.node-item[data-key="${selectedKey}"]`);
+        selectedNodeCharElement = document.querySelector(`.tree-item[data-time="${selectedKey}"]`);
+        selectedNodeStructureElement = document.querySelector(`.structure-item[data-time="${selectedKey}"]`);
+        
+        if (selectedNodeElement) {
+          selectedNodeElement.classList.add("selected");
+
+
+          // panzoom refresh 
+          const trans = window.panzoomInstance.getTransform()
+
+          const rootRect = treeArea.getBoundingClientRect();
+
+          const rect = accumulatePosition(selectedNodeElement);
+          const x = rect.x;
+          const y = rect.y;
+
+          window.panzoomInstance?.smoothMoveTo(-x * trans.scale + (rootRect.width/2), -y * trans.scale + (rootRect.height/2));
+
+        }
+
+        if (selectedNodeCharElement) {
+          selectedNodeCharElement.classList.add("selected");
+
+          selectedNodeCharElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "center"
+          });
+        }
+
+        if (selectedNodeStructureElement) {
+          selectedNodeStructureElement.classList.add("selected");
+
+          selectedNodeStructureElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "center"
+          });
+
+
+          document.querySelectorAll(`.structure-item[data-tree-depth]`).forEach((item) => {
+            item.removeAttribute("data-tree-depth");
+            item.removeAttribute("data-tree-parent");
+          })
+
+          displayTreeDepthView(selectedItem, 0);
+
+        }
+      }
+
+      function goPrevNode(e) {
+        e.preventDefault();
+        const nodeItem = e.target.closest(".node-item");
+
+        if (nodeItem) {
+          // copy to clipboard
+          const nodeID = nodeItem.getAttribute("data-key");
+
+          const innerDescription = e.target.closest(".inner-description");
+
+          if (innerDescription) {
+
+            // find current Item 
+            const currentItem = traverseTree(textHeadNode, (node) => {
+              if (node.key === nodeID) {
+                return true;
+              }
+            })
+
+            if (!currentItem.deleted) {
+              const currentIndex = window.blockList.findIndex((block) => {
+                if (block.time === currentItem.key) {
+                  return true;
+                }
+              })
+
+              if (currentIndex >  -1) {
+
+                for(var startIndex = currentIndex-1; startIndex >= 0; startIndex--) {
+                  const prevItem = window.blockList[startIndex];
+                  if (!prevItem.deleted) {
+                    selectNodeItem(prevItem.time);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+
+        }
+      }
+
+      function goNextNode(e) {
+        e.preventDefault();
+        const nodeItem = e.target.closest(".node-item");
+
+        if (nodeItem) {
+          // copy to clipboard
+          const nodeID = nodeItem.getAttribute("data-key");
+
+          const innerDescription = e.target.closest(".inner-description");
+
+          if (innerDescription) {
+
+            // find current Item 
+            const currentItem = traverseTree(textHeadNode, (node) => {
+              if (node.key === nodeID) {
+                return true;
+              }
+            })
+
+            if (!currentItem.deleted) {
+              const currentIndex = window.blockList.findIndex((block) => {
+                if (block.time === currentItem.key) {
+                  return true;
+                }
+              })
+
+              if (currentIndex >  -1) {
+
+                for(var startIndex = currentIndex+1; startIndex < window.blockList.length; startIndex++) {
+                  const nextItem = window.blockList[startIndex];
+                  if (!nextItem.deleted) {
+                    selectNodeItem(nextItem.time);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+
+        }
+      }
+
+      document.addEventListener("click", function (e) {
+
+        const prevView = e.target.closest(".prev-view");
+
+        if (prevView) {
+          goPrevNode(e);
+          return;
+        }
+
+        const nextView = e.target.closest(".next-view");
+
+        if (nextView) {
+          goNextNode(e);
+          return;
+        }        
+
+        const nodeItem = e.target.closest(".node-item");
+
+        if (nodeItem) {
+          // copy to clipboard
+          const nodeID = nodeItem.getAttribute("data-key");
+
+          const innerDescription = e.target.closest(".inner-description");
+
+          if (innerDescription) {
+            selectNodeItem(nodeID);
+          }
+
+        }
+
+        const treeItem = e.target.closest(".tree-item");
+
+        if (treeItem) {
+          // copy to clipboard
+          const treeID = treeItem.getAttribute("data-time");
+
+          selectNodeItem(treeID);
+        }
+
+        const structureItem = e.target.closest(".structure-item");
+
+        if (structureItem) {
+          // copy to clipboard
+          const structureID = structureItem.getAttribute("data-time");
+
+          selectNodeItem(structureID);
+        }
+
+        const clientInfo = e.target.closest(".client-info");
+        if (clientInfo) {
+          const clientID = clientInfo.getAttribute("data-id");
+          navigator.clipboard.writeText(clientID).then(function () {
+            /* clipboard successfully set */
+            // alert("Copied to clipboard: " + clientID)
+          }, function () {
+            /* clipboard write failed */
+          });
+        }
+      });
+
+      window.panzoomInstance = panzoom(treeLogHolder, {
+        transformOrigin: {
+          x: 0.5,
+          y: 0.5
+        }
+      })
+
     </script>
   </body>
 </html>
