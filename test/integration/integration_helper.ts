@@ -8,9 +8,9 @@ export const testRPCAddr =
 
 export function toDocKey(title: string): string {
   return title
-    .replace(/[^a-z0-9-]/g, '-')
+    .substring(0, 120)
     .toLowerCase()
-    .substring(0, 120);
+    .replace(/[^a-z0-9-]/g, '-');
 }
 
 export async function withTwoClientsAndDocuments<T>(
