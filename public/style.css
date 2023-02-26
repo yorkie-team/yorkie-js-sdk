@@ -99,7 +99,7 @@ button {
   position: relative;
   display: inline-block;
   /* white-space: nowrap; */
-  margin-bottom: 20px;
+  margin-bottom: 5px;
   vertical-align: middle;
   min-height: 20px;
 }
@@ -163,9 +163,11 @@ button {
   /* height: 200px; */
   /* overflow-y: auto; */
   resize: vertical;
-  border: 1px solid #e5e5e5;
+  /* border: 1px solid #e5e5e5; */
   padding: 5px;
   overflow: auto;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 #peers-holder {
@@ -175,6 +177,7 @@ button {
 
 .client-info {
   --client-background-color: var(--client-color, #000);
+  --client-status-color: var(--peer-status-color, --client-background-color);
   color: white;
   padding: 0px 1px;
   border-radius: 50%;
@@ -199,7 +202,7 @@ button {
   height: 100%;
   transform-origin: center center;
   transform: translate(-50%, -50%) scale(1.2);
-  border: 2px solid var(--client-background-color);
+  border: 2px solid var(--client-status-color);
   border-radius: 50%;
 }
 
@@ -413,20 +416,31 @@ button {
   flex: none;
   display: flex;
   justify-content: space-between;
+  border-bottom: 1px solid #ececec;
 }
 
 .layout > .toolbar > .left-tools {
   display: flex;
-  gap: 5px;
+  gap: 20px;
   padding: 0px 10px;  
   align-items: center;
+}
+
+.layout > .toolbar > .left-tools > .tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.layout > .toolbar > .left-tools > .tools > *{
+  margin: 0px;
 }
 
 .layout > .toolbar > .right-tools {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 0px 10px;
+  padding: 0px 20px;
   box-sizing: border-box;
 }
 
@@ -440,13 +454,72 @@ button {
   flex: 1;
 }
 
-.layout > .content > .tree-area {
+.layout > .content > .graph-view {
+  display: block;
+  position: relative;
+  border-top: 1px solid #ececec;
+}
+
+.layout > .content > .graph-view > * {
+  flex: 1;
+}
+
+.layout > .content > .graph-view > .graph-area {
+  position: absolute;
+  left: 0px;
+  right: 300px;
+  top: 0px;
+  bottom: 0px;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .content > .graph-view > .graph-area > .title {
+  padding: 10px 20px;
+  border-bottom: 1px solid #ececec;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  margin: 0px;
+}
+
+.layout > .content > .graph-view > .graph-area > .tree-area {
+  flex: 1;
   overflow: auto;
   position: relative;
   box-sizing: border-box;
-  border-top: 1px solid black;
-  margin: 20px;
-  border: 1px solid black;
+  /* margin: 20px; */
+  /* border: 1px solid #ececec; */
+}
+
+
+
+.layout > .content > .graph-view > .info-area > .title {
+  padding: 10px 20px;
+  border-bottom: 1px solid #ececec;
+  border-left: 1px solid #ececec;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  margin: 0px;
+}
+
+.layout > .content > .graph-view > .info-area {
+  position: absolute;
+  right: 0px;
+  width: 300px;
+  top: 0px;
+  bottom: 0px;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .content > .graph-view > .info-area > .selected-node-info {
+  flex: 1;
+  position: relative;
+  box-sizing: border-box;
+  border-left: 1px solid #ececec;
+  width :100%;
 }
 
 .layout > .content > .editor-area {
@@ -455,15 +528,17 @@ button {
   position: relative;
   height: 300px;
   flex: none;
-  gap: 10px;
 }
 
 .layout > .content > .editor-area > * {
   flex: 1 1 auto;
   height: 300px;
   width: 50%;
-  overflow: auto;
   position: relative;
+}
+
+.layout > .content > .editor-area > *:first-child {
+  border-right: 1px solid #ececec;
 }
 
 
@@ -544,6 +619,7 @@ button {
 
 .structure-item.delete {
   text-align: right;
+  color: red;
 }
 
 .structure-item.selected {
@@ -626,3 +702,18 @@ button {
 }
 
 
+.selected-node-info > .property-view > .property-item-view {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  text-align: left;
+}
+
+.selected-node-info > .property-view > .property-item-view > label {
+  flex: none;
+  width: 100px;
+  text-align: left;
+  font-weight: bold;
+}
