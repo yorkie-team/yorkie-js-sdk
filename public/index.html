@@ -55,7 +55,7 @@
 
               </div>
               <div class="info-area">
-                <h4 class="title">Selected Node Information</h4>            
+                <h4 class="title">Selected SplayTree Node</h4>            
                 <div class="selected-node-info">
     
                 </div>
@@ -208,12 +208,36 @@
         return currentNode;
       }
 
-      
+      function displayTextValue(value) {
+        if (value === ' ') {
+          return '&lt;space&gt;';
+        } else if (value === '\n') {
+          return '&lt;enter&gt;<br />';
+        } else if (value === '\t') {
+          return '&lt;tab&gt;&nbsp;&nbsp;';
+        }
+
+        return value;
+      }
+
+      function displayValue(value) {
+        if (value === ' ') {
+          return '&lt;space&gt;';
+        } else if (value === '\n') {
+          return '&lt;enter&gt;';
+        } else if (value === '\t') {
+          return '&lt;tab&gt;';
+        }
+
+        return value;
+      }
 
       function generateTreeHTML(node) {
           if (!node || node.depth > 300) {
             return '';
           }
+
+          const childrenCount = (node.left ? 1 : 0) + (node.right ? 1 : 0);
 
           return `
             <div 
@@ -222,24 +246,28 @@
                   data-key="${node.key}"
               >
               <div class="content">
-                    <div class="inner-description ${node.left || node.right ? 'has-children' : ''}">
+                    <div class="inner-description ${node.left ? 'has-left' : ''} ${node.right ? 'has-right' : ''}" data-children-count="${childrenCount}">
                       ${!node.isRemoved ? `<div class="prev-view">&lt;</div>` : ''}
                       <div class="key-area">${node.key}</div>
                       <div class="value-area">
                         <div class="weight">${node.weight === 0 ? "Ø" : node.weight}</div>
-                        <div class="value">${node.value === ' ' ? '&lt;space&gt;' : node.value}</div>
+                        <div class="value">${displayValue(node.value)}</div>
                       </div>
                       ${!node.isRemoved ? `<div class="next-view">&gt;</div>` : ''}
                     </div>
                     ${node.left || node.right ? `
                       <div class="children">
                         
-                          <div class="left">
-                            ${node.left ? generateTreeHTML(node.left) : `<div class="node-item empty">&times;</div>`}
-                          </div>
-                          <div class="right">
-                            ${node.right ? generateTreeHTML(node.right) : `<div class="node-item empty">&times;</div>`}
-                          </div>
+                          ${node.left ? `
+                            <div class="left ${node.right ? 'has-right' : ''}">
+                              ${node.left ? generateTreeHTML(node.left) : ``}
+                            </div>
+                            ` : ``}
+
+                          ${node.right ? `<div class="right ${node.left ? 'has-left' : ''}">
+                            ${node.right ? generateTreeHTML(node.right) : ``}
+                          </div>`: ``}
+                          
                       </div>` : ''}
 
               </div>
@@ -306,12 +334,12 @@
           if (block.deleted) {
             return `<span class="${defaultClass}" ${defaultAttributes} style="background-color: ${block.color}">
               <div class="time">${block.time}</div>
-              <div>${block.value === ' ' ? '•' : block.value}</div>
+              <div>${displayTextValue(block.value)}</div>
             </span>`
           } else {
             return `<span class="${defaultClass}" ${defaultAttributes} style="border: 1px solid ${block.color}">
               <div class="time">${block.time}</div>
-              <div>${block.value === ' ' ? '•' : block.value}</div>
+              <div>${displayTextValue(block.value)}</div>
             </span>`
           }
         }).join("");
@@ -319,7 +347,7 @@
 
         structureLogHolder.innerHTML = window.blockList.map(it => {
 
-          const value = `${it.time} ${it.value === ' ' ? '&lt;space&gt;' : it.value}`
+          const value = `${it.time} ${displayValue(it.value)}`
           const style = `--client-color: ${it.color};`
           const attribute = `data-time="${it.time}" style="${style}"`
 
@@ -686,9 +714,11 @@
         if (element) {
           element.innerHTML = `
             <div class="property-view">
-              <div class="property-item-view"><label>key:</label> <div class="value">${node.key}</div></div>
-              <div class="property-item-view"><label>value:</label> <div class="value">${node.value === ' ' ? '&lt;space&gt;' : node.value}</div></div>
               <div class="property-item-view"><label>parent:</label> <div class="value">${node.parent?.key}</div></div>
+              <hr />
+              <div class="property-item-view"><label>key:</label> <div class="value">${node.key}</div></div>
+              <div class="property-item-view"><label>weight:</label> <div class="value">${node.weight}</div></div>
+              <div class="property-item-view"><label>value:</label> <div class="value">${displayValue(node.value)}</div></div>
               <div class="property-item-view"><label>left:</label> <div class="value">${node.left?.key}</div></div>
               <div class="property-item-view"><label>right:</label> <div class="value">${node.right?.key}</div></div>
 

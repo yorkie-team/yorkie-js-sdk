@@ -254,6 +254,9 @@ button {
   position: relative;
   margin-left: 12px;
   margin-right: 12px;
+  width: 64px;
+  height: 40px;
+  contain: size;  
 }
 
 .node-item > .content > .inner-description > .prev-view,
@@ -286,7 +289,7 @@ button {
   display: flex;
 }
 
-.node-item > .content > .inner-description.has-children::before {
+.node-item > .content > .inner-description:not([data-children-count="0"])::before {
   content: '';
   position: absolute;
   bottom: -7px;
@@ -296,6 +299,21 @@ button {
   height: 6px;
   border-left: 1px solid black;
   z-index: -1;
+}
+
+.node-item > .content > .inner-description[data-children-count="1"]::before {
+  bottom: -14px;
+  height: 12px;
+}
+
+.node-item > .content > .inner-description[data-children-count="1"].has-left::before {
+  left: 10px;
+}
+
+
+.node-item > .content > .inner-description[data-children-count="1"].has-right::before {
+  left: auto;
+  right: 10px;
 }
 
 .node-item > .content > .inner-description > .key-area {
@@ -342,7 +360,7 @@ button {
   position: relative;
 }
 
-.node-item > .content > .children > .left:before {
+.node-item > .content > .children > .left.has-right:before {
   content: "";
   position: absolute;
   left: 50%;
@@ -353,7 +371,7 @@ button {
   border-top: 1px solid black;
 }
 
-.node-item > .content > .children > .right:before {
+.node-item > .content > .children > .right.has-left:before {
   content: "";
   position: absolute;
   left: 0px;
