@@ -9,8 +9,9 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface TextChange<A = Indexable> 
+export declare interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> 
 ```
+<b>Extends:</b> [ValueChange](./yorkie-js-sdk.valuechange.md)<!-- -->&lt;TextValueType&lt;A&gt;&gt;
 
 ## Properties
 

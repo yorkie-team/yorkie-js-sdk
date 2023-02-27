@@ -40,6 +40,7 @@
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
 |  [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md) | <code>StreamConnectionStatusChangedEvent</code> is an event that occurs when the client's stream connection state changes. |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Text.onChanges()</code>. <code>Text.onChanges()</code> is called when the <code>Text</code> is modified. |
+|  [ValueChange](./yorkie-js-sdk.valuechange.md) |  |
 
 ## Variables
 
