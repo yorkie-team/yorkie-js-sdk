@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.1] - 2023-02-27
+
+### Added
+* Add `delete` and `empty` method to `Text` data type by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/454
+
+### Changed
+* Reduce bundle size for production by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/460
+* Remove string dependency of RGATreeSplit value by @cozitive in https://github.com/yorkie-team/yorkie-js-sdk/pull/459
+* Remove priority queue from RHTPQMap and entire project by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/462
+* Modify config to run the webpack-bundle-analyzer when using `profile:bundle` script by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/468
+
+### Fixed
+* Fix invalid indexOf SplayTree with single node by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/463
+
 ## [0.3.0] - 2023-01-31
 
 ### Changed
