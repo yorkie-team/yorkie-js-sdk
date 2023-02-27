@@ -237,6 +237,7 @@ interface Attachment<P> {
   isRealtimeSync: boolean;
   peerPresenceMap?: Map<string, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
+  isActivated: boolean;
 }
 
 /**
@@ -427,6 +428,11 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           value: this.status,
         });
 
+        // Set the isActivated property on attachment to resend local Changes when restarting activate .
+        this.attachmentMap.forEach((attachment) => {
+          attachment.isActivated = false;
+        });
+
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
         resolve();
       });
@@ -466,6 +472,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           doc,
           isRealtimeSync,
           peerPresenceMap: new Map(),
+          isActivated: true,
         });
         await this.runWatchLoop();
 
@@ -515,41 +522,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `pause` pauses the given document. It tells the server that this client
-   */
-  public pause(
-    doc: Document<unknown>,
-    isRealtimeSync = false,
-  ): Promise<Document<unknown>> {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-
-    return new Promise((resolve, reject) => {
-      const docInfo = this.attachmentMap.get(doc.getKey());
-
-      if (!docInfo) {
-        reject(new Error('Document is not attached'));
-      }
-
-      if (docInfo) {
-        docInfo.isRealtimeSync = isRealtimeSync;
-      }
-
-      this.runWatchLoop();
-
-      resolve(doc);
-    });
-  }
-
-  /**
-   * `resume` resumes the given document. It tells the server that this client
-   */
-  public resume(doc: Document<unknown>): Promise<Document<unknown>> {
-    return this.pause(doc, true);
-  }
-
-  /**
    * `sync` pushes local changes of the attached documents to the server and
    * receives changes of the remote replica from the server then apply them to
    * local documents.
@@ -557,7 +529,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   public sync(): Promise<Array<Document<unknown>>> {
     const promises = [];
     for (const [, attachment] of this.attachmentMap) {
-      promises.push(this.syncInternal(attachment.doc));
+      promises.push(this.syncInternal(attachment));
     }
 
     return Promise.all(promises)
@@ -717,7 +689,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             attachment.remoteChangeEventReceived)
         ) {
           attachment.remoteChangeEventReceived = false;
-          promises.push(this.syncInternal(attachment.doc));
+          promises.push(this.syncInternal(attachment));
         }
       }
 
@@ -883,8 +855,14 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
   }
 
-  private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
+  private syncInternal(attachment: Attachment<P>): Promise<Document<unknown>> {
+    const doc = attachment.doc;
     return new Promise((resolve, reject) => {
+      if (!attachment.isActivated) {
+        resolve(doc);
+        return;
+      }
+
       const req = new PushPullRequest();
       req.setClientId(converter.toUint8Array(this.id!));
       const reqPack = doc.createChangePack();

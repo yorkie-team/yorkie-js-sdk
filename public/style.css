@@ -232,46 +232,8 @@ button {
   color: red;
 }
 
-.node-item.is-red {
-  /* border: 1px solid red; */
-}
-
-.node-item.is-removed > .content > .inner-description {
-  /* overflow: hidden; */
-  /* width: 20px; */
-  /* height: 20px; */
-}
-/* 
-.node-item.is-removed > .content > .inner-description > .key-area {
-  display: none;
-}
-
-.node-item.is-removed > .content > .inner-description > .value-area > .weight {
-  display: none;
-} */
-
-.node-item.is-removed:hover > .content > .inner-description {
-  /* width: auto; */
-  /* height: auto; */
-}
-
-.node-item.is-removed:hover > .content > .inner-description > .key-area {
-  /* display: block; */
-}
-
-.node-item.is-removed:hover > .content > .inner-description > .value-area > .weight {
-  /* display: block; */
-}
-
-
 .node-item.is-removed > .content > .inner-description {
   background-color: rgba(0, 0, 0, 0.2);
-  /* opacity: 0.3; */
-  /* scale: 0.5; */
-}
-
-.node-item.is-removed > .content > .inner-description > .key-area {
-  /* background-color: gray; */
 }
 
 .node-item > .content {
@@ -290,8 +252,8 @@ button {
   border-style: solid;
   margin-bottom: 10px;
   position: relative;
-  margin-left: 20px;
-  margin-right: 20px;
+  margin-left: 12px;
+  margin-right: 12px;
 }
 
 .node-item > .content > .inner-description > .prev-view,
@@ -461,17 +423,23 @@ button {
 }
 
 .layout > .content > .graph-view > * {
-  flex: 1;
-}
-
-.layout > .content > .graph-view > .graph-area {
   position: absolute;
-  left: 0px;
-  right: 300px;
   top: 0px;
   bottom: 0px;
   display: flex;
-  flex-direction: column;
+  flex-direction: column;  
+}
+
+.layout > .content > .graph-view > .graph-area:first-child {
+  left: 0px;
+  width :50%;
+  box-sizing: border-box;
+  border-right: 1px solid #ececec;
+}
+
+.layout > .content > .graph-view > .graph-area:last-child {
+  right: 0px;
+  width :50%;
 }
 
 .layout > .content > .graph-view > .graph-area > .title {
@@ -494,33 +462,7 @@ button {
 
 
 
-.layout > .content > .graph-view > .info-area > .title {
-  padding: 10px 20px;
-  border-bottom: 1px solid #ececec;
-  border-left: 1px solid #ececec;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  margin: 0px;
-}
 
-.layout > .content > .graph-view > .info-area {
-  position: absolute;
-  right: 0px;
-  width: 300px;
-  top: 0px;
-  bottom: 0px;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout > .content > .graph-view > .info-area > .selected-node-info {
-  flex: 1;
-  position: relative;
-  box-sizing: border-box;
-  border-left: 1px solid #ececec;
-  width :100%;
-}
 
 .layout > .content > .editor-area {
   display: flex;
@@ -539,6 +481,45 @@ button {
 
 .layout > .content > .editor-area > *:first-child {
   border-right: 1px solid #ececec;
+}
+
+.layout > .content > .editor-area > .data-area {
+  display: flex;
+
+}
+
+.layout > .content > .editor-area > .data-area > * {
+  flex: 1 1 auto;
+  display: flex;
+}  
+
+.layout > .content > .editor-area > .data-area > * > .info-area {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .content > .editor-area > .data-area > * > .info-area > .title {
+  padding: 10px 10px;
+  border-bottom: 1px solid #ececec;
+  border-left: 1px solid #ececec;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  margin: 0px;
+  font-size: 12px;
+  box-sizing: border-box;
+  height: 30px;
+}
+
+
+.layout > .content > .editor-area > .data-area > * > .info-area > .selected-node-info {
+  flex: 1;
+  position: relative;
+  box-sizing: border-box;
+  border-left: 1px solid #ececec;
+  width :100%;
 }
 
 
@@ -588,6 +569,12 @@ button {
 
 #structure-log-holder {
   width: 100%;
+}
+
+#structure-text-holder {
+  width: 100%;
+  padding: 10px;
+  font-size: 12px;
 }
 
 
