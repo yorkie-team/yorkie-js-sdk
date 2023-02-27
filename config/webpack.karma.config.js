@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const config = require('./webpack.dev.config');
+const config = require('./webpack.dev.config')({}, {});
 
 // Do not include entry - karma-webpack does not support it
 delete config.entry;
