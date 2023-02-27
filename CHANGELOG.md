@@ -7,6 +7,11 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.2] - 2023-02-27
+
+### Fixed
+* Fix ValueChange dependency by @krapie in https://github.com/yorkie-team/yorkie-js-sdk/pull/470
+
 ## [0.3.1] - 2023-02-27
 
 ### Added
