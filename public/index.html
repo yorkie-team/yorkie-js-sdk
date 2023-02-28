@@ -65,14 +65,14 @@
         </div>
         <div class="graph-view">
           <div class="graph-area">
-            <h4 class="title">SplayTree</h4>
+            <h4 class="title"><span>SplayTree</span><span  class="badge"  id="splaytree-info"></span></h4>
             <div class="tree-area">
               <div id="tree-log-holder"></div>      
               <div id="tree-map-holder"></div>      
             </div>
           </div>
           <div class="graph-area">
-            <h4 class="title">LLRBTree</h4>
+            <h4 class="title"><span>LLRBTree</span><span class="badge" id="llrbtree-info"></span></h4>
             <div class="tree-area">
               <div id="llrbtree-log-holder"></div>      
             </div>
@@ -102,6 +102,8 @@
       const treeLogHolder = document.getElementById('tree-log-holder');
       const treeLineHolder = document.getElementById('tree-line-holder');
       const llrbtreeLogHolder = document.getElementById('llrbtree-log-holder');
+      const splayTreeInfo = document.getElementById('splaytree-info');
+      const llrbTreeInfo = document.getElementById('llrbtree-info');
       const treeArea = document.querySelector('.tree-area');
       const selectionMap = new Map();
 
@@ -166,11 +168,20 @@
         }
       }      
 
+      let splayNext = []
+      let llrbNext = []
+
       function getNewSplayTreeNode(node, depth = 0, parent = null) {
+
+
+        if (typeof splayNext[depth] !== 'number') {
+          splayNext[depth] = 0;
+        }
 
         const currentNode = {
           parent,
           depth,
+          next: splayNext[depth]++,
           actorID: node.id.createdAt.actorID,
           isRemoved: node?.isRemoved?.(),
           removeAt: node?.removedAt,
@@ -184,15 +195,30 @@
         currentNode.left = node.left ? getNewSplayTreeNode(node.left, depth + 1, currentNode) : null;
         currentNode.right = node.right ? getNewSplayTreeNode(node.right, depth + 1, currentNode) : null;
 
+        if (currentNode.left) {
+          currentNode.left.sibling = currentNode.right;
+          currentNode.left.nodeType = "left";
+        }
+        if (currentNode.right) {
+          currentNode.right.sibling = currentNode.left;
+          currentNode.right.nodeType = "right";
+        }
+
         return currentNode;
       }     
 
       
       function getNewLLRBTreeNode(node, depth = 0, parent = null) {
 
+
+        if (typeof llrbNext[depth] !== 'number') {
+          llrbNext[depth] = 0;
+        }
+
         const currentNode = {
           parent,
           depth,
+          next: llrbNext[depth]++,
           actorID: node.key.createdAt.actorID,
           isRemoved: node.value.isRemoved(),
           removeAt: node.value.removedAt,
@@ -274,7 +300,7 @@
             if (!node) {
               return;
             }
-  
+
 
             if (!node.left && !node.right) {
               node.viewport = {
@@ -300,12 +326,28 @@
             }
         }
 
-        function calculateAbsolutePosition(node, startX = 0, endX = 0) {
+        function calculateAbsolutePosition(type, node, startX = 0, endX = 0) {
           if (!node) {
             return;
           }
 
 
+          if (type === 'splay') {
+
+            node.viewport.x = node.next * 100;
+            node.viewport.top = node.depth * 100;
+            node.viewport.left = node.viewport.x;
+
+            if (node.left) {
+              calculateAbsolutePosition(type, node.left, startX, startX + node.left.viewport.width);
+            }
+
+            if (node.right) {
+              calculateAbsolutePosition(type, node.right, startX + 10, startX + node.right.viewport.width);            
+            }
+            
+            return;
+          }
 
           node.viewport.x = startX + (node.viewport.width / 2);
           node.viewport.top = node.depth * 52;
@@ -327,7 +369,7 @@
               // startX -= (node.right?.viewport.width || 0);
             }
 
-            calculateAbsolutePosition(node.left, startX, startX + node.left.viewport.width);
+            calculateAbsolutePosition(type, node.left, startX, startX + node.left.viewport.width);
           }
 
           let hasReconcileRight = false;
@@ -342,7 +384,7 @@
             } else {
               startX += (node.left?.viewport.width || 0);
             }
-            calculateAbsolutePosition(node.right, startX + 10, startX + node.right.viewport.width);            
+            calculateAbsolutePosition(type, node.right, startX + 10, startX + node.right.viewport.width);            
           }
 
           if (hasReconcileLeft) {
@@ -359,28 +401,51 @@
           }
         }
 
-        function renderLineHTML(node) {
+        function renderLineHTML(type, node) {
 
-          return `
+          if (type === "splay") {
+
+            if (node.sibling && node.nodeType === "right") {
+              return `
+                ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.sibling.viewport.left + 40} ${node.sibling.viewport.top + 25}` : ''}
+                
+                ${node.left ? renderLineHTML(type, node.left) : ''}
+                ${node.right ? renderLineHTML(type, node.right) : ''}
+                
+              `
+            }
+
+            return `
             ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.parent.viewport.left + 40} ${node.parent.viewport.top + 25}` : ''}
             
-            ${node.left ? renderLineHTML(node.left) : ''}
-            ${node.right ? renderLineHTML(node.right) : ''}
+            ${node.left ? renderLineHTML(type, node.left) : ''}
+            ${node.right ? renderLineHTML(type, node.right) : ''}
+            
+          `            
+          } else {
+
+            return `
+            ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.parent.viewport.left + 40} ${node.parent.viewport.top + 25}` : ''}
+            
+            ${node.left ? renderLineHTML(type, node.left) : ''}
+            ${node.right ? renderLineHTML(type, node.right) : ''}
             
           `
+          }
+
         }
 
-        function renderHeadLineView(node) {
+        function renderHeadLineView(type, node) {
           return `<div class="line-holder">
             <svg overflow="visible">
               <path 
               class="line" 
-              d="${renderLineHTML(node)}"  />
+              d="${renderLineHTML(type, node)}"  />
             </svg>
           </div>`
         }
 
-        function renderHeadHTML (node) {
+        function renderHeadHTML (type, node) {
 
 
 
@@ -408,138 +473,37 @@
 
           </div>`,
           // node.left ? `<div class='left-line' style="transform: translate3d(${node.left.viewport.left}px,${node.left.viewport.top}px, 0px)">left</div>` : '',
-          node.left ? renderHeadHTML(node.left) : '',
+          node.left ? renderHeadHTML(type, node.left) : '',
           // node.right ? `<div class='right-line' data-x="${node.right.viewport.left}"  data-y="${node.right.viewport.top}">right</div>` : '',          
-          node.right ? renderHeadHTML(node.right) : ''
+          node.right ? renderHeadHTML(type, node.right) : ''
           ].join('');
-        }
-
-        function recalculatePosition(node, offsetX) {
-          if (!node) {
-            return;
-          }
-
-          if (node.right) {
-            recalculatePosition(node.right, offsetX);
-          }
-
-          if (node.left) {
-            recalculatePosition(node.left, offsetX);
-          }
-
-          node.viewport.left += offsetX;
-        }
-
-        function getMinX(node) {
-          if (!node) {
-            return Number.MAX_SAFE_INTEGER;
-          }
-
-          if (node.left || node.right) {
-            return Math.min(node.viewport.left, getMinX(node.left), getMinX(node.right));
-          }
-
-          return node.viewport.left;
-        }
-
-        function reconcileAbsolutePosition(node) {
-          if (!node) {
-            return;
-          }
-
-          if (node.left && node.right) {
-
-            const minX = getMinX(node.right);
-
-            if (node.left.viewport.left + node.left.viewport.width < minX ) {
-
-              const leftArea = node.left.viewport.left + node.left.viewport.width/2
-
-              const offsetX = leftArea + 10 - minX
-
-              recalculatePosition(node.right, offsetX);
-
-              node.viewport.left += offsetX;
-            }
-          }
-
-        }
-
-        function calculateOneDepthPosition(node) {
-          if (!node) {
-            return;
-          }
-
-
-          let minX = node.viewport.left - 30;
-          let maxX = node.viewport.left + 30;
-
-          if (node.left) {
-            minX = Math.min(minX, node.left.viewport.left);
-            maxX = Math.max(maxX, node.left.viewport.left + node.left.viewport.width);
-          }
-
-          if (node.right) {
-            minX = Math.min(minX, node.right.viewport.left);
-            maxX = Math.max(maxX, node.right.viewport.left + node.right.viewport.width);
-          }
-
-          return {
-            minX,
-            maxX,
-          }
-        }
-
-        function hasChildren (node) {
-          return node && (node.left || node.right);
-        }
-
-        function reconcileOneDepthPosition(node) {
-          if (!node) {
-            return;
-          }
-
-          if (node.left && node.right) {
-
-            const leftPos = calculateOneDepthPosition(node.left);
-            const rightPos = calculateOneDepthPosition(node.right);
-
-            if (leftPos.maxX < rightPos.minX) {
-
-              if (!hasChildren(node.right.left) && !hasChildren(node.right.right)) {
-                const offsetX = rightPos.minX - leftPos.maxX + 10;
-                recalculatePosition(node.right, offsetX);
-              }
-            }
-
-          }
-
-          reconcileOneDepthPosition(node.left);
-          reconcileOneDepthPosition(node.right);
         }
 
         function displayTreeLog (doc) {
 
+            splayNext = [];          
             const head = getNewSplayTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByIndex.root);
             window.textHeadNode = head;
 
             calculateTreeViewport(head);
-            calculateAbsolutePosition(head, 0, head.viewport.width);
-            reconcileOneDepthPosition(head);
-            reconcileAbsolutePosition(head);
+            calculateAbsolutePosition("splay", head, 0, head.viewport.width);
 
+            splayTreeInfo.innerHTML = `${splayNext.length}`
+            
 
-            treeLogHolder.innerHTML = renderHeadLineView(head) + renderHeadHTML(head);            
+            treeLogHolder.innerHTML = renderHeadLineView("splay", head) + renderHeadHTML("splay", head);            
 
-
+            llrbNext = [];
             const llrbhead = getNewLLRBTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
             window.llrbtextHeadNode = llrbhead;
 
             calculateTreeViewport(llrbhead);
-            calculateAbsolutePosition(llrbhead, 0, llrbhead.viewport.width);
+            calculateAbsolutePosition("llrb", llrbhead, 0, llrbhead.viewport.width);
+
+            llrbTreeInfo.innerHTML = `${llrbNext.length}`            
 
 
-            llrbtreeLogHolder.innerHTML = renderHeadLineView(llrbhead) + renderHeadHTML(llrbhead);
+            llrbtreeLogHolder.innerHTML = renderHeadLineView("llrb", llrbhead) + renderHeadHTML("llrb", llrbhead);
         }
 
       function displayTreeLogWithTimer (doc) {

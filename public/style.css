@@ -236,6 +236,7 @@ button {
 
 .node-item.is-removed > .content > .inner-description {
   background-color: #dadada;
+  border-width: 1px;
 }
 
 .node-item > .content {
@@ -483,6 +484,17 @@ button {
   display: flex;
   align-items: center;
   margin: 0px;
+}
+
+.layout > .content > .graph-view > .graph-area > .title > .badge {
+  background-color: rgb(228, 88, 88);
+  color: white;
+  font-weight: 400;
+  margin-left: 10px;
+  border-radius: 25px;
+  padding: 4px 5px;
+  font-size: 12px;
+
 }
 
 .layout > .content > .graph-view > .graph-area > .tree-area {
