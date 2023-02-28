@@ -52,7 +52,6 @@
                     <div id="structure-text-holder"></div>
                   </div>                
                 </div>
-
               </div>
               <div class="info-area">
                 <h4 class="title">Selected SplayTree Node</h4>            
@@ -69,6 +68,7 @@
             <h4 class="title">SplayTree</h4>
             <div class="tree-area">
               <div id="tree-log-holder"></div>      
+              <div id="tree-map-holder"></div>      
             </div>
           </div>
           <div class="graph-area">
@@ -100,6 +100,7 @@
       const structureLogHolder = document.getElementById('structure-log-holder');
       const structureTextHolder = document.getElementById('structure-text-holder');
       const treeLogHolder = document.getElementById('tree-log-holder');
+      const treeLineHolder = document.getElementById('tree-line-holder');
       const llrbtreeLogHolder = document.getElementById('llrbtree-log-holder');
       const treeArea = document.querySelector('.tree-area');
       const selectionMap = new Map();
@@ -231,22 +232,170 @@
 
         return value;
       }
+      
+      function hasOnlyDeletedChildren(node) {
 
-      function generateTreeHTML(node) {
-          if (!node || node.depth > 300) {
+        if (!node) {
+          return true;
+        }
+
+        if (node.key === "0:00:0:0") {  // check root
+          return true;
+        }
+
+        return hasOnlyDeletedChildren(node.left) && hasOnlyDeletedChildren(node.right) && node.isRemoved;
+      }
+
+      function getAllChildren(node) {
+
+        if (!node) {
+          return [];
+        }
+
+        const children = [];
+
+        if (node.left) {
+          children.push(node.left);
+          children.push(...getAllChildren(node.left));
+        }
+
+        children.push(node);
+
+        if (node.right) {
+          children.push(node.right);
+          children.push(...getAllChildren(node.right));
+        }
+
+        return children;
+      }
+
+        function calculateTreeViewport(node) {
+            
+            if (!node) {
+              return;
+            }
+  
+
+            if (!node.left && !node.right) {
+              node.viewport = {
+                width: 64,
+              }              
+              return;
+            } else {
+              node.viewport = {
+                width: 0,
+              }
+            }
+
+  
+            if (node.left) {
+              calculateTreeViewport(node.left);
+              node.viewport.width += node.left.viewport.width;
+              node.viewport.width += 10;
+            }
+
+            if (node.right) {
+              calculateTreeViewport(node.right);
+              node.viewport.width += node.right.viewport.width;
+            }
+        }
+
+        function calculateAbsolutePosition(node, startX = 0, endX = 0) {
+          if (!node) {
+            return;
+          }
+
+
+
+          node.viewport.x = startX + (node.viewport.width / 2);
+          node.viewport.top = node.depth * 52;
+          node.viewport.left = node.viewport.x;
+
+          // console.log(node.viewport.left, node.viewport.width, startX, endX)
+
+          let hasReconcileLeft = false;
+
+          if (node.left) {
+
+            if ((node.right?.left || node.right?.right) && (!node.left.left && !node.left.right)) {
+
+              if (node.right) {
+                hasReconcileLeft = true;
+              }
+              
+            } else {
+              // startX -= (node.right?.viewport.width || 0);
+            }
+
+            calculateAbsolutePosition(node.left, startX, startX + node.left.viewport.width);
+          }
+
+          let hasReconcileRight = false;
+          if (node.right) {
+
+
+            if ((node.left?.left || node.left?.right) && (!node.right.left && !node.right.right)) {
+                
+                if (node.left) {
+                  hasReconcileRight = true;
+                }
+            } else {
+              startX += (node.left?.viewport.width || 0);
+            }
+            calculateAbsolutePosition(node.right, startX + 10, startX + node.right.viewport.width);            
+          }
+
+          if (hasReconcileLeft) {
+            node.left.viewport.left = node.viewport.left - (node.left.viewport.width / 2) - 10;
+          }
+
+          if (hasReconcileRight) {
+
+            if (node.left) {
+              node.right.viewport.left = node.left.viewport.left + 70;
+            } else {
+              node.right.viewport.left = node.viewport.left + (node.viewport.width / 2) + 10;
+            }
+          }
+        }
+
+        function renderLineHTML(node) {
+
+          return `
+            ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.parent.viewport.left + 40} ${node.parent.viewport.top + 25}` : ''}
+            
+            ${node.left ? renderLineHTML(node.left) : ''}
+            ${node.right ? renderLineHTML(node.right) : ''}
+            
+          `
+        }
+
+        function renderHeadLineView(node) {
+          return `<div class="line-holder">
+            <svg overflow="visible">
+              <path 
+              class="line" 
+              d="${renderLineHTML(node)}"  />
+            </svg>
+          </div>`
+        }
+
+        function renderHeadHTML (node) {
+
+
+
+          if (!node ) {
             return '';
           }
 
-          const childrenCount = (node.left ? 1 : 0) + (node.right ? 1 : 0);
-
-          return `
-            <div 
+          return [`
+              <div 
                   class="node-item ${node.isRemoved ? 'is-removed' : ''}" 
-                  style="--ticker-color: ${window.peersInfo[node.actorID]?.color}" 
+                  style="--ticker-color: ${window.peersInfo[node.actorID]?.color};transform-origin: center center;transform: translate3d(${node.viewport.left}px, ${node.viewport.top}px, 0px);"" 
                   data-key="${node.key}"
               >
               <div class="content">
-                    <div class="inner-description ${node.left ? 'has-left' : ''} ${node.right ? 'has-right' : ''}" data-children-count="${childrenCount}">
+                    <div class="inner-description">
                       ${!node.isRemoved ? `<div class="prev-view">&lt;</div>` : ''}
                       <div class="key-area">${node.key}</div>
                       <div class="value-area">
@@ -255,25 +404,156 @@
                       </div>
                       ${!node.isRemoved ? `<div class="next-view">&gt;</div>` : ''}
                     </div>
-                    ${node.left || node.right ? `
-                      <div class="children">
-                        
-                          ${node.left ? `
-                            <div class="left ${node.right ? 'has-right' : ''}">
-                              ${node.left ? generateTreeHTML(node.left) : ``}
-                            </div>
-                            ` : ``}
-
-                          ${node.right ? `<div class="right ${node.left ? 'has-left' : ''}">
-                            ${node.right ? generateTreeHTML(node.right) : ``}
-                          </div>`: ``}
-                          
-                      </div>` : ''}
-
               </div>
 
-          </div>`
-        }      
+          </div>`,
+          // node.left ? `<div class='left-line' style="transform: translate3d(${node.left.viewport.left}px,${node.left.viewport.top}px, 0px)">left</div>` : '',
+          node.left ? renderHeadHTML(node.left) : '',
+          // node.right ? `<div class='right-line' data-x="${node.right.viewport.left}"  data-y="${node.right.viewport.top}">right</div>` : '',          
+          node.right ? renderHeadHTML(node.right) : ''
+          ].join('');
+        }
+
+        function recalculatePosition(node, offsetX) {
+          if (!node) {
+            return;
+          }
+
+          if (node.right) {
+            recalculatePosition(node.right, offsetX);
+          }
+
+          if (node.left) {
+            recalculatePosition(node.left, offsetX);
+          }
+
+          node.viewport.left += offsetX;
+        }
+
+        function getMinX(node) {
+          if (!node) {
+            return Number.MAX_SAFE_INTEGER;
+          }
+
+          if (node.left || node.right) {
+            return Math.min(node.viewport.left, getMinX(node.left), getMinX(node.right));
+          }
+
+          return node.viewport.left;
+        }
+
+        function reconcileAbsolutePosition(node) {
+          if (!node) {
+            return;
+          }
+
+          if (node.left && node.right) {
+
+            const minX = getMinX(node.right);
+
+            if (node.left.viewport.left + node.left.viewport.width < minX ) {
+
+              const leftArea = node.left.viewport.left + node.left.viewport.width/2
+
+              const offsetX = leftArea + 10 - minX
+
+              recalculatePosition(node.right, offsetX);
+
+              node.viewport.left += offsetX;
+            }
+          }
+
+        }
+
+        function calculateOneDepthPosition(node) {
+          if (!node) {
+            return;
+          }
+
+
+          let minX = node.viewport.left - 30;
+          let maxX = node.viewport.left + 30;
+
+          if (node.left) {
+            minX = Math.min(minX, node.left.viewport.left);
+            maxX = Math.max(maxX, node.left.viewport.left + node.left.viewport.width);
+          }
+
+          if (node.right) {
+            minX = Math.min(minX, node.right.viewport.left);
+            maxX = Math.max(maxX, node.right.viewport.left + node.right.viewport.width);
+          }
+
+          return {
+            minX,
+            maxX,
+          }
+        }
+
+        function hasChildren (node) {
+          return node && (node.left || node.right);
+        }
+
+        function reconcileOneDepthPosition(node) {
+          if (!node) {
+            return;
+          }
+
+          if (node.left && node.right) {
+
+            const leftPos = calculateOneDepthPosition(node.left);
+            const rightPos = calculateOneDepthPosition(node.right);
+
+            if (leftPos.maxX < rightPos.minX) {
+
+              if (!hasChildren(node.right.left) && !hasChildren(node.right.right)) {
+                const offsetX = rightPos.minX - leftPos.maxX + 10;
+                recalculatePosition(node.right, offsetX);
+              }
+            }
+
+          }
+
+          reconcileOneDepthPosition(node.left);
+          reconcileOneDepthPosition(node.right);
+        }
+
+        function displayTreeLog (doc) {
+
+            const head = getNewSplayTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByIndex.root);
+            window.textHeadNode = head;
+
+            calculateTreeViewport(head);
+            calculateAbsolutePosition(head, 0, head.viewport.width);
+            reconcileOneDepthPosition(head);
+            reconcileAbsolutePosition(head);
+
+
+            treeLogHolder.innerHTML = renderHeadLineView(head) + renderHeadHTML(head);            
+
+
+            const llrbhead = getNewLLRBTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
+            window.llrbtextHeadNode = llrbhead;
+
+            calculateTreeViewport(llrbhead);
+            calculateAbsolutePosition(llrbhead, 0, llrbhead.viewport.width);
+
+
+            llrbtreeLogHolder.innerHTML = renderHeadLineView(llrbhead) + renderHeadHTML(llrbhead);
+        }
+
+      function displayTreeLogWithTimer (doc) {
+
+
+        if (window.timer) {
+          clearTimeout(window.timer);
+        }
+
+        window.timer = setTimeout(() => {
+          displayTreeLog(doc);
+        }, 500)
+
+      }
 
       function displayLog(doc, codemirror) {
 
@@ -283,15 +563,7 @@
         let maxDepth = 0;
 
 
-
-        const head = getNewSplayTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByIndex.root);
-        window.textHeadNode = head;
-        treeLogHolder.innerHTML = generateTreeHTML(head);
-
-
-        const llrbhead = getNewLLRBTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
-        window.llrbtextHeadNode = llrbhead;
-        llrbtreeLogHolder.innerHTML = generateTreeHTML(llrbhead);
+        displayTreeLogWithTimer(doc);
         
 
         structureTextHolder.innerHTML = doc.getRoot().content.getStructureAsString();
@@ -507,14 +779,6 @@
         displayActivatedStatus();
       }
 
-      async function pause() {
-        await window.client.pause(window.doc);
-      }
-
-      async function resume() {
-        await window.client.resume(window.doc);
-      }
-
       async function main() {
         try {
           // 01. create client with RPCAddr(envoy) then activate it.
@@ -537,7 +801,7 @@
           });
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('codemirror12');
+          const doc = new yorkie.Document('codemirror13');
           await client.attach(doc);
 
           window.doc = doc;
@@ -639,6 +903,7 @@
           syncText();
 
           displayLog(doc, codemirror);
+          displayTreeLog(doc);      
         } catch (e) {
           console.error(e);
         }
@@ -646,28 +911,12 @@
 
       main();
 
-      function accumulatePosition(elem) {
+      function accumulatePosition(node) {
         var top = 0, left = 0;
 
-        const innerDescription = elem.querySelector(".inner-description");
-
-        top += innerDescription.offsetTop;
-        left += innerDescription.offsetLeft;
-
-        do {
-          top += elem.offsetTop  || 0;
-          left += elem.offsetLeft || 0;
-          if (!elem.closest(".node-item")) {
-            break;
-          }
-
-          elem = elem.offsetParent;
-
-        } while(elem);
-
         return {
-          y: top,
-          x: left
+          y: node.viewport.top,
+          x: node.viewport.left
         };
       }
 
@@ -772,7 +1021,7 @@
 
           const rootRect = treeArea.getBoundingClientRect();
 
-          const rect = accumulatePosition(selectedNodeElement);
+          const rect = accumulatePosition(selectedItem);
           const x = rect.x;
           const y = rect.y;
 
@@ -790,7 +1039,7 @@
 
           const rootRect = treeArea.getBoundingClientRect();
 
-          const rect = accumulatePosition(llrbselectedNodeElement);
+          const rect = accumulatePosition(llrbselectedItem);
           const x = rect.x;
           const y = rect.y;
 
@@ -987,6 +1236,12 @@
           y: 0.5
         }
       })
+
+
+
+      setTimeout(() => {
+        selectNodeItem(textHeadNode.key)
+      }, 500)
 
     </script>
   </body>

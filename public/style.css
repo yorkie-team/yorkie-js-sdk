@@ -211,14 +211,16 @@ button {
   padding: 2px;
   box-sizing: border-box;
   cursor: pointer;
+  position: absolute;
+  z-index: 10;
 }
 
-.node-item > .prev-view,
+/* .node-item > .prev-view,
 .node-item > .next-view
  {
   display: inline-block;
   width: 10px;
-}
+} */
 
 .node-item.selected > .content > .inner-description {
   border-color: red !important;
@@ -233,7 +235,7 @@ button {
 }
 
 .node-item.is-removed > .content > .inner-description {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: #dadada;
 }
 
 .node-item > .content {
@@ -252,11 +254,25 @@ button {
   border-style: solid;
   margin-bottom: 10px;
   position: relative;
-  margin-left: 12px;
-  margin-right: 12px;
+  margin-left: 8px;
+  margin-right: 8px;
   width: 64px;
   height: 40px;
   contain: size;  
+  background-color: white;
+}
+
+.deleted-children {
+  height: 20px;
+  width: 20px;
+  contain: size;
+  overflow: hidden;
+  background-color: rgba(255, 0, 0, 0.5);
+  filter: grayscale(1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .node-item > .content > .inner-description > .prev-view,
@@ -288,7 +304,7 @@ button {
 .node-item > .content > .inner-description:hover > .next-view {
   display: flex;
 }
-
+/* 
 .node-item > .content > .inner-description:not([data-children-count="0"])::before {
   content: '';
   position: absolute;
@@ -314,7 +330,7 @@ button {
 .node-item > .content > .inner-description[data-children-count="1"].has-right::before {
   left: auto;
   right: 10px;
-}
+} */
 
 .node-item > .content > .inner-description > .key-area {
   font-size: 10px;
@@ -352,7 +368,7 @@ button {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-
+  justify-content: space-between;
 }
 
 .node-item > .content > .children > .left,
@@ -721,4 +737,29 @@ button {
   width: 100px;
   text-align: left;
   font-weight: bold;
+}
+
+.line-holder {
+  /* z-index: 0; */
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width :100px;
+  height: 100px;
+}
+
+.line-holder svg {
+  display: block;
+  position: absolute;
+  left :0px;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.line-holder path {
+  stroke: black;
 }
