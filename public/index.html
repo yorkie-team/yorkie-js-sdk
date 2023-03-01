@@ -413,8 +413,6 @@
           node.viewport.top = node.depth * 52;
           node.viewport.left = node.viewport.x;
 
-          // console.log(node.viewport.left, node.viewport.width, startX, endX)
-
           let hasReconcileLeft = false;
 
           if (node.left) {
@@ -463,13 +461,14 @@
 
         function checkInRect(viewport) {
           let isNoneDrawFirstPoint = false;
-          if (viewport.left + viewport.left/2 < window.panzoomTransformRect.x) {
+
+          if (viewport.left + 40 < window.panzoomTransformRect.x - 10) {
             isNoneDrawFirstPoint = true;
-          } else if (window.panzoomTransformRect.x2 < viewport.left + viewport.left/2) {
+          } else if (window.panzoomTransformRect.x2 + 10 < viewport.left + 40) {
             isNoneDrawFirstPoint = true;
-          } else if (viewport.top + viewport.height/2 < window.panzoomTransformRect.y - 10) {
+          } else if (viewport.top + 25 < window.panzoomTransformRect.y - 10) {
             isNoneDrawFirstPoint = true;
-          } if (window.panzoomTransformRect.y2 < viewport.height/2) {
+          } if (window.panzoomTransformRect.y2 + 10 < viewport.top + 25) {
             isNoneDrawFirstPoint = true;
           }
 
@@ -500,7 +499,10 @@
                 let isNoneDrawSecondPoint = checkInRect(node.sibling.viewport);
 
                 if (isNoneDrawFirstPoint && isNoneDrawSecondPoint) {
-                  return '';
+                  return `
+                  ${node.left ? renderLineHTML(type, node.left) : ''}
+                ${node.right ? renderLineHTML(type, node.right) : ''}
+                  `;
                 }
               }
 
@@ -517,7 +519,10 @@
                 let isNoneDrawSecondPoint = checkInRect(node.parent.viewport);
 
                 if (isNoneDrawFirstPoint && isNoneDrawSecondPoint) {
-                  return '';
+                  return `
+                      ${node.left ? renderLineHTML(type, node.left) : ''}
+                    ${node.right ? renderLineHTML(type, node.right) : ''}
+                  `;
                 }
             }
 
@@ -558,22 +563,12 @@
           }
 
           if (type === 'splay') {
-            console.log(node.viewport, window.panzoomTransformRect)
             if (node.viewport && window.panzoomTransformRect) {
-              if (node.viewport.left + node.viewport.width < window.panzoomTransformRect.x - 10) {
-                return '';
-              }
+              let isNoneDrawFirstPoint = checkInRect(node.viewport);
 
-              if (window.panzoomTransformRect.x2 < node.viewport.left - 10) {
-                return '';
-              }
-
-              if (node.viewport.top + node.viewport.height < window.panzoomTransformRect.y - 10) {
-                return '';
-              }
-
-              if (window.panzoomTransformRect.y2 < node.viewport.top - 10) {
-                return '';
+              if (isNoneDrawFirstPoint) {
+                return (node.left ? renderHeadHTML(type, node.left) : '') +
+                      (node.right ? renderHeadHTML(type, node.right) : '') ;
               }
             }
           }
@@ -1012,7 +1007,7 @@
           });
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('codemirror13');
+          const doc = new yorkie.Document('codemirror14');
           await client.attach(doc);
 
           window.doc = doc;
@@ -1449,8 +1444,6 @@
         height: containerRect.height
       }
       window.panzoomInstance.on('transform', function (e) {
-
-        console.log('a');
 
         const transform = e.getTransform();
         const rect = window.panzoomRect;
