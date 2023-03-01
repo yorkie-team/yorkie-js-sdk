@@ -434,6 +434,34 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   /**
+   * get document snapshot.
+   *
+   * @returns the snapshot of this document.
+   */
+  public getDocumentSnapshot(): Uint8Array {
+    const snapshot = converter.objectToBytes(this.root.getObject());
+    const lamport = new Uint8Array(this.changeID.getLamport().toBytesLE());
+
+    const bytes = new Uint8Array(lamport.byteLength + snapshot.byteLength);
+    bytes.set(new Uint8Array(lamport), 0);
+    bytes.set(new Uint8Array(snapshot), lamport.byteLength);
+
+    return bytes;
+  }
+
+  /**
+   * load document snapshot.
+   */
+  public loadDocumentSnapshot(bytes: Uint8Array): void {
+    const lamport = bytes.slice(0, 8);
+    const snapshot = bytes.slice(8);
+
+    const lamportValue = Long.fromBytesLE([...lamport]);
+
+    this.applySnapshot(lamportValue, snapshot);
+  }
+
+  /**
    * `applyChanges` applies the given changes into this document.
    */
   public applyChanges(changes: Array<Change>): void {

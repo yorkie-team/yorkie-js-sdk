@@ -92,16 +92,41 @@ button {
 }
 
 .tree-item {
-  padding: 2px;
+  padding: 4px;
   border-bottom: 1px solid #e5e5e5;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   position: relative;
   display: inline-block;
   /* white-space: nowrap; */
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   vertical-align: middle;
   min-height: 20px;
+  /* content-visibility: auto; */
+}
+
+.tree-item .skew.left {
+  position: absolute;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-5px);
+  width: 4px;
+  height: 4px;
+  background-color: red;
+  z-index: 1;
+  border-radius: 50%;
+}
+
+.tree-item .skew.right {
+  position: absolute;
+  top: 0px;
+  left: calc(50% + 2px);
+  transform: translateX(-50%) translateY(-5px);
+  width: 4px;
+  height: 4px;
+  background-color: black;
+  z-index: 1;
+  border-radius: 50%;
 }
 
 .tree-item.selected {
@@ -145,8 +170,8 @@ button {
 
 .tree-item.deleted:not(.selected) {
   text-decoration: line-through;
-  background-color: gray;
-  color: white;
+  background-color: #dadada;
+  /* color: white; */
   /* opacity: 0; */
 }
 
@@ -215,12 +240,28 @@ button {
   z-index: 10;
 }
 
-/* .node-item > .prev-view,
-.node-item > .next-view
- {
-  display: inline-block;
+.node-item > .skew-left {
+  position: absolute;
+  bottom: 0px;
+  left: calc(50% - 12px);
+  width: 6px;
+  height: 6px;
+  background-color: red;
+  z-index: 1;
+  border-radius: 50%;
+}
+
+.node-item > .skew-right {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
   width: 10px;
-} */
+  height: 10px;
+  background-color: red;
+  z-index: 1;
+  border-radius: 50%;
+}
+
 
 .node-item.selected > .content > .inner-description {
   border-color: red !important;
@@ -305,33 +346,6 @@ button {
 .node-item > .content > .inner-description:hover > .next-view {
   display: flex;
 }
-/* 
-.node-item > .content > .inner-description:not([data-children-count="0"])::before {
-  content: '';
-  position: absolute;
-  bottom: -7px;
-  
-  left: 50%;
-  width: 1px;
-  height: 6px;
-  border-left: 1px solid black;
-  z-index: -1;
-}
-
-.node-item > .content > .inner-description[data-children-count="1"]::before {
-  bottom: -14px;
-  height: 12px;
-}
-
-.node-item > .content > .inner-description[data-children-count="1"].has-left::before {
-  left: 10px;
-}
-
-
-.node-item > .content > .inner-description[data-children-count="1"].has-right::before {
-  left: auto;
-  right: 10px;
-} */
 
 .node-item > .content > .inner-description > .key-area {
   font-size: 10px;
@@ -441,6 +455,14 @@ button {
   box-sizing: border-box;
 }
 
+.layout > .toolbar > .center-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 0px 20px;
+  box-sizing: border-box;
+}
+
 .layout > .content {
   flex: 1;
   display: flex;
@@ -484,6 +506,7 @@ button {
   display: flex;
   align-items: center;
   margin: 0px;
+  gap: 10px;
 }
 
 .layout > .content > .graph-view > .graph-area > .title > .badge {
@@ -635,6 +658,30 @@ button {
 
 }
 
+.structure-item .skew.left {
+  position: absolute;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-5px);
+  width: 4px;
+  height: 4px;
+  background-color: red;
+  z-index: 1;
+  border-radius: 50%;
+}
+
+.structure-item .skew.right {
+  position: absolute;
+  top: 0px;
+  left: calc(50% + 2px);
+  transform: translateX(-50%) translateY(-5px);
+  width: 4px;
+  height: 4px;
+  background-color: black;
+  z-index: 1;
+  border-radius: 50%;
+}
+
 .structure-item > .icon {
   background-color: var(--structure-background-color);
   width: 16px;
@@ -774,4 +821,49 @@ button {
 
 .line-holder path {
   stroke: black;
+}
+
+.left-skew {
+  background-color: orange;
+  color: black;
+  text-shadow: 0px 0px 1px rgba(255, 255, 255, 0.5);
+  padding: 4px;
+  border-radius: 24px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+}
+
+.left-skew::before {
+  content: "↤";
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  padding: 0px 4px;
+  transform: scale(2) translateY(-1px);
+
+}
+
+.right-skew {
+  background-color: orange;
+  color: black;
+  text-shadow: 0px 0px 1px rgba(255, 255, 255, 0.5);
+  padding: 4px;
+  border-radius: 24px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+}
+
+.right-skew::before {
+  content: "↦";
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  padding: 0px 4px;
+  transform: scale(2) translateY(-1px);
 }
