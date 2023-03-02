@@ -39,12 +39,16 @@
             <textarea id="placeholder" cols="30" rows="10"></textarea>
           </div>
           <div class="data-area">
-            <div class="">
+            <div class="text-view-area">
               <div class="tab">
                 <div class="tab-header">
                   <button class="tablinks active" onclick="openTab(event, 'text')">Text</button>
                   <button class="tablinks" onclick="openTab(event, 'structure')">Structure Data</button>
                   <button class="tablinks" onclick="openTab(event, 'structure-text')">Structure Text</button>
+                  <label style="display: flex; align-items: center;">
+                    <input type="checkbox" id="hide-deleted-node" onClick="toggleDeletedNodeShow()" />
+                    <span>Hide deleted node</span>
+                  </label>
                 </div>
                 <div class="tab-body">
                   <div id="text" class="tabcontent active">
@@ -138,6 +142,7 @@
       window.selectedNodeCharElement = null;
       window.selectedNodeStructureElement = null;
       window.snapshotList = [];
+      window.hideDeletedNode = false;
 
       function saveSnapshot() {
 
@@ -837,7 +842,7 @@
 
 
           if (block.deleted) {
-            return `<div  class="structure-item delete" ${attribute}>
+            return `<div  class="structure-item deleted" ${attribute}>
                 <span class="icon" >&times;</span>{${value}}
                 ${leftSkew ? `<span class="skew left"></span>` : ''}
                 ${rightSkew ? `<span class="skew right"></span>` : ''}              
@@ -1347,6 +1352,19 @@
         }
       }
 
+      function setHideDeletedNode(hide) {
+        window.hideDeletedNode = hide;
+
+        document.getElementById('hide-deleted-node').checked = window.hideDeletedNode;
+
+        document.querySelector(".text-view-area").classList.toggle("hide-deleted-node", window.hideDeletedNode)
+      }
+
+      function toggleDeletedNodeShow() {
+        setHideDeletedNode(!window.hideDeletedNode);
+        
+      }
+
       function goNextNode(e) {
         e.preventDefault();
         const nodeItem = e.target.closest(".node-item");
@@ -1495,6 +1513,7 @@
         }
       })
 
+      setHideDeletedNode(window.hideDeletedNode);
 
 
       setTimeout(() => {

@@ -557,6 +557,10 @@ button {
 
 }
 
+.layout > .content > .editor-area > .data-area > .text-view-area.hide-deleted-node * .deleted {
+  display: none;
+}
+
 .layout > .content > .editor-area > .data-area > * {
   flex: 1 1 auto;
   display: flex;
@@ -697,7 +701,7 @@ button {
   border-radius: 50%;
 }
 
-.structure-item.delete {
+.structure-item.deleted {
   text-align: right;
   color: red;
 }
