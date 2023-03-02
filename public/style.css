@@ -351,6 +351,7 @@ button {
   font-size: 10px;
   padding: 4px;
   box-sizing: border-box;
+  flex: 1;
 }
 
 .node-item > .content > .inner-description > .value-area {
@@ -377,6 +378,9 @@ button {
   border-right: 1px solid black;
   box-sizing: border-box;
   padding: 0px 2px;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .node-item > .content > .children  {
@@ -892,4 +896,9 @@ button {
   stroke-width: 0;
   stroke: gray;
   fill: rgba(0, 0, 0, 0.2);
+}
+
+.tree-not-balenced-chart-path {
+  stroke-width: 0;
+  fill: red !important;
 }
