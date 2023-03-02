@@ -78,7 +78,11 @@
             </h4>
             <div class="tree-area">
               <div id="tree-log-holder"></div>      
-              <div id="tree-map-holder"></div>      
+              <div id="tree-map-holder">
+                <svg id="tree-map-chart">
+                  <path d="" stroke="red" fill="black" stroke-width="1" />
+                </svg>
+              </div>      
             </div>
           </div>
           <div class="graph-area">
@@ -113,6 +117,9 @@
       const structureLogHolder = document.getElementById('structure-log-holder');
       const structureTextHolder = document.getElementById('structure-text-holder');
       const treeLogHolder = document.getElementById('tree-log-holder');
+      const treeMapChart = document.getElementById('tree-map-chart');
+      const treeMapChartPath = treeMapChart.querySelector('path');
+      
       const treeLineHolder = document.getElementById('tree-line-holder');
       const llrbtreeLogHolder = document.getElementById('llrbtree-log-holder');
       const splayTreeInfo = document.getElementById('splaytree-info');
@@ -700,8 +707,9 @@
             splayLeftSkew.innerHTML = `${collectedSplayBalanceInfo.leftSkew}` + `<select></select>`
             splayRightSkew.innerHTML = `${collectedSplayBalanceInfo.rightSkew}`
             
+            displaySplayTree();
+            displaySplayTreeMapChart();
 
-            treeLogHolder.innerHTML = renderHeadLineView("splay", head) + renderHeadHTML("splay", head);            
 
             llrbNext = [];
             const llrbhead = getNewLLRBTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
@@ -715,6 +723,25 @@
 
             llrbtreeLogHolder.innerHTML = renderHeadLineView("llrb", llrbhead) + renderHeadHTML("llrb", llrbhead);
         }
+
+      function renderSplayTreeMapChart() {
+        
+        const maxLength = splayNext.length;
+        const xUnit = 300 / maxLength;
+        const maxY = Math.max(...splayNext);
+        return splayNext.map((y, x)  => {
+
+          const realX = x * xUnit;
+          let realY = 100 - (y / maxY) * 100;
+
+          return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} 100 L ${realX} 100  Z`
+        }).join('')
+      }
+
+      function displaySplayTreeMapChart() {
+        const map = renderSplayTreeMapChart();
+        treeMapChartPath.setAttribute("d", map);
+      }
 
       function displaySplayTree () {
         const head = window.textHeadNode;
