@@ -902,3 +902,8 @@ button {
   stroke-width: 0;
   fill: red !important;
 }
+
+.tree-map-node-chart-path {
+  /* stroke-width: 2 !important; */
+  fill: rgb(139, 139, 242) !important;
+}

@@ -85,6 +85,7 @@
               <div id="tree-map-holder">
                 <svg id="tree-map-chart">
                   <path class="tree-map-chart-path" d="" stroke="red" fill="black" stroke-width="1" />
+                  <path class="tree-map-node-chart-path" d="" stroke="red" fill="black" stroke-width="1" />
                   <path class="tree-not-balenced-chart-path" d="" stroke="red" fill="red" stroke-width="1" />
                 </svg>
               </div>      
@@ -125,6 +126,8 @@
       const treeMapChart = document.getElementById('tree-map-chart');
       const treeMapChartPath = treeMapChart.querySelector('.tree-map-chart-path');
       const treeNotBalencedChartPath = treeMapChart.querySelector('.tree-not-balenced-chart-path');
+      const treeMapNodeChartPath = treeMapChart.querySelector('.tree-map-node-chart-path');
+      
       
       const treeLineHolder = document.getElementById('tree-line-holder');
       const llrbtreeLogHolder = document.getElementById('llrbtree-log-holder');
@@ -262,6 +265,11 @@
           value: node.value?.content,
           attributes: node.value?.attributes,
         }
+
+        if (!currentNode.isRemoved) {
+          collectedSplayRealNode[collectedSplayRealNode.length] = currentNode;  
+        }
+        
 
         collectedSplayBalanceInfo.totalCount++;
 
@@ -615,6 +623,7 @@
         }
 
         let collectedSplayBalanceNode = [];
+        let collectedSplayRealNode = []
         let collectedSplayBalanceInfo = {
           leftSkew: 0,
           rightSkew: 0,
@@ -703,6 +712,7 @@
               leftSkewMap: {},
               rightSkewMap: {},
             }
+            collectedSplayRealNode = [];
             const head = getNewSplayTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByIndex.root);
             window.textHeadNode = head;
 
@@ -739,8 +749,8 @@
         const yUnit = 100/maxY;
         return splayNext.map((y, x)  => {
 
-          const realX = x * xUnit;
-          let realY = 100 - y * yUnit;
+          const realX = Math.floor(x * xUnit);
+          const realY = Math.floor( 100 - y * yUnit );
 
           return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} 100 L ${realX} 100  Z`
         }).join('')
@@ -755,12 +765,28 @@
         const list = collectedSplayBalanceNode
         return list.map(node  => {
 
-          const realX = node.depth * xUnit;
-          const realY = 100 - node.next * yUnit
+          const realX = Math.floor(node.depth * xUnit);
+          const realY = Math.floor(100 - node.next * yUnit)
 
           return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} ${realY - yUnit} L ${realX}  ${realY - yUnit}  Z`
         }).join('')
       }
+
+      function renderSplayTreeRealNode() {
+        
+        const maxLength = splayNext.length;
+        const xUnit = 300 / maxLength;
+        const maxY = Math.max(...splayNext);
+        const yUnit = 100/maxY;
+        const list = collectedSplayRealNode
+        return list.map(node  => {
+
+          const realX = Math.floor(node.depth * xUnit);
+          const realY = Math.floor(100 - node.next * yUnit)
+
+          return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} ${realY - yUnit} L ${realX}  ${realY - yUnit}  Z`
+        }).join('')
+      }      
 
       function displaySplayTreeMapChart() {
         const map = renderSplayTreeMapChart();
@@ -768,6 +794,9 @@
 
         const map2 = renderSplayTreeSkewNode();
         treeNotBalencedChartPath.setAttribute("d", map2);
+
+        const map3 = renderSplayTreeRealNode();
+        treeMapNodeChartPath.setAttribute("d", map3);
       }
 
       function displaySplayTree () {
@@ -1078,6 +1107,13 @@
               // The text is replaced to snapshot and must be re-synced.
               syncText();
             }
+
+            if (event.type === 'local-change') {
+              if (event.value[0].change.message.startsWith('update selection')) {
+                return;
+              }
+            }
+
             displayLog(doc, codemirror);
           });
           await client.sync();
