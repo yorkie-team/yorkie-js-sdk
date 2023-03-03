@@ -26,6 +26,10 @@
           <button type="button" onClick="saveSnapshot()">Save snapshot</button>
           <button type="button" onClick="loadSnapshot()">Load snapshot</button>
           <input type="file" id="snapshot-file" style="display: none" />
+          <label style="display: flex; align-items: center;">
+            <input type="checkbox" id="hide-deleted-node" onClick="toggleDeletedNodeShow()" />
+            <span>Hide deleted node</span>
+          </label>
         </div>
         <div class="right-tools">
           <div style="padding: 10px 0px" id="peers-holder"></div>
@@ -45,10 +49,6 @@
                   <button class="tablinks active" onclick="openTab(event, 'text')">Text</button>
                   <button class="tablinks" onclick="openTab(event, 'structure')">Structure Data</button>
                   <button class="tablinks" onclick="openTab(event, 'structure-text')">Structure Text</button>
-                  <label style="display: flex; align-items: center;">
-                    <input type="checkbox" id="hide-deleted-node" onClick="toggleDeletedNodeShow()" />
-                    <span>Hide deleted node</span>
-                  </label>
                 </div>
                 <div class="tab-body">
                   <div id="text" class="tabcontent active">
@@ -1415,7 +1415,12 @@
 
         document.getElementById('hide-deleted-node').checked = window.hideDeletedNode;
 
+        // toggle class
         document.querySelector(".text-view-area").classList.toggle("hide-deleted-node", window.hideDeletedNode)
+        treeMapChartPath.classList.toggle("hide-deleted-node", window.hideDeletedNode)
+        treeLogHolder.classList.toggle("hide-deleted-node", window.hideDeletedNode)
+        llrbtreeLogHolder.classList.toggle("hide-deleted-node", window.hideDeletedNode)
+        
       }
 
       function toggleDeletedNodeShow() {

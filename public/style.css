@@ -907,3 +907,11 @@ button {
   /* stroke-width: 2 !important; */
   fill: rgb(139, 139, 242) !important;
 }
+
+#tree-log-holder.hide-deleted-node .node-item.is-removed {
+  display: none;
+}
+
+#llrbtree-log-holder.hide-deleted-node .node-item.is-removed {
+  display: none;
+}
