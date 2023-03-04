@@ -61,9 +61,7 @@ export {
 
 // TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
 // if not exported. We need to find a way to handle this without exporting the below.
-export {
-  ValueChange,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+export { ValueChange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 
 export {
   Primitive,

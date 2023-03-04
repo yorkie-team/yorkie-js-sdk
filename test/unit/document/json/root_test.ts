@@ -49,28 +49,28 @@ describe('ROOT', function () {
     assert.equal(Object.keys(k2.toJS()).length, 0);
 
     // set '$.k2.1'
-    const k2_1 = CRDTArray.create(cc.issueTimeTicket());
-    k2.set('1', k2_1);
-    root.registerElement(k2_1, k2);
+    const k2Dot1 = CRDTArray.create(cc.issueTimeTicket());
+    k2.set('1', k2Dot1);
+    root.registerElement(k2Dot1, k2);
     assert.equal(root.getElementMapSize(), 3);
-    assert.equal(root.findByCreatedAt(k2_1.getCreatedAt()), k2_1);
-    assert.equal(root.createPath(k2_1.getCreatedAt()), '$.k2.1');
+    assert.equal(root.findByCreatedAt(k2Dot1.getCreatedAt()), k2Dot1);
+    assert.equal(root.createPath(k2Dot1.getCreatedAt()), '$.k2.1');
 
     // set '$.k2.1.0'
-    const k2_1_0 = Primitive.of('0', cc.issueTimeTicket());
-    k2_1.insertAfter(k2_1.getLastCreatedAt(), k2_1_0);
-    root.registerElement(k2_1_0, k2_1);
+    const k2Dot1Dot0 = Primitive.of('0', cc.issueTimeTicket());
+    k2Dot1.insertAfter(k2Dot1.getLastCreatedAt(), k2Dot1Dot0);
+    root.registerElement(k2Dot1Dot0, k2Dot1);
     assert.equal(root.getElementMapSize(), 4);
-    assert.equal(root.findByCreatedAt(k2_1_0.getCreatedAt()), k2_1_0);
-    assert.equal(root.createPath(k2_1_0.getCreatedAt()), '$.k2.1.0');
+    assert.equal(root.findByCreatedAt(k2Dot1Dot0.getCreatedAt()), k2Dot1Dot0);
+    assert.equal(root.createPath(k2Dot1Dot0.getCreatedAt()), '$.k2.1.0');
 
     // set '$.k2.1.1'
-    const k2_1_1 = Primitive.of('1', cc.issueTimeTicket());
-    k2_1.insertAfter(k2_1_0.getCreatedAt(), k2_1_1);
-    root.registerElement(k2_1_1, k2_1);
+    const k2dot1dot1 = Primitive.of('1', cc.issueTimeTicket());
+    k2Dot1.insertAfter(k2Dot1Dot0.getCreatedAt(), k2dot1dot1);
+    root.registerElement(k2dot1dot1, k2Dot1);
     assert.equal(root.getElementMapSize(), 5);
-    assert.equal(root.findByCreatedAt(k2_1_1.getCreatedAt()), k2_1_1);
-    assert.equal(root.createPath(k2_1_1.getCreatedAt()), '$.k2.1.1');
+    assert.equal(root.findByCreatedAt(k2dot1dot1.getCreatedAt()), k2dot1dot1);
+    assert.equal(root.createPath(k2dot1dot1.getCreatedAt()), '$.k2.1.1');
   });
 
   it('garbage collection test for array', function () {

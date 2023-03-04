@@ -144,7 +144,8 @@ async function main() {
             to = from + op.retain;
           }
           console.log(
-            `%c local: ${from}-${to}: ${op.insert} ${op.attributes ? JSON.stringify(op.attributes) : '{}'
+            `%c local: ${from}-${to}: ${op.insert} ${
+              op.attributes ? JSON.stringify(op.attributes) : '{}'
             }`,
             'color: green',
           );
