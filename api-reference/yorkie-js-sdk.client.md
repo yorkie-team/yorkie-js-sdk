@@ -29,7 +29,8 @@ export declare class Client<P = Indexable> implements Observable<ClientEvent<P>>
 |  [detach(doc)](./yorkie-js-sdk.client.detach.md) |  | <code>detach</code> detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.<!-- -->To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached. |
 |  [getID()](./yorkie-js-sdk.client.getid.md) |  | <code>getID</code> returns a ActorID of client. |
 |  [getKey()](./yorkie-js-sdk.client.getkey.md) |  | <code>getKey</code> returns a key of client. |
-|  [getPeers(key)](./yorkie-js-sdk.client.getpeers.md) |  | <code>getPeers</code> returns the peers of the given document. |
+|  [getPeerPresence(docKey, clientID)](./yorkie-js-sdk.client.getpeerpresence.md) |  | <code>getPeerPresence</code> returns the presence of the given document and client. |
+|  [getPeersByDocKey(docKey)](./yorkie-js-sdk.client.getpeersbydockey.md) |  | <code>getPeersByDocKey</code> returns the peers of the given document. |
 |  [getPresence()](./yorkie-js-sdk.client.getpresence.md) |  | <code>getPresence</code> returns the presence of this client. |
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |
 |  [isActive()](./yorkie-js-sdk.client.isactive.md) |  | <code>isActive</code> checks if the client is active. |
