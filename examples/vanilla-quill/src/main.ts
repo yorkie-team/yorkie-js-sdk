@@ -13,10 +13,8 @@ type YorkieDoc = {
   content: Text;
 };
 
-// TODO: unify 'value' to 'content' at 0.3.1
 type TextValueType = {
   attributes?: Indexable;
-  value?: string;
   content?: string;
 };
 
@@ -37,8 +35,7 @@ function toDeltaOperation<T extends TextValueType>(
   }
 
   return {
-    // TODO: unify 'value' to 'content' at 0.3.1
-    insert: textValue.value || textValue.content || '',
+    insert: textValue.content || '',
     attributes: textValue.attributes,
   };
 }
@@ -212,8 +209,7 @@ async function main() {
       const retainTo = to - from;
 
       if (change.type === 'content') {
-        // TODO: change 'change' to 'change.value' at 0.3.1
-        const { insert, attributes } = toDeltaOperation(change);
+        const { insert, attributes } = toDeltaOperation(change.value!);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
         if (retainFrom) {
@@ -230,8 +226,7 @@ async function main() {
           deltaOperations.push(op);
         }
       } else if (change.type === 'style') {
-        // TODO: change 'change' to 'change.value' at 0.3.1
-        const { attributes } = toDeltaOperation(change);
+        const { attributes } = toDeltaOperation(change.value!);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
           'color: skyblue',

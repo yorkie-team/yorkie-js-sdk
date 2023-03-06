@@ -108,8 +108,7 @@ async function main() {
       .map((change) => ({
         from: Math.max(0, change.from),
         to: Math.max(0, change.to),
-        // TODO: change 'change.content' to 'change.value.content' at 0.3.1
-        insert: change.content,
+        insert: change.value!.content,
       }));
 
     view.dispatch({

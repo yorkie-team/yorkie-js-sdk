@@ -47,15 +47,65 @@ export function delay(timeout: number): Promise<void> {
   });
 }
 
-export function createEmitterAndSpy(
-  fn?: (event: ClientEvent | DocEvent) => string,
-): [EventEmitter, NextFn<ClientEvent | DocEvent>] {
+export function createEmitterAndSpy<
+  E extends { type: any } = ClientEvent | DocEvent,
+>(fn?: (event: E) => string): [EventEmitter, NextFn<E>] {
   const emitter = new EventEmitter();
-  return [
-    emitter,
-    (event: ClientEvent | DocEvent) =>
-      emitter.emit(fn ? fn(event) : event.type),
-  ];
+  return [emitter, (event: E) => emitter.emit(fn ? fn(event) : event.type)];
+}
+
+export async function waitStubCallCount(
+  stub: sinon.SinonStub,
+  callCount: number,
+) {
+  return new Promise<void>((resolve) => {
+    const doLoop = () => {
+      if (stub.callCount === callCount) {
+        resolve();
+      }
+      return false;
+    };
+    if (!doLoop()) {
+      setTimeout(doLoop, 1000);
+    }
+  });
+}
+
+export function deepSort(target: any): any {
+  if (Array.isArray(target)) {
+    return target.map(deepSort).sort(compareFunction);
+  }
+  if (typeof target === 'object') {
+    return Object.keys(target)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = deepSort(target[key]);
+        return result;
+      }, {} as Record<string, any>);
+  }
+  return target;
+}
+
+function compareFunction(a: any, b: any): number {
+  if (
+    typeof a === 'object' &&
+    typeof b === 'object' &&
+    a !== null &&
+    b !== null
+  ) {
+    const aKeys = Object.keys(a).sort();
+    const bKeys = Object.keys(b).sort();
+    const len = Math.min(aKeys.length, bKeys.length);
+    for (let i = 0; i < len; i++) {
+      const key = aKeys[i];
+      const result = compareFunction(a[key], b[key]);
+      if (result !== 0) {
+        return result;
+      }
+    }
+    return aKeys.length - bKeys.length;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**

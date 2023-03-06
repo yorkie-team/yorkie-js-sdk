@@ -25,30 +25,34 @@
       const counterIncreaseButton = document.getElementById('increaseButton');
       const counterDecreaseButton = document.getElementById('decreaseButton');
 
+      function displayPeers(peers, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of peers) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        peersHolder.innerHTML = JSON.stringify(usernames);
+      }
+
       async function main() {
         try {
           // 01. create client with RPCAddr(envoy) then activate it.
           const client = new yorkie.Client('http://localhost:8080');
           client.subscribe(network.statusListener(statusHolder));
+          client.subscribe((event) => {
+            if (event.type === 'peers-changed') {
+              displayPeers(
+                client.getPeersByDocKey(doc.getKey()),
+                client.getID(),
+              );
+            }
+          });
           await client.activate();
 
           // 02. create a document then attach it into the client.
           const doc = new yorkie.Document('counter');
           await client.attach(doc);
-
-          client.subscribe((event) => {
-            if (event.type === 'peers-changed') {
-              const usernames = [];
-              const myClientID = client.getID();
-              const peers = event.value[doc.getKey()];
-              for (const [clientID, presence] of Object.entries(peers)) {
-                usernames.push(
-                  clientID === myClientID ? `<b>${clientID}</b>` : clientID,
-                );
-              }
-              peersHolder.innerHTML = JSON.stringify(usernames);
-            }
-          });
 
           // 03. initialize document properties
           doc.update((root) => {
