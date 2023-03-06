@@ -40,7 +40,7 @@ import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, DocumentKey } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
@@ -97,6 +97,15 @@ export enum DocumentSyncResultType {
    */
   SyncFailed = 'sync-failed',
 }
+
+/**
+ * `PeersChangedValue` represents the value of the PeersChanged event.
+ * @public
+ */
+export type PeersChangedValue<P> = {
+  type: 'initialization' | 'watched' | 'unwatched' | 'presence-changed';
+  peers: Record<DocumentKey, Array<{ clientID: ActorID; presence: P }>>;
+};
 
 /**
  * `ClientEventType` represents the type of the event that the client can emit.
@@ -193,7 +202,7 @@ export interface PeersChangedEvent<P> extends BaseClientEvent {
   /**
    * `PeersChangedEvent` value
    */
-  value: Record<string, Record<string, P>>;
+  value: PeersChangedValue<P>;
 }
 
 /**
@@ -235,7 +244,7 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 interface Attachment<P> {
   doc: Document<unknown>;
   isRealtimeSync: boolean;
-  peerPresenceMap?: Map<string, PresenceInfo<P>>;
+  peerPresenceMap?: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
 }
 
@@ -315,7 +324,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private key: string;
   private presenceInfo: PresenceInfo<P>;
   private status: ClientStatus;
-  private attachmentMap: Map<string, Attachment<P>>;
+  private attachmentMap: Map<DocumentKey, Attachment<P>>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
 
@@ -384,7 +393,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         this.id = converter.toHexString(res.getClientId_asU8());
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
-        await this.runWatchLoop();
 
         this.eventStreamObserver.next({
           type: ClientEventType.StatusChanged,
@@ -406,8 +414,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     if (this.remoteChangeEventStream) {
-      this.remoteChangeEventStream.cancel();
-      this.remoteChangeEventStream = undefined;
+      this.disconnectWatchStream();
     }
 
     return new Promise((resolve, reject) => {
@@ -553,24 +560,39 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return Promise.resolve();
     }
 
-    const keys: Array<string> = [];
+    const docKeys: Array<string> = [];
     for (const [, attachment] of this.attachmentMap) {
       if (!attachment.isRealtimeSync) {
         continue;
       }
 
       attachment.peerPresenceMap!.set(this.getID()!, this.presenceInfo);
-      keys.push(attachment.doc.getKey());
+      docKeys.push(attachment.doc.getKey());
     }
 
     const req = new UpdatePresenceRequest();
     req.setClient(converter.toClient(this.id!, this.presenceInfo));
-    req.setDocumentKeysList(keys);
+    req.setDocumentKeysList(docKeys);
 
+    const changedPeers: Record<
+      DocumentKey,
+      Array<{ clientID: ActorID; presence: P }>
+    > = {};
+    for (const key of docKeys) {
+      changedPeers[key] = [
+        {
+          clientID: this.id!,
+          presence: this.getPeerPresence(key, this.id!),
+        },
+      ];
+    }
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
-        value: keys.reduce(this.getPeersWithDocKey, {}),
+        value: {
+          type: 'presence-changed',
+          peers: changedPeers,
+        },
       });
     }
 
@@ -639,33 +661,35 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `getPeers` returns the peers of the given document.
+   * `getPeerPresence` returns the presence of the given document and client.
    */
-  public getPeers(key: string): Record<string, P> {
-    const peers: Record<string, P> = {};
-    const attachment = this.attachmentMap.get(key);
-    for (const [key, value] of attachment!.peerPresenceMap!) {
-      peers[key] = value.data;
+  public getPeerPresence(docKey: DocumentKey, clientID: ActorID): P {
+    return this.attachmentMap.get(docKey)!.peerPresenceMap!.get(clientID)!.data;
+  }
+
+  /**
+   * `getPeersByDocKey` returns the peers of the given document.
+   */
+  public getPeersByDocKey(
+    docKey: DocumentKey,
+  ): Array<{ clientID: ActorID; presence: P }> {
+    const peers: Array<{ clientID: ActorID; presence: P }> = [];
+    const attachment = this.attachmentMap.get(docKey);
+    for (const [clientID, presenceInfo] of attachment!.peerPresenceMap!) {
+      peers.push({ clientID, presence: presenceInfo.data });
     }
     return peers;
   }
 
-  /**
-   * `getPeersWithDocKey` returns the peers of the given document wrapped in an
-   * object.
-   */
-  private getPeersWithDocKey = (
-    peersMap: Record<string, Record<string, P>>,
-    key: string,
-  ): Record<string, Record<string, P>> => {
-    const attachment = this.attachmentMap.get(key);
-    const peers: Record<string, P> = {};
-    for (const [key, value] of attachment!.peerPresenceMap!) {
-      peers[key] = value.data;
+  private getRealtimeSyncDocKeys(): Array<string> {
+    const realtimeSyncDocKeys: Array<string> = [];
+    for (const [, attachment] of this.attachmentMap) {
+      if (attachment.isRealtimeSync) {
+        realtimeSyncDocKeys.push(attachment.doc.getKey());
+      }
     }
-    peersMap[key] = peers;
-    return peersMap;
-  };
+    return realtimeSyncDocKeys;
+  }
 
   private runSyncLoop(): void {
     const doLoop = (): void => {
@@ -710,8 +734,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private async runWatchLoop(): Promise<void> {
     const doLoop = (): Promise<void> => {
       if (this.remoteChangeEventStream) {
-        this.remoteChangeEventStream.cancel();
-        this.remoteChangeEventStream = undefined;
+        this.disconnectWatchStream();
       }
 
       if (this.watchLoopTimerID) {
@@ -724,13 +747,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         return Promise.resolve();
       }
 
-      const realtimeSyncDocKeys: Array<string> = [];
-      for (const [, attachment] of this.attachmentMap) {
-        if (attachment.isRealtimeSync) {
-          realtimeSyncDocKeys.push(attachment.doc.getKey());
-        }
-      }
-
+      const realtimeSyncDocKeys = this.getRealtimeSyncDocKeys();
       if (!realtimeSyncDocKeys.length) {
         logger.debug(`[WL] c:"${this.getKey()}" exit watch loop`);
         return Promise.resolve();
@@ -748,6 +765,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             type: ClientEventType.StreamConnectionStatusChanged,
             value: StreamConnectionStatus.Disconnected,
           });
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
           reject();
         };
 
@@ -759,6 +777,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         stream.on('end', onStreamDisconnect);
         stream.on('error', onStreamDisconnect);
         this.remoteChangeEventStream = stream;
+        this.eventStreamObserver.next({
+          type: ClientEventType.StreamConnectionStatusChanged,
+          value: StreamConnectionStatus.Connected,
+        });
 
         logger.info(
           `[WD] c:"${this.getKey()}" watches d:"${realtimeSyncDocKeys}"`,
@@ -787,67 +809,117 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         }
       });
 
+      const peers: Record<
+        DocumentKey,
+        Array<{ clientID: ActorID; presence: P }>
+      > = {};
+      for (const key of keys) {
+        peers[key] = this.getPeersByDocKey(key);
+      }
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
-        value: keys.reduce(this.getPeersWithDocKey, {}),
+        value: {
+          type: 'initialization',
+          peers,
+        },
       });
       return;
     }
 
     const pbWatchEvent = resp.getEvent()!;
-    const respKeys = pbWatchEvent.getDocumentKeysList();
+    const respDocKeys = pbWatchEvent.getDocumentKeysList();
+    // TODO(chacha912): Change the docKey of DocEvent to a single key value
+    // instead of an array
+    const docKey = respDocKeys[0];
+    const eventType = pbWatchEvent.getType();
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
     const presence = converter.fromPresence<P>(
       pbWatchEvent.getPublisher()!.getPresence()!,
     );
-    for (const key of respKeys) {
-      const attachment = this.attachmentMap.get(key)!;
-      const peerPresenceMap = attachment.peerPresenceMap!;
-      switch (pbWatchEvent.getType()) {
-        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-          peerPresenceMap!.set(publisher, presence);
-          break;
-        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED:
-          peerPresenceMap!.delete(publisher);
-          break;
-        case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
-          attachment.remoteChangeEventReceived = true;
-          break;
-        case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
-          if (
-            peerPresenceMap!.has(publisher) &&
-            peerPresenceMap!.get(publisher)!.clock > presence.clock
-          ) {
-            break;
-          }
-          peerPresenceMap!.set(publisher, presence);
-          break;
+    const attachment = this.attachmentMap.get(docKey)!;
+    const peerPresenceMap = attachment.peerPresenceMap!;
+    switch (eventType) {
+      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
+        attachment.remoteChangeEventReceived = true;
+        this.eventStreamObserver.next({
+          type: ClientEventType.DocumentsChanged,
+          value: respDocKeys,
+        });
+        break;
+      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
+        peerPresenceMap!.set(publisher, presence);
+        this.eventStreamObserver.next({
+          type: ClientEventType.PeersChanged,
+          value: {
+            type: 'watched',
+            peers: {
+              [docKey]: [
+                {
+                  clientID: publisher,
+                  presence: this.getPeerPresence(docKey, publisher),
+                },
+              ],
+            },
+          },
+        });
+        break;
+      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+        const presence = this.getPeerPresence(docKey, publisher);
+        peerPresenceMap!.delete(publisher);
+        this.eventStreamObserver.next({
+          type: ClientEventType.PeersChanged,
+          value: {
+            type: 'unwatched',
+            peers: {
+              [docKey]: [
+                {
+                  clientID: publisher,
+                  presence,
+                },
+              ],
+            },
+          },
+        });
+        break;
       }
-    }
-
-    if (
-      pbWatchEvent!.getType() === DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED
-    ) {
-      this.eventStreamObserver.next({
-        type: ClientEventType.DocumentsChanged,
-        value: respKeys,
-      });
-    } else if (
-      pbWatchEvent!.getType() ===
-        DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED ||
-      pbWatchEvent!.getType() ===
-        DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED ||
-      pbWatchEvent!.getType() === DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED
-    ) {
-      this.eventStreamObserver.next({
-        type: ClientEventType.PeersChanged,
-        value: respKeys.reduce(this.getPeersWithDocKey, {}),
-      });
+      case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
+        if (
+          peerPresenceMap!.has(publisher) &&
+          peerPresenceMap!.get(publisher)!.clock > presence.clock
+        ) {
+          break;
+        }
+        peerPresenceMap!.set(publisher, presence);
+        this.eventStreamObserver.next({
+          type: ClientEventType.PeersChanged,
+          value: {
+            type: 'presence-changed',
+            peers: {
+              [docKey]: [
+                {
+                  clientID: publisher,
+                  presence: this.getPeerPresence(docKey, publisher),
+                },
+              ],
+            },
+          },
+        });
+        break;
     }
   }
 
+  private disconnectWatchStream() {
+    this.remoteChangeEventStream.cancel();
+    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+
+    this.remoteChangeEventStream = undefined;
+    this.eventStreamObserver.next({
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+  }
   private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
     return new Promise((resolve, reject) => {
       const req = new PushPullRequest();
