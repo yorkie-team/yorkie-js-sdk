@@ -49,12 +49,14 @@
         textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
       }
 
-      function displayPeers(peers, clientID) {
-        const clientIDs = peers.map((peer) => peer.clientID);
-        peersHolder.innerHTML = JSON.stringify(clientIDs).replace(
-          clientID,
-          `<b>${clientID}</b>`,
-        );
+      function displayPeers(peers, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of peers) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        peersHolder.innerHTML = JSON.stringify(usernames);
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619
@@ -138,7 +140,10 @@
           client.subscribe(network.statusListener(statusHolder));
           client.subscribe((event) => {
             if (event.type === 'peers-changed') {
-              displayPeers(event.value.peers[doc.getKey()], client.getID());
+              displayPeers(
+                client.getPeersByDocKey(doc.getKey()),
+                client.getID(),
+              );
             }
           });
           // 01-3. activate client

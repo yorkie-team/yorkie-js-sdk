@@ -104,7 +104,6 @@ export enum DocumentSyncResultType {
  */
 export type PeersChangedValue<P> = {
   type: 'initialization' | 'watched' | 'unwatched' | 'presence-changed';
-  changedPeers: Record<DocumentKey, Array<{ clientID: ActorID; presence: P }>>;
   peers: Record<DocumentKey, Array<{ clientID: ActorID; presence: P }>>;
 };
 
@@ -592,8 +591,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         type: ClientEventType.PeersChanged,
         value: {
           type: 'presence-changed',
-          changedPeers,
-          peers: this.getPeers(),
+          peers: changedPeers,
         },
       });
     }
@@ -667,25 +665,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    */
   public getPeerPresence(docKey: DocumentKey, clientID: ActorID): P {
     return this.attachmentMap.get(docKey)!.peerPresenceMap!.get(clientID)!.data;
-  }
-
-  private getPeers(): Record<
-    DocumentKey,
-    Array<{ clientID: ActorID; presence: P }>
-  > {
-    const peersAll: Record<
-      DocumentKey,
-      Array<{ clientID: ActorID; presence: P }>
-    > = {};
-
-    for (const [docKey, attachment] of this.attachmentMap) {
-      const peers: Array<{ clientID: ActorID; presence: P }> = [];
-      for (const [clientID, presenceInfo] of attachment!.peerPresenceMap!) {
-        peers.push({ clientID, presence: presenceInfo.data });
-      }
-      peersAll[docKey] = peers;
-    }
-    return peersAll;
   }
 
   /**
@@ -830,19 +809,18 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         }
       });
 
-      const changedPeers: Record<
+      const peers: Record<
         DocumentKey,
         Array<{ clientID: ActorID; presence: P }>
       > = {};
       for (const key of keys) {
-        changedPeers[key] = this.getPeersByDocKey(key);
+        peers[key] = this.getPeersByDocKey(key);
       }
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
         value: {
           type: 'initialization',
-          changedPeers,
-          peers: this.getPeers(),
+          peers,
         },
       });
       return;
@@ -876,7 +854,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           type: ClientEventType.PeersChanged,
           value: {
             type: 'watched',
-            changedPeers: {
+            peers: {
               [docKey]: [
                 {
                   clientID: publisher,
@@ -884,7 +862,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
                 },
               ],
             },
-            peers: this.getPeers(),
           },
         });
         break;
@@ -895,7 +872,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           type: ClientEventType.PeersChanged,
           value: {
             type: 'unwatched',
-            changedPeers: {
+            peers: {
               [docKey]: [
                 {
                   clientID: publisher,
@@ -903,7 +880,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
                 },
               ],
             },
-            peers: this.getPeers(),
           },
         });
         break;
@@ -920,7 +896,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           type: ClientEventType.PeersChanged,
           value: {
             type: 'presence-changed',
-            changedPeers: {
+            peers: {
               [docKey]: [
                 {
                   clientID: publisher,
@@ -928,7 +904,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
                 },
               ],
             },
-            peers: this.getPeers(),
           },
         });
         break;

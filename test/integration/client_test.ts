@@ -338,9 +338,6 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'initialization',
-        changedPeers: {
-          [docKey1]: [{ clientID: c1ID, presence: { ...c1Presence } }],
-        },
         peers: {
           [docKey1]: [{ clientID: c1ID, presence: { ...c1Presence } }],
         },
@@ -364,12 +361,6 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'initialization',
-        changedPeers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence } },
-            { clientID: c2ID, presence: { ...c2Presence } },
-          ],
-        },
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence } },
@@ -391,14 +382,8 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'watched',
-        changedPeers: {
-          [docKey1]: [{ clientID: c2ID, presence: { ...c2Presence } }],
-        },
         peers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence } },
-            { clientID: c2ID, presence: { ...c2Presence } },
-          ],
+          [docKey1]: [{ clientID: c2ID, presence: { ...c2Presence } }],
         },
       },
     });
@@ -417,15 +402,9 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'presence-changed',
-        changedPeers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-            { clientID: c2ID, presence: { ...c2Presence } },
           ],
         },
       },
@@ -443,15 +422,9 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'presence-changed',
-        changedPeers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-            { clientID: c2ID, presence: { ...c2Presence } },
           ],
         },
       },
@@ -479,15 +452,6 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'initialization',
-        changedPeers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-            { clientID: c2ID, presence: { ...c2Presence } },
-          ],
-          [docKey2]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
@@ -512,13 +476,10 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'unwatched',
-        changedPeers: {
+        peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
           ],
-        },
-        peers: {
-          [docKey1]: [{ clientID: c2ID, presence: { ...c2Presence } }],
         },
       },
     });
@@ -526,15 +487,9 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'watched',
-        changedPeers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-            { clientID: c2ID, presence: { ...c2Presence } },
           ],
         },
       },
@@ -562,11 +517,6 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'initialization',
-        changedPeers: {
-          [docKey2]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
         peers: {
           [docKey2]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
@@ -587,13 +537,10 @@ describe('Client', function () {
       type: ClientEventType.PeersChanged,
       value: {
         type: 'unwatched',
-        changedPeers: {
+        peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
           ],
-        },
-        peers: {
-          [docKey1]: [{ clientID: c2ID, presence: { ...c2Presence } }],
         },
       },
     });
