@@ -332,7 +332,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private rpcClient: RPCClient;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private remoteChangeEventStream?: any;
-  private docKeysConnectedStream: Array<string>;
   private eventStream: Observable<ClientEvent<P>>;
   private eventStreamObserver!: Observer<ClientEvent<P>>;
 
@@ -366,7 +365,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
-    this.docKeysConnectedStream = [];
     this.eventStream = createObservable<ClientEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -783,17 +781,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return new Promise((resolve, reject) => {
         const onStreamDisconnect = () => {
           this.remoteChangeEventStream = undefined;
-          this.docKeysConnectedStream = [];
           this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
           this.eventStreamObserver.next({
             type: ClientEventType.StreamConnectionStatusChanged,
             value: StreamConnectionStatus.Disconnected,
           });
-          logger.debug(
-            `[WD] c:"${this.getKey()}" unwatches d:"${
-              this.docKeysConnectedStream
-            }"`,
-          );
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
           reject();
         };
 
@@ -805,7 +798,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         stream.on('end', onStreamDisconnect);
         stream.on('error', onStreamDisconnect);
         this.remoteChangeEventStream = stream;
-        this.docKeysConnectedStream = realtimeSyncDocKeys;
         this.eventStreamObserver.next({
           type: ClientEventType.StreamConnectionStatusChanged,
           value: StreamConnectionStatus.Connected,
@@ -945,12 +937,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
   private disconnectWatchStream() {
     this.remoteChangeEventStream.cancel();
-    logger.debug(
-      `[WD] c:"${this.getKey()}" unwatches d:"${this.docKeysConnectedStream}"`,
-    );
+    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
     this.remoteChangeEventStream = undefined;
-    this.docKeysConnectedStream = [];
     this.eventStreamObserver.next({
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
