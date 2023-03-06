@@ -109,6 +109,12 @@ button {
   box-sizing: border-box;
 }
 
+.toolbar > .right-tools a {
+  /* text-decoration: none; */
+  color: black;
+  font-weight: bold;
+}
+
 .toolbar > .center-tools {
   display: flex;
   gap: 10px;
