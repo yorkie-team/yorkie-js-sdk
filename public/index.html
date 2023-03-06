@@ -9,977 +9,74 @@
     />
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
-    <script src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
-    <style type="text/css" id="codemirror-custom-style"></style>
   </head>
   <body>
-    <div class="layout">
+    <div>
       <div class="toolbar">
         <div class="left-tools">
           <svg xmlns="http://www.w3.org/2000/svg" width="100" height="38" viewBox="0 0 100 38" fill="none" role="img"><mask id="path-1-inside-1_4874_2783" fill="white"><path d="M11.8574 11.4048L18.8525 21.4507C19.2947 22.086 20.1683 22.2423 20.8036 21.8001C20.9398 21.7052 21.0581 21.5869 21.153 21.4507L28.148 11.4048C29.0327 10.1343 28.7198 8.3872 27.4495 7.5027C26.9794 7.17549 26.4205 7 25.8477 7H14.1577C12.6095 7 11.3545 8.25503 11.3545 9.80322C11.3547 10.3758 11.5302 10.9347 11.8574 11.4048Z"></path></mask><path d="M11.8574 11.4048L18.8525 21.4507C19.2947 22.086 20.1683 22.2423 20.8036 21.8001C20.9398 21.7052 21.0581 21.5869 21.153 21.4507L28.148 11.4048C29.0327 10.1343 28.7198 8.3872 27.4495 7.5027C26.9794 7.17549 26.4205 7 25.8477 7H14.1577C12.6095 7 11.3545 8.25503 11.3545 9.80322C11.3547 10.3758 11.5302 10.9347 11.8574 11.4048Z" fill="#514C49" stroke="#FEFDFB" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round" mask="url(#path-1-inside-1_4874_2783)"></path><path d="M22.8637 29.5446C23.3612 29.8283 23.9338 29.9528 24.5042 29.9014L37.2991 28.7469C38.3271 28.6542 39.0851 27.7457 38.9924 26.7178C38.9876 26.6636 38.9803 26.6096 38.9706 26.556C38.5862 24.4114 37.8296 22.3507 36.7352 20.4668C35.6407 18.5829 34.2255 16.9048 32.5532 15.5085C31.761 14.8471 30.5825 14.953 29.9211 15.7455C29.8862 15.7872 29.8532 15.8305 29.8219 15.8752L22.4807 26.418C22.1535 26.888 21.978 27.4469 21.978 28.0198V27.9849C21.978 28.3055 22.0604 28.6208 22.2176 28.9002C22.3826 29.1751 22.6155 29.4029 22.8942 29.5617" fill="#FDC433"></path><path d="M17.8492 28.7605C17.6844 29.097 17.4222 29.376 17.0969 29.5616L17.1365 29.539C16.6391 29.8227 16.0665 29.9472 15.4961 29.8959L2.70114 28.7414C2.64694 28.7365 2.59295 28.7293 2.53935 28.7196C1.52348 28.5375 0.847507 27.5663 1.02965 26.5505C1.41407 24.4057 2.17064 22.3451 3.26489 20.4611C4.35914 18.577 5.77455 16.8993 7.44706 15.5028C7.48877 15.4679 7.53208 15.4349 7.57681 15.4037C8.42384 14.8139 9.58841 15.0225 10.1784 15.8695L17.5196 26.4124C17.8468 26.8825 18.0223 27.4414 18.0223 28.0142V27.9685C18.0223 28.343 17.9096 28.7091 17.6991 29.019" fill="#FDC433"></path><path d="M46 13.0243L50.3839 20.7431V24.9463H52.4806V20.7272L56.8645 13.0243H54.6726L51.7658 18.3231L51.4164 19.0237L51.0669 18.3231L48.192 13.0243H46Z" fill="#332E2B"></path><path d="M61.4832 15.7917C58.9259 15.7917 57.0358 17.6863 57.0358 20.4884C57.0358 23.2905 58.9259 25.1851 61.4832 25.1851C64.0087 25.1851 65.9307 23.2905 65.9307 20.4884C65.9307 17.6863 64.0087 15.7917 61.4832 15.7917ZM61.4832 23.4656C60.149 23.4656 59.0689 22.2556 59.0689 20.4884C59.0689 18.7212 60.149 17.5112 61.4832 17.5112C62.8175 17.5112 63.8976 18.7212 63.8976 20.4884C63.8976 22.2556 62.8175 23.4656 61.4832 23.4656Z" fill="#332E2B"></path><path d="M73.6325 15.8076C72.6 15.8076 71.5676 16.0783 70.821 16.7788V16.0305H68.7879V24.9463H70.821V21.2685C70.821 20.3929 70.8846 19.8356 70.964 19.5013C71.234 18.3391 72.2982 17.543 73.6325 17.6067V15.8076Z" fill="#332E2B"></path><path d="M82.1798 24.9463H84.6259L80.6232 20.2177L84.2288 16.0305H81.7827L78.6059 19.8516V13.0779H76.5728V24.9463H78.6059V20.6476L82.1798 24.9463Z" fill="#332E2B"></path><path d="M88.6995 16.0305H86.6664V24.9463H88.6995V16.0305ZM86.5711 15.0434H88.7948V12.8145H86.5711V15.0434Z" fill="#332E2B"></path><path d="M98.3957 21.8258C97.8875 22.781 96.9344 23.4656 95.8543 23.4656C94.6313 23.4656 93.7259 22.4626 93.5512 21.2526H100V20.2814C100 17.6704 98.2051 15.7917 95.7114 15.7917C93.3288 15.7917 91.4228 17.6863 91.4228 20.4884C91.4228 23.2905 93.2176 25.1851 95.8543 25.1851C97.5062 25.1851 98.9834 24.3095 99.8729 22.9562L98.3957 21.8258ZM93.5353 19.565C93.7894 18.2913 94.6313 17.5112 95.7114 17.5112C96.8709 17.5112 97.6651 18.3709 97.9033 19.565H93.5353Z" fill="#332E2B"></path></svg>
           <div class="tools">
-            <button type="button" id="activate-button"  onclick="activate()">activate</button>
-            <button type="button" id="deactivate-button" onclick="deactivate()">deactivate</button>
+            <!-- <button type="button" id="activate-button"  onclick="activate()">activate</button>
+            <button type="button" id="deactivate-button" onclick="deactivate()">deactivate</button> -->
+            <div>status: <span id="network-status"></span></div>
           </div>
         </div>
         <div class="center-tools">
-          <button type="button" onClick="saveSnapshot()">Save snapshot</button>
-          <button type="button" onClick="loadSnapshot()">Load snapshot</button>
-          <input type="file" id="snapshot-file" style="display: none" />
-          <label style="display: flex; align-items: center;">
-            <input type="checkbox" id="hide-deleted-node" onClick="toggleDeletedNodeShow()" />
-            <span>Hide deleted node</span>
-          </label>
+          
         </div>
         <div class="right-tools">
-          <div style="padding: 10px 0px" id="peers-holder"></div>
+          
         </div>
 
-      </div>
+      </div>      
 
-      <div class="content">
-        <div class="editor-area">
-          <div>
-            <textarea id="placeholder" cols="30" rows="10"></textarea>
-          </div>
-          <div class="data-area">
-            <div class="text-view-area">
-              <div class="tab">
-                <div class="tab-header">
-                  <button class="tablinks active" onclick="openTab(event, 'text')">Text</button>
-                  <button class="tablinks" onclick="openTab(event, 'structure')">Structure Data</button>
-                  <button class="tablinks" onclick="openTab(event, 'structure-text')">Structure Text</button>
-                </div>
-                <div class="tab-body">
-                  <div id="text" class="tabcontent active">
-                    <div id="text-log-holder"></div>
-                  </div>
-                  <div id="structure" class="tabcontent">
-                    <div id="structure-log-holder"></div>
-                  </div>
-                  <div id="structure-text" class="tabcontent">
-                    <div id="structure-text-holder"></div>
-                  </div>                
-                </div>
-              </div>
-              <div class="info-area">
-                <h4 class="title">Selected SplayTree Node</h4>            
-                <div class="selected-node-info">
-    
-                </div>
-              </div>
-            </div>            
-          </div>
-
-        </div>
-        <div class="graph-view">
-          <div class="graph-area">
-            <h4 class="title">
-              <span>SplayTree</span>
-              <span  class="badge"  id="splaytree-info"></span>
-              <span class="left-skew" id="left-skew"></span>
-              <span class="right-skew" id="right-skew"></span>
-            </h4>
-            <div class="tree-area">
-              <div id="tree-log-holder"></div>      
-              <div id="tree-map-holder">
-                <svg id="tree-map-chart">
-                  <path class="tree-map-chart-path" d="" stroke="red" fill="black" stroke-width="1" />
-                  <path class="tree-map-node-chart-path" d="" stroke="red" fill="black" stroke-width="1" />
-                  <path class="tree-not-balenced-chart-path" d="" stroke="red" fill="red" stroke-width="1" />
-                </svg>
-              </div>      
-            </div>
-          </div>
-          <div class="graph-area">
-            <h4 class="title">
-              <span>LLRBTree</span>
-              <span class="badge" id="llrbtree-info"></span>
-            </h4>
-            <div class="tree-area">
-              <div id="llrbtree-log-holder"></div>      
-            </div>
-          </div>
-        </div>
-        
-        
-
-      </div>
-
-      <!-- <div>document:</div>
-      <div id="log-holder" style="white-space: pre-wrap"></div> -->
-
+      <textarea id="placeholder" cols="30" rows="10"></textarea>
+      <div>peers:</div>
+      <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
+      <div>document:</div>
+      <pre style="white-space: pre-wrap"><code id="log-holder"></code></pre>
+      <div>text:</div>
+      <pre
+        style="white-space: pre-wrap"
+      ><code id="text-log-holder"></code></pre>
     </div>
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
-      const peerColors = ["#619ED6", "#6BA547", "#F7D027", "#E48F1B", "#B77EA3", "#E64345", "#60CEED", "#9CF168", "#F7EA4A", "#FBC543", "#FFC9ED", "#E6696E"] // peer colors for each client
+      const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
+      let nextColorIdx = 0;
 
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
       const peersHolder = document.getElementById('peers-holder');
-      // const logHolder = document.getElementById('log-holder');
+      const logHolder = document.getElementById('log-holder');
       const textLogHolder = document.getElementById('text-log-holder');
-      const structureLogHolder = document.getElementById('structure-log-holder');
-      const structureTextHolder = document.getElementById('structure-text-holder');
-      const treeLogHolder = document.getElementById('tree-log-holder');
-      const treeMapChart = document.getElementById('tree-map-chart');
-      const treeMapChartPath = treeMapChart.querySelector('.tree-map-chart-path');
-      const treeNotBalencedChartPath = treeMapChart.querySelector('.tree-not-balenced-chart-path');
-      const treeMapNodeChartPath = treeMapChart.querySelector('.tree-map-node-chart-path');
-      
-      
-      const treeLineHolder = document.getElementById('tree-line-holder');
-      const llrbtreeLogHolder = document.getElementById('llrbtree-log-holder');
-      const splayTreeInfo = document.getElementById('splaytree-info');
-      const splayLeftSkew = document.getElementById('left-skew');
-      const splayRightSkew = document.getElementById('right-skew');
-      const llrbLeftSkew = document.getElementById('llrbleft-skew');
-      const llrbRightSkew = document.getElementById('llrbright-skew');
-      const llrbTreeInfo = document.getElementById('llrbtree-info');
-      const treeArea = document.querySelector('.tree-area');
       const selectionMap = new Map();
 
-      window.peerCount = 0;
-      window.peers = {};
-      window.selectedNodeElement = null;
-      window.llrbselectedNodeElement = null;
-      window.selectedNodeCharElement = null;
-      window.selectedNodeStructureElement = null;
-      window.snapshotList = [];
-      window.hideDeletedNode = false;
-
-      function saveSnapshot() {
-
-        // objectToBytes
-        const snapshot = window.doc.getDocumentSnapshot();
-
-        const blob = new Blob([snapshot.buffer], {type: "application/octet-stream"});
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${new Date().toISOString()}.${Date.now()}.yorkie.snapshot.bin`;
-        a.click();
-
-        URL.revokeObjectURL(url);
-
-        window.snapshotList.push({
-          name: a.download,
-          blob: blob
-        })
-
-      }
-
-      function loadSnapshot() {
-        
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/octet-stream';
-        input.onchange = (e) => {
-          const file = e.target.files[0];
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const bytes = new Uint8Array(e.target.result);
-
-            window.doc.loadDocumentSnapshot(bytes);
-          }
-          reader.readAsArrayBuffer(file);
-        }
-        input.click();
-      }
-
-      function openTab (e, target) {
-        const tablinks = document.querySelectorAll('.tablinks');
-        const tabcontents = document.querySelectorAll('.tabcontent');
-
-        tablinks.forEach(it => it.classList.remove('active'));
-        tabcontents.forEach(it => it.classList.remove('active'));
-
-        e.target.classList.add('active');
-        document.getElementById(target).classList.add('active');
-      }
-
-      function getEditBlock(block) {
-        const [_, key] = block;
-        const [time, ...valueList] = key.split(' ')
-        const value = valueList.join(' ')
-        const [lamport, ticker, t, offset] = time.split(":")
-
-        const color = Object.values(window.peersInfo).find(it => it.ticker === ticker)?.color;
-
-
-        return {
-          key,
-          value,
-          color,
-          time,
-          lamport,
-          ticker,
-          t,
-          offset,
-          blockKey: `${lamport}:${ticker}:${t}`
-        }        
-      }
-
-      function getDeleteBlock(block) {
-        const [_, key] = block;
-        const [time, value] = key.split(' ')
-        const [lamport, ticker, t, offset] = time.split(":")
-
-        const color = Object.values(window.peersInfo).find(it => it.ticker === ticker)?.color;
-
-        return {
-          deleted : true,
-          key,
-          value,
-          color,
-          time,
-          lamport,
-          ticker,
-          t,
-          offset,
-          blockKey: `${lamport}:${ticker}:${t}`
-        }
-      }      
-
-      let splayNext = []
-      let llrbNext = []
-
-      function getNewSplayTreeNode(node, depth = 0, parent = null) {
-
-
-        if (typeof splayNext[depth] !== 'number') {
-          splayNext[depth] = 0;
-        }
-
-        const currentNode = {
-          parent,
-          depth,
-          next: splayNext[depth]++,
-          actorID: node.id.createdAt.actorID,
-          isRemoved: node?.isRemoved?.(),
-          removeAt: node?.removedAt,
-          key: node.id.getStructureAsString(),
-          weight: node.weight,
-          value: node.value?.content,
-          attributes: node.value?.attributes,
-        }
-
-        if (!currentNode.isRemoved) {
-          collectedSplayRealNode[collectedSplayRealNode.length] = currentNode;  
-        }
-        
-
-        collectedSplayBalanceInfo.totalCount++;
-
-        // left, right
-        currentNode.left = node.left ? getNewSplayTreeNode(node.left, depth + 1, currentNode) : null;
-        currentNode.right = node.right ? getNewSplayTreeNode(node.right, depth + 1, currentNode) : null;
-
-        if (currentNode.left) {
-          currentNode.left.sibling = currentNode.right;
-          currentNode.left.nodeType = "left";
-        }
-        if (currentNode.right) {
-          currentNode.right.sibling = currentNode.left;
-          currentNode.right.nodeType = "right";
-        }
-
-        return currentNode;
-      }     
-
-      
-      function getNewLLRBTreeNode(node, depth = 0, parent = null) {
-
-
-        if (typeof llrbNext[depth] !== 'number') {
-          llrbNext[depth] = 0;
-        }
-
-        const currentNode = {
-          parent,
-          depth,
-          next: llrbNext[depth]++,
-          actorID: node.key.createdAt.actorID,
-          isRemoved: node.value.isRemoved(),
-          removeAt: node.value.removedAt,
-          key: node.key.getStructureAsString(),
-          weight: node.value.weight,
-          value: node.value.value?.content,
-          isRed: node.isRed,
-        }
-
-        // left, right
-        currentNode.left = node.left ? getNewLLRBTreeNode(node.left, depth + 1, currentNode) : null;
-        currentNode.right = node.right ? getNewLLRBTreeNode(node.right, depth + 1, currentNode) : null;
-
-        return currentNode;
-      }
-
-      function displayTextValue(value) {
-        if (value === ' ') {
-          return '&lt;space&gt;';
-        } else if (value === '\n') {
-          return '&lt;enter&gt;<br />';
-        } else if (value === '\t') {
-          return '&lt;tab&gt;&nbsp;&nbsp;';
-        }
-
-        return value;
-      }
-
-      function displayValue(value) {
-        if (value === ' ') {
-          return '&lt;space&gt;';
-        } else if (value === '\n') {
-          return '&lt;enter&gt;';
-        } else if (value === '\t') {
-          return '&lt;tab&gt;';
-        }
-
-        return value;
-      }
-      
-      function hasOnlyDeletedChildren(node) {
-
-        if (!node) {
-          return true;
-        }
-
-        if (node.key === "0:00:0:0") {  // check root
-          return true;
-        }
-
-        return hasOnlyDeletedChildren(node.left) && hasOnlyDeletedChildren(node.right) && node.isRemoved;
-      }
-
-      function getAllChildren(node) {
-
-        if (!node) {
-          return [];
-        }
-
-        const children = [];
-
-        if (node.left) {
-          children.push(node.left);
-          children.push(...getAllChildren(node.left));
-        }
-
-        children.push(node);
-
-        if (node.right) {
-          children.push(node.right);
-          children.push(...getAllChildren(node.right));
-        }
-
-        return children;
-      }
-
-        function calculateTreeViewport(node) {
-            
-            if (!node) {
-              return;
-            }
-
-
-            if (!node.left && !node.right) {
-              node.viewport = {
-                width: 64,
-              }              
-              return;
-            } else {
-              node.viewport = {
-                width: 0,
-              }
-            }
-
-  
-            if (node.left) {
-              calculateTreeViewport(node.left);
-              node.viewport.width += node.left.viewport.width;
-              node.viewport.width += 10;
-            }
-
-            if (node.right) {
-              calculateTreeViewport(node.right);
-              node.viewport.width += node.right.viewport.width;
-            }
-        }
-
-        function calculateAbsolutePosition(type, node, startX = 0, endX = 0) {
-          if (!node) {
-            return;
-          }
-
-
-          if (type === 'splay') {
-
-            node.viewport.x = node.next * 100;
-            node.viewport.top = node.depth * 100;
-            node.viewport.left = node.viewport.x;
-
-            if (node.left) {
-              calculateAbsolutePosition(type, node.left, startX, startX + node.left.viewport.width);
-            }
-
-            if (node.right) {
-              calculateAbsolutePosition(type, node.right, startX + 10, startX + node.right.viewport.width);            
-            }
-            
-            return;
-          }
-
-          node.viewport.x = startX + (node.viewport.width / 2);
-          node.viewport.top = node.depth * 52;
-          node.viewport.left = node.viewport.x;
-
-          let hasReconcileLeft = false;
-
-          if (node.left) {
-
-            if ((node.right?.left || node.right?.right) && (!node.left.left && !node.left.right)) {
-
-              if (node.right) {
-                hasReconcileLeft = true;
-              }
-              
-            } else {
-              // startX -= (node.right?.viewport.width || 0);
-            }
-
-            calculateAbsolutePosition(type, node.left, startX, startX + node.left.viewport.width);
-          }
-
-          let hasReconcileRight = false;
-          if (node.right) {
-
-
-            if ((node.left?.left || node.left?.right) && (!node.right.left && !node.right.right)) {
-                
-                if (node.left) {
-                  hasReconcileRight = true;
-                }
-            } else {
-              startX += (node.left?.viewport.width || 0);
-            }
-            calculateAbsolutePosition(type, node.right, startX + 10, startX + node.right.viewport.width);            
-          }
-
-          if (hasReconcileLeft) {
-            node.left.viewport.left = node.viewport.left - (node.left.viewport.width / 2) - 10;
-          }
-
-          if (hasReconcileRight) {
-
-            if (node.left) {
-              node.right.viewport.left = node.left.viewport.left + 70;
-            } else {
-              node.right.viewport.left = node.viewport.left + (node.viewport.width / 2) + 10;
-            }
-          }
-        }
-
-        function checkInRect(viewport) {
-          let isNoneDrawFirstPoint = false;
-
-          if (viewport.left + 40 < window.panzoomTransformRect.x - 10) {
-            isNoneDrawFirstPoint = true;
-          } else if (window.panzoomTransformRect.x2 + 10 < viewport.left + 40) {
-            isNoneDrawFirstPoint = true;
-          } else if (viewport.top + 25 < window.panzoomTransformRect.y - 10) {
-            isNoneDrawFirstPoint = true;
-          } if (window.panzoomTransformRect.y2 + 10 < viewport.top + 25) {
-            isNoneDrawFirstPoint = true;
-          }
-
-          return isNoneDrawFirstPoint;
-        }
-
-        function renderLineHTML(type, node) {
-
-          if (!node) {
-            return '';
-          }
-
-          if (type === "splay") {
-            let isNoneDrawFirstPoint = false;
-            if (node.viewport && window.panzoomTransformRect) {
-
-              isNoneDrawFirstPoint = checkInRect(node.viewport);
-            }
-
-
-            if (node.sibling && node.nodeType === "right") {
-
-
-
-              if (node.viewport && window.panzoomTransformRect) {
-
-
-                let isNoneDrawSecondPoint = checkInRect(node.sibling.viewport);
-
-                if (isNoneDrawFirstPoint && isNoneDrawSecondPoint) {
-                  return `
-                  ${node.left ? renderLineHTML(type, node.left) : ''}
-                ${node.right ? renderLineHTML(type, node.right) : ''}
-                  `;
-                }
-              }
-
-              return `
-                ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.sibling.viewport.left + 40} ${node.sibling.viewport.top + 25}` : ''}
-                
-                ${node.left ? renderLineHTML(type, node.left) : ''}
-                ${node.right ? renderLineHTML(type, node.right) : ''}
-                
-              `
-            }
-
-            if (node.viewport && window.panzoomTransformRect && node.parent) {
-                let isNoneDrawSecondPoint = checkInRect(node.parent.viewport);
-
-                if (isNoneDrawFirstPoint && isNoneDrawSecondPoint) {
-                  return `
-                      ${node.left ? renderLineHTML(type, node.left) : ''}
-                    ${node.right ? renderLineHTML(type, node.right) : ''}
-                  `;
-                }
-            }
-
-            return `
-            ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.parent.viewport.left + 40} ${node.parent.viewport.top + 25}` : ''}
-            
-            ${node.left ? renderLineHTML(type, node.left) : ''}
-            ${node.right ? renderLineHTML(type, node.right) : ''}
-            
-          `            
-          } else {
-
-            return `
-            ${node.parent ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${node.parent.viewport.left + 40} ${node.parent.viewport.top + 25}` : ''}
-            
-            ${node.left ? renderLineHTML(type, node.left) : ''}
-            ${node.right ? renderLineHTML(type, node.right) : ''}
-            
-          `
-          }
-
-        }
-
-        function renderHeadLineView(type, node) {
-          return `<div class="line-holder">
-            <svg overflow="visible">
-              <path 
-              class="line" 
-              d="${renderLineHTML(type, node)}"  />
-            </svg>
-          </div>`
-        }
-
-        function renderHeadHTML (type, node) {
-
-          if (!node ) {
-            return '';
-          }
-
-          if (type === 'splay') {
-            if (node.viewport && window.panzoomTransformRect) {
-              let isNoneDrawFirstPoint = checkInRect(node.viewport);
-
-              if (isNoneDrawFirstPoint) {
-                return (node.left ? renderHeadHTML(type, node.left) : '') +
-                      (node.right ? renderHeadHTML(type, node.right) : '') ;
-              }
-            }
-          }
-
-
-          return `
-              <div 
-                  class="node-item ${node.isRemoved ? 'is-removed' : ''} ${window.selectedItemKey === node.key ? 'selected' : ''}" 
-                  style="--ticker-color: ${window.peersInfo[node.actorID]?.color};transform-origin: center center;transform: translate3d(${node.viewport.left}px, ${node.viewport.top}px, 0px);"" 
-                  data-key="${node.key}"
-              >
-                ${node.leftSkew ? `<div class="skew-left"></div>` : ''}
-                ${node.rightSkew ? `<div class="skew-right"></div>` : ''}
-                <div class="content">
-                  <div class="inner-description">
-                    ${!node.isRemoved ? `<div class="prev-view">&lt;</div>` : ''}
-                    <div class="key-area">${node.key}</div>
-                    <div class="value-area">
-                      <div class="weight">${node.weight === 0 ? "Ø" : node.weight}</div>
-                      <div class="value">${displayValue(node.value)}</div>
-                    </div>
-                    ${!node.isRemoved ? `<div class="next-view">&gt;</div>` : ''}
-                  </div>
-              </div>
-
-          </div>` +
-
-          (node.left ? renderHeadHTML(type, node.left) : '') +
-          (node.right ? renderHeadHTML(type, node.right) : '') ;
-        }
-
-        let collectedSplayBalanceNode = [];
-        let collectedSplayRealNode = []
-        let collectedSplayBalanceInfo = {
-          leftSkew: 0,
-          rightSkew: 0,
-          totalCount: 0,
-          leftSkewMap: {},
-          rightSkewMap: {},
-        }
-
-        function hasLeftSkewChildren(node, count = 5) {
-         if (node.right) {
-          return false; 
-         }
-
-         let checkCount = 0;
-         let currentNode = node;
-         while(left = currentNode.left) {
-
-          if (left.right) {
-            return false;
-          }
-
-          checkCount++;
-          
-          if (checkCount >= count) {
-            return true;
-          }
-          currentNode = left;
-         }
-
-         return checkCount >= count;
-        }
-
-        function hasRightSkewChildren(node, count = 5) {
-          if (node.left) {
-           return false; 
-          }
- 
-          let checkCount = 0;
-          while(right = node.right) {
- 
-           if (right.left) {
-             return false;
-           }
- 
-           checkCount++;
-           
-           if (checkCount >= count) {
-             break;
-           }
-          }
- 
-          return checkCount > count;
-         }
-
-        function collectNotBalanceNode(node, count = 5) {
-            
-            if (!node) {
-              return;
-            }
-  
-
-            if (hasLeftSkewChildren(node, count)) {
-              collectedSplayBalanceNode.push(node);
-              collectedSplayBalanceInfo.leftSkewMap[node.key] = true;
-              node.leftSkew = true;
-              collectedSplayBalanceInfo.leftSkew++;
-            } else if (hasRightSkewChildren(node, count)) {
-              collectedSplayBalanceNode.push(node);
-              node.rightSkew = true;
-              collectedSplayBalanceInfo.rightSkew++;
-              collectedSplayBalanceInfo.righhtSkewMap[node.key] = true;
-            }
-
-            collectNotBalanceNode(node.left, count);
-            collectNotBalanceNode(node.right, count);
-        }
-
-        function displayTreeLog (doc) {
-
-            splayNext = [];        
-            collectedSplayBalanceNode = []  
-            collectedSplayBalanceInfo = {
-              leftSkew: 0,
-              rightSkew: 0,
-              totalCount: 0,
-              leftSkewMap: {},
-              rightSkewMap: {},
-            }
-            collectedSplayRealNode = [];
-            const head = getNewSplayTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByIndex.root);
-            window.textHeadNode = head;
-
-            calculateTreeViewport(head);
-            calculateAbsolutePosition("splay", head, 0, head.viewport.width);
-            collectNotBalanceNode(head, 10);
-
-            splayTreeInfo.innerHTML = `<span class="depth-name">Node</span> ${collectedSplayBalanceInfo.totalCount} -- <span class="depth-name">Depth</span> ${splayNext.length}`
-            splayLeftSkew.innerHTML = `${collectedSplayBalanceInfo.leftSkew}` + `<select></select>`
-            splayRightSkew.innerHTML = `${collectedSplayBalanceInfo.rightSkew}`
-            
-            displaySplayTree();
-            displaySplayTreeMapChart();
-
-
-            llrbNext = [];
-            const llrbhead = getNewLLRBTreeNode(doc.getRoot().content.text.rgaTreeSplit.treeByID.root);
-            window.llrbtextHeadNode = llrbhead;
-
-            calculateTreeViewport(llrbhead);
-            calculateAbsolutePosition("llrb", llrbhead, 0, llrbhead.viewport.width);
-
-            llrbTreeInfo.innerHTML = `${llrbNext.length}`            
-
-
-            llrbtreeLogHolder.innerHTML = renderHeadLineView("llrb", llrbhead) + renderHeadHTML("llrb", llrbhead);
-        }
-
-      function renderSplayTreeMapChart() {
-        
-        const maxLength = splayNext.length;
-        const xUnit = 300 / maxLength;
-        const maxY = Math.max(...splayNext);
-        const yUnit = 100/maxY;
-        return splayNext.map((y, x)  => {
-
-          const realX = Math.floor(x * xUnit);
-          const realY = Math.floor( 100 - y * yUnit );
-
-          return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} 100 L ${realX} 100  Z`
-        }).join('')
-      }
-
-      function renderSplayTreeSkewNode() {
-        
-        const maxLength = splayNext.length;
-        const xUnit = 300 / maxLength;
-        const maxY = Math.max(...splayNext);
-        const yUnit = 100/maxY;
-        const list = collectedSplayBalanceNode
-        return list.map(node  => {
-
-          const realX = Math.floor(node.depth * xUnit);
-          const realY = Math.floor(100 - node.next * yUnit)
-
-          return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} ${realY - yUnit} L ${realX}  ${realY - yUnit}  Z`
-        }).join('')
-      }
-
-      function renderSplayTreeRealNode() {
-        
-        const maxLength = splayNext.length;
-        const xUnit = 300 / maxLength;
-        const maxY = Math.max(...splayNext);
-        const yUnit = 100/maxY;
-        const list = collectedSplayRealNode
-        return list.map(node  => {
-
-          const realX = Math.floor(node.depth * xUnit);
-          const realY = Math.floor(100 - node.next * yUnit)
-
-          return `M ${realX} ${realY} L ${realX + xUnit} ${realY} L ${realX + xUnit} ${realY - yUnit} L ${realX}  ${realY - yUnit}  Z`
-        }).join('')
-      }      
-
-      function displaySplayTreeMapChart() {
-        const map = renderSplayTreeMapChart();
-        treeMapChartPath.setAttribute("d", map);
-
-        const map2 = renderSplayTreeSkewNode();
-        treeNotBalencedChartPath.setAttribute("d", map2);
-
-        const map3 = renderSplayTreeRealNode();
-        treeMapNodeChartPath.setAttribute("d", map3);
-      }
-
-      function displaySplayTree () {
-        const head = window.textHeadNode;
-        treeLogHolder.innerHTML = renderHeadLineView("splay", head) + renderHeadHTML("splay", head);            
-      }
-
-      function displayTreeLogWithTimer (doc) {
-
-
-        if (window.timer) {
-          clearTimeout(window.timer);
-        }
-
-        window.timer = setTimeout(() => {
-          displayTreeLog(doc);
-          displayBlockLog(doc);
-        }, 500)
-
-      }
-
-      function displayBlockLog(doc) {
-
-        window.blockList = []
-        window.blockKeys = {}
-
-        let maxDepth = 0;
-
-        structureTextHolder.innerHTML = doc.getRoot().content.getStructureAsString();
-
-
-        let textOffset = 0;
-
-        textLogHolder.innerHTML = [...doc.getRoot().content.getStructureAsString().matchAll(/(\[[^\]]*\]|\{[^\}]*})/g)].map((it, index) => {
-          let block = null;
-
-          let defaultClass = 'tree-item';
-
-          if (it[0].startsWith('[')) {
-            block = getEditBlock(it[0].match(/\[([^\]]*)\]/))
-
-            defaultClass += ' real'
-            block.offset = textOffset;
-            textOffset += block.value.length;
-
-            window.blockKeys[block.time] = block;
-          } else {
-            block = getDeleteBlock(it[0].match(/\{([^\}]*)\}/));
-
-            defaultClass += ' deleted'
-          }
-
-          window.blockList.push(block);
-
-          defaultClass += ' ' + block.value === "\n" ? 'line-break' : ''
-
-          let defaultAttributes = [
-            `data-time="${block.time}"`,
-            `title="${block.key}"`,
-            `data-has-length="${block.value.length > 1}"`
-          ].join(" ");          
-
-          const leftSkew = collectedSplayBalanceInfo.leftSkewMap[block.time];
-          const rightSkew = collectedSplayBalanceInfo.rightSkewMap[block.time];
-
-
-          if (block.deleted) {
-            return `<span class="${defaultClass}" ${defaultAttributes} style="background-color: ${block.color}">
-              ${leftSkew ? `<span class="skew left"></span>` : ''}
-              ${rightSkew ? `<span class="skew right"></span>` : ''}              
-              <div class="time">${block.time}</div>
-              <div>${displayTextValue(block.value)}</div>
-            </span>`
-          } else {
-            return `<span class="${defaultClass}" ${defaultAttributes} style="border: 1px solid ${block.color}" data-offset="${block.offset}">
-              ${leftSkew ? `<span class="skew left"></span>` : ''}
-              ${rightSkew ? `<span class="skew right"></span>` : ''}
-              <div class="time">${block.time}</div>
-              <div>${displayTextValue(block.value)}</div>
-            </span>`
-          }
-        }).join("");
-
-
-        structureLogHolder.innerHTML = window.blockList.map(block => {
-
-          const value = `${block.time} ${displayValue(block.value)}`
-          const style = `--client-color: ${block.color};`
-          const attribute = `data-time="${block.time}" style="${style}"`
-
-
-          const leftSkew = collectedSplayBalanceInfo.leftSkewMap[block.time];
-          const rightSkew = collectedSplayBalanceInfo.rightSkewMap[block.time];
-
-
-          if (block.deleted) {
-            return `<div  class="structure-item deleted" ${attribute}>
-                <span class="icon" >&times;</span>{${value}}
-                ${leftSkew ? `<span class="skew left"></span>` : ''}
-                ${rightSkew ? `<span class="skew right"></span>` : ''}              
-              </div>`
-          }
-          return `
-            <div class="structure-item edit"  ${attribute}>
-              <span class="icon" ></span>[${value}]
-              ${leftSkew ? `<span class="skew left"></span>` : ''}
-              ${rightSkew ? `<span class="skew right"></span>` : ''}              
-            </div>`
-        }).join("");
-        }
-
       function displayLog(doc, codemirror) {
-
-        window.blockList = []
-
-        let maxDepth = 0;
-
-
-        displayTreeLogWithTimer(doc);
-        displayBlockLog(doc);
-      }
-
-      function getPeerColor(peerID) {
-        const sortedPeersId = Object.keys(peers).sort()
-
-        return peerColors[sortedPeersId.findIndex(it => it === peerID)%peerColors.length];
-      }
-
-      function displayActivatedStatus() {
-
-        if (window.client.isActive()) {
-          document.getElementById("activate-button")?.setAttribute("disabled", "disabled");
-          document.getElementById("deactivate-button")?.removeAttribute("disabled");
-        } else {
-          document.getElementById("activate-button")?.removeAttribute("disabled");
-          document.getElementById("deactivate-button")?.setAttribute("disabled", "disabled");
+        logHolder.innerText = doc.toJSON();
+        const textLength = codemirror.getValue().length;
+        if (
+          doc.getRoot().content.length !=
+            doc.getRoot().content.toString().length ||
+          (textLength != doc.getRoot().content.length && textLength != 0)
+        ) {
+          debugger;
         }
+        textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
       }
 
       function displayPeers(peers, clientID) {
-
-        window.peers = peers;
-
-        window.peersInfo = Object.fromEntries(Object.entries(peers).map(([id, peer]) => {
-          return [id, {
-            id,
-            ticker: id.substring(id.length-2),
-            peer,
-            color: getPeerColor(id),
-          }];
-        }));
-
         const clientIDs = [];
 
         for (const [clientID, _] of Object.entries(peers)) {
           clientIDs.push(clientID);
         }
 
-        peersHolder.innerHTML = clientIDs
-          .map((id) => {
-            const peer = peers[id];
-            const color = window.peersInfo[id].color;
-            const ticker = window.peersInfo[id].ticker;
-
-            const idString = `<span class="client-info ${id === clientID ? "me" : ""}" style="--client-color: ${color}" data-id="${id}" title="${id}"> ${ticker}</span>`;
-
-            return idString;
-          })
-          .join('');
-
-        document.head.querySelector("#codemirror-custom-style").textContent = `
-          :root {
-            --network-status-color: ${network.isOnline ? window.peersInfo[clientID]?.color : "#ff0000"};
-            --peer-status-color: var(--network-status-color);
-          }
-          .CodeMirror-selected {
-            background-color: ${window.peersInfo[clientID]?.color} !important;
-          }
-        `
-
-        // active-button
-        displayActivatedStatus()
-
+        peersHolder.innerHTML = JSON.stringify(clientIDs).replace(
+          clientID,
+          `<b>${clientID}</b>`,
+        );
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619
@@ -1010,12 +107,14 @@
       }
 
       function displayRemoteSelection(cm, change) {
-        let color = peersInfo[window.client.id].color;
-
+        let color;
         if (selectionMap.has(change.actor)) {
           const selection = selectionMap.get(change.actor);
-          color = peersInfo[change.actor].color;
+          color = selection.color;
           selection.marker.clear();
+        } else {
+          color = colors[nextColorIdx];
+          nextColorIdx = (nextColorIdx + 1) % colors.length;
         }
 
         if (change.from === change.to) {
@@ -1033,7 +132,7 @@
           cursorElement.style.zIndex = 0;
 
           selectionMap.set(change.actor, {
-            color: peersInfo[change.actor].color,
+            color: color,
             marker: cm.setBookmark(pos, {
               widget: cursorElement,
               insertLeft: true,
@@ -1044,42 +143,20 @@
           const toPos = cm.posFromIndex(Math.max(change.from, change.to));
 
           selectionMap.set(change.actor, {
-            color: peersInfo[change.actor].color,
+            color: color,
             marker: cm.markText(fromPos, toPos, {
-              css: `background: ${peersInfo[change.actor].color}`,
+              css: `background: ${color}`,
               insertLeft: true,
             }),
           });
         }
       }
 
-      async function activate() {
-        await window.client.activate();
-        await window.client.attach(window.doc);                
-        // await window.client.sync();
-
-        displayActivatedStatus();
-
-      }
-
-      async function deactivate() {
-        await window.client.deactivate();
-
-        displayActivatedStatus();
-      }
-
       async function main() {
         try {
           // 01. create client with RPCAddr(envoy) then activate it.
           const client = new yorkie.Client('http://localhost:8080');
-          window.client = client;
-          client.subscribe((event) => {
-            const callback = network.statusListener(document.createElement('div'));
-            callback(event);
-
-            peersHolder.style.setProperty('--peer-status-color', network.isOnline ? null : 'red');
-
-          });
+          client.subscribe(network.statusListener(statusHolder));
           await client.activate();
 
           // 01-2. subscribe client event.
@@ -1090,10 +167,8 @@
           });
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('codemirror15');
+          const doc = new yorkie.Document('codemirror');
           await client.attach(doc);
-
-          window.doc = doc;
 
           doc.update((root) => {
             if (!root.content) {
@@ -1107,13 +182,6 @@
               // The text is replaced to snapshot and must be re-synced.
               syncText();
             }
-
-            if (event.type === 'local-change') {
-              if (event.value[0].change.message.startsWith('update selection')) {
-                return;
-              }
-            }
-
             displayLog(doc, codemirror);
           });
           await client.sync();
@@ -1122,7 +190,6 @@
           const codemirror = CodeMirror.fromTextArea(placeholder, {
             lineNumbers: true,
           });
-          window.codemirrorInstance = codemirror;
 
           // 04. bind the document with the codemirror.
           // 04-1. codemirror to document(applying local).
@@ -1138,6 +205,8 @@
             doc.update((root) => {
               root.content.edit(from, to, content);
             }, `update content by ${client.getID()}`);
+
+            console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           });
           codemirror.on('beforeSelectionChange', (cm, change) => {
             // Fix concurrent issue.
@@ -1197,392 +266,13 @@
           }
           syncText();
 
-          displayLog(doc, codemirror);    
-          displayTreeLog(doc);                      
+          displayLog(doc, codemirror);
         } catch (e) {
           console.error(e);
         }
       }
 
       main();
-
-      function accumulatePosition(node) {
-        var top = 0, left = 0;
-
-        return {
-          y: node.viewport.top,
-          x: node.viewport.left
-        };
-      }
-
-      function traverseTree(node, callback) {
-        if (node.left) {
-          const left = traverseTree(node.left, callback);
-          if (left) {
-            return left;
-          }
-        }
-
-        if (callback(node)) {
-          return node;
-        }
-
-        if (node.right) {
-          const right = traverseTree(node.right, callback);
-          if (right) {
-            return right;
-          }
-        }
-      }
-
-      function displaySelectedNode(node) {
-        const element = document.querySelector(`.selected-node-info`);
-
-        if (element) {
-          const block = window.blockKeys[node.key];
-
-          element.innerHTML = `
-            <div class="property-view">
-              <div class="property-item-view"><label>parent:</label> <div class="value">${node.parent?.key}</div></div>
-              <hr />
-              <div class="property-item-view"><label>key:</label> <div class="value">${node.key}</div></div>
-              <div class="property-item-view"><label>weight:</label> <div class="value">${node.weight}</div></div>
-              <div class="property-item-view"><label>offset:</label> <div class="value">${block ? block.offset : "deleted"}</div></div>
-              <div class="property-item-view"><label>value:</label> <div class="value">${displayValue(node.value)}</div></div>
-              <div class="property-item-view"><label>left:</label> <div class="value">${node.left?.key}</div></div>
-              <div class="property-item-view"><label>right:</label> <div class="value">${node.right?.key}</div></div>
-
-            </div>
-
-          `
-        }
-      }
-
-      function moveToSelectedItem(panzoomInstance, rootRect, selectedItem) {
-        let trans = window.panzoomInstance.getTransform()
-        let rect = accumulatePosition(selectedItem);
-        let x = rect.x;
-        let y = rect.y;
-
-        window.panzoomInstance?.moveTo(-x * trans.scale + (rootRect.width/2), -y * trans.scale + (rootRect.height/2));
-      }
-
-      function selectNodeItem(selectedKey) {
-        window.selectedItemKey = selectedKey;
-        const selectedItem = traverseTree(textHeadNode, (node) => {
-            if (node.key === selectedKey) {
-              return true;
-            }
-        })
-
-        const llrbselectedItem = traverseTree(llrbtextHeadNode, (node) => {
-            if (node.key === selectedKey) {
-              return true;
-            }
-        })        
-
-        if (selectedNodeElement) {
-          selectedNodeElement.classList.remove("selected");
-        }
-
-        if (llrbselectedNodeElement) {
-          llrbselectedNodeElement.classList.remove("selected");
-        }        
-
-        if (selectedNodeCharElement) {
-          selectedNodeCharElement.classList.remove("selected");
-        }
-
-        if (selectedNodeStructureElement) {
-          selectedNodeStructureElement.classList.remove("selected");
-        }        
-
-        // selectedNodeElement = treeLogHolder.querySelector(`.node-item[data-key="${selectedKey}"]`);
-        llrbselectedNodeElement = llrbtreeLogHolder.querySelector(`.node-item[data-key="${selectedKey}"]`);
-        selectedNodeCharElement = document.querySelector(`.tree-item[data-time="${selectedKey}"]`);
-        selectedNodeStructureElement = document.querySelector(`.structure-item[data-time="${selectedKey}"]`);
-
-        // panzoom refresh 
-        moveToSelectedItem(window.panzoomInstance, treeArea.getBoundingClientRect(), selectedItem);
-
-        if (llrbselectedNodeElement) {
-          llrbselectedNodeElement.classList.add("selected");
-        }        
-
-
-        // panzoom refresh 
-        const trans = window.llrbPanzoomInstance.getTransform()
-
-        const rootRect = treeArea.getBoundingClientRect();
-
-        const rect = accumulatePosition(llrbselectedItem);
-        const x = rect.x;
-        const y = rect.y;
-
-        window.llrbPanzoomInstance?.moveTo(-x * trans.scale + (rootRect.width/2), -y * trans.scale + (rootRect.height/2));        
-
-
-        displaySelectedNode(selectedItem);        
-
-        if (selectedNodeCharElement) {
-          selectedNodeCharElement.classList.add("selected");
-
-          selectedNodeCharElement.scrollIntoView({
-            block: "center",
-            inline: "center"
-          });
-        }
-
-        if (selectedNodeStructureElement) {
-          selectedNodeStructureElement.classList.add("selected");
-
-          selectedNodeStructureElement.scrollIntoView({
-            block: "center",
-            inline: "center"
-          });
-
-        }
-
-        displayEditorCursor(selectedItem);
-      }
-
-      function displayEditorCursor(selectedItem) {
-        const block = window.blockKeys[selectedItem.key];
-
-        if (!block) return;
-
-        if (window.selectedItemMaker) {
-          window.selectedItemMaker.clear();
-        }
-
-        const cm = window.codemirrorInstance;
-
-        const fromPos = cm.posFromIndex(block.offset);
-        const toPos = cm.posFromIndex(block.offset + selectedItem.value.length);
-
-        const color = getPeerColor(selectedItem.actorID) || "red";
-
-        window.selectedItemMaker = window.codemirrorInstance.markText(fromPos, toPos, {
-              css: `background: ${color}; color: white; border: 2px solid black;box-sizing:border-box;border-radius: 4px;padding:2px`,
-              insertLeft: true,
-        });
-      }
-
-      function goPrevNode(e) {
-        e.preventDefault();
-        const nodeItem = e.target.closest(".node-item");
-
-        if (nodeItem) {
-          // copy to clipboard
-          const nodeID = nodeItem.getAttribute("data-key");
-
-          const innerDescription = e.target.closest(".inner-description");
-
-          if (innerDescription) {
-
-            // find current Item 
-            const currentItem = traverseTree(textHeadNode, (node) => {
-              if (node.key === nodeID) {
-                return true;
-              }
-            })
-
-            if (!currentItem.deleted) {
-              const currentIndex = window.blockList.findIndex((block) => {
-                if (block.time === currentItem.key) {
-                  return true;
-                }
-              })
-
-              if (currentIndex >  -1) {
-
-                for(var startIndex = currentIndex-1; startIndex >= 0; startIndex--) {
-                  const prevItem = window.blockList[startIndex];
-                  if (!prevItem.deleted) {
-                    selectNodeItem(prevItem.time);
-                    return;
-                  }
-                }
-              }
-            }
-          }
-
-        }
-      }
-
-      function setHideDeletedNode(hide) {
-        window.hideDeletedNode = hide;
-
-        document.getElementById('hide-deleted-node').checked = window.hideDeletedNode;
-
-        // toggle class
-        document.querySelector(".text-view-area").classList.toggle("hide-deleted-node", window.hideDeletedNode)
-        treeMapChartPath.classList.toggle("hide-deleted-node", window.hideDeletedNode)
-        treeLogHolder.classList.toggle("hide-deleted-node", window.hideDeletedNode)
-        llrbtreeLogHolder.classList.toggle("hide-deleted-node", window.hideDeletedNode)
-        
-      }
-
-      function toggleDeletedNodeShow() {
-        setHideDeletedNode(!window.hideDeletedNode);
-        
-      }
-
-      function goNextNode(e) {
-        e.preventDefault();
-        const nodeItem = e.target.closest(".node-item");
-
-        if (nodeItem) {
-          // copy to clipboard
-          const nodeID = nodeItem.getAttribute("data-key");
-
-          const innerDescription = e.target.closest(".inner-description");
-
-          if (innerDescription) {
-
-            // find current Item 
-            const currentItem = traverseTree(textHeadNode, (node) => {
-              if (node.key === nodeID) {
-                return true;
-              }
-            })
-
-            if (!currentItem.deleted) {
-              const currentIndex = window.blockList.findIndex((block) => {
-                if (block.time === currentItem.key) {
-                  return true;
-                }
-              })
-
-              if (currentIndex >  -1) {
-
-                for(var startIndex = currentIndex+1; startIndex < window.blockList.length; startIndex++) {
-                  const nextItem = window.blockList[startIndex];
-                  if (!nextItem.deleted) {
-                    selectNodeItem(nextItem.time);
-                    return;
-                  }
-                }
-              }
-            }
-          }
-
-        }
-      }
-
-      document.addEventListener("click", function (e) {
-
-        const prevView = e.target.closest(".prev-view");
-
-        if (prevView) {
-          goPrevNode(e);
-          return;
-        }
-
-        const nextView = e.target.closest(".next-view");
-
-        if (nextView) {
-          goNextNode(e);
-          return;
-        }        
-
-        const nodeItem = e.target.closest(".node-item");
-
-        if (nodeItem) {
-          // copy to clipboard
-          const nodeID = nodeItem.getAttribute("data-key");
-
-          const innerDescription = e.target.closest(".inner-description");
-
-          if (innerDescription) {
-            selectNodeItem(nodeID);
-          }
-
-        }
-
-        const treeItem = e.target.closest(".tree-item");
-
-        if (treeItem) {
-          // copy to clipboard
-          const treeID = treeItem.getAttribute("data-time");
-
-          selectNodeItem(treeID);
-        }
-
-        const structureItem = e.target.closest(".structure-item");
-
-        if (structureItem) {
-          // copy to clipboard
-          const structureID = structureItem.getAttribute("data-time");
-
-          selectNodeItem(structureID);
-        }
-
-        const clientInfo = e.target.closest(".client-info");
-        if (clientInfo) {
-          const clientID = clientInfo.getAttribute("data-id");
-          navigator.clipboard.writeText(clientID).then(function () {
-            /* clipboard successfully set */
-            // alert("Copied to clipboard: " + clientID)
-          }, function () {
-            /* clipboard write failed */
-          });
-        }
-      });
-
-      window.panzoomInstance = panzoom(treeLogHolder, {
-        transformOrigin: {
-          x: 0.5,
-          y: 0.5
-        }
-      })
-
-      // transform event 
-      const containerRect = treeLogHolder.parentElement.getBoundingClientRect()
-      window.panzoomRect = {
-        x: 0,
-        y: 0,
-        width: containerRect.width,
-        height: containerRect.height
-      }
-      window.panzoomTransformRect = {
-        x: 0,
-        y: 0,
-        width: containerRect.width,
-        height: containerRect.height
-      }
-      window.panzoomInstance.on('transform', function (e) {
-
-        const transform = e.getTransform();
-        const rect = window.panzoomRect;
-
-        window.panzoomTransformRect = {
-          x: -transform.x / transform.scale,
-          y: -transform.y / transform.scale,
-          width: rect.width / transform.scale,
-          height: rect.height / transform.scale
-        }
-
-        window.panzoomTransformRect.x2 = window.panzoomTransformRect.x + window.panzoomTransformRect.width;
-        window.panzoomTransformRect.y2 = window.panzoomTransformRect.y + window.panzoomTransformRect.height;
-
-        displaySplayTree();
-      })
-
-      window.llrbPanzoomInstance = panzoom(llrbtreeLogHolder, {
-        transformOrigin: {
-          x: 0.5,
-          y: 0.5
-        }
-      })
-
-      setHideDeletedNode(window.hideDeletedNode);
-
-
-      setTimeout(() => {
-        selectNodeItem(textHeadNode.key)
-      }, 500)
-
     </script>
   </body>
 </html>
