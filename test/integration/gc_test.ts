@@ -107,17 +107,17 @@ describe('Garbage Collection', function () {
     const doc = new yorkie.Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let expected_msg = '{"k1":[{"val":"Hello "},{"val":"mario"}]}';
+    let expectedMessage = '{"k1":[{"val":"Hello "},{"val":"mario"}]}';
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'Hello world');
       root.k1.edit(6, 11, 'mario');
-      assert.equal(expected_msg, root.toJSON!());
+      assert.equal(expectedMessage, root.toJSON!());
     }, 'edit text k1');
-    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(expectedMessage, doc.toSortedJSON());
     assert.equal(1, doc.getGarbageLen());
 
-    expected_msg =
+    expectedMessage =
       '{"k1":[{"val":"Hi"},{"val":" "},{"val":"j"},{"val":"ane"}]}';
 
     doc.update((root) => {
@@ -125,9 +125,9 @@ describe('Garbage Collection', function () {
       text.edit(0, 5, 'Hi');
       text.edit(3, 4, 'j');
       text.edit(4, 8, 'ane');
-      assert.equal(expected_msg, root.toJSON!());
+      assert.equal(expectedMessage, root.toJSON!());
     }, 'deletes 2');
-    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(expectedMessage, doc.toSortedJSON());
 
     const expectedGarbageLen = 4;
     assert.equal(expectedGarbageLen, doc.getGarbageLen());
@@ -141,19 +141,19 @@ describe('Garbage Collection', function () {
     const doc = new yorkie.Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    let expected_msg =
+    let expectedMessage =
       '{"k1":[{"attrs":{"b":"1"},"val":"Hello "},{"val":"mario"}]}';
 
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'Hello world', { b: '1' });
       root.k1.edit(6, 11, 'mario');
-      assert.equal(expected_msg, root.toJSON!());
+      assert.equal(expectedMessage, root.toJSON!());
     }, 'edit text k1');
-    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(expectedMessage, doc.toSortedJSON());
     assert.equal(1, doc.getGarbageLen());
 
-    expected_msg =
+    expectedMessage =
       '{"k1":[{"attrs":{"b":"1"},"val":"Hi"},{"attrs":{"b":"1"},"val":" "},{"val":"j"},{"attrs":{"b":"1"},"val":"ane"}]}';
 
     doc.update((root) => {
@@ -161,9 +161,9 @@ describe('Garbage Collection', function () {
       text.edit(0, 5, 'Hi', { b: '1' });
       text.edit(3, 4, 'j');
       text.edit(4, 8, 'ane', { b: '1' });
-      assert.equal(expected_msg, root.toJSON!());
+      assert.equal(expectedMessage, root.toJSON!());
     }, 'edit text k1');
-    assert.equal(expected_msg, doc.toSortedJSON());
+    assert.equal(expectedMessage, doc.toSortedJSON());
 
     const expectedGarbageLen = 4;
     assert.equal(expectedGarbageLen, doc.getGarbageLen());
