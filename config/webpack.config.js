@@ -45,6 +45,9 @@ module.exports = {
   entry: './src/yorkie',
   devtool: 'source-map',
   mode: 'production',
+  optimization: {
+    minimize: false,
+  },
   module: {
     rules: [
       {

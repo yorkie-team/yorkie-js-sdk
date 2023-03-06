@@ -145,13 +145,19 @@ export interface RemoteChangeEvent extends BaseDocEvent {
 export type Indexable = Record<string, any>;
 
 /**
+ * Document key type
+ * @public
+ */
+export type DocumentKey = string;
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  *
  * @public
  */
 export class Document<T> implements Observable<DocEvent> {
-  private key: string;
+  private key: DocumentKey;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
   private changeID: ChangeID;
