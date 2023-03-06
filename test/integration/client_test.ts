@@ -537,11 +537,9 @@ describe('Client', function () {
     });
     await waitStubCallCount(stub2, 6);
     assert.equal(6, stub2.callCount);
-    // NOTE(chacha912): The events have to be sorted because
-    // the 'peers-changed' event does not guarantee order.
     assert.deepEqual(
-      c2ExpectedEvents.sort(),
-      c2Events.sort(),
+      c2ExpectedEvents,
+      c2Events,
       `[c2] c1 attach doc2: \n actual: ${JSON.stringify(
         c2Events,
       )} \n expected: ${JSON.stringify(c2ExpectedEvents)}`,
