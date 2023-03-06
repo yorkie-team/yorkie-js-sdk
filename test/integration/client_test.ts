@@ -251,7 +251,11 @@ describe('Client', function () {
     unsub2();
   });
 
-  it('client event flow', async function () {
+  it('client.subscribe correctly detects the events', async function () {
+    // The test verifies whether `client.subscribe` correctly detects events
+    // when the client performs activate, attach, updatePresence, detach, and deactivate.
+    // Please refer to the figure in the yorkie-js-sdk issue for the test code flow.
+    // https://github.com/yorkie-team/yorkie-js-sdk/pull/464
     type PresenceType = {
       name: string;
       cursor: { x: number; y: number };
