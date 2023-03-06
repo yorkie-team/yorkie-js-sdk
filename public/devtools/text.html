@@ -931,7 +931,7 @@
       }
 
       function getPeerColor(peerID) {
-        const sortedPeersId = Object.keys(peers).sort()
+        const sortedPeersId = peers.map(it => it.clientID).sort()
 
         return peerColors[sortedPeersId.findIndex(it => it === peerID)%peerColors.length];
       }
@@ -951,7 +951,10 @@
 
         window.peers = peers;
 
-        window.peersInfo = Object.fromEntries(Object.entries(peers).map(([id, peer]) => {
+        window.peersInfo = Object.fromEntries(peers.map((peer) => {
+
+          const id = peer.clientID
+
           return [id, {
             id,
             ticker: id.substring(id.length-2),
@@ -960,11 +963,9 @@
           }];
         }));
 
-        const clientIDs = [];
+        const clientIDs = peers.map(it => it.clientID);
 
-        for (const [clientID, _] of Object.entries(peers)) {
-          clientIDs.push(clientID);
-        }
+        console.log(peersInfo);
 
         peersHolder.innerHTML = clientIDs
           .map((id) => {
@@ -1096,7 +1097,10 @@
           // 01-2. subscribe client event.
           client.subscribe((event) => {
             if (event.type === 'peers-changed') {
-              displayPeers(event.value[doc.getKey()], client.getID());
+              displayPeers(
+                client.getPeersByDocKey(doc.getKey()),
+                client.getID(),
+              );
             }
           });
 
