@@ -103,7 +103,7 @@ export enum DocumentSyncResultType {
  * @public
  */
 export type PeersChangedValue<P> = {
-  type: 'initialization' | 'watched' | 'unwatched' | 'presence-changed';
+  type: 'initialized' | 'watched' | 'unwatched' | 'presence-changed';
   peers: Record<DocumentKey, Array<{ clientID: ActorID; presence: P }>>;
 };
 
@@ -819,7 +819,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       this.eventStreamObserver.next({
         type: ClientEventType.PeersChanged,
         value: {
-          type: 'initialization',
+          type: 'initialized',
           peers,
         },
       });

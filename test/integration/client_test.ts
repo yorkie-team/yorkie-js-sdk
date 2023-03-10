@@ -251,6 +251,71 @@ describe('Client', function () {
     unsub2();
   });
 
+  it('Can get peers watched to the document as an array and object', async function () {
+    type PresenceType = {
+      name: string;
+      cursor: { x: number; y: number };
+    };
+    const c1Presence = {
+      name: 'a',
+      cursor: { x: 0, y: 0 },
+    };
+    const c2Presence = {
+      name: 'b',
+      cursor: { x: 1, y: 1 },
+    };
+    const c1 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: { ...c1Presence },
+    });
+    const c2 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: { ...c2Presence },
+    });
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document(docKey);
+
+    const stub1 = sinon.stub();
+    const stub2 = sinon.stub();
+    const unsub1 = c1.subscribe(stub1);
+    const unsub2 = c2.subscribe(stub2);
+
+    await c1.activate();
+    await c2.activate();
+    const c1ID = c1.getID()!;
+    const c2ID = c2.getID()!;
+
+    await c1.attach(doc);
+    assert.equal(3, stub1.callCount); // activated, connected, initialized
+    await c2.attach(doc);
+    assert.equal(3, stub2.callCount); // activated, connected, initialized
+    await waitStubCallCount(stub1, 4);
+    assert.equal(4, stub1.callCount); // peers-changed(c2 watched doc)
+
+    const expectedPeers = deepSort([
+      { clientID: c1ID, presence: c1Presence },
+      { clientID: c2ID, presence: c2Presence },
+    ]);
+    assert.deepEqual(expectedPeers, deepSort(c1.getPeersByDocKey(docKey)));
+    assert.deepEqual(expectedPeers, deepSort(c2.getPeersByDocKey(docKey)));
+
+    await c1.updatePresence('name', 'A');
+    await c2.updatePresence('name', 'B');
+    await waitStubCallCount(stub1, 6); // presence-changed
+    await waitStubCallCount(stub2, 5); // presence-changed
+
+    const expectedPeers2 = deepSort([
+      { clientID: c1ID, presence: { ...c1Presence, name: 'A' } },
+      { clientID: c2ID, presence: { ...c2Presence, name: 'B' } },
+    ]);
+    assert.deepEqual(expectedPeers2, deepSort(c1.getPeersByDocKey(docKey)));
+    assert.deepEqual(expectedPeers2, deepSort(c2.getPeersByDocKey(docKey)));
+
+    await c1.deactivate();
+    await c2.deactivate();
+
+    unsub1();
+    unsub2();
+  });
+
   it('client.subscribe correctly detects the events', async function () {
     // The test verifies whether `client.subscribe` correctly detects events
     // when the client performs activate, attach, updatePresence, detach, and deactivate.
@@ -337,7 +402,7 @@ describe('Client', function () {
     pushEvent(c1ExpectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        type: 'initialization',
+        type: 'initialized',
         peers: {
           [docKey1]: [{ clientID: c1ID, presence: { ...c1Presence } }],
         },
@@ -360,7 +425,7 @@ describe('Client', function () {
     pushEvent(c2ExpectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        type: 'initialization',
+        type: 'initialized',
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence } },
@@ -451,7 +516,7 @@ describe('Client', function () {
     pushEvent(c1ExpectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        type: 'initialization',
+        type: 'initialized',
         peers: {
           [docKey1]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
@@ -516,7 +581,7 @@ describe('Client', function () {
     pushEvent(c1ExpectedEvents, {
       type: ClientEventType.PeersChanged,
       value: {
-        type: 'initialization',
+        type: 'initialized',
         peers: {
           [docKey2]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },

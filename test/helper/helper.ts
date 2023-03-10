@@ -60,7 +60,7 @@ export async function waitStubCallCount(
 ) {
   return new Promise<void>((resolve) => {
     const doLoop = () => {
-      if (stub.callCount === callCount) {
+      if (stub.callCount >= callCount) {
         resolve();
       }
       return false;
