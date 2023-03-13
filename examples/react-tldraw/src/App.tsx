@@ -16,7 +16,9 @@ Amazon AWS S3.
 
 export default function App() {
   const fileSystemEvents = useFileSystem();
-  const { ...events } = useMultiplayerState('react-tldraw');
+  const { ...events } = useMultiplayerState(
+    `tldraw-${(new Date()).toISOString().substring(0, 10).replace(/-/g, '')}`
+  );
   const component = { Cursor: CustomCursor };
 
   return (

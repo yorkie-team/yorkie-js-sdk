@@ -24,7 +24,10 @@ const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
 const shortUniqueID = new ShortUniqueId();
 const colorHash = new ColorHash();
-const documentKey = 'quill';
+const documentKey = `vanilla-quill-${new Date()
+  .toISOString()
+  .substring(0, 10)
+  .replace(/-/g, '')}`;
 
 function toDeltaOperation<T extends TextValueType>(
   textValue: T,

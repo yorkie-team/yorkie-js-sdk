@@ -23,7 +23,9 @@ const initialState = [{
 
 export default function App() {
   const [doc,] = useState<Document<{ todos: JSONArray<Todo> }>>(() =>
-    new yorkie.Document<{ todos: JSONArray<Todo> }>('react-todomvc')
+    new yorkie.Document<{ todos: JSONArray<Todo> }>(
+      `react-todomvc-${(new Date()).toISOString().substring(0, 10).replace(/-/g, '')}`
+    )
   );
   const [todos, setTodos] = useState<Array<Todo>>([]);
 

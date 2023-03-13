@@ -41,7 +41,12 @@ async function main() {
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>('vanilla-codemirror6');
+  const doc = new yorkie.Document<YorkieDoc>(
+    `codemirror6-${new Date()
+      .toISOString()
+      .substring(0, 10)
+      .replace(/-/g, '')}`,
+  );
   await client.attach(doc);
   doc.update((root) => {
     if (!root.content) {
