@@ -381,6 +381,128 @@ proto.yorkie.v1.YorkieServicePromiseClient.prototype.detachDocument =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.yorkie.v1.RemoveDocumentRequest,
+ *   !proto.yorkie.v1.RemoveDocumentResponse>}
+ */
+const methodDescriptor_YorkieService_RemoveDocument = new grpc.web.MethodDescriptor(
+  '/yorkie.v1.YorkieService/RemoveDocument',
+  grpc.web.MethodType.UNARY,
+  proto.yorkie.v1.RemoveDocumentRequest,
+  proto.yorkie.v1.RemoveDocumentResponse,
+  /**
+   * @param {!proto.yorkie.v1.RemoveDocumentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.yorkie.v1.RemoveDocumentResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.yorkie.v1.RemoveDocumentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.yorkie.v1.RemoveDocumentResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.RemoveDocumentResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.yorkie.v1.YorkieServiceClient.prototype.removeDocument =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/yorkie.v1.YorkieService/RemoveDocument',
+      request,
+      metadata || {},
+      methodDescriptor_YorkieService_RemoveDocument,
+      callback);
+};
+
+
+/**
+ * @param {!proto.yorkie.v1.RemoveDocumentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.yorkie.v1.RemoveDocumentResponse>}
+ *     Promise that resolves to the response
+ */
+proto.yorkie.v1.YorkieServicePromiseClient.prototype.removeDocument =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/yorkie.v1.YorkieService/RemoveDocument',
+      request,
+      metadata || {},
+      methodDescriptor_YorkieService_RemoveDocument);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.yorkie.v1.PushPullChangesRequest,
+ *   !proto.yorkie.v1.PushPullChangesResponse>}
+ */
+const methodDescriptor_YorkieService_PushPullChanges = new grpc.web.MethodDescriptor(
+  '/yorkie.v1.YorkieService/PushPullChanges',
+  grpc.web.MethodType.UNARY,
+  proto.yorkie.v1.PushPullChangesRequest,
+  proto.yorkie.v1.PushPullChangesResponse,
+  /**
+   * @param {!proto.yorkie.v1.PushPullChangesRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.yorkie.v1.PushPullChangesResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.yorkie.v1.PushPullChangesRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.yorkie.v1.PushPullChangesResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.PushPullChangesResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.yorkie.v1.YorkieServiceClient.prototype.pushPullChanges =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/yorkie.v1.YorkieService/PushPullChanges',
+      request,
+      metadata || {},
+      methodDescriptor_YorkieService_PushPullChanges,
+      callback);
+};
+
+
+/**
+ * @param {!proto.yorkie.v1.PushPullChangesRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.yorkie.v1.PushPullChangesResponse>}
+ *     Promise that resolves to the response
+ */
+proto.yorkie.v1.YorkieServicePromiseClient.prototype.pushPullChanges =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/yorkie.v1.YorkieService/PushPullChanges',
+      request,
+      metadata || {},
+      methodDescriptor_YorkieService_PushPullChanges);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.yorkie.v1.WatchDocumentsRequest,
  *   !proto.yorkie.v1.WatchDocumentsResponse>}
  */
@@ -431,67 +553,6 @@ proto.yorkie.v1.YorkieServicePromiseClient.prototype.watchDocuments =
       request,
       metadata || {},
       methodDescriptor_YorkieService_WatchDocuments);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.yorkie.v1.PushPullRequest,
- *   !proto.yorkie.v1.PushPullResponse>}
- */
-const methodDescriptor_YorkieService_PushPull = new grpc.web.MethodDescriptor(
-  '/yorkie.v1.YorkieService/PushPull',
-  grpc.web.MethodType.UNARY,
-  proto.yorkie.v1.PushPullRequest,
-  proto.yorkie.v1.PushPullResponse,
-  /**
-   * @param {!proto.yorkie.v1.PushPullRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.yorkie.v1.PushPullResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.yorkie.v1.PushPullRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.yorkie.v1.PushPullResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.PushPullResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.yorkie.v1.YorkieServiceClient.prototype.pushPull =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/yorkie.v1.YorkieService/PushPull',
-      request,
-      metadata || {},
-      methodDescriptor_YorkieService_PushPull,
-      callback);
-};
-
-
-/**
- * @param {!proto.yorkie.v1.PushPullRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.yorkie.v1.PushPullResponse>}
- *     Promise that resolves to the response
- */
-proto.yorkie.v1.YorkieServicePromiseClient.prototype.pushPull =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/yorkie.v1.YorkieService/PushPull',
-      request,
-      metadata || {},
-      methodDescriptor_YorkieService_PushPull);
 };
 
 

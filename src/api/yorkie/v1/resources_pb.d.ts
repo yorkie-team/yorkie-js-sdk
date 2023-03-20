@@ -28,6 +28,9 @@ export class ChangePack extends jspb.Message {
   hasMinSyncedTicket(): boolean;
   clearMinSyncedTicket(): ChangePack;
 
+  getIsRemoved(): boolean;
+  setIsRemoved(value: boolean): ChangePack;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
   static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
@@ -43,6 +46,7 @@ export namespace ChangePack {
     snapshot: Uint8Array | string,
     changesList: Array<Change.AsObject>,
     minSyncedTicket?: TimeTicket.AsObject,
+    isRemoved: boolean,
   }
 }
 
@@ -985,6 +989,9 @@ export class Project extends jspb.Message {
   clearAuthWebhookMethodsList(): Project;
   addAuthWebhookMethods(value: string, index?: number): Project;
 
+  getClientDeactivateThreshold(): string;
+  setClientDeactivateThreshold(value: string): Project;
+
   getCreatedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
   setCreatedAt(value?: google_protobuf_timestamp_pb.Timestamp): Project;
   hasCreatedAt(): boolean;
@@ -1011,6 +1018,7 @@ export namespace Project {
     secretKey: string,
     authWebhookUrl: string,
     authWebhookMethodsList: Array<string>,
+    clientDeactivateThreshold: string,
     createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
     updatedAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
   }
@@ -1032,6 +1040,11 @@ export class UpdatableProjectFields extends jspb.Message {
   hasAuthWebhookMethods(): boolean;
   clearAuthWebhookMethods(): UpdatableProjectFields;
 
+  getClientDeactivateThreshold(): google_protobuf_wrappers_pb.StringValue | undefined;
+  setClientDeactivateThreshold(value?: google_protobuf_wrappers_pb.StringValue): UpdatableProjectFields;
+  hasClientDeactivateThreshold(): boolean;
+  clearClientDeactivateThreshold(): UpdatableProjectFields;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdatableProjectFields.AsObject;
   static toObject(includeInstance: boolean, msg: UpdatableProjectFields): UpdatableProjectFields.AsObject;
@@ -1045,6 +1058,7 @@ export namespace UpdatableProjectFields {
     name?: google_protobuf_wrappers_pb.StringValue.AsObject,
     authWebhookUrl?: google_protobuf_wrappers_pb.StringValue.AsObject,
     authWebhookMethods?: UpdatableProjectFields.AuthWebhookMethods.AsObject,
+    clientDeactivateThreshold?: google_protobuf_wrappers_pb.StringValue.AsObject,
   }
 
   export class AuthWebhookMethods extends jspb.Message {
