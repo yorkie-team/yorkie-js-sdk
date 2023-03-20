@@ -29,7 +29,8 @@ import {
   DeactivateClientRequest,
   AttachDocumentRequest,
   DetachDocumentRequest,
-  PushPullRequest,
+  PushPullChangesRequest,
+  RemoveDocumentRequest,
   WatchDocumentsRequest,
   WatchDocumentsResponse,
   UpdatePresenceRequest,
@@ -40,7 +41,11 @@ import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { Document, DocumentKey } from '@yorkie-js-sdk/src/document/document';
+import {
+  Document,
+  DocumentKey,
+  DocumentStatus,
+} from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
@@ -243,6 +248,7 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
 
 interface Attachment<P> {
   doc: Document<unknown>;
+  docID: string;
   isRealtimeSync: boolean;
   peerPresenceMap?: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
@@ -451,6 +457,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
+    if (doc.getStatus() !== DocumentStatus.Detached) {
+      throw new YorkieError(
+        Code.DocumentNotDetached,
+        `${doc.getKey()} is not detached`,
+      );
+    }
 
     doc.setActor(this.id!);
 
@@ -468,12 +480,15 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
         const pack = converter.fromChangePack(res.getChangePack()!);
         doc.applyChangePack(pack);
-
-        this.attachmentMap.set(doc.getKey(), {
-          doc,
-          isRealtimeSync: !isManualSync,
-          peerPresenceMap: new Map(),
-        });
+        if (doc.getStatus() !== DocumentStatus.Removed) {
+          doc.setStatus(DocumentStatus.Attached);
+          this.attachmentMap.set(doc.getKey(), {
+            doc,
+            docID: res.getDocumentId(),
+            isRealtimeSync: !isManualSync,
+            peerPresenceMap: new Map(),
+          });
+        }
         await this.runWatchLoop();
 
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
@@ -494,10 +509,18 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
       req.setClientId(converter.toUint8Array(this.id!));
+      req.setDocumentId(attachment.docID);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.rpcClient.detachDocument(req, {}, async (err, res) => {
@@ -509,6 +532,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
         const pack = converter.fromChangePack(res.getChangePack()!);
         doc.applyChangePack(pack);
+        if (doc.getStatus() !== DocumentStatus.Removed) {
+          doc.setStatus(DocumentStatus.Detached);
+        }
 
         if (this.attachmentMap.has(doc.getKey())) {
           this.attachmentMap.delete(doc.getKey());
@@ -526,10 +552,29 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(): Promise<Array<Document<unknown>>> {
+  public sync(
+    ...docKeys: Array<DocumentKey>
+  ): Promise<Array<Document<unknown>>> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
     const promises = [];
-    for (const [, attachment] of this.attachmentMap) {
-      promises.push(this.syncInternal(attachment.doc));
+    if (!docKeys.length) {
+      for (const [, attachment] of this.attachmentMap) {
+        promises.push(this.syncInternal(attachment));
+      }
+    } else {
+      for (const docKey of docKeys) {
+        const attachment = this.attachmentMap.get(docKey);
+        if (!attachment) {
+          throw new YorkieError(
+            Code.DocumentNotAttached,
+            `${docKey} is not attached`,
+          );
+        }
+        promises.push(this.syncInternal(attachment));
+      }
     }
 
     return Promise.all(promises)
@@ -543,6 +588,52 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         });
         throw err;
       });
+  }
+
+  /**
+   * `remove` removes the given document.
+   */
+  public remove(doc: Document<unknown>): Promise<void> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+    doc.setActor(this.id!);
+    return new Promise((resolve, reject) => {
+      const req = new RemoveDocumentRequest();
+      req.setClientId(converter.toUint8Array(this.id!));
+      req.setDocumentId(attachment.docID);
+      const pbChangePack = converter.toChangePack(doc.createChangePack());
+      pbChangePack.setIsRemoved(true);
+      req.setChangePack(pbChangePack);
+
+      this.rpcClient.removeDocument(req, {}, async (err, res) => {
+        if (err) {
+          logger.error(
+            `[RD] c:"${this.getKey()}" d:"${doc.getKey()}" err :`,
+            err,
+          );
+          reject(err);
+          return;
+        }
+
+        const pack = converter.fromChangePack(res.getChangePack()!);
+        doc.applyChangePack(pack);
+        if (doc.getStatus() === DocumentStatus.Removed) {
+          this.attachmentMap.delete(doc.getKey());
+        }
+        await this.runWatchLoop();
+
+        logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
+        resolve();
+      });
+    });
   }
 
   /**
@@ -706,7 +797,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             attachment.remoteChangeEventReceived)
         ) {
           attachment.remoteChangeEventReceived = false;
-          promises.push(this.syncInternal(attachment.doc));
+          promises.push(this.syncInternal(attachment));
         }
       }
 
@@ -920,17 +1011,21 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       value: StreamConnectionStatus.Disconnected,
     });
   }
-  private syncInternal(doc: Document<unknown>): Promise<Document<unknown>> {
+  private syncInternal({
+    doc,
+    docID,
+  }: Attachment<unknown>): Promise<Document<unknown>> {
     return new Promise((resolve, reject) => {
-      const req = new PushPullRequest();
+      const req = new PushPullChangesRequest();
       req.setClientId(converter.toUint8Array(this.id!));
+      req.setDocumentId(docID);
       const reqPack = doc.createChangePack();
       const localSize = reqPack.getChangeSize();
       req.setChangePack(converter.toChangePack(reqPack));
 
       let isRejected = false;
       this.rpcClient
-        .pushPull(req, {}, (err, res) => {
+        .pushPullChanges(req, {}, (err, res) => {
           if (err) {
             logger.error(`[PP] c:"${this.getKey()}" err :`, err);
 
@@ -941,6 +1036,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
           const respPack = converter.fromChangePack(res.getChangePack()!);
           doc.applyChangePack(respPack);
+          if (doc.getStatus() === DocumentStatus.Removed) {
+            this.attachmentMap.delete(doc.getKey());
+          }
           this.eventStreamObserver.next({
             type: ClientEventType.DocumentSynced,
             value: DocumentSyncResultType.Synced,

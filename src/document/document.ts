@@ -15,6 +15,7 @@
  */
 import Long from 'long';
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import {
   Observer,
   Observable,
@@ -43,6 +44,28 @@ import {
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
+
+/**
+ * `DocumentStatus` represents the status of the document.
+ * @public
+ */
+export enum DocumentStatus {
+  /**
+   * Detached means that the document is not attached to the client.
+   * The actor of the ticket is created without being assigned.
+   */
+  Detached = 'detached',
+  /**
+   * Attached means that this document is attached to the client.
+   * The actor of the ticket is created with being assigned by the client.
+   */
+  Attached = 'attached',
+  /**
+   * Removed means that this document is removed. If the document is removed,
+   * it cannot be edited.
+   */
+  Removed = 'removed',
+}
 
 /**
  * `DocEventType` is document event types
@@ -158,6 +181,7 @@ export type DocumentKey = string;
  */
 export class Document<T> implements Observable<DocEvent> {
   private key: DocumentKey;
+  private status: DocumentStatus;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
   private changeID: ChangeID;
@@ -168,6 +192,7 @@ export class Document<T> implements Observable<DocEvent> {
 
   constructor(key: string) {
     this.key = key;
+    this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
@@ -191,6 +216,10 @@ export class Document<T> implements Observable<DocEvent> {
     updater: (root: JSONObject<T>) => void,
     message?: string,
   ): void {
+    if (this.getStatus() === DocumentStatus.Removed) {
+      throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
+    }
+
     this.ensureClone();
     const context = ChangeContext.create(
       this.changeID.next(),
@@ -281,6 +310,11 @@ export class Document<T> implements Observable<DocEvent> {
     // 04. Do Garbage collection.
     this.garbageCollect(pack.getMinSyncedTicket()!);
 
+    // 05. Update the status.
+    if (pack.getIsRemoved()) {
+      this.setStatus(DocumentStatus.Removed);
+    }
+
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
     }
@@ -326,7 +360,7 @@ export class Document<T> implements Observable<DocEvent> {
   public createChangePack(): ChangePack {
     const changes = this.localChanges;
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
-    return ChangePack.create(this.key, checkpoint, changes);
+    return ChangePack.create(this.key, checkpoint, false, changes);
   }
 
   /**
@@ -351,6 +385,24 @@ export class Document<T> implements Observable<DocEvent> {
    */
   public getKey(): string {
     return this.key;
+  }
+
+  /**
+   * `setStatus` updates the status of this document.
+   *
+   * @internal
+   */
+  public setStatus(status: DocumentStatus) {
+    this.status = status;
+  }
+
+  /**
+   * `getStatus` returns the status of this document.
+   *
+   * @internal
+   */
+  public getStatus(): DocumentStatus {
+    return this.status;
   }
 
   /**
