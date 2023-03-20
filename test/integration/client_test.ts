@@ -223,10 +223,10 @@ describe('Client', function () {
     const doc1 = new yorkie.Document(docKey);
     const doc2 = new yorkie.Document(docKey);
 
-    const [emitter1, spy1] = createEmitterAndSpy();
-    const [emitter2, spy2] = createEmitterAndSpy();
-    const unsub1 = c1.subscribe(spy1);
-    const unsub2 = c2.subscribe(spy2);
+    const stub1 = sinon.stub();
+    const stub2 = sinon.stub();
+    const unsub1 = c1.subscribe(stub1);
+    const unsub2 = c2.subscribe(stub2);
 
     await c1.activate();
     await c2.activate();
@@ -239,9 +239,12 @@ describe('Client', function () {
     await c1.updatePresence('cursor', { x: 2, y: 2 });
     await c1.updatePresence('name', 'Y');
 
-    await waitFor(ClientEventType.PeersChanged, emitter1);
-    await waitFor(ClientEventType.PeersChanged, emitter2);
-    assert.deepEqual(c1.getPeersByDocKey(docKey), c2.getPeersByDocKey(docKey));
+    await waitStubCallCount(stub1, 9); // activated, connected, initialized, watched, presence-changed(5)
+    await waitStubCallCount(stub2, 8); // activated, connected, initialized, presence-changed(5)
+    assert.deepEqual(
+      deepSort(c1.getPeersByDocKey(docKey)),
+      deepSort(c2.getPeersByDocKey(docKey)),
+    );
 
     await c1.detach(doc1);
     await c2.detach(doc2);
@@ -284,7 +287,6 @@ describe('Client', function () {
     await c2.activate();
     const c1ID = c1.getID()!;
     const c2ID = c2.getID()!;
-
     await c1.attach(doc1);
     assert.equal(3, stub1.callCount); // activated, connected, initialized
     await c2.attach(doc2);
@@ -509,10 +511,6 @@ describe('Client', function () {
     await c1.attach(doc2C1);
     pushEvent(c1ExpectedEvents, {
       type: ClientEventType.StreamConnectionStatusChanged,
-      value: StreamConnectionStatus.Disconnected,
-    });
-    pushEvent(c1ExpectedEvents, {
-      type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Connected,
     });
     pushEvent(c1ExpectedEvents, {
@@ -520,17 +518,13 @@ describe('Client', function () {
       value: {
         type: 'initialized',
         peers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-            { clientID: c2ID, presence: { ...c2Presence } },
-          ],
           [docKey2]: [
             { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
           ],
         },
       },
     });
-    assert.equal(8, stub1.callCount);
+    assert.equal(7, stub1.callCount);
     assert.deepEqual(
       c1ExpectedEvents,
       c1Events,
@@ -539,59 +533,12 @@ describe('Client', function () {
       )} \n expected: ${JSON.stringify(c1ExpectedEvents)}`,
     );
 
-    pushEvent(c2ExpectedEvents, {
-      type: ClientEventType.PeersChanged,
-      value: {
-        type: 'unwatched',
-        peers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
-      },
-    });
-    pushEvent(c2ExpectedEvents, {
-      type: ClientEventType.PeersChanged,
-      value: {
-        type: 'watched',
-        peers: {
-          [docKey1]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
-      },
-    });
-    await waitStubCallCount(stub2, 6);
-    assert.equal(6, stub2.callCount);
-    assert.deepEqual(
-      c2ExpectedEvents,
-      c2Events,
-      `[c2] c1 attach doc2: \n actual: ${JSON.stringify(
-        c2Events,
-      )} \n expected: ${JSON.stringify(c2ExpectedEvents)}`,
-    );
-
     await c1.detach(doc1C1);
     pushEvent(c1ExpectedEvents, {
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
     });
-    pushEvent(c1ExpectedEvents, {
-      type: ClientEventType.StreamConnectionStatusChanged,
-      value: StreamConnectionStatus.Connected,
-    });
-    pushEvent(c1ExpectedEvents, {
-      type: ClientEventType.PeersChanged,
-      value: {
-        type: 'initialized',
-        peers: {
-          [docKey2]: [
-            { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
-          ],
-        },
-      },
-    });
-    assert.equal(11, stub1.callCount);
+    assert.equal(8, stub1.callCount);
     assert.deepEqual(
       c1ExpectedEvents,
       c1Events,
@@ -611,8 +558,8 @@ describe('Client', function () {
         },
       },
     });
-    await waitStubCallCount(stub2, 7);
-    assert.equal(7, stub2.callCount);
+    await waitStubCallCount(stub2, 5);
+    assert.equal(5, stub2.callCount);
     assert.deepEqual(
       c2ExpectedEvents,
       c2Events,
@@ -630,7 +577,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
-    assert.equal(13, stub1.callCount);
+    assert.equal(10, stub1.callCount);
     assert.deepEqual(
       c1ExpectedEvents,
       c1Events,
@@ -644,7 +591,7 @@ describe('Client', function () {
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
     });
-    assert.equal(8, stub2.callCount);
+    assert.equal(6, stub2.callCount);
     assert.deepEqual(
       c2ExpectedEvents,
       c2Events,
@@ -658,7 +605,7 @@ describe('Client', function () {
       type: ClientEventType.StatusChanged,
       value: ClientStatus.Deactivated,
     });
-    assert.equal(9, stub2.callCount);
+    assert.equal(7, stub2.callCount);
     assert.deepEqual(
       c2ExpectedEvents,
       c2Events,
