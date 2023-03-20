@@ -1175,26 +1175,6 @@ export namespace Client {
   }
 }
 
-export class Clients extends jspb.Message {
-  getClientsList(): Array<Client>;
-  setClientsList(value: Array<Client>): Clients;
-  clearClientsList(): Clients;
-  addClients(value?: Client, index?: number): Client;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Clients.AsObject;
-  static toObject(includeInstance: boolean, msg: Clients): Clients.AsObject;
-  static serializeBinaryToWriter(message: Clients, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Clients;
-  static deserializeBinaryFromReader(message: Clients, reader: jspb.BinaryReader): Clients;
-}
-
-export namespace Clients {
-  export type AsObject = {
-    clientsList: Array<Client.AsObject>,
-  }
-}
-
 export class Checkpoint extends jspb.Message {
   getServerSeq(): string;
   setServerSeq(value: string): Checkpoint;
@@ -1282,10 +1262,8 @@ export class DocEvent extends jspb.Message {
   hasPublisher(): boolean;
   clearPublisher(): DocEvent;
 
-  getDocumentKeysList(): Array<string>;
-  setDocumentKeysList(value: Array<string>): DocEvent;
-  clearDocumentKeysList(): DocEvent;
-  addDocumentKeys(value: string, index?: number): DocEvent;
+  getDocumentId(): string;
+  setDocumentId(value: string): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1299,7 +1277,7 @@ export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
     publisher?: Client.AsObject,
-    documentKeysList: Array<string>,
+    documentId: string,
   }
 }
 

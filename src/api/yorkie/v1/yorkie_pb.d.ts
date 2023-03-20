@@ -195,62 +195,62 @@ export namespace DetachDocumentResponse {
   }
 }
 
-export class WatchDocumentsRequest extends jspb.Message {
+export class WatchDocumentRequest extends jspb.Message {
   getClient(): yorkie_v1_resources_pb.Client | undefined;
-  setClient(value?: yorkie_v1_resources_pb.Client): WatchDocumentsRequest;
+  setClient(value?: yorkie_v1_resources_pb.Client): WatchDocumentRequest;
   hasClient(): boolean;
-  clearClient(): WatchDocumentsRequest;
+  clearClient(): WatchDocumentRequest;
 
-  getDocumentKeysList(): Array<string>;
-  setDocumentKeysList(value: Array<string>): WatchDocumentsRequest;
-  clearDocumentKeysList(): WatchDocumentsRequest;
-  addDocumentKeys(value: string, index?: number): WatchDocumentsRequest;
+  getDocumentId(): string;
+  setDocumentId(value: string): WatchDocumentRequest;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): WatchDocumentsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: WatchDocumentsRequest): WatchDocumentsRequest.AsObject;
-  static serializeBinaryToWriter(message: WatchDocumentsRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): WatchDocumentsRequest;
-  static deserializeBinaryFromReader(message: WatchDocumentsRequest, reader: jspb.BinaryReader): WatchDocumentsRequest;
+  toObject(includeInstance?: boolean): WatchDocumentRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: WatchDocumentRequest): WatchDocumentRequest.AsObject;
+  static serializeBinaryToWriter(message: WatchDocumentRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): WatchDocumentRequest;
+  static deserializeBinaryFromReader(message: WatchDocumentRequest, reader: jspb.BinaryReader): WatchDocumentRequest;
 }
 
-export namespace WatchDocumentsRequest {
+export namespace WatchDocumentRequest {
   export type AsObject = {
     client?: yorkie_v1_resources_pb.Client.AsObject,
-    documentKeysList: Array<string>,
+    documentId: string,
   }
 }
 
-export class WatchDocumentsResponse extends jspb.Message {
-  getInitialization(): WatchDocumentsResponse.Initialization | undefined;
-  setInitialization(value?: WatchDocumentsResponse.Initialization): WatchDocumentsResponse;
+export class WatchDocumentResponse extends jspb.Message {
+  getInitialization(): WatchDocumentResponse.Initialization | undefined;
+  setInitialization(value?: WatchDocumentResponse.Initialization): WatchDocumentResponse;
   hasInitialization(): boolean;
-  clearInitialization(): WatchDocumentsResponse;
+  clearInitialization(): WatchDocumentResponse;
 
   getEvent(): yorkie_v1_resources_pb.DocEvent | undefined;
-  setEvent(value?: yorkie_v1_resources_pb.DocEvent): WatchDocumentsResponse;
+  setEvent(value?: yorkie_v1_resources_pb.DocEvent): WatchDocumentResponse;
   hasEvent(): boolean;
-  clearEvent(): WatchDocumentsResponse;
+  clearEvent(): WatchDocumentResponse;
 
-  getBodyCase(): WatchDocumentsResponse.BodyCase;
+  getBodyCase(): WatchDocumentResponse.BodyCase;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): WatchDocumentsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: WatchDocumentsResponse): WatchDocumentsResponse.AsObject;
-  static serializeBinaryToWriter(message: WatchDocumentsResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): WatchDocumentsResponse;
-  static deserializeBinaryFromReader(message: WatchDocumentsResponse, reader: jspb.BinaryReader): WatchDocumentsResponse;
+  toObject(includeInstance?: boolean): WatchDocumentResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: WatchDocumentResponse): WatchDocumentResponse.AsObject;
+  static serializeBinaryToWriter(message: WatchDocumentResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): WatchDocumentResponse;
+  static deserializeBinaryFromReader(message: WatchDocumentResponse, reader: jspb.BinaryReader): WatchDocumentResponse;
 }
 
-export namespace WatchDocumentsResponse {
+export namespace WatchDocumentResponse {
   export type AsObject = {
-    initialization?: WatchDocumentsResponse.Initialization.AsObject,
+    initialization?: WatchDocumentResponse.Initialization.AsObject,
     event?: yorkie_v1_resources_pb.DocEvent.AsObject,
   }
 
   export class Initialization extends jspb.Message {
-    getPeersMapByDocMap(): jspb.Map<string, yorkie_v1_resources_pb.Clients>;
-    clearPeersMapByDocMap(): Initialization;
+    getPeersList(): Array<yorkie_v1_resources_pb.Client>;
+    setPeersList(value: Array<yorkie_v1_resources_pb.Client>): Initialization;
+    clearPeersList(): Initialization;
+    addPeers(value?: yorkie_v1_resources_pb.Client, index?: number): yorkie_v1_resources_pb.Client;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Initialization.AsObject;
@@ -262,7 +262,7 @@ export namespace WatchDocumentsResponse {
 
   export namespace Initialization {
     export type AsObject = {
-      peersMapByDocMap: Array<[string, yorkie_v1_resources_pb.Clients.AsObject]>,
+      peersList: Array<yorkie_v1_resources_pb.Client.AsObject>,
     }
   }
 
@@ -390,10 +390,8 @@ export class UpdatePresenceRequest extends jspb.Message {
   hasClient(): boolean;
   clearClient(): UpdatePresenceRequest;
 
-  getDocumentKeysList(): Array<string>;
-  setDocumentKeysList(value: Array<string>): UpdatePresenceRequest;
-  clearDocumentKeysList(): UpdatePresenceRequest;
-  addDocumentKeys(value: string, index?: number): UpdatePresenceRequest;
+  getDocumentId(): string;
+  setDocumentId(value: string): UpdatePresenceRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): UpdatePresenceRequest.AsObject;
@@ -406,7 +404,7 @@ export class UpdatePresenceRequest extends jspb.Message {
 export namespace UpdatePresenceRequest {
   export type AsObject = {
     client?: yorkie_v1_resources_pb.Client.AsObject,
-    documentKeysList: Array<string>,
+    documentId: string,
   }
 }
 

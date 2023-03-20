@@ -503,56 +503,56 @@ proto.yorkie.v1.YorkieServicePromiseClient.prototype.pushPullChanges =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.yorkie.v1.WatchDocumentsRequest,
- *   !proto.yorkie.v1.WatchDocumentsResponse>}
+ *   !proto.yorkie.v1.WatchDocumentRequest,
+ *   !proto.yorkie.v1.WatchDocumentResponse>}
  */
-const methodDescriptor_YorkieService_WatchDocuments = new grpc.web.MethodDescriptor(
-  '/yorkie.v1.YorkieService/WatchDocuments',
+const methodDescriptor_YorkieService_WatchDocument = new grpc.web.MethodDescriptor(
+  '/yorkie.v1.YorkieService/WatchDocument',
   grpc.web.MethodType.SERVER_STREAMING,
-  proto.yorkie.v1.WatchDocumentsRequest,
-  proto.yorkie.v1.WatchDocumentsResponse,
+  proto.yorkie.v1.WatchDocumentRequest,
+  proto.yorkie.v1.WatchDocumentResponse,
   /**
-   * @param {!proto.yorkie.v1.WatchDocumentsRequest} request
+   * @param {!proto.yorkie.v1.WatchDocumentRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.yorkie.v1.WatchDocumentsResponse.deserializeBinary
+  proto.yorkie.v1.WatchDocumentResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.yorkie.v1.WatchDocumentsRequest} request The request proto
+ * @param {!proto.yorkie.v1.WatchDocumentRequest} request The request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.WatchDocumentsResponse>}
+ * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.WatchDocumentResponse>}
  *     The XHR Node Readable Stream
  */
-proto.yorkie.v1.YorkieServiceClient.prototype.watchDocuments =
+proto.yorkie.v1.YorkieServiceClient.prototype.watchDocument =
     function(request, metadata) {
   return this.client_.serverStreaming(this.hostname_ +
-      '/yorkie.v1.YorkieService/WatchDocuments',
+      '/yorkie.v1.YorkieService/WatchDocument',
       request,
       metadata || {},
-      methodDescriptor_YorkieService_WatchDocuments);
+      methodDescriptor_YorkieService_WatchDocument);
 };
 
 
 /**
- * @param {!proto.yorkie.v1.WatchDocumentsRequest} request The request proto
+ * @param {!proto.yorkie.v1.WatchDocumentRequest} request The request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.WatchDocumentsResponse>}
+ * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.WatchDocumentResponse>}
  *     The XHR Node Readable Stream
  */
-proto.yorkie.v1.YorkieServicePromiseClient.prototype.watchDocuments =
+proto.yorkie.v1.YorkieServicePromiseClient.prototype.watchDocument =
     function(request, metadata) {
   return this.client_.serverStreaming(this.hostname_ +
-      '/yorkie.v1.YorkieService/WatchDocuments',
+      '/yorkie.v1.YorkieService/WatchDocument',
       request,
       metadata || {},
-      methodDescriptor_YorkieService_WatchDocuments);
+      methodDescriptor_YorkieService_WatchDocument);
 };
 
 

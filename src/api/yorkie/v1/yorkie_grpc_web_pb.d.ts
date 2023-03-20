@@ -57,10 +57,10 @@ export class YorkieServiceClient {
                response: yorkie_v1_yorkie_pb.PushPullChangesResponse) => void
   ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.PushPullChangesResponse>;
 
-  watchDocuments(
-    request: yorkie_v1_yorkie_pb.WatchDocumentsRequest,
+  watchDocument(
+    request: yorkie_v1_yorkie_pb.WatchDocumentRequest,
     metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentsResponse>;
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
 
 }
 
@@ -104,10 +104,10 @@ export class YorkieServicePromiseClient {
     metadata?: grpcWeb.Metadata
   ): Promise<yorkie_v1_yorkie_pb.PushPullChangesResponse>;
 
-  watchDocuments(
-    request: yorkie_v1_yorkie_pb.WatchDocumentsRequest,
+  watchDocument(
+    request: yorkie_v1_yorkie_pb.WatchDocumentRequest,
     metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentsResponse>;
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
 
 }
 
