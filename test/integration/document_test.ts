@@ -272,8 +272,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  // TODO(chacha912): Check the test
-  it.skip('removed document removal test', async function () {
+  it('removed document removal test', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
 
