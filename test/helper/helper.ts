@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { assert } from 'chai';
 import { EventEmitter } from 'events';
 import { NextFn } from '@yorkie-js-sdk/src/util/observable';
 
@@ -106,6 +107,24 @@ function compareFunction(a: any, b: any): number {
     return aKeys.length - bKeys.length;
   }
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+export async function assertThrowsAsync(
+  fn: any,
+  errType: any,
+  message?: string,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  let errFn = () => {};
+  try {
+    await fn();
+  } catch (e) {
+    errFn = () => {
+      throw e;
+    };
+  } finally {
+    assert.throws(errFn, errType, message);
+  }
 }
 
 /**

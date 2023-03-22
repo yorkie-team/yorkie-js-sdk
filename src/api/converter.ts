@@ -555,6 +555,7 @@ function toChangePack(pack: ChangePack): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
+  pbChangePack.setIsRemoved(pack.getIsRemoved());
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
@@ -854,6 +855,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
   return ChangePack.create(
     pbPack.getDocumentKey()!,
     fromCheckpoint(pbPack.getCheckpoint()!),
+    pbPack.getIsRemoved(),
     fromChanges(pbPack.getChangesList()),
     pbPack.getSnapshot_asU8(),
     fromTimeTicket(pbPack.getMinSyncedTicket()),

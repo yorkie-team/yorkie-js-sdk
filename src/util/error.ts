@@ -19,6 +19,9 @@ export enum Code {
   ClientNotActive = 'client-not-active',
   Unimplemented = 'unimplemented',
   Unsupported = 'unsupported',
+  DocumentNotAttached = 'document-not-attached',
+  DocumentNotDetached = 'document-not-detached',
+  DocumentRemoved = 'document-removed',
 }
 
 /**

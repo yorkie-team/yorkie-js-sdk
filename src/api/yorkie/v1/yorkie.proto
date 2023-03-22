@@ -32,8 +32,10 @@ service YorkieService {
 
   rpc AttachDocument (AttachDocumentRequest) returns (AttachDocumentResponse) {}
   rpc DetachDocument (DetachDocumentRequest) returns (DetachDocumentResponse) {}
-  rpc WatchDocuments (WatchDocumentsRequest) returns (stream WatchDocumentsResponse) {}
-  rpc PushPull (PushPullRequest) returns (PushPullResponse) {}
+  rpc RemoveDocument (RemoveDocumentRequest) returns (RemoveDocumentResponse) {}
+  rpc PushPullChanges (PushPullChangesRequest) returns (PushPullChangesResponse) {}
+
+  rpc WatchDocument (WatchDocumentRequest) returns (stream WatchDocumentResponse) {}
 }
 
 message ActivateClientRequest {
@@ -60,12 +62,14 @@ message AttachDocumentRequest {
 
 message AttachDocumentResponse {
   bytes client_id = 1;
-  ChangePack change_pack = 2;
+  string document_id = 2;
+  ChangePack change_pack = 3;
 }
 
 message DetachDocumentRequest {
   bytes client_id = 1;
-  ChangePack change_pack = 2;
+  string document_id = 2;
+  ChangePack change_pack = 3;
 }
 
 message DetachDocumentResponse {
@@ -73,14 +77,14 @@ message DetachDocumentResponse {
   ChangePack change_pack = 2;
 }
 
-message WatchDocumentsRequest {
+message WatchDocumentRequest {
   Client client = 1;
-  repeated string document_keys = 2;
+  string document_id = 2;
 }
 
-message WatchDocumentsResponse {
+message WatchDocumentResponse {
   message Initialization {
-    map<string, Clients> peers_map_by_doc = 1;
+    repeated Client peers = 1;
   }
 
   oneof body {
@@ -89,19 +93,31 @@ message WatchDocumentsResponse {
   }
 }
 
-message PushPullRequest {
+message RemoveDocumentRequest {
   bytes client_id = 1;
+  string document_id = 2;
+  ChangePack change_pack = 3;
+}
+
+message RemoveDocumentResponse {
+  string client_key = 1;
   ChangePack change_pack = 2;
 }
 
-message PushPullResponse {
+message PushPullChangesRequest {
+  bytes client_id = 1;
+  string document_id = 2;
+  ChangePack change_pack = 3;
+}
+
+message PushPullChangesResponse {
   bytes client_id = 1;
   ChangePack change_pack = 2;
 }
 
 message UpdatePresenceRequest {
   Client client = 1;
-  repeated string document_keys = 2;
+  string document_id = 2;
 }
 
 message UpdatePresenceResponse {}

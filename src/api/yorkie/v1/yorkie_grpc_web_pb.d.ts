@@ -43,17 +43,24 @@ export class YorkieServiceClient {
                response: yorkie_v1_yorkie_pb.DetachDocumentResponse) => void
   ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.DetachDocumentResponse>;
 
-  watchDocuments(
-    request: yorkie_v1_yorkie_pb.WatchDocumentsRequest,
-    metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentsResponse>;
-
-  pushPull(
-    request: yorkie_v1_yorkie_pb.PushPullRequest,
+  removeDocument(
+    request: yorkie_v1_yorkie_pb.RemoveDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
     callback: (err: grpcWeb.RpcError,
-               response: yorkie_v1_yorkie_pb.PushPullResponse) => void
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.PushPullResponse>;
+               response: yorkie_v1_yorkie_pb.RemoveDocumentResponse) => void
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.RemoveDocumentResponse>;
+
+  pushPullChanges(
+    request: yorkie_v1_yorkie_pb.PushPullChangesRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.RpcError,
+               response: yorkie_v1_yorkie_pb.PushPullChangesResponse) => void
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.PushPullChangesResponse>;
+
+  watchDocument(
+    request: yorkie_v1_yorkie_pb.WatchDocumentRequest,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
 
 }
 
@@ -87,15 +94,20 @@ export class YorkieServicePromiseClient {
     metadata?: grpcWeb.Metadata
   ): Promise<yorkie_v1_yorkie_pb.DetachDocumentResponse>;
 
-  watchDocuments(
-    request: yorkie_v1_yorkie_pb.WatchDocumentsRequest,
+  removeDocument(
+    request: yorkie_v1_yorkie_pb.RemoveDocumentRequest,
     metadata?: grpcWeb.Metadata
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentsResponse>;
+  ): Promise<yorkie_v1_yorkie_pb.RemoveDocumentResponse>;
 
-  pushPull(
-    request: yorkie_v1_yorkie_pb.PushPullRequest,
+  pushPullChanges(
+    request: yorkie_v1_yorkie_pb.PushPullChangesRequest,
     metadata?: grpcWeb.Metadata
-  ): Promise<yorkie_v1_yorkie_pb.PushPullResponse>;
+  ): Promise<yorkie_v1_yorkie_pb.PushPullChangesResponse>;
+
+  watchDocument(
+    request: yorkie_v1_yorkie_pb.WatchDocumentRequest,
+    metadata?: grpcWeb.Metadata
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
 
 }
 

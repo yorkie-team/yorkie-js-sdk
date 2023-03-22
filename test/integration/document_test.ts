@@ -7,8 +7,11 @@ import {
 import {
   createEmitterAndSpy,
   waitFor,
+  assertThrowsAsync,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Document', function () {
   it('Can attach/detach documents', async function () {
@@ -115,5 +118,261 @@ describe('Document', function () {
 
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     assert.isTrue(prevArray?.isRemoved());
+  });
+
+  it('Can remove document', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c1Key = c1.getKey();
+
+    // 01. client is not activated.
+    assertThrowsAsync(
+      async () => {
+        await c1.remove(d1);
+      },
+      YorkieError,
+      `${c1Key} is not active`,
+    );
+
+    // 02. document is not attached.
+    await c1.activate();
+    assertThrowsAsync(
+      async () => {
+        await c1.remove(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+
+    // 03. document is attached.
+    await c1.attach(d1);
+    await c1.remove(d1);
+
+    // 04. try to update a removed document.
+    assert.throws(
+      () => {
+        d1.update((root) => {
+          root['k1'] = [1, 2];
+        }, 'set array');
+      },
+      YorkieError,
+      `${docKey} is removed`,
+    );
+
+    // 05. try to attach a removed document.
+    assertThrowsAsync(
+      async () => {
+        await c1.attach(d1);
+      },
+      YorkieError,
+      `${docKey} is not detached`,
+    );
+
+    await c1.deactivate();
+  });
+
+  it('Can create document with the same key as the removed document key', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+
+    // 01. c1 creates d1 and removes it.
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    d1.update((root) => {
+      root['k1'] = [1, 2];
+    }, 'set array');
+    await c1.attach(d1);
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
+    await c1.remove(d1);
+
+    // 02. c2 creates d2 with the same key.
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c2.activate();
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c2.attach(d2);
+
+    // 02. c1 creates d2 with the same key.
+    const d3 = new yorkie.Document<TestDoc>(docKey);
+    await c1.attach(d3);
+    assert.equal(d2.toSortedJSON(), '{}');
+    assert.equal(d3.toSortedJSON(), '{}');
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Can know that document has been removed when doing client.sync()', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+
+    // 01. c1 attaches d1 and c2 watches same doc.
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    d1.update((root) => {
+      root['k1'] = [1, 2];
+    }, 'set array');
+    await c1.attach(d1);
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
+
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c2.activate();
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c2.attach(d2);
+    assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
+
+    // 02. c1 updates d1 and removes it.
+    d1.update((root) => {
+      root['k1'].push(3);
+    });
+    await c1.remove(d1);
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2,3]}');
+    assert.equal(d1.getStatus(), DocumentStatus.Removed);
+
+    // 03. c2 syncs and checks that d2 is removed.
+    await c2.sync();
+    assert.equal(d2.toSortedJSON(), '{"k1":[1,2,3]}');
+    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Can know that document has been removed when doing client.detach()', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+
+    // 01. c1 attaches d1 and c2 watches same doc.
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    d1.update((root) => {
+      root['k1'] = [1, 2];
+    }, 'set array');
+    await c1.attach(d1);
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
+
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c2.activate();
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c2.attach(d2);
+    assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
+
+    // 02. c1 removes d1 and c2 detaches d2.
+    await c1.remove(d1);
+    await c2.detach(d2);
+
+    assert.equal(d1.getStatus(), DocumentStatus.Removed);
+    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('removed document removal test', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+
+    // 01. c1 attaches d1 and c2 watches same doc.
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    d1.update((root) => {
+      root['k1'] = [1, 2];
+    }, 'set array');
+    await c1.attach(d1);
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
+
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c2.activate();
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c2.attach(d2);
+    assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
+
+    // 02. c1 removes d1 and c2 removes d2.
+    await c1.remove(d1);
+    await c2.remove(d2);
+    assert.equal(d1.getStatus(), DocumentStatus.Removed);
+    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  // State transition of document
+  // ┌──────────┐ Attach ┌──────────┐ Remove ┌─────────┐
+  // │ Detached ├───────►│ Attached ├───────►│ Removed │
+  // └──────────┘        └─┬─┬──────┘        └─────────┘
+  //           ▲           │ │     ▲
+  //           └───────────┘ └─────┘
+  //              Detach     PushPull
+  it('document state transition test', async function () {
+    type TestDoc = { k1: Array<number> };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+
+    // 01. abnormal behavior on detached state
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    assertThrowsAsync(
+      async () => {
+        await c1.detach(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+    assertThrowsAsync(
+      async () => {
+        await c1.sync(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+    assertThrowsAsync(
+      async () => {
+        await c1.remove(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+
+    // 02. abnormal behavior on attached state
+    await c1.attach(d1);
+    assertThrowsAsync(
+      async () => {
+        await c1.attach(d1);
+      },
+      YorkieError,
+      `${docKey} is not detached`,
+    );
+
+    // 03. abnormal behavior on removed state
+    await c1.remove(d1);
+    assertThrowsAsync(
+      async () => {
+        await c1.remove(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+    assertThrowsAsync(
+      async () => {
+        await c1.sync(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+    assertThrowsAsync(
+      async () => {
+        await c1.detach(d1);
+      },
+      YorkieError,
+      `${docKey} is not attached`,
+    );
+
+    await c1.deactivate();
   });
 });
