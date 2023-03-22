@@ -9,8 +9,15 @@
 <b>Signature:</b>
 
 ```typescript
-sync(): Promise<Array<Observable<unknown>>>;
+sync(doc?: Observable<unknown>): Promise<Array<Observable<unknown>>>;
 ```
+
+## Parameters
+
+|  Parameter | Type | Description |
+|  --- | --- | --- |
+|  doc | Observable&lt;unknown&gt; |  |
+
 <b>Returns:</b>
 
 Promise&lt;Array&lt;Observable&lt;unknown&gt;&gt;&gt;
