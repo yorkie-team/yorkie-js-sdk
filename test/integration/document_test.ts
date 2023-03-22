@@ -326,7 +326,7 @@ describe('Document', function () {
     );
     assertThrowsAsync(
       async () => {
-        await c1.sync(docKey);
+        await c1.sync(d1);
       },
       YorkieError,
       `${docKey} is not attached`,
@@ -360,7 +360,7 @@ describe('Document', function () {
     );
     assertThrowsAsync(
       async () => {
-        await c1.sync(docKey);
+        await c1.sync(d1);
       },
       YorkieError,
       `${docKey} is not attached`,

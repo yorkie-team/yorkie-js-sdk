@@ -545,29 +545,25 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(
-    ...docKeys: Array<DocumentKey>
-  ): Promise<Array<Document<unknown>>> {
+  public sync(doc?: Document<unknown>): Promise<Array<Document<unknown>>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
     const promises = [];
-    if (!docKeys.length) {
+    if (doc) {
+      const attachment = this.attachmentMap.get(doc.getKey());
+      if (!attachment) {
+        throw new YorkieError(
+          Code.DocumentNotAttached,
+          `${doc.getKey()} is not attached`,
+        );
+      }
+      promises.push(this.syncInternal(attachment));
+    } else {
       this.attachmentMap.forEach((attachment) => {
         promises.push(this.syncInternal(attachment));
       });
-    } else {
-      for (const docKey of docKeys) {
-        const attachment = this.attachmentMap.get(docKey);
-        if (!attachment) {
-          throw new YorkieError(
-            Code.DocumentNotAttached,
-            `${docKey} is not attached`,
-          );
-        }
-        promises.push(this.syncInternal(attachment));
-      }
     }
 
     return Promise.all(promises)
@@ -762,6 +758,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   ): Array<{ clientID: ActorID; presence: P }> {
     const peers: Array<{ clientID: ActorID; presence: P }> = [];
     const attachment = this.attachmentMap.get(docKey);
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${docKey} is not attached`,
+      );
+    }
     for (const [clientID, presenceInfo] of attachment!.peerPresenceMap!) {
       peers.push({ clientID, presence: presenceInfo.data });
     }
@@ -799,7 +801,19 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
       Promise.all(promises)
         .then(() => {
-          setTimeout(doLoop, this.syncLoopDuration);
+          let isStreamConnected = false;
+          for (const [, attachment] of this.attachmentMap) {
+            if (attachment.isRealtimeSync) {
+              isStreamConnected = true;
+              break;
+            }
+          }
+          setTimeout(
+            doLoop,
+            isStreamConnected
+              ? this.syncLoopDuration
+              : this.reconnectStreamDelay,
+          );
         })
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
