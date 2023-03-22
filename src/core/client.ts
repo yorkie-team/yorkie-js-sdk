@@ -253,6 +253,7 @@ interface Attachment<P> {
   peerPresenceMap?: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived?: boolean;
   watchStream?: any;
+  watchLoopTimerID?: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -831,14 +832,25 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         );
       }
 
+      if (attachment.watchStream) {
+        return Promise.resolve();
+      }
+      if (attachment.watchLoopTimerID) {
+        clearTimeout(attachment.watchLoopTimerID);
+        attachment.watchLoopTimerID = undefined;
+      }
+
       const req = new WatchDocumentRequest();
       req.setClient(converter.toClient(this.id!, this.presenceInfo));
-      req.setDocumentId(attachment?.docID);
+      req.setDocumentId(attachment.docID);
 
       return new Promise((resolve, reject) => {
         const onStreamDisconnect = () => {
           attachment.watchStream = undefined;
-          setTimeout(doLoop, this.reconnectStreamDelay);
+          attachment.watchLoopTimerID = setTimeout(
+            doLoop,
+            this.reconnectStreamDelay,
+          );
           this.eventStreamObserver.next({
             type: ClientEventType.StreamConnectionStatusChanged,
             value: StreamConnectionStatus.Disconnected,
@@ -985,10 +997,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     attachment.watchStream.cancel();
+    attachment.watchStream = undefined;
+    clearTimeout(attachment.watchLoopTimerID);
+    attachment.watchLoopTimerID = undefined;
     this.attachmentMap.delete(docKey);
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-    attachment.watchStream = undefined;
     this.eventStreamObserver.next({
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
