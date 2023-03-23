@@ -41,6 +41,7 @@ import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
+import { PresenceInfo, Attachment } from '@yorkie-js-sdk/src/core/attachment';
 import {
   Document,
   DocumentKey,
@@ -245,26 +246,6 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
    */
   value: DocumentSyncResultType;
 }
-
-interface Attachment<P> {
-  doc: Document<unknown>;
-  docID: string;
-  isRealtimeSync: boolean;
-  peerPresenceMap?: Map<ActorID, PresenceInfo<P>>;
-  remoteChangeEventReceived?: boolean;
-  watchStream?: any;
-  watchLoopTimerID?: ReturnType<typeof setTimeout>;
-}
-
-/**
- * `PresenceInfo` is presence information of this client.
- *
- * @public
- */
-export type PresenceInfo<P> = {
-  clock: number;
-  data: P;
-};
 
 /**
  * `ClientOptions` are user-settable options used when defining clients.
@@ -479,12 +460,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         doc.applyChangePack(pack);
         if (doc.getStatus() !== DocumentStatus.Removed) {
           doc.setStatus(DocumentStatus.Attached);
-          this.attachmentMap.set(doc.getKey(), {
-            doc,
-            docID: res.getDocumentId(),
-            isRealtimeSync: !isManualSync,
-            peerPresenceMap: new Map(),
-          });
+          this.attachmentMap.set(
+            doc.getKey(),
+            new Attachment(doc, res.getDocumentId(), !isManualSync),
+          );
           await this.runWatchLoop(doc.getKey());
         }
 
@@ -848,11 +827,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
       const promises = [];
       for (const [, attachment] of this.attachmentMap) {
-        if (
-          attachment.isRealtimeSync &&
-          (attachment.doc.hasLocalChanges() ||
-            attachment.remoteChangeEventReceived)
-        ) {
+        if (attachment.needRealtimeSync()) {
           attachment.remoteChangeEventReceived = false;
           promises.push(this.syncInternal(attachment));
         }

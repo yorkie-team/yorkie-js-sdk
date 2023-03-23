@@ -22,7 +22,6 @@ import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 export {
   Client,
-  PresenceInfo,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,
@@ -35,6 +34,7 @@ export {
   DocumentSyncedEvent,
   ClientOptions,
 } from '@yorkie-js-sdk/src/core/client';
+export { PresenceInfo } from '@yorkie-js-sdk/src/core/attachment';
 export {
   DocEventType,
   SnapshotEvent,
