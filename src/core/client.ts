@@ -541,6 +541,65 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
+   * `pause` changes the synchronization mode of the given document to manual.
+   */
+  public pause(doc: Document<unknown>): Promise<Document<unknown>> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
+    return this.changeSyncMode(doc, false);
+  }
+
+  /**
+   * `resume` changes the synchronization mode of the given document to realtime.
+   */
+  public resume(doc: Document<unknown>): Promise<Document<unknown>> {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
+    return this.changeSyncMode(doc, true);
+  }
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given document.
+   */
+  private async changeSyncMode(
+    doc: Document<unknown>,
+    isRealtimeSync: boolean,
+  ): Promise<Document<unknown>> {
+    // TODO(hackerwins): We need to consider extracting this method to `attachment`
+    // with other methods like runWatchLoop, disconnectWatchStream.
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    if (attachment.isRealtimeSync === isRealtimeSync) {
+      return doc;
+    }
+
+    if (isRealtimeSync) {
+      attachment.isRealtimeSync = true;
+      await this.runWatchLoop(doc.getKey());
+      return doc;
+    }
+
+    attachment.watchStream.cancel();
+    attachment.watchStream = undefined;
+    clearTimeout(attachment.watchLoopTimerID);
+    attachment.watchLoopTimerID = undefined;
+    attachment.isRealtimeSync = false;
+    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+
+    return doc;
+  }
+
+  /**
    * `sync` pushes local changes of the attached documents to the server and
    * receives changes of the remote replica from the server then apply them to
    * local documents.
@@ -1010,18 +1069,25 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       );
     }
 
-    attachment.watchStream.cancel();
-    attachment.watchStream = undefined;
+    // TODO(hackerwins): This is a temporary fix for avoiding the error
+    // when sync mode is manual. We need to find a better way to handle
+    // this.
+    if (attachment.watchStream) {
+      attachment.watchStream.cancel();
+      attachment.watchStream = undefined;
+    }
     clearTimeout(attachment.watchLoopTimerID);
     attachment.watchLoopTimerID = undefined;
-    this.attachmentMap.delete(docKey);
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
     this.eventStreamObserver.next({
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
     });
+
+    this.attachmentMap.delete(docKey);
   }
+
   private syncInternal({
     doc,
     docID,

@@ -617,4 +617,52 @@ describe('Client', function () {
     unsub1();
     unsub2();
   });
+
+  it('Can change sync mode', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ version: string }>(docKey);
+    const d2 = new yorkie.Document<{ version: string }>(docKey);
+
+    // 01. c1 and c2 attach the doc with manual sync mode.
+    //     c1 updates the doc, but c2 does't get until call sync manually.
+    await c1.attach(d1, true);
+    await c2.attach(d2, true);
+    d1.update((root) => {
+      root.version = 'v1';
+    });
+    assert.notEqual(d1.toSortedJSON(), d2.toSortedJSON());
+    await c1.sync();
+    await c2.sync();
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    // 02. c2 changes the sync mode to realtime sync mode.
+    const [emitter2, spy2] = createEmitterAndSpy((event) => event.type);
+    const unsub1 = c2.subscribe(spy2);
+    await c2.resume(d2);
+    d1.update((root) => {
+      root.version = 'v2';
+    });
+    await c1.sync();
+    await waitFor(ClientEventType.DocumentSynced, emitter2);
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    unsub1();
+
+    // 03. c2 changes the sync mode to manual sync mode again.
+    await c2.pause(d2);
+    d1.update((root) => {
+      root.version = 'v3';
+    });
+    assert.notEqual(d1.toSortedJSON(), d2.toSortedJSON());
+    await c1.sync();
+    await c2.sync();
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 });
