@@ -34,7 +34,9 @@ export declare class Client<P = Indexable> implements Observable<ClientEvent<P>>
 |  [getPresence()](./yorkie-js-sdk.client.getpresence.md) |  | <code>getPresence</code> returns the presence of this client. |
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |
 |  [isActive()](./yorkie-js-sdk.client.isactive.md) |  | <code>isActive</code> checks if the client is active. |
+|  [pause(doc)](./yorkie-js-sdk.client.pause.md) |  | <code>pause</code> changes the synchronization mode of the given document to manual. |
 |  [remove(doc)](./yorkie-js-sdk.client.remove.md) |  | <code>remove</code> removes the given document. |
+|  [resume(doc)](./yorkie-js-sdk.client.resume.md) |  | <code>resume</code> changes the synchronization mode of the given document to realtime. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.client.subscribe.md) |  | <code>subscribe</code> subscribes to the given topics. |
 |  [sync(doc)](./yorkie-js-sdk.client.sync.md) |  | <code>sync</code> pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents. |
 |  [updatePresence(key, value)](./yorkie-js-sdk.client.updatepresence.md) |  | <code>updatePresence</code> updates the presence of this client. |
