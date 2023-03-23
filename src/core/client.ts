@@ -286,6 +286,13 @@ export interface ClientOptions<P> {
   syncLoopDuration?: number;
 
   /**
+   * `retrySyncLoopDelay` is the delay of the retry sync loop. If the sync loop
+   * fails, the client waits for the delay to retry the sync loop. The default
+   * value is `1000`(ms).
+   */
+  retrySyncLoopDelay?: number;
+
+  /**
    * `reconnectStreamDelay` is the delay of the reconnect stream. If the stream
    * is disconnected, the client waits for the delay to reconnect the stream. The
    * default value is `1000`(ms).
@@ -298,6 +305,7 @@ export interface ClientOptions<P> {
  */
 const DefaultClientOptions = {
   syncLoopDuration: 50,
+  retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
 };
 
@@ -316,6 +324,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private attachmentMap: Map<DocumentKey, Attachment<P>>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
+  private retrySyncLoopDelay: number;
 
   private rpcClient: RPCClient;
   private eventStream: Observable<ClientEvent<P>>;
@@ -339,6 +348,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
       opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
+    this.retrySyncLoopDelay =
+      opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
 
     let rpcOpts;
     if (opts.apiKey || opts.token) {
@@ -834,28 +845,14 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       }
 
       Promise.all(promises)
-        .then(() => {
-          let isStreamConnected = false;
-          for (const [, attachment] of this.attachmentMap) {
-            if (attachment.isRealtimeSync) {
-              isStreamConnected = true;
-              break;
-            }
-          }
-          setTimeout(
-            doLoop,
-            isStreamConnected
-              ? this.syncLoopDuration
-              : this.reconnectStreamDelay,
-          );
-        })
+        .then(() => setTimeout(doLoop, this.syncLoopDuration))
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
           this.eventStreamObserver.next({
             type: ClientEventType.DocumentSynced,
             value: DocumentSyncResultType.SyncFailed,
           });
-          setTimeout(doLoop, this.reconnectStreamDelay);
+          setTimeout(doLoop, this.retrySyncLoopDelay);
         });
     };
 
