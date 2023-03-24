@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.3] - 2023-03-24
+
+### Added
+* Add optimization option in production mode by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/474
+* Add RemoveDocument API by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/480
+* Add pause and resume to Client by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/482
+
+### Changed
+* Clarify the ClientEvent that is sent to client.subscribe by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/464
+* Rename initialization to initialized in PeersChangedEvent by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/478
+
+### Fixed
+
 ## [0.3.2] - 2023-02-27
 
 ### Fixed
