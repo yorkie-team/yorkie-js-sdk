@@ -11,16 +11,11 @@ async function main() {
     },
   });
   await client.activate();
-  const myClientID = client.getID();
 
   client.subscribe((event) => {
     if (event.type === 'peers-changed') {
-      // get presence of all clients connected to the Document.
-      // {<clientID>: {name: string, color: string}}
-      const peers = event.value[doc.getKey()];
-
       // show peer list
-      displayPeerList(peers, myClientID);
+      displayPeerList(client.getPeersByDocKey(doc.getKey()), client.getID());
     }
   });
 
@@ -54,9 +49,10 @@ const createPeer = (name, color, type) => {
 };
 
 const displayPeerList = (peers, myClientID) => {
-  const peerList = Object.entries(peers)
-    .filter(([id]) => id !== myClientID)
-    .filter(([, presence]) => presence.name && presence.color);
+  const peerList = peers.filter(
+    ({ clientID: id, presence }) =>
+      id !== myClientID && presence.name && presence.color,
+  );
   const peerCount = peerList.length + 1;
   const hasMorePeers = peerCount > MAX_PEER_VIEW;
   const $peerList = document.getElementById('peerList');
@@ -64,11 +60,14 @@ const displayPeerList = (peers, myClientID) => {
   const $peerMoreList = document.createElement('div');
   $peerMoreList.className = 'peer-more-list speech-bubbles';
 
-  const myInfo = peers[myClientID];
-  const $me = createPeer(`${myInfo.name} (me)`, myInfo.color, 'main');
+  const myPresence = peers.find(
+    ({ clientID: id }) => id === myClientID,
+  ).presence;
+  const $me = createPeer(`${myPresence.name} (me)`, myPresence.color, 'main');
   $me.classList.add('me');
   $peerList.appendChild($me);
-  peerList.forEach(([_, { name, color }], i) => {
+  peerList.forEach((peer, i) => {
+    const { name, color } = peer.presence;
     if (i < MAX_PEER_VIEW - 1) {
       const $peer = createPeer(name, color, 'main');
       $peerList.appendChild($peer);
