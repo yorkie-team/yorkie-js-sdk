@@ -4,17 +4,17 @@ import { Document, Indexable, Text } from 'yorkie-js-sdk';
 // function to display peers
 export function displayPeers(
   elem: HTMLElement,
-  peers: Record<string, Indexable>,
-  clientID: string,
+  peers: Array<{ clientID: string; presence: Indexable }>,
+  myClientID: string,
 ) {
   const usernames = [];
-
-  for (const [id, presence] of Object.entries(peers)) {
+  for (const { clientID, presence } of peers) {
     usernames.push(
-      id === clientID ? `<b>${presence.username}</b>` : presence.username,
+      myClientID === clientID
+        ? `<b>${presence.username}</b>`
+        : presence.username,
     );
   }
-
   elem.innerHTML = JSON.stringify(usernames);
 }
 

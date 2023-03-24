@@ -165,26 +165,21 @@ export function useMultiplayerState(roomId: string) {
 
         // 01-1. Subscribe peers-changed event and update tldraw users state
         client.subscribe((event) => {
-          if (event.type === 'peers-changed') {
-            const peers = event.value[doc.getKey()];
+          if (event.type !== 'peers-changed') return;
 
-            // Compare with local user list and get leaved user list
-            // Then remove leaved users
-            const localUsers = Object.values(app!.room!.users);
-            const remoteUsers = Object.values(peers)
-              .map((presence) => presence.user)
-              .filter(Boolean);
-            const leavedUsers = localUsers.filter(
-              ({ id: id1 }) => !remoteUsers.some(({ id: id2 }) => id2 === id1),
-            );
-
-            leavedUsers.forEach((user) => {
-              app?.removeUser(user.id);
+          const { type, peers } = event.value;
+          // remove leaved users
+          if (type === 'unwatched') {
+            peers[doc.getKey()].map((peer) => {
+              app?.removeUser(peer.presence.user.id);
             });
-
-            // Then update users
-            app?.updateUsers(remoteUsers);
           }
+
+          // update users
+          const allPeers = client
+            .getPeersByDocKey(doc.getKey())
+            .map((peer) => peer.presence.user);
+          app?.updateUsers(allPeers);
         });
 
         // 02. Create document with tldraw custom object type, then attach it into the client.

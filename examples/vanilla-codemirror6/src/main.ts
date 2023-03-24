@@ -36,7 +36,11 @@ async function main() {
   client.subscribe((event) => {
     network.statusListener(networkStatusElem)(event);
     if (event.type === 'peers-changed') {
-      displayPeers(peersElem, event.value[doc.getKey()], client.getID() ?? '');
+      displayPeers(
+        peersElem,
+        client.getPeersByDocKey(doc.getKey()),
+        client.getID()!,
+      );
     }
   });
 

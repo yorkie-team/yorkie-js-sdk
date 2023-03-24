@@ -43,22 +43,7 @@ function toDeltaOperation<T extends TextValueType>(
   };
 }
 
-function findDefectors(
-  peers: Record<string, Indexable>,
-  newPeers: Record<string, Indexable>,
-) {
-  const usernames = [];
-  for (const [clientID, presence] of Object.entries(peers)) {
-    if (!newPeers[clientID]) {
-      usernames.push(presence.username);
-    }
-  }
-  return usernames;
-}
-
 async function main() {
-  let peers: Record<string, Indexable>;
-
   // 01-1. create client with RPCAddr(envoy) then activate it.
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
@@ -71,16 +56,19 @@ async function main() {
   // 01-2. subscribe client event.
   client.subscribe((event) => {
     network.statusListener(networkStatusElem)(event);
-    if (event.type === 'peers-changed') {
-      const newPeers = event.value[doc.getKey()];
-      if (peers) {
-        for (const username of findDefectors(peers, newPeers)) {
-          cursors.removeCursor(username);
-        }
-      }
-      peers = newPeers;
-      displayPeers(peersElem, event.value[doc.getKey()], client.getID() || '');
+    if (event.type !== 'peers-changed') return;
+
+    const { type, peers } = event.value;
+    if (type === 'unwatched') {
+      peers[doc.getKey()].map((peer) => {
+        cursors.removeCursor(peer.presence.username);
+      });
     }
+    displayPeers(
+      peersElem,
+      client.getPeersByDocKey(doc.getKey()),
+      client.getID()!,
+    );
   });
 
   // 02-1. create a document then attach it into the client.
@@ -200,12 +188,12 @@ async function main() {
     const deltaOperations = [];
     let prevTo = 0;
     for (const change of changes) {
-      const actor = change.actor;
-      if (actor === client.getID()) {
+      const actorID = change.actor;
+      if (actorID === client.getID()) {
         continue;
       }
 
-      const actorName = peers[actor]['username'];
+      const actorName = client.getPeerPresence(doc.getKey(), actorID).username;
       const from = change.from;
       const to = change.to;
       const retainFrom = from - prevTo;
