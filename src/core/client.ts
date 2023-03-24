@@ -41,7 +41,11 @@ import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { PresenceInfo, Attachment } from '@yorkie-js-sdk/src/core/attachment';
+import {
+  PresenceInfo,
+  Attachment,
+  WatchStream,
+} from '@yorkie-js-sdk/src/core/attachment';
 import {
   Document,
   DocumentKey,
@@ -411,7 +415,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return Promise.resolve();
     }
     this.attachmentMap.forEach((_, docKey) => {
-      this.disconnectWatchStream(docKey);
+      this.detachInternal(docKey);
     });
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
@@ -473,7 +477,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           doc.setStatus(DocumentStatus.Attached);
           this.attachmentMap.set(
             doc.getKey(),
-            new Attachment(doc, res.getDocumentId(), !isManualSync),
+            new Attachment(
+              this.reconnectStreamDelay,
+              doc,
+              res.getDocumentId(),
+              !isManualSync,
+            ),
           );
           await this.runWatchLoop(doc.getKey());
         }
@@ -522,7 +531,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         if (doc.getStatus() !== DocumentStatus.Removed) {
           doc.setStatus(DocumentStatus.Detached);
         }
-        this.disconnectWatchStream(doc.getKey());
+        this.detachInternal(doc.getKey());
 
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         resolve(doc);
@@ -569,23 +578,16 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       );
     }
 
-    if (attachment.isRealtimeSync === isRealtimeSync) {
+    if (!attachment.changeSyncMode(isRealtimeSync)) {
       return doc;
     }
 
     if (isRealtimeSync) {
-      attachment.isRealtimeSync = true;
       await this.runWatchLoop(doc.getKey());
       return doc;
     }
 
-    attachment.watchStream.cancel();
-    attachment.watchStream = undefined;
-    clearTimeout(attachment.watchLoopTimerID);
-    attachment.watchLoopTimerID = undefined;
-    attachment.isRealtimeSync = false;
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-
     return doc;
   }
 
@@ -615,17 +617,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       });
     }
 
-    return Promise.all(promises)
-      .then((docs) => {
-        return docs;
-      })
-      .catch((err) => {
-        this.eventStreamObserver.next({
-          type: ClientEventType.DocumentSynced,
-          value: DocumentSyncResultType.SyncFailed,
-        });
-        throw err;
+    return Promise.all(promises).catch((err) => {
+      this.eventStreamObserver.next({
+        type: ClientEventType.DocumentSynced,
+        value: DocumentSyncResultType.SyncFailed,
       });
+      throw err;
+    });
   }
 
   /**
@@ -663,7 +661,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
         const pack = converter.fromChangePack(res.getChangePack()!);
         doc.applyChangePack(pack);
-        this.disconnectWatchStream(doc.getKey());
+        this.detachInternal(doc.getKey());
 
         logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
         resolve();
@@ -686,7 +684,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return Promise.resolve();
     }
 
-    const promises: Array<Promise<void>> = [];
+    const jobs: Array<Promise<void>> = [];
     this.attachmentMap.forEach((attachment, docKey) => {
       if (!attachment.isRealtimeSync) {
         return;
@@ -697,7 +695,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       req.setClient(converter.toClient(this.id!, this.presenceInfo));
       req.setDocumentId(attachment.docID);
 
-      promises.push(
+      jobs.push(
         new Promise((resolve, reject) => {
           this.rpcClient.updatePresence(req, {}, (err) => {
             if (err) {
@@ -729,7 +727,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       }
     });
 
-    return Promise.all(promises)
+    return Promise.all(jobs)
       .then(() => {
         return;
       })
@@ -819,16 +817,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     return peers;
   }
 
-  private getRealtimeSyncDocKeys(): Array<string> {
-    const realtimeSyncDocKeys: Array<string> = [];
-    for (const [, attachment] of this.attachmentMap) {
-      if (attachment.isRealtimeSync) {
-        realtimeSyncDocKeys.push(attachment.doc.getKey());
-      }
-    }
-    return realtimeSyncDocKeys;
-  }
-
   private runSyncLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
@@ -836,15 +824,15 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         return;
       }
 
-      const promises = [];
+      const syncJobs = [];
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.needRealtimeSync()) {
           attachment.remoteChangeEventReceived = false;
-          promises.push(this.syncInternal(attachment));
+          syncJobs.push(this.syncInternal(attachment));
         }
       }
 
-      Promise.all(promises)
+      Promise.all(syncJobs)
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
@@ -861,69 +849,53 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   private async runWatchLoop(docKey: DocumentKey): Promise<void> {
-    const doLoop = (): Promise<void> => {
-      if (!this.isActive()) {
-        throw new YorkieError(
-          Code.ClientNotActive,
-          `${this.key} is not active`,
-        );
-      }
+    const attachment = this.attachmentMap.get(docKey);
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${docKey} is not attached`,
+      );
+    }
 
-      const attachment = this.attachmentMap.get(docKey);
-      if (!attachment) {
-        throw new YorkieError(
-          Code.DocumentNotAttached,
-          `${docKey} is not attached`,
-        );
-      }
-
-      if (attachment.watchStream) {
-        return Promise.resolve();
-      }
-      if (attachment.watchLoopTimerID) {
-        clearTimeout(attachment.watchLoopTimerID);
-        attachment.watchLoopTimerID = undefined;
-      }
-
-      const req = new WatchDocumentRequest();
-      req.setClient(converter.toClient(this.id!, this.presenceInfo));
-      req.setDocumentId(attachment.docID);
-
-      return new Promise((resolve, reject) => {
-        const onStreamDisconnect = () => {
-          attachment.watchStream = undefined;
-          attachment.watchLoopTimerID = setTimeout(
-            doLoop,
-            this.reconnectStreamDelay,
+    return attachment.runWatchLoop(
+      (onDisconnect: () => void): Promise<WatchStream> => {
+        if (!this.isActive()) {
+          throw new YorkieError(
+            Code.ClientNotActive,
+            `${this.key} is not active`,
           );
-          this.eventStreamObserver.next({
-            type: ClientEventType.StreamConnectionStatusChanged,
-            value: StreamConnectionStatus.Disconnected,
-          });
-          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-          reject();
-        };
+        }
 
+        const req = new WatchDocumentRequest();
+        req.setClient(converter.toClient(this.id!, this.presenceInfo));
+        req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {});
-        stream.on('data', (resp: WatchDocumentResponse) => {
-          this.handleWatchDocumentsResponse(docKey, resp);
-          resolve();
-        });
-        stream.on('end', onStreamDisconnect);
-        stream.on('error', onStreamDisconnect);
-        attachment.watchStream = stream;
+
         this.eventStreamObserver.next({
           type: ClientEventType.StreamConnectionStatusChanged,
           value: StreamConnectionStatus.Connected,
         });
-
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
-      });
-    };
 
-    logger.debug(`[WL] c:"${this.getKey()}" run watch loop`);
+        return new Promise((resolve) => {
+          const onStreamDisconnect = (): void => {
+            this.eventStreamObserver.next({
+              type: ClientEventType.StreamConnectionStatusChanged,
+              value: StreamConnectionStatus.Disconnected,
+            });
+            logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+            onDisconnect();
+          };
 
-    await doLoop();
+          stream.on('data', (resp: WatchDocumentResponse) => {
+            this.handleWatchDocumentsResponse(docKey, resp);
+            resolve(stream);
+          });
+          stream.on('end', onStreamDisconnect);
+          stream.on('error', onStreamDisconnect);
+        });
+      },
+    );
   }
 
   private handleWatchDocumentsResponse(
@@ -944,9 +916,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         type: ClientEventType.PeersChanged,
         value: {
           type: 'initialized',
-          peers: {
-            [docKey]: this.getPeersByDocKey(docKey),
-          },
+          peers: { [docKey]: this.getPeersByDocKey(docKey) },
         },
       });
       return;
@@ -1032,7 +1002,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
   }
 
-  private disconnectWatchStream(docKey: DocumentKey) {
+  private detachInternal(docKey: DocumentKey) {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
@@ -1041,15 +1011,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       );
     }
 
-    // TODO(hackerwins): This is a temporary fix for avoiding the error
-    // when sync mode is manual. We need to find a better way to handle
-    // this.
-    if (attachment.watchStream) {
-      attachment.watchStream.cancel();
-      attachment.watchStream = undefined;
-    }
-    clearTimeout(attachment.watchLoopTimerID);
-    attachment.watchLoopTimerID = undefined;
+    attachment.cancelWatchStream();
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
     this.eventStreamObserver.next({
@@ -1092,7 +1054,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           // NOTE(chacha912): If a document has been removed, watchStream should
           // be disconnected to not receive an event for that document.
           if (doc.getStatus() === DocumentStatus.Removed) {
-            this.disconnectWatchStream(doc.getKey());
+            this.detachInternal(doc.getKey());
           }
 
           const docKey = doc.getKey();
