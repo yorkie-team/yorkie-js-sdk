@@ -16,7 +16,7 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { PresenceInfo } from '@yorkie-js-sdk/src/core/client';
+import { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 import {
   InitialTimeTicket,
   TimeTicket,

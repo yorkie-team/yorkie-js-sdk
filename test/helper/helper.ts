@@ -18,7 +18,7 @@ import { assert } from 'chai';
 import { EventEmitter } from 'events';
 import { NextFn } from '@yorkie-js-sdk/src/util/observable';
 
-import { ClientEvent } from '@yorkie-js-sdk/src/core/client';
+import { ClientEvent } from '@yorkie-js-sdk/src/client/client';
 import { DocEvent } from '@yorkie-js-sdk/src/document/document';
 import {
   TextChange,

@@ -1,5 +1,5 @@
 import yorkie from '@yorkie-js-sdk/src/yorkie';
-import { Client } from '@yorkie-js-sdk/src/core/client';
+import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
