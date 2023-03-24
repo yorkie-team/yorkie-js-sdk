@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Client } from '@yorkie-js-sdk/src/core/client';
+import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
@@ -33,8 +33,8 @@ export {
   StreamConnectionStatusChangedEvent,
   DocumentSyncedEvent,
   ClientOptions,
-} from '@yorkie-js-sdk/src/core/client';
-export { PresenceInfo } from '@yorkie-js-sdk/src/core/attachment';
+} from '@yorkie-js-sdk/src/client/client';
+export { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 export {
   DocEventType,
   SnapshotEvent,

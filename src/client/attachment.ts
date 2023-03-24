@@ -18,11 +18,12 @@ export type WatchStream = any; // TODO(hackerwins): Define proper type of watchS
  * `Attachment` is a class that manages the state of the document.
  */
 export class Attachment<P> {
-  reconnectStreamDelay: number;
+  // TODO(hackerwins): Consider to changing the modifiers of the following properties to private.
+  private reconnectStreamDelay: number;
   doc: Document<unknown>;
   docID: string;
   isRealtimeSync: boolean;
-  peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
+  private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived: boolean;
 
   watchStream?: WatchStream;

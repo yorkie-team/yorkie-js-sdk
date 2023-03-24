@@ -45,7 +45,7 @@ import {
   PresenceInfo,
   Attachment,
   WatchStream,
-} from '@yorkie-js-sdk/src/core/attachment';
+} from '@yorkie-js-sdk/src/client/attachment';
 import {
   Document,
   DocumentKey,
@@ -54,7 +54,7 @@ import {
 import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
-} from '@yorkie-js-sdk/src/core/auth';
+} from '@yorkie-js-sdk/src/client/auth';
 import type { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
@@ -689,7 +689,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       if (!attachment.isRealtimeSync) {
         return;
       }
-      attachment.peerPresenceMap!.set(this.getID()!, this.presenceInfo);
+      attachment.setPresence(this.getID()!, this.presenceInfo);
 
       const req = new UpdatePresenceRequest();
       req.setClient(converter.toClient(this.id!, this.presenceInfo));
@@ -794,7 +794,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * `getPeerPresence` returns the presence of the given document and client.
    */
   public getPeerPresence(docKey: DocumentKey, clientID: ActorID): P {
-    return this.attachmentMap.get(docKey)!.peerPresenceMap!.get(clientID)!.data;
+    return this.attachmentMap.get(docKey)!.getPresence(clientID);
   }
 
   /**
@@ -811,8 +811,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         `${docKey} is not attached`,
       );
     }
-    for (const [clientID, presenceInfo] of attachment!.peerPresenceMap!) {
-      peers.push({ clientID, presence: presenceInfo.data });
+    for (const { clientID, presence } of attachment.getPeers()) {
+      peers.push({ clientID, presence });
     }
     return peers;
   }
@@ -888,7 +888,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           };
 
           stream.on('data', (resp: WatchDocumentResponse) => {
-            this.handleWatchDocumentsResponse(docKey, resp);
+            this.handleWatchDocumentsResponse(attachment, resp);
             resolve(stream);
           });
           stream.on('end', onStreamDisconnect);
@@ -899,14 +899,14 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   private handleWatchDocumentsResponse(
-    docKey: DocumentKey,
+    attachment: Attachment<P>,
     resp: WatchDocumentResponse,
   ) {
+    const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
       const pbPeers = resp.getInitialization()!.getPeersList();
       pbPeers.forEach((pbClient) => {
-        const attachment = this.attachmentMap.get(docKey)!;
-        attachment.peerPresenceMap!.set(
+        attachment.setPresence(
           converter.toHexString(pbClient.getId_asU8()),
           converter.fromPresence(pbClient.getPresence()!),
         );
@@ -916,7 +916,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         type: ClientEventType.PeersChanged,
         value: {
           type: 'initialized',
-          peers: { [docKey]: this.getPeersByDocKey(docKey) },
+          peers: { [docKey]: attachment.getPeers() },
         },
       });
       return;
@@ -930,8 +930,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     const presence = converter.fromPresence<P>(
       pbWatchEvent.getPublisher()!.getPresence()!,
     );
-    const attachment = this.attachmentMap.get(docKey)!;
-    const peerPresenceMap = attachment.peerPresenceMap!;
     switch (eventType) {
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
         attachment.remoteChangeEventReceived = true;
@@ -941,7 +939,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-        peerPresenceMap!.set(publisher, presence);
+        attachment.setPresence(publisher, presence);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -950,7 +948,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: this.getPeerPresence(docKey, publisher),
+                  presence: attachment.getPresence(publisher),
                 },
               ],
             },
@@ -958,8 +956,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
-        const presence = this.getPeerPresence(docKey, publisher);
-        peerPresenceMap!.delete(publisher);
+        const presence = attachment.getPresence(publisher);
+        attachment.removePresence(publisher);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -977,13 +975,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         break;
       }
       case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
-        if (
-          peerPresenceMap!.has(publisher) &&
-          peerPresenceMap!.get(publisher)!.clock > presence.clock
-        ) {
-          break;
-        }
-        peerPresenceMap!.set(publisher, presence);
+        attachment.setPresence(publisher, presence);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -992,7 +984,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: this.getPeerPresence(docKey, publisher),
+                  presence: attachment.getPresence(publisher),
                 },
               ],
             },
