@@ -326,6 +326,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private presenceInfo: PresenceInfo<P>;
   private status: ClientStatus;
   private attachmentMap: Map<DocumentKey, Attachment<P>>;
+
+  private apiKey: string;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
@@ -348,6 +350,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     };
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
+
+    // TODO(hackerwins): Consider to group the options as a single object.
+    this.apiKey = opts.apiKey || '';
     this.syncLoopDuration =
       opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
@@ -385,25 +390,29 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       const req = new ActivateClientRequest();
       req.setClientKey(this.key);
 
-      this.rpcClient.activateClient(req, {}, async (err, res) => {
-        if (err) {
-          logger.error(`[AC] c:"${this.getKey()}" err :`, err);
-          reject(err);
-          return;
-        }
+      this.rpcClient.activateClient(
+        req,
+        { 'x-shard-key': this.apiKey },
+        async (err, res) => {
+          if (err) {
+            logger.error(`[AC] c:"${this.getKey()}" err :`, err);
+            reject(err);
+            return;
+          }
 
-        this.id = converter.toHexString(res.getClientId_asU8());
-        this.status = ClientStatus.Activated;
-        this.runSyncLoop();
+          this.id = converter.toHexString(res.getClientId_asU8());
+          this.status = ClientStatus.Activated;
+          this.runSyncLoop();
 
-        this.eventStreamObserver.next({
-          type: ClientEventType.StatusChanged,
-          value: this.status,
-        });
+          this.eventStreamObserver.next({
+            type: ClientEventType.StatusChanged,
+            value: this.status,
+          });
 
-        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
-        resolve();
-      });
+          logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
+          resolve();
+        },
+      );
     });
   }
 
@@ -421,22 +430,26 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       const req = new DeactivateClientRequest();
       req.setClientId(converter.toUint8Array(this.id!));
 
-      this.rpcClient.deactivateClient(req, {}, (err) => {
-        if (err) {
-          logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-          reject(err);
-          return;
-        }
+      this.rpcClient.deactivateClient(
+        req,
+        { 'x-shard-key': this.apiKey },
+        (err) => {
+          if (err) {
+            logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+            reject(err);
+            return;
+          }
 
-        this.status = ClientStatus.Deactivated;
-        this.eventStreamObserver.next({
-          type: ClientEventType.StatusChanged,
-          value: this.status,
-        });
+          this.status = ClientStatus.Deactivated;
+          this.eventStreamObserver.next({
+            type: ClientEventType.StatusChanged,
+            value: this.status,
+          });
 
-        logger.info(`[DC] c"${this.getKey()}" deactivated`);
-        resolve();
-      });
+          logger.info(`[DC] c"${this.getKey()}" deactivated`);
+          resolve();
+        },
+      );
     });
   }
 
@@ -464,32 +477,36 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       req.setClientId(converter.toUint8Array(this.id!));
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
-      this.rpcClient.attachDocument(req, {}, async (err, res) => {
-        if (err) {
-          logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-          reject(err);
-          return;
-        }
+      this.rpcClient.attachDocument(
+        req,
+        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+        async (err, res) => {
+          if (err) {
+            logger.error(`[AD] c:"${this.getKey()}" err :`, err);
+            reject(err);
+            return;
+          }
 
-        const pack = converter.fromChangePack(res.getChangePack()!);
-        doc.applyChangePack(pack);
-        if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.setStatus(DocumentStatus.Attached);
-          this.attachmentMap.set(
-            doc.getKey(),
-            new Attachment(
-              this.reconnectStreamDelay,
-              doc,
-              res.getDocumentId(),
-              !isManualSync,
-            ),
-          );
-          await this.runWatchLoop(doc.getKey());
-        }
+          const pack = converter.fromChangePack(res.getChangePack()!);
+          doc.applyChangePack(pack);
+          if (doc.getStatus() !== DocumentStatus.Removed) {
+            doc.setStatus(DocumentStatus.Attached);
+            this.attachmentMap.set(
+              doc.getKey(),
+              new Attachment(
+                this.reconnectStreamDelay,
+                doc,
+                res.getDocumentId(),
+                !isManualSync,
+              ),
+            );
+            await this.runWatchLoop(doc.getKey());
+          }
 
-        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
-        resolve(doc);
-      });
+          logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
+          resolve(doc);
+        },
+      );
     });
   }
 
@@ -519,23 +536,27 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       req.setDocumentId(attachment.docID);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
-      this.rpcClient.detachDocument(req, {}, async (err, res) => {
-        if (err) {
-          logger.error(`[DD] c:"${this.getKey()}" err :`, err);
-          reject(err);
-          return;
-        }
+      this.rpcClient.detachDocument(
+        req,
+        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+        async (err, res) => {
+          if (err) {
+            logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+            reject(err);
+            return;
+          }
 
-        const pack = converter.fromChangePack(res.getChangePack()!);
-        doc.applyChangePack(pack);
-        if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.setStatus(DocumentStatus.Detached);
-        }
-        this.detachInternal(doc.getKey());
+          const pack = converter.fromChangePack(res.getChangePack()!);
+          doc.applyChangePack(pack);
+          if (doc.getStatus() !== DocumentStatus.Removed) {
+            doc.setStatus(DocumentStatus.Detached);
+          }
+          this.detachInternal(doc.getKey());
 
-        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
-        resolve(doc);
-      });
+          logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
+          resolve(doc);
+        },
+      );
     });
   }
 
@@ -649,23 +670,27 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       pbChangePack.setIsRemoved(true);
       req.setChangePack(pbChangePack);
 
-      this.rpcClient.removeDocument(req, {}, async (err, res) => {
-        if (err) {
-          logger.error(
-            `[RD] c:"${this.getKey()}" d:"${doc.getKey()}" err :`,
-            err,
-          );
-          reject(err);
-          return;
-        }
+      this.rpcClient.removeDocument(
+        req,
+        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+        async (err, res) => {
+          if (err) {
+            logger.error(
+              `[RD] c:"${this.getKey()}" d:"${doc.getKey()}" err :`,
+              err,
+            );
+            reject(err);
+            return;
+          }
 
-        const pack = converter.fromChangePack(res.getChangePack()!);
-        doc.applyChangePack(pack);
-        this.detachInternal(doc.getKey());
+          const pack = converter.fromChangePack(res.getChangePack()!);
+          doc.applyChangePack(pack);
+          this.detachInternal(doc.getKey());
 
-        logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
-        resolve();
-      });
+          logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
+          resolve();
+        },
+      );
     });
   }
 
@@ -697,16 +722,20 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
       jobs.push(
         new Promise((resolve, reject) => {
-          this.rpcClient.updatePresence(req, {}, (err) => {
-            if (err) {
-              logger.error(`[UM] c:"${this.getKey()}" err :`, err);
-              reject(err);
-              return;
-            }
+          this.rpcClient.updatePresence(
+            req,
+            { 'x-shard-key': `${this.apiKey}/${docKey}` },
+            (err) => {
+              if (err) {
+                logger.error(`[UM] c:"${this.getKey()}" err :`, err);
+                reject(err);
+                return;
+              }
 
-            logger.info(`[UM] c"${this.getKey()}" updated`);
-            resolve();
-          });
+              logger.info(`[UM] c"${this.getKey()}" updated`);
+              resolve();
+            },
+          );
         }),
       );
       if (this.eventStreamObserver) {
@@ -869,7 +898,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         const req = new WatchDocumentRequest();
         req.setClient(converter.toClient(this.id!, this.presenceInfo));
         req.setDocumentId(attachment.docID);
-        const stream = this.rpcClient.watchDocument(req, {});
+        const stream = this.rpcClient.watchDocument(req, {
+          'x-shard-key': `${this.apiKey}/${docKey}`,
+        });
 
         this.eventStreamObserver.next({
           type: ClientEventType.StreamConnectionStatusChanged,
@@ -1028,35 +1059,39 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
 
       let isRejected = false;
       this.rpcClient
-        .pushPullChanges(req, {}, (err, res) => {
-          if (err) {
-            logger.error(`[PP] c:"${this.getKey()}" err :`, err);
+        .pushPullChanges(
+          req,
+          { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+          (err, res) => {
+            if (err) {
+              logger.error(`[PP] c:"${this.getKey()}" err :`, err);
 
-            isRejected = true;
-            reject(err);
-            return;
-          }
+              isRejected = true;
+              reject(err);
+              return;
+            }
 
-          const respPack = converter.fromChangePack(res.getChangePack()!);
-          doc.applyChangePack(respPack);
-          this.eventStreamObserver.next({
-            type: ClientEventType.DocumentSynced,
-            value: DocumentSyncResultType.Synced,
-          });
-          // NOTE(chacha912): If a document has been removed, watchStream should
-          // be disconnected to not receive an event for that document.
-          if (doc.getStatus() === DocumentStatus.Removed) {
-            this.detachInternal(doc.getKey());
-          }
+            const respPack = converter.fromChangePack(res.getChangePack()!);
+            doc.applyChangePack(respPack);
+            this.eventStreamObserver.next({
+              type: ClientEventType.DocumentSynced,
+              value: DocumentSyncResultType.Synced,
+            });
+            // NOTE(chacha912): If a document has been removed, watchStream should
+            // be disconnected to not receive an event for that document.
+            if (doc.getStatus() === DocumentStatus.Removed) {
+              this.detachInternal(doc.getKey());
+            }
 
-          const docKey = doc.getKey();
-          const remoteSize = respPack.getChangeSize();
-          logger.info(
-            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
-              .getCheckpoint()
-              .getStructureAsString()}`,
-          );
-        })
+            const docKey = doc.getKey();
+            const remoteSize = respPack.getChangeSize();
+            logger.info(
+              `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
+                .getCheckpoint()
+                .getStructureAsString()}`,
+            );
+          },
+        )
         .on('end', () => {
           if (isRejected) {
             return;
