@@ -42,6 +42,7 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
 
@@ -179,7 +180,7 @@ export type DocumentKey = string;
  *
  * @public
  */
-export class Document<T> implements Observable<DocEvent> {
+export class Document<T> {
   private key: DocumentKey;
   private status: DocumentStatus;
   private root: CRDTRoot;
@@ -266,14 +267,75 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   /**
-   * `subscribe` adds the given observer to the fan-out list.
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * If the first argument is a target path, the callback function will be
+   * executed when the specified path is changed.
+   * If the first argument is an observer function, the callback function will
+   * be executed when the document is changed.
    */
   public subscribe(
-    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
-    error?: ErrorFn,
-    complete?: CompleteFn,
+    arg1: string | Observer<DocEvent> | NextFn<DocEvent>,
+    arg2?: NextFn<DocEvent> | ErrorFn,
+    arg3?: ErrorFn | CompleteFn,
+    arg4?: CompleteFn,
   ): Unsubscribe {
-    return this.eventStream.subscribe(nextOrObserver, error, complete);
+    if (typeof arg1 === 'string') {
+      if (typeof arg2 !== 'function') {
+        throw new Error('Second argument must be a callback function');
+      }
+      const target = arg1;
+      const callback = arg2 as NextFn<DocEvent>;
+      return this.eventStream.subscribe(
+        (event) => {
+          if (event.type === DocEventType.Snapshot) {
+            target === '$' && callback(event);
+            return;
+          }
+
+          const changes: Array<ChangeInfo> = [];
+          event.value.forEach(({ change }) => {
+            const ops: Array<Operation> = [];
+            const paths: Array<string> = [];
+            change.getOperations().forEach((op) => {
+              const createdAt = op.getEffectedCreatedAt();
+              const subPaths = this.root.createSubPaths(createdAt)!.join('.');
+              if (this.isSameElementOrChildOf(subPaths, target)) {
+                ops.push(op);
+                paths.push(subPaths);
+              }
+            });
+            ops.length &&
+              changes.push({
+                change: Change.create(change.getID(), ops, change.getMessage()),
+                paths,
+              });
+          });
+          changes.length &&
+            callback({
+              type: event.type,
+              value: changes,
+            });
+        },
+        arg3,
+        arg4,
+      );
+    }
+    if (typeof arg1 === 'function') {
+      const error = arg2 as ErrorFn;
+      const complete = arg3 as CompleteFn;
+      return this.eventStream.subscribe(arg1, error, complete);
+    }
+    throw new Error(`"${arg1}" is not a valid`);
+  }
+
+  private isSameElementOrChildOf(elem: string, parent: string): boolean {
+    if (parent === elem) {
+      return true;
+    }
+
+    const nodePath = elem.split('.');
+    const targetPath = parent.split('.');
+    return targetPath.every((path, index) => path === nodePath[index]);
   }
 
   /**
