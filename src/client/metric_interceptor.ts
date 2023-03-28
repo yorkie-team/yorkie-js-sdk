@@ -17,62 +17,33 @@
 import pkg from '../../package.json';
 
 /**
- * `AuthUnaryInterceptor` is a unary interceptor to add the Authorization header for each
- * request.
+ * `MetricUnaryInterceptor` is a unary interceptor to add the yorkie user agent header
+ * for each request.
  */
-export class AuthUnaryInterceptor {
-  private apiKey?: string;
-  private token?: string;
-
-  constructor(apiKey?: string, token?: string) {
-    this.apiKey = apiKey;
-    this.token = token;
-  }
-
+export class MetricUnaryInterceptor {
   /**
    * `intercept` intercepts the request and adds the token to the metadata.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
-    if (this.apiKey) {
-      metadata['x-api-key'] = this.apiKey;
-    }
-    if (this.token) {
-      metadata['authorization'] = this.token;
-    }
     metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
     return invoker(request);
   }
 }
 
 /**
- * `AuthStreamInterceptor` is a stream interceptor to add the Authorization header for each
- * request.
+ * `MetricStreamInterceptor` is a stream interceptor to add the yorkie user agent header
+ * for each request.
  */
-export class AuthStreamInterceptor {
-  private apiKey?: string;
-  private token?: string;
-
-  constructor(apiKey?: string, token?: string) {
-    this.apiKey = apiKey;
-    this.token = token;
-  }
-
+export class MetricStreamInterceptor {
   /**
    * `intercept` intercepts the request and adds the token to the metadata.
    */
   // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public intercept(request: any, invoker: any): any {
     const metadata = request.getMetadata();
-    if (this.apiKey) {
-      metadata['x-api-key'] = this.apiKey;
-    }
-    if (this.token) {
-      metadata['authorization'] = this.token;
-    }
     metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
-
     return invoker(request);
   }
 }

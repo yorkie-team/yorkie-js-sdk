@@ -54,7 +54,11 @@ import {
 import {
   AuthUnaryInterceptor,
   AuthStreamInterceptor,
-} from '@yorkie-js-sdk/src/client/auth';
+} from '@yorkie-js-sdk/src/client/auth_interceptor';
+import {
+  MetricUnaryInterceptor,
+  MetricStreamInterceptor,
+} from '@yorkie-js-sdk/src/client/metric_interceptor';
 import type { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
@@ -360,14 +364,18 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
 
-    let rpcOpts;
+    const rpcOpts = {
+      unaryInterceptors: [new MetricUnaryInterceptor()],
+      streamInterceptors: [new MetricStreamInterceptor()],
+    };
+
     if (opts.apiKey || opts.token) {
-      rpcOpts = {
-        unaryInterceptors: [new AuthUnaryInterceptor(opts.apiKey, opts.token)],
-        streamInterceptors: [
-          new AuthStreamInterceptor(opts.apiKey, opts.token),
-        ],
-      };
+      rpcOpts.unaryInterceptors.push(
+        new AuthUnaryInterceptor(opts.apiKey, opts.token),
+      );
+      rpcOpts.streamInterceptors.push(
+        new AuthStreamInterceptor(opts.apiKey, opts.token),
+      );
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
