@@ -45,7 +45,7 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import { ExecuteOperationResult } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
 
@@ -126,10 +126,12 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents a pair of `Change` and the JsonPath of the changed
  * element.
  */
-export interface ChangeInfo {
-  change: Change;
-  paths: Array<string>;
-}
+export type ChangeInfo = {
+  message: string;
+  modified: Array<ExecuteResult>;
+};
+
+type ExecuteResult = Omit<ExecuteOperationResult, 'element'> & { path: string };
 
 /**
  * `LocalChangeEvent` is an event that occurs when the document is changed
@@ -247,17 +249,25 @@ export class Document<T> {
       }
 
       const change = context.getChange();
-      change.execute(this.root);
+      const changeResult = change.execute(this.root).modified;
       this.localChanges.push(change);
       this.changeID = change.getID();
+      const modified = changeResult.map(({ type, element, value }) => {
+        return {
+          type,
+          value,
+          path: this.root.createSubPaths(element)!.join('.'),
+        };
+      });
+      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
 
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
           type: DocEventType.LocalChange,
           value: [
             {
-              change,
-              paths: this.createPaths(change),
+              message: change.getMessage() || '',
+              modified,
             },
           ],
         });
@@ -296,21 +306,17 @@ export class Document<T> {
           }
 
           const changes: Array<ChangeInfo> = [];
-          event.value.forEach(({ change }) => {
-            const ops: Array<Operation> = [];
-            const paths: Array<string> = [];
-            change.getOperations().forEach((op) => {
-              const createdAt = op.getEffectedCreatedAt();
-              const subPaths = this.root.createSubPaths(createdAt)!.join('.');
-              if (this.isSameElementOrChildOf(subPaths, target)) {
-                ops.push(op);
-                paths.push(subPaths);
+          event.value.forEach(({ message, modified }) => {
+            const targetModified: Array<ExecuteResult> = [];
+            modified.forEach((result) => {
+              if (this.isSameElementOrChildOf(result.path, target)) {
+                targetModified.push(result);
               }
             });
-            ops.length &&
+            targetModified.length &&
               changes.push({
-                change: Change.create(change.getID(), ops, change.getMessage()),
-                paths,
+                message,
+                modified: targetModified,
               });
           });
           changes.length &&
@@ -585,20 +591,28 @@ export class Document<T> {
       change.execute(this.clone!);
     }
 
+    const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      change.execute(this.root);
+      const modified = change
+        .execute(this.root)
+        .modified.map(({ type, element, value }) => {
+          return {
+            type,
+            value,
+            path: this.root.createSubPaths(element)!.join('.'),
+          };
+        });
+      changeInfos.push({
+        message: change.getMessage() || '',
+        modified,
+      });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
 
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
-        value: changes.map((change) => {
-          return {
-            change,
-            paths: this.createPaths(change),
-          };
-        }),
+        value: changeInfos,
       });
     }
 

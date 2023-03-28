@@ -21,6 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { ExecuteOperationResult } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
@@ -52,19 +53,22 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute(root: CRDTRoot): ExecuteOperationResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTCounter) {
-      const counter = parentObject as CRDTCounter;
-      const value = this.value.deepcopy() as Primitive;
-      counter.increase(value);
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTCounter)) {
       logger.fatal(`fail to execute, only Counter can execute increase`);
     }
+    const counter = parentObject as CRDTCounter;
+    const value = this.value.deepcopy() as Primitive;
+    counter.increase(value);
+    return {
+      type: 'increase',
+      element: this.getEffectedCreatedAt(),
+      value: value.getValue() as number,
+    };
   }
 
   /**

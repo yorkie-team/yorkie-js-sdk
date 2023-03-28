@@ -18,6 +18,12 @@ import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 
+export type ExecuteOperationResult = {
+  type: 'increase';
+  element: TimeTicket;
+  value: number;
+};
+
 /**
  * `Operation` represents an operation to be executed on a document.
  */
@@ -65,5 +71,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): void;
+  public abstract execute(root: CRDTRoot): ExecuteOperationResult;
 }
