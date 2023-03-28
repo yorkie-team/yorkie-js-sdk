@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import pkg from '../../package.json';
+
 /**
  * `AuthUnaryInterceptor` is a unary interceptor to add the Authorization header for each
  * request.
@@ -39,6 +41,7 @@ export class AuthUnaryInterceptor {
     if (this.token) {
       metadata['authorization'] = this.token;
     }
+    metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
     return invoker(request);
   }
 }
@@ -68,6 +71,8 @@ export class AuthStreamInterceptor {
     if (this.token) {
       metadata['authorization'] = this.token;
     }
+    metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
+
     return invoker(request);
   }
 }
