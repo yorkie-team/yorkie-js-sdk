@@ -36,7 +36,10 @@ import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { createJSON } from '@yorkie-js-sdk/src/document/json/element';
+import {
+  createJSON,
+  JSONElement,
+} from '@yorkie-js-sdk/src/document/json/element';
 import {
   Checkpoint,
   InitialCheckpoint,
@@ -606,6 +609,23 @@ export class Document<T> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
+  }
+
+  /**
+   * `getValueByPath` returns the JSONElement corresponding to the given path.
+   */
+  public getValueByPath(path: string): JSONElement | undefined {
+    if (!path.startsWith('$')) {
+      throw new Error('The path must start with "$"');
+    }
+    const pathArr = path.split('.');
+    pathArr.shift();
+    let value: JSONObject<any> = this.getRoot();
+    for (const key of pathArr) {
+      value = value[key];
+      if (value === undefined) return undefined;
+    }
+    return value;
   }
 
   private createPaths(change: Change): Array<string> {
