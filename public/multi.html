@@ -162,8 +162,10 @@
             // const newTodo = event.value[0].change.operations[0].value.getValue()
             // addTodo(text);
             displayTodos();
-            todoInput.value = '';
-            todoInput.focus();
+            if (event.type === 'local-change') {
+              todoInput.value = '';
+              todoInput.focus();
+            }
           });
 
           function displayTodos() {
@@ -175,9 +177,17 @@
           }
 
           function addTodo(text) {
-            const addItem = document.createElement('li');
-            addItem.innerHTML = `<span class="item_name">${text}</span><button class="trash">🗑</button>`;
-            todoList.appendChild(addItem);
+            const newTodo = document.createElement('li');
+            const todoText = document.createElement('span');
+            todoText.classList.add('item_name');
+            todoText.textContent = text;
+            const deleteButton = document.createElement('button');
+            deleteButton.classList.add('trash');
+            deleteButton.textContent = '🗑';
+
+            newTodo.appendChild(todoText);
+            newTodo.appendChild(deleteButton);
+            todoList.appendChild(newTodo);
           }
 
           function handleAddTodo() {

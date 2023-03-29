@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  Modified,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { ExecuteOperationResult } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
@@ -53,7 +55,7 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecuteOperationResult {
+  public execute(root: CRDTRoot): Modified {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);

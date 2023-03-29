@@ -45,7 +45,11 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { ExecuteOperationResult } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Modified,
+  AddOpModified,
+  IncreaseOpModified,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
 
@@ -128,10 +132,12 @@ export interface SnapshotEvent extends BaseDocEvent {
  */
 export type ChangeInfo = {
   message: string;
-  modified: Array<ExecuteResult>;
+  updates: Array<UpdateDelta>;
 };
-
-type ExecuteResult = Omit<ExecuteOperationResult, 'element'> & { path: string };
+type UpdateDelta =
+  | ModifiedWithPath<AddOpModified>
+  | ModifiedWithPath<IncreaseOpModified>;
+type ModifiedWithPath<T> = Omit<T, 'element'> & { path: string };
 
 /**
  * `LocalChangeEvent` is an event that occurs when the document is changed
@@ -249,17 +255,9 @@ export class Document<T> {
       }
 
       const change = context.getChange();
-      const changeResult = change.execute(this.root).modified;
+      const changeModified = change.execute(this.root);
       this.localChanges.push(change);
       this.changeID = change.getID();
-      const modified = changeResult.map(({ type, element, value }) => {
-        return {
-          type,
-          value,
-          path: this.root.createSubPaths(element)!.join('.'),
-        };
-      });
-      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
 
       if (this.eventStreamObserver) {
         this.eventStreamObserver.next({
@@ -267,7 +265,9 @@ export class Document<T> {
           value: [
             {
               message: change.getMessage() || '',
-              modified,
+              updates: changeModified.map((modified) =>
+                this.getUpdateDelta(modified),
+              ),
             },
           ],
         });
@@ -306,17 +306,17 @@ export class Document<T> {
           }
 
           const changes: Array<ChangeInfo> = [];
-          event.value.forEach(({ message, modified }) => {
-            const targetModified: Array<ExecuteResult> = [];
-            modified.forEach((result) => {
+          event.value.forEach(({ message, updates }) => {
+            const targetUpdates: Array<UpdateDelta> = [];
+            updates.forEach((result) => {
               if (this.isSameElementOrChildOf(result.path, target)) {
-                targetModified.push(result);
+                targetUpdates.push(result);
               }
             });
-            targetModified.length &&
+            targetUpdates.length &&
               changes.push({
                 message,
-                modified: targetModified,
+                updates: targetUpdates,
               });
           });
           changes.length &&
@@ -593,18 +593,12 @@ export class Document<T> {
 
     const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      const modified = change
-        .execute(this.root)
-        .modified.map(({ type, element, value }) => {
-          return {
-            type,
-            value,
-            path: this.root.createSubPaths(element)!.join('.'),
-          };
-        });
+      const changeModified = change.execute(this.root);
       changeInfos.push({
         message: change.getMessage() || '',
-        modified,
+        updates: changeModified.map((modified) =>
+          this.getUpdateDelta(modified),
+        ),
       });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
@@ -653,5 +647,18 @@ export class Document<T> {
       }
     }
     return pathTrie.findPrefixes().map((element) => element.join('.'));
+  }
+
+  private getUpdateDelta(modified: Modified): UpdateDelta {
+    const delta = {} as UpdateDelta;
+    for (const key of Object.keys(modified)) {
+      if (key === 'element') {
+        delta.path = this.root.createSubPaths(modified[key])!.join('.');
+      } else {
+        const k = key as keyof Omit<Modified, 'element'>;
+        delta[k] = modified[k] as any;
+      }
+    }
+    return delta;
   }
 }

@@ -17,14 +17,10 @@
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
   Operation,
-  ExecuteOperationResult,
+  Modified,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-
-export type ExecuteChangeResult = {
-  modified: Array<ExecuteOperationResult>;
-};
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -90,15 +86,13 @@ export class Change {
   /**
    * `execute` executes the operations of this change to the given root.
    */
-  public execute(root: CRDTRoot): ExecuteChangeResult {
-    const operationResult: Array<ExecuteOperationResult> = [];
+  public execute(root: CRDTRoot): Array<Modified> {
+    const changeModified: Array<Modified> = [];
     for (const operation of this.operations) {
-      const result = operation.execute(root);
-      if (result) operationResult.push(result);
+      const modified = operation.execute(root);
+      if (modified) changeModified.push(modified);
     }
-    return {
-      modified: operationResult,
-    };
+    return changeModified;
   }
 
   /**
