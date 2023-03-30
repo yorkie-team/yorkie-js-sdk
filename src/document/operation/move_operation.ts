@@ -73,8 +73,6 @@ export class MoveOperation extends Operation {
     const previousIndex = Number(array.subPathOf(this.createdAt));
     array.moveAfter(this.prevCreatedAt, this.createdAt, this.getExecutedAt());
     const index = Number(array.subPathOf(this.createdAt));
-    console.log(previousIndex, index);
-
     return {
       type: 'move',
       element: this.getParentCreatedAt(),

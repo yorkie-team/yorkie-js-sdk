@@ -214,20 +214,19 @@
           }
 
           let dragIndex = -1;
+          let dropIndex = -1;
           function handleDragStart(i) {
-            console.log('👻 drag start', i);
             dragIndex = i;
           }
           function handleDragOver(e, i) {
             e.preventDefault();
-            if (dragIndex === i) return;
-            console.log('👻 drag over', e, i);
-            swapTodo(dragIndex, i);
-            dragIndex = i;
+            dropIndex = i;
           }
           function handleDragEnd() {
-            console.log('👻 drag end');
+            if (dragIndex === dropIndex) return;
+            swapTodo(dragIndex, dropIndex);
             dragIndex = -1;
+            dropIndex = -1;
           }
           function swapTodo(dragIdx, dropIdx) {
             doc.update((root) => {
