@@ -95,11 +95,9 @@ export class CRDTRoot {
     const subPaths: Array<string> = [];
     while (pair.parent) {
       const createdAt = pair.element.getCreatedAt();
-      let subPath = pair.parent.subPathOf(createdAt);
+      const subPath = pair.parent.subPathOf(createdAt);
       if (subPath === undefined) {
         logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
-      } else {
-        subPath = subPath.replace(/[$.]/g, '\\$&');
       }
 
       subPaths.unshift(subPath!);

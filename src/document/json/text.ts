@@ -85,7 +85,7 @@ export class Text<A extends Indexable = Indexable> {
       ? this.text.stringifyAttributes(attributes)
       : undefined;
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = this.text.edit(
+    const [maxCreatedAtMapByActor] = this.text.edit(
       range,
       content,
       ticket,

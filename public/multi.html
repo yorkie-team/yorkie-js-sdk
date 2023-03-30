@@ -293,6 +293,10 @@
           });
 
           // 05. Quill example
+          doc.subscribe('$.content', (event) => {
+            console.log('🔵 quill event', event);
+          });
+
           Quill.register('modules/cursors', QuillCursors);
           const quill = new Quill('#editor', {
             modules: {

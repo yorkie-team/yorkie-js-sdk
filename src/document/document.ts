@@ -49,6 +49,12 @@ import {
   Modified,
   AddOpModified,
   IncreaseOpModified,
+  RemoveOpModified,
+  SetOpModified,
+  MoveOpModified,
+  EditOpModified,
+  StyleOpModified,
+  SelectOpModified,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
@@ -136,8 +142,15 @@ export type ChangeInfo = {
 };
 type UpdateDelta =
   | ModifiedWithPath<AddOpModified>
-  | ModifiedWithPath<IncreaseOpModified>;
-type ModifiedWithPath<T> = Omit<T, 'element'> & { path: string };
+  | ModifiedWithPath<IncreaseOpModified>
+  | ModifiedWithPath<RemoveOpModified>
+  | ModifiedWithPath<SetOpModified>
+  | ModifiedWithPath<MoveOpModified>
+  | ModifiedWithPath<EditOpModified>
+  | ModifiedWithPath<StyleOpModified>
+  | ModifiedWithPath<SelectOpModified>;
+
+export type ModifiedWithPath<T> = Omit<T, 'element'> & { path: string };
 
 /**
  * `LocalChangeEvent` is an event that occurs when the document is changed

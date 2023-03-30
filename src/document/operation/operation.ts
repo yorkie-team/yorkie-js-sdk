@@ -19,6 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 export type AddOpModified = {
   type: 'add';
@@ -36,7 +37,7 @@ export type SetOpModified = {
   type: 'set';
   element: TimeTicket;
   value: CRDTElement | PrimitiveValue;
-  key?: string;
+  key: string;
 };
 export type RemoveOpModified = {
   type: 'remove';
@@ -49,12 +50,44 @@ export type IncreaseOpModified = {
   element: TimeTicket;
   value: number;
 };
+export type EditOpModified = {
+  type: 'edit';
+  actor: ActorID;
+  from: number;
+  to: number;
+  element: TimeTicket;
+  value: {
+    attributes: Indexable;
+    content: string;
+  };
+};
+export type StyleOpModified = {
+  type: 'style';
+  actor: ActorID;
+  from: number;
+  to: number;
+  element: TimeTicket;
+  value: {
+    attributes: Indexable;
+  };
+};
+export type SelectOpModified = {
+  type: 'select';
+  actor: ActorID;
+  from: number;
+  to: number;
+  element: TimeTicket;
+};
+
 export type Modified =
   | AddOpModified
   | IncreaseOpModified
   | RemoveOpModified
   | SetOpModified
-  | MoveOpModified;
+  | MoveOpModified
+  | EditOpModified
+  | StyleOpModified
+  | SelectOpModified;
 
 /**
  * `Operation` represents an operation to be executed on a document.
@@ -103,5 +136,7 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): Modified | void;
+  public abstract execute(
+    root: CRDTRoot,
+  ): Array<Modified> | Modified | undefined;
 }

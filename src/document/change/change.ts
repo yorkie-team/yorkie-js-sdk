@@ -90,7 +90,11 @@ export class Change {
     const changeModified: Array<Modified> = [];
     for (const operation of this.operations) {
       const modified = operation.execute(root);
-      if (modified) changeModified.push(modified);
+      if (Array.isArray(modified)) {
+        changeModified.push(...modified);
+      } else if (modified) {
+        changeModified.push(modified);
+      }
     }
     return changeModified;
   }
