@@ -26,12 +26,18 @@ export type AddOpModified = {
   value: CRDTElement | PrimitiveValue;
   index: number | undefined;
 };
+export type RemoveOpModified = {
+  type: 'remove';
+  element: TimeTicket;
+  key?: string;
+  index?: number | undefined;
+};
 export type IncreaseOpModified = {
   type: 'increase';
   element: TimeTicket;
   value: number;
 };
-export type Modified = AddOpModified | IncreaseOpModified;
+export type Modified = AddOpModified | IncreaseOpModified | RemoveOpModified;
 
 /**
  * `Operation` represents an operation to be executed on a document.

@@ -73,7 +73,7 @@ export class AddOperation extends Operation {
     const index = Number(array.subPathOf(this.getEffectedCreatedAt()));
     return {
       type: 'add',
-      element: this.getEffectedCreatedAt(),
+      element: this.getParentCreatedAt(),
       value: value instanceof Primitive ? value.getValue() : value,
       index: isNaN(index) ? undefined : index,
     };
