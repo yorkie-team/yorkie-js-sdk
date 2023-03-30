@@ -24,7 +24,13 @@ export type AddOpModified = {
   type: 'add';
   element: TimeTicket;
   value: CRDTElement | PrimitiveValue;
-  index: number | undefined;
+  index: number;
+};
+export type MoveOpModified = {
+  type: 'move';
+  element: TimeTicket;
+  previousIndex: number;
+  index: number;
 };
 export type SetOpModified = {
   type: 'set';
@@ -36,7 +42,7 @@ export type RemoveOpModified = {
   type: 'remove';
   element: TimeTicket;
   key?: string;
-  index?: number | undefined;
+  index?: number;
 };
 export type IncreaseOpModified = {
   type: 'increase';
@@ -47,7 +53,8 @@ export type Modified =
   | AddOpModified
   | IncreaseOpModified
   | RemoveOpModified
-  | SetOpModified;
+  | SetOpModified
+  | MoveOpModified;
 
 /**
  * `Operation` represents an operation to be executed on a document.

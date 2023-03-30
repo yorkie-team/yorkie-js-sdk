@@ -70,7 +70,7 @@ export class RemoveOperation extends Operation {
       ? {
           type: 'remove',
           element: this.getEffectedCreatedAt(),
-          index: isNaN(Number(key)) ? undefined : Number(key),
+          index: Number(key),
         }
       : {
           type: 'remove',

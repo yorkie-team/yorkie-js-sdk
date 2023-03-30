@@ -70,12 +70,11 @@ export class AddOperation extends Operation {
     const value = this.value.deepcopy();
     array.insertAfter(this.prevCreatedAt, value);
     root.registerElement(value, array);
-    const index = Number(array.subPathOf(this.getEffectedCreatedAt()));
     return {
       type: 'add',
       element: this.getParentCreatedAt(),
       value: value instanceof Primitive ? value.getValue() : value,
-      index: isNaN(index) ? undefined : index,
+      index: Number(array.subPathOf(this.getEffectedCreatedAt())),
     };
   }
 

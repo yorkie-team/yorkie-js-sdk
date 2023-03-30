@@ -116,20 +116,35 @@ button {
   overflow-y: auto;
 }
 .todoList li {
-  padding: 10px 0 10px 20px;
+  display: flex;
+  padding: 10px;
   font-size: 0.9em;
 }
 .todoList li:hover,
 .todoList li:focus {
   background: #e2e2e2;
 }
-.todoList li .item_name {
-  display: inline-block;
-  width: 84%;
+.todoList li .itemName {
+  padding: 0 10px;
+  flex: 1;
   word-break: break-all;
 }
 .todoList .trash {
+  background: transparent;
   border: none;
+}
+.todoList .moveUp,
+.todoList .moveDown {
+  background: #fff;
+  border-radius: 10px;
+  border: none;
+  margin-right: 4px;
+  color: #666;
+}
+.todoList .trash:hover,
+.todoList .moveUp:hover,
+.todoList .moveDown:hover {
+  scale: 1.1;
 }
 .todoNew {
   display: flex;

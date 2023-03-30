@@ -405,7 +405,7 @@ export class ArrayProxy {
   }
 
   /**
-   * `moveAfterInternal` moves the given `createdAt` element
+   * `moveLastInternal` moves the given `createdAt` element
    * at the last of array.
    */
   public static moveLastInternal(
