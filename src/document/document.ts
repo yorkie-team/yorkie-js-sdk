@@ -140,7 +140,7 @@ export type ChangeInfo = {
   message: string;
   updates: Array<UpdateDelta>;
 };
-type UpdateDelta =
+export type UpdateDelta =
   | ModifiedWithPath<AddOpModified>
   | ModifiedWithPath<IncreaseOpModified>
   | ModifiedWithPath<RemoveOpModified>

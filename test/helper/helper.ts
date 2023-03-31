@@ -19,7 +19,22 @@ import { EventEmitter } from 'events';
 import { NextFn } from '@yorkie-js-sdk/src/util/observable';
 
 import { ClientEvent } from '@yorkie-js-sdk/src/client/client';
-import { DocEvent } from '@yorkie-js-sdk/src/document/document';
+import {
+  DocEvent,
+  UpdateDelta,
+  ModifiedWithPath,
+} from '@yorkie-js-sdk/src/document/document';
+import {
+  AddOpModified,
+  IncreaseOpModified,
+  RemoveOpModified,
+  SetOpModified,
+  MoveOpModified,
+  EditOpModified,
+  StyleOpModified,
+  SelectOpModified,
+} from '@yorkie-js-sdk/src/document/operation/operation';
+
 import {
   TextChange,
   TextChangeType,
@@ -31,6 +46,58 @@ export function range(from: number, to: number): Array<number> {
     list.push(idx);
   }
   return list;
+}
+
+export type TestDocEvent = {
+  type: string;
+  path: string;
+} & { [key: string]: any };
+export function getUpdateDeltaForTest(updateDelta: UpdateDelta): TestDocEvent {
+  const type = updateDelta.type;
+  switch (type) {
+    case 'set': {
+      const { type, path, key } =
+        updateDelta as ModifiedWithPath<SetOpModified>;
+      return { type, path, key };
+    }
+    case 'add': {
+      const { type, path, index } =
+        updateDelta as ModifiedWithPath<AddOpModified>;
+      return { type, path, index };
+    }
+    case 'move': {
+      const { type, path, index, previousIndex } =
+        updateDelta as ModifiedWithPath<MoveOpModified>;
+      return { type, path, index, previousIndex };
+    }
+    case 'remove': {
+      const { type, path, key, index } =
+        updateDelta as ModifiedWithPath<RemoveOpModified>;
+      return key !== undefined ? { type, path, key } : { type, path, index };
+    }
+    case 'increase': {
+      const { type, path, value } =
+        updateDelta as ModifiedWithPath<IncreaseOpModified>;
+      return { type, path, value };
+    }
+    case 'edit': {
+      const { type, path, actor, from, to, value } =
+        updateDelta as ModifiedWithPath<EditOpModified>;
+      return { type, path, actor, from, to, value };
+    }
+    case 'style': {
+      const { type, path, actor, from, to, value } =
+        updateDelta as ModifiedWithPath<StyleOpModified>;
+      return { type, path, actor, from, to, value };
+    }
+    case 'select': {
+      const { type, path, actor, from, to } =
+        updateDelta as ModifiedWithPath<SelectOpModified>;
+      return { type, path, actor, from, to };
+    }
+    default:
+      throw new Error(`unsupported updateDelta type: ${type}`);
+  }
 }
 
 export type Indexable = Record<string, any>;

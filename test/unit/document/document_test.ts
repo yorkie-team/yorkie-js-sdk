@@ -15,6 +15,11 @@
  */
 
 import { assert } from 'chai';
+import {
+  getUpdateDeltaForTest,
+  TestDocEvent,
+} from '@yorkie-js-sdk/test/helper/helper';
+
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
@@ -932,85 +937,105 @@ describe('Document', function () {
     assert.equal(4, doc.getRoot().data.length);
   });
 
-  it('change paths test for object', async function () {
+  it('detect events for object', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const paths: Array<string> = [];
-
+    const expectedEvents: Array<TestDocEvent> = [];
     doc.subscribe((event) => {
       assert.equal(event.type, DocEventType.LocalChange);
-      if (event.type === DocEventType.LocalChange) {
-        assert.deepEqual(event.value[0].paths, paths);
-      }
+      if (event.type !== DocEventType.LocalChange) return;
+
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta, i) => {
+          assert.deepEqual(
+            getUpdateDeltaForTest(updateDelta),
+            expectedEvents[i],
+          );
+        });
+      });
     });
 
-    // NOTE(hackerwins): We skip nested paths after introducing the trie.
     doc.update((root) => {
       root[''] = {};
-      paths.push('$.');
-
+      expectedEvents.push({ type: 'set', path: '$', key: '' });
       root.obj = {};
-      paths.push('$.obj');
+      expectedEvents.push({ type: 'set', path: '$', key: 'obj' });
       root.obj.a = 1;
-      // paths.push('$.obj.a');
+      expectedEvents.push({ type: 'set', path: '$.obj', key: 'a' });
       delete root.obj.a;
-      // paths.push('$.obj');
+      expectedEvents.push({ type: 'remove', path: '$.obj', key: 'a' });
       root.obj['$.hello'] = 1;
-      // paths.push('$.obj.\\$\\.hello');
+      expectedEvents.push({ type: 'set', path: '$.obj', key: '$.hello' });
       delete root.obj['$.hello'];
-      // paths.push('$.obj');
+      expectedEvents.push({ type: 'remove', path: '$.obj', key: '$.hello' });
       delete root.obj;
-      // paths.push('$');
+      expectedEvents.push({ type: 'remove', path: '$', key: 'obj' });
     });
   });
 
-  it('change paths test for array', async function () {
+  it('detect events for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const paths: Array<string> = [];
-
+    const expectedEvents: Array<TestDocEvent> = [];
     doc.subscribe((event) => {
       assert.equal(event.type, DocEventType.LocalChange);
-      if (event.type === DocEventType.LocalChange) {
-        assert.deepEqual(event.value[0].paths, paths);
-      }
+      if (event.type !== DocEventType.LocalChange) return;
+
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta, i) => {
+          assert.deepEqual(
+            getUpdateDeltaForTest(updateDelta),
+            expectedEvents[i],
+          );
+        });
+      });
     });
 
-    // NOTE(hackerwins): We skip nested paths after introducing the trie.
     doc.update((root) => {
       root.arr = [];
-      paths.push('$.arr');
+      expectedEvents.push({ type: 'set', path: '$', key: 'arr' });
       root.arr.push(0);
-      // paths.push('$.arr.0');
+      expectedEvents.push({ type: 'add', path: '$.arr', index: 0 });
       root.arr.push(1);
-      // paths.push('$.arr.1');
+      expectedEvents.push({ type: 'add', path: '$.arr', index: 1 });
       delete root.arr[1];
-      // paths.push('$.arr');
+      expectedEvents.push({ type: 'remove', path: '$.arr', index: 1 });
       root['$$...hello'] = [];
-      paths.push('$.\\$\\$\\.\\.\\.hello');
+      expectedEvents.push({ type: 'set', path: '$', key: '$$...hello' });
       root['$$...hello'].push(0);
-      // paths.push('$.\\$\\$\\.\\.\\.hello.0');
+      expectedEvents.push({ type: 'add', path: '$.$$...hello', index: 0 });
     });
   });
 
-  it('change paths test for counter', async function () {
+  it('detect events for counter', async function () {
     type TestDoc = { cnt: Counter };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const paths: Array<string> = [];
+    const expectedEvents: Array<TestDocEvent> = [];
 
     doc.subscribe((event) => {
       assert.equal(event.type, DocEventType.LocalChange);
-      if (event.type === DocEventType.LocalChange) {
-        assert.deepEqual(event.value[0].paths, paths);
-      }
+      if (event.type !== DocEventType.LocalChange) return;
+
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta, i) => {
+          assert.deepEqual(
+            getUpdateDeltaForTest(updateDelta),
+            expectedEvents[i],
+          );
+        });
+      });
     });
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
-      paths.push('$.cnt');
+      expectedEvents.push({ type: 'set', path: '$', key: 'cnt' });
       root.cnt.increase(1);
-      paths.push('$.cnt');
+      expectedEvents.push({ type: 'increase', path: '$.cnt', value: 1 });
+      root.cnt.increase(10);
+      expectedEvents.push({ type: 'increase', path: '$.cnt', value: 10 });
+      root.cnt.increase(-3);
+      expectedEvents.push({ type: 'increase', path: '$.cnt', value: -3 });
     });
   });
 
@@ -1028,50 +1053,91 @@ describe('Document', function () {
     });
   });
 
-  it('change paths test for text', async function () {
+  it('detect events for text', async function () {
     type TestDoc = { text: Text };
 
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const paths: Array<string> = [];
+    const expectedEvents: Array<TestDocEvent> = [];
 
     doc.subscribe((event) => {
       assert.equal(event.type, DocEventType.LocalChange);
-      if (event.type === DocEventType.LocalChange) {
-        assert.deepEqual(event.value[0].paths, paths);
-      }
+      if (event.type !== DocEventType.LocalChange) return;
+
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta, i) => {
+          assert.deepEqual(
+            getUpdateDeltaForTest(updateDelta),
+            expectedEvents[i],
+          );
+        });
+      });
     });
 
     doc.update((root) => {
       root.text = new Text();
-      paths.push('$.text');
+      expectedEvents.push({ type: 'set', path: '$', key: 'text' });
       root.text.edit(0, 0, 'hello world');
-      paths.push('$.text');
+      expectedEvents.push({
+        type: 'edit',
+        path: '$.text',
+        actor: '000000000000000000000000',
+        from: 0,
+        to: 0,
+        value: { attributes: {}, content: 'hello world' },
+      });
       root.text.select(0, 2);
-      paths.push('$.text');
+      expectedEvents.push({
+        type: 'select',
+        path: '$.text',
+        actor: '000000000000000000000000',
+        from: 0,
+        to: 2,
+      });
     });
   });
 
-  it('change paths test for text with attributes', async function () {
+  it('detect events for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const paths: Array<string> = [];
+    const expectedEvents: Array<TestDocEvent> = [];
 
     doc.subscribe((event) => {
       assert.equal(event.type, DocEventType.LocalChange);
-      if (event.type === DocEventType.LocalChange) {
-        assert.deepEqual(event.value[0].paths, paths);
-      }
+      if (event.type !== DocEventType.LocalChange) return;
+
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta, i) => {
+          assert.deepEqual(
+            getUpdateDeltaForTest(updateDelta),
+            expectedEvents[i],
+          );
+        });
+      });
     });
 
     doc.update((root) => {
       root.textWithAttr = new Text();
-      paths.push('$.textWithAttr');
+      expectedEvents.push({ type: 'set', path: '$', key: 'textWithAttr' });
       root.textWithAttr.edit(0, 0, 'hello world');
-      paths.push('$.textWithAttr');
+      expectedEvents.push({
+        type: 'edit',
+        path: '$.textWithAttr',
+        actor: '000000000000000000000000',
+        from: 0,
+        to: 0,
+        value: { attributes: {}, content: 'hello world' },
+      });
       root.textWithAttr.setStyle(0, 1, { bold: 'true' });
-      paths.push('$.textWithAttr');
+      expectedEvents.push({
+        type: 'style',
+        path: '$.textWithAttr',
+        actor: '000000000000000000000000',
+        from: 0,
+        to: 1,
+        value: { attributes: { bold: 'true' } },
+      });
     });
   });
 

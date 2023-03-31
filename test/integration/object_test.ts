@@ -1,6 +1,10 @@
 import { assert } from 'chai';
+import {
+  getUpdateDeltaForTest,
+  TestDocEvent,
+} from '@yorkie-js-sdk/test/helper/helper';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
-import { DocEventType, Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Object', function () {
@@ -180,20 +184,31 @@ describe('Object', function () {
       };
       k2: number;
     }>(async (c1, d1, c2, d2) => {
+      const expectedEvents: Array<TestDocEvent> = [];
+      const expectedEvents2: Array<TestDocEvent> = [];
       // TODO(hackerwins): consider replacing the below code with `createEmitterAndSpy`.
       d2.subscribe((event) => {
-        if (event.type === DocEventType.RemoteChange) {
-          assert.deepEqual(event.value[0].paths.sort(), ['$.k1', '$.k2']);
-        }
+        if (event.type !== DocEventType.RemoteChange) return;
+
+        event.value.forEach(({ updates }) => {
+          updates.forEach((updateDelta, i) => {
+            assert.deepEqual(
+              getUpdateDeltaForTest(updateDelta),
+              expectedEvents[i],
+            );
+          });
+        });
       });
       d1.subscribe((event) => {
-        if (event.type === DocEventType.RemoteChange) {
-          assert.deepEqual(event.value[0].paths, [
-            '$.k1.selected',
-            '$.k1.layers.0.a',
-            '$.k2',
-          ]);
-        }
+        if (event.type !== DocEventType.RemoteChange) return;
+        event.value.forEach(({ updates }) => {
+          updates.forEach((updateDelta, i) => {
+            assert.deepEqual(
+              getUpdateDeltaForTest(updateDelta),
+              expectedEvents2[i],
+            );
+          });
+        });
       });
       d1.update((root) => {
         root['k1'] = {
@@ -205,6 +220,17 @@ describe('Object', function () {
         root['k1']['selected'] = true;
         root['k1']['test'] = 'change';
         root['k2'] = 5;
+        expectedEvents.push({ type: 'set', path: '$', key: 'k1' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'id' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'selected' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'test' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'layers' });
+        expectedEvents.push({ type: 'add', path: '$.k1.layers', index: 0 });
+        expectedEvents.push({ type: 'set', path: '$.k1.layers.0', key: 'a' });
+        expectedEvents.push({ type: 'set', path: '$.k1.layers.0', key: 'b' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'selected' });
+        expectedEvents.push({ type: 'set', path: '$.k1', key: 'test' });
+        expectedEvents.push({ type: 'set', path: '$', key: 'k2' });
       });
 
       await c1.sync();
@@ -214,6 +240,9 @@ describe('Object', function () {
         root['k1']['selected'] = false;
         root['k1']['layers'][0]['a'] = 'hi2';
         root['k2']++;
+        expectedEvents2.push({ type: 'set', path: '$.k1', key: 'selected' });
+        expectedEvents2.push({ type: 'set', path: '$.k1.layers.0', key: 'a' });
+        expectedEvents2.push({ type: 'set', path: '$', key: 'k2' });
       });
       await c1.sync();
       await c2.sync();
