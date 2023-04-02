@@ -1,10 +1,16 @@
 import { assert } from 'chai';
+import * as sinon from 'sinon';
 import {
   getUpdateDeltaForTest,
   TestDocEvent,
+  waitStubCallCount,
 } from '@yorkie-js-sdk/test/helper/helper';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
-import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import {
+  Document,
+  DocEvent,
+  DocEventType,
+} from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Object', function () {
@@ -184,32 +190,27 @@ describe('Object', function () {
       };
       k2: number;
     }>(async (c1, d1, c2, d2) => {
-      const expectedEvents: Array<TestDocEvent> = [];
+      const events1: Array<TestDocEvent> = [];
+      const expectedEvents1: Array<TestDocEvent> = [];
+      const events2: Array<TestDocEvent> = [];
       const expectedEvents2: Array<TestDocEvent> = [];
-      // TODO(hackerwins): consider replacing the below code with `createEmitterAndSpy`.
-      d2.subscribe((event) => {
-        if (event.type !== DocEventType.RemoteChange) return;
+      const pushEvent = (event: DocEvent, events: Array<TestDocEvent>) => {
+        if (event.type !== DocEventType.LocalChange) return;
+        event.value.forEach(({ updates }) => {
+          updates.forEach((updateDelta) => {
+            events.push(getUpdateDeltaForTest(updateDelta));
+          });
+        });
+      };
+      const stub1 = sinon
+        .stub()
+        .callsFake((event) => pushEvent(event, events1));
+      const stub2 = sinon
+        .stub()
+        .callsFake((event) => pushEvent(event, events2));
+      const unsub1 = d1.subscribe(stub1);
+      const unsub2 = d2.subscribe(stub2);
 
-        event.value.forEach(({ updates }) => {
-          updates.forEach((updateDelta, i) => {
-            assert.deepEqual(
-              getUpdateDeltaForTest(updateDelta),
-              expectedEvents[i],
-            );
-          });
-        });
-      });
-      d1.subscribe((event) => {
-        if (event.type !== DocEventType.RemoteChange) return;
-        event.value.forEach(({ updates }) => {
-          updates.forEach((updateDelta, i) => {
-            assert.deepEqual(
-              getUpdateDeltaForTest(updateDelta),
-              expectedEvents2[i],
-            );
-          });
-        });
-      });
       d1.update((root) => {
         root['k1'] = {
           id: 'id7fb51ad',
@@ -220,22 +221,20 @@ describe('Object', function () {
         root['k1']['selected'] = true;
         root['k1']['test'] = 'change';
         root['k2'] = 5;
-        expectedEvents.push({ type: 'set', path: '$', key: 'k1' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'id' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'selected' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'test' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'layers' });
-        expectedEvents.push({ type: 'add', path: '$.k1.layers', index: 0 });
-        expectedEvents.push({ type: 'set', path: '$.k1.layers.0', key: 'a' });
-        expectedEvents.push({ type: 'set', path: '$.k1.layers.0', key: 'b' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'selected' });
-        expectedEvents.push({ type: 'set', path: '$.k1', key: 'test' });
-        expectedEvents.push({ type: 'set', path: '$', key: 'k2' });
+        expectedEvents1.push({ type: 'set', path: '$', key: 'k1' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'id' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'selected' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'test' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'layers' });
+        expectedEvents1.push({ type: 'add', path: '$.k1.layers', index: 0 });
+        expectedEvents1.push({ type: 'set', path: '$.k1.layers.0', key: 'a' });
+        expectedEvents1.push({ type: 'set', path: '$.k1.layers.0', key: 'b' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'selected' });
+        expectedEvents1.push({ type: 'set', path: '$.k1', key: 'test' });
+        expectedEvents1.push({ type: 'set', path: '$', key: 'k2' });
       });
-
       await c1.sync();
       await c2.sync();
-      await c1.sync();
       d2.update((root) => {
         root['k1']['selected'] = false;
         root['k1']['layers'][0]['a'] = 'hi2';
@@ -244,9 +243,28 @@ describe('Object', function () {
         expectedEvents2.push({ type: 'set', path: '$.k1.layers.0', key: 'a' });
         expectedEvents2.push({ type: 'set', path: '$', key: 'k2' });
       });
-      await c1.sync();
       await c2.sync();
       await c1.sync();
+      await waitStubCallCount(stub1, 2);
+      await waitStubCallCount(stub2, 2);
+
+      assert.deepEqual(
+        events1,
+        expectedEvents1,
+        `actual: ${JSON.stringify(events1)} \n expected: ${JSON.stringify(
+          expectedEvents1,
+        )}`,
+      );
+      assert.deepEqual(
+        events2,
+        expectedEvents2,
+        `actual: ${JSON.stringify(events2)} \n expected: ${JSON.stringify(
+          expectedEvents2,
+        )}`,
+      );
+
+      unsub1();
+      unsub2();
     }, this.test!.title);
   });
 });

@@ -15,13 +15,19 @@
  */
 
 import { assert } from 'chai';
+import * as sinon from 'sinon';
 import {
   getUpdateDeltaForTest,
   TestDocEvent,
+  waitStubCallCount,
 } from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import {
+  Document,
+  DocEvent,
+  DocEventType,
+} from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
@@ -941,19 +947,16 @@ describe('Document', function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<TestDocEvent> = [];
-    doc.subscribe((event) => {
-      assert.equal(event.type, DocEventType.LocalChange);
+    const events: Array<TestDocEvent> = [];
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-
       event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta, i) => {
-          assert.deepEqual(
-            getUpdateDeltaForTest(updateDelta),
-            expectedEvents[i],
-          );
+        updates.forEach((updateDelta) => {
+          events.push(getUpdateDeltaForTest(updateDelta));
         });
       });
     });
+    const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root[''] = {};
@@ -971,25 +974,32 @@ describe('Document', function () {
       delete root.obj;
       expectedEvents.push({ type: 'remove', path: '$', key: 'obj' });
     });
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      events,
+      expectedEvents,
+      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
+        expectedEvents,
+      )}`,
+    );
+
+    unsub1();
   });
 
   it('detect events for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<TestDocEvent> = [];
-    doc.subscribe((event) => {
-      assert.equal(event.type, DocEventType.LocalChange);
+    const events: Array<TestDocEvent> = [];
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-
       event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta, i) => {
-          assert.deepEqual(
-            getUpdateDeltaForTest(updateDelta),
-            expectedEvents[i],
-          );
+        updates.forEach((updateDelta) => {
+          events.push(getUpdateDeltaForTest(updateDelta));
         });
       });
     });
+    const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.arr = [];
@@ -1005,6 +1015,16 @@ describe('Document', function () {
       root['$$...hello'].push(0);
       expectedEvents.push({ type: 'add', path: '$.$$...hello', index: 0 });
     });
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      events,
+      expectedEvents,
+      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
+        expectedEvents,
+      )}`,
+    );
+
+    unsub1();
   });
 
   it('detect events for counter', async function () {
@@ -1012,20 +1032,17 @@ describe('Document', function () {
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<TestDocEvent> = [];
+    const events: Array<TestDocEvent> = [];
 
-    doc.subscribe((event) => {
-      assert.equal(event.type, DocEventType.LocalChange);
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-
       event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta, i) => {
-          assert.deepEqual(
-            getUpdateDeltaForTest(updateDelta),
-            expectedEvents[i],
-          );
+        updates.forEach((updateDelta) => {
+          events.push(getUpdateDeltaForTest(updateDelta));
         });
       });
     });
+    const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
@@ -1037,6 +1054,16 @@ describe('Document', function () {
       root.cnt.increase(-3);
       expectedEvents.push({ type: 'increase', path: '$.cnt', value: -3 });
     });
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      events,
+      expectedEvents,
+      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
+        expectedEvents,
+      )}`,
+    );
+
+    unsub1();
   });
 
   it('support TypeScript', function () {
@@ -1059,20 +1086,16 @@ describe('Document', function () {
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<TestDocEvent> = [];
-
-    doc.subscribe((event) => {
-      assert.equal(event.type, DocEventType.LocalChange);
+    const events: Array<TestDocEvent> = [];
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-
       event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta, i) => {
-          assert.deepEqual(
-            getUpdateDeltaForTest(updateDelta),
-            expectedEvents[i],
-          );
+        updates.forEach((updateDelta) => {
+          events.push(getUpdateDeltaForTest(updateDelta));
         });
       });
     });
+    const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.text = new Text();
@@ -1095,6 +1118,16 @@ describe('Document', function () {
         to: 2,
       });
     });
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      events,
+      expectedEvents,
+      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
+        expectedEvents,
+      )}`,
+    );
+
+    unsub1();
   });
 
   it('detect events for text with attributes', async function () {
@@ -1102,20 +1135,16 @@ describe('Document', function () {
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<TestDocEvent> = [];
-
-    doc.subscribe((event) => {
-      assert.equal(event.type, DocEventType.LocalChange);
+    const events: Array<TestDocEvent> = [];
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-
       event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta, i) => {
-          assert.deepEqual(
-            getUpdateDeltaForTest(updateDelta),
-            expectedEvents[i],
-          );
+        updates.forEach((updateDelta) => {
+          events.push(getUpdateDeltaForTest(updateDelta));
         });
       });
     });
+    const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.textWithAttr = new Text();
@@ -1139,6 +1168,16 @@ describe('Document', function () {
         value: { attributes: { bold: 'true' } },
       });
     });
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      events,
+      expectedEvents,
+      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
+        expectedEvents,
+      )}`,
+    );
+
+    unsub1();
   });
 
   it('insert elements before a specific node of array', function () {

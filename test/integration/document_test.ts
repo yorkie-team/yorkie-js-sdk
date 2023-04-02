@@ -1,12 +1,12 @@
 import { assert } from 'chai';
+import * as sinon from 'sinon';
 import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
-  createEmitterAndSpy,
-  waitFor,
+  waitStubCallCount,
   assertThrowsAsync,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -60,18 +60,25 @@ describe('Document', function () {
     const d2 = new yorkie.Document<{ k1: string }>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
-
-    const [emitter1, spy1] = createEmitterAndSpy();
-    const [emitter2, spy2] = createEmitterAndSpy();
-    const unsub1 = d1.subscribe(spy1);
-    const unsub2 = d2.subscribe(spy2);
+    const d1Events: Array<string> = [];
+    const d2Events: Array<string> = [];
+    const stub1 = sinon.stub().callsFake((event) => {
+      d1Events.push(event.type);
+    });
+    const stub2 = sinon.stub().callsFake((event) => {
+      d2Events.push(event.type);
+    });
+    const unsub1 = d1.subscribe(stub1);
+    const unsub2 = d2.subscribe(stub2);
 
     d2.update((root) => {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, emitter2);
-    await waitFor(DocEventType.RemoteChange, emitter1);
+    await waitStubCallCount(stub2, 1);
+    assert.equal(d2Events.pop(), DocEventType.LocalChange);
+    await waitStubCallCount(stub1, 1);
+    assert.equal(d1Events.pop(), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1();
