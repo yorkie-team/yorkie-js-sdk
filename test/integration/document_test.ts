@@ -252,6 +252,233 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
+  it('specify the topic to subscribe to', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type TestDoc = {
+      counter: Counter;
+      todos: JSONArray<string>;
+    };
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+    let events: Array<UpdateDelta> = [];
+    let todoEvents: Array<UpdateDelta> = [];
+    let counterEvents: Array<UpdateDelta> = [];
+    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+      if (event.type !== DocEventType.RemoteChange) return;
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta) => {
+          events.push(updateDelta);
+        });
+      });
+    };
+    const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
+    const stubTodo = sinon
+      .stub()
+      .callsFake((event) => pushEvent(event, todoEvents));
+    const stubCounter = sinon
+      .stub()
+      .callsFake((event) => pushEvent(event, counterEvents));
+    const unsub = d1.subscribe(stub);
+    const unsubTodo = d1.subscribe('$.todos', stubTodo);
+    const unsubCounter = d1.subscribe('$.counter', stubCounter);
+
+    d2.update((root) => {
+      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+      root.todos = ['todo1', 'todo2'];
+    });
+    await waitStubCallCount(stub, 1);
+    await waitStubCallCount(stubTodo, 1);
+    assert.deepEqual(events, [
+      { type: 'set', path: '$', key: 'counter' },
+      { type: 'set', path: '$', key: 'todos' },
+      { type: 'add', path: '$.todos', index: 0 },
+      { type: 'add', path: '$.todos', index: 1 },
+    ]);
+    assert.deepEqual(todoEvents, [
+      { type: 'add', path: '$.todos', index: 0 },
+      { type: 'add', path: '$.todos', index: 1 },
+    ]);
+    events = [];
+    todoEvents = [];
+
+    d2.update((root) => {
+      root.counter.increase(10);
+    });
+    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(stubCounter, 1);
+    assert.deepEqual(events, [
+      { type: 'increase', path: '$.counter', value: 10 },
+    ]);
+    assert.deepEqual(counterEvents, [
+      { type: 'increase', path: '$.counter', value: 10 },
+    ]);
+    events = [];
+    counterEvents = [];
+
+    d2.update((root) => {
+      root.todos.push('todo3');
+    });
+    await waitStubCallCount(stub, 3);
+    await waitStubCallCount(stubTodo, 2);
+    assert.deepEqual(events, [{ type: 'add', path: '$.todos', index: 2 }]);
+    assert.deepEqual(todoEvents, [{ type: 'add', path: '$.todos', index: 2 }]);
+    events = [];
+    todoEvents = [];
+
+    unsubTodo();
+    d2.update((root) => {
+      root.todos.push('todo4');
+    });
+    await waitStubCallCount(stub, 4);
+    assert.deepEqual(events, [{ type: 'add', path: '$.todos', index: 3 }]);
+    assert.deepEqual(todoEvents, []);
+    events = [];
+
+    unsubCounter();
+    d2.update((root) => {
+      root.counter.increase(10);
+    });
+    await waitStubCallCount(stub, 5);
+    assert.deepEqual(events, [
+      { type: 'increase', path: '$.counter', value: 10 },
+    ]);
+    assert.deepEqual(counterEvents, []);
+
+    unsub();
+    await c1.detach(d1);
+    await c2.detach(d2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('specify the nested topic to subscribe to', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type TestDoc = {
+      todos: Array<{
+        text: string;
+        completed: boolean;
+      }>;
+      obj: Record<string, { name: string; age: number }>;
+    };
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+    let events: Array<UpdateDelta> = [];
+    let todoEvents: Array<UpdateDelta> = [];
+    let objEvents: Array<UpdateDelta> = [];
+    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+      if (event.type !== DocEventType.RemoteChange) return;
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta) => {
+          events.push(updateDelta);
+        });
+      });
+    };
+    const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
+    const stubTodo = sinon
+      .stub()
+      .callsFake((event) => pushEvent(event, todoEvents));
+    const stubObj = sinon
+      .stub()
+      .callsFake((event) => pushEvent(event, objEvents));
+    const unsub = d1.subscribe(stub);
+    const unsubTodo = d1.subscribe('$.todos.0', stubTodo);
+    const unsubObj = d1.subscribe('$.obj.c1', stubObj);
+
+    d2.update((root) => {
+      root.todos = [{ text: 'todo1', completed: false }];
+      root.obj = {
+        c1: { name: 'josh', age: 14 },
+      };
+    });
+    await waitStubCallCount(stub, 1);
+    await waitStubCallCount(stubTodo, 1);
+    await waitStubCallCount(stubObj, 1);
+    assert.deepEqual(events, [
+      { type: 'set', path: '$', key: 'todos' },
+      { type: 'add', path: '$.todos', index: 0 },
+      { type: 'set', path: '$.todos.0', key: 'text' },
+      { type: 'set', path: '$.todos.0', key: 'completed' },
+      { type: 'set', path: '$', key: 'obj' },
+      { type: 'set', path: '$.obj', key: 'c1' },
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+      { type: 'set', path: '$.obj.c1', key: 'age' },
+    ]);
+    assert.deepEqual(todoEvents, [
+      { type: 'set', path: '$.todos.0', key: 'text' },
+      { type: 'set', path: '$.todos.0', key: 'completed' },
+    ]);
+    assert.deepEqual(objEvents, [
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+      { type: 'set', path: '$.obj.c1', key: 'age' },
+    ]);
+    events = [];
+    todoEvents = [];
+    objEvents = [];
+
+    d2.update((root) => {
+      root.obj.c1.name = 'john';
+    });
+    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(stubObj, 1);
+    assert.deepEqual(events, [{ type: 'set', path: '$.obj.c1', key: 'name' }]);
+    assert.deepEqual(objEvents, [
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+    ]);
+    events = [];
+    objEvents = [];
+
+    d2.update((root) => {
+      root.todos[0].completed = true;
+    });
+    await waitStubCallCount(stub, 3);
+    await waitStubCallCount(stubTodo, 2);
+    assert.deepEqual(events, [
+      { type: 'set', path: '$.todos.0', key: 'completed' },
+    ]);
+    assert.deepEqual(todoEvents, [
+      { type: 'set', path: '$.todos.0', key: 'completed' },
+    ]);
+    events = [];
+    todoEvents = [];
+
+    unsubTodo();
+    d2.update((root) => {
+      root.todos[0].text = 'todo_1';
+    });
+    await waitStubCallCount(stub, 4);
+    assert.deepEqual(events, [{ type: 'set', path: '$.todos.0', key: 'text' }]);
+    assert.deepEqual(todoEvents, []);
+    events = [];
+
+    unsubObj();
+    d2.update((root) => {
+      root.obj.c1.age = 15;
+    });
+    await waitStubCallCount(stub, 5);
+    assert.deepEqual(events, [{ type: 'set', path: '$.obj.c1', key: 'age' }]);
+    assert.deepEqual(objEvents, []);
+
+    unsub();
+    await c1.detach(d1);
+    await c2.detach(d2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
   it('Can handle tombstone', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
