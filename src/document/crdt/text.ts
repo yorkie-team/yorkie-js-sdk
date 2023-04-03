@@ -449,16 +449,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): TextChange<A> | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
-      );
-      return;
-    }
-
     const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
-    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
+    if (!prevSelection || updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
         Selection.of(range, updatedAt),

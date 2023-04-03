@@ -1106,6 +1106,13 @@ describe('Document', function () {
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
+      expectedEvents.push({
+        type: 'select',
+        actor: '000000000000000000000000',
+        from: 11,
+        to: 11,
+        path: '$.text',
+      });
       root.text.select(0, 2);
       expectedEvents.push({
         type: 'select',
@@ -1154,6 +1161,13 @@ describe('Document', function () {
         from: 0,
         to: 0,
         value: { attributes: {}, content: 'hello world' },
+      });
+      expectedEvents.push({
+        type: 'select',
+        actor: '000000000000000000000000',
+        from: 11,
+        to: 11,
+        path: '$.textWithAttr',
       });
       root.textWithAttr.setStyle(0, 1, { bold: 'true' });
       expectedEvents.push({

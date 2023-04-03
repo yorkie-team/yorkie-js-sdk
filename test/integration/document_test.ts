@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Counter, Text, JSONArray } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -10,7 +10,12 @@ import {
   assertThrowsAsync,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+import {
+  DocumentStatus,
+  DocEvent,
+  DocEventType,
+  UpdateDelta,
+} from '@yorkie-js-sdk/src/document/document';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Document', function () {
@@ -81,6 +86,163 @@ describe('Document', function () {
     assert.equal(d1Events.pop(), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
+    unsub1();
+    unsub2();
+
+    await c1.detach(d1);
+    await c2.detach(d2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('detects the events from doc.subscribe', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    const c1ID = c1.getID()!;
+    const c2ID = c2.getID()!;
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type TestDoc = {
+      counter: Counter;
+      todos: JSONArray<string>; // specify type as `JSONArray` to use the `moveAfter` method
+      content: Text;
+      obj: {
+        name: string;
+        age: number;
+        food?: Array<string>;
+        score: Record<string, number>;
+      };
+    };
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+    const events1: Array<UpdateDelta> = [];
+    let expectedEvents1: Array<UpdateDelta> = [];
+    const events2: Array<UpdateDelta> = [];
+    let expectedEvents2: Array<UpdateDelta> = [];
+    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+      if (event.type !== DocEventType.RemoteChange) return;
+      event.value.forEach(({ updates }) => {
+        updates.forEach((updateDelta) => {
+          events.push(updateDelta);
+        });
+      });
+    };
+    const stub1 = sinon.stub().callsFake((event) => pushEvent(event, events1));
+    const stub2 = sinon.stub().callsFake((event) => pushEvent(event, events2));
+    const unsub1 = d1.subscribe(stub1);
+    const unsub2 = d2.subscribe(stub2);
+
+    d1.update((root) => {
+      root.counter = new yorkie.Counter(yorkie.IntType, 100);
+      root.todos = ['todo1', 'todo2', 'todo3'];
+      root.content = new yorkie.Text();
+      root.content.edit(0, 0, 'hello world', { italic: true });
+      root.obj = {
+        name: 'josh',
+        age: 14,
+        food: ['🍏', '🍇'],
+        score: {
+          english: 80,
+          math: 90,
+        },
+      };
+      root.obj.score = { science: 100 };
+      delete root.obj.food;
+      expectedEvents2 = [
+        { type: 'set', path: '$', key: 'counter' },
+        { type: 'set', path: '$', key: 'todos' },
+        { type: 'add', path: '$.todos', index: 0 },
+        { type: 'add', path: '$.todos', index: 1 },
+        { type: 'add', path: '$.todos', index: 2 },
+        { type: 'set', path: '$', key: 'content' },
+        {
+          type: 'edit',
+          actor: c1ID,
+          from: 0,
+          to: 0,
+          value: { attributes: { italic: 'true' }, content: 'hello world' },
+          path: '$.content',
+        },
+        {
+          type: 'select',
+          actor: c1ID,
+          from: 11,
+          to: 11,
+          path: '$.content',
+        },
+        { type: 'set', path: '$', key: 'obj' },
+        { type: 'set', path: '$.obj', key: 'name' },
+        { type: 'set', path: '$.obj', key: 'age' },
+        { type: 'set', path: '$.obj', key: 'food' },
+        { type: 'add', path: '$.obj.food', index: 0 },
+        { type: 'add', path: '$.obj.food', index: 1 },
+        { type: 'set', path: '$.obj', key: 'score' },
+        { type: 'set', path: '$.obj.score', key: 'english' },
+        { type: 'set', path: '$.obj.score', key: 'math' },
+        { type: 'set', path: '$.obj', key: 'score' },
+        { type: 'set', path: '$.obj.score', key: 'science' },
+        { type: 'remove', path: '$.obj', key: 'food' },
+      ];
+    });
+
+    await waitStubCallCount(stub1, 1);
+    await waitStubCallCount(stub2, 1);
+
+    d2.update((root) => {
+      root.counter.increase(1);
+      root.todos.push('todo4');
+      const prevItem = root.todos.getElementByIndex!(1);
+      const currItem = root.todos.getElementByIndex!(0);
+      root.todos.moveAfter!(prevItem.getID!(), currItem.getID!());
+      root.content.select(0, 5);
+      root.content.setStyle(0, 5, { bold: true });
+      expectedEvents1 = [
+        { type: 'increase', path: '$.counter', value: 1 },
+        { type: 'add', path: '$.todos', index: 3 },
+        {
+          type: 'move',
+          path: '$.todos',
+          index: 1,
+          previousIndex: 0,
+        },
+        {
+          type: 'select',
+          actor: c2ID,
+          from: 0,
+          to: 5,
+          path: '$.content',
+        },
+        {
+          type: 'style',
+          actor: c2ID,
+          from: 0,
+          to: 5,
+          value: { attributes: { bold: true } },
+          path: '$.content',
+        },
+      ];
+    });
+    await waitStubCallCount(stub1, 2);
+    await waitStubCallCount(stub2, 2);
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.deepEqual(
+      events1,
+      expectedEvents1,
+      `d1 event actual: ${JSON.stringify(
+        events1,
+      )} \n expected: ${JSON.stringify(expectedEvents1)}`,
+    );
+    assert.deepEqual(
+      events2,
+      expectedEvents2,
+      `d2 event actual: ${JSON.stringify(
+        events2,
+      )} \n expected: ${JSON.stringify(expectedEvents2)}`,
+    );
     unsub1();
     unsub2();
 
