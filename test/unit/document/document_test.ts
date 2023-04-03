@@ -940,7 +940,7 @@ describe('Document', function () {
     assert.equal(4, doc.getRoot().data.length);
   });
 
-  it('detect events for object', async function () {
+  it('updateDelta test for object', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<UpdateDelta> = [];
@@ -983,7 +983,7 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('detect events for array', async function () {
+  it('updateDelta test for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedEvents: Array<UpdateDelta> = [];
@@ -1024,7 +1024,7 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('detect events for counter', async function () {
+  it('updateDelta test for counter', async function () {
     type TestDoc = { cnt: Counter };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1077,7 +1077,7 @@ describe('Document', function () {
     });
   });
 
-  it('detect events for text', async function () {
+  it('updateDelta test for text', async function () {
     type TestDoc = { text: Text };
 
     const doc = Document.create<TestDoc>('test-doc');
@@ -1134,7 +1134,7 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('detect events for text with attributes', async function () {
+  it('updateDelta test for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
