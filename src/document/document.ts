@@ -133,8 +133,8 @@ export interface SnapshotEvent extends BaseDocEvent {
 }
 
 /**
- * `ChangeInfo` represents a pair of `Change` and the JsonPath of the changed
- * element.
+ * `ChangeInfo` represents the modifications made during a document update
+ * and the message passed.
  */
 export type ChangeInfo = {
   message: string;
@@ -294,10 +294,25 @@ export class Document<T> {
 
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * If the first argument is a target path, the callback function will be
-   * executed when the specified path is changed.
-   * If the first argument is an observer function, the callback function will
-   * be executed when the document is changed.
+   * The callback will be called when the document is changed.
+   */
+  public subscribe(
+    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the targetPath or any of its nested values change.
+   */
+  public subscribe(
+    targetPath: string,
+    nextOrObserver: NextFn<DocEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     arg1: string | Observer<DocEvent> | NextFn<DocEvent>,
