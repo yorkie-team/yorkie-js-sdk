@@ -16,17 +16,14 @@
 
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import {
-  getUpdateDeltaForTest,
-  TestDocEvent,
-  waitStubCallCount,
-} from '@yorkie-js-sdk/test/helper/helper';
+import { waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   Document,
   DocEvent,
   DocEventType,
+  UpdateDelta,
 } from '@yorkie-js-sdk/src/document/document';
 import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -946,13 +943,13 @@ describe('Document', function () {
   it('detect events for object', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<TestDocEvent> = [];
-    const events: Array<TestDocEvent> = [];
+    const expectedEvents: Array<UpdateDelta> = [];
+    const events: Array<UpdateDelta> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
       event.value.forEach(({ updates }) => {
         updates.forEach((updateDelta) => {
-          events.push(getUpdateDeltaForTest(updateDelta));
+          events.push(updateDelta);
         });
       });
     });
@@ -989,13 +986,13 @@ describe('Document', function () {
   it('detect events for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<TestDocEvent> = [];
-    const events: Array<TestDocEvent> = [];
+    const expectedEvents: Array<UpdateDelta> = [];
+    const events: Array<UpdateDelta> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
       event.value.forEach(({ updates }) => {
         updates.forEach((updateDelta) => {
-          events.push(getUpdateDeltaForTest(updateDelta));
+          events.push(updateDelta);
         });
       });
     });
@@ -1031,14 +1028,14 @@ describe('Document', function () {
     type TestDoc = { cnt: Counter };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<TestDocEvent> = [];
-    const events: Array<TestDocEvent> = [];
+    const expectedEvents: Array<UpdateDelta> = [];
+    const events: Array<UpdateDelta> = [];
 
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
       event.value.forEach(({ updates }) => {
         updates.forEach((updateDelta) => {
-          events.push(getUpdateDeltaForTest(updateDelta));
+          events.push(updateDelta);
         });
       });
     });
@@ -1085,13 +1082,13 @@ describe('Document', function () {
 
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<TestDocEvent> = [];
-    const events: Array<TestDocEvent> = [];
+    const expectedEvents: Array<UpdateDelta> = [];
+    const events: Array<UpdateDelta> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
       event.value.forEach(({ updates }) => {
         updates.forEach((updateDelta) => {
-          events.push(getUpdateDeltaForTest(updateDelta));
+          events.push(updateDelta);
         });
       });
     });
@@ -1134,13 +1131,13 @@ describe('Document', function () {
     type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<TestDocEvent> = [];
-    const events: Array<TestDocEvent> = [];
+    const expectedEvents: Array<UpdateDelta> = [];
+    const events: Array<UpdateDelta> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
       event.value.forEach(({ updates }) => {
         updates.forEach((updateDelta) => {
-          events.push(getUpdateDeltaForTest(updateDelta));
+          events.push(updateDelta);
         });
       });
     });

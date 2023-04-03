@@ -19,7 +19,6 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import {
   Operation,
   Modified,
@@ -73,7 +72,6 @@ export class AddOperation extends Operation {
     return {
       type: 'add',
       element: this.getParentCreatedAt(),
-      value: value instanceof Primitive ? value.getValue() : value,
       index: Number(array.subPathOf(this.getEffectedCreatedAt())),
     };
   }

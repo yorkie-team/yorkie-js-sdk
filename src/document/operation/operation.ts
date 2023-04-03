@@ -17,14 +17,11 @@
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 export type AddOpModified = {
   type: 'add';
   element: TimeTicket;
-  value: CRDTElement | PrimitiveValue;
   index: number;
 };
 export type MoveOpModified = {
@@ -36,7 +33,6 @@ export type MoveOpModified = {
 export type SetOpModified = {
   type: 'set';
   element: TimeTicket;
-  value: CRDTElement | PrimitiveValue;
   key: string;
 };
 export type RemoveOpModified = {

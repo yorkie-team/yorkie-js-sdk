@@ -19,7 +19,6 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import {
   Operation,
   Modified,
@@ -74,7 +73,6 @@ export class SetOperation extends Operation {
     return {
       type: 'set',
       element: this.getParentCreatedAt(),
-      value: value instanceof Primitive ? value.getValue() : value,
       key: this.key,
     };
   }

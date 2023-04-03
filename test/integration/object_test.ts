@@ -1,15 +1,12 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import {
-  getUpdateDeltaForTest,
-  TestDocEvent,
-  waitStubCallCount,
-} from '@yorkie-js-sdk/test/helper/helper';
+import { waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
 import {
   Document,
   DocEvent,
   DocEventType,
+  UpdateDelta,
 } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 
@@ -190,15 +187,15 @@ describe('Object', function () {
       };
       k2: number;
     }>(async (c1, d1, c2, d2) => {
-      const events1: Array<TestDocEvent> = [];
-      const expectedEvents1: Array<TestDocEvent> = [];
-      const events2: Array<TestDocEvent> = [];
-      const expectedEvents2: Array<TestDocEvent> = [];
-      const pushEvent = (event: DocEvent, events: Array<TestDocEvent>) => {
+      const events1: Array<UpdateDelta> = [];
+      const expectedEvents1: Array<UpdateDelta> = [];
+      const events2: Array<UpdateDelta> = [];
+      const expectedEvents2: Array<UpdateDelta> = [];
+      const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
         if (event.type !== DocEventType.LocalChange) return;
         event.value.forEach(({ updates }) => {
           updates.forEach((updateDelta) => {
-            events.push(getUpdateDeltaForTest(updateDelta));
+            events.push(updateDelta);
           });
         });
       };
