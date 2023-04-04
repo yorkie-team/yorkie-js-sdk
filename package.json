@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.2.19",
+  "version": "0.3.3",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -9,18 +9,22 @@
   ],
   "scripts": {
     "build": "webpack --config ./config/webpack.config.js && npm run api-report && npm run prune",
-    "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/yorkie/v1/*.proto",
+    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
+    "build:examples": "npm run build --workspaces",
+    "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
+    "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "predoc": "ts-node-script ./scripts/api-extractor.ts && sed -i.bak 's/_2//g' temp/yorkie-js-sdk.api.json temp/yorkie-js-sdk.api.md",
-    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "dev": "webpack serve --config config/webpack.dev.config.js",
     "test": "karma start ./config/karma.conf.js --single-run",
     "test:yorkie.dev": "karma start ./config/karma.conf.js --single-run --testRPCAddr=https://api.yorkie.dev",
     "test:watch": "karma start ./config/karma.conf.js",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "ts-patch install && npm run build",
-    "benchmark": "ts-node-script ./test/bench"
+    "benchmark": "ts-node-script ./test/bench",
+    "publish:prepare": "mkdir -p bundle && cp -r dist package.json README.md LICENSE CHANGELOG.md bundle && cp package.publish.json bundle/package.json",
+    "profile:bundle": "webpack --config ./config/webpack.dev.config.js --profile"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -76,6 +80,7 @@
     "typescript": "^4.7.4",
     "typescript-transform-paths": "^3.3.1",
     "webpack": "^5.59.1",
+    "webpack-bundle-analyzer": "^4.7.0",
     "webpack-cli": "^4.9.1",
     "webpack-dev-server": "^4.3.1",
     "yargs": "^17.0.1"
@@ -91,5 +96,8 @@
     "hooks": {
       "pre-commit": "npm run lint"
     }
-  }
+  },
+  "workspaces": [
+    "examples/*"
+  ]
 }

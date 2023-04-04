@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-import { Client } from '@yorkie-js-sdk/src/core/client';
+import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 export {
   Client,
-  PresenceInfo,
   ClientEvent,
   ClientStatus,
   StreamConnectionStatus,
@@ -34,7 +33,8 @@ export {
   StreamConnectionStatusChangedEvent,
   DocumentSyncedEvent,
   ClientOptions,
-} from '@yorkie-js-sdk/src/core/client';
+} from '@yorkie-js-sdk/src/client/client';
+export { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 export {
   DocEventType,
   SnapshotEvent,
@@ -57,7 +57,12 @@ export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export {
   TextChange,
   TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+} from '@yorkie-js-sdk/src/document/crdt/text';
+
+// TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
+// if not exported. We need to find a way to handle this without exporting the below.
+export { ValueChange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+
 export {
   Primitive,
   PrimitiveValue,
@@ -69,7 +74,6 @@ export {
 export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
@@ -88,8 +92,9 @@ const yorkie = {
   Client,
   Document,
   Text,
-  RichText,
   Counter,
+  IntType: CounterType.IntegerCnt,
+  LongType: CounterType.LongCnt,
 };
 
 export default yorkie;

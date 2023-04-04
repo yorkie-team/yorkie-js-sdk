@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Yorkie Authors. All rights reserved.
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { PresenceInfo } from '@yorkie-js-sdk/src/core/client';
+import { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -27,14 +27,13 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
-import { RichEditOperation } from '@yorkie-js-sdk/src/document/operation/rich_edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { RHTPQMap } from '@yorkie-js-sdk/src/document/crdt/rht_pq_map';
+import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
@@ -45,11 +44,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitNodePos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText as CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import {
-  CRDTRichText,
-  RichTextValue,
-} from '@yorkie-js-sdk/src/document/crdt/rich_text';
+import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Primitive,
   PrimitiveType,
@@ -66,10 +61,10 @@ import {
   Operation as PbOperation,
   RGANode as PbRGANode,
   RHTNode as PbRHTNode,
-  RichTextNode as PbRichTextNode,
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeAttr as PbTextNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
@@ -78,6 +73,7 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Indexable } from '../yorkie';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
@@ -182,8 +178,6 @@ function toCounterType(valueType: CounterType): PbValueType {
       return PbValueType.VALUE_TYPE_INTEGER_CNT;
     case CounterType.LongCnt:
       return PbValueType.VALUE_TYPE_LONG_CNT;
-    case CounterType.DoubleCnt:
-      return PbValueType.VALUE_TYPE_DOUBLE_CNT;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -202,9 +196,6 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof CRDTText) {
     pbElementSimple.setType(PbValueType.VALUE_TYPE_TEXT);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-  } else if (element instanceof CRDTRichText) {
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_RICH_TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
   } else if (element instanceof Primitive) {
     const primitive = element as Primitive;
@@ -313,6 +304,10 @@ function toOperation(operation: Operation): PbOperation {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
     }
     pbEditOperation.setContent(editOperation.getContent());
+    const pbAttributes = pbEditOperation.getAttributesMap();
+    for (const [key, value] of editOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
   } else if (operation instanceof SelectOperation) {
@@ -327,28 +322,6 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(selectOperation.getExecutedAt()),
     );
     pbOperation.setSelect(pbSelectOperation);
-  } else if (operation instanceof RichEditOperation) {
-    const richEditOperation = operation as RichEditOperation;
-    const pbRichEditOperation = new PbOperation.RichEdit();
-    pbRichEditOperation.setParentCreatedAt(
-      toTimeTicket(richEditOperation.getParentCreatedAt()),
-    );
-    pbRichEditOperation.setFrom(toTextNodePos(richEditOperation.getFromPos()));
-    pbRichEditOperation.setTo(toTextNodePos(richEditOperation.getToPos()));
-    const pbCreatedAtMapByActor =
-      pbRichEditOperation.getCreatedAtMapByActorMap();
-    for (const [key, value] of richEditOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
-    }
-    pbRichEditOperation.setContent(richEditOperation.getContent());
-    const pbAttributes = pbRichEditOperation.getAttributesMap();
-    for (const [key, value] of richEditOperation.getAttributes()) {
-      pbAttributes.set(key, value);
-    }
-    pbRichEditOperation.setExecutedAt(
-      toTimeTicket(richEditOperation.getExecutedAt()),
-    );
-    pbOperation.setRichEdit(pbRichEditOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
@@ -419,7 +392,7 @@ function toChanges(changes: Array<Change>): Array<PbChange> {
 /**
  * `toRHTNodes` converts the given model to Protobuf format.
  */
-function toRHTNodes(rht: RHTPQMap): Array<PbRHTNode> {
+function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
@@ -450,13 +423,25 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
-function toTextNodes(rgaTreeSplit: RGATreeSplit<string>): Array<PbTextNode> {
+function toTextNodes(
+  rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
+): Array<PbTextNode> {
   const pbTextNodes = [];
+
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
     pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue());
+    pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
+
+    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const attrs = textNode.getValue().getAttrs();
+    for (const attr of attrs) {
+      const pbTextNodeAttr = new PbTextNodeAttr();
+      pbTextNodeAttr.setValue(attr.getValue());
+      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+    }
 
     pbTextNodes.push(pbTextNode);
   }
@@ -513,7 +498,7 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
 /**
  * `toText` converts the given model to Protobuf format.
  */
-function toText(text: CRDTText): PbJSONElement {
+function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
   const pbText = new PbJSONElement.Text();
   pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
   pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
@@ -570,6 +555,7 @@ function toChangePack(pack: ChangePack): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
+  pbChangePack.setIsRemoved(pack.getIsRemoved());
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
@@ -639,8 +625,6 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.IntegerCnt;
     case PbValueType.VALUE_TYPE_LONG_CNT:
       return CounterType.LongCnt;
-    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
-      return CounterType.DoubleCnt;
   }
   throw new YorkieError(
     Code.Unimplemented,
@@ -662,11 +646,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
-    case PbValueType.VALUE_TYPE_RICH_TEXT:
-      return new CRDTRichText(
-        RGATreeSplit.create(),
-        fromTimeTicket(pbElementSimple.getCreatedAt())!,
-      );
     case PbValueType.VALUE_TYPE_NULL:
     case PbValueType.VALUE_TYPE_BOOLEAN:
     case PbValueType.VALUE_TYPE_INTEGER:
@@ -683,9 +662,9 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
     case PbValueType.VALUE_TYPE_INTEGER_CNT:
-    case PbValueType.VALUE_TYPE_DOUBLE_CNT:
     case PbValueType.VALUE_TYPE_LONG_CNT:
       return CRDTCounter.of(
+        fromCounterType(pbElementSimple.getType()),
         CRDTCounter.valueFromBytes(
           fromCounterType(pbElementSimple.getType()),
           pbElementSimple.getValue_asU8(),
@@ -726,25 +705,11 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 /**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
-function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<string> {
-  const textNode = RGATreeSplitNode.create(
-    fromTextNodeID(pbTextNode.getId()!),
-    pbTextNode.getValue(),
-  );
-  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
-  return textNode;
-}
-
-/**
- * `fromRichTextNode` converts the given Protobuf format to model format.
- */
-function fromRichTextNode(
-  pbTextNode: PbRichTextNode,
-): RGATreeSplitNode<RichTextValue> {
-  const richTextValue = RichTextValue.create(pbTextNode.getValue());
-  pbTextNode.getAttributesMap().forEach((value) => {
-    richTextValue.setAttr(
-      value.getKey(),
+function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
+  const textValue = CRDTTextValue.create(pbTextNode.getValue());
+  pbTextNode.getAttributesMap().forEach((value, key) => {
+    textValue.setAttr(
+      key,
       value.getValue(),
       fromTimeTicket(value.getUpdatedAt())!,
     );
@@ -752,7 +717,7 @@ function fromRichTextNode(
 
   const textNode = RGATreeSplitNode.create(
     fromTextNodeID(pbTextNode.getId()!),
-    richTextValue,
+    textValue,
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
@@ -797,20 +762,6 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbRemoveOperation!.getCreatedAt())!,
         fromTimeTicket(pbRemoveOperation!.getExecutedAt())!,
       );
-    } else if (pbOperation.hasEdit()) {
-      const pbEditOperation = pbOperation.getEdit();
-      const createdAtMapByActor = new Map();
-      pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      });
-      operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbEditOperation!.getFrom()!),
-        fromTextNodePos(pbEditOperation!.getTo()!),
-        createdAtMapByActor,
-        pbEditOperation!.getContent(),
-        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
-      );
     } else if (pbOperation.hasSelect()) {
       const pbSelectOperation = pbOperation.getSelect();
       operation = SelectOperation.create(
@@ -819,8 +770,8 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTextNodePos(pbSelectOperation!.getTo()!),
         fromTimeTicket(pbSelectOperation!.getExecutedAt())!,
       );
-    } else if (pbOperation.hasRichEdit()) {
-      const pbEditOperation = pbOperation.getRichEdit();
+    } else if (pbOperation.hasEdit()) {
+      const pbEditOperation = pbOperation.getEdit();
       const createdAtMapByActor = new Map();
       pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
         createdAtMapByActor.set(key, fromTimeTicket(value));
@@ -829,7 +780,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbEditOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
       });
-      operation = RichEditOperation.create(
+      operation = EditOperation.create(
         fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbEditOperation!.getFrom()!),
         fromTextNodePos(pbEditOperation!.getTo()!),
@@ -904,6 +855,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
   return ChangePack.create(
     pbPack.getDocumentKey()!,
     fromCheckpoint(pbPack.getCheckpoint()!),
+    pbPack.getIsRemoved(),
     fromChanges(pbPack.getChangesList()),
     pbPack.getSnapshot_asU8(),
     fromTimeTicket(pbPack.getMinSyncedTicket()),
@@ -914,7 +866,7 @@ function fromChangePack(pbPack: PbChangePack): ChangePack {
  * `fromObject` converts the given Protobuf format to model format.
  */
 function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
-  const rht = new RHTPQMap();
+  const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
     rht.set(pbRHTNode.getKey(), fromElement(pbRHTNode.getElement()!));
@@ -964,8 +916,10 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
 /**
  * `fromText` converts the given Protobuf format to model format.
  */
-function fromText(pbText: PbJSONElement.Text): CRDTText {
-  const rgaTreeSplit = new RGATreeSplit<string>();
+function fromText<A extends Indexable>(
+  pbText: PbJSONElement.Text,
+): CRDTText<A> {
+  const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.getNodesList()) {
@@ -977,33 +931,7 @@ function fromText(pbText: PbJSONElement.Text): CRDTText {
     }
     prev = current;
   }
-
-  const text = CRDTText.create(
-    rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt())!,
-  );
-  text.setMovedAt(fromTimeTicket(pbText.getMovedAt()));
-  text.setRemovedAt(fromTimeTicket(pbText.getRemovedAt()));
-  return text;
-}
-
-/**
- * `fromRichText` converts the given Protobuf format to model format.
- */
-function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
-  const rgaTreeSplit = new RGATreeSplit<RichTextValue>();
-
-  let prev = rgaTreeSplit.getHead();
-  for (const pbNode of pbText.getNodesList()) {
-    const current = rgaTreeSplit.insertAfter(prev, fromRichTextNode(pbNode));
-    if (pbNode.hasInsPrevId()) {
-      current.setInsPrev(
-        rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId()!)),
-      );
-    }
-    prev = current;
-  }
-  const text = new CRDTRichText<A>(
+  const text = new CRDTText<A>(
     rgaTreeSplit,
     fromTimeTicket(pbText.getCreatedAt())!,
   );
@@ -1017,6 +945,7 @@ function fromRichText<A>(pbText: PbJSONElement.RichText): CRDTRichText<A> {
  */
 function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
   const counter = CRDTCounter.of(
+    fromCounterType(pbCounter.getType()),
     CRDTCounter.valueFromBytes(
       fromCounterType(pbCounter.getType()),
       pbCounter.getValue_asU8(),
@@ -1040,8 +969,6 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
     return fromPrimitive(pbElement.getPrimitive()!);
   } else if (pbElement.hasText()) {
     return fromText(pbElement.getText()!);
-  } else if (pbElement.hasRichText()) {
-    return fromRichText(pbElement.getRichText()!);
   } else if (pbElement.hasCounter()) {
     return fromCounter(pbElement.getCounter()!);
   } else {
@@ -1072,17 +999,39 @@ function objectToBytes(obj: CRDTObject): Uint8Array {
 }
 
 /**
+ * `bytesToHex` creates an hex string from the given byte array.
+ */
+function bytesToHex(bytes?: Uint8Array): string {
+  if (!bytes) {
+    return '';
+  }
+
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
  * `toHexString` converts the given byte array to hex string.
  */
 function toHexString(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('hex');
+  return bytesToHex(bytes);
+}
+
+/**
+ * `hexToBytes` converts the given hex string to byte array.
+ */
+function hexToBytes(hex: string): Uint8Array {
+  return new Uint8Array(
+    hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
+  );
 }
 
 /**
  * `toUnit8Array` converts the given hex string to byte array.
  */
 function toUint8Array(hex: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
+  return hexToBytes(hex);
 }
 
 /**

@@ -22,16 +22,22 @@ import "google/protobuf/wrappers.proto";
 
 option go_package = ".;v1";
 
+option java_multiple_files = true;
+option java_package = "dev.yorkie.api.v1";
+
 /////////////////////////////////////////
 // Messages for ChangePack             //
 /////////////////////////////////////////
 
+// ChangePack is a message that contains all changes that occurred in a document.
+// It is used to synchronize changes between clients and servers.
 message ChangePack {
   string document_key = 1;
   Checkpoint checkpoint = 2;
   bytes snapshot = 3;
   repeated Change changes = 4;
   TimeTicket min_synced_ticket = 5;
+  bool is_removed = 6;
 }
 
 message Change {
@@ -78,21 +84,13 @@ message Operation {
     map<string, TimeTicket> created_at_map_by_actor = 4;
     string content = 5;
     TimeTicket executed_at = 6;
+    map<string, string> attributes = 7;
   }
   message Select {
     TimeTicket parent_created_at = 1;
     TextNodePos from = 2;
     TextNodePos to = 3;
     TimeTicket executed_at = 4;
-  }
-  message RichEdit {
-    TimeTicket parent_created_at = 1;
-    TextNodePos from = 2;
-    TextNodePos to = 3;
-    map<string, TimeTicket> created_at_map_by_actor = 4;
-    string content = 5;
-    map<string, string> attributes = 6;
-    TimeTicket executed_at = 7;
   }
   message Style {
     TimeTicket parent_created_at = 1;
@@ -114,9 +112,8 @@ message Operation {
     Remove remove = 4;
     Edit edit = 5;
     Select select = 6;
-    RichEdit rich_edit = 7;
-    Style style = 8;
-    Increase increase = 9;
+    Style style = 7;
+    Increase increase = 8;
   }
 }
 
@@ -158,12 +155,6 @@ message JSONElement {
     TimeTicket moved_at = 3;
     TimeTicket removed_at = 4;
   }
-  message RichText {
-    repeated RichTextNode nodes = 1;
-    TimeTicket created_at = 2;
-    TimeTicket moved_at = 3;
-    TimeTicket removed_at = 4;
-  }
   message Counter {
     ValueType type = 1;
     bytes value = 2;
@@ -176,8 +167,7 @@ message JSONElement {
     JSONObject json_object = 1;
     JSONArray json_array = 2;
     Primitive primitive = 3;
-    Text text = 4;
-    RichText rich_text = 5;
+    Text text = 5;
     Counter counter = 6;
   }
 }
@@ -192,25 +182,17 @@ message RGANode {
   JSONElement element = 2;
 }
 
+message TextNodeAttr {
+  string value = 1;
+  TimeTicket updated_at = 2;
+}
+
 message TextNode {
   TextNodeID id = 1;
   string value = 2;
   TimeTicket removed_at = 3;
   TextNodeID ins_prev_id = 4;
-}
-
-message RichTextNodeAttr {
-  string key = 1;
-  string value = 2;
-  TimeTicket updated_at = 3;
-}
-
-message RichTextNode {
-  TextNodeID id = 1;
-  map<string, RichTextNodeAttr> attributes = 2;
-  string value = 3;
-  TimeTicket removed_at = 4;
-  TextNodeID ins_prev_id = 5;
+  map<string, TextNodeAttr> attributes = 5;
 }
 
 message TextNodeID {
@@ -235,8 +217,9 @@ message Project {
   string secret_key = 4;
   string auth_webhook_url = 5;
   repeated string auth_webhook_methods = 6;
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
+  string client_deactivate_threshold = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
 }
 
 message UpdatableProjectFields {
@@ -247,6 +230,7 @@ message UpdatableProjectFields {
   google.protobuf.StringValue name = 1;
   google.protobuf.StringValue auth_webhook_url = 2;
   AuthWebhookMethods auth_webhook_methods = 3;
+  google.protobuf.StringValue client_deactivate_threshold = 4;
 }
 
 message DocumentSummary {
@@ -266,10 +250,6 @@ message Presence {
 message Client {
   bytes id = 1;
   Presence presence = 2;
-}
-
-message Clients {
-  repeated Client clients = 1;
 }
 
 message Checkpoint {
@@ -301,10 +281,8 @@ enum ValueType {
   VALUE_TYPE_JSON_OBJECT = 8;
   VALUE_TYPE_JSON_ARRAY = 9;
   VALUE_TYPE_TEXT = 10;
-  VALUE_TYPE_RICH_TEXT = 11;
-  VALUE_TYPE_INTEGER_CNT = 12;
-  VALUE_TYPE_LONG_CNT = 13;
-  VALUE_TYPE_DOUBLE_CNT = 14;
+  VALUE_TYPE_INTEGER_CNT = 11;
+  VALUE_TYPE_LONG_CNT = 12;
 }
 
 enum DocEventType {
@@ -317,5 +295,5 @@ enum DocEventType {
 message DocEvent {
   DocEventType type = 1;
   Client publisher = 2;
-  repeated string document_keys = 3;
+  string document_id = 3;
 }

@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { RichText, Text } from '@yorkie-js-sdk/src/yorkie';
+import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Snapshot', function () {
   it('should handle snapshot', async function () {
@@ -58,28 +58,25 @@ describe('Snapshot', function () {
     }, this.test!.title);
   });
 
-  it('should handle snapshot for rich text object', async function () {
-    await withTwoClientsAndDocuments<{ k1: RichText }>(
-      async (c1, d1, c2, d2) => {
+  it('should handle snapshot for text with attributes', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'a');
+      }, 'set new doc by c1');
+      await c1.sync();
+      await c2.sync();
+
+      // 01. Updates 700 changes over snapshot threshold by c1.
+      for (let idx = 0; idx < 700; idx++) {
         d1.update((root) => {
-          root.k1 = new RichText();
-          root.k1.edit(0, 0, 'a');
-        }, 'set new doc by c1');
-        await c1.sync();
-        await c2.sync();
+          root.k1.setStyle(0, 1, { bold: 'true' });
+        });
+      }
+      await c1.sync();
+      await c2.sync();
 
-        // 01. Updates 700 changes over snapshot threshold by c1.
-        for (let idx = 0; idx < 700; idx++) {
-          d1.update((root) => {
-            root.k1.setStyle(0, 1, { bold: 'true' });
-          });
-        }
-        await c1.sync();
-        await c2.sync();
-
-        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-      },
-      this.test!.title,
-    );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
   });
 });

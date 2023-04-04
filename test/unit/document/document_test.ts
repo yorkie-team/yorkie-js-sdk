@@ -17,7 +17,8 @@
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { JSONArray, Text, RichText, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
@@ -1006,7 +1007,7 @@ describe('Document', function () {
     });
 
     doc.update((root) => {
-      root.cnt = new Counter(0);
+      root.cnt = new Counter(CounterType.IntegerCnt, 0);
       paths.push('$.cnt');
       root.cnt.increase(1);
       paths.push('$.cnt');
@@ -1051,8 +1052,8 @@ describe('Document', function () {
     });
   });
 
-  it('change paths test for rich text', async function () {
-    type TestDoc = { rich: RichText };
+  it('change paths test for text with attributes', async function () {
+    type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const paths: Array<string> = [];
@@ -1065,12 +1066,12 @@ describe('Document', function () {
     });
 
     doc.update((root) => {
-      root.rich = new RichText();
-      paths.push('$.rich');
-      root.rich.edit(0, 0, 'hello world');
-      paths.push('$.rich');
-      root.rich.setStyle(0, 1, { bold: 'true' });
-      paths.push('$.rich');
+      root.textWithAttr = new Text();
+      paths.push('$.textWithAttr');
+      root.textWithAttr.edit(0, 0, 'hello world');
+      paths.push('$.textWithAttr');
+      root.textWithAttr.setStyle(0, 1, { bold: 'true' });
+      paths.push('$.textWithAttr');
     });
   });
 
@@ -1162,18 +1163,18 @@ describe('Document', function () {
       root.text = new Text();
       root.text.edit(0, 0, '"hello"');
     });
-    assert.equal('{"text":"\\"hello\\""}', doc.toSortedJSON());
+    assert.equal('{"text":[{"val":"\\"hello\\""}]}', doc.toSortedJSON());
   });
 
-  it('escapes string for rich text', function () {
-    type TestDoc = { rich: RichText };
+  it('escapes string for text with Attributes', function () {
+    type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     doc.update((root) => {
-      root.rich = new RichText();
-      root.rich.edit(0, 0, '"hello"', { b: '\n' });
+      root.textWithAttr = new Text();
+      root.textWithAttr.edit(0, 0, '"hello"', { b: '\n' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"b":"\\n"},"content":"\\"hello\\""},{"attrs":{},"content":"\\n"}]}',
+      '{"textWithAttr":[{"attrs":{"b":"\\n"},"val":"\\"hello\\""}]}',
       doc.toSortedJSON(),
     );
   });
@@ -1192,7 +1193,7 @@ describe('Document', function () {
   it('gets the value of the counter', function () {
     const doc = Document.create<{ counter: Counter }>('test-doc');
     doc.update((root) => {
-      root.counter = new Counter(155);
+      root.counter = new Counter(CounterType.IntegerCnt, 155);
     });
     assert.equal(155, doc.getRoot().counter.getValue());
   });
@@ -1204,17 +1205,17 @@ describe('Document', function () {
       italic?: boolean | null;
       color?: string;
     };
-    const doc = Document.create<{ rich: RichText<AttrsType> }>('test-doc');
+    const doc = Document.create<{ textWithAttr: Text<AttrsType> }>('test-doc');
     doc.update((root) => {
-      root.rich = new RichText();
-      root.rich.edit(0, 0, 'aaa', { bold: true });
-      root.rich.setStyle(0, 3, { italic: true });
-      root.rich.setStyle(0, 3, { italic: null });
-      root.rich.setStyle(0, 3, { indent: 1 });
-      root.rich.setStyle(0, 3, { color: 'red' });
+      root.textWithAttr = new Text();
+      root.textWithAttr.edit(0, 0, 'aaa', { bold: true });
+      root.textWithAttr.setStyle(0, 3, { italic: true });
+      root.textWithAttr.setStyle(0, 3, { italic: null });
+      root.textWithAttr.setStyle(0, 3, { indent: 1 });
+      root.textWithAttr.setStyle(0, 3, { color: 'red' });
     });
     assert.equal(
-      '{"rich":[{"attrs":{"bold":true,"italic":null,"indent":1,"color":"red"},"content":"aaa"},{"attrs":{},"content":"\\n"}]}',
+      '{"textWithAttr":[{"attrs":{"bold":true,"color":"red","indent":1,"italic":null},"val":"aaa"}]}',
       doc.toSortedJSON(),
     );
     assert.doesNotThrow(() => {

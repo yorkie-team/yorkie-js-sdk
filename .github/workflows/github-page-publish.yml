@@ -25,10 +25,12 @@ jobs:
           npm run build
           npm run predoc
           npm run build:docs
+          npm run build:examples
+          npm run build:ghpages
 
       - name: Deploy 🚀
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
+          publish_dir: ./ghpages
           enable_jekyll: true

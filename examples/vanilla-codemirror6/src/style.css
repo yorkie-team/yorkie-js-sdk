@@ -1,5 +1,13 @@
-.green { background-color: green }
-.red { background-color: red; }
+body {
+  background: white;
+}
+
+.green {
+  background-color: green;
+}
+.red {
+  background-color: red;
+}
 
 #network-status span {
   display: inline-block;
@@ -31,8 +39,10 @@
   font-size: 1rem;
 }
 
-
-#network-status, #peers, #document, #document-text {
+#network-status,
+#peers,
+#document,
+#document-text {
   margin-top: 1rem;
   margin-bottom: 1rem;
 

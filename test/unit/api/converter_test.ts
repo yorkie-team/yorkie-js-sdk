@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -28,7 +29,12 @@ describe('Converter', function () {
         ['k1.5']: string;
       };
       k2: Array<boolean | number | string>;
-      k3: Text;
+      k3: Text<{
+        bold?: boolean;
+        indent?: number;
+        italic?: boolean | null;
+        color?: string;
+      }>;
       k4: Counter;
     }>('test-doc');
 
@@ -60,7 +66,13 @@ describe('Converter', function () {
       root.k3.edit(0, 1, '하');
       root.k3.edit(1, 1, '느');
       root.k3.edit(1, 2, '늘');
-      root.k4 = new Counter(0);
+      root.k3.setStyle(0, 2, {
+        bold: true,
+        indent: 2,
+        italic: false,
+        color: 'red',
+      });
+      root.k4 = new Counter(CounterType.IntegerCnt, 0);
       root.k4.increase(1).increase(2).increase(3);
     });
 
@@ -70,9 +82,9 @@ describe('Converter', function () {
   });
 
   it('convert hex string <-> byte array', function () {
-    const hex_str = '0123456789abcdef01234567';
-    const bytes = converter.toUint8Array(hex_str);
+    const hexString = '0123456789abcdef01234567';
+    const bytes = converter.toUint8Array(hexString);
     assert.equal(bytes.length, 12);
-    assert.equal(converter.toHexString(bytes), hex_str);
+    assert.equal(converter.toHexString(bytes), hexString);
   });
 });

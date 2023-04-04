@@ -16,7 +16,7 @@ jobs:
         cache-dependency-path: package-lock.json
         registry-url: 'https://registry.npmjs.org'
     - run: npm install
-    - run: npm run build
-    - run: npm publish
+    - run: npm run build && npm run publish:prepare
+    - run: cd bundle && npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

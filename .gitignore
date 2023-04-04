@@ -68,7 +68,6 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
 .env.test
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -119,10 +118,13 @@ tags
 
 # Dist files
 dist/
+bundle/
 
 # Docs files
 docs/
 
+# ghpages
+ghpages/
 
 # temp folder used by api-extractor
 temp

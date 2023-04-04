@@ -131,7 +131,7 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
 }
 
 /**
- * `RGATreeList` is replicated growable array.
+ * `RGATreeList` is a replicated growable array.
  *
  * @internal
  */

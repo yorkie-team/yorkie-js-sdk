@@ -33,7 +33,7 @@ describe('Primitive', function () {
       value: false,
     },
     {
-      type: PrimitiveType.Double,
+      type: PrimitiveType.Integer,
       value: 2147483647,
     },
     {

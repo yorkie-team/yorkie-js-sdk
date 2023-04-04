@@ -22,7 +22,6 @@ import {
   Primitive,
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { CRDTRichText } from '@yorkie-js-sdk/src/document/crdt/rich_text';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   JSONObject,
@@ -33,9 +32,12 @@ import {
   createJSONArray,
 } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { RichText } from '@yorkie-js-sdk/src/document/json/rich_text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {
+  CounterType,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Indexable } from '../document';
 
 /**
  * `createJSON` create a new instance of JSONObject.
@@ -50,27 +52,26 @@ export function createJSON<T>(
 /**
  * `WrappedElement` is a wrapper of JSONElement that provides `getID()`.
  */
-export type WrappedElement<T = unknown, A = unknown> =
+export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | Primitive
   | JSONObject<T>
   | JSONArray<T>
-  | Text
-  | RichText<A>
+  | Text<A>
   | Counter;
 
 /**
- * `JSONElement` represents the type the user is using.
+ * `JSONElement` is a wrapper for `CRDTElement` that provides users with an
+ * easy-to-use interface for manipulating `Document`s.
  */
-export type JSONElement<T = unknown, A = unknown> =
+export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | PrimitiveValue
   | JSONObject<T>
   | JSONArray<T>
-  | Text
-  | RichText<A>
+  | Text<A>
   | Counter;
 
 /**
- * `toWrappedElement` converts the CRDT type to WrappedElement.
+ * `toWrappedElement` converts the CRDT type to `WrappedElement`.
  */
 export function toWrappedElement(
   context: ChangeContext,
@@ -86,10 +87,8 @@ export function toWrappedElement(
     return createJSONArray(context, elem);
   } else if (elem instanceof CRDTText) {
     return new Text(context, elem);
-  } else if (elem instanceof CRDTRichText) {
-    return new RichText(context, elem);
   } else if (elem instanceof CRDTCounter) {
-    const counter = new Counter(0);
+    const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, elem);
     return counter;
   }

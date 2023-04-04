@@ -25,34 +25,12 @@ import {
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 
-/**
- * `TextChangeType` is the type of TextChange.
- *
- * @internal
- */
-export enum TextChangeType {
-  Content = 'content',
-  Selection = 'selection',
-  Style = 'style',
-}
-
-/**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
- */
-export type TextChange = {
-  type: TextChangeType;
+export interface ValueChange<T> {
   actor: ActorID;
   from: number;
   to: number;
-  content?: string;
-};
-
-/**
- * `RichTextChange` is the value passed as an argument to `RichText.onChanges()`.
- * `RichText.onChanges()` is called when the `RichText` is modified.
- */
-export type RichTextChange<A> = TextChange & { attributes?: A };
+  value?: T;
+}
 
 interface RGATreeSplitValue {
   length: number;
@@ -489,7 +467,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<TextChange>] {
+  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -512,14 +490,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       );
 
       if (changes.length && changes[changes.length - 1].from === idx) {
-        changes[changes.length - 1].content = value.toString();
+        changes[changes.length - 1].value = value;
       } else {
         changes.push({
-          type: TextChangeType.Content,
           actor: editedAt.getActorID()!,
           from: idx,
           to: idx,
-          content: value.toString(),
+          value,
         });
       }
 
@@ -588,7 +565,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `length` returns size of RGATreeList.
+   * `length` returns size of RGATreeSplit.
    */
   public get length(): number {
     return this.treeByIndex.length;
@@ -603,18 +580,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `toJSON` returns the JSON encoding of this Array.
+   * `toString` returns the string encoding of this RGATreeSplit.
    */
-  public toJSON(): string {
-    const json = [];
+  public toString(): string {
+    const str = [];
 
     for (const node of this) {
       if (!node.isRemoved()) {
-        json.push(node.getValue());
+        str.push(node.getValue());
       }
     }
 
-    return json.join('');
+    return str.join('');
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
@@ -803,7 +780,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
-    Array<TextChange>,
+    Array<ValueChange<T>>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
   ] {
@@ -891,8 +868,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private makeChanges(
     boundaries: Array<RGATreeSplitNode<T> | undefined>,
     editedAt: TimeTicket,
-  ): Array<TextChange> {
-    const changes: Array<TextChange> = [];
+  ): Array<ValueChange<T>> {
+    const changes: Array<ValueChange<T>> = [];
     let fromIdx: number, toIdx: number;
 
     for (let i = 0; i < boundaries.length - 1; i++) {
@@ -916,7 +893,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       if (fromIdx < toIdx) {
         changes.push({
-          type: TextChangeType.Content,
           actor: editedAt.getActorID()!,
           from: fromIdx,
           to: toIdx,

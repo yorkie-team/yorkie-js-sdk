@@ -88,7 +88,7 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.Bytes:
         return bytes;
       case PrimitiveType.Date:
-        return new Date(Long.fromBytesLE(Array.from(bytes)).toNumber());
+        return new Date(Long.fromBytesLE(Array.from(bytes), true).toNumber());
       default:
         throw new YorkieError(
           Code.Unimplemented,
@@ -143,7 +143,11 @@ export class Primitive extends CRDTElement {
       case 'boolean':
         return PrimitiveType.Boolean;
       case 'number':
-        return PrimitiveType.Double;
+        if (this.isInteger(value)) {
+          return PrimitiveType.Integer;
+        } else {
+          return PrimitiveType.Double;
+        }
       case 'string':
         return PrimitiveType.String;
       case 'object':
@@ -240,7 +244,10 @@ export class Primitive extends CRDTElement {
       }
       case PrimitiveType.Date: {
         const dateVal = this.value as Date;
-        const dateToBytes = Long.fromNumber(dateVal.getTime()).toBytesLE();
+        const dateToBytes = Long.fromNumber(
+          dateVal.getTime(),
+          true,
+        ).toBytesLE();
         return Uint8Array.from(dateToBytes);
       }
       default:

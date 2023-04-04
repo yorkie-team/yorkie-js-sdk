@@ -27,19 +27,30 @@ const networkStatusElem = document.getElementById('network-status')!;
 
 async function main() {
   // 01. create client with RPCAddr(envoy) then activate it.
-  const client = new yorkie.Client('http://localhost:8080');
+  const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+    apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+  });
   await client.activate();
 
   // subscribe peer change event
   client.subscribe((event) => {
     network.statusListener(networkStatusElem)(event);
     if (event.type === 'peers-changed') {
-      displayPeers(peersElem, event.value[doc.getKey()], client.getID() ?? '');
+      displayPeers(
+        peersElem,
+        client.getPeersByDocKey(doc.getKey()),
+        client.getID()!,
+      );
     }
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>('codemirror');
+  const doc = new yorkie.Document<YorkieDoc>(
+    `codemirror6-${new Date()
+      .toISOString()
+      .substring(0, 10)
+      .replace(/-/g, '')}`,
+  );
   await client.attach(doc);
   doc.update((root) => {
     if (!root.content) {
@@ -106,7 +117,7 @@ async function main() {
       .map((change) => ({
         from: Math.max(0, change.from),
         to: Math.max(0, change.to),
-        insert: change.content,
+        insert: change.value!.content,
       }));
 
     view.dispatch({

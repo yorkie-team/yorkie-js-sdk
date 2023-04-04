@@ -22,7 +22,7 @@ import {
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 
 /**
- * `CRDTArray` represents Array data type containing logical clocks.
+ * `CRDTArray` represents an array data type containing `CRDTElement`s.
  *
  * @internal
  */

@@ -15,24 +15,27 @@
  */
 
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { RGATreeSplitNodeRange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import {
-  RGATreeSplitNodeRange,
+  CRDTText,
+  TextValueType,
   TextChange,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+} from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
+import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 
 /**
- * `Text` represents text element for representing contents of a text editor.
+ * `Text` is an extended data type for the contents of a text editor.
  */
-export class Text {
+export class Text<A extends Indexable = Indexable> {
   private context?: ChangeContext;
-  private text?: CRDTText;
+  private text?: CRDTText<A>;
 
-  constructor(context?: ChangeContext, text?: CRDTText) {
+  constructor(context?: ChangeContext, text?: CRDTText<A>) {
     this.context = context;
     this.text = text;
   }
@@ -41,7 +44,7 @@ export class Text {
    * `initialize` initialize this text with context and internal text.
    * @internal
    */
-  public initialize(context: ChangeContext, text: CRDTText): void {
+  public initialize(context: ChangeContext, text: CRDTText<A>): void {
     this.context = context;
     this.text = text;
   }
@@ -56,7 +59,12 @@ export class Text {
   /**
    * `edit` edits this text with the given content.
    */
-  public edit(fromIdx: number, toIdx: number, content: string): boolean {
+  edit(
+    fromIdx: number,
+    toIdx: number,
+    content: string,
+    attributes?: A,
+  ): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -64,6 +72,7 @@ export class Text {
 
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
+      return false;
     }
 
     const range = this.text.createRange(fromIdx, toIdx);
@@ -72,9 +81,16 @@ export class Text {
         `EDIT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} c:${content}`,
       );
     }
-
+    const attrs = attributes
+      ? this.text.stringifyAttributes(attributes)
+      : undefined;
     const ticket = this.context.issueTimeTicket();
-    const maxCreatedAtMapByActor = this.text.edit(range, content, ticket);
+    const maxCreatedAtMapByActor = this.text.edit(
+      range,
+      content,
+      ticket,
+      attrs,
+    );
 
     this.context.push(
       new EditOperation(
@@ -83,6 +99,7 @@ export class Text {
         range[1],
         maxCreatedAtMapByActor,
         content,
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
     );
@@ -95,9 +112,63 @@ export class Text {
   }
 
   /**
+   * `delete` deletes the text in the given range.
+   */
+  delete(fromIdx: number, toIdx: number): boolean {
+    return this.edit(fromIdx, toIdx, '');
+  }
+
+  /**
+   * `empty` makes the text empty.
+   */
+  empty(): boolean {
+    return this.edit(0, this.length, '');
+  }
+
+  /**
+   * `setStyle` styles this text with the given attributes.
+   */
+  setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      return false;
+    }
+
+    if (fromIdx > toIdx) {
+      logger.fatal('from should be less than or equal to to');
+      return false;
+    }
+
+    const range = this.text.createRange(fromIdx, toIdx);
+    if (logger.isEnabled(LogLevel.Debug)) {
+      logger.debug(
+        `STYL: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} a:${JSON.stringify(
+          attributes,
+        )}`,
+      );
+    }
+
+    const attrs = this.text.stringifyAttributes(attributes);
+    const ticket = this.context.issueTimeTicket();
+    this.text.setStyle(range, attrs, ticket);
+
+    this.context.push(
+      new StyleOperation(
+        this.text.getCreatedAt(),
+        range[0],
+        range[1],
+        new Map(Object.entries(attrs)),
+        ticket,
+      ),
+    );
+
+    return true;
+  }
+
+  /**
    * `select` selects the given range.
    */
-  public select(fromIdx: number, toIdx: number): boolean {
+  select(fromIdx: number, toIdx: number): boolean {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -123,13 +194,27 @@ export class Text {
    * `getStructureAsString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  getStructureAsString(): string {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
-      return '';
+      // @ts-ignore
+      return;
     }
 
     return this.text.getStructureAsString();
+  }
+
+  /**
+   * `values` returns values of this text.
+   */
+  values(): Array<TextValueType<A>> {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.text.values();
   }
 
   /**
@@ -175,7 +260,7 @@ export class Text {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  onChanges(handler: (changes: Array<TextChange>) => void): void {
+  onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       return;
