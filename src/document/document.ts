@@ -133,10 +133,10 @@ export interface SnapshotEvent extends BaseDocEvent {
 }
 
 /**
- * `ChangeInfo` represents the modifications made during a document update
+ * `UpdateInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export type ChangeInfo = {
+export type UpdateInfo = {
   message: string;
   updates: Array<UpdateDelta>;
 };
@@ -166,7 +166,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<UpdateInfo>;
 }
 
 /**
@@ -183,7 +183,7 @@ export interface RemoteChangeEvent extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<UpdateInfo>;
 }
 
 /**
@@ -307,7 +307,7 @@ export class Document<T> {
    */
   public subscribe(
     targetPath: string,
-    nextOrObserver: NextFn<DocEvent>,
+    next: NextFn<DocEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -333,7 +333,7 @@ export class Document<T> {
             return;
           }
 
-          const changes: Array<ChangeInfo> = [];
+          const updateInfos: Array<UpdateInfo> = [];
           event.value.forEach(({ message, updates }) => {
             const targetUpdates: Array<UpdateDelta> = [];
             updates.forEach((result) => {
@@ -342,15 +342,15 @@ export class Document<T> {
               }
             });
             targetUpdates.length &&
-              changes.push({
+              updateInfos.push({
                 message,
                 updates: targetUpdates,
               });
           });
-          changes.length &&
+          updateInfos.length &&
             callback({
               type: event.type,
-              value: changes,
+              value: updateInfos,
             });
         },
         arg3,
@@ -619,10 +619,10 @@ export class Document<T> {
       change.execute(this.clone!);
     }
 
-    const changeInfos: Array<ChangeInfo> = [];
+    const updateInfos: Array<UpdateInfo> = [];
     for (const change of changes) {
       const changeModified = change.execute(this.root);
-      changeInfos.push({
+      updateInfos.push({
         message: change.getMessage() || '',
         updates: changeModified.map((modified) =>
           this.getUpdateDelta(modified),
@@ -634,7 +634,7 @@ export class Document<T> {
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
-        value: changeInfos,
+        value: updateInfos,
       });
     }
 
