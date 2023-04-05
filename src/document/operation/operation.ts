@@ -19,71 +19,84 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
-export type AddOpModified = {
+export type OperationInfo =
+  | AddOpInfo
+  | IncreaseOpInfo
+  | RemoveOpInfo
+  | SetOpInfo
+  | MoveOpInfo
+  | EditOpInfo
+  | StyleOpInfo
+  | SelectOpInfo;
+export type AddOpInfo = {
   type: 'add';
-  element: TimeTicket;
+  path: string;
   index: number;
 };
-export type MoveOpModified = {
+export type MoveOpInfo = {
   type: 'move';
-  element: TimeTicket;
+  path: string;
   previousIndex: number;
   index: number;
 };
-export type SetOpModified = {
+export type SetOpInfo = {
   type: 'set';
-  element: TimeTicket;
+  path: string;
   key: string;
 };
-export type RemoveOpModified = {
+export type RemoveOpInfo = {
   type: 'remove';
-  element: TimeTicket;
+  path: string;
   key?: string;
   index?: number;
 };
-export type IncreaseOpModified = {
+export type IncreaseOpInfo = {
   type: 'increase';
-  element: TimeTicket;
+  path: string;
   value: number;
 };
-export type EditOpModified = {
+export type EditOpInfo = {
   type: 'edit';
   actor: ActorID;
   from: number;
   to: number;
-  element: TimeTicket;
+  path: string;
   value: {
     attributes: Indexable;
     content: string;
   };
 };
-export type StyleOpModified = {
+export type StyleOpInfo = {
   type: 'style';
   actor: ActorID;
   from: number;
   to: number;
-  element: TimeTicket;
+  path: string;
   value: {
     attributes: Indexable;
   };
 };
-export type SelectOpModified = {
+export type SelectOpInfo = {
   type: 'select';
   actor: ActorID;
   from: number;
   to: number;
-  element: TimeTicket;
+  path: string;
 };
 
 export type Modified =
-  | AddOpModified
-  | IncreaseOpModified
-  | RemoveOpModified
-  | SetOpModified
-  | MoveOpModified
-  | EditOpModified
-  | StyleOpModified
-  | SelectOpModified;
+  | OpToModified<AddOpInfo>
+  | OpToModified<IncreaseOpInfo>
+  | OpToModified<RemoveOpInfo>
+  | OpToModified<SetOpInfo>
+  | OpToModified<MoveOpInfo>
+  | OpToModified<EditOpInfo>
+  | OpToModified<StyleOpInfo>
+  | OpToModified<SelectOpInfo>;
+
+type OpToModified<T extends OperationInfo> = Omit<T, 'path'> & {
+  element: TimeTicket;
+};
 
 /**
  * `Operation` represents an operation to be executed on a document.

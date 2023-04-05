@@ -47,14 +47,7 @@ import {
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   Modified,
-  AddOpModified,
-  IncreaseOpModified,
-  RemoveOpModified,
-  SetOpModified,
-  MoveOpModified,
-  EditOpModified,
-  StyleOpModified,
-  SelectOpModified,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
@@ -133,24 +126,13 @@ export interface SnapshotEvent extends BaseDocEvent {
 }
 
 /**
- * `UpdateInfo` represents the modifications made during a document update
+ * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export type UpdateInfo = {
+export type ChangeInfo = {
   message: string;
-  updates: Array<UpdateDelta>;
+  operationInfos: Array<OperationInfo>;
 };
-export type UpdateDelta =
-  | ModifiedWithPath<AddOpModified>
-  | ModifiedWithPath<IncreaseOpModified>
-  | ModifiedWithPath<RemoveOpModified>
-  | ModifiedWithPath<SetOpModified>
-  | ModifiedWithPath<MoveOpModified>
-  | ModifiedWithPath<EditOpModified>
-  | ModifiedWithPath<StyleOpModified>
-  | ModifiedWithPath<SelectOpModified>;
-
-export type ModifiedWithPath<T> = Omit<T, 'element'> & { path: string };
 
 /**
  * `LocalChangeEvent` is an event that occurs when the document is changed
@@ -166,7 +148,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<UpdateInfo>;
+  value: Array<ChangeInfo>;
 }
 
 /**
@@ -183,7 +165,7 @@ export interface RemoteChangeEvent extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<UpdateInfo>;
+  value: Array<ChangeInfo>;
 }
 
 /**
@@ -278,8 +260,8 @@ export class Document<T> {
           value: [
             {
               message: change.getMessage() || '',
-              updates: changeModified.map((modified) =>
-                this.getUpdateDelta(modified),
+              operationInfos: changeModified.map((modified) =>
+                this.getOperationInfo(modified),
               ),
             },
           ],
@@ -333,24 +315,24 @@ export class Document<T> {
             return;
           }
 
-          const updateInfos: Array<UpdateInfo> = [];
-          event.value.forEach(({ message, updates }) => {
-            const targetUpdates: Array<UpdateDelta> = [];
-            updates.forEach((result) => {
-              if (this.isSameElementOrChildOf(result.path, target)) {
-                targetUpdates.push(result);
+          const changeInfos: Array<ChangeInfo> = [];
+          event.value.forEach(({ message, operationInfos }) => {
+            const targetOpInfos: Array<OperationInfo> = [];
+            operationInfos.forEach((opInfo) => {
+              if (this.isSameElementOrChildOf(opInfo.path, target)) {
+                targetOpInfos.push(opInfo);
               }
             });
-            targetUpdates.length &&
-              updateInfos.push({
+            targetOpInfos.length &&
+              changeInfos.push({
                 message,
-                updates: targetUpdates,
+                operationInfos: targetOpInfos,
               });
           });
-          updateInfos.length &&
+          changeInfos.length &&
             callback({
               type: event.type,
-              value: updateInfos,
+              value: changeInfos,
             });
         },
         arg3,
@@ -619,13 +601,13 @@ export class Document<T> {
       change.execute(this.clone!);
     }
 
-    const updateInfos: Array<UpdateInfo> = [];
+    const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
       const changeModified = change.execute(this.root);
-      updateInfos.push({
+      changeInfos.push({
         message: change.getMessage() || '',
-        updates: changeModified.map((modified) =>
-          this.getUpdateDelta(modified),
+        operationInfos: changeModified.map((modified) =>
+          this.getOperationInfo(modified),
         ),
       });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
@@ -634,7 +616,7 @@ export class Document<T> {
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
-        value: updateInfos,
+        value: changeInfos,
       });
     }
 
@@ -677,16 +659,16 @@ export class Document<T> {
     return pathTrie.findPrefixes().map((element) => element.join('.'));
   }
 
-  private getUpdateDelta(modified: Modified): UpdateDelta {
-    const delta = {} as UpdateDelta;
+  private getOperationInfo(modified: Modified): OperationInfo {
+    const opInfo = {} as OperationInfo;
     for (const key of Object.keys(modified)) {
       if (key === 'element') {
-        delta.path = this.root.createSubPaths(modified[key])!.join('.');
+        opInfo.path = this.root.createSubPaths(modified[key])!.join('.');
       } else {
         const k = key as keyof Omit<Modified, 'element'>;
-        delta[k] = modified[k] as any;
+        opInfo[k] = modified[k];
       }
     }
-    return delta;
+    return opInfo;
   }
 }

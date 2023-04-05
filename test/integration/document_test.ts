@@ -14,8 +14,8 @@ import {
   DocumentStatus,
   DocEvent,
   DocEventType,
-  UpdateDelta,
 } from '@yorkie-js-sdk/src/document/document';
+import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Document', function () {
@@ -119,15 +119,15 @@ describe('Document', function () {
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
-    const events1: Array<UpdateDelta> = [];
-    let expectedEvents1: Array<UpdateDelta> = [];
-    const events2: Array<UpdateDelta> = [];
-    let expectedEvents2: Array<UpdateDelta> = [];
-    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+    const events1: Array<OperationInfo> = [];
+    let expectedEvents1: Array<OperationInfo> = [];
+    const events2: Array<OperationInfo> = [];
+    let expectedEvents2: Array<OperationInfo> = [];
+    const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     };
@@ -267,14 +267,14 @@ describe('Document', function () {
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
-    let events: Array<UpdateDelta> = [];
-    let todoEvents: Array<UpdateDelta> = [];
-    let counterEvents: Array<UpdateDelta> = [];
-    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+    let events: Array<OperationInfo> = [];
+    let todoEvents: Array<OperationInfo> = [];
+    let counterEvents: Array<OperationInfo> = [];
+    const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     };
@@ -376,14 +376,14 @@ describe('Document', function () {
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
-    let events: Array<UpdateDelta> = [];
-    let todoEvents: Array<UpdateDelta> = [];
-    let objEvents: Array<UpdateDelta> = [];
-    const pushEvent = (event: DocEvent, events: Array<UpdateDelta>) => {
+    let events: Array<OperationInfo> = [];
+    let todoEvents: Array<OperationInfo> = [];
+    let objEvents: Array<OperationInfo> = [];
+    const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     };

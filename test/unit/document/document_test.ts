@@ -23,8 +23,8 @@ import {
   Document,
   DocEvent,
   DocEventType,
-  UpdateDelta,
 } from '@yorkie-js-sdk/src/document/document';
+import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
@@ -940,16 +940,16 @@ describe('Document', function () {
     assert.equal(4, doc.getRoot().data.length);
   });
 
-  it('updateDelta test for object', async function () {
+  it('changeInfo test for object', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<UpdateDelta> = [];
-    const events: Array<UpdateDelta> = [];
+    const expectedEvents: Array<OperationInfo> = [];
+    const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     });
@@ -983,16 +983,16 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('updateDelta test for array', async function () {
+  it('changeInfo test for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<UpdateDelta> = [];
-    const events: Array<UpdateDelta> = [];
+    const expectedEvents: Array<OperationInfo> = [];
+    const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     });
@@ -1024,18 +1024,18 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('updateDelta test for counter', async function () {
+  it('changeInfo test for counter', async function () {
     type TestDoc = { cnt: Counter };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<UpdateDelta> = [];
-    const events: Array<UpdateDelta> = [];
+    const expectedEvents: Array<OperationInfo> = [];
+    const events: Array<OperationInfo> = [];
 
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     });
@@ -1077,18 +1077,18 @@ describe('Document', function () {
     });
   });
 
-  it('updateDelta test for text', async function () {
+  it('changeInfo test for text', async function () {
     type TestDoc = { text: Text };
 
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<UpdateDelta> = [];
-    const events: Array<UpdateDelta> = [];
+    const expectedEvents: Array<OperationInfo> = [];
+    const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     });
@@ -1134,17 +1134,17 @@ describe('Document', function () {
     unsub1();
   });
 
-  it('updateDelta test for text with attributes', async function () {
+  it('changeInfo test for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<UpdateDelta> = [];
-    const events: Array<UpdateDelta> = [];
+    const expectedEvents: Array<OperationInfo> = [];
+    const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ updates }) => {
-        updates.forEach((updateDelta) => {
-          events.push(updateDelta);
+      event.value.forEach(({ operationInfos }) => {
+        operationInfos.forEach((opInfo) => {
+          events.push(opInfo);
         });
       });
     });
