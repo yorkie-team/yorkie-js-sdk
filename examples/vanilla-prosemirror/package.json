@@ -21,6 +21,6 @@
     "prosemirror-schema-list": "^1.2.2",
     "prosemirror-state": "^1.4.2",
     "prosemirror-view": "^1.29.0",
-    "yorkie-js-sdk": "^0.2.19"
+    "yorkie-js-sdk": "^0.3.3"
   }
 }
