@@ -37,6 +37,8 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { TreeNode } from '@yorkie-js-sdk/src/document/json/tree_node';
+import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree_node';
 import { Indexable } from '../document';
 
 /**
@@ -57,6 +59,7 @@ export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | JSONObject<T>
   | JSONArray<T>
   | Text<A>
+  | TreeNode
   | Counter;
 
 /**
@@ -68,6 +71,7 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | JSONObject<T>
   | JSONArray<T>
   | Text<A>
+  | TreeNode
   | Counter;
 
 /**
@@ -91,6 +95,8 @@ export function toWrappedElement(
     const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, elem);
     return counter;
+  } else if (elem instanceof CRDTTreeNode) {
+    return new TreeNode(context, elem);
   }
 
   throw new TypeError(`Unsupported type of element: ${typeof elem}`);
