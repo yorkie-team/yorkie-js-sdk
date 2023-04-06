@@ -17,6 +17,7 @@
 import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
+import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
@@ -75,6 +76,7 @@ export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
+export { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
 
@@ -93,6 +95,7 @@ const yorkie = {
   Document,
   Text,
   Counter,
+  Tree,
   IntType: CounterType.IntegerCnt,
   LongType: CounterType.LongCnt,
 };

@@ -5,14 +5,11 @@ import { Schema, Node } from 'prosemirror-model';
 import { exampleSetup } from 'prosemirror-example-setup';
 import { toggleMark } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
-
 import './style.css';
 
 const mySchema = new Schema({
   nodes: {
-    text: {
-      group: 'inline',
-    },
+    text: { group: 'inline' },
     star: {
       inline: true,
       group: 'inline',
@@ -54,9 +51,7 @@ const mySchema = new Schema({
       },
       parseDOM: [{ tag: 'notegroup' }],
     },
-    doc: {
-      content: 'block+',
-    },
+    doc: { content: 'block+' },
   },
   marks: {
     shouting: {
@@ -73,47 +68,18 @@ const initialDoc = {
   content: [
     {
       type: 'paragraph',
-      content: [
-        {
-          type: 'text',
-          text: 'para ',
-        },
-        {
-          type: 'star',
-        },
-      ],
+      content: [{ type: 'text', text: 'ab' }, { type: 'star' }],
     },
     {
       type: 'notegroup',
       content: [
-        {
-          type: 'note',
-          content: [
-            {
-              type: 'text',
-              text: 'This is note 1',
-            },
-          ],
-        },
-        {
-          type: 'note',
-          content: [
-            {
-              type: 'text',
-              text: 'This is note 2',
-            },
-          ],
-        },
+        { type: 'note', content: [{ type: 'text', text: 'cd' }] },
+        { type: 'note', content: [{ type: 'text', text: 'ef' }] },
       ],
     },
     {
       type: 'boring_paragraph',
-      content: [
-        {
-          type: 'text',
-          text: 'boring para',
-        },
-      ],
+      content: [{ type: 'text', text: 'gh' }],
     },
   ],
 };
@@ -142,6 +108,7 @@ async function main() {
   const client = new yorkie.Client('http://localhost:8080');
   await client.activate();
 
+  // TODO(hackerwins): Replace yorkie.Text with yorkie.Tree.
   // 01. Build yorkie.Text from ProseMirror doc.
   const doc = new yorkie.Document<{ text: Text }>('prosemirror');
   await client.attach(doc);
@@ -179,6 +146,7 @@ async function main() {
       // If the steps are empty, it means the transaction is not applied to the document.
       // Only the selection is changed.
       if (!transaction.steps.length) {
+        console.log(transaction.curSelection.$anchor.pos);
         return;
       }
 
@@ -192,7 +160,7 @@ async function main() {
 
           // TODO(hackerwins): We need to change yorkie.Tree to support depth and path.
           // TODO(hackerwins): We need to understand how to handle steps.
-          // TODO(hackerwins): We need to understand the indexes of the ProseMirror.
+          // TODO(hackerwins): We need to understand the indexes(from, to) of the ProseMirror.
 
           // 02-1. Delete the given range.
           if (!content.content.length) {
@@ -223,6 +191,7 @@ async function main() {
   });
   view.focus();
 
+  printYorkieDoc(doc);
   // 03. Subscribe the changes of yorkie.Text and apply them to ProseMirror.
   // TODO(hackerwins): Implement this.
 }
