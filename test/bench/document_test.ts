@@ -18,6 +18,7 @@ import { assert } from 'chai';
 import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
+import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
 
 const tests = [
   {
@@ -27,6 +28,16 @@ const tests = [
       assert.equal('{}', doc.toJSON());
       assert.equal(doc.getCheckpoint(), InitialCheckpoint);
       assert.isFalse(doc.hasLocalChanges());
+    },
+  },
+  {
+    name: 'Document#status',
+    run: (): void => {
+      const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
+
+      assert.equal(doc.getStatus(), DocumentStatus.Detached);
+      doc.setStatus(DocumentStatus.Attached);
+      assert.equal(doc.getStatus(), DocumentStatus.Attached);
     },
   },
   {
