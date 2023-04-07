@@ -24,11 +24,11 @@ describe('Tree', () => {
       );
 
       // 03. Insert a text into the paragraph.
-      // root.t.edit(3, 3, { type: 'text', value: 'CD' });
-      // assert.equal(
-      //   '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"},{"type":"text","value":"CD"}]}]}}',
-      //   root.toJSON!(),
-      // );
+      root.t.edit(3, 3, { type: 'text', value: 'CD' });
+      assert.equal(
+        '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"},{"type":"text","value":"CD"}]}]}}',
+        root.toJSON!(),
+      );
     });
   });
 });
