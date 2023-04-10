@@ -342,6 +342,9 @@ export class PushPullChangesRequest extends jspb.Message {
   hasChangePack(): boolean;
   clearChangePack(): PushPullChangesRequest;
 
+  getPushOnly(): boolean;
+  setPushOnly(value: boolean): PushPullChangesRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PushPullChangesRequest.AsObject;
   static toObject(includeInstance: boolean, msg: PushPullChangesRequest): PushPullChangesRequest.AsObject;
@@ -355,6 +358,7 @@ export namespace PushPullChangesRequest {
     clientId: Uint8Array | string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
+    pushOnly: boolean,
   }
 }
 
