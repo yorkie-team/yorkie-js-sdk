@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-getPeerPresence(docKey: DocumentKey, clientID: ActorID): P;
+getPeerPresence(docKey: DocumentKey, clientID: ActorID): P | undefined;
 ```
 
 ## Parameters
@@ -21,5 +21,5 @@ getPeerPresence(docKey: DocumentKey, clientID: ActorID): P;
 
 <b>Returns:</b>
 
-P
+P \| undefined
 
