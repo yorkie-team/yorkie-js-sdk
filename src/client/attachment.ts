@@ -121,8 +121,8 @@ export class Attachment<P> {
   /**
    * `getPresence` returns the presence information of the client.
    */
-  public getPresence(clientID: ActorID): P {
-    return this.peerPresenceMap.get(clientID)!.data;
+  public getPresence(clientID: ActorID): P | undefined {
+    return this.peerPresenceMap.get(clientID)?.data;
   }
 
   /**

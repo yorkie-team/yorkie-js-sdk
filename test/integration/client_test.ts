@@ -665,4 +665,47 @@ describe('Client', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  it(`Can get peer's presence`, async function () {
+    type PresenceType = {
+      name: string;
+      cursor: { x: number; y: number };
+    };
+    const c1 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: {
+        name: 'a',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    const c2 = new yorkie.Client<PresenceType>(testRPCAddr, {
+      presence: {
+        name: 'b',
+        cursor: { x: 1, y: 1 },
+      },
+    });
+    await c1.activate();
+    await c2.activate();
+
+    const stub1 = sinon.stub();
+    const unsub1 = c1.subscribe(stub1);
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ version: string }>(docKey);
+    const d2 = new yorkie.Document<{ version: string }>(docKey);
+
+    await c1.attach(d1);
+    await waitStubCallCount(stub1, 2); // connected, initialized
+    assert.deepEqual(c1.getPeerPresence(docKey, c2.getID()!), undefined);
+
+    await c2.attach(d2);
+    await waitStubCallCount(stub1, 3); // watched
+    assert.deepEqual(c1.getPeerPresence(docKey, c2.getID()!), {
+      name: 'b',
+      cursor: { x: 1, y: 1 },
+    });
+
+    unsub1();
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 });
