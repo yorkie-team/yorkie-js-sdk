@@ -1,7 +1,12 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTTree, CRDTNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import {
+  CRDTTree,
+  CRDTNode,
+  CRDTInlineNode,
+  CRDTBlockNode,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export type Node = InlineNode | BlockNode;
 
@@ -70,14 +75,9 @@ export class Tree {
     let crdtNode: CRDTNode;
 
     if (node.type === 'text') {
-      crdtNode = {
-        id: ticket,
-        type: 'text',
-        value: currentNode.value,
-        size: currentNode.value.length,
-      };
+      crdtNode = new CRDTInlineNode(ticket, currentNode.value);
     } else {
-      crdtNode = { id: ticket, type: node.type, children: [], size: 0 };
+      crdtNode = new CRDTBlockNode(ticket, node.type);
     }
 
     this.tree.edit([fromIdx, toIdx], crdtNode, ticket);

@@ -1,7 +1,4 @@
-import {
-  TimeTicket,
-  InitialTimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 /**
@@ -45,10 +42,10 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
  */
 
 /**
- * `BlockNodeSize` is the size of a block node as a child of another block node.
+ * `BlockNodePaddingSize` is the size of a block node as a child of another block node.
  * Because a block node could be considered as a pair of open and close tags.
  */
-const BlockNodeSize = 2;
+const BlockNodePaddingSize = 2;
 
 /**
  * `NoteType` is the type of a node in the tree.
@@ -58,29 +55,126 @@ type NodeType = 'root' | 'text' | string;
 /**
  * `CRDTNode` is the node of a CRDT tree.
  */
-export type CRDTNode = CRDTBlockNode | CRDTInlineNode;
+export abstract class CRDTNode {
+  id: TimeTicket;
+  type: NodeType;
+  parent?: CRDTBlockNode;
+  size: number;
+  removedAt?: TimeTicket;
+
+  constructor(id: TimeTicket, type: NodeType) {
+    this.id = id;
+    this.type = type;
+    this.size = 0;
+  }
+
+  /**
+   * `remove` marks the node as removed.
+   */
+  remove(removedAt: TimeTicket): void {
+    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+      this.removedAt = removedAt;
+    }
+  }
+
+  /**
+   * `isInline` returns true if the node is a inline node.
+   */
+  get isInline(): boolean {
+    return this.type === 'text';
+  }
+
+  /**
+   * `children` returns the children of the node.
+   */
+  abstract get children(): Array<CRDTNode>;
+
+  /**
+   * `toJSON` returns the JSON representation of the node.
+   */
+  abstract toJSON(): any;
+}
 
 /**
  * `CRDTInlineNode` is the node of a CRDT tree that has text.
  */
-export type CRDTInlineNode = {
-  id: TimeTicket;
-  type: 'text';
-  value: string;
-  parent?: CRDTBlockNode;
-  size: number;
-};
+export class CRDTInlineNode extends CRDTNode {
+  _value: string;
+
+  constructor(id: TimeTicket, value: string) {
+    super(id, 'text');
+
+    this._value = value;
+    this.size = value.length;
+  }
+
+  /**
+   * `value` returns the value of the node.
+   */
+  get value() {
+    return this._value;
+  }
+
+  /**
+   * `value` sets the value of the node.
+   */
+  set value(v: string) {
+    this._value = v;
+    this.size = v.length;
+  }
+
+  /**
+   * `children` returns the children of the node.
+   */
+  get children() {
+    return [];
+  }
+
+  /**
+   * `toJSON` returns the JSON representation of the node.
+   */
+  toJSON() {
+    return {
+      type: this.type,
+      value: this.value,
+      size: this.size,
+    };
+  }
+}
 
 /**
  * `CRDTBlockNode` is the node of a CRDT tree that has children.
  */
-export type CRDTBlockNode = {
-  id: TimeTicket;
-  type: NodeType;
-  children: Array<CRDTNode>;
-  parent?: CRDTBlockNode;
-  size: number;
-};
+export class CRDTBlockNode extends CRDTNode {
+  _children: Array<CRDTNode>;
+
+  constructor(id: TimeTicket, type: NodeType, children: Array<CRDTNode> = []) {
+    super(id, type);
+    this._children = children;
+    this.size = 0;
+    if (children.length > 0) {
+      this.size = accumulateNodeSize(this);
+    }
+  }
+
+  /**
+   * `children` returns the children of the node.
+   */
+  get children() {
+    return this._children;
+  }
+
+  /**
+   * `toJSON` returns the JSON representation of the node.
+   */
+  toJSON() {
+    return {
+      type: this.type,
+      children: this.children.map((child) => child.toJSON()),
+      size: this.size,
+    };
+  }
+}
 
 /**
  * `TreePos` is the position of a node in the tree.
@@ -99,20 +193,99 @@ export type TreePos = {
  * The size of a node is the sum of the size and type of its children.
  */
 function accumulateNodeSize(node: CRDTNode, depth = 0) {
-  if (node.type === 'text') {
+  if (node.isInline) {
     return node.size;
   }
 
   const blockNode = node as CRDTBlockNode;
   let size = 0;
 
-  if (depth > 0) size += BlockNodeSize;
+  if (depth > 0) size += BlockNodePaddingSize;
 
   for (const child of blockNode.children) {
     size += accumulateNodeSize(child, depth + 1);
   }
 
   return size;
+}
+
+/**
+ * `nodesBetween` iterates the nodes between the given range.
+ */
+function nodesBetween(
+  root: CRDTNode,
+  from: number,
+  to: number,
+  callback: (node: CRDTNode) => void,
+) {
+  if (from > to) {
+    throw new Error(`from is greater than to: ${from} > ${to}`);
+  }
+
+  if (from > root.size) {
+    throw new Error(`from is out of range: ${from} > ${root.size}`);
+  }
+
+  if (to > root.size) {
+    throw new Error(`to is out of range: ${to} > ${root.size}`);
+  }
+
+  let pos = 0;
+  for (const child of root.children) {
+    // NOTE(hackerwins): If the child is a block node, the size of the child
+    const paddedChildSize = child.isInline
+      ? child.size
+      : child.size + BlockNodePaddingSize;
+    if (from - paddedChildSize < pos && pos < to) {
+      callback(child);
+
+      // NOTE(hackerwins): If the child is a block node, the range of the child
+      // is from - 1 to to - 1. Because the range of the block node is from
+      // the open tag to the close tag.
+      const fromChild = from - pos;
+      const toChild = to - pos;
+      nodesBetween(
+        child,
+        Math.max(0, child.isInline ? fromChild : fromChild - 1),
+        Math.min(child.isInline ? toChild : toChild - 1, child.size),
+        callback,
+      );
+    }
+    pos += paddedChildSize;
+  }
+}
+
+/**
+ * `splitNode` splits the given node at the given offset.
+ */
+function splitNode(node: CRDTNode, offset: number): void {
+  if (!node.isInline) {
+    return;
+  }
+
+  const currentNode = node as CRDTInlineNode;
+  if (offset === 0 || offset === currentNode.size) {
+    return;
+  }
+
+  const left = currentNode.value.slice(0, offset);
+  const right = currentNode.value.slice(offset);
+
+  currentNode.value = left;
+
+  // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
+  // create new right node
+  const rightNode = new CRDTInlineNode(currentNode.id, right);
+
+  const parent = currentNode.parent;
+  if (!parent) {
+    throw Error('parent node is not found');
+  }
+
+  // insert right node
+  const index = parent.children.indexOf(currentNode);
+  parent.children.splice(index + 1, 0, rightNode);
+  return;
 }
 
 /**
@@ -127,22 +300,22 @@ function findTreePos(
     throw new Error(`index is out of range: ${index} > ${node.size}`);
   }
 
-  if (node.type === 'text') {
+  if (node.isInline) {
     return { node, offset: index };
   }
 
-  // TODO(hackerwins,easylogic): Find a way to remove this type casting.
-  node = node as CRDTBlockNode;
+  // TODO(hackerwins, easylogic): Find a way to remove this type casting.
+  const currentNode = node;
 
   // offset is the index of the child node.
   // pos is the window of the index in the given node.
   let offset = 0;
   let pos = 0;
-  for (const child of node.children) {
+  for (const child of currentNode.children) {
     let childSize = child.size;
     // The pos is in bothsides of the inline node, we should traverse
     // inside of the inline node if preperInline is true.
-    if (preperInline && child.type === 'text' && childSize >= index - pos) {
+    if (preperInline && child.isInline && childSize >= index - pos) {
       return findTreePos(child, index - pos);
     }
 
@@ -156,7 +329,7 @@ function findTreePos(
       return { node, offset: offset + 1 };
     }
 
-    childSize += BlockNodeSize;
+    childSize += BlockNodePaddingSize;
 
     // The position is in middle the block node.
     if (childSize > index - pos) {
@@ -176,21 +349,21 @@ function findTreePos(
 /**
  * toJSON converts the given CRDTNode to JSON.
  */
-// TODO(hackerwins,easylogic): Change any to specific type.
+// TODO(hackerwins, easylogic): Change any to specific type.
 function toJSON(node: CRDTNode): any {
-  // TODO(hackerwins): Find a way to remove this type casting.
-  if (node.type === 'text') {
-    node = node as CRDTInlineNode;
+  // TODO(hackerwins, easylogic): Find a way to remove this type casting.
+  if (node.isInline) {
+    const currentNode = node as CRDTInlineNode;
     return {
-      type: node.type,
-      value: node.value,
+      type: currentNode.type,
+      value: currentNode.value,
     };
   }
 
-  node = node as CRDTBlockNode;
+  const currentBlockNode = node as CRDTBlockNode;
   return {
     type: node.type,
-    children: node.children.map((child) => toJSON(child)),
+    children: currentBlockNode.children.map((child) => toJSON(child)),
   };
 }
 
@@ -198,14 +371,14 @@ function toJSON(node: CRDTNode): any {
  * toXML converts the given CRDTNode to XML string.
  */
 function toXML(node: CRDTNode): string {
-  // TODO(hackerwins): Find a way to remove this type casting.
-  if (node.type === 'text') {
-    node = node as CRDTInlineNode;
-    return node.value;
+  // TODO(hackerwins, easylogic): Find a way to remove this type casting.
+  if (node.isInline) {
+    const currentNode = node as CRDTInlineNode;
+    return currentNode.value;
   }
 
-  node = node as CRDTBlockNode;
-  return `<${node.type}>${node.children
+  const currentBlockNode = node as CRDTBlockNode;
+  return `<${node.type}>${currentBlockNode.children
     .map((child) => toXML(child))
     .join('')}</${node.type}>`;
 }
@@ -218,12 +391,7 @@ export class CRDTTree extends CRDTElement {
 
   constructor(createdAt: TimeTicket) {
     super(createdAt);
-    this.root = {
-      id: InitialTimeTicket,
-      type: 'root',
-      children: [],
-      size: 0,
-    };
+    this.root = new CRDTBlockNode(createdAt, 'root');
   }
 
   /**
@@ -241,43 +409,68 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `nodesBetween` returns the nodes between the given range.
+   */
+  public nodesBetween(
+    from: number,
+    to: number,
+    callback: (node: CRDTNode) => void,
+  ): void {
+    nodesBetween(this.root, from, to, callback);
+  }
+
+  /**
+   * `splitNode` splits the node at the given index.
+   */
+  public splitNode(index: number) {
+    // TODO(hackerwins, easylogic): Split the nodes from the given node to
+    // the specified ancestor node.
+    const { node: fromNode, offset: fromOffset } = findTreePos(
+      this.root,
+      index,
+      true,
+    );
+    return splitNode(fromNode, fromOffset);
+  }
+
+  /**
    * `edit` edits the given range with the given value.
    * If the given value is undefined, the given range will be deleted.
    */
   public edit(
     range: [number, number],
-    value: CRDTNode | undefined,
+    content: CRDTNode | undefined,
     ticket: TimeTicket,
   ): void {
-    // 01. Find the position of the given range.
-    const { node: fromNode, offset: fromOffset } = findTreePos(
-      this.root,
-      range[0],
-      false,
-    );
-    const { node: toNode, offset: toOffset } = findTreePos(
-      this.root,
-      range[1],
-      false,
-    );
+    // 01. split nodes at the given positions if needed.
+    this.splitNode(range[0]);
+    this.splitNode(range[1]);
 
-    // 02. delete the given range.
-    // TODO(hackerwins,easylogic): Implement this.
-    console.debug(fromNode, fromOffset, toNode, toOffset, ticket);
+    // 02. collect the nodes between the given range and mark them as tombstones.
+    // TODO(hackerwins, easylogic): Filter out ancestors of the left-side node.
+    this.nodesBetween(range[0], range[1], (node) => {
+      node.remove(ticket);
+    });
 
     // 03. Insert the given node at the given position.
-    if (value) {
-      const target = toNode as CRDTBlockNode;
-      target.children.splice(fromOffset + 1, 0, value);
-      value.parent = target;
+    if (content) {
+      const { node: fromNode, offset: fromOffset } = findTreePos(
+        this.root,
+        range[0],
+        false,
+      );
+
+      const target = fromNode as CRDTBlockNode;
+      target.children.splice(fromOffset + 1, 0, content);
+      content.parent = target;
 
       // 03. Update size of the nodes between the given node and the root.
-      let current = value;
+      let current = content;
       while (current.parent) {
-        if (value.type === 'text') {
-          current.parent.size += value.size;
+        if (content.isInline) {
+          current.parent.size += content.size;
         } else {
-          current.parent.size += value.size + BlockNodeSize;
+          current.parent.size += content.size + BlockNodePaddingSize;
         }
 
         current = current.parent;
