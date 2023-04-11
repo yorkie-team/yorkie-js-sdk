@@ -179,30 +179,68 @@ const tests = [
     },
   },
   {
-    name: 'Document#insert characters in sequence then delete all-1000',
+    name: 'Document#rich text test',
     run: (): void => {
-      const size = 1000;
-      const doc = Document.create<{ text: Text }>('test-doc');
-
+      const doc = Document.create<{ k1: Text }>('test-doc');
       doc.update((root) => {
-        root.text = new Text();
-      }, 'initialize');
-
-      // 01. inserts many chracters
-      for (let i = 0; i < size; i++) {
-        doc.update((root) => {
-          const { text } = root;
-          text.edit(i, i, 'a');
-        }, 'insert chracter');
-      }
-
-      // 02. deletes them
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'Hello world');
+        assert.equal(
+          '[0:00:0:0 ][1:00:2:0 Hello world]',
+          root.k1.getStructureAsString(),
+        );
+      });
+      assert.equal('{"k1":[{"val":"Hello world"}]}', doc.toJSON());
       doc.update((root) => {
-        const { text } = root;
-        text.edit(0, size, '');
-      }, 'delete them');
-
-      assert.equal(doc.getRoot().text.toString(), '');
+        root.k1.setStyle(0, 5, { b: '1' });
+        assert.equal(
+          '[0:00:0:0 ][1:00:2:0 Hello][1:00:2:5  world]',
+          root.k1.getStructureAsString(),
+        );
+      });
+      assert.equal(
+        '{"k1":[{"attrs":{"b":"1"},"val":"Hello"},{"val":" world"}]}',
+        doc.toJSON(),
+      );
+      doc.update((root) => {
+        root.k1.setStyle(0, 5, { b: '1' });
+        assert.equal(
+          '[0:00:0:0 ][1:00:2:0 Hello][1:00:2:5  world]',
+          root.k1.getStructureAsString(),
+        );
+        root.k1.setStyle(3, 5, { i: '1' });
+        assert.equal(
+          '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][1:00:2:5  world]',
+          root.k1.getStructureAsString(),
+        );
+      });
+      assert.equal(
+        '{"k1":[{"attrs":{"b":"1"},"val":"Hel"},{"attrs":{"b":"1","i":"1"},"val":"lo"},{"val":" world"}]}',
+        doc.toJSON(),
+      );
+      doc.update((root) => {
+        root.k1.edit(5, 11, ' yorkie');
+        assert.equal(
+          '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][4:00:1:0  yorkie]{1:00:2:5  world}',
+          root.k1.getStructureAsString(),
+        );
+      });
+      assert.equal(
+        '{"k1":[{"attrs":{"b":"1"},"val":"Hel"},{"attrs":{"b":"1","i":"1"},"val":"lo"},{"val":" yorkie"}]}',
+        doc.toJSON(),
+      );
+      doc.update((root) => {
+        root.k1.edit(5, 5, '\n', { list: 'true' });
+        assert(
+          '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][5:00:1:0 ]' +
+            '[4:00:1:0  yorkie]{1:00:2:5  world}',
+          root.k1.getStructureAsString(),
+        );
+      });
+      assert.equal(
+        '{"k1":[{"attrs":{"b":"1"},"val":"Hel"},{"attrs":{"b":"1","i":"1"},"val":"lo"},{"attrs":{"list":"true"},"val":"\\n"},{"val":" yorkie"}]}',
+        doc.toJSON(),
+      );
     },
   },
   {
