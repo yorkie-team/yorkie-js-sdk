@@ -46,7 +46,7 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  Modified,
+  InternalOpInfo,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
@@ -250,7 +250,7 @@ export class Document<T> {
       }
 
       const change = context.getChange();
-      const modifieds = change.execute(this.root);
+      const internalOpInfos = change.execute(this.root);
       this.localChanges.push(change);
       this.changeID = change.getID();
 
@@ -260,8 +260,8 @@ export class Document<T> {
           value: [
             {
               message: change.getMessage() || '',
-              operations: modifieds.map((modified) =>
-                this.getOperationInfo(modified),
+              operations: internalOpInfos.map((internalOpInfo) =>
+                this.toOperationInfo(internalOpInfo),
               ),
             },
           ],
@@ -603,11 +603,11 @@ export class Document<T> {
 
     const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      const modifieds = change.execute(this.root);
+      const inernalOpInfos = change.execute(this.root);
       changeInfos.push({
         message: change.getMessage() || '',
-        operations: modifieds.map((modified) =>
-          this.getOperationInfo(modified),
+        operations: inernalOpInfos.map((opInfo) =>
+          this.toOperationInfo(opInfo),
         ),
       });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
@@ -659,14 +659,14 @@ export class Document<T> {
     return pathTrie.findPrefixes().map((element) => element.join('.'));
   }
 
-  private getOperationInfo(modified: Modified): OperationInfo {
+  private toOperationInfo(internalOpInfo: InternalOpInfo): OperationInfo {
     const opInfo = {} as OperationInfo;
-    for (const key of Object.keys(modified)) {
+    for (const key of Object.keys(internalOpInfo)) {
       if (key === 'element') {
-        opInfo.path = this.root.createSubPaths(modified[key])!.join('.');
+        opInfo.path = this.root.createSubPaths(internalOpInfo[key])!.join('.');
       } else {
-        const k = key as keyof Omit<Modified, 'element'>;
-        opInfo[k] = modified[k];
+        const k = key as keyof Omit<InternalOpInfo, 'element'>;
+        opInfo[k] = internalOpInfo[k];
       }
     }
     return opInfo;

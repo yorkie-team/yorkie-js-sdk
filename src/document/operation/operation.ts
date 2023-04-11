@@ -89,19 +89,19 @@ export type SelectOpInfo = {
 };
 
 /**
- * `Modified` represents the information of the modified element. It is used to
+ * `InternalOpInfo` represents the information of the operation. It is used to
  * internally and can be converted to `OperationInfo` to inform to the user.
  */
-export type Modified =
-  | OpToModified<AddOpInfo>
-  | OpToModified<IncreaseOpInfo>
-  | OpToModified<RemoveOpInfo>
-  | OpToModified<SetOpInfo>
-  | OpToModified<MoveOpInfo>
-  | OpToModified<EditOpInfo>
-  | OpToModified<StyleOpInfo>
-  | OpToModified<SelectOpInfo>;
-type OpToModified<T extends OperationInfo> = Omit<T, 'path'> & {
+export type InternalOpInfo =
+  | ToInternalOpInfo<AddOpInfo>
+  | ToInternalOpInfo<IncreaseOpInfo>
+  | ToInternalOpInfo<RemoveOpInfo>
+  | ToInternalOpInfo<SetOpInfo>
+  | ToInternalOpInfo<MoveOpInfo>
+  | ToInternalOpInfo<EditOpInfo>
+  | ToInternalOpInfo<StyleOpInfo>
+  | ToInternalOpInfo<SelectOpInfo>;
+type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };
 
@@ -152,7 +152,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(
-    root: CRDTRoot,
-  ): Array<Modified> | Modified | undefined;
+  public abstract execute(root: CRDTRoot): Array<InternalOpInfo>;
 }

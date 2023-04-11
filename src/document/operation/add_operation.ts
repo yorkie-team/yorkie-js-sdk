@@ -21,7 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
   Operation,
-  Modified,
+  InternalOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -57,7 +57,7 @@ export class AddOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Modified {
+  public execute(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -69,11 +69,13 @@ export class AddOperation extends Operation {
     const value = this.value.deepcopy();
     array.insertAfter(this.prevCreatedAt, value);
     root.registerElement(value, array);
-    return {
-      type: 'add',
-      element: this.getParentCreatedAt(),
-      index: Number(array.subPathOf(this.getEffectedCreatedAt())),
-    };
+    return [
+      {
+        type: 'add',
+        element: this.getParentCreatedAt(),
+        index: Number(array.subPathOf(this.getEffectedCreatedAt())),
+      },
+    ];
   }
 
   /**
