@@ -19,6 +19,9 @@ import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+import { Counter } from '@yorkie-js-sdk/src/yorkie';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+
 const benchmarkTextEditGC = (size: number) => {
   const doc = Document.create<{ text: Text }>('test-doc');
   assert.equal('{}', doc.toJSON());
@@ -82,6 +85,27 @@ const benchmarkTextDeleteAll = (size: number) => {
     root.text.edit(0, size, '');
   }, 'delete them');
   assert.equal(doc.getRoot().text.toString(), '');
+};
+const benchmarkText = (size: number) => {
+  const doc = Document.create<{ text: Text }>('test-doc');
+
+  doc.update((root) => {
+    root.text = new Text();
+
+    for (let i = 0; i < size; i++) {
+      root.text.edit(i, i, 'a');
+    }
+  });
+};
+const benchmarkCounter = (size: number) => {
+  const doc = Document.create<{ counter: Counter }>('test-doc');
+
+  doc.update((root) => {
+    root.counter = new Counter(CounterType.IntegerCnt, 0);
+    for (let i = 0; i < size; i++) {
+      root.counter.increase(i);
+    }
+  });
 };
 
 const tests = [
@@ -361,6 +385,30 @@ const tests = [
     name: 'Document#text delete all 10000',
     run: (): void => {
       benchmarkTextDeleteAll(10000);
+    },
+  },
+  {
+    name: 'Document#text 100',
+    run: (): void => {
+      benchmarkText(100);
+    },
+  },
+  {
+    name: 'Document#text 1000',
+    run: (): void => {
+      benchmarkText(1000);
+    },
+  },
+  {
+    name: 'Document#counter 1000',
+    run: (): void => {
+      benchmarkCounter(1000);
+    },
+  },
+  {
+    name: 'Document#counter 10000',
+    run: (): void => {
+      benchmarkCounter(10000);
     },
   },
     },
