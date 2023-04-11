@@ -147,7 +147,8 @@
 
           const displayCount = () => {
             counter.textContent = doc.getValueByPath('$.counter').getValue();
-            // counter.textContent = doc.getRoot().counter.getValue();
+            // you can also get the value as follows:
+            // doc.getRoot().counter.getValue();
           };
 
           counterIncreaseButton.onclick = () => {
@@ -160,10 +161,22 @@
           doc.subscribe('$.todos', (event) => {
             console.log('🟡 todos event', event);
 
-            // if we can distinguish add operation
-            // const newTodo = event.value[0].change.operations[0].value.getValue()
-            // addTodo(text);
-            displayTodos();
+            for (const changeInfo of event.value) {
+              const { message, operations } = changeInfo;
+              for (const op of operations) {
+                const { type, path, index } = op;
+                switch (type) {
+                  case 'add':
+                    const value = doc.getValueByPath(`${path}.${index}`);
+                    addTodo(value);
+                    break;
+                  default:
+                    displayTodos();
+                    break;
+                }
+              }
+            }
+
             if (event.type === 'local-change') {
               todoInput.value = '';
               todoInput.focus();
@@ -172,7 +185,6 @@
 
           function displayTodos() {
             todoList.innerHTML = '';
-            // doc.getRoot().todos.forEach((todo) => {
             doc.getValueByPath('$.todos').forEach((todo) => {
               addTodo(todo);
             });
@@ -182,23 +194,12 @@
             const newTodo = document.createElement('li');
             newTodo.classList.add('todoItem');
             newTodo.setAttribute('draggable', 'true');
-            const todoText = document.createElement('span');
-            todoText.classList.add('itemName');
-            todoText.textContent = text;
-            const deleteButton = document.createElement('button');
-            deleteButton.classList.add('trash');
-            deleteButton.textContent = '🗑';
-            const moveUpButton = document.createElement('button');
-            moveUpButton.classList.add('moveUp');
-            moveUpButton.textContent = '⬆';
-            const moveDownButton = document.createElement('button');
-            moveDownButton.classList.add('moveDown');
-            moveDownButton.textContent = '⬇';
-
-            newTodo.appendChild(moveUpButton);
-            newTodo.appendChild(moveDownButton);
-            newTodo.appendChild(todoText);
-            newTodo.appendChild(deleteButton);
+            newTodo.innerHTML = `
+              <button class="moveUp">⬆</button>
+              <button class="moveDown">⬇</button>
+              <span class="itemName">${text}</span>
+              <button class="trash">🗑</button></li>
+            `;
             todoList.appendChild(newTodo);
           }
           function handleAddTodo() {
@@ -207,7 +208,6 @@
               todoInput.focus();
               return;
             }
-
             doc.update((root) => {
               root.todos.push(text);
             });
@@ -243,8 +243,8 @@
           });
           todoList.addEventListener('click', function (e) {
             if (e.target.classList.contains('trash')) {
-              const $li = e.target.parentNode;
-              const idx = Array.from($li.parentNode.children).indexOf($li);
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
               doc.update((root) => {
                 const todoID = root.todos.getElementByIndex(idx).getID();
                 root.todos.deleteByID(todoID);
@@ -252,8 +252,8 @@
               return;
             }
             if (e.target.classList.contains('moveUp')) {
-              const $li = e.target.parentNode;
-              const idx = Array.from($li.parentNode.children).indexOf($li);
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
               if (idx === 0) return;
               doc.update((root) => {
                 const nextItem = root.todos.getElementByIndex(idx - 1);
@@ -263,8 +263,8 @@
               return;
             }
             if (e.target.classList.contains('moveDown')) {
-              const $li = e.target.parentNode;
-              const idx = Array.from($li.parentNode.children).indexOf($li);
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
               if (idx === doc.getRoot().todos.length - 1) return;
               doc.update((root) => {
                 const prevItem = root.todos.getElementByIndex(idx + 1);
@@ -275,20 +275,20 @@
             }
           });
           todoList.addEventListener('dragstart', function (e) {
-            const $li = e.target.closest('.todoItem');
-            if (!$li) return;
-            const idx = Array.from($li.parentNode.children).indexOf($li);
+            const li = e.target.closest('.todoItem');
+            if (!li) return;
+            const idx = Array.from(li.parentNode.children).indexOf(li);
             handleDragStart(idx);
           });
           todoList.addEventListener('dragover', function (e) {
-            const $li = e.target.closest('.todoItem');
-            if (!$li) return;
-            const idx = Array.from($li.parentNode.children).indexOf($li);
+            const li = e.target.closest('.todoItem');
+            if (!li) return;
+            const idx = Array.from(li.parentNode.children).indexOf(li);
             handleDragOver(e, idx);
           });
           todoList.addEventListener('dragend', function (e) {
-            const $li = e.target.closest('.todoItem');
-            if (!$li) return;
+            const li = e.target.closest('.todoItem');
+            if (!li) return;
             handleDragEnd();
           });
 
