@@ -161,7 +161,28 @@ export class CRDTBlockNode extends CRDTNode {
    * `children` returns the children of the node.
    */
   get children() {
-    return this._children;
+    return this._children.filter((child) => !child.removedAt);
+  }
+
+  /**
+   * `insertBefore` inserts the given node before the given child.
+   */
+  insertAfter(newNode: CRDTNode, referenceNode: CRDTNode): void {
+    const index = this._children.indexOf(referenceNode);
+    if (index === -1) {
+      throw new Error('child not found');
+    }
+
+    this._children.splice(index + 1, 0, newNode);
+    newNode.parent = this;
+  }
+
+  /**
+   * `insertAt` inserts the given node at the given index.
+   */
+  insertAt(newNode: CRDTNode, index: number): void {
+    this._children.splice(index, 0, newNode);
+    newNode.parent = this;
   }
 
   /**
@@ -210,6 +231,24 @@ function accumulateNodeSize(node: CRDTNode, depth = 0) {
 }
 
 /**
+ * `ancestorOf` returns true if the given node is an ancestor of the other node
+ * including itself.
+ */
+function ancestorOf(ancestor: CRDTNode, node: CRDTNode): boolean {
+  if (ancestor === node) {
+    return true;
+  }
+
+  while (node.parent) {
+    if (node.parent === ancestor) {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
+/**
  * `nodesBetween` iterates the nodes between the given range.
  */
 function nodesBetween(
@@ -236,6 +275,7 @@ function nodesBetween(
     const paddedChildSize = child.isInline
       ? child.size
       : child.size + BlockNodePaddingSize;
+
     if (from - paddedChildSize < pos && pos < to) {
       callback(child);
 
@@ -263,29 +303,22 @@ function splitNode(node: CRDTNode, offset: number): void {
     return;
   }
 
-  const currentNode = node as CRDTInlineNode;
-  if (offset === 0 || offset === currentNode.size) {
+  const inlineNode = node as CRDTInlineNode;
+  if (offset === 0 || offset === inlineNode.size) {
     return;
   }
 
-  const left = currentNode.value.slice(0, offset);
-  const right = currentNode.value.slice(offset);
+  const left = inlineNode.value.slice(0, offset);
+  const right = inlineNode.value.slice(offset);
 
-  currentNode.value = left;
+  inlineNode.value = left;
 
   // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
   // create new right node
-  const rightNode = new CRDTInlineNode(currentNode.id, right);
-
-  const parent = currentNode.parent;
-  if (!parent) {
-    throw Error('parent node is not found');
-  }
-
-  // insert right node
-  const index = parent.children.indexOf(currentNode);
-  parent.children.splice(index + 1, 0, rightNode);
-  return;
+  inlineNode.parent!.insertAfter(
+    new CRDTInlineNode(inlineNode.id, right),
+    inlineNode,
+  );
 }
 
 /**
@@ -304,19 +337,20 @@ function findTreePos(
     return { node, offset: index };
   }
 
-  // TODO(hackerwins, easylogic): Find a way to remove this type casting.
-  const currentNode = node;
-
   // offset is the index of the child node.
   // pos is the window of the index in the given node.
   let offset = 0;
   let pos = 0;
-  for (const child of currentNode.children) {
+  for (const child of node.children) {
     let childSize = child.size;
     // The pos is in bothsides of the inline node, we should traverse
     // inside of the inline node if preperInline is true.
     if (preperInline && child.isInline && childSize >= index - pos) {
       return findTreePos(child, index - pos);
+    }
+
+    if (!child.isInline) {
+      childSize += BlockNodePaddingSize;
     }
 
     // The position is in leftside of the block node.
@@ -328,8 +362,6 @@ function findTreePos(
     if (!preperInline && childSize === index - pos) {
       return { node, offset: offset + 1 };
     }
-
-    childSize += BlockNodePaddingSize;
 
     // The position is in middle the block node.
     if (childSize > index - pos) {
@@ -351,8 +383,8 @@ function findTreePos(
  */
 // TODO(hackerwins, easylogic): Change any to specific type.
 function toJSON(node: CRDTNode): any {
-  // TODO(hackerwins, easylogic): Find a way to remove this type casting.
   if (node.isInline) {
+    // TODO(hackerwins, easylogic): Find a way to remove this type casting.
     const currentNode = node as CRDTInlineNode;
     return {
       type: currentNode.type,
@@ -446,23 +478,28 @@ export class CRDTTree extends CRDTElement {
     this.splitNode(range[0]);
     this.splitNode(range[1]);
 
+    const { node: fromNode, offset: fromOffset } = findTreePos(
+      this.root,
+      range[0],
+      true,
+    );
+
     // 02. collect the nodes between the given range and mark them as tombstones.
-    // TODO(hackerwins, easylogic): Filter out ancestors of the left-side node.
-    this.nodesBetween(range[0], range[1], (node) => {
-      node.remove(ticket);
+    // 021. Filter out ancestors of the left-side node.
+    this.nodesBetween(range[0], range[1], (n) => {
+      if (!ancestorOf(n, fromNode)) {
+        n.remove(ticket);
+      }
     });
 
     // 03. Insert the given node at the given position.
     if (content) {
-      const { node: fromNode, offset: fromOffset } = findTreePos(
-        this.root,
-        range[0],
-        false,
-      );
-
-      const target = fromNode as CRDTBlockNode;
-      target.children.splice(fromOffset + 1, 0, content);
-      content.parent = target;
+      if (fromNode.isInline) {
+        fromNode.parent!.insertAfter(content, fromNode);
+      } else {
+        const target = fromNode as CRDTBlockNode;
+        target.insertAt(content, fromOffset + 1);
+      }
 
       // 03. Update size of the nodes between the given node and the root.
       let current = content;

@@ -7,6 +7,28 @@ import {
   CRDTBlockNode,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
+function betweenEqual(
+  tree: CRDTTree,
+  from: number,
+  to: number,
+  expected: Array<string>,
+) {
+  const nodes: Array<CRDTNode> = [];
+  tree.nodesBetween(from, to, (node) => {
+    nodes.push(node);
+    return true;
+  });
+  assert.deepEqual(
+    nodes.map((node) => {
+      if (node.isInline) {
+        return `${node.type}.${(node as CRDTInlineNode).value}`;
+      }
+      return node.type;
+    }),
+    expected,
+  );
+}
+
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
 describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
@@ -95,40 +117,24 @@ describe('CRDTTree', function () {
   });
 
   it('Can split text nodes', function () {
-    function splitBetweenEqual(
-      from: number,
-      to: number,
-      expected: Array<string>,
-    ) {
-      const nodes: Array<CRDTNode> = [];
-      tree.nodesBetween(from, to, (node) => {
-        nodes.push(node);
-        return true;
-      });
-      assert.deepEqual(
-        nodes.map((node) => node.type),
-        expected,
-      );
-    }
-
     // 00. Create a tree with 2 paragraphs.
-    //       0   1     6
-    // <root> <p> hello world </p> </root>
+    //       0   1     6     11
+    // <root> <p> hello world  </p> </root>
     const tree = new CRDTTree(ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'helloworld'), ITT);
 
     // 01. Split left side of 'helloworld'.
     tree.splitNode(1);
-    splitBetweenEqual(1, 11, ['p', 'text']);
+    betweenEqual(tree, 1, 11, ['p', 'text.helloworld']);
 
     // 02. Split right side of 'helloworld'.
     tree.splitNode(11);
-    splitBetweenEqual(1, 11, ['p', 'text']);
+    betweenEqual(tree, 1, 11, ['p', 'text.helloworld']);
 
     // 03. Split 'helloworld' into 'hello' and 'world'.
     tree.splitNode(6);
-    splitBetweenEqual(1, 11, ['p', 'text', 'text']);
+    betweenEqual(tree, 1, 11, ['p', 'text.hello', 'text.world']);
   });
 
   it('Can traverse nodes between two positions', function () {
@@ -137,7 +143,8 @@ describe('CRDTTree', function () {
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
     const tree = new CRDTTree(ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree.edit([1, 1], new CRDTInlineNode(ITT, 'a'), ITT);
+    tree.edit([2, 2], new CRDTInlineNode(ITT, 'b'), ITT);
     tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([5, 5], new CRDTInlineNode(ITT, 'cde'), ITT);
     tree.edit([9, 9], new CRDTBlockNode(ITT, 'p'), ITT);
@@ -147,19 +154,11 @@ describe('CRDTTree', function () {
       tree.toXML(),
       /*html*/ `<root><p>ab</p><p>cde</p><p>fg</p></root>`,
     );
-
-    const nodes: Array<CRDTNode> = [];
-    tree.nodesBetween(2, 11, (node) => {
-      nodes.push(node);
-      return true;
-    });
-    assert.deepEqual(
-      nodes.map((node) => node.type),
-      ['p', 'text', 'p', 'text', 'p', 'text'],
-    );
+    betweenEqual(tree, 2, 11, ['p', 'text.b', 'p', 'text.cde', 'p', 'text.fg']);
+    betweenEqual(tree, 2, 6, ['p', 'text.b', 'p', 'text.cde']);
   });
 
-  it.skip('Can delete nodes with edit', function () {
+  it('Can delete nodes with edit', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
