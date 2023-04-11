@@ -20,7 +20,8 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
- * `OperationInfo` represents the modifications made when executing an operation.
+ * `OperationInfo` represents the information of an operation.
+ * It is used to inform to the user what kind of operation was executed.
  */
 export type OperationInfo =
   | AddOpInfo
@@ -88,8 +89,8 @@ export type SelectOpInfo = {
 };
 
 /**
- * `Modified` represents the modifications made when executing an operation.
- * Instead of the `path` in OperationInfo, it includes the `element` that was modified.
+ * `Modified` represents the information of the modified element. It is used to
+ * internally and can be converted to `OperationInfo` to inform to the user.
  */
 export type Modified =
   | OpToModified<AddOpInfo>

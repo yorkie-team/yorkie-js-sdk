@@ -943,40 +943,38 @@ describe('Document', function () {
   it('changeInfo test for object', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<OperationInfo> = [];
-    const events: Array<OperationInfo> = [];
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operations }) => {
-        operations.forEach((op) => {
-          events.push(op);
-        });
-      });
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
     });
     const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root[''] = {};
-      expectedEvents.push({ type: 'set', path: '$', key: '' });
+      expectedOps.push({ type: 'set', path: '$', key: '' });
       root.obj = {};
-      expectedEvents.push({ type: 'set', path: '$', key: 'obj' });
+      expectedOps.push({ type: 'set', path: '$', key: 'obj' });
       root.obj.a = 1;
-      expectedEvents.push({ type: 'set', path: '$.obj', key: 'a' });
+      expectedOps.push({ type: 'set', path: '$.obj', key: 'a' });
       delete root.obj.a;
-      expectedEvents.push({ type: 'remove', path: '$.obj', key: 'a' });
+      expectedOps.push({ type: 'remove', path: '$.obj', key: 'a' });
       root.obj['$.hello'] = 1;
-      expectedEvents.push({ type: 'set', path: '$.obj', key: '$.hello' });
+      expectedOps.push({ type: 'set', path: '$.obj', key: '$.hello' });
       delete root.obj['$.hello'];
-      expectedEvents.push({ type: 'remove', path: '$.obj', key: '$.hello' });
+      expectedOps.push({ type: 'remove', path: '$.obj', key: '$.hello' });
       delete root.obj;
-      expectedEvents.push({ type: 'remove', path: '$', key: 'obj' });
+      expectedOps.push({ type: 'remove', path: '$', key: 'obj' });
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
-      events,
-      expectedEvents,
-      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
-        expectedEvents,
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
       )}`,
     );
 
@@ -986,38 +984,36 @@ describe('Document', function () {
   it('changeInfo test for array', async function () {
     const doc = Document.create<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<OperationInfo> = [];
-    const events: Array<OperationInfo> = [];
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operations }) => {
-        operations.forEach((op) => {
-          events.push(op);
-        });
-      });
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
     });
     const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.arr = [];
-      expectedEvents.push({ type: 'set', path: '$', key: 'arr' });
+      expectedOps.push({ type: 'set', path: '$', key: 'arr' });
       root.arr.push(0);
-      expectedEvents.push({ type: 'add', path: '$.arr', index: 0 });
+      expectedOps.push({ type: 'add', path: '$.arr', index: 0 });
       root.arr.push(1);
-      expectedEvents.push({ type: 'add', path: '$.arr', index: 1 });
+      expectedOps.push({ type: 'add', path: '$.arr', index: 1 });
       delete root.arr[1];
-      expectedEvents.push({ type: 'remove', path: '$.arr', index: 1 });
+      expectedOps.push({ type: 'remove', path: '$.arr', index: 1 });
       root['$$...hello'] = [];
-      expectedEvents.push({ type: 'set', path: '$', key: '$$...hello' });
+      expectedOps.push({ type: 'set', path: '$', key: '$$...hello' });
       root['$$...hello'].push(0);
-      expectedEvents.push({ type: 'add', path: '$.$$...hello', index: 0 });
+      expectedOps.push({ type: 'add', path: '$.$$...hello', index: 0 });
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
-      events,
-      expectedEvents,
-      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
-        expectedEvents,
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
       )}`,
     );
 
@@ -1028,35 +1024,33 @@ describe('Document', function () {
     type TestDoc = { cnt: Counter };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<OperationInfo> = [];
-    const events: Array<OperationInfo> = [];
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
 
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operations }) => {
-        operations.forEach((op) => {
-          events.push(op);
-        });
-      });
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
     });
     const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
-      expectedEvents.push({ type: 'set', path: '$', key: 'cnt' });
+      expectedOps.push({ type: 'set', path: '$', key: 'cnt' });
       root.cnt.increase(1);
-      expectedEvents.push({ type: 'increase', path: '$.cnt', value: 1 });
+      expectedOps.push({ type: 'increase', path: '$.cnt', value: 1 });
       root.cnt.increase(10);
-      expectedEvents.push({ type: 'increase', path: '$.cnt', value: 10 });
+      expectedOps.push({ type: 'increase', path: '$.cnt', value: 10 });
       root.cnt.increase(-3);
-      expectedEvents.push({ type: 'increase', path: '$.cnt', value: -3 });
+      expectedOps.push({ type: 'increase', path: '$.cnt', value: -3 });
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
-      events,
-      expectedEvents,
-      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
-        expectedEvents,
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
       )}`,
     );
 
@@ -1082,23 +1076,21 @@ describe('Document', function () {
 
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<OperationInfo> = [];
-    const events: Array<OperationInfo> = [];
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operations }) => {
-        operations.forEach((op) => {
-          events.push(op);
-        });
-      });
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
     });
     const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.text = new Text();
-      expectedEvents.push({ type: 'set', path: '$', key: 'text' });
+      expectedOps.push({ type: 'set', path: '$', key: 'text' });
       root.text.edit(0, 0, 'hello world');
-      expectedEvents.push({
+      expectedOps.push({
         type: 'edit',
         path: '$.text',
         actor: '000000000000000000000000',
@@ -1106,7 +1098,7 @@ describe('Document', function () {
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
-      expectedEvents.push({
+      expectedOps.push({
         type: 'select',
         actor: '000000000000000000000000',
         from: 11,
@@ -1114,7 +1106,7 @@ describe('Document', function () {
         path: '$.text',
       });
       root.text.select(0, 2);
-      expectedEvents.push({
+      expectedOps.push({
         type: 'select',
         path: '$.text',
         actor: '000000000000000000000000',
@@ -1124,10 +1116,10 @@ describe('Document', function () {
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
-      events,
-      expectedEvents,
-      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
-        expectedEvents,
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
       )}`,
     );
 
@@ -1138,23 +1130,21 @@ describe('Document', function () {
     type TestDoc = { textWithAttr: Text };
     const doc = Document.create<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const expectedEvents: Array<OperationInfo> = [];
-    const events: Array<OperationInfo> = [];
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operations }) => {
-        operations.forEach((op) => {
-          events.push(op);
-        });
-      });
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
     });
     const unsub1 = doc.subscribe(stub1);
 
     doc.update((root) => {
       root.textWithAttr = new Text();
-      expectedEvents.push({ type: 'set', path: '$', key: 'textWithAttr' });
+      expectedOps.push({ type: 'set', path: '$', key: 'textWithAttr' });
       root.textWithAttr.edit(0, 0, 'hello world');
-      expectedEvents.push({
+      expectedOps.push({
         type: 'edit',
         path: '$.textWithAttr',
         actor: '000000000000000000000000',
@@ -1162,7 +1152,7 @@ describe('Document', function () {
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
-      expectedEvents.push({
+      expectedOps.push({
         type: 'select',
         actor: '000000000000000000000000',
         from: 11,
@@ -1170,7 +1160,7 @@ describe('Document', function () {
         path: '$.textWithAttr',
       });
       root.textWithAttr.setStyle(0, 1, { bold: 'true' });
-      expectedEvents.push({
+      expectedOps.push({
         type: 'style',
         path: '$.textWithAttr',
         actor: '000000000000000000000000',
@@ -1181,10 +1171,10 @@ describe('Document', function () {
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
-      events,
-      expectedEvents,
-      `actual: ${JSON.stringify(events)} \n expected: ${JSON.stringify(
-        expectedEvents,
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
       )}`,
     );
 
