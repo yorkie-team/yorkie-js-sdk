@@ -125,9 +125,9 @@ describe('Document', function () {
     let expectedEvents2: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     };
@@ -272,9 +272,9 @@ describe('Document', function () {
     let counterEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     };
@@ -381,9 +381,9 @@ describe('Document', function () {
     let objEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     };

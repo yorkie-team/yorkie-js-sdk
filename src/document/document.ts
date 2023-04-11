@@ -131,7 +131,7 @@ export interface SnapshotEvent extends BaseDocEvent {
  */
 export type ChangeInfo = {
   message: string;
-  operationInfos: Array<OperationInfo>;
+  operations: Array<OperationInfo>;
 };
 
 /**
@@ -260,7 +260,7 @@ export class Document<T> {
           value: [
             {
               message: change.getMessage() || '',
-              operationInfos: changeModified.map((modified) =>
+              operations: changeModified.map((modified) =>
                 this.getOperationInfo(modified),
               ),
             },
@@ -316,17 +316,17 @@ export class Document<T> {
           }
 
           const changeInfos: Array<ChangeInfo> = [];
-          event.value.forEach(({ message, operationInfos }) => {
-            const targetOpInfos: Array<OperationInfo> = [];
-            operationInfos.forEach((opInfo) => {
-              if (this.isSameElementOrChildOf(opInfo.path, target)) {
-                targetOpInfos.push(opInfo);
+          event.value.forEach(({ message, operations }) => {
+            const targetOps: Array<OperationInfo> = [];
+            operations.forEach((op) => {
+              if (this.isSameElementOrChildOf(op.path, target)) {
+                targetOps.push(op);
               }
             });
-            targetOpInfos.length &&
+            targetOps.length &&
               changeInfos.push({
                 message,
-                operationInfos: targetOpInfos,
+                operations: targetOps,
               });
           });
           changeInfos.length &&
@@ -606,7 +606,7 @@ export class Document<T> {
       const changeModified = change.execute(this.root);
       changeInfos.push({
         message: change.getMessage() || '',
-        operationInfos: changeModified.map((modified) =>
+        operations: changeModified.map((modified) =>
           this.getOperationInfo(modified),
         ),
       });

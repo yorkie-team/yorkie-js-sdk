@@ -947,9 +947,9 @@ describe('Document', function () {
     const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     });
@@ -990,9 +990,9 @@ describe('Document', function () {
     const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     });
@@ -1033,9 +1033,9 @@ describe('Document', function () {
 
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     });
@@ -1086,9 +1086,9 @@ describe('Document', function () {
     const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     });
@@ -1142,9 +1142,9 @@ describe('Document', function () {
     const events: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      event.value.forEach(({ operationInfos }) => {
-        operationInfos.forEach((opInfo) => {
-          events.push(opInfo);
+      event.value.forEach(({ operations }) => {
+        operations.forEach((op) => {
+          events.push(op);
         });
       });
     });
