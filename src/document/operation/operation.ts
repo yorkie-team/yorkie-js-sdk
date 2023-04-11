@@ -19,6 +19,9 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
+/**
+ * `OperationInfo` represents the modifications made when executing an operation.
+ */
 export type OperationInfo =
   | AddOpInfo
   | IncreaseOpInfo
@@ -84,6 +87,10 @@ export type SelectOpInfo = {
   path: string;
 };
 
+/**
+ * `Modified` represents the modifications made when executing an operation.
+ * Instead of the `path` in OperationInfo, it includes the `element` that was modified.
+ */
 export type Modified =
   | OpToModified<AddOpInfo>
   | OpToModified<IncreaseOpInfo>
@@ -93,7 +100,6 @@ export type Modified =
   | OpToModified<EditOpInfo>
   | OpToModified<StyleOpInfo>
   | OpToModified<SelectOpInfo>;
-
 type OpToModified<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };

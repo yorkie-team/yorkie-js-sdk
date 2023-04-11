@@ -129,10 +129,10 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export type ChangeInfo = {
+export interface ChangeInfo {
   message: string;
   operations: Array<OperationInfo>;
-};
+}
 
 /**
  * `LocalChangeEvent` is an event that occurs when the document is changed
@@ -250,7 +250,7 @@ export class Document<T> {
       }
 
       const change = context.getChange();
-      const changeModified = change.execute(this.root);
+      const modifieds = change.execute(this.root);
       this.localChanges.push(change);
       this.changeID = change.getID();
 
@@ -260,7 +260,7 @@ export class Document<T> {
           value: [
             {
               message: change.getMessage() || '',
-              operations: changeModified.map((modified) =>
+              operations: modifieds.map((modified) =>
                 this.getOperationInfo(modified),
               ),
             },
@@ -316,19 +316,19 @@ export class Document<T> {
           }
 
           const changeInfos: Array<ChangeInfo> = [];
-          event.value.forEach(({ message, operations }) => {
+          for (const { message, operations } of event.value) {
             const targetOps: Array<OperationInfo> = [];
-            operations.forEach((op) => {
+            for (const op of operations) {
               if (this.isSameElementOrChildOf(op.path, target)) {
                 targetOps.push(op);
               }
-            });
+            }
             targetOps.length &&
               changeInfos.push({
                 message,
                 operations: targetOps,
               });
-          });
+          }
           changeInfos.length &&
             callback({
               type: event.type,
@@ -603,10 +603,10 @@ export class Document<T> {
 
     const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      const changeModified = change.execute(this.root);
+      const modifieds = change.execute(this.root);
       changeInfos.push({
         message: change.getMessage() || '',
-        operations: changeModified.map((modified) =>
+        operations: modifieds.map((modified) =>
           this.getOperationInfo(modified),
         ),
       });

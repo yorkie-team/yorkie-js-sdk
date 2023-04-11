@@ -87,16 +87,16 @@ export class Change {
    * `execute` executes the operations of this change to the given root.
    */
   public execute(root: CRDTRoot): Array<Modified> {
-    const changeModified: Array<Modified> = [];
+    const modifieds: Array<Modified> = [];
     for (const operation of this.operations) {
       const modified = operation.execute(root);
       if (Array.isArray(modified)) {
-        changeModified.push(...modified);
+        modifieds.push(...modified);
       } else if (modified) {
-        changeModified.push(modified);
+        modifieds.push(modified);
       }
     }
-    return changeModified;
+    return modifieds;
   }
 
   /**
