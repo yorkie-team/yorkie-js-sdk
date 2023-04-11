@@ -116,35 +116,34 @@ const tests = [
     },
   },
   {
-    name: 'Document#garbage collection test for large size text 1',
+    name: 'Document#text',
     run: (): void => {
-      const size = 100;
-      const doc = Document.create<{ text: Text }>('test-doc');
-      assert.equal('{}', doc.toJSON());
-
-      // 01. initial
+      const doc = Document.create<{ k1: Text }>('test-doc');
       doc.update((root) => {
-        root.text = new Text();
-        const { text } = root;
-        for (let i = 0; i < size; i++) {
-          text.edit(i, i, 'a');
-        }
-      }, 'initial');
-
-      // 02. 100 nodes modified
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'ABCD');
+        root.k1.edit(1, 3, '12');
+      });
+      assert.equal(
+        `{"k1":[{"val":"A"},{"val":"12"},{"val":"D"}]}`,
+        doc.toJSON(),
+      );
+      assert.equal(
+        `[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]`,
+        doc.getRoot().k1.getStructureAsString(),
+      );
       doc.update((root) => {
-        const { text } = root;
-        for (let i = 0; i < size; i++) {
-          text.edit(i, i + 1, 'b');
-        }
-      }, 'modify 100 nodes');
-
-      // 03. GC
-      assert.equal(size, doc.getGarbageLen());
-      assert.equal(size, doc.garbageCollect(MaxTimeTicket));
-
-      const empty = 0;
-      assert.equal(empty, doc.getGarbageLen());
+        const [pos1] = root.k1.createRange(0, 0);
+        assert.equal('0:00:0:0:0', pos1.getStructureAsString());
+        const [pos2] = root.k1.createRange(1, 1);
+        assert.equal('1:00:2:0:1', pos2.getStructureAsString());
+        const [pos3] = root.k1.createRange(2, 2);
+        assert.equal('1:00:3:0:1', pos3.getStructureAsString());
+        const [pos4] = root.k1.createRange(3, 3);
+        assert.equal('1:00:3:0:2', pos4.getStructureAsString());
+        const [pos5] = root.k1.createRange(4, 4);
+        assert.equal('1:00:2:3:1', pos5.getStructureAsString());
+      });
     },
   },
   {
