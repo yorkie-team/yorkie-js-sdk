@@ -43,6 +43,29 @@ const benchmarkTextEditGC = (size: number) => {
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };
+const benchmarkTextSplitGC = (size: number) => {
+  const doc = Document.create<{ text: Text }>('test-doc');
+  assert.equal('{}', doc.toJSON());
+
+  // 01. initial
+  const string = 'a'.repeat(size);
+  doc.update((root) => {
+    root.text = new Text();
+
+    root.text.edit(0, 0, string);
+  }, 'initial');
+  // 02. 100 nodes modified
+  doc.update((root) => {
+    for (let i = 0; i < size; i++) {
+      root.text.edit(i, i + 1, 'b');
+    }
+  }, 'Modify one node multiple times');
+  // 03. GC
+  assert.equal(size, doc.getGarbageLen());
+  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  const empty = 0;
+  assert.equal(empty, doc.getGarbageLen());
+};
 
 const tests = [
   {
@@ -303,6 +326,18 @@ const tests = [
     name: 'Document#text edit gc 1000',
     run: (): void => {
       benchmarkTextEditGC(1000);
+    },
+  },
+  {
+    name: 'Document#text split gc 100',
+    run: (): void => {
+      benchmarkTextSplitGC(100);
+    },
+  },
+  {
+    name: 'Document#text split gc 1000',
+    run: (): void => {
+      benchmarkTextSplitGC(1000);
     },
   },
     },
