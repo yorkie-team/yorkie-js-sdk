@@ -131,7 +131,6 @@ const tests = [
     name: 'Document#status',
     run: (): void => {
       const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
-
       assert.equal(doc.getStatus(), DocumentStatus.Detached);
       doc.setStatus(DocumentStatus.Attached);
       assert.equal(doc.getStatus(), DocumentStatus.Attached);
@@ -143,11 +142,9 @@ const tests = [
       const doc1 = Document.create<{ text: string }>('d1');
       const doc2 = Document.create<{ text: string }>('d2');
       const doc3 = Document.create<{ text: string }>('d3');
-
       doc1.update((root) => {
         root.text = 'value';
       }, 'update text');
-
       assert.notEqual(doc1.toJSON(), doc2.toJSON());
       assert.equal(doc2.toJSON(), doc3.toJSON());
     },
@@ -156,7 +153,6 @@ const tests = [
     name: 'Document#nested update',
     run: (): void => {
       const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
-
       const doc = Document.create<{
         k1: string;
         k2: { k4: string };
@@ -164,13 +160,11 @@ const tests = [
       }>('test-doc');
       assert.equal('{}', doc.toJSON());
       assert.isFalse(doc.hasLocalChanges());
-
       doc.update((root) => {
         root.k1 = 'v1';
         root.k2 = { k4: 'v4' };
         root.k3 = ['v5', 'v6'];
       }, 'updates k1,k2,k3');
-
       assert.equal(expected, doc.toJSON());
       assert.isTrue(doc.hasLocalChanges());
     },
@@ -185,7 +179,6 @@ const tests = [
       }>('test-doc');
       assert.equal('{}', doc.toJSON());
       assert.isFalse(doc.hasLocalChanges());
-
       let expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
       doc.update((root) => {
         root.k1 = 'v1';
@@ -193,7 +186,6 @@ const tests = [
         root.k3 = ['v5', 'v6'];
       }, 'updates k1,k2,k3');
       assert.equal(expected, doc.toJSON());
-
       expected = `{"k1":"v1","k3":["v5","v6"]}`;
       doc.update((root) => {
         delete root.k2;
