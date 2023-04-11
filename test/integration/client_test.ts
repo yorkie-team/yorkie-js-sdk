@@ -8,12 +8,7 @@ import yorkie, {
   DocEventType,
   ClientEventType,
 } from '@yorkie-js-sdk/src/yorkie';
-import {
-  createEmitterAndSpy,
-  waitFor,
-  waitStubCallCount,
-  deepSort,
-} from '@yorkie-js-sdk/test/helper/helper';
+import { waitStubCallCount, deepSort } from '@yorkie-js-sdk/test/helper/helper';
 import {
   toDocKey,
   testRPCAddr,
@@ -136,20 +131,39 @@ describe('Client', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    const [emitter1, spy1] = createEmitterAndSpy((event) =>
-      event.type === ClientEventType.DocumentSynced ? event.value : event.type,
-    );
-    const [emitter2, spy2] = createEmitterAndSpy((event) =>
-      event.type === ClientEventType.DocumentSynced ? event.value : event.type,
-    );
+    const c1Events: Array<string> = [];
+    const c2Events: Array<string> = [];
+    const d1Events: Array<string> = [];
+    const d2Events: Array<string> = [];
+
+    const stubC1 = sinon.stub().callsFake((event) => {
+      c1Events.push(
+        event.type === ClientEventType.DocumentSynced
+          ? event.value
+          : event.type,
+      );
+    });
+    const stubC2 = sinon.stub().callsFake((event) => {
+      c2Events.push(
+        event.type === ClientEventType.DocumentSynced
+          ? event.value
+          : event.type,
+      );
+    });
+    const stubD1 = sinon.stub().callsFake((event) => {
+      d1Events.push(event.type);
+    });
+    const stubD2 = sinon.stub().callsFake((event) => {
+      d2Events.push(event.type);
+    });
 
     const unsub1 = {
-      client: c1.subscribe(spy1),
-      doc: d1.subscribe(spy1),
+      client: c1.subscribe(stubC1),
+      doc: d1.subscribe(stubD1),
     };
     const unsub2 = {
-      client: c2.subscribe(spy2),
-      doc: d2.subscribe(spy2),
+      client: c2.subscribe(stubC2),
+      doc: d2.subscribe(stubD2),
     };
 
     // Normal Condition
@@ -157,8 +171,10 @@ describe('Client', function () {
       root['k1'] = 'undefined';
     });
 
-    await waitFor(DocEventType.LocalChange, emitter2); // d2 should be able to update
-    await waitFor(DocEventType.RemoteChange, emitter1); // d1 should be able to receive d2's update
+    await waitStubCallCount(stubD2, 1); // d2 should be able to update
+    assert.equal(d2Events.pop(), DocEventType.LocalChange);
+    await waitStubCallCount(stubD1, 1); // d1 should be able to receive d2's update
+    assert.equal(d1Events.pop(), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // Simulate network error
@@ -177,17 +193,26 @@ describe('Client', function () {
       root['k1'] = 'v1';
     });
 
-    await waitFor(DocEventType.LocalChange, emitter2); // d2 should be able to update
-    await waitFor(DocumentSyncResultType.SyncFailed, emitter2); // c2 should fail to sync
+    await waitStubCallCount(stubD2, 2); // d2 should be able to update
+    assert.equal(d2Events.pop(), DocEventType.LocalChange);
+    await waitStubCallCount(stubC2, 1); // c2 should fail to sync
+    assert.equal(c2Events.pop(), DocumentSyncResultType.SyncFailed);
+
     c1.sync();
-    await waitFor(DocumentSyncResultType.SyncFailed, emitter1); // c1 should also fail to sync
+    await waitStubCallCount(stubC1, 1); // c1 should also fail to sync
+    assert.equal(c1Events.pop(), DocumentSyncResultType.SyncFailed);
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
     // Back to normal condition
     xhr.restore();
 
-    await waitFor(DocEventType.RemoteChange, emitter1); // d1 should be able to receive d2's update
+    await waitStubCallCount(stubC2, 2);
+    assert.equal(c2Events.pop(), DocumentSyncResultType.Synced);
+    await waitStubCallCount(stubC1, 2);
+    assert.equal(c1Events.pop(), DocumentSyncResultType.Synced);
+    await waitStubCallCount(stubD1, 2);
+    assert.equal(d1Events.pop(), DocEventType.RemoteChange); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1.client();
@@ -641,14 +666,18 @@ describe('Client', function () {
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // 02. c2 changes the sync mode to realtime sync mode.
-    const [emitter2, spy2] = createEmitterAndSpy((event) => event.type);
-    const unsub1 = c2.subscribe(spy2);
+    const c2Events: Array<string> = [];
+    const stubC2 = sinon.stub().callsFake((event) => {
+      c2Events.push(event.type);
+    });
+    const unsub1 = c2.subscribe(stubC2);
     await c2.resume(d2);
     d1.update((root) => {
       root.version = 'v2';
     });
     await c1.sync();
-    await waitFor(ClientEventType.DocumentSynced, emitter2);
+    await waitStubCallCount(stubC2, 1);
+    assert.equal(c2Events.pop(), ClientEventType.DocumentSynced);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     unsub1();
 

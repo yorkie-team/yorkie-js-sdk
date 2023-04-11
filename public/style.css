@@ -2,6 +2,21 @@ body {
   background: white;
 }
 
+h2 {
+  margin-top: 1.6em;
+}
+
+li {
+  list-style: none;
+}
+
+button {
+  display: inline-flex;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+}
+
 #network-status span {
   display: inline-block;
   height: 0.8rem;
@@ -33,11 +48,11 @@ body {
   font-weight: bold;
 }
 
-button {
+#increaseButton,
+#decreaseButton {
   margin-right: 1em;
   width: 30px;
   height: 30px;
-  cursor: pointer;
 }
 
 #network-status:before {
@@ -75,4 +90,75 @@ button {
   min-height: 300px;
   overflow-y: auto;
   resize: vertical;
+}
+
+.increaseButton {
+  display: inline-block;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0.6em 1.2em;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.todos {
+  width: 300px;
+  background: #efefef;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #ddd;
+}
+.todoList {
+  margin: 0;
+  padding: 8px 0;
+  height: 160px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.todoList li {
+  display: flex;
+  padding: 10px;
+  font-size: 0.9em;
+}
+.todoList li:hover,
+.todoList li:focus {
+  background: #e2e2e2;
+}
+.todoList li .itemName {
+  padding: 0 10px;
+  flex: 1;
+  word-break: break-all;
+}
+.todoList .trash {
+  background: transparent;
+  border: none;
+}
+.todoList .moveUp,
+.todoList .moveDown {
+  background: #fff;
+  border-radius: 10px;
+  border: none;
+  margin-right: 4px;
+  color: #666;
+}
+.todoList .trash:hover,
+.todoList .moveUp:hover,
+.todoList .moveDown:hover {
+  scale: 1.1;
+}
+.todoNew {
+  display: flex;
+  border-top: 1px solid #ddd;
+}
+.todoNew .addButton {
+  border: none;
+  padding: 0 10px;
+}
+.todoInput {
+  display: inline-block;
+  flex: 1;
+  padding: 0 20px;
+  height: 30px;
+  border: none;
+  outline: none;
 }

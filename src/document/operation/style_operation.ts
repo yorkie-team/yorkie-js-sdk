@@ -19,7 +19,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 
 /**
@@ -65,22 +68,30 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): void {
+  public execute<A extends Indexable>(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTText) {
-      const text = parentObject as CRDTText<A>;
-      text.setStyle(
-        [this.fromPos, this.toPos],
-        this.attributes ? Object.fromEntries(this.attributes) : {},
-        this.getExecutedAt(),
-      );
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTText)) {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
+    const text = parentObject as CRDTText<A>;
+    const changes = text.setStyle(
+      [this.fromPos, this.toPos],
+      this.attributes ? Object.fromEntries(this.attributes) : {},
+      this.getExecutedAt(),
+    );
+    return changes.map(({ actor, from, to, value }) => {
+      return {
+        type: 'style',
+        actor,
+        from,
+        to,
+        value,
+        element: this.getParentCreatedAt(),
+      };
+    }) as Array<InternalOpInfo>;
   }
 
   /**

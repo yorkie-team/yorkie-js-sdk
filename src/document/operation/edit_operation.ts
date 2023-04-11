@@ -19,7 +19,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 
 /**
@@ -76,27 +79,43 @@ export class EditOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): void {
+  public execute<A extends Indexable>(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTText) {
-      const text = parentObject as CRDTText<A>;
-      text.edit(
-        [this.fromPos, this.toPos],
-        this.content,
-        this.getExecutedAt(),
-        Object.fromEntries(this.attributes),
-        this.maxCreatedAtMapByActor,
-      );
-      if (!this.fromPos.equals(this.toPos)) {
-        root.registerTextWithGarbage(text);
-      }
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTText)) {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
+    const text = parentObject as CRDTText<A>;
+    const changes = text.edit(
+      [this.fromPos, this.toPos],
+      this.content,
+      this.getExecutedAt(),
+      Object.fromEntries(this.attributes),
+      this.maxCreatedAtMapByActor,
+    )[1];
+    if (!this.fromPos.equals(this.toPos)) {
+      root.registerTextWithGarbage(text);
+    }
+    return changes.map(({ type, actor, from, to, value }) => {
+      return type === 'content'
+        ? {
+            type: 'edit',
+            actor,
+            from,
+            to,
+            value,
+            element: this.getParentCreatedAt(),
+          }
+        : {
+            type: 'select',
+            actor,
+            from,
+            to,
+            element: this.getParentCreatedAt(),
+          };
+    }) as Array<InternalOpInfo>;
   }
 
   /**

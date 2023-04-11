@@ -15,45 +15,13 @@
  */
 
 import { assert } from 'chai';
-import { EventEmitter } from 'events';
-import { NextFn } from '@yorkie-js-sdk/src/util/observable';
 
-import { ClientEvent } from '@yorkie-js-sdk/src/client/client';
-import { DocEvent } from '@yorkie-js-sdk/src/document/document';
 import {
   TextChange,
   TextChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/text';
 
-export function range(from: number, to: number): Array<number> {
-  const list = [];
-  for (let idx = from; idx < to; idx++) {
-    list.push(idx);
-  }
-  return list;
-}
-
 export type Indexable = Record<string, any>;
-
-export function waitFor(
-  eventName: string,
-  listener: EventEmitter,
-): Promise<void> {
-  return new Promise((resolve) => listener.on(eventName, resolve));
-}
-
-export function delay(timeout: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, timeout);
-  });
-}
-
-export function createEmitterAndSpy<
-  E extends { type: any } = ClientEvent | DocEvent,
->(fn?: (event: E) => string): [EventEmitter, NextFn<E>] {
-  const emitter = new EventEmitter();
-  return [emitter, (event: E) => emitter.emit(fn ? fn(event) : event.type)];
-}
 
 export async function waitStubCallCount(
   stub: sinon.SinonStub,
