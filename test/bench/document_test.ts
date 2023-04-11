@@ -147,35 +147,19 @@ const tests = [
     },
   },
   {
-    name: 'Document#garbage collection test for large size text 2',
+    name: 'Document#text composition test',
     run: (): void => {
-      const size = 100;
-      const doc = Document.create<{ text: Text }>('test-doc');
-      assert.equal('{}', doc.toJSON());
-
-      // 01. long text by one node
+      const doc = Document.create<{ k1: Text }>('test-doc');
       doc.update((root) => {
-        root.text = new Text();
-        const str = 'a'.repeat(size);
-        root.text.edit(0, 0, str);
-      }, 'initial large size');
-
-      // 02. Modify one node multiple times
-      doc.update((root) => {
-        const { text } = root;
-        for (let i = 0; i < size; i++) {
-          if (i !== size) {
-            text.edit(i, i + 1, 'b');
-          }
-        }
-      }, 'modify one node multiple times');
-
-      // 03. GC
-      assert.equal(size, doc.getGarbageLen());
-      assert.equal(size, doc.garbageCollect(MaxTimeTicket));
-
-      const empty = 0;
-      assert.equal(empty, doc.getGarbageLen());
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'ㅎ');
+        root.k1.edit(0, 1, '하');
+        root.k1.edit(0, 1, '한');
+        root.k1.edit(0, 1, '하');
+        root.k1.edit(1, 1, '느');
+        root.k1.edit(1, 2, '늘');
+      });
+      assert.equal(`{"k1":[{"val":"하"},{"val":"늘"}]}`, doc.toJSON());
     },
   },
   {
