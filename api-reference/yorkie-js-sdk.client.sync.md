@@ -9,16 +9,16 @@
 <b>Signature:</b>
 
 ```typescript
-sync(doc?: Observable<unknown>): Promise<Array<Observable<unknown>>>;
+sync(doc?: Document<unknown>): Promise<Array<Document<unknown>>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Observable&lt;unknown&gt; |  |
+|  doc | Document&lt;unknown&gt; |  |
 
 <b>Returns:</b>
 
-Promise&lt;Array&lt;Observable&lt;unknown&gt;&gt;&gt;
+Promise&lt;Array&lt;Document&lt;unknown&gt;&gt;&gt;
 

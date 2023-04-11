@@ -9,17 +9,17 @@
 <b>Signature:</b>
 
 ```typescript
-attach(doc: Observable<unknown>, isManualSync?: boolean): Promise<Observable<unknown>>;
+attach(doc: Document<unknown>, isManualSync?: boolean): Promise<Document<unknown>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Observable&lt;unknown&gt; |  |
+|  doc | Document&lt;unknown&gt; |  |
 |  isManualSync | boolean |  |
 
 <b>Returns:</b>
 
-Promise&lt;Observable&lt;unknown&gt;&gt;
+Promise&lt;Document&lt;unknown&gt;&gt;
 

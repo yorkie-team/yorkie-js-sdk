@@ -4,7 +4,7 @@
 
 ## Document.subscribe() method
 
-`subscribe` adds the given observer to the fan-out list.
+`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the document is changed.
 
 <b>Signature:</b>
 

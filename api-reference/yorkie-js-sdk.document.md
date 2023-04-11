@@ -9,9 +9,8 @@
 <b>Signature:</b>
 
 ```typescript
-declare class Document<T> implements Observable<DocEvent> 
+declare class Document<T> 
 ```
-<b>Implements:</b> Observable&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt;
 
 ## Constructors
 
@@ -27,7 +26,9 @@ declare class Document<T> implements Observable<DocEvent>
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
 |  [create(key)](./yorkie-js-sdk.document.create.md) | <code>static</code> | <code>create</code> creates a new instance of Document. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
-|  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> adds the given observer to the fan-out list. |
+|  [getValueByPath(path)](./yorkie-js-sdk.document.getvaluebypath.md) |  | <code>getValueByPath</code> returns the JSONElement corresponding to the given path. |
+|  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the document is changed. |
+|  [subscribe(targetPath, next, error, complete)](./yorkie-js-sdk.document.subscribe_1.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change. |
 |  [toJSON()](./yorkie-js-sdk.document.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this document. |
 |  [toSortedJSON()](./yorkie-js-sdk.document.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of this document. |
 |  [update(updater, message)](./yorkie-js-sdk.document.update.md) |  | <code>update</code> executes the given updater to update this document. |

@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-remove(doc: Observable<unknown>): Promise<void>;
+remove(doc: Document<unknown>): Promise<void>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Observable&lt;unknown&gt; |  |
+|  doc | Document&lt;unknown&gt; |  |
 
 <b>Returns:</b>
 

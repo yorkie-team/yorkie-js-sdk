@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-static create<T>(key: string): Observable<T>;
+static create<T>(key: string): Document<T>;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ static create<T>(key: string): Observable<T>;
 
 <b>Returns:</b>
 
-Observable&lt;T&gt;
+Document&lt;T&gt;
 

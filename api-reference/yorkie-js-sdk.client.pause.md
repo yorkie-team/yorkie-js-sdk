@@ -9,16 +9,16 @@
 <b>Signature:</b>
 
 ```typescript
-pause(doc: Observable<unknown>): Promise<Observable<unknown>>;
+pause(doc: Document<unknown>): Promise<Document<unknown>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Observable&lt;unknown&gt; |  |
+|  doc | Document&lt;unknown&gt; |  |
 
 <b>Returns:</b>
 
-Promise&lt;Observable&lt;unknown&gt;&gt;
+Promise&lt;Document&lt;unknown&gt;&gt;
 

@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-execute(root: CRDTRoot): void;
+execute(root: CRDTRoot): Array<InternalOpInfo>;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ execute(root: CRDTRoot): void;
 
 <b>Returns:</b>
 
-void
+Array&lt;InternalOpInfo&gt;
 
