@@ -66,6 +66,23 @@ const benchmarkTextSplitGC = (size: number) => {
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };
+const benchmarkTextDeleteAll = (size: number) => {
+  const doc = Document.create<{ text: Text }>('test-doc');
+  doc.update((root) => {
+    root.text = new Text();
+  }, 'initialize');
+  // 01. inserts many chracters
+  for (let i = 0; i < size; i++) {
+    doc.update((root) => {
+      root.text.edit(i, i, 'a');
+    }, 'insert chracter');
+  }
+  // 02. deletes them
+  doc.update((root) => {
+    root.text.edit(0, size, '');
+  }, 'delete them');
+  assert.equal(doc.getRoot().text.toString(), '');
+};
 
 const tests = [
   {
@@ -338,6 +355,12 @@ const tests = [
     name: 'Document#text split gc 1000',
     run: (): void => {
       benchmarkTextSplitGC(1000);
+    },
+  },
+  {
+    name: 'Document#text delete all 10000',
+    run: (): void => {
+      benchmarkTextDeleteAll(10000);
     },
   },
     },
