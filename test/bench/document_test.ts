@@ -107,6 +107,15 @@ const benchmarkCounter = (size: number) => {
     }
   });
 };
+const benchmarkObject = (size: number) => {
+  const doc = Document.create<{ k1: number }>('test-doc');
+
+  doc.update((root) => {
+    for (let i = 0; i < size; i++) {
+      root.k1 = i;
+    }
+  });
+};
 
 const tests = [
   {
@@ -411,6 +420,16 @@ const tests = [
       benchmarkCounter(10000);
     },
   },
+  {
+    name: 'Document#object 1000',
+    run: (): void => {
+      benchmarkObject(1000);
+    },
+  },
+  {
+    name: 'Document#object 10000',
+    run: (): void => {
+      benchmarkObject(10000);
     },
   },
 ];
