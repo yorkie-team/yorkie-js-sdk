@@ -19,6 +19,30 @@ import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+const benchmarkTextEditGC = (size: number) => {
+  const doc = Document.create<{ text: Text }>('test-doc');
+  assert.equal('{}', doc.toJSON());
+  // 01. initial
+  doc.update((root) => {
+    root.text = new Text();
+    const { text } = root;
+    for (let i = 0; i < size; i++) {
+      text.edit(i, i, 'a');
+    }
+  }, 'initial');
+  // 02. 100 nodes modified
+  doc.update((root) => {
+    const { text } = root;
+    for (let i = 0; i < size; i++) {
+      text.edit(i, i + 1, 'b');
+    }
+  }, `modify ${size} nodes`);
+  // 03. GC
+  assert.equal(size, doc.getGarbageLen());
+  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  const empty = 0;
+  assert.equal(empty, doc.getGarbageLen());
+};
 
 const tests = [
   {
@@ -267,6 +291,18 @@ const tests = [
       assert.equal('{"age":119,"price":9000000000000000003}', doc.toJSON());
       // TODO: We need to filter not-allowed type
       // counter.increase() method doesn't filter not-allowed type
+    },
+  },
+  {
+    name: 'Document#text edit gc 100',
+    run: (): void => {
+      benchmarkTextEditGC(100);
+    },
+  },
+  {
+    name: 'Document#text edit gc 1000',
+    run: (): void => {
+      benchmarkTextEditGC(1000);
     },
   },
     },
