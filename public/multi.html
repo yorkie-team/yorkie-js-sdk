@@ -193,7 +193,6 @@
           function addTodo(text) {
             const newTodo = document.createElement('li');
             newTodo.classList.add('todoItem');
-            newTodo.setAttribute('draggable', 'true');
             newTodo.innerHTML = `
               <button class="moveUp">⬆</button>
               <button class="moveDown">⬇</button>
@@ -210,28 +209,6 @@
             }
             doc.update((root) => {
               root.todos.push(text);
-            });
-          }
-
-          let dragIndex = -1;
-          let dropIndex = -1;
-          function handleDragStart(i) {
-            dragIndex = i;
-          }
-          function handleDragOver(e, i) {
-            e.preventDefault();
-            dropIndex = i;
-          }
-          function handleDragEnd() {
-            if (dragIndex === dropIndex) return;
-            swapTodo(dragIndex, dropIndex);
-            dragIndex = -1;
-            dropIndex = -1;
-          }
-          function swapTodo(dragIdx, dropIdx) {
-            doc.update((root) => {
-              const dragged = root.todos.splice(dragIdx, 1)[0];
-              root.todos.splice(dropIdx, 0, dragged);
             });
           }
 
@@ -273,23 +250,6 @@
               });
               return;
             }
-          });
-          todoList.addEventListener('dragstart', function (e) {
-            const li = e.target.closest('.todoItem');
-            if (!li) return;
-            const idx = Array.from(li.parentNode.children).indexOf(li);
-            handleDragStart(idx);
-          });
-          todoList.addEventListener('dragover', function (e) {
-            const li = e.target.closest('.todoItem');
-            if (!li) return;
-            const idx = Array.from(li.parentNode.children).indexOf(li);
-            handleDragOver(e, idx);
-          });
-          todoList.addEventListener('dragend', function (e) {
-            const li = e.target.closest('.todoItem');
-            if (!li) return;
-            handleDragEnd();
           });
 
           // 05. Quill example
