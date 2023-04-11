@@ -244,30 +244,47 @@ const tests = [
     },
   },
   {
-    name: 'Document#insert characters in sequence then delete all-3000',
+    name: 'Document#counter test',
     run: (): void => {
-      const size = 3000;
-      const doc = Document.create<{ text: Text }>('test-doc');
-
+      const doc = Document.create<{ age: Counter; price: Counter }>('test-doc');
+      const integer = 10;
+      const long = 5;
+      const uinteger = 100;
+      const float = 3.14;
+      const double = 5.66;
       doc.update((root) => {
-        root.text = new Text();
-      }, 'initialize');
-
-      // 01. inserts many chracters
-      for (let i = 0; i < size; i++) {
-        doc.update((root) => {
-          const { text } = root;
-          text.edit(i, i, 'a');
-        }, 'insert chracter');
-      }
-
-      // 02. deletes them
+        root.age = new Counter(CounterType.IntegerCnt, 5);
+        root.age.increase(long);
+        root.age.increase(double);
+        root.age.increase(float);
+        root.age.increase(uinteger);
+        root.age.increase(integer);
+      });
+      assert.equal('{"age":128}', doc.toJSON());
       doc.update((root) => {
-        const { text } = root;
-        text.edit(0, size, '');
-      }, 'delete them');
-
-      assert.equal(doc.getRoot().text.toString(), '');
+        root.price = new Counter(CounterType.LongCnt, 9000000000000000000);
+        root.price.increase(long);
+        root.price.increase(double);
+        root.price.increase(float);
+        root.price.increase(uinteger);
+        root.price.increase(integer);
+      });
+      assert.equal('{"age":128,"price":9000000000000000123}', doc.toJSON());
+      doc.update((root) => {
+        root.age.increase(-5);
+        root.age.increase(-3.14);
+        root.price.increase(-100);
+        root.price.increase(-20.5);
+      });
+      // TODO: We need to check which logic is correct
+      // Math.floor(n) method returns value which is smaller or equal to n when n is negative value
+      // In this case, age field should be 119, not 120
+      // but same TC in yorkie (https://github.com/yorkie-team/yorkie/blob/bbd06b2312e73b267e54970764e5d042e12d810c/test/bench/document_bench_test.go#L387) expect 120 rather than 119
+      assert.equal('{"age":119,"price":9000000000000000003}', doc.toJSON());
+      // TODO: We need to filter not-allowed type
+      // counter.increase() method doesn't filter not-allowed type
+    },
+  },
     },
   },
 ];
