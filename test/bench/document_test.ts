@@ -205,6 +205,56 @@ const tests = [
     },
   },
   {
+    name: 'Document#array',
+    run: (): void => {
+      const doc = Document.create<{ k1: JSONArray<number> }>('test-doc');
+
+      doc.update((root) => {
+        root.k1 = [];
+        root.k1.push(1);
+        root.k1.push(2);
+        root.k1.push(3);
+
+        assert.equal('{"k1":[1,2,3]}', root.toJSON!());
+        assert.equal(root.k1.length, 3);
+        assert.equal(
+          '[1:000000000000000000000000:2:1][1:000000000000000000000000:3:2][1:000000000000000000000000:4:3]',
+          root.k1.getStructureAsString!(),
+        );
+
+        root.k1.splice(1, 1);
+        assert.equal('{"k1":[1,3]}', root.toJSON!());
+        assert.equal(root.k1.length, 2);
+        assert.equal(
+          '[1:000000000000000000000000:2:1]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3]',
+          root.k1.getStructureAsString!(),
+        );
+
+        const first = root.k1.getElementByIndex!(0);
+        root.k1.insertAfter!(first.getID!(), 2);
+        assert.equal('{"k1":[1,2,3]}', root.toJSON!());
+        assert.equal(root.k1.length, 3);
+        assert.equal(
+          '[1:000000000000000000000000:2:1][1:000000000000000000000000:6:2]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3]',
+          root.k1.getStructureAsString!(),
+        );
+
+        const third = root.k1.getElementByIndex!(2);
+        root.k1.insertAfter!(third.getID!(), 4);
+        assert.equal('{"k1":[1,2,3,4]}', root.toJSON!());
+        assert.equal(root.k1.length, 4);
+        assert.equal(
+          '[1:000000000000000000000000:2:1][1:000000000000000000000000:6:2]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3][1:000000000000000000000000:7:4]',
+          root.k1.getStructureAsString!(),
+        );
+
+        for (let i = 0; i < root.k1.length; i++) {
+          assert.equal(i + 1, root.k1[i]);
+        }
+      });
+    },
+  },
+  {
     name: 'Document#text',
     run: (): void => {
       const doc = Document.create<{ k1: Text }>('test-doc');
