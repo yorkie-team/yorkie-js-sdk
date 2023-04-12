@@ -21,6 +21,7 @@ export declare type JSONArray<T> = {
     moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
     moveFront?(id: TimeTicket): void;
     moveLast?(id: TimeTicket): void;
+    getStructureAsString?(): string;
 } & Array<T>;
 ```
 <b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [WrappedElement](./yorkie-js-sdk.wrappedelement.md)
