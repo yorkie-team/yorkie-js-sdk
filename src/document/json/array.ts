@@ -94,6 +94,12 @@ export type JSONArray<T> = {
    * `moveLast` moves the element after the last element.
    */
   moveLast?(id: TimeTicket): void;
+
+  /**
+   * `getStructureAsString` returns a String containing the meta data of the node
+   * for debugging purpose.
+   */
+  getStructureAsString?(): string;
 } & Array<T>;
 
 /**
@@ -282,6 +288,8 @@ export class ArrayProxy {
               fromIndex,
             );
           };
+        } else if (method === 'getStructureAsString') {
+          return (): string => ArrayProxy.getStructureAsString(target);
         } else if (
           typeof method === 'string' &&
           isReadOnlyArrayMethod(method)
@@ -695,6 +703,13 @@ export class ArrayProxy {
       }
     }
     return -1;
+  }
+  /**
+   * `getStructureAsString` returns a String containing the meta data of the node
+   * for debugging purpose.
+   */
+  public static getStructureAsString(target: CRDTArray): string {
+    return target.getStructureAsString();
   }
 
   /**
