@@ -6,16 +6,17 @@ import {
   CRDTNode,
   CRDTInlineNode,
   CRDTBlockNode,
+  TreeNodeType,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
-export type Node = InlineNode | BlockNode;
+export type TreeNode = InlineNode | BlockNode;
 
 /**
  * `BlockNode` is a node that has children.
  */
 export type BlockNode = {
-  type: string;
-  children: Array<Node>;
+  type: TreeNodeType;
+  children: Array<TreeNode>;
 };
 
 /**
@@ -58,7 +59,7 @@ export class Tree {
   /**
    * `edit` edits this tree with the given node.
    */
-  public edit(fromIdx: number, toIdx: number, node: Node): boolean {
+  public edit(fromIdx: number, toIdx: number, node: TreeNode): boolean {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -71,11 +72,10 @@ export class Tree {
 
     const ticket = this.context.issueTimeTicket();
 
-    const currentNode = node as InlineNode;
     let crdtNode: CRDTNode;
-
     if (node.type === 'text') {
-      crdtNode = new CRDTInlineNode(ticket, currentNode.value);
+      const inlineNode = node as InlineNode;
+      crdtNode = new CRDTInlineNode(ticket, inlineNode.value);
     } else {
       crdtNode = new CRDTBlockNode(ticket, node.type);
     }
