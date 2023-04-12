@@ -116,6 +116,17 @@ const benchmarkObject = (size: number) => {
     }
   });
 };
+const benchmarkArray = (size: number) => {
+  const doc = Document.create<{ k1: JSONArray<number> }>('test-doc');
+
+  doc.update((root) => {
+    root.k1 = [];
+
+    for (let i = 0; i < size; i++) {
+      root.k1.push(i);
+    }
+  });
+};
 
 const tests = [
   {
@@ -448,6 +459,18 @@ const tests = [
     name: 'Document#text 1000',
     run: (): void => {
       benchmarkText(1000);
+    },
+  },
+  {
+    name: 'Document#array 1000',
+    run: (): void => {
+      benchmarkArray(1000);
+    },
+  },
+  {
+    name: 'Document#array 10000',
+    run: (): void => {
+      benchmarkArray(10000);
     },
   },
   {
