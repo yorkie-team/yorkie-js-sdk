@@ -19,7 +19,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `AddOperation` is an operation representing adding an element to an Array.
@@ -54,20 +57,25 @@ export class AddOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTArray) {
-      const array = parentObject as CRDTArray;
-      const value = this.value.deepcopy();
-      array.insertAfter(this.prevCreatedAt, value);
-      root.registerElement(value, array);
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTArray)) {
       logger.fatal(`fail to execute, only array can execute add`);
     }
+    const array = parentObject as CRDTArray;
+    const value = this.value.deepcopy();
+    array.insertAfter(this.prevCreatedAt, value);
+    root.registerElement(value, array);
+    return [
+      {
+        type: 'add',
+        element: this.getParentCreatedAt(),
+        index: Number(array.subPathOf(this.getEffectedCreatedAt())),
+      },
+    ];
   }
 
   /**

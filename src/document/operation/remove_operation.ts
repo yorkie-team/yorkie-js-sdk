@@ -17,8 +17,12 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -49,19 +53,34 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTContainer) {
-      const obj = parentObject;
-      const elem = obj.delete(this.createdAt, this.getExecutedAt());
-      root.registerRemovedElement(elem);
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTContainer)) {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }
+    const obj = parentObject as CRDTContainer;
+    const key = obj.subPathOf(this.createdAt);
+    const elem = obj.delete(this.createdAt, this.getExecutedAt());
+    root.registerRemovedElement(elem);
+
+    return parentObject instanceof CRDTArray
+      ? [
+          {
+            type: 'remove',
+            element: this.getEffectedCreatedAt(),
+            index: Number(key),
+          },
+        ]
+      : [
+          {
+            type: 'remove',
+            element: this.getEffectedCreatedAt(),
+            key,
+          },
+        ];
   }
 
   /**

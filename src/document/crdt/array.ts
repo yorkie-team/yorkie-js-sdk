@@ -163,6 +163,14 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
+   * `getStructureAsString` returns a String containing the meta data of this value
+   * for debugging purpose.
+   */
+  public getStructureAsString(): string {
+    return this.elements.getStructureAsString();
+  }
+
+  /**
    * `getDescendants` traverse the descendants of this array.
    */
   public getDescendants(

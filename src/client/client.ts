@@ -616,6 +616,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       return doc;
     }
 
+    this.eventStreamObserver.next({
+      type: ClientEventType.StreamConnectionStatusChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
     return doc;
   }
@@ -755,7 +759,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: this.id!,
-                  presence: this.getPeerPresence(docKey, this.id!),
+                  presence: this.getPeerPresence(docKey, this.id!)!,
                 },
               ],
             },
@@ -830,7 +834,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   /**
    * `getPeerPresence` returns the presence of the given document and client.
    */
-  public getPeerPresence(docKey: DocumentKey, clientID: ActorID): P {
+  public getPeerPresence(
+    docKey: DocumentKey,
+    clientID: ActorID,
+  ): P | undefined {
     return this.attachmentMap.get(docKey)!.getPresence(clientID);
   }
 
@@ -987,7 +994,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: attachment.getPresence(publisher),
+                  presence: attachment.getPresence(publisher)!,
                 },
               ],
             },
@@ -996,6 +1003,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
         const presence = attachment.getPresence(publisher);
+        if (!presence) break;
         attachment.removePresence(publisher);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
@@ -1023,7 +1031,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: attachment.getPresence(publisher),
+                  presence: attachment.getPresence(publisher)!,
                 },
               ],
             },

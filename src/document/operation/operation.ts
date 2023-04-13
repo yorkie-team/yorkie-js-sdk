@@ -17,6 +17,93 @@
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+
+/**
+ * `OperationInfo` represents the information of an operation.
+ * It is used to inform to the user what kind of operation was executed.
+ */
+export type OperationInfo =
+  | AddOpInfo
+  | IncreaseOpInfo
+  | RemoveOpInfo
+  | SetOpInfo
+  | MoveOpInfo
+  | EditOpInfo
+  | StyleOpInfo
+  | SelectOpInfo;
+export type AddOpInfo = {
+  type: 'add';
+  path: string;
+  index: number;
+};
+export type MoveOpInfo = {
+  type: 'move';
+  path: string;
+  previousIndex: number;
+  index: number;
+};
+export type SetOpInfo = {
+  type: 'set';
+  path: string;
+  key: string;
+};
+export type RemoveOpInfo = {
+  type: 'remove';
+  path: string;
+  key?: string;
+  index?: number;
+};
+export type IncreaseOpInfo = {
+  type: 'increase';
+  path: string;
+  value: number;
+};
+export type EditOpInfo = {
+  type: 'edit';
+  actor: ActorID;
+  from: number;
+  to: number;
+  path: string;
+  value: {
+    attributes: Indexable;
+    content: string;
+  };
+};
+export type StyleOpInfo = {
+  type: 'style';
+  actor: ActorID;
+  from: number;
+  to: number;
+  path: string;
+  value: {
+    attributes: Indexable;
+  };
+};
+export type SelectOpInfo = {
+  type: 'select';
+  actor: ActorID;
+  from: number;
+  to: number;
+  path: string;
+};
+
+/**
+ * `InternalOpInfo` represents the information of the operation. It is used to
+ * internally and can be converted to `OperationInfo` to inform to the user.
+ */
+export type InternalOpInfo =
+  | ToInternalOpInfo<AddOpInfo>
+  | ToInternalOpInfo<IncreaseOpInfo>
+  | ToInternalOpInfo<RemoveOpInfo>
+  | ToInternalOpInfo<SetOpInfo>
+  | ToInternalOpInfo<MoveOpInfo>
+  | ToInternalOpInfo<EditOpInfo>
+  | ToInternalOpInfo<StyleOpInfo>
+  | ToInternalOpInfo<SelectOpInfo>;
+type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
+  element: TimeTicket;
+};
 
 /**
  * `Operation` represents an operation to be executed on a document.
@@ -65,5 +152,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): void;
+  public abstract execute(root: CRDTRoot): Array<InternalOpInfo>;
 }
