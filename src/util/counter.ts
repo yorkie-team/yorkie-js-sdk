@@ -15,7 +15,7 @@
  */
 
 /**
- 'truncateNumber' returns number with decimal removed
+ 'removeDecimalPoint' returns number with decimal removed
  */
-export const truncateNumber = (number: number) =>
+export const removeDecimalPoint = (number: number) =>
   number < 0 ? Math.ceil(number) : Math.floor(number);
