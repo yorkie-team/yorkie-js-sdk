@@ -24,6 +24,7 @@ export {
   Client,
   ClientEvent,
   ClientStatus,
+  SyncMode,
   StreamConnectionStatus,
   DocumentSyncResultType,
   ClientEventType,
