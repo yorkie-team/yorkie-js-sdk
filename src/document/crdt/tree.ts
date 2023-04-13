@@ -277,7 +277,7 @@ export class CRDTBlockNode extends CRDTNode {
     // TODO(hackerwins, easylogic): Split the position from the given node to
     // the specified ancestor node. e.g. If the user types enter key, paragraph
     // node should be split into two.
-    // console.log('splitNode', index);
+    console.log('splitNode', index);
   }
 
   /**

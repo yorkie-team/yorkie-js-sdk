@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
@@ -52,19 +55,24 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTCounter) {
-      const counter = parentObject as CRDTCounter;
-      const value = this.value.deepcopy() as Primitive;
-      counter.increase(value);
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTCounter)) {
       logger.fatal(`fail to execute, only Counter can execute increase`);
     }
+    const counter = parentObject as CRDTCounter;
+    const value = this.value.deepcopy() as Primitive;
+    counter.increase(value);
+    return [
+      {
+        type: 'increase',
+        element: this.getEffectedCreatedAt(),
+        value: value.getValue() as number,
+      },
+    ];
   }
 
   /**

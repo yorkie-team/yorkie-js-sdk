@@ -36,12 +36,19 @@ import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { createJSON } from '@yorkie-js-sdk/src/document/json/element';
+import {
+  createJSON,
+  JSONElement,
+} from '@yorkie-js-sdk/src/document/json/element';
 import {
   Checkpoint,
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  InternalOpInfo,
+  OperationInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from './json/object';
 import { Trie } from '../util/trie';
 
@@ -119,12 +126,12 @@ export interface SnapshotEvent extends BaseDocEvent {
 }
 
 /**
- * `ChangeInfo` represents a pair of `Change` and the JsonPath of the changed
- * element.
+ * `ChangeInfo` represents the modifications made during a document update
+ * and the message passed.
  */
 export interface ChangeInfo {
-  change: Change;
-  paths: Array<string>;
+  message: string;
+  operations: Array<OperationInfo>;
 }
 
 /**
@@ -179,7 +186,7 @@ export type DocumentKey = string;
  *
  * @public
  */
-export class Document<T> implements Observable<DocEvent> {
+export class Document<T> {
   private key: DocumentKey;
   private status: DocumentStatus;
   private root: CRDTRoot;
@@ -243,7 +250,7 @@ export class Document<T> implements Observable<DocEvent> {
       }
 
       const change = context.getChange();
-      change.execute(this.root);
+      const internalOpInfos = change.execute(this.root);
       this.localChanges.push(change);
       this.changeID = change.getID();
 
@@ -252,8 +259,10 @@ export class Document<T> implements Observable<DocEvent> {
           type: DocEventType.LocalChange,
           value: [
             {
-              change,
-              paths: this.createPaths(change),
+              message: change.getMessage() || '',
+              operations: internalOpInfos.map((internalOpInfo) =>
+                this.toOperationInfo(internalOpInfo),
+              ),
             },
           ],
         });
@@ -266,14 +275,86 @@ export class Document<T> implements Observable<DocEvent> {
   }
 
   /**
-   * `subscribe` adds the given observer to the fan-out list.
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the document is changed.
    */
   public subscribe(
     nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the targetPath or any of its nested values change.
+   */
+  public subscribe(
+    targetPath: string,
+    next: NextFn<DocEvent>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   */
+  public subscribe(
+    arg1: string | Observer<DocEvent> | NextFn<DocEvent>,
+    arg2?: NextFn<DocEvent> | ErrorFn,
+    arg3?: ErrorFn | CompleteFn,
+    arg4?: CompleteFn,
   ): Unsubscribe {
-    return this.eventStream.subscribe(nextOrObserver, error, complete);
+    if (typeof arg1 === 'string') {
+      if (typeof arg2 !== 'function') {
+        throw new Error('Second argument must be a callback function');
+      }
+      const target = arg1;
+      const callback = arg2 as NextFn<DocEvent>;
+      return this.eventStream.subscribe(
+        (event) => {
+          if (event.type === DocEventType.Snapshot) {
+            target === '$' && callback(event);
+            return;
+          }
+
+          const changeInfos: Array<ChangeInfo> = [];
+          for (const { message, operations } of event.value) {
+            const targetOps: Array<OperationInfo> = [];
+            for (const op of operations) {
+              if (this.isSameElementOrChildOf(op.path, target)) {
+                targetOps.push(op);
+              }
+            }
+            targetOps.length &&
+              changeInfos.push({
+                message,
+                operations: targetOps,
+              });
+          }
+          changeInfos.length &&
+            callback({
+              type: event.type,
+              value: changeInfos,
+            });
+        },
+        arg3,
+        arg4,
+      );
+    }
+    if (typeof arg1 === 'function') {
+      const error = arg2 as ErrorFn;
+      const complete = arg3 as CompleteFn;
+      return this.eventStream.subscribe(arg1, error, complete);
+    }
+    throw new Error(`"${arg1}" is not a valid`);
+  }
+
+  private isSameElementOrChildOf(elem: string, parent: string): boolean {
+    if (parent === elem) {
+      return true;
+    }
+
+    const nodePath = elem.split('.');
+    const targetPath = parent.split('.');
+    return targetPath.every((path, index) => path === nodePath[index]);
   }
 
   /**
@@ -520,20 +601,22 @@ export class Document<T> implements Observable<DocEvent> {
       change.execute(this.clone!);
     }
 
+    const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      change.execute(this.root);
+      const inernalOpInfos = change.execute(this.root);
+      changeInfos.push({
+        message: change.getMessage() || '',
+        operations: inernalOpInfos.map((opInfo) =>
+          this.toOperationInfo(opInfo),
+        ),
+      });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
 
     if (changes.length && this.eventStreamObserver) {
       this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
-        value: changes.map((change) => {
-          return {
-            change,
-            paths: this.createPaths(change),
-          };
-        }),
+        value: changeInfos,
       });
     }
 
@@ -544,6 +627,23 @@ export class Document<T> implements Observable<DocEvent> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
+  }
+
+  /**
+   * `getValueByPath` returns the JSONElement corresponding to the given path.
+   */
+  public getValueByPath(path: string): JSONElement | undefined {
+    if (!path.startsWith('$')) {
+      throw new Error('The path must start with "$"');
+    }
+    const pathArr = path.split('.');
+    pathArr.shift();
+    let value: JSONObject<any> = this.getRoot();
+    for (const key of pathArr) {
+      value = value[key];
+      if (value === undefined) return undefined;
+    }
+    return value;
   }
 
   private createPaths(change: Change): Array<string> {
@@ -557,5 +657,18 @@ export class Document<T> implements Observable<DocEvent> {
       }
     }
     return pathTrie.findPrefixes().map((element) => element.join('.'));
+  }
+
+  private toOperationInfo(internalOpInfo: InternalOpInfo): OperationInfo {
+    const opInfo = {} as OperationInfo;
+    for (const key of Object.keys(internalOpInfo)) {
+      if (key === 'element') {
+        opInfo.path = this.root.createSubPaths(internalOpInfo[key])!.join('.');
+      } else {
+        const k = key as keyof Omit<InternalOpInfo, 'element'>;
+        opInfo[k] = internalOpInfo[k];
+      }
+    }
+    return opInfo;
   }
 }

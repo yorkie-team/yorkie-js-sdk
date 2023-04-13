@@ -19,7 +19,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  Operation,
+  InternalOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -55,20 +58,25 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): void {
+  public execute(root: CRDTRoot): Array<InternalOpInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (parentObject instanceof CRDTObject) {
-      const obj = parentObject as CRDTObject;
-      const value = this.value.deepcopy();
-      obj.set(this.key, value);
-      root.registerElement(value, obj);
-    } else {
-      if (!parentObject) {
-        logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
-      }
-
+    if (!parentObject) {
+      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+    }
+    if (!(parentObject instanceof CRDTObject)) {
       logger.fatal(`fail to execute, only object can execute set`);
     }
+    const obj = parentObject as CRDTObject;
+    const value = this.value.deepcopy();
+    obj.set(this.key, value);
+    root.registerElement(value, obj);
+    return [
+      {
+        type: 'set',
+        element: this.getParentCreatedAt(),
+        key: this.key,
+      },
+    ];
   }
 
   /**

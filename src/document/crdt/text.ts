@@ -197,7 +197,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): Map<string, TimeTicket> {
+  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -237,7 +237,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       this.remoteChangeLock = false;
     }
 
-    return latestCreatedAtMap;
+    return [latestCreatedAtMap, changes];
   }
 
   /**
@@ -254,7 +254,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     range: RGATreeSplitNodeRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
-  ): void {
+  ): Array<TextChange<A>> {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
     const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -280,7 +280,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
         to: toIdx,
         value: {
           attributes: this.parseAttributes(attributes) as A,
-          content: undefined,
         },
       });
 
@@ -294,6 +293,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       this.onChangesHandler(changes);
       this.remoteChangeLock = false;
     }
+    return changes;
   }
 
   /**
@@ -301,7 +301,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
    *
    * @internal
    */
-  public select(range: RGATreeSplitNodeRange, updatedAt: TimeTicket): void {
+  public select(
+    range: RGATreeSplitNodeRange,
+    updatedAt: TimeTicket,
+  ): TextChange<A> | undefined {
     if (this.remoteChangeLock) {
       return;
     }
@@ -312,6 +315,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       this.onChangesHandler([change]);
       this.remoteChangeLock = false;
     }
+    return change;
   }
 
   /**
@@ -445,16 +449,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): TextChange<A> | undefined {
-    if (!this.selectionMap.has(updatedAt.getActorID()!)) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
-      );
-      return;
-    }
-
     const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
-    if (updatedAt.after(prevSelection!.getUpdatedAt())) {
+    if (!prevSelection || updatedAt.after(prevSelection!.getUpdatedAt())) {
       this.selectionMap.set(
         updatedAt.getActorID()!,
         Selection.of(range, updatedAt),

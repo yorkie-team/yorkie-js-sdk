@@ -67,6 +67,9 @@ export class Tree {
 
     const root = new CRDTBlockNode(ticket, this.initialRoot.type);
 
+    /**
+     * traverse traverses the given node and its children recursively.
+     */
     function traverse(n: TreeNode, parent: CRDTBlockNode): void {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
