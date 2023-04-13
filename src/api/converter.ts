@@ -663,7 +663,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
     case PbValueType.VALUE_TYPE_INTEGER_CNT:
     case PbValueType.VALUE_TYPE_LONG_CNT:
-      return CRDTCounter.of(
+      return CRDTCounter.create(
         fromCounterType(pbElementSimple.getType()),
         CRDTCounter.valueFromBytes(
           fromCounterType(pbElementSimple.getType()),
@@ -944,7 +944,7 @@ function fromText<A extends Indexable>(
  * `fromCounter` converts the given Protobuf format to model format.
  */
 function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
-  const counter = CRDTCounter.of(
+  const counter = CRDTCounter.create(
     fromCounterType(pbCounter.getType()),
     CRDTCounter.valueFromBytes(
       fromCounterType(pbCounter.getType()),

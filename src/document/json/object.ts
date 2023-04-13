@@ -188,7 +188,7 @@ export class ObjectProxy {
         );
         value.initialize(context, text);
       } else if (value instanceof Counter) {
-        const counter = CRDTCounter.of(
+        const counter = CRDTCounter.create(
           value.getValueType(),
           value.getValue(),
           ticket,
@@ -205,7 +205,7 @@ export class ObjectProxy {
         );
         value.initialize(context, counter);
       } else if (value instanceof Tree) {
-        const tree = CRDTTree.create(ticket);
+        const tree = CRDTTree.create(value.getInitialRoot(ticket), ticket);
         target.set(key, tree);
         context.registerElement(tree, target);
         context.push(

@@ -80,7 +80,7 @@ export class CRDTCounter extends CRDTElement {
   /**
    * `of` creates a new instance of Counter.
    */
-  public static of(
+  public static create(
     valueType: CounterType,
     value: CounterValue,
     createdAt: TimeTicket,
@@ -125,7 +125,7 @@ export class CRDTCounter extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTCounter {
-    const counter = CRDTCounter.of(
+    const counter = CRDTCounter.create(
       this.valueType,
       this.value,
       this.getCreatedAt(),

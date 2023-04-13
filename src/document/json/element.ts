@@ -97,7 +97,9 @@ export function toWrappedElement(
     counter.initialize(context, elem);
     return counter;
   } else if (elem instanceof CRDTTree) {
-    return new Tree(context, elem);
+    const tree = new Tree();
+    tree.initialize(context, elem);
+    return tree;
   }
 
   throw new TypeError(`Unsupported type of element: ${typeof elem}`);

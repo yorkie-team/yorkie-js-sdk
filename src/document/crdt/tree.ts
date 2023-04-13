@@ -48,9 +48,15 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 const BlockNodePaddingSize = 2;
 
 /**
+ * `DefaultRootType` is the default type of the root node.
+ * It is used when the type of the root node is not specified.
+ */
+export const DefaultRootType = 'root';
+
+/**
  * `NoteType` is the type of a node in the tree.
  */
-export type TreeNodeType = 'root' | 'text' | string;
+export type TreeNodeType = string | 'text';
 
 /**
  * `TreeNode` represents the JSON representation of a node in the tree.
@@ -222,6 +228,17 @@ export class CRDTBlockNode extends CRDTNode {
   }
 
   /**
+   * `append` appends the given nodes to the children.
+   */
+  append(...newNode: Array<CRDTNode>): void {
+    this._children.push(...newNode);
+    for (const node of newNode) {
+      node.parent = this;
+      node.updateAncestorsSize();
+    }
+  }
+
+  /**
    * `prepend` prepends the given nodes to the children.
    */
   prepend(...newNode: Array<CRDTNode>): void {
@@ -260,7 +277,7 @@ export class CRDTBlockNode extends CRDTNode {
     // TODO(hackerwins, easylogic): Split the position from the given node to
     // the specified ancestor node. e.g. If the user types enter key, paragraph
     // node should be split into two.
-    console.log('splitNode', index);
+    // console.log('splitNode', index);
   }
 
   /**
@@ -495,23 +512,16 @@ function toXML(node: CRDTNode): string {
 export class CRDTTree extends CRDTElement {
   private root: CRDTBlockNode;
 
-  constructor(createdAt: TimeTicket) {
+  constructor(root: CRDTBlockNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.root = new CRDTBlockNode(createdAt, 'root');
+    this.root = root;
   }
 
   /**
    * `create` creates a new instance of `CRDTTree`.
    */
-  public static create(ticket: TimeTicket): CRDTTree {
-    return new CRDTTree(ticket);
-  }
-
-  /**
-   * `sizeOf` returns the size of the given node.
-   */
-  public static sizeOf(node: CRDTNode): number {
-    return accumulateNodeSize(node);
+  public static create(root: CRDTBlockNode, ticket: TimeTicket): CRDTTree {
+    return new CRDTTree(root, ticket);
   }
 
   /**
@@ -604,6 +614,13 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `getSize` returns the size of the tree.
+   */
+  public getSize(): number {
+    return this.root.size;
+  }
+
+  /**
    * toXML returns the XML encoding of this tree.
    */
   public toXML(): string {
@@ -635,10 +652,9 @@ export class CRDTTree extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTTree {
-    const tree = new CRDTTree(this.getCreatedAt());
-    tree.remove(this.getRemovedAt());
-
     // TODO(hackerwins): Copy the root node deeply.
+    const tree = new CRDTTree(this.root, this.getCreatedAt());
+    tree.remove(this.getRemovedAt());
     return tree;
   }
 }

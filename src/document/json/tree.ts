@@ -2,6 +2,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
+  DefaultRootType,
   CRDTTree,
   CRDTNode,
   CRDTInlineNode,
@@ -32,12 +33,12 @@ export type InlineNode = {
  * tree of text-based editor such as ProseMirror.
  */
 export class Tree {
+  private initialRoot?: BlockNode;
   private context?: ChangeContext;
   private tree?: CRDTTree;
 
-  constructor(context?: ChangeContext, tree?: CRDTTree) {
-    this.context = context;
-    this.tree = tree;
+  constructor(initialRoot?: BlockNode) {
+    this.initialRoot = initialRoot;
   }
 
   /**
@@ -54,6 +55,51 @@ export class Tree {
    */
   public getID(): TimeTicket {
     return this.tree!.getID();
+  }
+
+  /**
+   * `getInitialRoot` returns the root node of this tree.
+   */
+  public getInitialRoot(ticket: TimeTicket): CRDTBlockNode {
+    if (!this.initialRoot) {
+      return new CRDTBlockNode(ticket, DefaultRootType);
+    }
+
+    const root = new CRDTBlockNode(ticket, this.initialRoot.type);
+
+    function traverse(n: TreeNode, parent: CRDTBlockNode): void {
+      if (n.type === 'text') {
+        const inlineNode = n as InlineNode;
+        parent.append(new CRDTInlineNode(ticket, inlineNode.value));
+        return;
+      }
+
+      const blockNode = n as BlockNode;
+      const node = new CRDTBlockNode(ticket, blockNode.type);
+      parent.append(node);
+
+      for (const child of blockNode.children) {
+        traverse(child, node);
+      }
+    }
+
+    for (const child of this.initialRoot.children) {
+      traverse(child, root);
+    }
+
+    return root;
+  }
+
+  /**
+   * `getSize` returns the size of this tree.
+   */
+  public getSize(): number {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      return 0;
+    }
+
+    return this.tree.getSize();
   }
 
   /**
@@ -84,5 +130,17 @@ export class Tree {
 
     // TODO: add edit operation
     return true;
+  }
+
+  /**
+   * `toXML` returns the XML string of this tree.
+   */
+  public toXML(): string {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      return '';
+    }
+
+    return this.tree.toXML();
   }
 }

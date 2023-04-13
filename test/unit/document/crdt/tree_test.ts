@@ -34,7 +34,7 @@ describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
-    const tree = new CRDTTree(ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     assert.equal(tree.getRoot().size, 0);
     assert.equal(tree.toXML(), /*html*/ `<root></root>`);
     let pos = tree.findTreePos(0);
@@ -130,7 +130,7 @@ describe('CRDTTree', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1     6     11
     // <root> <p> hello world  </p> </root>
-    const tree = new CRDTTree(ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'helloworld'), ITT);
 
@@ -151,7 +151,7 @@ describe('CRDTTree', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
-    const tree = new CRDTTree(ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'a'), ITT);
     tree.edit([2, 2], new CRDTInlineNode(ITT, 'b'), ITT);
@@ -172,7 +172,7 @@ describe('CRDTTree', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
     tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
@@ -200,7 +200,7 @@ describe('CRDTTree', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
     tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
