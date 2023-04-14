@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The Yorkie Authors. All rights reserved.
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 /**
- 'removeDecimalPoint' returns number with decimal removed
+ 'removeDecimal' returns number with decimal removed
  */
-export const removeDecimalPoint = (number: number) =>
+export const removeDecimal = (number: number) =>
   number < 0 ? Math.ceil(number) : Math.floor(number);
