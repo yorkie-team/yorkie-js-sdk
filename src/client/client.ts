@@ -611,9 +611,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * `pauseRemoteChanges` pauses the synchronization of remote changes,
    * allowing only local changes to be applied.
    */
-  public async pauseRemoteChanges(
-    doc: Document<unknown>,
-  ): Promise<Document<unknown>> {
+  public pauseRemoteChanges(doc: Document<unknown>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -626,17 +624,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     attachment.changeSyncMode(SyncMode.PushOnly);
-    await this.sync(doc, SyncMode.PushOnly);
-    return doc;
   }
 
   /**
    * `resumeRemoteChanges` resumes the synchronization of remote changes,
    * allowing both local and remote changes to be applied.
    */
-  public async resumeRemoteChanges(
-    doc: Document<unknown>,
-  ): Promise<Document<unknown>> {
+  public resumeRemoteChanges(doc: Document<unknown>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -649,8 +643,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     attachment.changeSyncMode(SyncMode.PushPull);
-    await this.sync(doc);
-    return doc;
+    attachment.remoteChangeEventReceived = true;
   }
 
   /**
@@ -1155,6 +1148,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             }
 
             const respPack = converter.fromChangePack(res.getChangePack()!);
+
+            // NOTE(chacha912, hackerwins): If syncLoop already executed with
+            // PushPull, ignore the response when the syncMode is PushOnly.
+            if (respPack.hasChanges() && syncMode === SyncMode.PushOnly) {
+              return;
+            }
+
             doc.applyChangePack(respPack, this.id!, syncMode);
             this.eventStreamObserver.next({
               type: ClientEventType.DocumentSynced,
