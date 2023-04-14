@@ -15,7 +15,7 @@
  */
 
 /**
- `removeDecimal` returns a number with the decimal point removed.
+ `removeDecimal` returns a number with the decimal part removed.
  */
 export const removeDecimal = (number: number) =>
   number < 0 ? Math.ceil(number) : Math.floor(number);
