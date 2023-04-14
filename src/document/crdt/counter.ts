@@ -22,6 +22,7 @@ import {
   Primitive,
   PrimitiveType,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
 
 /**
  * @internal
@@ -56,7 +57,7 @@ export class CRDTCounter extends CRDTElement {
           if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
             this.value = Long.fromNumber(value).toInt();
           } else {
-            this.value = Math.floor(value);
+            this.value = removeDecimal(value);
           }
         } else {
           this.value = value.toInt();
@@ -249,7 +250,7 @@ export class CRDTCounter extends CRDTElement {
         this.value = (this.value as number) + (v.getValue() as Long).toInt();
       } else {
         this.value = Long.fromNumber(
-          (this.value as number) + Math.floor(v.getValue() as number),
+          (this.value as number) + removeDecimal(v.getValue() as number),
         ).toInt();
       }
     }
