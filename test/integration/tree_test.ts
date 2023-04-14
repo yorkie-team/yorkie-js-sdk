@@ -10,7 +10,7 @@ describe('Tree', () => {
     doc.update((root) => {
       // 01. Create a tree and insert a paragraph.
       root.t = new Tree();
-      root.t.edit(0, 0, { type: 'p', children: [] });
+      root.t.edit(0, 0, { type: 'p', content: [] });
       assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[]}]}}',
@@ -18,7 +18,7 @@ describe('Tree', () => {
       );
 
       // 02. Create a text into the paragraph.
-      root.t.edit(1, 1, { type: 'text', value: 'AB' });
+      root.t.edit(1, 1, { type: 'text', text: 'AB' });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>AB</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"}]}]}}',
@@ -26,7 +26,7 @@ describe('Tree', () => {
       );
 
       // 03. Insert a text into the paragraph.
-      root.t.edit(3, 3, { type: 'text', value: 'CD' });
+      root.t.edit(3, 3, { type: 'text', text: 'CD' });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>ABCD</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"},{"type":"text","value":"CD"}]}]}}',
@@ -34,7 +34,7 @@ describe('Tree', () => {
       );
 
       // 04. Replace ABCD with Yorkie
-      root.t.edit(1, 5, { type: 'text', value: 'Yorkie' });
+      root.t.edit(1, 5, { type: 'text', text: 'Yorkie' });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>Yorkie</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"Yorkie"}]}]}}',
@@ -50,21 +50,21 @@ describe('Tree', () => {
     doc.update((root) => {
       root.t = new Tree({
         type: 'doc',
-        children: [
+        content: [
           {
             type: 'p',
-            children: [{ type: 'text', value: 'ab' }],
+            content: [{ type: 'text', text: 'ab' }],
           },
           {
             type: 'ng',
-            children: [
-              { type: 'note', children: [{ type: 'text', value: 'cd' }] },
-              { type: 'note', children: [{ type: 'text', value: 'ef' }] },
+            content: [
+              { type: 'note', content: [{ type: 'text', text: 'cd' }] },
+              { type: 'note', content: [{ type: 'text', text: 'ef' }] },
             ],
           },
           {
             type: 'bp',
-            children: [{ type: 'text', value: 'gh' }],
+            content: [{ type: 'text', text: 'gh' }],
           },
         ],
       });

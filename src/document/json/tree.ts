@@ -17,7 +17,7 @@ export type TreeNode = InlineNode | BlockNode;
  */
 export type BlockNode = {
   type: TreeNodeType;
-  children: Array<TreeNode>;
+  content: Array<TreeNode>;
 };
 
 /**
@@ -25,7 +25,7 @@ export type BlockNode = {
  */
 export type InlineNode = {
   type: 'text';
-  value: string;
+  text: string;
 };
 
 /**
@@ -73,7 +73,7 @@ export class Tree {
     function traverse(n: TreeNode, parent: CRDTBlockNode): void {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
-        parent.append(new CRDTInlineNode(ticket, inlineNode.value));
+        parent.append(new CRDTInlineNode(ticket, inlineNode.text));
         return;
       }
 
@@ -81,12 +81,12 @@ export class Tree {
       const node = new CRDTBlockNode(ticket, blockNode.type);
       parent.append(node);
 
-      for (const child of blockNode.children) {
+      for (const child of blockNode.content) {
         traverse(child, node);
       }
     }
 
-    for (const child of this.initialRoot.children) {
+    for (const child of this.initialRoot.content) {
       traverse(child, root);
     }
 
@@ -108,7 +108,7 @@ export class Tree {
   /**
    * `edit` edits this tree with the given node.
    */
-  public edit(fromIdx: number, toIdx: number, node: TreeNode): boolean {
+  public edit(fromIdx: number, toIdx: number, node?: TreeNode): boolean {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       return false;
@@ -121,11 +121,11 @@ export class Tree {
 
     const ticket = this.context.issueTimeTicket();
 
-    let crdtNode: CRDTNode;
-    if (node.type === 'text') {
+    let crdtNode: CRDTNode | undefined;
+    if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
-      crdtNode = new CRDTInlineNode(ticket, inlineNode.value);
-    } else {
+      crdtNode = new CRDTInlineNode(ticket, inlineNode.text);
+    } else if (node) {
       crdtNode = new CRDTBlockNode(ticket, node.type);
     }
 

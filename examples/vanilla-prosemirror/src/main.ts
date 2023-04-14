@@ -1,4 +1,4 @@
-import yorkie, { Text, Document } from 'yorkie-js-sdk';
+import yorkie, { Tree, Document, BlockNode } from 'yorkie-js-sdk';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema, Node } from 'prosemirror-model';
@@ -68,7 +68,7 @@ const initialDoc = {
   content: [
     {
       type: 'paragraph',
-      content: [{ type: 'text', text: 'ab' }, { type: 'star' }],
+      content: [{ type: 'text', text: 'ab' }],
     },
     {
       type: 'notegroup',
@@ -102,31 +102,21 @@ function insertStar(
 }
 
 /**
- * Run main.
+ * main is the entry point of the example.
  */
 async function main() {
-  const client = new yorkie.Client('http://localhost:8080');
-  await client.activate();
+  // TODO(hackerwins): Uncomment this after implementing CRDT.
+  // const client = new yorkie.Client('http://localhost:8080');
+  // await client.activate();
 
-  // TODO(hackerwins): Replace yorkie.Text with yorkie.Tree.
   // 01. Build yorkie.Text from ProseMirror doc.
-  const doc = new yorkie.Document<{ text: Text }>('prosemirror');
-  await client.attach(doc);
+  const doc = new yorkie.Document<{ tree: Tree }>('prosemirror');
+  // await client.attach(doc);
   doc.update((root) => {
-    root.text = new yorkie.Text();
-
-    let idx = 0;
-    traverseDoc(initialDoc, 0, (node: any, depth: number) => {
-      if (node.type === 'text') {
-        root.text.edit(idx, idx, node.text, { type: node.type, depth });
-        idx += node.text.length;
-      } else {
-        root.text.edit(idx, idx, '\n', { type: node.type, depth });
-        idx += 1;
-      }
-    });
+    root.tree = new Tree(initialDoc as BlockNode);
   });
 
+  // 02. Create ProseMirror Editor.
   const state = EditorState.create({
     doc: Node.fromJSON(mySchema, initialDoc),
     plugins: [
@@ -137,16 +127,17 @@ async function main() {
       ...exampleSetup({ schema: mySchema }),
     ],
   });
+
+  // 03. Upstream: ProseMirror to yorkie.Text.
   const view = new EditorView(document.querySelector('#app'), {
     state,
     dispatchTransaction: (transaction) => {
-      // 02. Apply transaction to yorkie.Text.
       view.updateState(view.state.apply(transaction));
 
       // If the steps are empty, it means the transaction is not applied to the document.
       // Only the selection is changed.
       if (!transaction.steps.length) {
-        console.log(transaction.curSelection.$anchor.pos);
+        console.log(transaction.selection.$anchor.pos);
         return;
       }
 
@@ -158,68 +149,36 @@ async function main() {
             slice: { content },
           } = step as any;
 
-          // TODO(hackerwins): We need to change yorkie.Tree to support depth and path.
-          // TODO(hackerwins): We need to understand how to handle steps.
-          // TODO(hackerwins): We need to understand the indexes(from, to) of the ProseMirror.
-
           // 02-1. Delete the given range.
           if (!content.content.length) {
-            root.text.delete(from - 1, to - 1);
+            root.tree.edit(from, to);
             return;
           }
 
+          // TODO(hackerwins): We need to understand how to handle steps.
           // 02-2. Edit the given range with the given content.
           for (const node of content.content) {
-            if (node.isText) {
-              root.text.edit(from - 1, to - 1, node.text, {
-                type: node.type.name,
-                // TODO(hackerwins): Add depth to yorkie.Text.
-                depth: 0,
-              });
-            } else {
-              root.text.edit(from - 1, to - 1, '\n', {
-                type: node.type.name,
-                // TODO(hackerwins): Add depth to yorkie.Text.
-                depth: 0,
-              });
-            }
+            root.tree.edit(from, to, node.toJSON());
           }
         }
       });
       printYorkieDoc(doc);
     },
   });
-  view.focus();
 
-  printYorkieDoc(doc);
-  // 03. Subscribe the changes of yorkie.Text and apply them to ProseMirror.
+  // 04. Downstream: yorkie.Text to ProseMirror.
   // TODO(hackerwins): Implement this.
+
+  view.focus();
+  printYorkieDoc(doc);
 }
 
 /**
  * `printYorkieDoc` prints the content of the yorkie.Text.
  */
-function printYorkieDoc(doc: Document<{ text: Text }>) {
-  console.log(JSON.stringify(doc.getRoot().toJS!().text));
-  // console.log(JSON.stringify(doc.getRoot().toJS!().text, null, 4));
-}
-
-/**
- * `traverseDoc` traverses the ProseMirror doc. It calls the callback function
- * for each node. And this function traverses the children of the node
- * in post-order traversal.
- */
-function traverseDoc(
-  doc: any,
-  depth: number,
-  callback: (node: any, depth: number) => void,
-) {
-  if (doc.content) {
-    doc.content.forEach((child: any) => {
-      traverseDoc(child, depth + 1, callback);
-    });
-  }
-  callback(doc, depth);
+function printYorkieDoc(doc: Document<{ tree: Tree }>) {
+  console.log(JSON.stringify(doc.getRoot().toJS!().tree));
+  // console.log(JSON.stringify(doc.getRoot().toJS!().tree, null, 4));
 }
 
 main();

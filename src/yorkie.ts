@@ -77,6 +77,11 @@ export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
 export { Tree } from '@yorkie-js-sdk/src/document/json/tree';
+export {
+  TreeNode,
+  BlockNode,
+  InlineNode,
+} from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
 
