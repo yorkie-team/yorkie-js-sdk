@@ -1,3 +1,11 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
 .ProseMirror {
   position: relative;
 }
@@ -8,7 +16,7 @@
   white-space: break-spaces;
   -webkit-font-variant-ligatures: none;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0; /* the above doesn't seem to work in Edge */
+  font-feature-settings: 'liga' 0; /* the above doesn't seem to work in Edge */
 }
 
 .ProseMirror pre {
@@ -40,7 +48,7 @@ li.ProseMirror-selectednode {
 }
 
 li.ProseMirror-selectednode:after {
-  content: "";
+  content: '';
   position: absolute;
   left: -32px;
   right: -2px;
@@ -102,7 +110,7 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-menu-dropdown:after {
-  content: "";
+  content: '';
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 4px solid currentColor;
@@ -141,7 +149,7 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-menu-submenu-label:after {
-  content: "";
+  content: '';
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   border-left: 4px solid currentColor;
@@ -217,7 +225,7 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-gapcursor:after {
-  content: "";
+  content: '';
   display: block;
   position: absolute;
   top: -2px;
@@ -244,7 +252,7 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-example-setup-style hr:after {
-  content: "";
+  content: '';
   display: block;
   height: 1px;
   background-color: silver;
@@ -284,14 +292,14 @@ img.ProseMirror-separator {
   color: #444;
 }
 
-.ProseMirror-prompt input[type="text"],
+.ProseMirror-prompt input[type='text'],
 .ProseMirror-prompt textarea {
   background: #eee;
   border: none;
   outline: none;
 }
 
-.ProseMirror-prompt input[type="text"] {
+.ProseMirror-prompt input[type='text'] {
   padding: 0 4px;
 }
 
@@ -306,7 +314,7 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-prompt-close:after {
-  content: "��";
+  content: '��';
   font-size: 12px;
 }
 
@@ -365,7 +373,8 @@ img.ProseMirror-separator {
   color: #444;
 }
 
-.ProseMirror note, .ProseMirror notegroup {
+.ProseMirror note,
+.ProseMirror notegroup {
   display: block;
   border: 1px solid silver;
   border-radius: 3px;
@@ -374,5 +383,100 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror notegroup {
-    border-color: #66f;
+  border-color: #66f;
+}
+
+.layout {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.layout .application {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px;
+}
+
+#app {
+  border: 1px solid silver;
+}
+
+.layout .log {
+  flex: none;
+  height: 50%;
+  overflow: auto;
+  border-top: 1px solid silver;
+  box-sizing: border-box;
+  padding: 0 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.layout .log > * {
+  flex: 1 1 auto;
+}
+
+.layout .log > *:first-child {
+  border-right: 1px solid silver;
+}
+
+.block {
+  font-style: italic;
+}
+
+.inline {
+  font-weight: bold;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.block::before,
+.inline::before {
+  content: '↳';
+  margin-right: 4px;
+}
+
+#tr-log {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.tr {
+  padding: 10px;
+  flex: none !important;
+  width: 300px;
+}
+
+.selection-item {
+  display: inline-flex;
+  align-items: center;
+  background-color: red;
+  color: white;
+  line-height: 0px;
+  padding: 4px 4px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tr-item {
+  line-height: 1;
+  display: inline-block;
+  padding: 4px 4px;
+  border-radius: 3px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  background-color: #444;
+  color: white;
+  vertical-align: middle;
+  cursor: pointer;
 }

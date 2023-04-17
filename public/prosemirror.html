@@ -8,7 +8,27 @@
     <script src="./util.js"></script>
   </head>
   <body>
-    <div id="app"></div>
+    <div class="layout">
+      <div class="application">
+        <h2>Editor</h2>
+        <div id="app"></div>
+      </div>
+      <div class="log">
+        <div class="tr">
+          <h2>Transaction</h2>
+          <div id="tr-log" class="log-view"></div>
+        </div>
+        <div class="pm">
+          <h2>ProseMirror</h2>
+          <div id="pm-log" class="log-view"></div>
+        </div>
+        <div class="yorkie">
+          <h2>Yorkie</h2>
+          <div id="yorkie-log" class="log-view"></div>
+        </div>
+      </div>
+    </div>
+
     <script type="importmap">
       {
         "imports": {
@@ -29,6 +49,8 @@
       import { exampleSetup } from 'prosemirror-example-setup';
       import { toggleMark } from 'prosemirror-commands';
       import { keymap } from 'prosemirror-keymap';
+
+      window.transactions = [];
 
       const mySchema = new Schema({
         nodes: {
@@ -131,6 +153,7 @@
 
         // 01. Build yorkie.Text from ProseMirror doc.
         const doc = new yorkie.Document();
+        window.doc = doc;
         // await client.attach(doc);
         doc.update((root) => {
           root.tree = new yorkie.Tree(initialDoc);
@@ -152,17 +175,23 @@
         const view = new EditorView(document.querySelector('#app'), {
           state,
           dispatchTransaction: (transaction) => {
-            console.log(transaction.doc.toJSON());
             view.updateState(view.state.apply(transaction));
-
-            console.log(transaction.doc.toJSON());
 
             // If the steps are empty, it means the transaction is not applied to the document.
             // Only the selection is changed.
             if (!transaction.steps.length) {
-              console.table(transaction.selection.$anchor.pos);
+              window.transactions.unshift({
+                type: 'selection',
+                selection: transaction.curSelection,
+              });
+              showLog();
               return;
             }
+
+            window.transactions.unshift({
+              type: 'transaction',
+              transaction: transaction,
+            });
 
             doc.update((root) => {
               for (const step of transaction.steps) {
@@ -185,45 +214,79 @@
                 }
               }
             });
-            printYorkieDoc(doc);
+            showLog();
           },
         });
+
+        window.view = view;
 
         // 04. Downstream: yorkie.Text to ProseMirror.
         // TODO(hackerwins): Implement this.
 
         view.focus();
-        printYorkieDoc(doc);
+        showLog();
+      }
+
+      function showLog() {
+        // how to show transaction view
+        document.getElementById('tr-log').innerHTML = window.transactions
+          .slice(0, 30)
+          .map((transaction) => {
+            if (transaction.type === 'selection') {
+              return `<span class="selection-item" id="${transaction.selection.anchor}">.</span>`;
+            }
+
+            return `<span class="tr-item">T</span>`;
+          })
+          .join('');
+
+        printDoc(doc.getRoot().toJS().tree, 'yorkie-log');
+        printDoc(view.state.toJSON().doc, 'pm-log');
       }
 
       let globalIndex = 0;
 
-      function printNode(node, indent, arr) {
+      function printNode(node, depth, arr) {
         if (node.type === 'text') {
           arr.push({
-            type: `${indent}text`,
-            value: node.value,
+            type: node.type,
+            depth,
+            value: node.value || node.text,
           });
           return;
         }
 
         arr.push({
-          type: `${indent}${node.type}`,
+          type: node.type,
+          depth,
         });
-        for (const child of node.children || []) {
-          printNode(child, indent + '__', arr);
+        for (const child of node.children || node.content || []) {
+          printNode(child, depth + 1, arr);
         }
       }
 
       /**
-       * `printYorkieDoc` prints the content of the yorkie.Text.
+       * `printDoc` prints the content of the yorkie.Text.
        */
-      function printYorkieDoc(doc) {
+      function printDoc(doc, id) {
         const arr = [];
         globalIndex = 0;
-        printNode(doc.getRoot().toJS().tree, '', arr);
+        printNode(doc, 0, arr);
 
-        console.table(arr, ['type', 'value']);
+        const html = arr
+          .map((node) => {
+            if (node.type === 'text') {
+              return `<div class="inline" style="padding-left: ${
+                node.depth * 14
+              }px">${node.value}</div>`;
+            }
+            return `<div class="block" style="padding-left: ${
+              node.depth * 14
+            }px;">${node.type}</div>`;
+          })
+          .join('');
+
+        document.getElementById(id).innerHTML = html;
       }
 
       main();
