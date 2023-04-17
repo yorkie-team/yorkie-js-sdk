@@ -144,7 +144,7 @@ export abstract class CRDTNode {
   /**
    * `splitNode` splits the node at the given offset.
    */
-  abstract splitNode(index: number): void;
+  abstract split(offset: number): CRDTNode;
 }
 
 /**
@@ -185,19 +185,22 @@ export class CRDTInlineNode extends CRDTNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  splitNode(index: number): void {
-    if (index === 0 || index === this.size) {
-      return;
+  split(offset: number): CRDTNode {
+    if (offset === 0 || offset === this.size) {
+      return this;
     }
 
-    const leftValue = this.value.slice(0, index);
-    const rightValue = this.value.slice(index);
+    const leftValue = this.value.slice(0, offset);
+    const rightValue = this.value.slice(offset);
 
     this.value = leftValue;
 
+    const rightNode = new CRDTInlineNode(this.id, rightValue);
     // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
     // create new right node
-    this.parent!._insertAfter(new CRDTInlineNode(this.id, rightValue), this);
+    this.parent!._insertAfter(rightNode, this);
+
+    return rightNode;
   }
 }
 
@@ -286,11 +289,18 @@ export class CRDTBlockNode extends CRDTNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  splitNode(index: number): void {
-    // TODO(hackerwins, easylogic): Split the position from the given node to
-    // the specified ancestor node. e.g. If the user types enter key, paragraph
-    // node should be split into two.
-    console.log('splitNode', index);
+  split(offset: number): CRDTNode {
+    const clone = new CRDTBlockNode(this.id, this.type);
+    const leftChildren = this.children.slice(0, offset);
+    const rightChildren = this.children.slice(offset);
+
+    this._children = leftChildren;
+    clone._children = rightChildren;
+
+    this.parent!._insertAfter(clone, this);
+
+    clone.updateAncestorsSize();
+    return clone;
   }
 
   /**
@@ -437,7 +447,7 @@ function findTreePos(
     // The pos is in bothsides of the inline node, we should traverse
     // inside of the inline node if preperInline is true.
     if (preperInline && child.isInline && child.size >= index - pos) {
-      return findTreePos(child, index - pos);
+      return findTreePos(child, index - pos, preperInline);
     }
 
     // The position is in leftside of the block node.
@@ -549,11 +559,38 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `splitNode` splits the node at the given index.
+   * `split` splits the node at the given index.
    */
-  public splitNode(index: number): TreePos {
+  public split(index: number, depth = 1): TreePos {
     const { node, offset } = findTreePos(this.root, index, true);
-    node.splitNode(offset);
+
+    let currentNode: CRDTNode | undefined = node;
+    let currentOffset: number = offset;
+    for (let i = 0; i < depth && currentNode; i++) {
+      currentNode.split(currentOffset);
+
+      const tempOffset = currentNode.parent?.children.findIndex(
+        (n) => n === currentNode,
+      );
+      if (tempOffset === undefined) {
+        break;
+      }
+      if (tempOffset === -1) {
+        throw new Error('current node is not found in its parent');
+      }
+
+      currentOffset = currentOffset === 0 ? tempOffset : tempOffset + 1;
+      currentNode = currentNode.parent;
+    }
+
+    return { node, offset };
+  }
+
+  private splitInline(index: number): TreePos {
+    const { node, offset } = findTreePos(this.root, index, true);
+    if (node.isInline) {
+      node.split(offset);
+    }
     return { node, offset };
   }
 
@@ -566,9 +603,9 @@ export class CRDTTree extends CRDTElement {
     content: CRDTNode | undefined,
     editedAt: TimeTicket,
   ): void {
-    // 01. split nodes at the given indexes if needed.
-    const { node: fromNode, offset: fromOffset } = this.splitNode(range[0]);
-    const { node: toNode } = this.splitNode(range[1]);
+    // 01. split inline nodes at the given range if needed.
+    const { node: fromNode, offset: fromOffset } = this.splitInline(range[0]);
+    const { node: toNode } = this.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
     //   All nodes are strucutally remapped to postorder traversal list of RGA,
