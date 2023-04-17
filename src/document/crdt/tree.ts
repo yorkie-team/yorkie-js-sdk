@@ -250,6 +250,19 @@ export class CRDTBlockNode extends CRDTNode {
   }
 
   /**
+   * `insertBefore` inserts the given node before the given child.
+   */
+  insertBefore(newNode: CRDTNode, referenceNode: CRDTNode): void {
+    const index = this._children.indexOf(referenceNode);
+    if (index === -1) {
+      throw new Error('child not found');
+    }
+
+    this._insertAt(newNode, index);
+    newNode.updateAncestorsSize();
+  }
+
+  /**
    * `insertAfter` inserts the given node after the given child.
    */
   insertAfter(newNode: CRDTNode, referenceNode: CRDTNode): void {
@@ -538,14 +551,10 @@ export class CRDTTree extends CRDTElement {
   /**
    * `splitNode` splits the node at the given index.
    */
-  public splitNode(index: number) {
-    const { node: fromNode, offset: fromOffset } = findTreePos(
-      this.root,
-      index,
-      true,
-    );
-
-    return fromNode.splitNode(fromOffset);
+  public splitNode(index: number): TreePos {
+    const { node, offset } = findTreePos(this.root, index, true);
+    node.splitNode(offset);
+    return { node, offset };
   }
 
   /**
@@ -555,18 +564,11 @@ export class CRDTTree extends CRDTElement {
   public edit(
     range: [number, number],
     content: CRDTNode | undefined,
-    ticket: TimeTicket,
+    editedAt: TimeTicket,
   ): void {
     // 01. split nodes at the given indexes if needed.
-    this.splitNode(range[0]);
-    const { node: fromNode, offset: fromOffset } = findTreePos(
-      this.root,
-      range[0],
-      true,
-    );
-
-    this.splitNode(range[1]);
-    const { node: toNode } = findTreePos(this.root, range[1], true);
+    const { node: fromNode, offset: fromOffset } = this.splitNode(range[0]);
+    const { node: toNode } = this.splitNode(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
     //   All nodes are strucutally remapped to postorder traversal list of RGA,
@@ -580,18 +582,20 @@ export class CRDTTree extends CRDTElement {
       toBeRemoveds.push(n);
     });
     for (const n of toBeRemoveds) {
-      n.remove(ticket);
+      n.remove(editedAt);
     }
-
-    // 03. prepend the remaining nodes of parent of the fromNode to the toNode.parent.
     if (fromNode.parent?.removedAt) {
       toNode.parent?.prepend(...fromNode.parent.children);
     }
 
-    // 04. Insert the given node at the given position.
+    // 03. insert the given node at the given position.
     if (content) {
       if (fromNode.isInline) {
-        fromNode.parent!.insertAfter(content, fromNode);
+        if (fromOffset === 0) {
+          fromNode.parent!.insertBefore(content, fromNode);
+        } else {
+          fromNode.parent!.insertAfter(content, fromNode);
+        }
       } else {
         const target = fromNode as CRDTBlockNode;
         target.insertAt(content, fromOffset + 1);
