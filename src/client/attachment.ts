@@ -47,9 +47,9 @@ export class Attachment<P> {
   }
 
   /**
-   * `changeRealtimeSyncSetting` changes whether to synchronize the document in realtime or not.
+   * `changeRealtimeSync` changes whether to synchronize the document in realtime or not.
    */
-  public changeRealtimeSyncSetting(isRealtimeSync: boolean): boolean {
+  public changeRealtimeSync(isRealtimeSync: boolean): boolean {
     if (this.isRealtimeSync === isRealtimeSync) {
       return false;
     }

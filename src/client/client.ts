@@ -593,7 +593,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
-    return this.changeRealtimeSyncSetting(doc, false);
+    return this.changeRealtimeSync(doc, false);
   }
 
   /**
@@ -604,7 +604,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
 
-    return this.changeRealtimeSyncSetting(doc, true);
+    return this.changeRealtimeSync(doc, true);
   }
 
   /**
@@ -647,9 +647,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `changeRealtimeSyncSetting` changes the synchronization mode of the given document.
+   * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
-  private async changeRealtimeSyncSetting(
+  private async changeRealtimeSync(
     doc: Document<unknown>,
     isRealtimeSync: boolean,
   ): Promise<Document<unknown>> {
@@ -663,7 +663,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
       );
     }
 
-    if (!attachment.changeRealtimeSyncSetting(isRealtimeSync)) {
+    if (!attachment.changeRealtimeSync(isRealtimeSync)) {
       return doc;
     }
 
