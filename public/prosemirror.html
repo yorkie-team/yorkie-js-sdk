@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Prosemirror Example</title>
+    <link rel="stylesheet" href="prosemirror.css" />
+    <script src="./yorkie.js"></script>
+    <script src="./util.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "prosemirror-state": "https://cdn.jsdelivr.net/npm/prosemirror-state@1.4.2/+esm",
+          "prosemirror-view": "https://cdn.jsdelivr.net/npm/prosemirror-view@1.30.1/+esm",
+          "prosemirror-model": "https://cdn.jsdelivr.net/npm/prosemirror-model@1.19.0/+esm",
+          "prosemirror-transform": "https://cdn.jsdelivr.net//npm/prosemirror-transform@1.7.1/+esm",
+          "prosemirror-keymap": "https://cdn.jsdelivr.net/npm/prosemirror-keymap@1.2.1/+esm",
+          "prosemirror-example-setup": "https://cdn.jsdelivr.net/npm/prosemirror-example-setup@1.2.1/+esm",
+          "prosemirror-commands": "https://cdn.jsdelivr.net/npm/prosemirror-commands@1.5.1/+esm"
+        }
+      }
+    </script>
+    <script type="module">
+      import { EditorState, Transaction } from 'prosemirror-state';
+      import { EditorView } from 'prosemirror-view';
+      import { Schema, Node } from 'prosemirror-model';
+      import { exampleSetup } from 'prosemirror-example-setup';
+      import { toggleMark } from 'prosemirror-commands';
+      import { keymap } from 'prosemirror-keymap';
+
+      const mySchema = new Schema({
+        nodes: {
+          text: { group: 'inline' },
+          star: {
+            inline: true,
+            group: 'inline',
+            toDOM() {
+              return ['star', '<🌟>'];
+            },
+            parseDOM: [{ tag: 'star' }],
+          },
+          paragraph: {
+            group: 'block',
+            content: 'inline*',
+            toDOM() {
+              return ['p', 0];
+            },
+            parseDOM: [{ tag: 'p' }],
+          },
+          boring_paragraph: {
+            group: 'block',
+            content: 'text*',
+            marks: '',
+            toDOM() {
+              return ['p', { class: 'boring' }, 0];
+            },
+            parseDOM: [{ tag: 'p.boring', priority: 60 }],
+          },
+          note: {
+            group: 'block',
+            content: 'text*',
+            toDOM() {
+              return ['note', 0];
+            },
+            parseDOM: [{ tag: 'note' }],
+          },
+          notegroup: {
+            group: 'block',
+            content: 'note+',
+            toDOM() {
+              return ['notegroup', 0];
+            },
+            parseDOM: [{ tag: 'notegroup' }],
+          },
+          doc: { content: 'block+' },
+        },
+        marks: {
+          shouting: {
+            toDOM() {
+              return ['shouting', 0];
+            },
+            parseDOM: [{ tag: 'shouting' }],
+          },
+        },
+      });
+
+      const initialDoc = {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'abcfdsafdsf' }],
+          },
+          {
+            type: 'notegroup',
+            content: [
+              { type: 'note', content: [{ type: 'text', text: 'cd' }] },
+              { type: 'note', content: [{ type: 'text', text: 'ef' }] },
+            ],
+          },
+          {
+            type: 'boring_paragraph',
+            content: [{ type: 'text', text: 'gh' }],
+          },
+        ],
+      };
+
+      /**
+       * Insert a star at the current cursor position.
+       */
+      function insertStar(state, dispatch) {
+        const type = mySchema.nodes.star;
+        const { $from } = state.selection;
+        if (!$from.parent.canReplaceWith($from.index(), $from.index(), type)) {
+          return false;
+        }
+
+        dispatch(state.tr.replaceSelectionWith(type.create()));
+        return true;
+      }
+
+      /**
+       * main is the entry point of the example.
+       */
+      async function main() {
+        // TODO(hackerwins): Uncomment this after implementing CRDT.
+        // const client = new yorkie.Client('http://localhost:8080');
+        // await client.activate();
+
+        // 01. Build yorkie.Text from ProseMirror doc.
+        const doc = new yorkie.Document();
+        // await client.attach(doc);
+        doc.update((root) => {
+          root.tree = new yorkie.Tree(initialDoc);
+        });
+
+        // 02. Create ProseMirror Editor.
+        const state = EditorState.create({
+          doc: Node.fromJSON(mySchema, initialDoc),
+          plugins: [
+            keymap({
+              'Ctrl-b': toggleMark(mySchema.marks.shouting),
+              'Ctrl-u': insertStar,
+            }),
+            ...exampleSetup({ schema: mySchema }),
+          ],
+        });
+
+        // 03. Upstream: ProseMirror to yorkie.Text.
+        const view = new EditorView(document.querySelector('#app'), {
+          state,
+          dispatchTransaction: (transaction) => {
+            console.log(transaction.doc.toJSON());
+            view.updateState(view.state.apply(transaction));
+
+            console.log(transaction.doc.toJSON());
+
+            // If the steps are empty, it means the transaction is not applied to the document.
+            // Only the selection is changed.
+            if (!transaction.steps.length) {
+              console.table(transaction.selection.$anchor.pos);
+              return;
+            }
+
+            doc.update((root) => {
+              for (const step of transaction.steps) {
+                const {
+                  from,
+                  to,
+                  slice: { content },
+                } = step;
+
+                // 02-1. Delete the given range.
+                if (!content.content.length) {
+                  root.tree.edit(from, to);
+                  return;
+                }
+
+                // TODO(hackerwins): We need to understand how to handle steps.
+                // 02-2. Edit the given range with the given content.
+                for (const node of content.content) {
+                  root.tree.edit(from, to, node.toJSON());
+                }
+              }
+            });
+            printYorkieDoc(doc);
+          },
+        });
+
+        // 04. Downstream: yorkie.Text to ProseMirror.
+        // TODO(hackerwins): Implement this.
+
+        view.focus();
+        printYorkieDoc(doc);
+      }
+
+      let globalIndex = 0;
+
+      function printNode(node, indent, arr) {
+        if (node.type === 'text') {
+          arr.push({
+            type: `${indent}text`,
+            value: node.value,
+          });
+          return;
+        }
+
+        arr.push({
+          type: `${indent}${node.type}`,
+        });
+        for (const child of node.children || []) {
+          printNode(child, indent + '__', arr);
+        }
+      }
+
+      /**
+       * `printYorkieDoc` prints the content of the yorkie.Text.
+       */
+      function printYorkieDoc(doc) {
+        const arr = [];
+        globalIndex = 0;
+        printNode(doc.getRoot().toJS().tree, '', arr);
+
+        console.table(arr, ['type', 'value']);
+      }
+
+      main();
+    </script>
+  </body>
+</html>
