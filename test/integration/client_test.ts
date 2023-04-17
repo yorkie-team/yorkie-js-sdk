@@ -645,7 +645,7 @@ describe('Client', function () {
     unsub2();
   });
 
-  it('Can change realtime sync setting', async function () {
+  it('Can change realtime sync', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
