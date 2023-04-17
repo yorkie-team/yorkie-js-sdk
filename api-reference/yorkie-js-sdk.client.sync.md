@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-sync(doc?: Document<unknown>): Promise<Array<Document<unknown>>>;
+sync(doc?: Document<unknown>, syncMode?: SyncMode): Promise<Array<Document<unknown>>>;
 ```
 
 ## Parameters
@@ -17,6 +17,7 @@ sync(doc?: Document<unknown>): Promise<Array<Document<unknown>>>;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  doc | Document&lt;unknown&gt; |  |
+|  syncMode | [SyncMode](./yorkie-js-sdk.syncmode.md) |  |
 
 <b>Returns:</b>
 
