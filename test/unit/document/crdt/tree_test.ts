@@ -217,5 +217,9 @@ describe('CRDTTree', function () {
     assert.equal(structure.children![0].size, 2); // p
     assert.equal(structure.children![0].children![0].size, 1); // a
     assert.equal(structure.children![0].children![1].size, 1); // d
+
+    // 03. insert a new text node at the start of the first paragraph.
+    tree.edit([1, 1], new CRDTInlineNode(ITT, '@'), ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
   });
 });
