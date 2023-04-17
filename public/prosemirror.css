@@ -438,15 +438,44 @@ img.ProseMirror-separator {
 }
 
 #tr-log {
-  display: flex;
+  display: block;
   align-items: center;
   gap: 1px;
+  flex-wrap: wrap;
+}
+
+#tr-log > * {
+  margin-right: 2px;
+  margin-bottom: 2px;
+}
+
+.pm {
+  flex: none !important;
+  width: 500px;
 }
 
 .tr {
   padding: 10px;
   flex: none !important;
   width: 300px;
+}
+
+.tr-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(100% - 90px);
+}
+
+.tr-container > * {
+  flex: 1 1 auto;
+}
+
+.tr-container > *:last-child {
+  flex: none;
+  height: 300px;
+  background-color: yellow;
+  overflow: auto;
 }
 
 .selection-item {

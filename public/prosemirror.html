@@ -16,7 +16,10 @@
       <div class="log">
         <div class="tr">
           <h2>Transaction</h2>
-          <div id="tr-log" class="log-view"></div>
+          <div class="tr-container">
+            <div id="tr-log" class="log-view"></div>
+            <div id="tr-info"></div>
+          </div>
         </div>
         <div class="pm">
           <h2>ProseMirror</h2>
@@ -196,9 +199,10 @@
             doc.update((root) => {
               for (const step of transaction.steps) {
                 const {
+                  stepType,
                   from,
                   to,
-                  slice: { content },
+                  slice: { content, openStart },
                 } = step;
 
                 // 02-1. Delete the given range.
@@ -209,8 +213,16 @@
 
                 // TODO(hackerwins): We need to understand how to handle steps.
                 // 02-2. Edit the given range with the given content.
-                for (const node of content.content) {
-                  root.tree.edit(from, to, node.toJSON());
+
+                if (
+                  stepType === 'replace' &&
+                  typeof openStart !== 'undefined'
+                ) {
+                  root.tree.split(from, to);
+                } else {
+                  for (const node of content.content) {
+                    root.tree.edit(from, to, node.toJSON());
+                  }
                 }
               }
             });
@@ -227,19 +239,53 @@
         showLog();
       }
 
+      document.getElementById('tr-log').onclick = (e) => {
+        const index = e.target.getAttribute('data-index');
+        if (index) {
+          showTransaction(+index);
+        }
+      };
+
+      function showTransaction(index) {
+        const t = window.transactions[index || 0];
+
+        if (t) {
+          if (t.type === 'selection') {
+            document.getElementById(
+              'tr-info',
+            ).innerHTML = `<pre>selection\n${JSON.stringify(
+              t.selection.toJSON(),
+              null,
+              2,
+            )}</pre>`;
+          } else {
+            console.log(t.transaction);
+            document.getElementById('tr-info').innerHTML = `<pre>
+      selection : ${JSON.stringify(
+        t.transaction.curSelection.toJSON(),
+        null,
+        2,
+      )}
+      transaction
+      ${JSON.stringify(t.transaction.steps, null, 2)}
+      </pre>`;
+          }
+        }
+      }
+
       function showLog() {
         // how to show transaction view
         document.getElementById('tr-log').innerHTML = window.transactions
-          .slice(0, 30)
-          .map((transaction) => {
+          .slice(0, 100)
+          .map((transaction, index) => {
             if (transaction.type === 'selection') {
-              return `<span class="selection-item" id="${transaction.selection.anchor}">.</span>`;
+              return `<span data-index="${index}" class="selection-item" id="${transaction.selection.anchor}">.</span>`;
             }
 
-            return `<span class="tr-item">T</span>`;
+            return `<span data-index="${index}" class="tr-item">T</span>`;
           })
           .join('');
-
+        showTransaction();
         printDoc(doc.getRoot().toJS().tree, 'yorkie-log');
         printDoc(view.state.toJSON().doc, 'pm-log');
       }
