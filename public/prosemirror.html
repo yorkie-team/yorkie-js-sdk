@@ -292,11 +292,12 @@
 
       let globalIndex = 0;
 
-      function printNode(node, depth, arr) {
+      function printNode(node, depth, arr, index) {
         if (node.type === 'text') {
           arr.push({
             type: node.type,
             depth,
+            index,
             value: node.value || node.text,
           });
           return;
@@ -305,9 +306,13 @@
         arr.push({
           type: node.type,
           depth,
+          index,
         });
-        for (const child of node.children || node.content || []) {
-          printNode(child, depth + 1, arr);
+
+        const list = node.content || node.children || [];
+
+        for (let i = 0; i < list.length; i++) {
+          printNode(list[i], depth + 1, arr, i);
         }
       }
 
@@ -323,8 +328,8 @@
           .map((node) => {
             if (node.type === 'text') {
               return `<div class="inline" style="padding-left: ${
-                node.depth * 14
-              }px">${node.value}</div>`;
+                node.index === 0 ? node.depth * 14 : 0
+              }px">${node.value === ' ' ? '&nbsp;&nbsp;' : node.value}</div>`;
             }
             return `<div class="block" style="padding-left: ${
               node.depth * 14

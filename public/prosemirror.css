@@ -429,10 +429,13 @@ img.ProseMirror-separator {
 .inline {
   font-weight: bold;
   background-color: rgba(0, 0, 0, 0.2);
+  display: inline-block;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  padding: 0 2px;
 }
 
-.block::before,
-.inline::before {
+.block::before {
   content: '↳';
   margin-right: 4px;
 }
