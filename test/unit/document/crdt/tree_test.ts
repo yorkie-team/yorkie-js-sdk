@@ -5,7 +5,6 @@ import {
   CRDTNode,
   CRDTInlineNode,
   CRDTBlockNode,
-  toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 function betweenEqual(
@@ -146,6 +145,9 @@ describe('CRDTTree', function () {
     );
     betweenEqual(tree, 2, 11, ['text.b', 'p', 'text.cde', 'p', 'text.fg', 'p']);
     betweenEqual(tree, 2, 6, ['text.b', 'p', 'text.cde', 'p']);
+    betweenEqual(tree, 0, 1, ['p']);
+    betweenEqual(tree, 3, 4, ['p']);
+    betweenEqual(tree, 3, 5, ['p', 'p']);
   });
 
   it('Can delete inline nodes with edit', function () {
@@ -213,15 +215,15 @@ describe('CRDTTree', function () {
 
     // 01. Split left side of 'helloworld'.
     tree.split(1, 1);
-    betweenEqual(tree, 1, 11, ['text.helloworld', 'p']);
+    betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 02. Split right side of 'helloworld'.
     tree.split(11, 1);
-    betweenEqual(tree, 1, 11, ['text.helloworld', 'p']);
+    betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 03. Split 'helloworld' into 'hello' and 'world'.
     tree.split(6, 1);
-    betweenEqual(tree, 1, 11, ['text.hello', 'text.world', 'p']);
+    betweenEqual(tree, 1, 11, ['text.hello', 'text.world']);
   });
 
   it('Can split block nodes', function () {
@@ -314,20 +316,28 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     assert.equal(tree.getSize(), 8);
 
-    tree.nodesBetween(3, 5, (node) => {
-      console.log(toXML(node));
-    });
-
     tree.edit([3, 5], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
     assert.equal(tree.getSize(), 6);
   });
 
   it('Can split and merge different levels', function () {
+    //       0   1   2   3 4 5    6    7    8
+    // <root> <p> <b> <i> a b </i> </b> </p> </root>
     const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'abcd'), ITT);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
-    assert.equal(tree.getSize(), 6);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    assert.equal(tree.getSize(), 8);
+    betweenEqual(tree, 2, 3, ['i']);
+    betweenEqual(tree, 1, 2, ['b']);
+
+    // tree.edit([2, 3], undefined, ITT);
+    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
   });
 });

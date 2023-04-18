@@ -419,15 +419,20 @@ function nodesBetween(
       // NOTE(hackerwins): If the child is a block node, the range of the child
       // is from - 1 to to - 1. Because the range of the block node is from
       // the open tag to the close tag.
-      const fromChild = from - pos;
-      const toChild = to - pos;
+      const fromChild = child.isInline ? from - pos : from - pos - 1;
+      const toChild = child.isInline ? to - pos : to - pos - 1;
       nodesBetween(
         child,
-        Math.max(0, child.isInline ? fromChild : fromChild - 1),
-        Math.min(child.isInline ? toChild : toChild - 1, child.size),
+        Math.max(0, fromChild),
+        Math.min(toChild, child.size),
         callback,
       );
-      callback(child);
+
+      // NOTE(hackerwins): If the range spans outside the child,
+      // the callback is called with the child.
+      if (fromChild < 0 || toChild > child.size || child.isInline) {
+        callback(child);
+      }
     }
     pos += child.paddedSize;
   }
@@ -596,6 +601,9 @@ export class CRDTTree extends CRDTElement {
     return { node, offset };
   }
 
+  /**
+   * `splitInline` splits the inline node at the given index.
+   */
   private splitInline(index: number): TreePos {
     const { node, offset } = findTreePos(this.root, index, true);
     if (node.isInline) {
@@ -632,7 +640,6 @@ export class CRDTTree extends CRDTElement {
       n.remove(editedAt);
     }
     if (fromNode.parent?.removedAt) {
-      console.log('hit');
       toNode.parent?.prepend(...fromNode.parent.children);
     }
 
