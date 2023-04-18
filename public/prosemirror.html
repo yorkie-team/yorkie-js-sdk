@@ -291,7 +291,8 @@
           })
           .join('');
         showTransaction();
-        printDoc(doc.getRoot().toJS().tree, 'yorkie-log');
+
+        printDoc(doc.getRoot().tree.tree.root, 'yorkie-log');
         printDoc(view.state.toJSON().doc, 'pm-log');
       }
 
@@ -312,6 +313,7 @@
           type: node.type,
           depth,
           index,
+          size: node.size,
         });
 
         const list = node.content || node.children || [];
@@ -338,7 +340,9 @@
             }
             return `<div class="block" style="padding-left: ${
               node.depth * 14
-            }px;">${node.type}</div>`;
+            }px;">${node.type}${
+              node.size ? `<span class="size">(${node.size})</span>` : ''
+            }</div>`;
           })
           .join('');
         document.getElementById(id).innerHTML = html;
