@@ -292,31 +292,35 @@
           .join('');
         showTransaction();
 
+        console.log(view.state);
+
         printDoc(doc.getRoot().tree.tree.root, 'yorkie-log');
-        printDoc(view.state.toJSON().doc, 'pm-log');
+        printDoc(view.state.doc, 'pm-log');
       }
 
       let globalIndex = 0;
 
       function printNode(node, depth, arr, index) {
-        if (node.type === 'text') {
+        const nodeType = node.type.name || node.type;
+
+        if (nodeType === 'text') {
           arr.push({
-            type: node.type,
+            type: nodeType,
             depth,
             index,
-            value: node.value || node.text,
+            value: node.text || node.value,
           });
           return;
         }
 
         arr.push({
-          type: node.type,
+          type: nodeType,
           depth,
           index,
-          size: node.size,
+          size: node.content?.size || node.size,
         });
 
-        const list = node.content || node.children || [];
+        const list = node.content?.content || node.children || [];
 
         for (let i = 0; i < list.length; i++) {
           printNode(list[i], depth + 1, arr, i);
