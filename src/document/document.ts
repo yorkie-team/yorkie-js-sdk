@@ -25,7 +25,6 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import { SyncMode } from '@yorkie-js-sdk/src/client/client';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import {
@@ -367,11 +366,7 @@ export class Document<T> {
    * @param pack - change pack
    * @internal
    */
-  public applyChangePack(
-    pack: ChangePack,
-    clientID: ActorID,
-    syncMode = SyncMode.PushPull,
-  ): void {
+  public applyChangePack(pack: ChangePack): void {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
@@ -391,13 +386,7 @@ export class Document<T> {
     }
 
     // 03. Update the checkpoint.
-    const serverSeq =
-      syncMode === SyncMode.PushOnly
-        ? this.checkpoint.getServerSeq()
-        : pack.getCheckpoint().getServerSeq();
-    this.checkpoint = this.checkpoint.forward(
-      new Checkpoint(serverSeq, pack.getCheckpoint().getClientSeq()),
-    );
+    this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
     this.garbageCollect(pack.getMinSyncedTicket()!);
