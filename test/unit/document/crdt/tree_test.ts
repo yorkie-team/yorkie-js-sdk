@@ -335,9 +335,14 @@ describe('CRDTTree', function () {
     );
     assert.equal(tree.getSize(), 8);
     betweenEqual(tree, 2, 3, ['i']);
+    betweenEqual(tree, 2, 8, ['text.ab', 'i', 'b', 'p']);
     betweenEqual(tree, 1, 2, ['b']);
+    betweenEqual(tree, 1, 3, ['i', 'b']);
 
     // tree.edit([2, 3], undefined, ITT);
     // assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+
+    // tree.edit([2, 4], undefined, ITT);
+    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>b</b></p></root>`);
   });
 });

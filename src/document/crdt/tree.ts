@@ -231,6 +231,13 @@ export class CRDTBlockNode extends CRDTNode {
   }
 
   /**
+   * findOffset returns the index of the given node in the children.
+   */
+  findOffset(node: CRDTNode): number {
+    return this._children.findIndex((child) => child === node);
+  }
+
+  /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<CRDTNode>): void {
@@ -577,28 +584,19 @@ export class CRDTTree extends CRDTElement {
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos {
-    const { node, offset } = findTreePos(this.root, index, true);
+    const treePos = findTreePos(this.root, index, true);
 
-    let currentNode: CRDTNode | undefined = node;
-    let currentOffset: number = offset;
-    for (let i = 0; i < depth && currentNode; i++) {
-      currentNode.split(currentOffset);
+    let node: CRDTNode | undefined = treePos.node;
+    let offset: number = treePos.offset;
+    for (let i = 0; i < depth && node && node !== this.root; i++) {
+      node.split(offset);
 
-      const tempOffset = currentNode.parent?.children.findIndex(
-        (n) => n === currentNode,
-      );
-      if (tempOffset === undefined) {
-        break;
-      }
-      if (tempOffset === -1) {
-        throw new Error('current node is not found in its parent');
-      }
-
-      currentOffset = currentOffset === 0 ? tempOffset : tempOffset + 1;
-      currentNode = currentNode.parent;
+      const nextOffset = node.parent!.findOffset(node);
+      offset = offset === 0 ? nextOffset : nextOffset + 1;
+      node = node.parent;
     }
 
-    return { node, offset };
+    return treePos;
   }
 
   /**
@@ -629,15 +627,14 @@ export class CRDTTree extends CRDTElement {
     //   All nodes are strucutally remapped to postorder traversal list of RGA,
     //   so the ancestors of the right-side should be remained.
     const toBeRemoveds: Array<CRDTNode> = [];
-    this.nodesBetween(range[0], range[1], (n) => {
-      // Filter out the ancestors of the right-side.
-      if (ancestorOf(n, toNode)) {
+    this.nodesBetween(range[0], range[1], (node) => {
+      if (ancestorOf(node, toNode)) {
         return;
       }
-      toBeRemoveds.push(n);
+      toBeRemoveds.push(node);
     });
-    for (const n of toBeRemoveds) {
-      n.remove(editedAt);
+    for (const node of toBeRemoveds) {
+      node.remove(editedAt);
     }
     if (fromNode.parent?.removedAt) {
       toNode.parent?.prepend(...fromNode.parent.children);

@@ -202,9 +202,30 @@
                   jsonID: stepType,
                   from,
                   to,
+                  gapFrom,
+                  gapTo,
                   structure,
                   slice: { content, openStart, openEnd },
                 } = step;
+
+                // 02-1. Backspace: Level delete
+                // TODO(hackerwins): replaceAround replaces the given range with given gap.
+                if (stepType === 'replaceAround') {
+                  root.tree.edit(from, gapFrom);
+                  return;
+                }
+
+                // 02-2. Enter Key: Insert Paragraph
+                if (
+                  stepType === 'replace' &&
+                  openStart &&
+                  openEnd &&
+                  structure
+                ) {
+                  // TODO(hackerwins): Figure out how many depth to split.
+                  root.tree.split(from, 2);
+                  return;
+                }
 
                 // 02-1. Delete the given range.
                 if (!content.content.length) {
@@ -212,22 +233,9 @@
                   return;
                 }
 
-                console.log('step:', stepType, openStart, openEnd, structure);
-
-                // TODO(hackerwins): We need to understand how to handle steps.
-                // 02-2. Edit the given range with the given content.
-                if (
-                  stepType === 'replace' &&
-                  typeof openStart !== 'undefined' &&
-                  structure
-                ) {
-                  console.log('split:', from, 2);
-                  root.tree.split(from, 2);
-                } else {
-                  console.log('edit:', from, to);
-                  for (const node of content.content) {
-                    root.tree.edit(from, to, node.toJSON());
-                  }
+                // 03-4. Edit: Insert the given content.
+                for (const node of content.content) {
+                  root.tree.edit(from, to, node.toJSON());
                 }
               }
             });
