@@ -513,7 +513,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           }
 
           const pack = converter.fromChangePack(res.getChangePack()!);
-          doc.applyChangePack(pack, this.id!);
+          doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Attached);
             this.attachmentMap.set(
@@ -572,7 +572,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           }
 
           const pack = converter.fromChangePack(res.getChangePack()!);
-          doc.applyChangePack(pack, this.id!);
+          doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Detached);
           }
@@ -754,7 +754,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
           }
 
           const pack = converter.fromChangePack(res.getChangePack()!);
-          doc.applyChangePack(pack, this.id!);
+          doc.applyChangePack(pack);
           this.detachInternal(doc.getKey());
 
           logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
@@ -1155,7 +1155,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               return;
             }
 
-            doc.applyChangePack(respPack, this.id!, syncMode);
+            doc.applyChangePack(respPack);
             this.eventStreamObserver.next({
               type: ClientEventType.DocumentSynced,
               value: DocumentSyncResultType.Synced,
