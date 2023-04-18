@@ -199,10 +199,11 @@
             doc.update((root) => {
               for (const step of transaction.steps) {
                 const {
-                  stepType,
+                  jsonID: stepType,
                   from,
                   to,
-                  slice: { content, openStart },
+                  structure,
+                  slice: { content, openStart, openEnd },
                 } = step;
 
                 // 02-1. Delete the given range.
@@ -211,15 +212,19 @@
                   return;
                 }
 
+                console.log('step:', stepType, openStart, openEnd, structure);
+
                 // TODO(hackerwins): We need to understand how to handle steps.
                 // 02-2. Edit the given range with the given content.
-
                 if (
                   stepType === 'replace' &&
-                  typeof openStart !== 'undefined'
+                  typeof openStart !== 'undefined' &&
+                  structure
                 ) {
-                  root.tree.split(from, to);
+                  console.log('split:', from, 2);
+                  root.tree.split(from, 2);
                 } else {
+                  console.log('edit:', from, to);
                   for (const node of content.content) {
                     root.tree.edit(from, to, node.toJSON());
                   }
@@ -336,7 +341,6 @@
             }px;">${node.type}</div>`;
           })
           .join('');
-
         document.getElementById(id).innerHTML = html;
       }
 
