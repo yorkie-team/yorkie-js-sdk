@@ -5,6 +5,7 @@ import {
   CRDTNode,
   CRDTInlineNode,
   CRDTBlockNode,
+  toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 function betweenEqual(
@@ -298,5 +299,35 @@ describe('CRDTTree', function () {
       /*html*/ `<root><p><b>a</b></p><p><b>b</b></p></root>`,
     );
     assert.equal(tree.getSize(), 10);
+  });
+
+  it('Can split and merge block nodes', function () {
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTInlineNode(ITT, 'abcd'), ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    assert.equal(tree.getSize(), 6);
+
+    //       0   1 2 3    4   5 6 7    8
+    // <root> <p> a b </p> <p> c d </p> </root>
+    tree.split(3, 2);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    assert.equal(tree.getSize(), 8);
+
+    tree.nodesBetween(3, 5, (node) => {
+      console.log(toXML(node));
+    });
+
+    tree.edit([3, 5], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    assert.equal(tree.getSize(), 6);
+  });
+
+  it('Can split and merge different levels', function () {
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTInlineNode(ITT, 'abcd'), ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    assert.equal(tree.getSize(), 6);
   });
 });

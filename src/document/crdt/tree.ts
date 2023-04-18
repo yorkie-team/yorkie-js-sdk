@@ -142,7 +142,7 @@ export abstract class CRDTNode {
   abstract get children(): Array<CRDTNode>;
 
   /**
-   * `splitNode` splits the node at the given offset.
+   * `split` splits the node at the given offset.
    */
   abstract split(offset: number): CRDTNode;
 }
@@ -195,9 +195,9 @@ export class CRDTInlineNode extends CRDTNode {
 
     this.value = leftValue;
 
-    const rightNode = new CRDTInlineNode(this.id, rightValue);
     // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
     // create new right node
+    const rightNode = new CRDTInlineNode(this.id, rightValue);
     this.parent!._insertAfter(rightNode, this);
 
     return rightNode;
@@ -291,15 +291,25 @@ export class CRDTBlockNode extends CRDTNode {
    */
   split(offset: number): CRDTNode {
     const clone = new CRDTBlockNode(this.id, this.type);
+    this.parent!._insertAfter(clone, this);
+    clone.updateAncestorsSize();
+
     const leftChildren = this.children.slice(0, offset);
     const rightChildren = this.children.slice(offset);
-
     this._children = leftChildren;
     clone._children = rightChildren;
+    this.size = this._children.reduce(
+      (acc, child) => acc + child.paddedSize,
+      0,
+    );
+    clone.size = clone._children.reduce(
+      (acc, child) => acc + child.paddedSize,
+      0,
+    );
+    for (const child of clone._children) {
+      child.parent = clone;
+    }
 
-    this.parent!._insertAfter(clone, this);
-
-    clone.updateAncestorsSize();
     return clone;
   }
 
@@ -518,7 +528,7 @@ function getStructure(node: CRDTNode): TreeNodeForTest {
 /**
  * toXML converts the given CRDTNode to XML string.
  */
-function toXML(node: CRDTNode): string {
+export function toXML(node: CRDTNode): string {
   if (node.isInline) {
     const currentNode = node as CRDTInlineNode;
     return currentNode.value;
@@ -622,6 +632,7 @@ export class CRDTTree extends CRDTElement {
       n.remove(editedAt);
     }
     if (fromNode.parent?.removedAt) {
+      console.log('hit');
       toNode.parent?.prepend(...fromNode.parent.children);
     }
 
