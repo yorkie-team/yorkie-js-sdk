@@ -322,9 +322,16 @@ describe('CRDTTree', function () {
   });
 
   it('Can split and merge different levels', function () {
+    // assert.equal(tree.getSize(), 8);
+    // betweenEqual(tree, 2, 3, ['i']);
+    // betweenEqual(tree, 2, 8, ['text.ab', 'i', 'b', 'p']);
+    // betweenEqual(tree, 1, 2, ['b']);
+    // betweenEqual(tree, 1, 3, ['i', 'b']);
+
+    // 01. edit between two block nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    let tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
     tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
@@ -333,16 +340,72 @@ describe('CRDTTree', function () {
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    assert.equal(tree.getSize(), 8);
-    betweenEqual(tree, 2, 3, ['i']);
-    betweenEqual(tree, 2, 8, ['text.ab', 'i', 'b', 'p']);
-    betweenEqual(tree, 1, 2, ['b']);
-    betweenEqual(tree, 1, 3, ['i', 'b']);
+    tree.edit([2, 3], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
 
-    // tree.edit([2, 3], undefined, ITT);
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    // 02. edit between two block nodes in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    tree.edit([1, 2], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><i>ab</i></p></root>`);
 
-    // tree.edit([2, 4], undefined, ITT);
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>b</b></p></root>`);
+    // 03. edit between inline and block node in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    tree.edit([2, 4], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>b</b></p></root>`);
+
+    // 04. edit between inline and block node in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    tree.edit([1, 3], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
+
+    // 05. edit between inline and block node in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    tree.edit([1, 4], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>b</p></root>`);
+
+    // 06. edit between inline and block node in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+    tree.edit([1, 5], undefined, ITT);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
   });
 });

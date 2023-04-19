@@ -145,6 +145,20 @@ export abstract class CRDTNode {
    * `split` splits the node at the given offset.
    */
   abstract split(offset: number): CRDTNode;
+
+  /**
+   * `isAncenstorOf` returns true if the node is an ancestor of the given node.
+   */
+  isAncestorOf(node: CRDTNode): boolean {
+    return ancestorOf(this, node);
+  }
+
+  /**
+   * `isDescendantOf` returns true if the node is a descendant of the given node.
+   */
+  isDescendantOf(node: CRDTNode): boolean {
+    return ancestorOf(node, this);
+  }
 }
 
 /**
@@ -624,20 +638,40 @@ export class CRDTTree extends CRDTElement {
     const { node: toNode } = this.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
-    //   All nodes are strucutally remapped to postorder traversal list of RGA,
-    //   so the ancestors of the right-side should be remained.
-    const toBeRemoveds: Array<CRDTNode> = [];
-    this.nodesBetween(range[0], range[1], (node) => {
-      if (ancestorOf(node, toNode)) {
-        return;
+    const isFromNodeAncestorOfToNode = fromNode.isAncestorOf(toNode);
+
+    // If the fromNode is ancestor of the toNode, range is in the same hierarchy.
+    // In this case, we need to leave the alive desecedant nodes in the toNode.
+    if (isFromNodeAncestorOfToNode) {
+      const toBeRemoveds: Array<CRDTNode> = [];
+      this.nodesBetween(range[0], range[1], (node) => {
+        toBeRemoveds.push(node);
+      });
+      for (const node of toBeRemoveds) {
+        node.remove(editedAt);
       }
-      toBeRemoveds.push(node);
-    });
-    for (const node of toBeRemoveds) {
-      node.remove(editedAt);
-    }
-    if (fromNode.parent?.removedAt) {
-      toNode.parent?.prepend(...fromNode.parent.children);
+      if (toNode.parent?.removedAt) {
+        (fromNode as CRDTBlockNode).append(...(toNode.parent?.children || []));
+      } else if (!toNode.isInline && toNode.removedAt) {
+        (fromNode as CRDTBlockNode).append(...toNode.children);
+      }
+    } else {
+      // If the range is in different hierarchy, we need to leave ancestors of toNode.
+      // This is because all nodes are strucutally remapped to postorder traversal list of RGA,
+      // so the ancestors of the right-side should be remained.
+      const toBeRemoveds: Array<CRDTNode> = [];
+      this.nodesBetween(range[0], range[1], (node) => {
+        if (node.isAncestorOf(toNode)) {
+          return;
+        }
+        toBeRemoveds.push(node);
+      });
+      for (const node of toBeRemoveds) {
+        node.remove(editedAt);
+      }
+      if (fromNode.parent?.removedAt) {
+        toNode.parent?.prepend(...fromNode.parent.children);
+      }
     }
 
     // 03. insert the given node at the given position.
