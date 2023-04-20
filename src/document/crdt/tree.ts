@@ -245,13 +245,6 @@ export class CRDTBlockNode extends CRDTNode {
   }
 
   /**
-   * findOffset returns the index of the given node in the children.
-   */
-  findOffset(node: CRDTNode): number {
-    return this._children.findIndex((child) => child === node);
-  }
-
-  /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<CRDTNode>): void {
@@ -277,12 +270,12 @@ export class CRDTBlockNode extends CRDTNode {
    * `insertBefore` inserts the given node before the given child.
    */
   insertBefore(newNode: CRDTNode, referenceNode: CRDTNode): void {
-    const index = this._children.indexOf(referenceNode);
-    if (index === -1) {
+    const offset = this._children.indexOf(referenceNode);
+    if (offset === -1) {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, index);
+    this._insertAt(newNode, offset);
     newNode.updateAncestorsSize();
   }
 
@@ -290,20 +283,20 @@ export class CRDTBlockNode extends CRDTNode {
    * `insertAfter` inserts the given node after the given child.
    */
   insertAfter(newNode: CRDTNode, referenceNode: CRDTNode): void {
-    const index = this._children.indexOf(referenceNode);
-    if (index === -1) {
+    const offset = this._children.indexOf(referenceNode);
+    if (offset === -1) {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, index + 1);
+    this._insertAt(newNode, offset + 1);
     newNode.updateAncestorsSize();
   }
 
   /**
-   * `insertAt` inserts the given node at the given index.
+   * `insertAt` inserts the given node at the given offset.
    */
-  insertAt(newNode: CRDTNode, index: number): void {
-    this._insertAt(newNode, index);
+  insertAt(newNode: CRDTNode, offset: number): void {
+    this._insertAt(newNode, offset);
     newNode.updateAncestorsSize();
   }
 
@@ -339,32 +332,40 @@ export class CRDTBlockNode extends CRDTNode {
    * This method does not update the size of the ancestors.
    */
   _insertAfter(newNode: CRDTNode, referenceNode: CRDTNode): void {
-    const index = this._children.indexOf(referenceNode);
-    if (index === -1) {
+    const offset = this._children.indexOf(referenceNode);
+    if (offset === -1) {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, index + 1);
+    this._insertAt(newNode, offset + 1);
   }
 
   /**
    * `_insertAt` inserts the given node at the given index.
    * This method does not update the size of the ancestors.
    */
-  _insertAt(newNode: CRDTNode, index: number): void {
-    this._children.splice(index, 0, newNode);
+  _insertAt(newNode: CRDTNode, offset: number): void {
+    this._children.splice(offset, 0, newNode);
     newNode.parent = this;
   }
 
   /**
-   * `findBranchIndex` returns the index of the given node in the tree.
+   * findOffset returns the offset of the given node in the children.
    */
-  findBranchIndex(node: CRDTNode): number {
+  findOffset(node: CRDTNode): number {
+    return this._children.indexOf(node);
+  }
+
+  /**
+   * `findBranchOffset` returns offset of the given descendant node in this node.
+   * If the given node is not a descendant of this node, it returns -1.
+   */
+  findBranchOffset(node: CRDTNode): number {
     let current: CRDTNode | undefined = node;
     while (current) {
-      const index = this._children.indexOf(current);
-      if (index !== -1) {
-        return index;
+      const offset = this._children.indexOf(current);
+      if (offset !== -1) {
+        return offset;
       }
 
       current = current.parent;
@@ -655,11 +656,8 @@ export class CRDTTree extends CRDTElement {
     const { node: toNode } = this.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
-    const isFromNodeAncestorOfToNode = fromNode.isAncestorOf(toNode);
-
-    // If the fromNode is ancestor of the toNode, range is in the same hierarchy.
-    // In this case, we need to leave the alive desecedant nodes in the toNode.
-    if (isFromNodeAncestorOfToNode) {
+    if (fromNode.isAncestorOf(toNode)) {
+      // 02-1. The range is placed on the same hierarchy.
       const toBeRemoveds: Array<CRDTNode> = [];
       this.nodesBetween(range[0], range[1], (node) => {
         toBeRemoveds.push(node);
@@ -675,19 +673,22 @@ export class CRDTTree extends CRDTElement {
         removedBlockNode = toNode;
       }
 
+      // If the nearest removed block node of the toNode is found,
+      // insert the alive children of the removed block node to the fromNode.
       if (removedBlockNode) {
         const blockNode = fromNode as CRDTBlockNode;
-        const index = blockNode.findBranchIndex(removedBlockNode);
+        const offset = blockNode.findBranchOffset(removedBlockNode);
         for (const node of removedBlockNode.children.reverse()) {
-          blockNode.insertAt(node, index);
+          blockNode.insertAt(node, offset);
         }
       }
     } else {
-      // If the range is in different hierarchy, we need to leave ancestors of toNode.
-      // This is because all nodes are strucutally remapped to postorder traversal list of RGA,
-      // so the ancestors of the right-side should be remained.
+      // 02-2. The range is placed on the different hierarchy.
       const toBeRemoveds: Array<CRDTNode> = [];
       this.nodesBetween(range[0], range[1], (node) => {
+        // We need to leave ancestors of toNode.
+        // This is because all nodes are strucutally remapped to postorder traversal list of RGA,
+        // so the ancestors of the right-side should be remained.
         if (node.isAncestorOf(toNode)) {
           return;
         }
