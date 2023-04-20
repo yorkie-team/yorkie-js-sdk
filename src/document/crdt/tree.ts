@@ -355,6 +355,23 @@ export class CRDTBlockNode extends CRDTNode {
     this._children.splice(index, 0, newNode);
     newNode.parent = this;
   }
+
+  /**
+   * `findBranchIndex` returns the index of the given node in the tree.
+   */
+  findBranchIndex(node: CRDTNode): number {
+    let current: CRDTNode | undefined = node;
+    while (current) {
+      const index = this._children.indexOf(current);
+      if (index !== -1) {
+        return index;
+      }
+
+      current = current.parent;
+    }
+
+    return -1;
+  }
 }
 
 /**
@@ -650,10 +667,20 @@ export class CRDTTree extends CRDTElement {
       for (const node of toBeRemoveds) {
         node.remove(editedAt);
       }
+
+      let removedBlockNode: CRDTNode | undefined;
       if (toNode.parent?.removedAt) {
-        (fromNode as CRDTBlockNode).append(...(toNode.parent?.children || []));
+        removedBlockNode = toNode.parent;
       } else if (!toNode.isInline && toNode.removedAt) {
-        (fromNode as CRDTBlockNode).append(...toNode.children);
+        removedBlockNode = toNode;
+      }
+
+      if (removedBlockNode) {
+        const blockNode = fromNode as CRDTBlockNode;
+        const index = blockNode.findBranchIndex(removedBlockNode);
+        for (const node of removedBlockNode.children.reverse()) {
+          blockNode.insertAt(node, index);
+        }
       }
     } else {
       // If the range is in different hierarchy, we need to leave ancestors of toNode.

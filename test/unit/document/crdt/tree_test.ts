@@ -407,5 +407,24 @@ describe('CRDTTree', function () {
     );
     tree.edit([1, 5], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
+
+    // 07. edit between inline and block node in same hierarchy.
+    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
+    tree.edit([10, 10], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([11, 11], new CRDTInlineNode(ITT, 'ef'), ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p>ab</p><p><b>cd</b></p><p>ef</p></root>`,
+    );
+    tree.edit([4, 5], undefined, ITT);
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p>ab</p><b>cd</b><p>ef</p></root>`,
+    );
   });
 });
