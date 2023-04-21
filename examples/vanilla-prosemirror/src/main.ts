@@ -1,4 +1,4 @@
-import yorkie, { Tree, Document, BlockNode } from 'yorkie-js-sdk';
+import yorkie, { Tree, Document } from 'yorkie-js-sdk';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema, Node } from 'prosemirror-model';
@@ -113,7 +113,7 @@ async function main() {
   const doc = new yorkie.Document<{ tree: Tree }>('prosemirror');
   // await client.attach(doc);
   doc.update((root) => {
-    root.tree = new Tree(initialDoc as BlockNode);
+    root.tree = new Tree(initialDoc as any);
   });
 
   // 02. Create ProseMirror Editor.

@@ -193,7 +193,7 @@ async function main() {
         continue;
       }
 
-      const actorName = client.getPeerPresence(doc.getKey(), actorID).username;
+      const actorName = client.getPeerPresence(doc.getKey(), actorID)?.username;
       const from = change.from;
       const to = change.to;
       const retainFrom = from - prevTo;
@@ -234,7 +234,7 @@ async function main() {
 
           deltaOperations.push(op);
         }
-      } else if (change.type === 'selection') {
+      } else if (actorName && change.type === 'selection') {
         cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
         cursors.moveCursor(actorName, {
           index: from,
