@@ -5,6 +5,8 @@ import {
   CRDTNode,
   CRDTInlineNode,
   CRDTBlockNode,
+  findCommonAncestor,
+  toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 function betweenEqual(
@@ -30,7 +32,7 @@ function betweenEqual(
 }
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
-describe('CRDTTree', function () {
+describe.only('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
@@ -426,5 +428,45 @@ describe('CRDTTree', function () {
       tree.toXML(),
       /*html*/ `<root><p>ab</p><b>cd</b><p>ef</p></root>`,
     );
+  });
+
+  it.only('Can move nodes', function () {
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree.edit([5, 5], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
+
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b>ab</b><b>cd</b></p></root>`,
+    );
+
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b>a</b><b>b</b><b>c</b><b>d</b></p></root>`,
+    );
+
+    tree.nodesBetween(3, 7, (node) => {
+      console.log(toXML(node));
+    });
+
+    console.log(
+      toXML(tree.findTreePos(3, true).node),
+      toXML(tree.findTreePos(7, true).node),
+    );
+
+    const ancestor = findCommonAncestor(
+      tree.findTreePos(3, true).node,
+      tree.findTreePos(7, true).node,
+    );
+    assert.equal(ancestor!.type, 'p');
+
+    // tree.move([0, 0], [1, 5], ITT);
+    // assert.deepEqual(
+    //   tree.toXML(),
+    //   /*html*/ `<root><b>ab</b><p><b>cd</b></p></root>`,
+    // );
   });
 });

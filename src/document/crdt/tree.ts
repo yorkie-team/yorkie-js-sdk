@@ -582,6 +582,47 @@ export function toXML(node: CRDTNode): string {
     .map((child) => toXML(child))
     .join('')}</${node.type}>`;
 }
+/**
+ * `getAncestors` returns the ancestors of the given node.
+ */
+export function getAncestors(node: CRDTNode): Array<CRDTNode> {
+  const ancestors: Array<CRDTNode> = [];
+  let parent = node.parent;
+  while (parent) {
+    ancestors.unshift(parent);
+    parent = parent.parent;
+  }
+  return ancestors;
+}
+
+/**
+ * `findCommonAncestor` finds the lowest common ancestor of the given nodes.
+ */
+export function findCommonAncestor(
+  nodeA: CRDTNode,
+  nodeB: CRDTNode,
+): CRDTNode | undefined {
+  if (nodeA === nodeB) {
+    return nodeA;
+  }
+
+  const ancestorsOfA = getAncestors(nodeA);
+  const ancestorsOfB = getAncestors(nodeB);
+
+  let commonAncestor: CRDTNode | undefined;
+  for (let i = 0; i < ancestorsOfA.length; i++) {
+    const ancestorOfA = ancestorsOfA[i];
+    const ancestorOfB = ancestorsOfB[i];
+
+    if (ancestorOfA !== ancestorOfB) {
+      break;
+    }
+
+    commonAncestor = ancestorOfA;
+  }
+
+  return commonAncestor;
+}
 
 /**
  * `CRDTTree` is a CRDT implementation of a tree.
@@ -640,6 +681,19 @@ export class CRDTTree extends CRDTElement {
       node.split(offset);
     }
     return { node, offset };
+  }
+
+  /**
+   * `move` move the given source range to the given target range.
+   */
+  public move(_target: [number, number], _source: [number, number]): void {
+    // const { node: sourceFrom } = findTreePos(this.root, source[0], true);
+    // const { node: sourceTo } = findTreePos(this.root, source[1], true);
+
+    // // const ancestor = findCommonAncestor(sourceFrom, sourceTo);
+    console.log('move', _target, _source);
+
+    return;
   }
 
   /**

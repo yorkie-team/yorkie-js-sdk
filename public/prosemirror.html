@@ -210,8 +210,8 @@
 
                 // 02-1. Backspace: Level delete
                 // TODO(hackerwins): replaceAround replaces the given range with given gap.
-                if (stepType === 'replaceAround') {
-                  root.tree.edit(from, gapFrom);
+                if (stepType === 'replaceAround                  // root.tree.move(4, 4, 5, 9);
+                  root.tree.move(from, to, gapFrom, gapTo);
                   return;
                 }
 

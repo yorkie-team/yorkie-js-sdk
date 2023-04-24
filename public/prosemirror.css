@@ -465,7 +465,7 @@ img.ProseMirror-separator {
 
 .pm {
   flex: none !important;
-  width: 500px;
+  min-width: 300px;
 }
 
 .tr {
