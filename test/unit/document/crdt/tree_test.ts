@@ -531,7 +531,7 @@ describe.only('CRDTTree', function () {
     );
   });
 
-  it.only('Can move nodes', function () {
+  it('Can move nodes', function () {
     const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
