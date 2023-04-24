@@ -1,5 +1,6 @@
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Document } from '@yorkie-js-sdk/src/document/document';
+import { SyncMode } from '@yorkie-js-sdk/src/client/client';
 
 /**
  * `PresenceInfo` is presence information of this client.
@@ -23,6 +24,7 @@ export class Attachment<P> {
   doc: Document<unknown>;
   docID: string;
   isRealtimeSync: boolean;
+  syncMode: SyncMode;
   private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived: boolean;
 
@@ -39,14 +41,15 @@ export class Attachment<P> {
     this.doc = doc;
     this.docID = docID;
     this.isRealtimeSync = isRealtimeSync;
+    this.syncMode = SyncMode.PushPull;
     this.peerPresenceMap = new Map();
     this.remoteChangeEventReceived = false;
   }
 
   /**
-   * `changeSyncMode` changes the sync mode of the document.
+   * `changeRealtimeSync` changes whether to synchronize the document in realtime or not.
    */
-  public changeSyncMode(isRealtimeSync: boolean): boolean {
+  public changeRealtimeSync(isRealtimeSync: boolean): boolean {
     if (this.isRealtimeSync === isRealtimeSync) {
       return false;
     }
@@ -59,6 +62,13 @@ export class Attachment<P> {
     this.cancelWatchStream();
     this.isRealtimeSync = false;
     return true;
+  }
+
+  /**
+   * `changeSyncMode` changes the sync mode of the document.
+   */
+  public changeSyncMode(syncMode: SyncMode) {
+    this.syncMode = syncMode;
   }
 
   /**

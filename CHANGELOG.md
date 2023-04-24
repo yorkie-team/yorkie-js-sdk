@@ -7,6 +7,22 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.4] - 2023-04-18
+
+### Added
+* Add the `document.subscribe(targetPath, (event) => {})`, which enables users to subscribe to a specific target in a document by @chacha912 in #487
+* Add the `document.getValueByPath()` to get the value of a document by specifying the path by @chacha912 in #487
+* Add benchmark tests for yorkie.Document by @JOOHOJANG in #494
+* Add client sync mode, which enables users to pause and resume remote changes by @chacha912 in #495
+* Add x-shard-key to APIs by @hackerwins in #486
+* Add yorkie user agent in grpc metadata by @emplam27 in #488
+
+### Changed
+* Change Counter.increase() to remove the decimal part instead of using Math.floor() when a decimal number is passed as an argument by @JOOHOJANG in #496
+
+### Fixed
+* Return undefined when searching for presence of non-existent peer by @chacha912 in #493
+
 ## [0.3.3] - 2023-03-24
 
 ### Added

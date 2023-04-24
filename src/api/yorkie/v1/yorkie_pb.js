@@ -2889,7 +2889,8 @@ proto.yorkie.v1.PushPullChangesRequest.toObject = function(includeInstance, msg)
   var f, obj = {
     clientId: msg.getClientId_asB64(),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
+    changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f),
+    pushOnly: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -2938,6 +2939,10 @@ proto.yorkie.v1.PushPullChangesRequest.deserializeBinaryFromReader = function(ms
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
       msg.setChangePack(value);
+      break;
+    case 4:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setPushOnly(value);
       break;
     default:
       reader.skipField();
@@ -2988,6 +2993,13 @@ proto.yorkie.v1.PushPullChangesRequest.serializeBinaryToWriter = function(messag
       3,
       f,
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
+    );
+  }
+  f = message.getPushOnly();
+  if (f) {
+    writer.writeBool(
+      4,
+      f
     );
   }
 };
@@ -3087,6 +3099,24 @@ proto.yorkie.v1.PushPullChangesRequest.prototype.clearChangePack = function() {
  */
 proto.yorkie.v1.PushPullChangesRequest.prototype.hasChangePack = function() {
   return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional bool push_only = 4;
+ * @return {boolean}
+ */
+proto.yorkie.v1.PushPullChangesRequest.prototype.getPushOnly = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 4, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.yorkie.v1.PushPullChangesRequest} returns this
+ */
+proto.yorkie.v1.PushPullChangesRequest.prototype.setPushOnly = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 4, value);
 };
 
 

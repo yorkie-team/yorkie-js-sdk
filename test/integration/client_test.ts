@@ -1,8 +1,10 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import yorkie, {
+  Counter,
   ClientEvent,
   ClientStatus,
+  SyncMode,
   StreamConnectionStatus,
   DocumentSyncResultType,
   DocEventType,
@@ -643,7 +645,7 @@ describe('Client', function () {
     unsub2();
   });
 
-  it('Can change sync mode', async function () {
+  it('Can change realtime sync', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -693,6 +695,203 @@ describe('Client', function () {
 
     await c1.deactivate();
     await c2.deactivate();
+  });
+
+  it('Can change sync mode in manual sync', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    const c3 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    await c3.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+    const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+    const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+
+    // 01. c1, c2, c3 attach to the same document in manual sync.
+    await c1.attach(d1, true);
+    await c2.attach(d2, true);
+    await c3.attach(d3, true);
+
+    // 02. c1, c2 sync with push-pull mode.
+    d1.update((root) => {
+      root.c1 = 0;
+    });
+    d2.update((root) => {
+      root.c2 = 0;
+    });
+
+    await c1.sync();
+    await c2.sync();
+    await c1.sync();
+    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}');
+
+    // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
+    // are not reflected to each other.
+    // But, c3 can get the changes of c1 and c2, because c3 sync with pull-pull mode.
+    d1.update((root) => {
+      root.c1 = 1;
+    });
+    d2.update((root) => {
+      root.c2 = 1;
+    });
+    await c1.sync(d1, SyncMode.PushOnly);
+    await c2.sync(d2, SyncMode.PushOnly);
+    await c3.sync();
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
+    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');
+
+    // 04. c1 and c2 sync with push-pull mode.
+    await c1.sync();
+    await c2.sync();
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}');
+    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}');
+
+    await c1.deactivate();
+    await c2.deactivate();
+    await c3.deactivate();
+  });
+
+  it('Can change sync mode in realtime sync', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    const c3 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    await c3.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+    const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+    const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+
+    // 01. c1, c2, c3 attach to the same document in realtime sync.
+    await c1.attach(d1);
+    await c2.attach(d2);
+    await c3.attach(d3);
+
+    const d1Events: Array<string> = [];
+    const d2Events: Array<string> = [];
+    const d3Events: Array<string> = [];
+    const stub1 = sinon.stub().callsFake((event) => {
+      d1Events.push(event.type);
+    });
+    const stub2 = sinon.stub().callsFake((event) => {
+      d2Events.push(event.type);
+    });
+    const stub3 = sinon.stub().callsFake((event) => {
+      d3Events.push(event.type);
+    });
+    const unsub1 = d1.subscribe(stub1);
+    const unsub2 = d2.subscribe(stub2);
+    const unsub3 = d3.subscribe(stub3);
+
+    // 02. c1, c2 sync in realtime.
+    d1.update((root) => {
+      root.c1 = 0;
+    });
+    d2.update((root) => {
+      root.c2 = 0;
+    });
+    await waitStubCallCount(stub1, 2); // local-change, remote-change
+    await waitStubCallCount(stub2, 2); // local-change, remote-change
+    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}');
+
+    // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
+    // are not reflected to each other.
+    // But, c3 can get the changes of c1 and c2, because c3 sync with pull-pull mode.
+    c1.pauseRemoteChanges(d1);
+    c2.pauseRemoteChanges(d2);
+    d1.update((root) => {
+      root.c1 = 1;
+    });
+    d2.update((root) => {
+      root.c2 = 1;
+    });
+
+    await waitStubCallCount(stub1, 3); // local-change
+    await waitStubCallCount(stub2, 3); // local-change
+    await waitStubCallCount(stub3, 2);
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
+    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');
+
+    // 04. c1 and c2 sync with push-pull mode.
+    c1.resumeRemoteChanges(d1);
+    c2.resumeRemoteChanges(d2);
+    await waitStubCallCount(stub1, 4);
+    await waitStubCallCount(stub2, 4);
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}');
+    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}');
+
+    unsub1();
+    unsub2();
+    unsub3();
+    await c1.deactivate();
+    await c2.deactivate();
+    await c3.deactivate();
+  });
+
+  it('sync option with mixed mode test', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+
+    // 01. cli attach to the document having counter.
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
+    await c1.attach(d1, true);
+
+    // 02. cli update the document with creating a counter
+    //     and sync with push-pull mode: CP(0, 0) -> CP(1, 1)
+    d1.update((root) => {
+      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+    });
+
+    let checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 0);
+    assert.equal(checkpoint.getServerSeq().toInt(), 0);
+
+    await c1.sync();
+    checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 1);
+    assert.equal(checkpoint.getServerSeq().toInt(), 1);
+
+    // 03. cli update the document with increasing the counter(0 -> 1)
+    //     and sync with push-only mode: CP(1, 1) -> CP(2, 1)
+    d1.update((root) => {
+      root.counter.increase(1);
+    });
+    let changePack = d1.createChangePack();
+    assert.equal(changePack.getChangeSize(), 1);
+
+    await c1.sync(d1, SyncMode.PushOnly);
+    checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 2);
+    assert.equal(checkpoint.getServerSeq().toInt(), 1);
+
+    // 04. cli update the document with increasing the counter(1 -> 2)
+    //     and sync with push-pull mode. CP(2, 1) -> CP(3, 3)
+    d1.update((root) => {
+      root.counter.increase(1);
+    });
+
+    // The previous increase(0 -> 1) is already pushed to the server,
+    // so the ChangePack of the request only has the increase(1 -> 2).
+    changePack = d1.createChangePack();
+    assert.equal(changePack.getChangeSize(), 1);
+
+    await c1.sync();
+    checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 3);
+    assert.equal(checkpoint.getServerSeq().toInt(), 3);
+    assert.equal(d1.getRoot().counter.getValue(), 2);
+
+    await c1.deactivate();
   });
 
   it(`Can get peer's presence`, async function () {

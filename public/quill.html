@@ -170,7 +170,7 @@
 
                       if (typeof op.insert === 'object') {
                         root.content.edit(from, to, ' ', {
-                          embed: JSON.stringify(op.insert),
+                          embed: op.insert,
                           ...op.attributes,
                         });
                       } else {
