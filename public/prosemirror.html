@@ -21,13 +21,20 @@
             <div id="tr-info"></div>
           </div>
         </div>
-        <div class="pm">
-          <h2>ProseMirror</h2>
-          <div id="pm-log" class="log-view"></div>
-        </div>
-        <div class="yorkie">
-          <h2>Yorkie</h2>
-          <div id="yorkie-log" class="log-view"></div>
+        <div class="data-view">
+          <div class="tree-view">
+            <div class="pm">
+              <h2>ProseMirror</h2>
+              <div id="pm-log" class="log-view"></div>
+            </div>
+            <div class="yorkie">
+              <h2>Yorkie</h2>
+              <div id="yorkie-log" class="log-view"></div>
+            </div>
+          </div>
+          <div class="list-view">
+            <div id="yorkie-list-log" class="log-list-view"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -322,6 +329,7 @@
 
         printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         printDoc(view.state.doc, 'pm-log');
+        printDocList(doc.getRoot().tree.tree, 'yorkie-list-log');
       }
 
       let globalIndex = 0;
@@ -351,6 +359,45 @@
         for (let i = 0; i < list.length; i++) {
           printNode(list[i], depth + 1, arr, i);
         }
+      }
+
+      function printDocList(doc, id) {
+        const head = doc.head;
+
+        const arr = [];
+        let node = head;
+        while (node) {
+          const nodeType = node.type;
+
+          if (nodeType === 'text') {
+            arr.push({
+              type: nodeType,
+              value: node.value,
+            });
+          } else {
+            arr.push({
+              type: nodeType,
+              size: node.size,
+            });
+          }
+
+          node = node.next;
+        }
+
+        const html = arr
+          .map((node) => {
+            if (node.type === 'text') {
+              return `<div class="inline">${
+                node.value === ' ' ? '&nbsp;&nbsp;' : node.value
+              }</div>`;
+            }
+            return `<div class="block">${node.type}${
+              node.size ? `<span class="size">(${node.size})</span>` : ''
+            }</div>`;
+          })
+          .join('');
+
+        document.getElementById(id).innerHTML = html;
       }
 
       /**

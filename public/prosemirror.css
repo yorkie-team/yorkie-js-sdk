@@ -523,3 +523,20 @@ img.ProseMirror-separator {
   vertical-align: middle;
   cursor: pointer;
 }
+
+.data-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-view {
+  flex: none;
+  height: 300px;
+  overflow: auto;
+  display: flex;
+}
+
+.list-view {
+  flex: 1 1 auto;
+  background-color: coral;
+}
