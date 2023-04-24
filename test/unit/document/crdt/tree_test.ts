@@ -58,18 +58,18 @@ describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'r'), ITT);
     assert.equal(tree.getRoot().size, 0);
-    assert.equal(tree.toXML(), /*html*/ `<root></root>`);
-    listEqual(tree, ['root']);
+    assert.equal(tree.toXML(), /*html*/ `<r></r>`);
+    listEqual(tree, ['r']);
     let pos = tree.findTreePos(0);
     assert.deepEqual([pos.offset, pos.node], [0, tree.getRoot()]);
 
     //           1
     // <root> <p> </p> </root>
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    assert.equal(tree.toXML(), /*html*/ `<root><p></p></root>`);
-    // listEqual(tree, ['p', 'root']);
+    assert.equal(tree.toXML(), /*html*/ `<r><p></p></r>`);
+    listEqual(tree, ['p', 'r']);
     assert.equal(tree.getRoot().size, 2);
     pos = tree.findTreePos(1);
     assert.deepEqual([pos.offset, pos.node.type], [0, 'p']);
@@ -77,7 +77,8 @@ describe('CRDTTree', function () {
     //           1
     // <root> <p> h e l l o </p> </root>
     tree.edit([1, 1], new CRDTInlineNode(ITT, 'hello'), ITT);
-    assert.equal(tree.toXML(), /*html*/ `<root><p>hello</p></root>`);
+    assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p></r>`);
+    listEqual(tree, ['text.hello', 'p', 'r']);
     assert.equal(tree.getRoot().size, 7);
     pos = tree.findTreePos(1);
     assert.deepEqual([pos.offset, pos.node.type], [0, 'text']);
@@ -90,17 +91,15 @@ describe('CRDTTree', function () {
       ITT,
     );
     pos = tree.findTreePos(7);
-    assert.deepEqual([pos.offset, pos.node.type], [1, 'root']);
-    assert.equal(
-      tree.toXML(),
-      /*html*/ `<root><p>hello</p><p>world</p></root>`,
-    );
+    assert.deepEqual([pos.offset, pos.node.type], [1, 'r']);
+    assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
+    listEqual(tree, ['text.hello', 'p', 'text.world', 'p', 'r']);
     assert.equal(tree.getRoot().size, 14);
 
     //       0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
     // <root> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </root>
     pos = tree.findTreePos(0);
-    assert.deepEqual([pos.offset, pos.node.type], [0, 'root']);
+    assert.deepEqual([pos.offset, pos.node.type], [0, 'r']);
     pos = tree.findTreePos(1);
     assert.deepEqual([pos.offset, pos.node.type], [0, 'text']);
     pos = tree.findTreePos(6);
@@ -108,25 +107,24 @@ describe('CRDTTree', function () {
     pos = tree.findTreePos(6, false);
     assert.deepEqual([pos.offset, pos.node.type], [1, 'p']);
     pos = tree.findTreePos(7);
-    assert.deepEqual([pos.offset, pos.node.type], [1, 'root']);
+    assert.deepEqual([pos.offset, pos.node.type], [1, 'r']);
     pos = tree.findTreePos(8);
     assert.deepEqual([pos.offset, pos.node.type], [0, 'text']);
     pos = tree.findTreePos(13);
     assert.deepEqual([pos.offset, pos.node.type], [5, 'text']);
     pos = tree.findTreePos(14);
-    assert.deepEqual([pos.offset, pos.node.type], [2, 'root']);
+    assert.deepEqual([pos.offset, pos.node.type], [2, 'r']);
 
     //       0   1 2 3 4 5 6 7    8   9 10 11 12 13 14    15
     // <root> <p> h e l l o ! </p> <p> w  o  r  l  d  </p>  </root>
     tree.edit([6, 6], new CRDTInlineNode(ITT, '!'), ITT);
-    assert.equal(
-      tree.toXML(),
-      /*html*/ `<root><p>hello!</p><p>world</p></root>`,
-    );
+    assert.equal(tree.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
+    listEqual(tree, ['text.hello', 'text.!', 'p', 'text.world', 'p', 'r']);
+
     assert.deepEqual(
       JSON.stringify(tree.toStructure()),
       JSON.stringify({
-        type: 'root',
+        type: 'r',
         children: [
           {
             type: 'p',
@@ -150,6 +148,20 @@ describe('CRDTTree', function () {
         isRemoved: false,
       }),
     );
+
+    //       0   1 2 3 4 5 6 7 8    9   10 11 12 13 14 15    16
+    // <root> <p> h e l l o ~ ! </p> <p>  w  o  r  l  d  </p>  </root>
+    tree.edit([6, 6], new CRDTInlineNode(ITT, '~'), ITT);
+    assert.equal(tree.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
+    listEqual(tree, [
+      'text.hello',
+      'text.~',
+      'text.!',
+      'p',
+      'text.world',
+      'p',
+      'r',
+    ]);
   });
 
   it('Can traverse nodes between the given indexes', function () {
@@ -186,6 +198,7 @@ describe('CRDTTree', function () {
     tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
     let structure = tree.toStructure();
     assert.equal(structure.size, 8);
@@ -197,6 +210,7 @@ describe('CRDTTree', function () {
     // <root> <p> a </p> <p> c d </p> </root>
     tree.edit([2, 3], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
+    listEqual(tree, ['text.a', 'p', 'text.cd', 'p', 'root']);
 
     structure = tree.toStructure();
     assert.equal(structure.size, 7);
@@ -214,12 +228,14 @@ describe('CRDTTree', function () {
     tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
     // 02. delete b, c and first paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
     tree.edit([2, 6], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
+    // listEqual(tree, ['text.a', 'text.d', 'p', 'root']);
     const structure = tree.toStructure();
     assert.equal(structure.size, 4); // root
     assert.equal(structure.children![0].size, 2); // p

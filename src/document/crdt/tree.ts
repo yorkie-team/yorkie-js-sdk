@@ -11,6 +11,7 @@ import {
   IndexTreeNode,
   TreeNode,
   TreeNodeForTest,
+  traverse,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
 /**
@@ -88,6 +89,7 @@ export class CRDTTree extends CRDTElement {
     let current = this.dummyHead;
     this.treeByIndex.traverse((node) => {
       current.next = node;
+      node.prev = current;
       current = node;
     });
   }
@@ -131,6 +133,21 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `insertAfter` inserts the given node after the given previous node.
+   */
+  public insertAfter(prev: IndexTreeNode, node: IndexTreeNode): void {
+    const next = prev.next;
+
+    prev.next = node;
+    node.prev = prev;
+
+    if (next) {
+      node.next = next;
+      next.prev = node;
+    }
+  }
+
+  /**
    * `edit` edits the given range with the given value.
    * If the given value is undefined, the given range will be deleted.
    */
@@ -143,6 +160,11 @@ export class CRDTTree extends CRDTElement {
     const { node: fromNode, offset: fromOffset } = this.treeByIndex.splitInline(
       range[0],
     );
+    const right = this.treeByIndex.findRight({
+      node: fromNode,
+      offset: fromOffset,
+    });
+
     const { node: toNode } = this.treeByIndex.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
@@ -204,6 +226,12 @@ export class CRDTTree extends CRDTElement {
         const target = fromNode as CRDTBlockNode;
         target.insertAt(content, fromOffset + 1);
       }
+
+      let previous = right!.prev!;
+      traverse(content, (node) => {
+        this.insertAfter(previous, node);
+        previous = node;
+      });
     }
   }
 
@@ -271,7 +299,9 @@ export class CRDTTree extends CRDTElement {
   public *[Symbol.iterator](): IterableIterator<IndexTreeNode> {
     let node = this.dummyHead.next;
     while (node) {
-      yield node;
+      if (!node.removedAt) {
+        yield node;
+      }
       node = node.next;
     }
   }

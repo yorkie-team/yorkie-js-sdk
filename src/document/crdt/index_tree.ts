@@ -95,6 +95,7 @@ export abstract class IndexTreeNode {
   id: TimeTicket;
   removedAt?: TimeTicket;
   next?: IndexTreeNode;
+  prev?: IndexTreeNode;
 
   constructor(id: TimeTicket, type: TreeNodeType) {
     this.id = id;
@@ -167,6 +168,19 @@ export abstract class IndexTreeNode {
    * `split` splits the node at the given offset.
    */
   abstract split(offset: number): IndexTreeNode;
+
+  /**
+   * `nextSibling` returns the next sibling of the node.
+   */
+  get nextSibling(): IndexTreeNode | undefined {
+    const offset = this.parent!.findOffset(this);
+    const sibling = this.parent!.children[offset + 1];
+    if (sibling) {
+      return sibling;
+    }
+
+    return undefined;
+  }
 }
 
 /**
@@ -491,7 +505,7 @@ function nodesBetween(
 /**
  * `traverse` traverses the tree with postorder traversal.
  */
-function traverse(
+export function traverse(
   node: IndexTreeNode,
   callback: (node: IndexTreeNode) => void,
 ) {
@@ -595,6 +609,21 @@ export function findCommonAncestor(
 }
 
 /**
+ * `findLeftmost` finds the leftmost node of the given node.
+ */
+export function findLeftmost(node: IndexTreeNode): IndexTreeNode {
+  if (node.isInline) {
+    return node;
+  }
+
+  if (node.children.length === 0) {
+    return node;
+  }
+
+  return findLeftmost(node.children[0]);
+}
+
+/**
  * `IndexTree` is a tree structure for indexing the CRDTTree.
  */
 export class IndexTree {
@@ -671,5 +700,28 @@ export class IndexTree {
    */
   public get size(): number {
     return this.root.size;
+  }
+
+  /**
+   * `findRight` finds right node of the given tree position.
+   */
+  public findRight(treePos: TreePos): IndexTreeNode | undefined {
+    const { node, offset } = treePos;
+    if (node.isInline) {
+      if (node.size === offset) {
+        const right = node.nextSibling;
+        if (right) return right;
+
+        return node.parent;
+      }
+
+      return node;
+    }
+
+    if (node.children.length <= offset) {
+      return node;
+    }
+
+    return findLeftmost(node.children[offset]);
   }
 }
