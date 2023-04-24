@@ -2,7 +2,7 @@ import { assert } from 'chai';
 import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
 
-describe.only('Tree', () => {
+describe('Tree', () => {
   it('Can be created by new and edit', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -88,6 +88,7 @@ describe.only('Tree', () => {
         { type: 'ng', children: [] },
         { type: 'text', value: 'gh' },
         { type: 'bp', children: [] },
+        { type: 'doc', children: [] },
       ]);
     });
   });

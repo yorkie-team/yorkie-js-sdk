@@ -34,6 +34,25 @@ function betweenEqual(
   );
 }
 
+/**
+ * `listEqual` is a helper function that checks the nodes in the RGA in Tree.
+ */
+function listEqual(tree: CRDTTree, expected: Array<string>) {
+  const nodes: Array<IndexTreeNode> = [];
+  for (const node of tree) {
+    nodes.push(node);
+  }
+  assert.deepEqual(
+    nodes.map((node) => {
+      if (node.isInline) {
+        return `${node.type}.${(node as CRDTInlineNode).value}`;
+      }
+      return node.type;
+    }),
+    expected,
+  );
+}
+
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
 describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
@@ -42,6 +61,7 @@ describe('CRDTTree', function () {
     const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     assert.equal(tree.getRoot().size, 0);
     assert.equal(tree.toXML(), /*html*/ `<root></root>`);
+    listEqual(tree, ['root']);
     let pos = tree.findTreePos(0);
     assert.deepEqual([pos.offset, pos.node], [0, tree.getRoot()]);
 
@@ -49,6 +69,7 @@ describe('CRDTTree', function () {
     // <root> <p> </p> </root>
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     assert.equal(tree.toXML(), /*html*/ `<root><p></p></root>`);
+    // listEqual(tree, ['p', 'root']);
     assert.equal(tree.getRoot().size, 2);
     pos = tree.findTreePos(1);
     assert.deepEqual([pos.offset, pos.node.type], [0, 'p']);

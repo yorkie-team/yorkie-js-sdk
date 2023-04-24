@@ -489,6 +489,19 @@ function nodesBetween(
 }
 
 /**
+ * `traverse` traverses the tree with postorder traversal.
+ */
+function traverse(
+  node: IndexTreeNode,
+  callback: (node: IndexTreeNode) => void,
+) {
+  for (const child of node.children) {
+    traverse(child, callback);
+  }
+  callback(node);
+}
+
+/**
  * `findTreePos` finds the position of the given index in the given node.
  */
 function findTreePos(
@@ -600,6 +613,13 @@ export class IndexTree {
     callback: (node: IndexTreeNode) => void,
   ): void {
     nodesBetween(this.root, from, to, callback);
+  }
+
+  /**
+   * `traverse` traverses the tree with postorder traversal.
+   */
+  traverse(callback: (node: IndexTreeNode) => void): void {
+    traverse(this.root, callback);
   }
 
   /**

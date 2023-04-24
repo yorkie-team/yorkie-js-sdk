@@ -14,6 +14,12 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
 /**
+ * DummyHeadType is a type of dummy head. It is used to represent the head node
+ * of RGA.
+ */
+const DummyHeadType = 'dummy';
+
+/**
  * toJSON converts the given CRDTNode to JSON.
  */
 function toJSON(node: IndexTreeNode): TreeNode {
@@ -71,16 +77,16 @@ function toStructure(node: IndexTreeNode): TreeNodeForTest {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
-  private head: IndexTreeNode;
+  private dummyHead: IndexTreeNode;
   private treeByIndex: IndexTree;
 
   constructor(root: CRDTBlockNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.head = new CRDTBlockNode(InitialTimeTicket, 'dummy');
+    this.dummyHead = new CRDTBlockNode(InitialTimeTicket, DummyHeadType);
     this.treeByIndex = new IndexTree(root);
 
-    let current = this.head;
-    this.treeByIndex.nodesBetween(0, this.treeByIndex.size, (node) => {
+    let current = this.dummyHead;
+    this.treeByIndex.traverse((node) => {
       current.next = node;
       current = node;
     });
@@ -140,7 +146,6 @@ export class CRDTTree extends CRDTElement {
     const { node: toNode } = this.treeByIndex.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
-    let removedBlockNode: IndexTreeNode | undefined;
     if (fromNode.isAncestorOf(toNode)) {
       // 02-1. The range is placed on the same hierarchy.
       const toBeRemoveds: Array<IndexTreeNode> = [];
@@ -151,10 +156,21 @@ export class CRDTTree extends CRDTElement {
         node.remove(editedAt);
       }
 
+      let removedBlockNode: IndexTreeNode | undefined;
       if (toNode.parent?.removedAt) {
         removedBlockNode = toNode.parent;
       } else if (!toNode.isInline && toNode.removedAt) {
         removedBlockNode = toNode;
+      }
+
+      // If the nearest removed block node of the toNode is found,
+      // insert the alive children of the removed block node to the fromNode.
+      if (removedBlockNode) {
+        const blockNode = fromNode as CRDTBlockNode;
+        const offset = blockNode.findBranchOffset(removedBlockNode);
+        for (const node of removedBlockNode.children.reverse()) {
+          blockNode.insertAt(node, offset);
+        }
       }
     } else {
       // 02-2. The range is placed on the different hierarchy.
@@ -172,17 +188,7 @@ export class CRDTTree extends CRDTElement {
         node.remove(editedAt);
       }
       if (fromNode.parent?.removedAt) {
-        removedBlockNode = fromNode.parent;
-      }
-    }
-
-    // If the nearest removed block node of the toNode is found,
-    // insert the alive children of the removed block node to the fromNode.
-    if (removedBlockNode) {
-      const blockNode = fromNode as CRDTBlockNode;
-      const offset = blockNode.findBranchOffset(removedBlockNode);
-      for (const node of removedBlockNode.children.reverse()) {
-        blockNode.insertAt(node, offset);
+        toNode.parent?.prepend(...fromNode.parent.children);
       }
     }
 
@@ -254,9 +260,8 @@ export class CRDTTree extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTTree {
-    // TODO(hackerwins, easylogic): Implement this with copying the root node deeply.
     const tree = new CRDTTree(this.getRoot(), this.getCreatedAt());
-    tree.remove(this.getRemovedAt());
+    // TODO(hackerwins, easylogic): Implement this with copying the root node deeply.
     return tree;
   }
 
@@ -264,7 +269,7 @@ export class CRDTTree extends CRDTElement {
    * `Symbol.iterator` returns the iterator of the tree.
    */
   public *[Symbol.iterator](): IterableIterator<IndexTreeNode> {
-    let node = this.head.next;
+    let node = this.dummyHead.next;
     while (node) {
       yield node;
       node = node.next;
