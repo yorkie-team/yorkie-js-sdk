@@ -132,6 +132,24 @@
         ],
       };
 
+      function convertDocForTree(pmNode) {
+        if (pmNode.type === 'text') {
+          return {
+            type: 'text',
+            value: pmNode.text,
+          };
+        }
+
+        const node = {
+          type: pmNode.type,
+          children: [],
+        };
+        for (const child of pmNode.content) {
+          node.children.push(convertDocForTree(child));
+        }
+        return node;
+      }
+
       /**
        * Insert a star at the current cursor position.
        */
@@ -159,7 +177,7 @@
         window.doc = doc;
         // await client.attach(doc);
         doc.update((root) => {
-          root.tree = new yorkie.Tree(initialDoc);
+          root.tree = new yorkie.Tree(convertDocForTree(initialDoc));
         });
 
         // 02. Create ProseMirror Editor.
@@ -210,7 +228,7 @@
 
                 // 02-1. Backspace: Level delete
                 // TODO(hackerwins): replaceAround replaces the given range with given gap.
-                if (stepType === 'replaceAround                  // root.tree.move(4, 4, 5, 9);
+                if (stepType === 'replaceAround') {
                   root.tree.move(from, to, gapFrom, gapTo);
                   return;
                 }
@@ -235,7 +253,7 @@
 
                 // 03-4. Edit: Insert the given content.
                 for (const node of content.content) {
-                  root.tree.edit(from, to, node.toJSON());
+                  root.tree.edit(from, to, convertDocForTree(node.toJSON()));
                 }
               }
             });
@@ -302,7 +320,7 @@
 
         console.log(view.state);
 
-        printDoc(doc.getRoot().tree.tree.root, 'yorkie-log');
+        printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         printDoc(view.state.doc, 'pm-log');
       }
 

@@ -8,6 +8,10 @@ import {
   findCommonAncestor,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
+/**
+ * `betweenEqual` is a helper function that checks the nodes between the given
+ * indexes.
+ */
 function betweenEqual(
   tree: CRDTTree,
   from: number,
@@ -99,7 +103,7 @@ describe('CRDTTree', function () {
       /*html*/ `<root><p>hello!</p><p>world</p></root>`,
     );
     assert.deepEqual(
-      JSON.stringify(tree.getStructure()),
+      JSON.stringify(tree.toStructure()),
       JSON.stringify({
         type: 'root',
         children: [
@@ -127,7 +131,7 @@ describe('CRDTTree', function () {
     );
   });
 
-  it('Can traverse nodes between two positions', function () {
+  it('Can traverse nodes between the given indexes', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
@@ -162,7 +166,7 @@ describe('CRDTTree', function () {
     tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
-    let structure = tree.getStructure();
+    let structure = tree.toStructure();
     assert.equal(structure.size, 8);
     assert.equal(structure.children![0].size, 2);
     assert.equal(structure.children![0].children![0].size, 2);
@@ -173,7 +177,7 @@ describe('CRDTTree', function () {
     tree.edit([2, 3], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
 
-    structure = tree.getStructure();
+    structure = tree.toStructure();
     assert.equal(structure.size, 7);
     assert.equal(structure.children![0].size, 1);
     assert.equal(structure.children![0].children![0].size, 1);
@@ -195,7 +199,7 @@ describe('CRDTTree', function () {
     // <root> <p> a d </p> </root>
     tree.edit([2, 6], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
-    const structure = tree.getStructure();
+    const structure = tree.toStructure();
     assert.equal(structure.size, 4); // root
     assert.equal(structure.children![0].size, 2); // p
     assert.equal(structure.children![0].children![0].size, 1); // a
@@ -424,12 +428,6 @@ describe('CRDTTree', function () {
   });
 
   it('Can split and merge different levels', function () {
-    // assert.equal(tree.getSize(), 8);
-    // betweenEqual(tree, 2, 3, ['i']);
-    // betweenEqual(tree, 2, 8, ['text.ab', 'i', 'b', 'p']);
-    // betweenEqual(tree, 1, 2, ['b']);
-    // betweenEqual(tree, 1, 3, ['i', 'b']);
-
     // 01. edit between two block nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
@@ -530,7 +528,7 @@ describe('CRDTTree', function () {
     );
   });
 
-  it.skip('Can move nodes', function () {
+  it('Can find common ancestor of two given nodes', function () {
     const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
@@ -548,11 +546,5 @@ describe('CRDTTree', function () {
       tree.findTreePos(7, true).node,
     );
     assert.equal(ancestor!.type, 'p');
-
-    // tree.move([0, 0], [1, 5], ITT);
-    // assert.deepEqual(
-    //   tree.toXML(),
-    //   /*html*/ `<root><b>ab</b><p><b>cd</b></p></root>`,
-    // );
   });
 });

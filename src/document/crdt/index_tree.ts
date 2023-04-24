@@ -3,7 +3,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 /**
  * About `index`, `size` and `TreePos` in crdt.IndexTree.
  *
- * `index` of crdt.Tree represents a absolute position of a node in the tree.
+ * `index` of crdt.IndexTree represents a absolute position of a node in the tree.
  * `size` is used to calculate the relative index of nodes in the tree.
  *
  * For example, empty paragraph's size is 0 and index 0 is the position of the:
@@ -37,7 +37,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  * In this case, index of TreePos(p, 0) is 0, index of TreePos(p, 1) is 2.
  * Index 1 can be converted to TreePos(i, 0).
  *
- * index in yorkie.Tree inspired by ProseMirror's index.
+ * index in yorkie.IndexTree inspired by ProseMirror's index.
  */
 
 /**
@@ -53,9 +53,15 @@ const BlockNodePaddingSize = 2;
 export const DefaultRootType = 'root';
 
 /**
+ * `DefaultInlineType` is the default type of the inline node.
+ * It is used when the type of the inline node is not specified.
+ */
+export const DefaultInlineType = 'text';
+
+/**
  * `NoteType` is the type of a node in the tree.
  */
-export type TreeNodeType = string | 'text';
+export type TreeNodeType = string;
 
 /**
  * `TreeNode` represents the JSON representation of a node in the tree.
@@ -81,10 +87,11 @@ export type TreeNodeForTest = TreeNode & {
  * `IndexTreeNode` is the node of IndexTree.
  */
 export abstract class IndexTreeNode {
-  id: TimeTicket;
   type: TreeNodeType;
   parent?: CRDTBlockNode;
   size: number;
+
+  id: TimeTicket;
   removedAt?: TimeTicket;
 
   constructor(id: TimeTicket, type: TreeNodeType) {
@@ -125,7 +132,7 @@ export abstract class IndexTreeNode {
    * `isInline` returns true if the node is a inline node.
    */
   get isInline(): boolean {
-    return this.type === 'text';
+    return this.type === DefaultInlineType;
   }
 
   /**
@@ -134,16 +141,6 @@ export abstract class IndexTreeNode {
   get paddedSize(): number {
     return this.size + (this.isInline ? 0 : BlockNodePaddingSize);
   }
-
-  /**
-   * `children` returns the children of the node.
-   */
-  abstract get children(): Array<IndexTreeNode>;
-
-  /**
-   * `split` splits the node at the given offset.
-   */
-  abstract split(offset: number): IndexTreeNode;
 
   /**
    * `isAncenstorOf` returns true if the node is an ancestor of the given node.
@@ -158,6 +155,16 @@ export abstract class IndexTreeNode {
   isDescendantOf(node: IndexTreeNode): boolean {
     return ancestorOf(node, this);
   }
+
+  /**
+   * `children` returns the children of the node.
+   */
+  abstract get children(): Array<IndexTreeNode>;
+
+  /**
+   * `split` splits the node at the given offset.
+   */
+  abstract split(offset: number): IndexTreeNode;
 }
 
 /**
@@ -167,7 +174,7 @@ export class CRDTInlineNode extends IndexTreeNode {
   _value: string;
 
   constructor(id: TimeTicket, value: string) {
-    super(id, 'text');
+    super(id, DefaultInlineType);
 
     this._value = value;
     this.size = value.length;
@@ -211,7 +218,7 @@ export class CRDTInlineNode extends IndexTreeNode {
     // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
     // create new right node
     const rightNode = new CRDTInlineNode(this.id, rightValue);
-    this.parent!._insertAfter(rightNode, this);
+    this.parent!.insertAfterInternal(rightNode, this);
 
     return rightNode;
   }
@@ -274,7 +281,7 @@ export class CRDTBlockNode extends IndexTreeNode {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, offset);
+    this.insertAtInternal(newNode, offset);
     newNode.updateAncestorsSize();
   }
 
@@ -287,7 +294,7 @@ export class CRDTBlockNode extends IndexTreeNode {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, offset + 1);
+    this.insertAtInternal(newNode, offset + 1);
     newNode.updateAncestorsSize();
   }
 
@@ -295,7 +302,7 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `insertAt` inserts the given node at the given offset.
    */
   insertAt(newNode: IndexTreeNode, offset: number): void {
-    this._insertAt(newNode, offset);
+    this.insertAtInternal(newNode, offset);
     newNode.updateAncestorsSize();
   }
 
@@ -304,7 +311,7 @@ export class CRDTBlockNode extends IndexTreeNode {
    */
   split(offset: number): IndexTreeNode {
     const clone = new CRDTBlockNode(this.id, this.type);
-    this.parent!._insertAfter(clone, this);
+    this.parent!.insertAfterInternal(clone, this);
     clone.updateAncestorsSize();
 
     const leftChildren = this.children.slice(0, offset);
@@ -327,23 +334,26 @@ export class CRDTBlockNode extends IndexTreeNode {
   }
 
   /**
-   * `_insertAfter` inserts the given node after the given child.
+   * `insertAfterInternal` inserts the given node after the given child.
    * This method does not update the size of the ancestors.
    */
-  _insertAfter(newNode: IndexTreeNode, referenceNode: IndexTreeNode): void {
+  insertAfterInternal(
+    newNode: IndexTreeNode,
+    referenceNode: IndexTreeNode,
+  ): void {
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
       throw new Error('child not found');
     }
 
-    this._insertAt(newNode, offset + 1);
+    this.insertAtInternal(newNode, offset + 1);
   }
 
   /**
-   * `_insertAt` inserts the given node at the given index.
+   * `insertAtInternal` inserts the given node at the given index.
    * This method does not update the size of the ancestors.
    */
-  _insertAt(newNode: IndexTreeNode, offset: number): void {
+  insertAtInternal(newNode: IndexTreeNode, offset: number): void {
     this._children.splice(offset, 0, newNode);
     newNode.parent = this;
   }
@@ -452,9 +462,9 @@ function nodesBetween(
 
   let pos = 0;
   for (const child of root.children) {
-    // NOTE(hackerwins): If the child is a block node, the size of the child
+    // If the child is a block node, the size of the child.
     if (from - child.paddedSize < pos && pos < to) {
-      // NOTE(hackerwins): If the child is a block node, the range of the child
+      // If the child is a block node, the range of the child
       // is from - 1 to to - 1. Because the range of the block node is from
       // the open tag to the close tag.
       const fromChild = child.isInline ? from - pos : from - pos - 1;
@@ -466,7 +476,7 @@ function nodesBetween(
         callback,
       );
 
-      // NOTE(hackerwins): If the range spans outside the child,
+      // If the range spans outside the child,
       // the callback is called with the child.
       if (fromChild < 0 || toChild > child.size || child.isInline) {
         callback(child);
@@ -526,41 +536,6 @@ function findTreePos(
 
   // The position is in rightmost of the given node.
   return { node, offset };
-}
-/**
- * `getStructure` converts the given CRDTNode JSON for debugging.
- */
-function getStructure(node: IndexTreeNode): TreeNodeForTest {
-  if (node.isInline) {
-    const currentNode = node as CRDTInlineNode;
-    return {
-      type: currentNode.type,
-      value: currentNode.value,
-      size: currentNode.size,
-      isRemoved: !!currentNode.removedAt,
-    };
-  }
-
-  return {
-    type: node.type,
-    children: node.children.map(getStructure),
-    size: node.size,
-    isRemoved: !!node.removedAt,
-  };
-}
-
-/**
- * toXML converts the given CRDTNode to XML string.
- */
-export function toXML(node: IndexTreeNode): string {
-  if (node.isInline) {
-    const currentNode = node as CRDTInlineNode;
-    return currentNode.value;
-  }
-
-  return `<${node.type}>${node.children
-    .map((child) => toXML(child))
-    .join('')}</${node.type}>`;
 }
 /**
  * `getAncestors` returns the ancestors of the given node.
@@ -674,19 +649,5 @@ export class IndexTree {
    */
   public get size(): number {
     return this.root.size;
-  }
-
-  /**
-   * toXML returns the XML encoding of this tree.
-   */
-  public toXML(): string {
-    return toXML(this.root);
-  }
-
-  /**
-   * `getStructure` returns the JSON of this tree for debugging.
-   */
-  public getStructure(): TreeNodeForTest {
-    return getStructure(this.root);
   }
 }

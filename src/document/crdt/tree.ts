@@ -32,6 +32,42 @@ function toJSON(node: IndexTreeNode): TreeNode {
 }
 
 /**
+ * toXML converts the given CRDTNode to XML string.
+ */
+export function toXML(node: IndexTreeNode): string {
+  if (node.isInline) {
+    const currentNode = node as CRDTInlineNode;
+    return currentNode.value;
+  }
+
+  return `<${node.type}>${node.children
+    .map((child) => toXML(child))
+    .join('')}</${node.type}>`;
+}
+
+/**
+ * `toStructure` converts the given CRDTNode JSON for debugging.
+ */
+function toStructure(node: IndexTreeNode): TreeNodeForTest {
+  if (node.isInline) {
+    const currentNode = node as CRDTInlineNode;
+    return {
+      type: currentNode.type,
+      value: currentNode.value,
+      size: currentNode.size,
+      isRemoved: !!currentNode.removedAt,
+    };
+  }
+
+  return {
+    type: node.type,
+    children: node.children.map(toStructure),
+    size: node.size,
+    isRemoved: !!node.removedAt,
+  };
+}
+
+/**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
@@ -77,13 +113,6 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `splitInline` splits the inline node at the given index.
-   */
-  private splitInline(index: number): TreePos {
-    return this.treeByIndex.splitInline(index);
-  }
-
-  /**
    * `move` move the given source range to the given target range.
    */
   public move(
@@ -106,10 +135,13 @@ export class CRDTTree extends CRDTElement {
     editedAt: TimeTicket,
   ): void {
     // 01. split inline nodes at the given range if needed.
-    const { node: fromNode, offset: fromOffset } = this.splitInline(range[0]);
-    const { node: toNode } = this.splitInline(range[1]);
+    const { node: fromNode, offset: fromOffset } = this.treeByIndex.splitInline(
+      range[0],
+    );
+    const { node: toNode } = this.treeByIndex.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
+    let removedBlockNode: IndexTreeNode | undefined;
     if (fromNode.isAncestorOf(toNode)) {
       // 02-1. The range is placed on the same hierarchy.
       const toBeRemoveds: Array<IndexTreeNode> = [];
@@ -120,21 +152,10 @@ export class CRDTTree extends CRDTElement {
         node.remove(editedAt);
       }
 
-      let removedBlockNode: IndexTreeNode | undefined;
       if (toNode.parent?.removedAt) {
         removedBlockNode = toNode.parent;
       } else if (!toNode.isInline && toNode.removedAt) {
         removedBlockNode = toNode;
-      }
-
-      // If the nearest removed block node of the toNode is found,
-      // insert the alive children of the removed block node to the fromNode.
-      if (removedBlockNode) {
-        const blockNode = fromNode as CRDTBlockNode;
-        const offset = blockNode.findBranchOffset(removedBlockNode);
-        for (const node of removedBlockNode.children.reverse()) {
-          blockNode.insertAt(node, offset);
-        }
       }
     } else {
       // 02-2. The range is placed on the different hierarchy.
@@ -152,7 +173,17 @@ export class CRDTTree extends CRDTElement {
         node.remove(editedAt);
       }
       if (fromNode.parent?.removedAt) {
-        toNode.parent?.prepend(...fromNode.parent.children);
+        removedBlockNode = fromNode.parent;
+      }
+    }
+
+    // If the nearest removed block node of the toNode is found,
+    // insert the alive children of the removed block node to the fromNode.
+    if (removedBlockNode) {
+      const blockNode = fromNode as CRDTBlockNode;
+      const offset = blockNode.findBranchOffset(removedBlockNode);
+      for (const node of removedBlockNode.children.reverse()) {
+        blockNode.insertAt(node, offset);
       }
     }
 
@@ -196,7 +227,7 @@ export class CRDTTree extends CRDTElement {
    * toXML returns the XML encoding of this tree.
    */
   public toXML(): string {
-    return this.treeByIndex.toXML();
+    return toXML(this.treeByIndex.getRoot());
   }
 
   /**
@@ -207,10 +238,10 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `getStructure` returns the JSON of this tree for debugging.
+   * `toStructure` returns the JSON of this tree for debugging.
    */
-  public getStructure(): TreeNodeForTest {
-    return this.treeByIndex.getStructure();
+  public toStructure(): TreeNodeForTest {
+    return toStructure(this.treeByIndex.getRoot());
   }
 
   /**

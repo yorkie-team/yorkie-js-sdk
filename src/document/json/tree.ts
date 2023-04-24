@@ -5,6 +5,7 @@ import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
   DefaultRootType,
+  DefaultInlineType,
   IndexTreeNode,
   CRDTInlineNode,
   CRDTBlockNode,
@@ -18,15 +19,15 @@ export type TreeNode = InlineNode | BlockNode;
  */
 export type BlockNode = {
   type: TreeNodeType;
-  content: Array<TreeNode>;
+  children: Array<TreeNode>;
 };
 
 /**
  * `InlineNode` is a node that has no children.
  */
 export type InlineNode = {
-  type: 'text';
-  text: string;
+  type: typeof DefaultInlineType;
+  value: string;
 };
 
 /**
@@ -74,7 +75,7 @@ export class Tree {
     function traverse(n: TreeNode, parent: CRDTBlockNode): void {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
-        parent.append(new CRDTInlineNode(ticket, inlineNode.text));
+        parent.append(new CRDTInlineNode(ticket, inlineNode.value));
         return;
       }
 
@@ -82,12 +83,12 @@ export class Tree {
       const node = new CRDTBlockNode(ticket, blockNode.type);
       parent.append(node);
 
-      for (const child of blockNode.content) {
+      for (const child of blockNode.children) {
         traverse(child, node);
       }
     }
 
-    for (const child of this.initialRoot.content) {
+    for (const child of this.initialRoot.children) {
       traverse(child, root);
     }
 
@@ -125,7 +126,7 @@ export class Tree {
     let crdtNode: IndexTreeNode | undefined;
     if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
-      crdtNode = new CRDTInlineNode(ticket, inlineNode.text);
+      crdtNode = new CRDTInlineNode(ticket, inlineNode.value);
     } else if (node) {
       crdtNode = new CRDTBlockNode(ticket, node.type);
     }
