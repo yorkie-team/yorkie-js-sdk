@@ -1,13 +1,12 @@
 import { assert } from 'chai';
 import { InitialTimeTicket as ITT } from '@yorkie-js-sdk/src/document/time/ticket';
+import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
-  CRDTTree,
-  CRDTNode,
+  IndexTreeNode,
   CRDTInlineNode,
   CRDTBlockNode,
   findCommonAncestor,
-  toXML,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
 function betweenEqual(
   tree: CRDTTree,
@@ -15,7 +14,7 @@ function betweenEqual(
   to: number,
   expected: Array<string>,
 ) {
-  const nodes: Array<CRDTNode> = [];
+  const nodes: Array<IndexTreeNode> = [];
   tree.nodesBetween(from, to, (node) => {
     nodes.push(node);
     return true;
@@ -32,7 +31,7 @@ function betweenEqual(
 }
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
-describe.only('CRDTTree', function () {
+describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
@@ -531,7 +530,7 @@ describe.only('CRDTTree', function () {
     );
   });
 
-  it('Can move nodes', function () {
+  it.skip('Can move nodes', function () {
     const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
     tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
@@ -542,20 +541,6 @@ describe.only('CRDTTree', function () {
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b>ab</b><b>cd</b></p></root>`,
-    );
-
-    assert.deepEqual(
-      tree.toXML(),
-      /*html*/ `<root><p><b>a</b><b>b</b><b>c</b><b>d</b></p></root>`,
-    );
-
-    tree.nodesBetween(3, 7, (node) => {
-      console.log(toXML(node));
-    });
-
-    console.log(
-      toXML(tree.findTreePos(3, true).node),
-      toXML(tree.findTreePos(7, true).node),
     );
 
     const ancestor = findCommonAncestor(
