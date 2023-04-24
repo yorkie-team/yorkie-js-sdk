@@ -91,8 +91,10 @@ export abstract class IndexTreeNode {
   parent?: CRDTBlockNode;
   size: number;
 
+  // TODO(hackerwins): Extract the following fields to a CRDT class.
   id: TimeTicket;
   removedAt?: TimeTicket;
+  next?: IndexTreeNode;
 
   constructor(id: TimeTicket, type: TreeNodeType) {
     this.id = id;

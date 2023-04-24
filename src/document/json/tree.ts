@@ -161,4 +161,33 @@ export class Tree {
 
     return this.tree.toXML();
   }
+
+  /**
+   * eslint-disable-next-line jsdoc/require-jsdoc
+   * @internal
+   */
+  public *[Symbol.iterator](): IterableIterator<TreeNode> {
+    if (!this.tree) {
+      return;
+    }
+
+    // TODO(hackerwins): Fill children of BlockNode later.
+    for (const node of this.tree) {
+      if (node.isInline) {
+        const inlineNode = node as CRDTInlineNode;
+        const treeNode = {
+          type: inlineNode.type,
+          value: inlineNode.value,
+        } as InlineNode;
+        yield treeNode;
+      } else {
+        const blockNode = node as CRDTBlockNode;
+        const treeNode = {
+          type: blockNode.type,
+          children: [],
+        } as BlockNode;
+        yield treeNode;
+      }
+    }
+  }
 }

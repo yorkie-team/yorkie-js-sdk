@@ -79,12 +79,11 @@ export class CRDTTree extends CRDTElement {
     this.head = new CRDTBlockNode(InitialTimeTicket, 'dummy');
     this.treeByIndex = new IndexTree(root);
 
-    // TODO(hackerwins): Build linked list from the treeByIndex.
-    // let current = this.head;
-    // this.treeByIndex.nodesBetween(0, this.treeByIndex.size, (node) => {
-    //   current.next = node;
-    //   current = node;
-    // });
+    let current = this.head;
+    this.treeByIndex.nodesBetween(0, this.treeByIndex.size, (node) => {
+      current.next = node;
+      current = node;
+    });
   }
 
   /**
@@ -259,5 +258,16 @@ export class CRDTTree extends CRDTElement {
     const tree = new CRDTTree(this.getRoot(), this.getCreatedAt());
     tree.remove(this.getRemovedAt());
     return tree;
+  }
+
+  /**
+   * `Symbol.iterator` returns the iterator of the tree.
+   */
+  public *[Symbol.iterator](): IterableIterator<IndexTreeNode> {
+    let node = this.head.next;
+    while (node) {
+      yield node;
+      node = node.next;
+    }
   }
 }

@@ -2,7 +2,7 @@ import { assert } from 'chai';
 import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
 
-describe('Tree', () => {
+describe.only('Tree', () => {
   it('Can be created by new and edit', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -73,6 +73,22 @@ describe('Tree', () => {
         /*html*/ `<doc><p>ab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
       );
       assert.equal(root.t.getSize(), 18);
+
+      const list = [];
+      for (const node of root.t) {
+        list.push(node);
+      }
+      assert.deepEqual(list, [
+        { type: 'text', value: 'ab' },
+        { type: 'p', children: [] },
+        { type: 'text', value: 'cd' },
+        { type: 'note', children: [] },
+        { type: 'text', value: 'ef' },
+        { type: 'note', children: [] },
+        { type: 'ng', children: [] },
+        { type: 'text', value: 'gh' },
+        { type: 'bp', children: [] },
+      ]);
     });
   });
 });
