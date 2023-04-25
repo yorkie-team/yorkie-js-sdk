@@ -162,7 +162,7 @@ describe('Document', function () {
           actor: c1ID,
           from: 0,
           to: 0,
-          value: { attributes: { italic: 'true' }, content: 'hello world' },
+          value: { attributes: { italic: true }, content: 'hello world' },
           path: '$.content',
         },
         {
