@@ -216,7 +216,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       ...change,
       value: change.value
         ? {
-            attributes: change.value.getAttributes() as A,
+            attributes: this.parseAttributes(change.value.getAttributes()),
             content: change.value.getContent(),
           }
         : {
