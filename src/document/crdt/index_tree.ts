@@ -609,14 +609,10 @@ export function findCommonAncestor(
 }
 
 /**
- * `findLeftmost` finds the leftmost node of the given node.
+ * `findLeftmost` finds the leftmost node of the given tree.
  */
 export function findLeftmost(node: IndexTreeNode): IndexTreeNode {
-  if (node.isInline) {
-    return node;
-  }
-
-  if (node.children.length === 0) {
+  if (node.isInline || node.children.length === 0) {
     return node;
   }
 
@@ -649,17 +645,6 @@ export class IndexTree {
    */
   traverse(callback: (node: IndexTreeNode) => void): void {
     traverse(this.root, callback);
-  }
-
-  /**
-   * `splitInline` splits the inline node at the given index.
-   */
-  public splitInline(index: number): TreePos {
-    const { node, offset } = findTreePos(this.root, index, true);
-    if (node.isInline) {
-      node.split(offset);
-    }
-    return { node, offset };
   }
 
   /**
@@ -703,14 +688,18 @@ export class IndexTree {
   }
 
   /**
-   * `findRight` finds right node of the given tree position.
+   * `findPostorderRight` finds right node of the given tree position with
+   *  postorder traversal.
    */
-  public findRight(treePos: TreePos): IndexTreeNode | undefined {
+  public findPostorderRight(treePos: TreePos): IndexTreeNode | undefined {
     const { node, offset } = treePos;
+
     if (node.isInline) {
       if (node.size === offset) {
-        const right = node.nextSibling;
-        if (right) return right;
+        const nextSibling = node.nextSibling;
+        if (nextSibling) {
+          return nextSibling;
+        }
 
         return node.parent;
       }
@@ -718,7 +707,7 @@ export class IndexTree {
       return node;
     }
 
-    if (node.children.length <= offset) {
+    if (offset === 0 || node.children.length === offset) {
       return node;
     }
 

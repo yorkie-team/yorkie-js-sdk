@@ -113,10 +113,58 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `nodesBetweenByList` returns the nodes between the given range.
+   */
+  public nodesBetweenByList(
+    left: IndexTreeNode,
+    right: IndexTreeNode,
+    callback: (node: IndexTreeNode) => void,
+  ): void {
+    let current = left;
+    while (current !== right) {
+      if (!current) {
+        console.log('left:', toXML(left), 'right:', toXML(right));
+        // TODO(hackerwins): Fix this.
+        // throw new Error('current is null');
+        break;
+      }
+
+      callback(current);
+      current = current.next!;
+    }
+  }
+
+  /**
+   * `findPostorderRight` finds the right node of the given index in postorder.
+   */
+  public findPostorderRight(index: number): IndexTreeNode | undefined {
+    const pos = this.treeByIndex.findTreePos(index, false);
+    return this.treeByIndex.findPostorderRight(pos);
+  }
+
+  /**
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos {
     return this.treeByIndex.split(index, depth);
+  }
+
+  /**
+   * `splitInline` splits the inline node at the given index.
+   */
+  public splitInline(index: number): [TreePos, IndexTreeNode] {
+    const pos = this.treeByIndex.findTreePos(index, true);
+    if (pos.node.isInline) {
+      const split = pos.node.split(pos.offset);
+      if (split) {
+        this.insertAfter(pos.node, split);
+      }
+    }
+
+    const right = this.treeByIndex.findPostorderRight(
+      this.treeByIndex.findTreePos(index, false),
+    );
+    return [pos, right!];
   }
 
   /**
@@ -157,18 +205,20 @@ export class CRDTTree extends CRDTElement {
     editedAt: TimeTicket,
   ): void {
     // 01. split inline nodes at the given range if needed.
-    const { node: fromNode, offset: fromOffset } = this.treeByIndex.splitInline(
-      range[0],
-    );
-    const right = this.treeByIndex.findRight({
-      node: fromNode,
-      offset: fromOffset,
-    });
-
-    const { node: toNode } = this.treeByIndex.splitInline(range[1]);
+    const [fromPos, fromRight] = this.splitInline(range[0]);
+    const [toPos, toRight] = this.splitInline(range[1]);
 
     // 02. collect the nodes between the given range and remove them.
-    if (fromNode.isAncestorOf(toNode)) {
+    if (range[0] < range[1]) {
+      console.log('f', toXML(fromPos.node), fromPos.offset, toXML(fromRight));
+      console.log('t', toXML(toPos.node), toPos.offset, toXML(toRight));
+
+      // this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
+      //   // console.log(node);
+      // });
+    }
+
+    if (fromPos.node.isAncestorOf(toPos.node)) {
       // 02-1. The range is placed on the same hierarchy.
       const toBeRemoveds: Array<IndexTreeNode> = [];
       this.nodesBetween(range[0], range[1], (node) => {
@@ -179,16 +229,16 @@ export class CRDTTree extends CRDTElement {
       }
 
       let removedBlockNode: IndexTreeNode | undefined;
-      if (toNode.parent?.removedAt) {
-        removedBlockNode = toNode.parent;
-      } else if (!toNode.isInline && toNode.removedAt) {
-        removedBlockNode = toNode;
+      if (toPos.node.parent?.removedAt) {
+        removedBlockNode = toPos.node.parent;
+      } else if (!toPos.node.isInline && toPos.node.removedAt) {
+        removedBlockNode = toPos.node;
       }
 
       // If the nearest removed block node of the toNode is found,
       // insert the alive children of the removed block node to the fromNode.
       if (removedBlockNode) {
-        const blockNode = fromNode as CRDTBlockNode;
+        const blockNode = fromPos.node as CRDTBlockNode;
         const offset = blockNode.findBranchOffset(removedBlockNode);
         for (const node of removedBlockNode.children.reverse()) {
           blockNode.insertAt(node, offset);
@@ -201,7 +251,7 @@ export class CRDTTree extends CRDTElement {
         // We need to leave ancestors of toNode.
         // This is because all nodes are strucutally remapped to postorder traversal list of RGA,
         // so the ancestors of the right-side should be remained.
-        if (node.isAncestorOf(toNode)) {
+        if (node.isAncestorOf(toPos.node)) {
           return;
         }
         toBeRemoveds.push(node);
@@ -209,29 +259,31 @@ export class CRDTTree extends CRDTElement {
       for (const node of toBeRemoveds) {
         node.remove(editedAt);
       }
-      if (fromNode.parent?.removedAt) {
-        toNode.parent?.prepend(...fromNode.parent.children);
+      if (fromPos.node.parent?.removedAt) {
+        toPos.node.parent?.prepend(...fromPos.node.parent.children);
       }
     }
 
     // 03. insert the given node at the given position.
     if (content) {
-      if (fromNode.isInline) {
-        if (fromOffset === 0) {
-          fromNode.parent!.insertBefore(content, fromNode);
-        } else {
-          fromNode.parent!.insertAfter(content, fromNode);
-        }
-      } else {
-        const target = fromNode as CRDTBlockNode;
-        target.insertAt(content, fromOffset + 1);
-      }
-
-      let previous = right!.prev!;
+      // 03-1. insert the content nodes to the list.
+      let previous = fromRight!.prev!;
       traverse(content, (node) => {
         this.insertAfter(previous, node);
         previous = node;
       });
+
+      // 03-2. insert the content nodes to the tree.
+      if (fromPos.node.isInline) {
+        if (fromPos.offset === 0) {
+          fromPos.node.parent!.insertBefore(content, fromPos.node);
+        } else {
+          fromPos.node.parent!.insertAfter(content, fromPos.node);
+        }
+      } else {
+        const target = fromPos.node as CRDTBlockNode;
+        target.insertAt(content, fromPos.offset + 1);
+      }
     }
   }
 
@@ -302,6 +354,7 @@ export class CRDTTree extends CRDTElement {
       if (!node.removedAt) {
         yield node;
       }
+
       node = node.next;
     }
   }

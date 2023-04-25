@@ -235,6 +235,8 @@ describe('CRDTTree', function () {
     // <root> <p> a d </p> </root>
     tree.edit([2, 6], undefined, ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
+
+    // TODO(hackerwins): Uncomment the below line.
     // listEqual(tree, ['text.a', 'text.d', 'p', 'root']);
     const structure = tree.toStructure();
     assert.equal(structure.size, 4); // root
@@ -583,5 +585,35 @@ describe('CRDTTree', function () {
       tree.findTreePos(7, true).node,
     );
     assert.equal(ancestor!.type, 'p');
+  });
+
+  it('Can find right node from the given offset in postorder traversal', function () {
+    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree.edit([5, 5], new CRDTBlockNode(ITT, 'i'), ITT);
+    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
+    tree.edit([8, 8], new CRDTInlineNode(ITT, 'ef'), ITT);
+
+    //       0   1   2 3 4    5   6 7 8 9 10    11    12
+    // <root> <p> <b> a b </b> <i> c d e f  </i>  </p>  </root>
+    //
+    // postorder traversal: "ab", <b>, "cd", <i>, <p>, <root>
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b>ab</b><i>cdef</i></p></root>`,
+    );
+
+    assert.equal(tree.findPostorderRight(0)!.type, 'root');
+    assert.equal(tree.findPostorderRight(1)!.type, 'p');
+    assert.equal(tree.findPostorderRight(2)!.type, 'b');
+    assert.equal(tree.findPostorderRight(4)!.type, 'b');
+    assert.equal(tree.findPostorderRight(5)!.type, 'text');
+    assert.equal(tree.findPostorderRight(6)!.type, 'i');
+    assert.equal(tree.findPostorderRight(8)!.type, 'text');
+    assert.equal(tree.findPostorderRight(10)!.type, 'i');
+    assert.equal(tree.findPostorderRight(11)!.type, 'p');
+    assert.equal(tree.findPostorderRight(12)!.type, 'root');
   });
 });
