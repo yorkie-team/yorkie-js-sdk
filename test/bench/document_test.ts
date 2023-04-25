@@ -426,11 +426,7 @@ const tests = [
         root.price.increase(-100);
         root.price.increase(-20.5);
       });
-      // TODO(JOOHOJANG): We need to check which logic is correct
-      // Math.floor(n) method returns value which is smaller or equal to n when n is negative value
-      // In this case, age field should be 119, not 120
-      // but same TC in yorkie (https://github.com/yorkie-team/yorkie/blob/bbd06b2312e73b267e54970764e5d042e12d810c/test/bench/document_bench_test.go#L387) expect 120 rather than 119
-      assert.equal('{"age":119,"price":9000000000000000003}', doc.toJSON());
+      assert.equal('{"age":120,"price":9000000000000000003}', doc.toJSON());
       // TODO: We need to filter not-allowed type
       // counter.increase() method doesn't filter not-allowed type
     },
