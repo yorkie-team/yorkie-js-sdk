@@ -37,7 +37,7 @@
         textElem.innerText = doc.getRoot().content.getStructureAsString();
       }
 
-      function toDeltaOperation(textValue, immediate = false) {
+      function toDeltaOperation(textValue) {
         const { embed, ...restAttributes } = textValue.attributes ?? {};
 
         if (embed) {
