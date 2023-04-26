@@ -179,7 +179,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   /**
    * `create` a instance of Text.
    */
-  public static create<A = Indexable>(
+  public static create<A extends Indexable>(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
     createdAt: TimeTicket,
   ): CRDTText<A> {
