@@ -263,8 +263,9 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `children` returns the children of the node.
    */
   get children() {
-    // TODO(hackerwins): Remove this filter after removing tombstone nodes from
-    // the tree.
+    // Tombstone nodes remain a while in the tree during editing.
+    // They will be removed after the editing is done.
+    // So, we need to filter out the tombstone nodes to get the real children.
     return this._children.filter((child) => !child.removedAt);
   }
 
@@ -325,6 +326,18 @@ export class CRDTBlockNode extends IndexTreeNode {
   }
 
   /**
+   * `removeChild` removes the given child.
+   */
+  removeChild(childNode: IndexTreeNode) {
+    const offset = this._children.indexOf(childNode);
+    if (offset === -1) {
+      throw new Error('child not found');
+    }
+
+    this._children.splice(offset, 1);
+  }
+
+  /**
    * `splitNode` splits the given node at the given offset.
    */
   split(offset: number): IndexTreeNode | undefined {
@@ -380,7 +393,7 @@ export class CRDTBlockNode extends IndexTreeNode {
    * findOffset returns the offset of the given node in the children.
    */
   findOffset(node: IndexTreeNode): number {
-    return this.children.indexOf(node);
+    return this._children.indexOf(node);
   }
 
   /**

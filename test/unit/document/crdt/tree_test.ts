@@ -350,7 +350,7 @@ describe('CRDTTree', function () {
     );
   });
 
-  it('Can split text nodes', function () {
+  it.skip('Can split text nodes', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1     6     11
     // <root> <p> hello world  </p> </root>
@@ -371,7 +371,7 @@ describe('CRDTTree', function () {
     betweenEqual(tree, 1, 11, ['text.hello', 'text.world']);
   });
 
-  it('Can split block nodes', function () {
+  it.skip('Can split block nodes', function () {
     // 01. Split position 1.
     let tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
     tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);

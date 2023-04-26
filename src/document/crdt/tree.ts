@@ -146,7 +146,8 @@ export class CRDTTree extends CRDTElement {
    */
   public split(index: number, depth = 1): TreePos {
     // TODO(hackerwins): Implement this with keeping references in the list.
-    return this.treeByIndex.split(index, depth);
+    // return this.treeByIndex.split(index, depth);
+    throw new Error(`not implemented, ${index} ${depth}`);
   }
 
   /**
@@ -169,13 +170,12 @@ export class CRDTTree extends CRDTElement {
    * `move` move the given source range to the given target range.
    */
   public move(
-    _target: [number, number],
-    _source: [number, number],
+    target: [number, number],
+    source: [number, number],
     ticket: TimeTicket,
   ): void {
     // TODO(hackerwins, easylogic): Implement this with keeping references of the nodes.
-    console.log(_target, _source, ticket);
-    return;
+    throw new Error(`not implemented: ${target}, ${source}, ${ticket}`);
   }
 
   /**
@@ -206,39 +206,40 @@ export class CRDTTree extends CRDTElement {
     const [fromPos, fromRight] = this.splitInline(range[0]);
     const [toPos, toRight] = this.splitInline(range[1]);
 
-    // 02. collect the nodes from list, between the given range.
     const toBeRemoveds: Array<IndexTreeNode> = [];
+    // 02. collect the nodes from list, between the given range.
     if (fromRight !== toRight) {
       this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
         toBeRemoveds.push(node);
       });
-    }
 
-    // 03. remove the nodes and update the index tree.
-    const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
-    for (const node of toBeRemoveds) {
-      node.remove(editedAt);
-    }
-    if (isRangeOnSameBranch) {
-      let removedBlockNode: IndexTreeNode | undefined;
-      if (fromPos.node.parent?.removedAt) {
-        removedBlockNode = fromPos.node.parent;
-      } else if (!fromPos.node.isInline && fromPos.node.removedAt) {
-        removedBlockNode = fromPos.node;
+      // 03. remove the nodes and update the index tree.
+      const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
+      for (const node of toBeRemoveds) {
+        node.remove(editedAt);
       }
 
-      // If the nearest removed block node of the fromNode is found,
-      // insert the alive children of the removed block node to the toNode.
-      if (removedBlockNode) {
-        const blockNode = toPos.node as CRDTBlockNode;
-        const offset = blockNode.findBranchOffset(removedBlockNode);
-        for (const node of removedBlockNode.children.reverse()) {
-          blockNode.insertAt(node, offset);
+      if (isRangeOnSameBranch) {
+        let removedBlockNode: IndexTreeNode | undefined;
+        if (fromPos.node.parent?.removedAt) {
+          removedBlockNode = fromPos.node.parent;
+        } else if (!fromPos.node.isInline && fromPos.node.removedAt) {
+          removedBlockNode = fromPos.node;
         }
-      }
-    } else {
-      if (fromPos.node.parent?.removedAt) {
-        toPos.node.parent?.prepend(...fromPos.node.parent.children);
+
+        // If the nearest removed block node of the fromNode is found,
+        // insert the alive children of the removed block node to the toNode.
+        if (removedBlockNode) {
+          const blockNode = toPos.node as CRDTBlockNode;
+          const offset = blockNode.findBranchOffset(removedBlockNode);
+          for (const node of removedBlockNode.children.reverse()) {
+            blockNode.insertAt(node, offset);
+          }
+        }
+      } else {
+        if (fromPos.node.parent?.removedAt) {
+          toPos.node.parent?.prepend(...fromPos.node.parent.children);
+        }
       }
     }
 
@@ -262,6 +263,11 @@ export class CRDTTree extends CRDTElement {
         const target = fromPos.node as CRDTBlockNode;
         target.insertAt(content, fromPos.offset + 1);
       }
+    }
+
+    // Remove the nodes from the index tree.
+    for (const node of toBeRemoveds) {
+      node.parent?.removeChild(node);
     }
   }
 

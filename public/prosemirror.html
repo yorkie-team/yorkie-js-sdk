@@ -31,10 +31,10 @@
               <h2>Yorkie</h2>
               <div id="yorkie-log" class="log-view"></div>
             </div>
-          </div>
-          <div class="list-view">
-            <h2>LinkedList</h2>
-            <div id="yorkie-list-log" class="log-list-view"></div>
+            <div class="list-view">
+              <h2>LinkedList</h2>
+              <div id="yorkie-list-log" class="log-list-view"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -363,7 +363,7 @@
       }
 
       function printDocList(doc, id) {
-        const head = doc.head;
+        const head = doc.dummyHead;
 
         const arr = [];
         let node = head;
@@ -374,11 +374,13 @@
             arr.push({
               type: nodeType,
               value: node.value,
+              removedAt: node.removedAt,
             });
           } else {
             arr.push({
               type: nodeType,
               size: node.size,
+              removedAt: node.removedAt,
             });
           }
 
@@ -387,12 +389,14 @@
 
         const html = arr
           .map((node) => {
+            const className = node.removedAt ? 'removed' : '';
+
             if (node.type === 'text') {
-              return `<div class="inline">${
+              return `<div class="inline ${className}">${
                 node.value === ' ' ? '&nbsp;&nbsp;' : node.value
               }</div>`;
             }
-            return `<div class="block">${node.type}${
+            return `<div class="block ${className}">${node.type}${
               node.size ? `<span class="size">(${node.size})</span>` : ''
             }</div>`;
           })

@@ -3,7 +3,7 @@ import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Tree', () => {
-  it('Can be created by new and edit', function () {
+  it('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 

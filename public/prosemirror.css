@@ -426,6 +426,11 @@ img.ProseMirror-separator {
   font-style: italic;
 }
 
+.block.removed {
+  background-color: rgb(225, 138, 138);
+  text-decoration: line-through;
+}
+
 .inline {
   font-weight: bold;
   background-color: rgba(0, 0, 0, 0.2);
@@ -433,6 +438,11 @@ img.ProseMirror-separator {
   box-sizing: border-box;
   border: 1px solid rgba(0, 0, 0, 0.5);
   padding: 0 2px;
+}
+
+.inline.removed {
+  background-color: rgb(225, 138, 138);
+  text-decoration: line-through;
 }
 
 .size {
@@ -536,7 +546,10 @@ img.ProseMirror-separator {
   display: flex;
 }
 
+.yorkie {
+  min-width: 300px;
+}
+
 .list-view {
   flex: 1 1 auto;
-  background-color: coral;
 }
