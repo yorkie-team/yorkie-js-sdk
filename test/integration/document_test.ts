@@ -100,8 +100,6 @@ describe('Document', function () {
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
 
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     type TestDoc = {
@@ -159,7 +157,6 @@ describe('Document', function () {
         { type: 'set', path: '$', key: 'content' },
         {
           type: 'edit',
-          actor: c1ID,
           from: 0,
           to: 0,
           value: { attributes: { italic: 'true' }, content: 'hello world' },
@@ -167,7 +164,6 @@ describe('Document', function () {
         },
         {
           type: 'select',
-          actor: c1ID,
           from: 11,
           to: 11,
           path: '$.content',
@@ -209,14 +205,12 @@ describe('Document', function () {
         },
         {
           type: 'select',
-          actor: c2ID,
           from: 0,
           to: 5,
           path: '$.content',
         },
         {
           type: 'style',
-          actor: c2ID,
           from: 0,
           to: 5,
           value: { attributes: { bold: true } },

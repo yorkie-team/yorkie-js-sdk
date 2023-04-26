@@ -1093,14 +1093,12 @@ describe('Document', function () {
       expectedOps.push({
         type: 'edit',
         path: '$.text',
-        actor: '000000000000000000000000',
         from: 0,
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
       expectedOps.push({
         type: 'select',
-        actor: '000000000000000000000000',
         from: 11,
         to: 11,
         path: '$.text',
@@ -1109,7 +1107,6 @@ describe('Document', function () {
       expectedOps.push({
         type: 'select',
         path: '$.text',
-        actor: '000000000000000000000000',
         from: 0,
         to: 2,
       });
@@ -1147,14 +1144,12 @@ describe('Document', function () {
       expectedOps.push({
         type: 'edit',
         path: '$.textWithAttr',
-        actor: '000000000000000000000000',
         from: 0,
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
       expectedOps.push({
         type: 'select',
-        actor: '000000000000000000000000',
         from: 11,
         to: 11,
         path: '$.textWithAttr',
@@ -1163,7 +1158,6 @@ describe('Document', function () {
       expectedOps.push({
         type: 'style',
         path: '$.textWithAttr',
-        actor: '000000000000000000000000',
         from: 0,
         to: 1,
         value: { attributes: { bold: 'true' } },
