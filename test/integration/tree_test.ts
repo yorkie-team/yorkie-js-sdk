@@ -90,6 +90,18 @@ describe('Tree', () => {
         { type: 'bp', children: [] },
         { type: 'doc', children: [] },
       ]);
+
+      root.t.edit(1, 1, { type: 'text', value: 'X' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p>Xab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
+      );
+
+      root.t.edit(1, 2);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p>ab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
+      );
     });
   });
 });

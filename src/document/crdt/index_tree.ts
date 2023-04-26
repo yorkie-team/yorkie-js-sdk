@@ -167,7 +167,7 @@ export abstract class IndexTreeNode {
   /**
    * `split` splits the node at the given offset.
    */
-  abstract split(offset: number): IndexTreeNode;
+  abstract split(offset: number): IndexTreeNode | undefined;
 
   /**
    * `nextSibling` returns the next sibling of the node.
@@ -221,9 +221,9 @@ export class CRDTInlineNode extends IndexTreeNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  split(offset: number): IndexTreeNode {
+  split(offset: number): IndexTreeNode | undefined {
     if (offset === 0 || offset === this.size) {
-      return this;
+      return;
     }
 
     const leftValue = this.value.slice(0, offset);
@@ -325,7 +325,7 @@ export class CRDTBlockNode extends IndexTreeNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  split(offset: number): IndexTreeNode {
+  split(offset: number): IndexTreeNode | undefined {
     const clone = new CRDTBlockNode(this.id, this.type);
     this.parent!.insertAfterInternal(clone, this);
     clone.updateAncestorsSize();
@@ -707,7 +707,7 @@ export class IndexTree {
       return node;
     }
 
-    if (offset === 0 || node.children.length === offset) {
+    if (node.children.length === offset) {
       return node;
     }
 

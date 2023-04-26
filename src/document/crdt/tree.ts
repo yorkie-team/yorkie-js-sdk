@@ -114,6 +114,7 @@ export class CRDTTree extends CRDTElement {
 
   /**
    * `nodesBetweenByList` returns the nodes between the given range.
+   * This method includes the given left node and the given right node.
    */
   public nodesBetweenByList(
     left: IndexTreeNode,
@@ -123,22 +124,20 @@ export class CRDTTree extends CRDTElement {
     let current = left;
     while (current !== right) {
       if (!current) {
-        console.log('left:', toXML(left), 'right:', toXML(right));
-        // TODO(hackerwins): Fix this.
-        // throw new Error('current is null');
-        break;
+        throw new Error('left and right are not in the same list');
       }
 
       callback(current);
       current = current.next!;
     }
+    callback(current);
   }
 
   /**
    * `findPostorderRight` finds the right node of the given index in postorder.
    */
   public findPostorderRight(index: number): IndexTreeNode | undefined {
-    const pos = this.treeByIndex.findTreePos(index, false);
+    const pos = this.treeByIndex.findTreePos(index, true);
     return this.treeByIndex.findPostorderRight(pos);
   }
 
@@ -146,6 +145,7 @@ export class CRDTTree extends CRDTElement {
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos {
+    // TODO(hackerwins): Implement this with keeping references in the list.
     return this.treeByIndex.split(index, depth);
   }
 
@@ -161,9 +161,7 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
-    const right = this.treeByIndex.findPostorderRight(
-      this.treeByIndex.findTreePos(index, false),
-    );
+    const right = this.treeByIndex.findPostorderRight(pos);
     return [pos, right!];
   }
 
@@ -208,72 +206,52 @@ export class CRDTTree extends CRDTElement {
     const [fromPos, fromRight] = this.splitInline(range[0]);
     const [toPos, toRight] = this.splitInline(range[1]);
 
-    // 02. collect the nodes between the given range and remove them.
-    if (range[0] < range[1]) {
-      console.log('f', toXML(fromPos.node), fromPos.offset, toXML(fromRight));
-      console.log('t', toXML(toPos.node), toPos.offset, toXML(toRight));
-
-      // this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
-      //   // console.log(node);
-      // });
-    }
-
-    if (fromPos.node.isAncestorOf(toPos.node)) {
-      // 02-1. The range is placed on the same hierarchy.
-      const toBeRemoveds: Array<IndexTreeNode> = [];
-      this.nodesBetween(range[0], range[1], (node) => {
+    // 02. collect the nodes from list, between the given range.
+    const toBeRemoveds: Array<IndexTreeNode> = [];
+    if (fromRight !== toRight) {
+      this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
         toBeRemoveds.push(node);
       });
-      for (const node of toBeRemoveds) {
-        node.remove(editedAt);
-      }
+    }
 
+    // 03. remove the nodes and update the index tree.
+    const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
+    for (const node of toBeRemoveds) {
+      node.remove(editedAt);
+    }
+    if (isRangeOnSameBranch) {
       let removedBlockNode: IndexTreeNode | undefined;
-      if (toPos.node.parent?.removedAt) {
-        removedBlockNode = toPos.node.parent;
-      } else if (!toPos.node.isInline && toPos.node.removedAt) {
-        removedBlockNode = toPos.node;
+      if (fromPos.node.parent?.removedAt) {
+        removedBlockNode = fromPos.node.parent;
+      } else if (!fromPos.node.isInline && fromPos.node.removedAt) {
+        removedBlockNode = fromPos.node;
       }
 
-      // If the nearest removed block node of the toNode is found,
-      // insert the alive children of the removed block node to the fromNode.
+      // If the nearest removed block node of the fromNode is found,
+      // insert the alive children of the removed block node to the toNode.
       if (removedBlockNode) {
-        const blockNode = fromPos.node as CRDTBlockNode;
+        const blockNode = toPos.node as CRDTBlockNode;
         const offset = blockNode.findBranchOffset(removedBlockNode);
         for (const node of removedBlockNode.children.reverse()) {
           blockNode.insertAt(node, offset);
         }
       }
     } else {
-      // 02-2. The range is placed on the different hierarchy.
-      const toBeRemoveds: Array<IndexTreeNode> = [];
-      this.nodesBetween(range[0], range[1], (node) => {
-        // We need to leave ancestors of toNode.
-        // This is because all nodes are strucutally remapped to postorder traversal list of RGA,
-        // so the ancestors of the right-side should be remained.
-        if (node.isAncestorOf(toPos.node)) {
-          return;
-        }
-        toBeRemoveds.push(node);
-      });
-      for (const node of toBeRemoveds) {
-        node.remove(editedAt);
-      }
       if (fromPos.node.parent?.removedAt) {
         toPos.node.parent?.prepend(...fromPos.node.parent.children);
       }
     }
 
-    // 03. insert the given node at the given position.
+    // 04. insert the given node at the given position.
     if (content) {
-      // 03-1. insert the content nodes to the list.
+      // 04-1. insert the content nodes to the list.
       let previous = fromRight!.prev!;
       traverse(content, (node) => {
         this.insertAfter(previous, node);
         previous = node;
       });
 
-      // 03-2. insert the content nodes to the tree.
+      // 04-2. insert the content nodes to the tree.
       if (fromPos.node.isInline) {
         if (fromPos.offset === 0) {
           fromPos.node.parent!.insertBefore(content, fromPos.node);
