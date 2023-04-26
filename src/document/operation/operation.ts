@@ -61,7 +61,6 @@ export type IncreaseOpInfo = {
 };
 export type EditOpInfo = {
   type: 'edit';
-  actor: ActorID;
   from: number;
   to: number;
   path: string;
@@ -72,7 +71,6 @@ export type EditOpInfo = {
 };
 export type StyleOpInfo = {
   type: 'style';
-  actor: ActorID;
   from: number;
   to: number;
   path: string;
@@ -82,7 +80,6 @@ export type StyleOpInfo = {
 };
 export type SelectOpInfo = {
   type: 'select';
-  actor: ActorID;
   from: number;
   to: number;
   path: string;

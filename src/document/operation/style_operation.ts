@@ -82,10 +82,9 @@ export class StyleOperation extends Operation {
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
     );
-    return changes.map(({ actor, from, to, value }) => {
+    return changes.map(({ from, to, value }) => {
       return {
         type: 'style',
-        actor,
         from,
         to,
         value,
