@@ -17,5 +17,5 @@ export declare interface LocalChangeEvent
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [type](./yorkie-js-sdk.localchangeevent.type.md) | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
-|  [value](./yorkie-js-sdk.localchangeevent.value.md) | Array&lt;ChangeInfo&gt; | LocalChangeEvent type |
+|  [value](./yorkie-js-sdk.localchangeevent.value.md) | Array&lt;[ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&gt; | LocalChangeEvent type |
 

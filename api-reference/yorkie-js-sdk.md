@@ -31,6 +31,7 @@
 
 |  Interface | Description |
 |  --- | --- |
+|  [ChangeInfo](./yorkie-js-sdk.changeinfo.md) | <code>ChangeInfo</code> represents the modifications made during a document update and the message passed. |
 |  [ClientOptions](./yorkie-js-sdk.clientoptions.md) | <code>ClientOptions</code> are user-settable options used when defining clients. |
 |  [DocumentsChangedEvent](./yorkie-js-sdk.documentschangedevent.md) | <code>DocumentsChangedEvent</code> is an event that occurs when documents attached to the client changes. |
 |  [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md) | <code>DocumentSyncedEvent</code> is an event that occurs when documents attached to the client are synced. |
@@ -61,6 +62,7 @@
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> is a wrapper for <code>CRDTElement</code> that provides users with an easy-to-use interface for manipulating <code>Document</code>s. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
+|  [OperationInfo](./yorkie-js-sdk.operationinfo.md) | <code>OperationInfo</code> represents the information of an operation. It is used to inform to the user what kind of operation was executed. |
 |  [PresenceInfo](./yorkie-js-sdk.presenceinfo.md) | <code>PresenceInfo</code> is presence information of this client. |
 |  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
