@@ -71,10 +71,12 @@ export class SelectOperation extends Operation {
       [this.fromPos, this.toPos],
       this.getExecutedAt(),
     );
+
     return change
       ? [
           {
-            ...change,
+            from: change.from,
+            to: change.to,
             type: 'select',
             element: this.getParentCreatedAt(),
           },
