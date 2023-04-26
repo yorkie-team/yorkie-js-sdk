@@ -138,7 +138,10 @@ describe('Document', function () {
       root.counter = new yorkie.Counter(yorkie.IntType, 100);
       root.todos = ['todo1', 'todo2', 'todo3'];
       root.content = new yorkie.Text();
-      root.content.edit(0, 0, 'hello world', { italic: true });
+      root.content.edit(0, 0, 'hello world', {
+        italic: true,
+        objAttr: { key1: { key2: 'value' } },
+      });
       root.obj = {
         name: 'josh',
         age: 14,
@@ -162,7 +165,10 @@ describe('Document', function () {
           actor: c1ID,
           from: 0,
           to: 0,
-          value: { attributes: { italic: 'true' }, content: 'hello world' },
+          value: {
+            attributes: { italic: true, objAttr: { key1: { key2: 'value' } } },
+            content: 'hello world',
+          },
           path: '$.content',
         },
         {
