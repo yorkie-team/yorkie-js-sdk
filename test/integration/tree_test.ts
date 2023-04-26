@@ -90,18 +90,31 @@ describe('Tree', () => {
         { type: 'bp', children: [] },
         { type: 'doc', children: [] },
       ]);
+    });
+  });
+
+  it('Can edit its content', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
 
       root.t.edit(1, 1, { type: 'text', value: 'X' });
-      assert.equal(
-        root.t.toXML(),
-        /*html*/ `<doc><p>Xab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
-      );
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
 
       root.t.edit(1, 2);
-      assert.equal(
-        root.t.toXML(),
-        /*html*/ `<doc><p>ab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
-      );
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      root.t.edit(2, 2, { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>aXb</p></doc>`);
+
+      root.t.edit(2, 3);
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
   });
 });

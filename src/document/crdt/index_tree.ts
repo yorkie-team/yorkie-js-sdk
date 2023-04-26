@@ -263,6 +263,8 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `children` returns the children of the node.
    */
   get children() {
+    // TODO(hackerwins): Remove this filter after removing tombstone nodes from
+    // the tree.
     return this._children.filter((child) => !child.removedAt);
   }
 
@@ -378,7 +380,7 @@ export class CRDTBlockNode extends IndexTreeNode {
    * findOffset returns the offset of the given node in the children.
    */
   findOffset(node: IndexTreeNode): number {
-    return this._children.indexOf(node);
+    return this.children.indexOf(node);
   }
 
   /**
