@@ -6,7 +6,6 @@ import { CRDTTree, CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   DefaultRootType,
   DefaultInlineType,
-  IndexTreeNode,
   TreeNodeType,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
@@ -126,7 +125,7 @@ export class Tree {
 
     const ticket = this.context.issueTimeTicket();
 
-    let crdtNode: IndexTreeNode | undefined;
+    let crdtNode: CRDTTreeNode | undefined;
     if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
       crdtNode = new CRDTTreeNode(ticket, inlineNode.type, inlineNode.value);
@@ -178,18 +177,16 @@ export class Tree {
     for (const node of this.tree) {
       if (node.isInline) {
         const inlineNode = node as InlineNode;
-        const treeNode = {
+        yield {
           type: inlineNode.type,
           value: inlineNode.value,
-        } as InlineNode;
-        yield treeNode;
+        };
       } else {
         const blockNode = node as BlockNode;
-        const treeNode = {
+        yield {
           type: blockNode.type,
           children: [],
-        } as BlockNode;
-        yield treeNode;
+        };
       }
     }
   }

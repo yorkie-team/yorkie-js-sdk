@@ -78,40 +78,15 @@ export const DefaultInlineType = 'text';
 export type TreeNodeType = string;
 
 /**
- * `TreeNode` represents the JSON representation of a node in the tree.
- * It is used to serialize and deserialize the tree.
- */
-export type TreeNode = {
-  type: TreeNodeType;
-  children?: Array<TreeNode>;
-  value?: string;
-};
-
-/**
- * `TreeNodeForTest` represents the JSON representation of a node in the tree.
- * It is used for testing.
- */
-export type TreeNodeForTest = TreeNode & {
-  children?: Array<TreeNodeForTest>;
-  size: number;
-  isRemoved: boolean;
-};
-
-/**
  * `IndexTreeNode` is the node of IndexTree.
  */
-export abstract class IndexTreeNode {
+export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   type: TreeNodeType;
-  parent?: IndexTreeNode;
-  _children: Array<IndexTreeNode>;
+  parent?: T;
+  _children: Array<T>;
   size: number;
 
-  // TODO(hackerwins): Move the following fields to CRDTTreeNode after
-  // introducing generic type for IndexTree.
-  next?: IndexTreeNode;
-  prev?: IndexTreeNode;
-
-  constructor(type: TreeNodeType, children: Array<IndexTreeNode> = []) {
+  constructor(type: TreeNodeType, children: Array<T> = []) {
     this.type = type;
     this.size = 0;
     this._children = children;
@@ -125,7 +100,7 @@ export abstract class IndexTreeNode {
    * `updateAncestorsSize` updates the size of the ancestors.
    */
   updateAncestorsSize(): void {
-    let parent: IndexTreeNode | undefined = this.parent;
+    let parent: T | undefined = this.parent;
     const sign = this.isRemoved ? -1 : 1;
 
     while (parent) {
@@ -151,22 +126,22 @@ export abstract class IndexTreeNode {
   /**
    * `isAncenstorOf` returns true if the node is an ancestor of the given node.
    */
-  isAncestorOf(node: IndexTreeNode): boolean {
-    return ancestorOf(this, node);
+  isAncestorOf(node: T): boolean {
+    return ancestorOf(this as any, node);
   }
 
   /**
    * `isDescendantOf` returns true if the node is a descendant of the given node.
    */
-  isDescendantOf(node: IndexTreeNode): boolean {
-    return ancestorOf(node, this);
+  isDescendantOf(node: T): boolean {
+    return ancestorOf(node, this as any);
   }
 
   /**
    * `nextSibling` returns the next sibling of the node.
    */
-  get nextSibling(): IndexTreeNode | undefined {
-    const offset = this.parent!.findOffset(this);
+  get nextSibling(): T | undefined {
+    const offset = this.parent!.findOffset(this as any);
     const sibling = this.parent!.children[offset + 1];
     if (sibling) {
       return sibling;
@@ -178,7 +153,7 @@ export abstract class IndexTreeNode {
   /**
    * `split` splits the node at the given offset.
    */
-  split(offset: number): IndexTreeNode | undefined {
+  split(offset: number): T | undefined {
     if (this.isInline) {
       return this.splitInline(offset);
     }
@@ -194,7 +169,7 @@ export abstract class IndexTreeNode {
   /**
    * `clone` clones the node with the given id and value.
    */
-  abstract clone(): IndexTreeNode;
+  abstract clone(): T;
 
   /**
    * `value` returns the value of the node.
@@ -209,7 +184,7 @@ export abstract class IndexTreeNode {
   /**
    * `splitInline` splits the given node at the given offset.
    */
-  splitInline(offset: number): IndexTreeNode | undefined {
+  splitInline(offset: number): T | undefined {
     if (offset === 0 || offset === this.size) {
       return;
     }
@@ -221,7 +196,7 @@ export abstract class IndexTreeNode {
 
     const rightNode = this.clone();
     rightNode.value = rightValue;
-    this.parent!.insertAfterInternal(rightNode, this);
+    this.parent!.insertAfterInternal(rightNode, this as any);
 
     return rightNode;
   }
@@ -229,7 +204,7 @@ export abstract class IndexTreeNode {
   /**
    * `children` returns the children of the node.
    */
-  get children() {
+  get children(): Array<T> {
     // Tombstone nodes remain a while in the tree during editing.
     // They will be removed after the editing is done.
     // So, we need to filter out the tombstone nodes to get the real children.
@@ -239,14 +214,14 @@ export abstract class IndexTreeNode {
   /**
    * `append` appends the given nodes to the children.
    */
-  append(...newNode: Array<IndexTreeNode>): void {
+  append(...newNode: Array<T>): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
 
     this._children.push(...newNode);
     for (const node of newNode) {
-      node.parent = this;
+      node.parent = this as any;
       node.updateAncestorsSize();
     }
   }
@@ -254,14 +229,14 @@ export abstract class IndexTreeNode {
   /**
    * `prepend` prepends the given nodes to the children.
    */
-  prepend(...newNode: Array<IndexTreeNode>): void {
+  prepend(...newNode: Array<T>): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
 
     this._children.unshift(...newNode);
     for (const node of newNode) {
-      node.parent = this;
+      node.parent = this as any;
       node.updateAncestorsSize();
     }
   }
@@ -269,7 +244,7 @@ export abstract class IndexTreeNode {
   /**
    * `insertBefore` inserts the given node before the given child.
    */
-  insertBefore(newNode: IndexTreeNode, referenceNode: IndexTreeNode): void {
+  insertBefore(newNode: T, referenceNode: T): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -286,7 +261,7 @@ export abstract class IndexTreeNode {
   /**
    * `insertAfter` inserts the given node after the given child.
    */
-  insertAfter(newNode: IndexTreeNode, referenceNode: IndexTreeNode): void {
+  insertAfter(newNode: T, referenceNode: T): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -303,7 +278,7 @@ export abstract class IndexTreeNode {
   /**
    * `insertAt` inserts the given node at the given offset.
    */
-  insertAt(newNode: IndexTreeNode, offset: number): void {
+  insertAt(newNode: T, offset: number): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -315,7 +290,7 @@ export abstract class IndexTreeNode {
   /**
    * `removeChild` removes the given child.
    */
-  removeChild(childNode: IndexTreeNode) {
+  removeChild(childNode: T) {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -332,13 +307,13 @@ export abstract class IndexTreeNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  splitBlock(offset: number): IndexTreeNode | undefined {
+  splitBlock(offset: number): T | undefined {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
 
     const clone = this.clone();
-    this.parent!.insertAfterInternal(clone, this);
+    this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
 
     const leftChildren = this.children.slice(0, offset);
@@ -364,10 +339,7 @@ export abstract class IndexTreeNode {
    * `insertAfterInternal` inserts the given node after the given child.
    * This method does not update the size of the ancestors.
    */
-  insertAfterInternal(
-    newNode: IndexTreeNode,
-    referenceNode: IndexTreeNode,
-  ): void {
+  insertAfterInternal(newNode: T, referenceNode: T): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -384,19 +356,19 @@ export abstract class IndexTreeNode {
    * `insertAtInternal` inserts the given node at the given index.
    * This method does not update the size of the ancestors.
    */
-  insertAtInternal(newNode: IndexTreeNode, offset: number): void {
+  insertAtInternal(newNode: T, offset: number): void {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
 
     this._children.splice(offset, 0, newNode);
-    newNode.parent = this;
+    newNode.parent = this as any;
   }
 
   /**
    * findOffset returns the offset of the given node in the children.
    */
-  findOffset(node: IndexTreeNode): number {
+  findOffset(node: T): number {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
@@ -408,12 +380,12 @@ export abstract class IndexTreeNode {
    * `findBranchOffset` returns offset of the given descendant node in this node.
    * If the given node is not a descendant of this node, it returns -1.
    */
-  findBranchOffset(node: IndexTreeNode): number {
+  findBranchOffset(node: T): number {
     if (this.isInline) {
       throw new Error('Inline node cannot have children');
     }
 
-    let current: IndexTreeNode | undefined = node;
+    let current: T | undefined = node;
     while (current) {
       const offset = this._children.indexOf(current);
       if (offset !== -1) {
@@ -434,15 +406,15 @@ export abstract class IndexTreeNode {
  * block node, the offset is the index of the child node. If the node is a
  * inline node, the offset is the index of the character.
  */
-export type TreePos = {
-  node: IndexTreeNode;
+export type TreePos<T extends IndexTreeNode<T>> = {
+  node: T;
   offset: number;
 };
 
 /**
  * `ancestorOf` returns true if the given node is an ancestor of the other node.
  */
-function ancestorOf(ancestor: IndexTreeNode, node: IndexTreeNode): boolean {
+function ancestorOf<T extends IndexTreeNode<T>>(ancestor: T, node: T): boolean {
   if (ancestor === node) {
     return false;
   }
@@ -461,11 +433,11 @@ function ancestorOf(ancestor: IndexTreeNode, node: IndexTreeNode): boolean {
  * If the given range is collapsed, the callback is not called.
  * It traverses the tree with postorder traversal.
  */
-function nodesBetween(
-  root: IndexTreeNode,
+function nodesBetween<T extends IndexTreeNode<T>>(
+  root: T,
   from: number,
   to: number,
-  callback: (node: IndexTreeNode) => void,
+  callback: (node: T) => void,
 ) {
   if (from > to) {
     throw new Error(`from is greater than to: ${from} > ${to}`);
@@ -512,9 +484,9 @@ function nodesBetween(
 /**
  * `traverse` traverses the tree with postorder traversal.
  */
-export function traverse(
-  node: IndexTreeNode,
-  callback: (node: IndexTreeNode) => void,
+export function traverse<T extends IndexTreeNode<T>>(
+  node: T,
+  callback: (node: T) => void,
 ) {
   for (const child of node.children) {
     traverse(child, callback);
@@ -525,11 +497,11 @@ export function traverse(
 /**
  * `findTreePos` finds the position of the given index in the given node.
  */
-function findTreePos(
-  node: IndexTreeNode,
+function findTreePos<T extends IndexTreeNode<T>>(
+  node: T,
   index: number,
   preperInline = true,
-): TreePos {
+): TreePos<T> {
   if (index > node.size) {
     throw new Error(`index is out of range: ${index} > ${node.size}`);
   }
@@ -576,8 +548,8 @@ function findTreePos(
 /**
  * `getAncestors` returns the ancestors of the given node.
  */
-export function getAncestors(node: IndexTreeNode): Array<IndexTreeNode> {
-  const ancestors: Array<IndexTreeNode> = [];
+export function getAncestors<T extends IndexTreeNode<T>>(node: T): Array<T> {
+  const ancestors: Array<T> = [];
   let parent = node.parent;
   while (parent) {
     ancestors.unshift(parent);
@@ -589,10 +561,10 @@ export function getAncestors(node: IndexTreeNode): Array<IndexTreeNode> {
 /**
  * `findCommonAncestor` finds the lowest common ancestor of the given nodes.
  */
-export function findCommonAncestor(
-  nodeA: IndexTreeNode,
-  nodeB: IndexTreeNode,
-): IndexTreeNode | undefined {
+export function findCommonAncestor<T extends IndexTreeNode<T>>(
+  nodeA: T,
+  nodeB: T,
+): T | undefined {
   if (nodeA === nodeB) {
     return nodeA;
   }
@@ -600,7 +572,7 @@ export function findCommonAncestor(
   const ancestorsOfA = getAncestors(nodeA);
   const ancestorsOfB = getAncestors(nodeB);
 
-  let commonAncestor: IndexTreeNode | undefined;
+  let commonAncestor: T | undefined;
   for (let i = 0; i < ancestorsOfA.length; i++) {
     const ancestorOfA = ancestorsOfA[i];
     const ancestorOfB = ancestorsOfB[i];
@@ -618,7 +590,7 @@ export function findCommonAncestor(
 /**
  * `findLeftmost` finds the leftmost node of the given tree.
  */
-export function findLeftmost(node: IndexTreeNode): IndexTreeNode {
+export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
   if (node.isInline || node.children.length === 0) {
     return node;
   }
@@ -629,38 +601,34 @@ export function findLeftmost(node: IndexTreeNode): IndexTreeNode {
 /**
  * `IndexTree` is a tree structure for linear indexing.
  */
-export class IndexTree {
-  private root: IndexTreeNode;
+export class IndexTree<T extends IndexTreeNode<T>> {
+  private root: T;
 
-  constructor(root: IndexTreeNode) {
+  constructor(root: T) {
     this.root = root;
   }
 
   /**
    * `nodeBetween` returns the nodes between the given range.
    */
-  nodesBetween(
-    from: number,
-    to: number,
-    callback: (node: IndexTreeNode) => void,
-  ): void {
-    nodesBetween(this.root, from, to, callback);
+  nodesBetween(from: number, to: number, callback: (node: T) => void): void {
+    nodesBetween<T>(this.root, from, to, callback);
   }
 
   /**
    * `traverse` traverses the tree with postorder traversal.
    */
-  traverse(callback: (node: IndexTreeNode) => void): void {
+  traverse(callback: (node: T) => void): void {
     traverse(this.root, callback);
   }
 
   /**
    * `split` splits the node at the given index.
    */
-  public split(index: number, depth = 1): TreePos {
+  public split(index: number, depth = 1): TreePos<T> {
     const treePos = findTreePos(this.root, index, true);
 
-    let node: IndexTreeNode | undefined = treePos.node;
+    let node: T | undefined = treePos.node;
     let offset: number = treePos.offset;
     for (let i = 0; i < depth && node && node !== this.root; i++) {
       node.split(offset);
@@ -676,14 +644,14 @@ export class IndexTree {
   /**
    * findTreePos finds the position of the given index in the tree.
    */
-  public findTreePos(index: number, preperInline = true): TreePos {
+  public findTreePos(index: number, preperInline = true): TreePos<T> {
     return findTreePos(this.root, index, preperInline);
   }
 
   /**
    * `getRoot` returns the root node of the tree.
    */
-  public getRoot(): IndexTreeNode {
+  public getRoot(): T {
     return this.root;
   }
 
@@ -698,7 +666,7 @@ export class IndexTree {
    * `findPostorderRight` finds right node of the given tree position with
    *  postorder traversal.
    */
-  public findPostorderRight(treePos: TreePos): IndexTreeNode | undefined {
+  public findPostorderRight(treePos: TreePos<T>): T | undefined {
     const { node, offset } = treePos;
 
     if (node.isInline) {

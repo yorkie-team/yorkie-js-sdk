@@ -17,10 +17,7 @@
 import { assert } from 'chai';
 import { InitialTimeTicket as ITT } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import {
-  IndexTreeNode,
-  findCommonAncestor,
-} from '@yorkie-js-sdk/src/document/crdt/index_tree';
+import { findCommonAncestor } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
 /**
  * `betweenEqual` is a helper function that checks the nodes between the given
@@ -32,7 +29,7 @@ function betweenEqual(
   to: number,
   expected: Array<string>,
 ) {
-  const nodes: Array<IndexTreeNode> = [];
+  const nodes: Array<CRDTTreeNode> = [];
   tree.nodesBetweenByTree(from, to, (node) => {
     nodes.push(node);
     return true;
@@ -52,7 +49,7 @@ function betweenEqual(
  * `listEqual` is a helper function that checks the nodes in the RGA in Tree.
  */
 function listEqual(tree: CRDTTree, expected: Array<string>) {
-  const nodes: Array<IndexTreeNode> = [];
+  const nodes: Array<CRDTTreeNode> = [];
   for (const node of tree) {
     nodes.push(node);
   }
