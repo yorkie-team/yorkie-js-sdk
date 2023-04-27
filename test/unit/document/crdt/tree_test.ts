@@ -16,11 +16,9 @@
 
 import { assert } from 'chai';
 import { InitialTimeTicket as ITT } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { CRDTTree, CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   IndexTreeNode,
-  CRDTInlineNode,
-  CRDTBlockNode,
   findCommonAncestor,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
@@ -42,7 +40,7 @@ function betweenEqual(
   assert.deepEqual(
     nodes.map((node) => {
       if (node.isInline) {
-        return `${node.type}.${(node as CRDTInlineNode).value}`;
+        return `${node.type}.${node.value}`;
       }
       return node.type;
     }),
@@ -61,7 +59,7 @@ function listEqual(tree: CRDTTree, expected: Array<string>) {
   assert.deepEqual(
     nodes.map((node) => {
       if (node.isInline) {
-        return `${node.type}.${(node as CRDTInlineNode).value}`;
+        return `${node.type}.${node.value}`;
       }
       return node.type;
     }),
@@ -74,7 +72,7 @@ describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'r'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'r'), ITT);
     assert.equal(tree.getRoot().size, 0);
     assert.equal(tree.toXML(), /*html*/ `<r></r>`);
     listEqual(tree, ['r']);
@@ -83,7 +81,7 @@ describe('CRDTTree', function () {
 
     //           1
     // <root> <p> </p> </root>
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
     assert.equal(tree.toXML(), /*html*/ `<r><p></p></r>`);
     listEqual(tree, ['p', 'r']);
     assert.equal(tree.getRoot().size, 2);
@@ -92,7 +90,7 @@ describe('CRDTTree', function () {
 
     //           1
     // <root> <p> h e l l o </p> </root>
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'hello'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'hello'), ITT);
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p></r>`);
     listEqual(tree, ['text.hello', 'p', 'r']);
     assert.equal(tree.getRoot().size, 7);
@@ -103,7 +101,7 @@ describe('CRDTTree', function () {
     // <root> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </root>
     tree.edit(
       [7, 7],
-      new CRDTBlockNode(ITT, 'p', [new CRDTInlineNode(ITT, 'world')]),
+      new CRDTTreeNode(ITT, 'p', [new CRDTTreeNode(ITT, 'text', 'world')]),
       ITT,
     );
     pos = tree.findTreePos(7);
@@ -133,7 +131,7 @@ describe('CRDTTree', function () {
 
     //       0   1 2 3 4 5 6 7    8   9 10 11 12 13 14    15
     // <root> <p> h e l l o ! </p> <p> w  o  r  l  d  </p>  </root>
-    tree.edit([6, 6], new CRDTInlineNode(ITT, '!'), ITT);
+    tree.edit([6, 6], new CRDTTreeNode(ITT, 'text', '!'), ITT);
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
     listEqual(tree, ['text.hello', 'text.!', 'p', 'text.world', 'p', 'r']);
 
@@ -167,7 +165,7 @@ describe('CRDTTree', function () {
 
     //       0   1 2 3 4 5 6 7 8    9   10 11 12 13 14 15    16
     // <root> <p> h e l l o ~ ! </p> <p>  w  o  r  l  d  </p>  </root>
-    tree.edit([6, 6], new CRDTInlineNode(ITT, '~'), ITT);
+    tree.edit([6, 6], new CRDTTreeNode(ITT, 'text', '~'), ITT);
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
     listEqual(tree, [
       'text.hello',
@@ -184,14 +182,14 @@ describe('CRDTTree', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'a'), ITT);
-    tree.edit([2, 2], new CRDTInlineNode(ITT, 'b'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTInlineNode(ITT, 'cde'), ITT);
-    tree.edit([9, 9], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([10, 10], new CRDTInlineNode(ITT, 'fg'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'a'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'text', 'b'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'text', 'cde'), ITT);
+    tree.edit([9, 9], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([10, 10], new CRDTTreeNode(ITT, 'text', 'fg'), ITT);
 
     assert.deepEqual(
       tree.toXML(),
@@ -208,11 +206,11 @@ describe('CRDTTree', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
@@ -238,11 +236,11 @@ describe('CRDTTree', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
@@ -261,7 +259,7 @@ describe('CRDTTree', function () {
     assert.equal(structure.children![0].children![1].size, 1); // d
 
     // 03. insert a new text node at the start of the first paragraph.
-    tree.edit([1, 1], new CRDTInlineNode(ITT, '@'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', '@'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
   });
 
@@ -269,11 +267,11 @@ describe('CRDTTree', function () {
     // 01. edit between two block nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
-    let tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    let tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -282,11 +280,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
 
     // 02. edit between two block nodes in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -295,11 +293,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><i>ab</i></p></root>`);
 
     // 03. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -308,11 +306,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>a</b></p></root>`);
 
     // 04. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -321,11 +319,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // 05. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -334,11 +332,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p></root>`);
 
     // 06. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -347,14 +345,14 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
 
     // 07. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
-    tree.edit([10, 10], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([11, 11], new CRDTInlineNode(ITT, 'ef'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([6, 6], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
+    tree.edit([10, 10], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([11, 11], new CRDTTreeNode(ITT, 'text', 'ef'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p>ab</p><p><b>cd</b></p><p>ef</p></root>`,
@@ -370,9 +368,9 @@ describe('CRDTTree', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1     6     11
     // <root> <p> hello world  </p> </root>
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'helloworld'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'helloworld'), ITT);
 
     // 01. Split left side of 'helloworld'.
     tree.split(1, 1);
@@ -389,9 +387,9 @@ describe('CRDTTree', function () {
 
   it.skip('Can split block nodes', function () {
     // 01. Split position 1.
-    let tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
+    let tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
     tree.split(1, 2);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
@@ -400,48 +398,48 @@ describe('CRDTTree', function () {
     // 02. Split position 2.
     //       0   1 2 3    4
     // <root> <p> a b </p> </root>
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
     tree.split(2, 2);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>b</p></root>`);
     assert.equal(tree.getSize(), 6);
 
     // 03. Split position 3.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
     tree.split(3, 2);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
     assert.equal(tree.getSize(), 6);
 
     // 04. Split position 3.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'cd'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
     tree.split(3, 2);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     assert.equal(tree.getSize(), 8);
 
     // 05. Split multiple nodes level 1.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
     tree.split(3, 1);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
     assert.equal(tree.getSize(), 6);
 
     // Split multiple nodes level 2.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
     tree.split(3, 2);
     assert.deepEqual(
@@ -451,10 +449,10 @@ describe('CRDTTree', function () {
     assert.equal(tree.getSize(), 8);
 
     // Split multiple nodes level 3.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
     tree.split(3, 3);
     assert.deepEqual(
@@ -465,9 +463,9 @@ describe('CRDTTree', function () {
   });
 
   it.skip('Can split and merge block nodes', function () {
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'abcd'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'abcd'), ITT);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
     assert.equal(tree.getSize(), 6);
 
@@ -486,11 +484,11 @@ describe('CRDTTree', function () {
     // 01. edit between two block nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
-    let tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    let tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -499,11 +497,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
 
     // 02. edit between two block nodes in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -512,11 +510,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><i>ab</i></p></root>`);
 
     // 03. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -525,11 +523,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>a</b></p></root>`);
 
     // 04. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -538,11 +536,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // 05. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -551,11 +549,11 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p></root>`);
 
     // 06. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTBlockNode(ITT, 'i'), ITT);
-    tree.edit([3, 3], new CRDTInlineNode(ITT, 'ab'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'i'), ITT);
+    tree.edit([3, 3], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -564,14 +562,14 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
 
     // 07. edit between inline and block node in same hierarchy.
-    tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
-    tree.edit([10, 10], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([11, 11], new CRDTInlineNode(ITT, 'ef'), ITT);
+    tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([6, 6], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
+    tree.edit([10, 10], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([11, 11], new CRDTTreeNode(ITT, 'text', 'ef'), ITT);
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p>ab</p><p><b>cd</b></p><p>ef</p></root>`,
@@ -584,12 +582,12 @@ describe('CRDTTree', function () {
   });
 
   it('Can find common ancestor of two given nodes', function () {
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([2, 2], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([5, 5], new CRDTBlockNode(ITT, 'b'), ITT);
-    tree.edit([6, 6], new CRDTInlineNode(ITT, 'cd'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([2, 2], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'b'), ITT);
+    tree.edit([6, 6], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
 
     assert.deepEqual(
       tree.toXML(),
@@ -604,11 +602,11 @@ describe('CRDTTree', function () {
   });
 
   it('Can find right node from the given offset in postorder traversal', function () {
-    const tree = new CRDTTree(new CRDTBlockNode(ITT, 'root'), ITT);
-    tree.edit([0, 0], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([1, 1], new CRDTInlineNode(ITT, 'ab'), ITT);
-    tree.edit([4, 4], new CRDTBlockNode(ITT, 'p'), ITT);
-    tree.edit([5, 5], new CRDTInlineNode(ITT, 'cd'), ITT);
+    const tree = new CRDTTree(new CRDTTreeNode(ITT, 'root'), ITT);
+    tree.edit([0, 0], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([1, 1], new CRDTTreeNode(ITT, 'text', 'ab'), ITT);
+    tree.edit([4, 4], new CRDTTreeNode(ITT, 'p'), ITT);
+    tree.edit([5, 5], new CRDTTreeNode(ITT, 'text', 'cd'), ITT);
 
     //       0   1 2 3    4   6 7     8
     // <root> <p> a b </p> <p> c d</p> </root>

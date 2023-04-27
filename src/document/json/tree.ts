@@ -1,14 +1,12 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { CRDTTree, CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
   DefaultRootType,
   DefaultInlineType,
   IndexTreeNode,
-  CRDTInlineNode,
-  CRDTBlockNode,
   TreeNodeType,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
@@ -62,25 +60,30 @@ export class Tree {
   /**
    * `getInitialRoot` returns the root node of this tree.
    */
-  public getInitialRoot(ticket: TimeTicket): CRDTBlockNode {
+  public getInitialRoot(ticket: TimeTicket): CRDTTreeNode {
     if (!this.initialRoot) {
-      return new CRDTBlockNode(ticket, DefaultRootType);
+      return new CRDTTreeNode(ticket, DefaultRootType);
     }
 
-    const root = new CRDTBlockNode(ticket, this.initialRoot.type);
+    const root = new CRDTTreeNode(ticket, this.initialRoot.type);
 
     /**
      * traverse traverses the given node and its children recursively.
      */
-    function traverse(n: TreeNode, parent: CRDTBlockNode): void {
+    function traverse(n: TreeNode, parent: CRDTTreeNode): void {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
-        parent.append(new CRDTInlineNode(ticket, inlineNode.value));
+        const treeNode = new CRDTTreeNode(
+          ticket,
+          inlineNode.type,
+          inlineNode.value,
+        );
+        parent.append(treeNode);
         return;
       }
 
       const blockNode = n as BlockNode;
-      const node = new CRDTBlockNode(ticket, blockNode.type);
+      const node = new CRDTTreeNode(ticket, blockNode.type);
       parent.append(node);
 
       for (const child of blockNode.children) {
@@ -126,9 +129,9 @@ export class Tree {
     let crdtNode: IndexTreeNode | undefined;
     if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
-      crdtNode = new CRDTInlineNode(ticket, inlineNode.value);
+      crdtNode = new CRDTTreeNode(ticket, inlineNode.type, inlineNode.value);
     } else if (node) {
-      crdtNode = new CRDTBlockNode(ticket, node.type);
+      crdtNode = new CRDTTreeNode(ticket, node.type);
     }
 
     this.tree.edit([fromIdx, toIdx], crdtNode, ticket);
@@ -174,14 +177,14 @@ export class Tree {
     // TODO(hackerwins): Fill children of BlockNode later.
     for (const node of this.tree) {
       if (node.isInline) {
-        const inlineNode = node as CRDTInlineNode;
+        const inlineNode = node as InlineNode;
         const treeNode = {
           type: inlineNode.type,
           value: inlineNode.value,
         } as InlineNode;
         yield treeNode;
       } else {
-        const blockNode = node as CRDTBlockNode;
+        const blockNode = node as BlockNode;
         const treeNode = {
           type: blockNode.type,
           children: [],

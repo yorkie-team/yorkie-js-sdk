@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-
 /**
  * About `index`, `size` and `TreePos` in crdt.IndexTree.
  *
@@ -60,7 +58,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  * `BlockNodePaddingSize` is the size of a block node as a child of another block node.
  * Because a block node could be considered as a pair of open and close tags.
  */
-const BlockNodePaddingSize = 2;
+export const BlockNodePaddingSize = 2;
 
 /**
  * `DefaultRootType` is the default type of the root node.
@@ -104,33 +102,22 @@ export type TreeNodeForTest = TreeNode & {
  */
 export abstract class IndexTreeNode {
   type: TreeNodeType;
-  parent?: CRDTBlockNode;
+  parent?: IndexTreeNode;
+  _children: Array<IndexTreeNode>;
   size: number;
 
-  // TODO(hackerwins): Extract the following fields to a CRDT class.
-  id: TimeTicket;
-  removedAt?: TimeTicket;
+  // TODO(hackerwins): Move the following fields to CRDTTreeNode after
+  // introducing generic type for IndexTree.
   next?: IndexTreeNode;
   prev?: IndexTreeNode;
 
-  constructor(id: TimeTicket, type: TreeNodeType) {
-    this.id = id;
+  constructor(type: TreeNodeType, children: Array<IndexTreeNode> = []) {
     this.type = type;
     this.size = 0;
-  }
+    this._children = children;
 
-  /**
-   * `remove` marks the node as removed.
-   */
-  remove(removedAt: TimeTicket): void {
-    const alived = !this.removedAt;
-
-    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
-      this.removedAt = removedAt;
-    }
-
-    if (alived) {
-      this.updateAncestorsSize();
+    if (this.isInline && this._children.length > 0) {
+      throw new Error(`Inline node cannot have children: ${this.type}`);
     }
   }
 
@@ -139,7 +126,7 @@ export abstract class IndexTreeNode {
    */
   updateAncestorsSize(): void {
     let parent: IndexTreeNode | undefined = this.parent;
-    const sign = this.removedAt ? -1 : 1;
+    const sign = this.isRemoved ? -1 : 1;
 
     while (parent) {
       parent.size += this.paddedSize * sign;
@@ -176,16 +163,6 @@ export abstract class IndexTreeNode {
   }
 
   /**
-   * `children` returns the children of the node.
-   */
-  abstract get children(): Array<IndexTreeNode>;
-
-  /**
-   * `split` splits the node at the given offset.
-   */
-  abstract split(offset: number): IndexTreeNode | undefined;
-
-  /**
    * `nextSibling` returns the next sibling of the node.
    */
   get nextSibling(): IndexTreeNode | undefined {
@@ -197,47 +174,42 @@ export abstract class IndexTreeNode {
 
     return undefined;
   }
-}
 
-/**
- * `CRDTInlineNode` is the node of a CRDT tree that has text.
- */
-export class CRDTInlineNode extends IndexTreeNode {
-  _value: string;
+  /**
+   * `split` splits the node at the given offset.
+   */
+  split(offset: number): IndexTreeNode | undefined {
+    if (this.isInline) {
+      return this.splitInline(offset);
+    }
 
-  constructor(id: TimeTicket, value: string) {
-    super(id, DefaultInlineType);
-
-    this._value = value;
-    this.size = value.length;
+    return this.splitBlock(offset);
   }
+
+  /**
+   * `isRemoved` returns true if the node is removed.
+   */
+  abstract get isRemoved(): boolean;
+
+  /**
+   * `clone` clones the node with the given id and value.
+   */
+  abstract clone(): IndexTreeNode;
 
   /**
    * `value` returns the value of the node.
    */
-  get value() {
-    return this._value;
-  }
+  abstract get value();
 
   /**
    * `value` sets the value of the node.
    */
-  set value(v: string) {
-    this._value = v;
-    this.size = v.length;
-  }
+  abstract set value(v: string);
 
   /**
-   * `children` returns the children of the node.
+   * `splitInline` splits the given node at the given offset.
    */
-  get children() {
-    return [];
-  }
-
-  /**
-   * `splitNode` splits the given node at the given offset.
-   */
-  split(offset: number): IndexTreeNode | undefined {
+  splitInline(offset: number): IndexTreeNode | undefined {
     if (offset === 0 || offset === this.size) {
       return;
     }
@@ -247,32 +219,11 @@ export class CRDTInlineNode extends IndexTreeNode {
 
     this.value = leftValue;
 
-    // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
-    // create new right node
-    const rightNode = new CRDTInlineNode(this.id, rightValue);
+    const rightNode = this.clone();
+    rightNode.value = rightValue;
     this.parent!.insertAfterInternal(rightNode, this);
 
     return rightNode;
-  }
-}
-
-/**
- * `CRDTBlockNode` is the node of a CRDT tree that has children.
- */
-export class CRDTBlockNode extends IndexTreeNode {
-  _children: Array<IndexTreeNode>;
-
-  constructor(
-    id: TimeTicket,
-    type: TreeNodeType,
-    children: Array<IndexTreeNode> = [],
-  ) {
-    super(id, type);
-    this._children = children;
-    this.size = 0;
-    if (children.length > 0) {
-      this.size = accumulateNodeSize(this);
-    }
   }
 
   /**
@@ -282,13 +233,17 @@ export class CRDTBlockNode extends IndexTreeNode {
     // Tombstone nodes remain a while in the tree during editing.
     // They will be removed after the editing is done.
     // So, we need to filter out the tombstone nodes to get the real children.
-    return this._children.filter((child) => !child.removedAt);
+    return this._children.filter((child) => !child.isRemoved);
   }
 
   /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<IndexTreeNode>): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     this._children.push(...newNode);
     for (const node of newNode) {
       node.parent = this;
@@ -300,6 +255,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `prepend` prepends the given nodes to the children.
    */
   prepend(...newNode: Array<IndexTreeNode>): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     this._children.unshift(...newNode);
     for (const node of newNode) {
       node.parent = this;
@@ -311,6 +270,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `insertBefore` inserts the given node before the given child.
    */
   insertBefore(newNode: IndexTreeNode, referenceNode: IndexTreeNode): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
       throw new Error('child not found');
@@ -324,6 +287,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `insertAfter` inserts the given node after the given child.
    */
   insertAfter(newNode: IndexTreeNode, referenceNode: IndexTreeNode): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
       throw new Error('child not found');
@@ -337,6 +304,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `insertAt` inserts the given node at the given offset.
    */
   insertAt(newNode: IndexTreeNode, offset: number): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     this.insertAtInternal(newNode, offset);
     newNode.updateAncestorsSize();
   }
@@ -345,6 +316,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * `removeChild` removes the given child.
    */
   removeChild(childNode: IndexTreeNode) {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     const offset = this._children.indexOf(childNode);
     if (offset === -1) {
       throw new Error('child not found');
@@ -357,8 +332,12 @@ export class CRDTBlockNode extends IndexTreeNode {
   /**
    * `splitNode` splits the given node at the given offset.
    */
-  split(offset: number): IndexTreeNode | undefined {
-    const clone = new CRDTBlockNode(this.id, this.type);
+  splitBlock(offset: number): IndexTreeNode | undefined {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
+    const clone = this.clone();
     this.parent!.insertAfterInternal(clone, this);
     clone.updateAncestorsSize();
 
@@ -389,6 +368,10 @@ export class CRDTBlockNode extends IndexTreeNode {
     newNode: IndexTreeNode,
     referenceNode: IndexTreeNode,
   ): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
       throw new Error('child not found');
@@ -402,6 +385,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * This method does not update the size of the ancestors.
    */
   insertAtInternal(newNode: IndexTreeNode, offset: number): void {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     this._children.splice(offset, 0, newNode);
     newNode.parent = this;
   }
@@ -410,6 +397,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * findOffset returns the offset of the given node in the children.
    */
   findOffset(node: IndexTreeNode): number {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     return this._children.indexOf(node);
   }
 
@@ -418,6 +409,10 @@ export class CRDTBlockNode extends IndexTreeNode {
    * If the given node is not a descendant of this node, it returns -1.
    */
   findBranchOffset(node: IndexTreeNode): number {
+    if (this.isInline) {
+      throw new Error('Inline node cannot have children');
+    }
+
     let current: IndexTreeNode | undefined = node;
     while (current) {
       const offset = this._children.indexOf(current);
@@ -443,26 +438,6 @@ export type TreePos = {
   node: IndexTreeNode;
   offset: number;
 };
-
-/**
- * `accumulateNodeSize` accumulates the size of the given node.
- * The size of a node is the sum of the size and type of its descendants.
- */
-function accumulateNodeSize(node: IndexTreeNode, depth = 0) {
-  if (node.isInline) {
-    return node.size;
-  }
-
-  let size = 0;
-  for (const child of node.children) {
-    size += accumulateNodeSize(child, depth + 1);
-  }
-  if (depth > 0) {
-    size += BlockNodePaddingSize;
-  }
-
-  return size;
-}
 
 /**
  * `ancestorOf` returns true if the given node is an ancestor of the other node.
@@ -655,9 +630,9 @@ export function findLeftmost(node: IndexTreeNode): IndexTreeNode {
  * `IndexTree` is a tree structure for linear indexing.
  */
 export class IndexTree {
-  private root: CRDTBlockNode;
+  private root: IndexTreeNode;
 
-  constructor(root: CRDTBlockNode) {
+  constructor(root: IndexTreeNode) {
     this.root = root;
   }
 
@@ -708,7 +683,7 @@ export class IndexTree {
   /**
    * `getRoot` returns the root node of the tree.
    */
-  public getRoot(): CRDTBlockNode {
+  public getRoot(): IndexTreeNode {
     return this.root;
   }
 

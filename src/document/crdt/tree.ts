@@ -21,12 +21,11 @@ import {
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   IndexTree,
-  CRDTBlockNode,
-  CRDTInlineNode,
   TreePos,
   IndexTreeNode,
   TreeNode,
   TreeNodeForTest,
+  BlockNodePaddingSize,
   traverse,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
@@ -41,7 +40,7 @@ const DummyHeadType = 'dummy';
  */
 function toJSON(node: IndexTreeNode): TreeNode {
   if (node.isInline) {
-    const currentNode = node as CRDTInlineNode;
+    const currentNode = node;
     return {
       type: currentNode.type,
       value: currentNode.value,
@@ -59,7 +58,7 @@ function toJSON(node: IndexTreeNode): TreeNode {
  */
 export function toXML(node: IndexTreeNode): string {
   if (node.isInline) {
-    const currentNode = node as CRDTInlineNode;
+    const currentNode = node;
     return currentNode.value;
   }
 
@@ -73,12 +72,12 @@ export function toXML(node: IndexTreeNode): string {
  */
 function toStructure(node: IndexTreeNode): TreeNodeForTest {
   if (node.isInline) {
-    const currentNode = node as CRDTInlineNode;
+    const currentNode = node;
     return {
       type: currentNode.type,
       value: currentNode.value,
       size: currentNode.size,
-      isRemoved: !!currentNode.removedAt,
+      isRemoved: currentNode.isRemoved,
     };
   }
 
@@ -86,8 +85,110 @@ function toStructure(node: IndexTreeNode): TreeNodeForTest {
     type: node.type,
     children: node.children.map(toStructure),
     size: node.size,
-    isRemoved: !!node.removedAt,
+    isRemoved: node.isRemoved,
   };
+}
+
+/**
+ * `accumulateNodeSize` accumulates the size of the given node.
+ * The size of a node is the sum of the size and type of its descendants.
+ */
+function accumulateNodeSize(node: IndexTreeNode, depth = 0) {
+  if (node.isInline) {
+    return node.size;
+  }
+
+  let size = 0;
+  for (const child of node.children) {
+    size += accumulateNodeSize(child, depth + 1);
+  }
+  if (depth > 0) {
+    size += BlockNodePaddingSize;
+  }
+
+  return size;
+}
+
+/**
+ * `CRDTInlineNode` is the node of a CRDT tree that has text.
+ */
+export class CRDTTreeNode extends IndexTreeNode {
+  id: TimeTicket;
+  removedAt?: TimeTicket;
+
+  _value = '';
+
+  constructor(
+    id: TimeTicket,
+    type: string,
+    opts?: string | Array<CRDTTreeNode>,
+  ) {
+    super(type);
+    this.id = id;
+
+    if (typeof opts === 'string') {
+      this.value = opts;
+    } else if (Array.isArray(opts)) {
+      this._children = opts;
+      if (this._children.length > 0) {
+        this.size = accumulateNodeSize(this);
+      }
+    }
+  }
+
+  /**
+   * `value` returns the value of the node.
+   */
+  get value() {
+    if (!this.isInline) {
+      throw new Error(`cannot get value of non-inline node: ${this.type}`);
+    }
+
+    return this._value;
+  }
+
+  /**
+   * `value` sets the value of the node.
+   */
+  set value(v: string) {
+    if (!this.isInline) {
+      throw new Error(`cannot set value of non-inline node: ${this.type}`);
+    }
+
+    this._value = v;
+    this.size = v.length;
+  }
+
+  /**
+   * `isRemoved` returns whether the node is removed or not.
+   */
+  get isRemoved(): boolean {
+    return !!this.removedAt;
+  }
+
+  /**
+   * `remove` marks the node as removed.
+   */
+  remove(removedAt: TimeTicket): void {
+    const alived = !this.removedAt;
+
+    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+      this.removedAt = removedAt;
+    }
+
+    if (alived) {
+      this.updateAncestorsSize();
+    }
+  }
+
+  /**
+   * `clone` clones this node.
+   */
+  clone(): IndexTreeNode {
+    // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
+    // create new right node
+    return new CRDTTreeNode(this.id, this.type);
+  }
 }
 
 /**
@@ -97,9 +198,9 @@ export class CRDTTree extends CRDTElement {
   private dummyHead: IndexTreeNode;
   private treeByIndex: IndexTree;
 
-  constructor(root: CRDTBlockNode, createdAt: TimeTicket) {
+  constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.dummyHead = new CRDTBlockNode(InitialTimeTicket, DummyHeadType);
+    this.dummyHead = new CRDTTreeNode(InitialTimeTicket, DummyHeadType);
     this.treeByIndex = new IndexTree(root);
 
     let current = this.dummyHead;
@@ -113,7 +214,7 @@ export class CRDTTree extends CRDTElement {
   /**
    * `create` creates a new instance of `CRDTTree`.
    */
-  public static create(root: CRDTBlockNode, ticket: TimeTicket): CRDTTree {
+  public static create(root: CRDTTreeNode, ticket: TimeTicket): CRDTTree {
     return new CRDTTree(root, ticket);
   }
 
@@ -225,36 +326,36 @@ export class CRDTTree extends CRDTElement {
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
       this.nodesBetween(fromRight!, toRight!, (node) => {
-        if (!node.removedAt) {
+        if (!node.isRemoved) {
           toBeRemoveds.push(node);
         }
       });
 
       const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
       for (const node of toBeRemoveds) {
-        node.remove(editedAt);
+        (node as CRDTTreeNode).remove(editedAt);
       }
 
       // move the alive children of the removed block node
       if (isRangeOnSameBranch) {
         let removedBlockNode: IndexTreeNode | undefined;
-        if (fromPos.node.parent?.removedAt) {
+        if (fromPos.node.parent?.isRemoved) {
           removedBlockNode = fromPos.node.parent;
-        } else if (!fromPos.node.isInline && fromPos.node.removedAt) {
+        } else if (!fromPos.node.isInline && fromPos.node.isRemoved) {
           removedBlockNode = fromPos.node;
         }
 
         // If the nearest removed block node of the fromNode is found,
         // insert the alive children of the removed block node to the toNode.
         if (removedBlockNode) {
-          const blockNode = toPos.node as CRDTBlockNode;
+          const blockNode = toPos.node;
           const offset = blockNode.findBranchOffset(removedBlockNode);
           for (const node of removedBlockNode.children.reverse()) {
             blockNode.insertAt(node, offset);
           }
         }
       } else {
-        if (fromPos.node.parent?.removedAt) {
+        if (fromPos.node.parent?.isRemoved) {
           toPos.node.parent?.prepend(...fromPos.node.parent.children);
         }
       }
@@ -277,7 +378,7 @@ export class CRDTTree extends CRDTElement {
           fromPos.node.parent!.insertAfter(content, fromPos.node);
         }
       } else {
-        const target = fromPos.node as CRDTBlockNode;
+        const target = fromPos.node;
         target.insertAt(content, fromPos.offset + 1);
       }
     }
@@ -298,8 +399,8 @@ export class CRDTTree extends CRDTElement {
   /**
    * `getRoot` returns the root node of the tree.
    */
-  public getRoot(): CRDTBlockNode {
-    return this.treeByIndex.getRoot();
+  public getRoot(): CRDTTreeNode {
+    return this.treeByIndex.getRoot() as CRDTTreeNode;
   }
 
   /**
@@ -352,7 +453,7 @@ export class CRDTTree extends CRDTElement {
   public *[Symbol.iterator](): IterableIterator<IndexTreeNode> {
     let node = this.dummyHead.next;
     while (node) {
-      if (!node.removedAt) {
+      if (!node.isRemoved) {
         yield node;
       }
 
