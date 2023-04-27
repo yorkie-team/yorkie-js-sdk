@@ -24,7 +24,6 @@ import {
   TreePos,
   IndexTreeNode,
   TreeNodeType,
-  BlockNodePaddingSize,
   traverse,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
@@ -109,27 +108,8 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 }
 
 /**
- * `accumulateNodeSize` accumulates the size of the given node.
- * The size of a node is the sum of the size and type of its descendants.
- */
-function accumulateNodeSize(node: CRDTTreeNode, depth = 0) {
-  if (node.isInline) {
-    return node.size;
-  }
-
-  let size = 0;
-  for (const child of node.children) {
-    size += accumulateNodeSize(child, depth + 1);
-  }
-  if (depth > 0) {
-    size += BlockNodePaddingSize;
-  }
-
-  return size;
-}
-
-/**
- * `CRDTInlineNode` is the node of a CRDT tree that has text.
+ * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
+ * links to other nodes to resolve conflicts.
  */
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   id: TimeTicket;
@@ -152,9 +132,6 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       this.value = opts;
     } else if (Array.isArray(opts)) {
       this._children = opts;
-      if (this._children.length > 0) {
-        this.size = accumulateNodeSize(this);
-      }
     }
   }
 

@@ -78,7 +78,8 @@ export const DefaultInlineType = 'text';
 export type TreeNodeType = string;
 
 /**
- * `IndexTreeNode` is the node of IndexTree.
+ * `IndexTreeNode` is the node of IndexTree. It is used to represent the
+ * document of text-based editors.
  */
 export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   type: TreeNodeType;
@@ -113,6 +114,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `isInline` returns true if the node is a inline node.
    */
   get isInline(): boolean {
+    // TODO(hackerwins): We need to get the type of inline node from user.
+    // Consider the use schema to get the type of inline node.
     return this.type === DefaultInlineType;
   }
 
@@ -128,13 +131,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   isAncestorOf(node: T): boolean {
     return ancestorOf(this as any, node);
-  }
-
-  /**
-   * `isDescendantOf` returns true if the node is a descendant of the given node.
-   */
-  isDescendantOf(node: T): boolean {
-    return ancestorOf(node, this as any);
   }
 
   /**
@@ -308,10 +304,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `splitNode` splits the given node at the given offset.
    */
   splitBlock(offset: number): T | undefined {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
-    }
-
     const clone = this.clone();
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();

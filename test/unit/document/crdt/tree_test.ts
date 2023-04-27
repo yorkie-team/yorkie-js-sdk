@@ -96,11 +96,9 @@ describe('CRDTTree', function () {
 
     //       0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
     // <root> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </root>
-    tree.edit(
-      [7, 7],
-      new CRDTTreeNode(ITT, 'p', [new CRDTTreeNode(ITT, 'text', 'world')]),
-      ITT,
-    );
+    const p = new CRDTTreeNode(ITT, 'p', []);
+    p.insertAt(new CRDTTreeNode(ITT, 'text', 'world'), 0);
+    tree.edit([7, 7], p, ITT);
     pos = tree.findTreePos(7);
     assert.deepEqual([pos.offset, pos.node.type], [1, 'r']);
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
