@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   TimeTicket,
   InitialTimeTicket,
@@ -102,9 +118,9 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `nodesBetween` returns the nodes between the given range.
+   * `nodesBetweenByTree` returns the nodes between the given range.
    */
-  public nodesBetween(
+  public nodesBetweenByTree(
     from: number,
     to: number,
     callback: (node: IndexTreeNode) => void,
@@ -113,10 +129,10 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `nodesBetweenByList` returns the nodes between the given range.
-   * This method includes the given left node and the given right node.
+   * `nodesBetween` returns the nodes between the given range.
+   * This method includes the given left node but excludes the given right node.
    */
-  public nodesBetweenByList(
+  public nodesBetween(
     left: IndexTreeNode,
     right: IndexTreeNode,
     callback: (node: IndexTreeNode) => void,
@@ -130,7 +146,6 @@ export class CRDTTree extends CRDTElement {
       callback(current);
       current = current.next!;
     }
-    callback(current);
   }
 
   /**
@@ -207,20 +222,20 @@ export class CRDTTree extends CRDTElement {
     const [toPos, toRight] = this.splitInline(range[1]);
 
     const toBeRemoveds: Array<IndexTreeNode> = [];
-    // 02. collect the nodes from list, between the given range.
+    // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
-      this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
+      this.nodesBetween(fromRight!, toRight!, (node) => {
         if (!node.removedAt) {
           toBeRemoveds.push(node);
         }
       });
 
-      // 03. remove the nodes and update the index tree.
       const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
       for (const node of toBeRemoveds) {
         node.remove(editedAt);
       }
 
+      // move the alive children of the removed block node
       if (isRangeOnSameBranch) {
         let removedBlockNode: IndexTreeNode | undefined;
         if (fromPos.node.parent?.removedAt) {
@@ -245,16 +260,16 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
-    // 04. insert the given node at the given position.
+    // 03. insert the given node at the given position.
     if (content) {
-      // 04-1. insert the content nodes to the list.
+      // 03-1. insert the content nodes to the list.
       let previous = fromRight!.prev!;
       traverse(content, (node) => {
         this.insertAfter(previous, node);
         previous = node;
       });
 
-      // 04-2. insert the content nodes to the tree.
+      // 03-2. insert the content nodes to the tree.
       if (fromPos.node.isInline) {
         if (fromPos.offset === 0) {
           fromPos.node.parent!.insertBefore(content, fromPos.node);
@@ -267,7 +282,7 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
-    // Remove the nodes from the index tree.
+    // 04. Remove the nodes from the index tree.
     for (const node of toBeRemoveds) {
       node.parent?.removeChild(node);
     }

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { assert } from 'chai';
 import { InitialTimeTicket as ITT } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
@@ -19,7 +35,7 @@ function betweenEqual(
   expected: Array<string>,
 ) {
   const nodes: Array<IndexTreeNode> = [];
-  tree.nodesBetween(from, to, (node) => {
+  tree.nodesBetweenByTree(from, to, (node) => {
     nodes.push(node);
     return true;
   });
