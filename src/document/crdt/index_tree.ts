@@ -335,6 +335,7 @@ export class CRDTBlockNode extends IndexTreeNode {
     }
 
     this._children.splice(offset, 1);
+    childNode.parent = undefined;
   }
 
   /**

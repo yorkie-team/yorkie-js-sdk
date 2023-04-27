@@ -210,7 +210,9 @@ export class CRDTTree extends CRDTElement {
     // 02. collect the nodes from list, between the given range.
     if (fromRight !== toRight) {
       this.nodesBetweenByList(fromRight!, toRight!.prev!, (node) => {
-        toBeRemoveds.push(node);
+        if (!node.removedAt) {
+          toBeRemoveds.push(node);
+        }
       });
 
       // 03. remove the nodes and update the index tree.

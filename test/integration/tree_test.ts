@@ -116,5 +116,22 @@ describe('Tree', () => {
       root.t.edit(2, 3);
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      root.t.edit(3, 3, { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>abX</p></doc>`);
+
+      root.t.edit(3, 4);
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      root.t.edit(2, 3);
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>a</p></doc>`);
+    });
   });
 });
