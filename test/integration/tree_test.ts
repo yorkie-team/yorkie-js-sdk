@@ -15,7 +15,11 @@
  */
 
 import { assert } from 'chai';
-import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, {
+  Tree,
+  TreeChange,
+  TreeChangeType,
+} from '@yorkie-js-sdk/src/yorkie';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 describe('Tree', () => {
@@ -149,5 +153,37 @@ describe('Tree', () => {
       root.t.edit(2, 3);
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>a</p></doc>`);
     });
+  });
+
+  it('Can be subscribed by handler', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+    });
+
+    const actualChanges: Array<TreeChange> = [];
+    doc.getRoot().t.onChanges((changes) => {
+      actualChanges.push(...changes);
+    });
+
+    doc.update((root) => {
+      root.t.edit(1, 1, { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
+    });
+
+    assert.deepEqual(actualChanges, [
+      {
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        value: { type: 'text', value: 'X' },
+      },
+    ]);
   });
 });

@@ -1,7 +1,11 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTTree, CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import {
+  CRDTTree,
+  CRDTTreeNode,
+  TreeChange,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
   DefaultRootType,
@@ -162,6 +166,18 @@ export class Tree {
     }
 
     return this.tree.toXML();
+  }
+
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  onChanges(handler: (changes: Array<TreeChange>) => void): void {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      return;
+    }
+
+    this.tree.onChanges(handler);
   }
 
   /**

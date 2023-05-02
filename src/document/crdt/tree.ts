@@ -54,6 +54,23 @@ export type TreeNodeForTest = TreeNode & {
 };
 
 /**
+ * `TreeChangeType` represents the type of change in the tree.
+ */
+export enum TreeChangeType {
+  Content = 'content',
+}
+
+/**
+ * `TreeChange` represents the change in the tree.
+ */
+export interface TreeChange {
+  type: TreeChangeType;
+  from: number;
+  to: number;
+  value?: TreeNode;
+}
+
+/**
  * toJSON converts the given CRDTNode to JSON.
  */
 function toJSON(node: CRDTTreeNode): TreeNode {
@@ -194,6 +211,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
+  private onChangesHandler?: (changes: Array<TreeChange>) => void;
   private dummyHead: CRDTTreeNode;
   private treeByIndex: IndexTree<CRDTTreeNode>;
 
@@ -228,6 +246,12 @@ export class CRDTTree extends CRDTElement {
     this.treeByIndex.nodesBetween(from, to, callback);
   }
 
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  public onChanges(handler: (changes: Array<TreeChange>) => void): void {
+    this.onChangesHandler = handler;
+  }
   /**
    * `nodesBetween` returns the nodes between the given range.
    * This method includes the given left node but excludes the given right node.
@@ -321,6 +345,8 @@ export class CRDTTree extends CRDTElement {
     const [fromPos, fromRight] = this.splitInline(range[0]);
     const [toPos, toRight] = this.splitInline(range[1]);
 
+    const changes: Array<TreeChange> = [];
+
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
@@ -380,6 +406,19 @@ export class CRDTTree extends CRDTElement {
         const target = fromPos.node;
         target.insertAt(content, fromPos.offset + 1);
       }
+
+      // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to convert
+      // the following range from the logical timestamp.
+      changes.push({
+        type: TreeChangeType.Content,
+        from: range[0],
+        to: range[1],
+        value: toJSON(content),
+      });
+    }
+
+    if (this.onChangesHandler) {
+      this.onChangesHandler(changes);
     }
 
     // 04. Remove the nodes from the index tree.

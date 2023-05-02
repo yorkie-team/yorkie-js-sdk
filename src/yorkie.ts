@@ -60,6 +60,10 @@ export {
   TextChange,
   TextChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/text';
+export {
+  TreeChange,
+  TreeChangeType,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 
 // TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
 // if not exported. We need to find a way to handle this without exporting the below.
@@ -77,8 +81,8 @@ export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export { Text } from '@yorkie-js-sdk/src/document/json/text';
-export { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 export {
+  Tree,
   TreeNode,
   BlockNode,
   InlineNode,
