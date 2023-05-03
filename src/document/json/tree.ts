@@ -65,10 +65,10 @@ export class Tree {
    */
   public getInitialRoot(ticket: TimeTicket): CRDTTreeNode {
     if (!this.initialRoot) {
-      return new CRDTTreeNode(ticket, DefaultRootType);
+      return CRDTTreeNode.create(ticket, DefaultRootType);
     }
 
-    const root = new CRDTTreeNode(ticket, this.initialRoot.type);
+    const root = CRDTTreeNode.create(ticket, this.initialRoot.type);
 
     /**
      * traverse traverses the given node and its children recursively.
@@ -76,7 +76,7 @@ export class Tree {
     function traverse(n: TreeNode, parent: CRDTTreeNode): void {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
-        const treeNode = new CRDTTreeNode(
+        const treeNode = CRDTTreeNode.create(
           ticket,
           inlineNode.type,
           inlineNode.value,
@@ -86,7 +86,7 @@ export class Tree {
       }
 
       const blockNode = n as BlockNode;
-      const node = new CRDTTreeNode(ticket, blockNode.type);
+      const node = CRDTTreeNode.create(ticket, blockNode.type);
       parent.append(node);
 
       for (const child of blockNode.children) {
@@ -132,9 +132,9 @@ export class Tree {
     let crdtNode: CRDTTreeNode | undefined;
     if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
-      crdtNode = new CRDTTreeNode(ticket, inlineNode.type, inlineNode.value);
+      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
     } else if (node) {
-      crdtNode = new CRDTTreeNode(ticket, node.type);
+      crdtNode = CRDTTreeNode.create(ticket, node.type);
     }
 
     this.tree.edit([fromIdx, toIdx], crdtNode, ticket);

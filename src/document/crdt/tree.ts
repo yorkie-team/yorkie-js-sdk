@@ -71,6 +71,136 @@ export interface TreeChange {
 }
 
 /**
+ * `InitialCRDTTreeNodeID` is the initial ID of CRDTTreeNode.
+ */
+export const InitialCRDTTreeNodeID = {
+  createdAt: InitialTimeTicket,
+  offset: 0,
+};
+
+/**
+ * `CRDTTreeNodeID` is a unique identifier of CRDTTreeNode.
+ */
+interface CRDTTreeNodeID {
+  /**
+   * `createdAt` is the creation time of the node. It is used to identify the
+   * node uniquely in distributed environment.
+   */
+  createdAt: TimeTicket;
+
+  /**
+   * `offset` is the offset of the node to track the origin block of the node
+   * when the node is splitted.
+   */
+  offset: number;
+}
+
+/**
+ * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
+ * links to other nodes to resolve conflicts.
+ */
+export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
+  id: CRDTTreeNodeID;
+  removedAt?: TimeTicket;
+
+  next?: CRDTTreeNode;
+  prev?: CRDTTreeNode;
+
+  _value = '';
+
+  constructor(
+    id: CRDTTreeNodeID,
+    type: string,
+    opts?: string | Array<CRDTTreeNode>,
+  ) {
+    super(type);
+    this.id = id;
+
+    if (typeof opts === 'string') {
+      this.value = opts;
+    } else if (Array.isArray(opts)) {
+      this._children = opts;
+    }
+  }
+
+  /**
+   * `create` creates a new instance of CRDTTreeNode.
+   */
+  static create(
+    createdAt: TimeTicket,
+    type: string,
+    opts?: string | Array<CRDTTreeNode>,
+  ) {
+    return new CRDTTreeNode(
+      {
+        createdAt,
+        offset: 0,
+      },
+      type,
+      opts,
+    );
+  }
+
+  /**
+   * `value` returns the value of the node.
+   */
+  get value() {
+    if (!this.isInline) {
+      throw new Error(`cannot get value of non-inline node: ${this.type}`);
+    }
+
+    return this._value;
+  }
+
+  /**
+   * `value` sets the value of the node.
+   */
+  set value(v: string) {
+    if (!this.isInline) {
+      throw new Error(`cannot set value of non-inline node: ${this.type}`);
+    }
+
+    this._value = v;
+    this.size = v.length;
+  }
+
+  /**
+   * `isRemoved` returns whether the node is removed or not.
+   */
+  get isRemoved(): boolean {
+    return !!this.removedAt;
+  }
+
+  /**
+   * `remove` marks the node as removed.
+   */
+  remove(removedAt: TimeTicket): void {
+    const alived = !this.removedAt;
+
+    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+      this.removedAt = removedAt;
+    }
+
+    if (alived) {
+      this.updateAncestorsSize();
+    }
+  }
+
+  /**
+   * `clone` clones this node.
+   */
+  clone(offset: number): CRDTTreeNode {
+    return new CRDTTreeNode(
+      {
+        createdAt: this.id.createdAt,
+        offset,
+      },
+      this.type,
+    );
+  }
+}
+
+/**
  * toJSON converts the given CRDTNode to JSON.
  */
 function toJSON(node: CRDTTreeNode): TreeNode {
@@ -125,89 +255,6 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 }
 
 /**
- * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
- * links to other nodes to resolve conflicts.
- */
-export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
-  id: TimeTicket;
-  removedAt?: TimeTicket;
-
-  next?: CRDTTreeNode;
-  prev?: CRDTTreeNode;
-
-  _value = '';
-
-  constructor(
-    id: TimeTicket,
-    type: string,
-    opts?: string | Array<CRDTTreeNode>,
-  ) {
-    super(type);
-    this.id = id;
-
-    if (typeof opts === 'string') {
-      this.value = opts;
-    } else if (Array.isArray(opts)) {
-      this._children = opts;
-    }
-  }
-
-  /**
-   * `value` returns the value of the node.
-   */
-  get value() {
-    if (!this.isInline) {
-      throw new Error(`cannot get value of non-inline node: ${this.type}`);
-    }
-
-    return this._value;
-  }
-
-  /**
-   * `value` sets the value of the node.
-   */
-  set value(v: string) {
-    if (!this.isInline) {
-      throw new Error(`cannot set value of non-inline node: ${this.type}`);
-    }
-
-    this._value = v;
-    this.size = v.length;
-  }
-
-  /**
-   * `isRemoved` returns whether the node is removed or not.
-   */
-  get isRemoved(): boolean {
-    return !!this.removedAt;
-  }
-
-  /**
-   * `remove` marks the node as removed.
-   */
-  remove(removedAt: TimeTicket): void {
-    const alived = !this.removedAt;
-
-    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
-      this.removedAt = removedAt;
-    }
-
-    if (alived) {
-      this.updateAncestorsSize();
-    }
-  }
-
-  /**
-   * `clone` clones this node.
-   */
-  clone(): CRDTTreeNode {
-    // TODO(hackerwins, easylogic): Create NodeID type for block-wise editing.
-    // create new right node
-    return new CRDTTreeNode(this.id, this.type);
-  }
-}
-
-/**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
@@ -217,7 +264,7 @@ export class CRDTTree extends CRDTElement {
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.dummyHead = new CRDTTreeNode(InitialTimeTicket, DummyHeadType);
+    this.dummyHead = new CRDTTreeNode(InitialCRDTTreeNodeID, DummyHeadType);
     this.treeByIndex = new IndexTree<CRDTTreeNode>(root);
 
     let current = this.dummyHead;

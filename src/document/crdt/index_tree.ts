@@ -165,7 +165,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `clone` clones the node with the given id and value.
    */
-  abstract clone(): T;
+  abstract clone(offset: number): T;
 
   /**
    * `value` returns the value of the node.
@@ -190,7 +190,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.value = leftValue;
 
-    const rightNode = this.clone();
+    const rightNode = this.clone(offset);
     rightNode.value = rightValue;
     this.parent!.insertAfterInternal(rightNode, this as any);
 
@@ -304,7 +304,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `splitNode` splits the given node at the given offset.
    */
   splitBlock(offset: number): T | undefined {
-    const clone = this.clone();
+    const clone = this.clone(offset);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
 
