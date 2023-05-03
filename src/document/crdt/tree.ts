@@ -72,46 +72,43 @@ export interface TreeChange {
 }
 
 /**
- * `InitialCRDTTreeNodeID` is the initial ID of CRDTTreeNode.
+ * `InitialCRDTTreePos` is the initial position of the tree.
  */
-export const InitialCRDTTreeNodeID = {
+export const InitialCRDTTreePos = {
   createdAt: InitialTimeTicket,
   offset: 0,
 };
 
 /**
- * `compareCRDTTreeNodeID` compares the given two CRDTTreeNodeID.
+ * `compareCRDTTreePos` compares the given two CRDTTreePos.
  */
-function compareCRDTTreeNodeID(
-  idA: CRDTTreeNodeID,
-  idB: CRDTTreeNodeID,
-): number {
-  const compare = idA.createdAt.compare(idB.createdAt);
+function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
+  const compare = posA.createdAt.compare(posB.createdAt);
   if (compare !== 0) {
     return compare;
   }
 
-  if (idA.offset > idB.offset) {
+  if (posA.offset > posB.offset) {
     return 1;
-  } else if (idA.offset < idB.offset) {
+  } else if (posA.offset < posB.offset) {
     return -1;
   }
   return 0;
 }
 
 /**
- * `CRDTTreeNodeID` is a unique identifier of CRDTTreeNode.
+ * `CRDTTreePos` represent a position in the tree. It indicates the virtual
+ * location in the tree, so whether the node is splitted or not, we can find
+ * the adjacent node to pos by calling `map.floorEntry()`.
  */
-interface CRDTTreeNodeID {
+interface CRDTTreePos {
   /**
-   * `createdAt` is the creation time of the node. It is used to identify the
-   * node uniquely in distributed environment.
+   * `createdAt` is the creation time of the node.
    */
   createdAt: TimeTicket;
 
   /**
-   * `offset` is the offset of the node to track the origin block of the node
-   * when the node is splitted.
+   * `offset` is the distance from the beginning of the node.
    */
   offset: number;
 }
@@ -121,7 +118,7 @@ interface CRDTTreeNodeID {
  * links to other nodes to resolve conflicts.
  */
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
-  id: CRDTTreeNodeID;
+  pos: CRDTTreePos;
   removedAt?: TimeTicket;
 
   next?: CRDTTreeNode;
@@ -130,12 +127,12 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   _value = '';
 
   constructor(
-    id: CRDTTreeNodeID,
+    pos: CRDTTreePos,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
   ) {
     super(type);
-    this.id = id;
+    this.pos = pos;
 
     if (typeof opts === 'string') {
       this.value = opts;
@@ -208,12 +205,12 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
-   * `clone` clones this node.
+   * `clone` clones this node with the given offset.
    */
   clone(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
       {
-        createdAt: this.id.createdAt,
+        createdAt: this.pos.createdAt,
         offset,
       },
       this.type,
@@ -282,13 +279,13 @@ export class CRDTTree extends CRDTElement {
   private onChangesHandler?: (changes: Array<TreeChange>) => void;
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
-  private nodeMap: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
+  private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.dummyHead = new CRDTTreeNode(InitialCRDTTreeNodeID, DummyHeadType);
+    this.dummyHead = new CRDTTreeNode(InitialCRDTTreePos, DummyHeadType);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
-    this.nodeMap = new LLRBTree(compareCRDTTreeNodeID);
+    this.nodeMapByPos = new LLRBTree(compareCRDTTreePos);
 
     let previous = this.dummyHead;
     this.indexTree.traverse((node) => {
@@ -377,7 +374,7 @@ export class CRDTTree extends CRDTElement {
       next.prev = newNode;
     }
 
-    this.nodeMap.put(newNode.id, newNode);
+    this.nodeMapByPos.put(newNode.pos, newNode);
   }
 
   /**
@@ -474,7 +471,7 @@ export class CRDTTree extends CRDTElement {
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
-    // TODO(hackerwins): Implement this with keeping references in the list.
+    // TODO(hackerwins, easylogic): Implement this with keeping references in the list.
     // return this.treeByIndex.split(index, depth);
     throw new Error(`not implemented, ${index} ${depth}`);
   }
@@ -492,13 +489,15 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * findTreePos finds the position of the given index in the tree.
+   * `findTreePos` finds the position of the given index in the tree.
    */
-  public findTreePos(
-    index: number,
-    preperInline = true,
-  ): TreePos<CRDTTreeNode> {
-    return this.indexTree.findTreePos(index, preperInline);
+  public findTreePos(index: number, preperInline = true): CRDTTreePos {
+    const indexTreePos = this.indexTree.findTreePos(index, preperInline);
+
+    return {
+      createdAt: indexTreePos.node.pos.createdAt,
+      offset: indexTreePos.node.pos.offset + indexTreePos.offset,
+    };
   }
 
   /**
@@ -513,6 +512,13 @@ export class CRDTTree extends CRDTElement {
    */
   public getSize(): number {
     return this.indexTree.size;
+  }
+
+  /**
+   * `getIndexTree` returns the index tree.
+   */
+  public getIndexTree(): IndexTree<CRDTTreeNode> {
+    return this.indexTree;
   }
 
   /**
@@ -549,7 +555,7 @@ export class CRDTTree extends CRDTElement {
   public deepcopy(): CRDTTree {
     const root = this.getRoot();
     // TODO(hackerwins, easylogic): Implement this with copying the root node deeply.
-    const tree = new CRDTTree(root.clone(root.id.offset), this.getCreatedAt());
+    const tree = new CRDTTree(root.clone(root.pos.offset), this.getCreatedAt());
     return tree;
   }
 
