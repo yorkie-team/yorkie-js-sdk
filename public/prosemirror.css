@@ -495,8 +495,10 @@ img.ProseMirror-separator {
 }
 
 .block::before {
-  content: '↳';
+  content: attr(data-id);
   margin-right: 4px;
+  background-color: rgba(255, 0, 0, 0.2);
+  font-size: 0.8em;
 }
 
 #tr-log {
@@ -590,4 +592,21 @@ img.ProseMirror-separator {
 
 .list-view {
   flex: 1 1 auto;
+}
+
+.log-list-view {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.log-list-view .block {
+  border: 1px solid black;
+}
+
+.log-list-view .inline::before {
+  content: attr(data-id);
+  margin-right: 4px;
+  /* background-color: rgba(0, 0, 0, 0.2); */
+  font-size: 0.8em;
+  /* color: white; */
 }

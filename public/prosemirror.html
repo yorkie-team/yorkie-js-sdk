@@ -451,21 +451,27 @@
       function printDocList(doc, id) {
         const head = doc.dummyHead;
 
+        console.log('printDocList', head);
+
         const arr = [];
         let node = head;
         while (node) {
           const nodeType = node.type;
-
+          const id = `${node.id.createdAt.getStructureAsString()}-${
+            node.id.offset
+          }`;
           if (nodeType === 'text') {
             arr.push({
               type: nodeType,
               value: node.value,
+              id,
               removedAt: node.removedAt,
             });
           } else {
             arr.push({
               type: nodeType,
               size: node.size,
+              id,
               removedAt: node.removedAt,
             });
           }
@@ -478,11 +484,13 @@
             const className = node.removedAt ? 'removed' : '';
 
             if (node.type === 'text') {
-              return `<div class="inline ${className}">${
+              return `<div class="inline ${className}" data-id="${node.id}">${
                 node.value === ' ' ? '&nbsp;&nbsp;' : node.value
               }</div>`;
             }
-            return `<div class="block ${className}">${node.type}${
+            return `<div class="block ${className}" data-id="${node.id}">${
+              node.type
+            }${
               node.size ? `<span class="size">(${node.size})</span>` : ''
             }</div>`;
           })
