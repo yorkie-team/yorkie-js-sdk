@@ -397,6 +397,44 @@ img.ProseMirror-separator {
   flex: 1 1 auto;
   overflow: auto;
   padding: 10px;
+  display: flex;
+  gap: 20px;
+}
+
+.layout .application > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* width: 50%; */
+  border: 1px solid black;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.layout .application > .editor-area {
+  display: flex;
+  gap: 20px;
+  position: relative;
+}
+
+.sub-log {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  left: 0px;
+  height: 100px;
+  background-color: rgb(255, 255, 198);
+}
+
+.layout .application > .editor-area > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* width: 50%; */
+  /* border: 1px solid black; */
+}
+
+.layout .application > .editor-area > *:not(.sub-log):last-child {
+  width: 40%;
+  flex: none;
 }
 
 #app {
