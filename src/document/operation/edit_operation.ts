@@ -98,11 +98,10 @@ export class EditOperation extends Operation {
     if (!this.fromPos.equals(this.toPos)) {
       root.registerTextWithGarbage(text);
     }
-    return changes.map(({ type, actor, from, to, value }) => {
+    return changes.map(({ type, from, to, value }) => {
       return type === 'content'
         ? {
             type: 'edit',
-            actor,
             from,
             to,
             value,
@@ -110,7 +109,6 @@ export class EditOperation extends Operation {
           }
         : {
             type: 'select',
-            actor,
             from,
             to,
             element: this.getParentCreatedAt(),

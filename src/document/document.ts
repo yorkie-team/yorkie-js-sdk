@@ -132,6 +132,7 @@ export interface SnapshotEvent extends BaseDocEvent {
 export interface ChangeInfo {
   message: string;
   operations: Array<OperationInfo>;
+  actor: ActorID | undefined;
 }
 
 /**
@@ -263,6 +264,7 @@ export class Document<T> {
               operations: internalOpInfos.map((internalOpInfo) =>
                 this.toOperationInfo(internalOpInfo),
               ),
+              actor: change.getID().getActorID(),
             },
           ],
         });
@@ -316,7 +318,7 @@ export class Document<T> {
           }
 
           const changeInfos: Array<ChangeInfo> = [];
-          for (const { message, operations } of event.value) {
+          for (const { message, operations, actor } of event.value) {
             const targetOps: Array<OperationInfo> = [];
             for (const op of operations) {
               if (this.isSameElementOrChildOf(op.path, target)) {
@@ -327,6 +329,7 @@ export class Document<T> {
               changeInfos.push({
                 message,
                 operations: targetOps,
+                actor,
               });
           }
           changeInfos.length &&
@@ -609,6 +612,7 @@ export class Document<T> {
         operations: inernalOpInfos.map((opInfo) =>
           this.toOperationInfo(opInfo),
         ),
+        actor: change.getID().getActorID(),
       });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }

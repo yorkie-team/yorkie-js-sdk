@@ -45,6 +45,7 @@ export {
   Indexable,
   DocEvent,
   Document,
+  ChangeInfo,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
@@ -64,6 +65,7 @@ export {
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
+export type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 // TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
 // if not exported. We need to find a way to handle this without exporting the below.
