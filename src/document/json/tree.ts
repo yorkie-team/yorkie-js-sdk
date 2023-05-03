@@ -63,12 +63,15 @@ export class Tree {
   /**
    * `getInitialRoot` returns the root node of this tree.
    */
-  public getInitialRoot(ticket: TimeTicket): CRDTTreeNode {
+  public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
-      return CRDTTreeNode.create(ticket, DefaultRootType);
+      return CRDTTreeNode.create(context.issueTimeTicket(), DefaultRootType);
     }
 
-    const root = CRDTTreeNode.create(ticket, this.initialRoot.type);
+    const root = CRDTTreeNode.create(
+      context.issueTimeTicket(),
+      this.initialRoot.type,
+    );
 
     /**
      * traverse traverses the given node and its children recursively.
@@ -77,7 +80,7 @@ export class Tree {
       if (n.type === 'text') {
         const inlineNode = n as InlineNode;
         const treeNode = CRDTTreeNode.create(
-          ticket,
+          context.issueTimeTicket(),
           inlineNode.type,
           inlineNode.value,
         );
@@ -86,7 +89,10 @@ export class Tree {
       }
 
       const blockNode = n as BlockNode;
-      const node = CRDTTreeNode.create(ticket, blockNode.type);
+      const node = CRDTTreeNode.create(
+        context.issueTimeTicket(),
+        blockNode.type,
+      );
       parent.append(node);
 
       for (const child of blockNode.children) {

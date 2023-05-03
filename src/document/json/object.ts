@@ -205,7 +205,7 @@ export class ObjectProxy {
         );
         value.initialize(context, counter);
       } else if (value instanceof Tree) {
-        const tree = CRDTTree.create(value.getInitialRoot(ticket), ticket);
+        const tree = CRDTTree.create(value.buildRoot(context), ticket);
         target.set(key, tree);
         context.registerElement(tree, target);
         context.push(

@@ -365,7 +365,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       throw new Error('Inline node cannot have children');
     }
 
-    return this._children.indexOf(node);
+    return this.children.indexOf(node);
   }
 
   /**

@@ -69,7 +69,7 @@ function listEqual(tree: CRDTTree, expected: Array<string>) {
   );
 }
 
-describe.only('CRDTTreeNode', function () {
+describe('CRDTTreeNode', function () {
   it('Can be created', function () {
     const node = new CRDTTreeNode(ITID, 'text', 'hello');
     assert.equal(node.id, ITID);

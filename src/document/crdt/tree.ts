@@ -26,6 +26,7 @@ import {
   TreeNodeType,
   traverse,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
+import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
  * DummyHeadType is a type of dummy head. It is used to represent the head node
@@ -77,6 +78,26 @@ export const InitialCRDTTreeNodeID = {
   createdAt: InitialTimeTicket,
   offset: 0,
 };
+
+/**
+ * `compareCRDTTreeNodeID` compares the given two CRDTTreeNodeID.
+ */
+function compareCRDTTreeNodeID(
+  idA: CRDTTreeNodeID,
+  idB: CRDTTreeNodeID,
+): number {
+  const compare = idA.createdAt.compare(idB.createdAt);
+  if (compare !== 0) {
+    return compare;
+  }
+
+  if (idA.offset > idB.offset) {
+    return 1;
+  } else if (idA.offset < idB.offset) {
+    return -1;
+  }
+  return 0;
+}
 
 /**
  * `CRDTTreeNodeID` is a unique identifier of CRDTTreeNode.
@@ -260,18 +281,19 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 export class CRDTTree extends CRDTElement {
   private onChangesHandler?: (changes: Array<TreeChange>) => void;
   private dummyHead: CRDTTreeNode;
-  private treeByIndex: IndexTree<CRDTTreeNode>;
+  private indexTree: IndexTree<CRDTTreeNode>;
+  private nodeMap: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.dummyHead = new CRDTTreeNode(InitialCRDTTreeNodeID, DummyHeadType);
-    this.treeByIndex = new IndexTree<CRDTTreeNode>(root);
+    this.indexTree = new IndexTree<CRDTTreeNode>(root);
+    this.nodeMap = new LLRBTree(compareCRDTTreeNodeID);
 
-    let current = this.dummyHead;
-    this.treeByIndex.traverse((node) => {
-      current.next = node;
-      node.prev = current;
-      current = node;
+    let previous = this.dummyHead;
+    this.indexTree.traverse((node) => {
+      this.insertAfter(previous, node);
+      previous = node;
     });
   }
 
@@ -290,7 +312,7 @@ export class CRDTTree extends CRDTElement {
     to: number,
     callback: (node: CRDTTreeNode) => void,
   ): void {
-    this.treeByIndex.nodesBetween(from, to, callback);
+    this.indexTree.nodesBetween(from, to, callback);
   }
 
   /**
@@ -323,24 +345,15 @@ export class CRDTTree extends CRDTElement {
    * `findPostorderRight` finds the right node of the given index in postorder.
    */
   public findPostorderRight(index: number): CRDTTreeNode | undefined {
-    const pos = this.treeByIndex.findTreePos(index, true);
-    return this.treeByIndex.findPostorderRight(pos);
-  }
-
-  /**
-   * `split` splits the node at the given index.
-   */
-  public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
-    // TODO(hackerwins): Implement this with keeping references in the list.
-    // return this.treeByIndex.split(index, depth);
-    throw new Error(`not implemented, ${index} ${depth}`);
+    const pos = this.indexTree.findTreePos(index, true);
+    return this.indexTree.findPostorderRight(pos);
   }
 
   /**
    * `splitInline` splits the inline node at the given index.
    */
   public splitInline(index: number): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
-    const pos = this.treeByIndex.findTreePos(index, true);
+    const pos = this.indexTree.findTreePos(index, true);
     if (pos.node.isInline) {
       const split = pos.node.split(pos.offset);
       if (split) {
@@ -348,35 +361,23 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
-    const right = this.treeByIndex.findPostorderRight(pos);
+    const right = this.indexTree.findPostorderRight(pos);
     return [pos, right!];
-  }
-
-  /**
-   * `move` move the given source range to the given target range.
-   */
-  public move(
-    target: [number, number],
-    source: [number, number],
-    ticket: TimeTicket,
-  ): void {
-    // TODO(hackerwins, easylogic): Implement this with keeping references of the nodes.
-    throw new Error(`not implemented: ${target}, ${source}, ${ticket}`);
   }
 
   /**
    * `insertAfter` inserts the given node after the given previous node.
    */
-  public insertAfter(prev: CRDTTreeNode, node: CRDTTreeNode): void {
-    const next = prev.next;
-
-    prev.next = node;
-    node.prev = prev;
-
+  public insertAfter(prevNode: CRDTTreeNode, newNode: CRDTTreeNode): void {
+    const next = prevNode.next;
+    prevNode.next = newNode;
+    newNode.prev = prevNode;
     if (next) {
-      node.next = next;
-      next.prev = node;
+      newNode.next = next;
+      next.prev = newNode;
     }
+
+    this.nodeMap.put(newNode.id, newNode);
   }
 
   /**
@@ -467,11 +468,27 @@ export class CRDTTree extends CRDTElement {
     if (this.onChangesHandler) {
       this.onChangesHandler(changes);
     }
+  }
 
-    // 04. Remove the nodes from the index tree.
-    for (const node of toBeRemoveds) {
-      node.parent?.removeChild(node);
-    }
+  /**
+   * `split` splits the node at the given index.
+   */
+  public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
+    // TODO(hackerwins): Implement this with keeping references in the list.
+    // return this.treeByIndex.split(index, depth);
+    throw new Error(`not implemented, ${index} ${depth}`);
+  }
+
+  /**
+   * `move` move the given source range to the given target range.
+   */
+  public move(
+    target: [number, number],
+    source: [number, number],
+    ticket: TimeTicket,
+  ): void {
+    // TODO(hackerwins, easylogic): Implement this with keeping references of the nodes.
+    throw new Error(`not implemented: ${target}, ${source}, ${ticket}`);
   }
 
   /**
@@ -481,42 +498,42 @@ export class CRDTTree extends CRDTElement {
     index: number,
     preperInline = true,
   ): TreePos<CRDTTreeNode> {
-    return this.treeByIndex.findTreePos(index, preperInline);
+    return this.indexTree.findTreePos(index, preperInline);
   }
 
   /**
    * `getRoot` returns the root node of the tree.
    */
   public getRoot(): CRDTTreeNode {
-    return this.treeByIndex.getRoot();
+    return this.indexTree.getRoot();
   }
 
   /**
    * `getSize` returns the size of the tree.
    */
   public getSize(): number {
-    return this.treeByIndex.size;
+    return this.indexTree.size;
   }
 
   /**
    * toXML returns the XML encoding of this tree.
    */
   public toXML(): string {
-    return toXML(this.treeByIndex.getRoot());
+    return toXML(this.indexTree.getRoot());
   }
 
   /**
    * `toJSON` returns the JSON encoding of this tree.
    */
   public toJSON(): string {
-    return JSON.stringify(toJSON(this.treeByIndex.getRoot()));
+    return JSON.stringify(toJSON(this.indexTree.getRoot()));
   }
 
   /**
    * `toStructure` returns the JSON of this tree for debugging.
    */
   public toStructure(): TreeNodeForTest {
-    return toStructure(this.treeByIndex.getRoot());
+    return toStructure(this.indexTree.getRoot());
   }
 
   /**
@@ -530,8 +547,9 @@ export class CRDTTree extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTTree {
-    const tree = new CRDTTree(this.getRoot(), this.getCreatedAt());
+    const root = this.getRoot();
     // TODO(hackerwins, easylogic): Implement this with copying the root node deeply.
+    const tree = new CRDTTree(root.clone(root.id.offset), this.getCreatedAt());
     return tree;
   }
 
