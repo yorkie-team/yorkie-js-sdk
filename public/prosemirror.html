@@ -233,16 +233,20 @@
               case 'content':
                 const { from, to, value: content } = it;
 
-                const transaction = view2.state.tr;
-                transaction.replaceWith(
-                  from,
-                  to,
-                  Node.fromJSON(mySchema, {
-                    type: content.type,
-                    text: content.value,
-                  }),
-                );
-                const newState = view2.state.apply(transaction);
+                const transform = view2.state.tr;
+                if (content) {
+                  transform.replaceWith(
+                    from,
+                    to,
+                    Node.fromJSON(mySchema, {
+                      type: content.type,
+                      text: content.value,
+                    }),
+                  );
+                } else {
+                  transform.replace(from, to);
+                }
+                const newState = view2.state.apply(transform);
 
                 view2.updateState(newState);
 
@@ -251,18 +255,19 @@
                 };
 
                 // display log
-                document.getElementById('pm2-sub-log').innerHTML = `<pre>
-  const transaction = view2.state.tr;
-  transaction.replaceWidth(${paintText(from)}, ${paintText(
-                  to,
-                )}, Node.fromJSON(mySchema, {type: "${paintText(
-                  content.type,
-                )}",text: "${paintText(content.value)}"})
-  const newState = view2.state.apply(transaction);
-  view2.updateState(newState);
-
+                if (content) {
+                  document.getElementById('pm2-sub-log').innerHTML = `<pre>
+  transform.replaceWidth(${paintText(from)}, ${paintText(
+                    to,
+                  )}, Node.fromJSON(mySchema, {type: "${paintText(
+                    content?.type,
+                  )}",text: "${paintText(content?.value)}"})
       </pre>`;
-
+                } else {
+                  document.getElementById('pm2-sub-log').innerHTML = `<pre>
+  transform.replace(${paintText(from)}, ${paintText(to)})
+      </pre>`;
+                }
                 break;
             }
           });

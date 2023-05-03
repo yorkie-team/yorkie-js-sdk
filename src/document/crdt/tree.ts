@@ -453,16 +453,16 @@ export class CRDTTree extends CRDTElement {
         const target = fromPos.node;
         target.insertAt(content, fromPos.offset + 1);
       }
-
-      // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to convert
-      // the following range from the logical timestamp.
-      changes.push({
-        type: TreeChangeType.Content,
-        from: range[0],
-        to: range[1],
-        value: toJSON(content),
-      });
     }
+
+    // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to convert
+    // the following range from the logical timestamp.
+    changes.push({
+      type: TreeChangeType.Content,
+      from: range[0],
+      to: range[1],
+      value: content ? toJSON(content) : undefined,
+    });
 
     if (this.onChangesHandler) {
       this.onChangesHandler(changes);
