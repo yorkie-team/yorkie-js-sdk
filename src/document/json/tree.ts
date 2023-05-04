@@ -8,6 +8,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
+  IndexTree,
   DefaultRootType,
   DefaultInlineType,
   TreeNodeType,
@@ -117,6 +118,17 @@ export class Tree {
     }
 
     return this.tree.getSize();
+  }
+
+  /**
+   * `getIndexTree` returns the index tree of this tree.
+   */
+  public getIndexTree(): IndexTree<CRDTTreeNode> {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.getIndexTree();
   }
 
   /**

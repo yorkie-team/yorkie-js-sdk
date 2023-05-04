@@ -17,10 +17,23 @@
 import { assert } from 'chai';
 import yorkie, {
   Tree,
+  TreeNode,
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
+
+/**
+ * `listEqual` is a helper function that the given tree is equal to the
+ * expected list of nodes.
+ */
+function listEqual(tree: Tree, expected: Array<TreeNode>) {
+  const nodes: Array<TreeNode> = [];
+  for (const node of tree) {
+    nodes.push(node);
+  }
+  assert.deepEqual(nodes, expected);
+}
 
 describe('Tree', () => {
   it('Can be created', function () {
@@ -93,12 +106,7 @@ describe('Tree', () => {
         /*html*/ `<doc><p>ab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
       );
       assert.equal(root.t.getSize(), 18);
-
-      const list = [];
-      for (const node of root.t) {
-        list.push(node);
-      }
-      assert.deepEqual(list, [
+      listEqual(root.t, [
         { type: 'text', value: 'ab' },
         { type: 'p', children: [] },
         { type: 'text', value: 'cd' },
