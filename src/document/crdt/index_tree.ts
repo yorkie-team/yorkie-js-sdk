@@ -680,4 +680,33 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     return findLeftmost(node.children[offset]);
   }
+
+  /**
+   * `indexOf` returns the index of the given node.
+   */
+  public indexOf(node: T): number {
+    let index = 0;
+    let current = node;
+    while (current !== this.root) {
+      const parent = current.parent;
+      if (!parent) {
+        throw new Error(`parent is not found`);
+      }
+
+      const offset = parent.findOffset(current);
+      for (const previous of parent.children.slice(0, offset)) {
+        index += previous.paddedSize;
+      }
+
+      // If this step escape from block node, we should add 1 to the index,
+      // because the block node has open tag.
+      if (current !== this.root && current !== node && !current.isInline) {
+        index += 1;
+      }
+
+      current = parent;
+    }
+
+    return index;
+  }
 }

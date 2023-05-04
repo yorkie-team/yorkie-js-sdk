@@ -23,6 +23,17 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
 
 /**
+ * `toDiagnostic` is a helper function that converts the given node to a
+ * diagnostic string.
+ */
+function toDiagnostic(node: CRDTTreeNode): string {
+  if (node.isInline) {
+    return `${node.type}.${node.value}`;
+  }
+  return node.type;
+}
+
+/**
  * `betweenEqual` is a helper function that checks the nodes between the given
  * indexes.
  */
@@ -37,15 +48,7 @@ function nodesBetweenEqual(
     nodes.push(node);
     return true;
   });
-  assert.deepEqual(
-    nodes.map((node) => {
-      if (node.isInline) {
-        return `${node.type}.${node.value}`;
-      }
-      return node.type;
-    }),
-    expected,
-  );
+  assert.deepEqual(nodes.map(toDiagnostic), expected);
 }
 
 describe('IndexTree', function () {
@@ -61,21 +64,21 @@ describe('IndexTree', function () {
     });
 
     let pos = tree.findTreePos(0);
-    assert.deepEqual([pos.offset, pos.node.type], [0, 'r']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['r', 0]);
     pos = tree.findTreePos(1);
-    assert.deepEqual([pos.offset, pos.node.type], [0, 'text']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.hello', 0]);
     pos = tree.findTreePos(6);
-    assert.deepEqual([pos.offset, pos.node.type], [5, 'text']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.hello', 5]);
     pos = tree.findTreePos(6, false);
-    assert.deepEqual([pos.offset, pos.node.type], [1, 'p']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 1]);
     pos = tree.findTreePos(7);
-    assert.deepEqual([pos.offset, pos.node.type], [1, 'r']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['r', 1]);
     pos = tree.findTreePos(8);
-    assert.deepEqual([pos.offset, pos.node.type], [0, 'text']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.world', 0]);
     pos = tree.findTreePos(13);
-    assert.deepEqual([pos.offset, pos.node.type], [5, 'text']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.world', 5]);
     pos = tree.findTreePos(14);
-    assert.deepEqual([pos.offset, pos.node.type], [2, 'r']);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['r', 2]);
   });
 
   it('Can find right node from the given offset in postorder traversal', function () {
@@ -113,16 +116,17 @@ describe('IndexTree', function () {
       ],
     });
 
-    assert.equal(
-      findCommonAncestor(
-        tree.findTreePos(3, true).node,
-        tree.findTreePos(7, true).node,
-      )!.type,
-      'p',
-    );
+    const nodeAB = tree.findTreePos(3, true).node;
+    const nodeCD = tree.findTreePos(7, true).node;
+
+    assert.equal(toDiagnostic(nodeAB), 'text.ab');
+    assert.equal(toDiagnostic(nodeCD), 'text.cd');
+    assert.equal(findCommonAncestor(nodeAB, nodeCD)!.type, 'p');
   });
 
   it('Can traverse nodes between two given positions', function () {
+    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
+    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
     const tree = buildIndexTree({
       type: 'root',
       children: [
@@ -138,8 +142,6 @@ describe('IndexTree', function () {
       ],
     });
 
-    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
-    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
     nodesBetweenEqual(tree, 2, 11, [
       'text.b',
       'p',
@@ -152,5 +154,53 @@ describe('IndexTree', function () {
     nodesBetweenEqual(tree, 0, 1, ['p']);
     nodesBetweenEqual(tree, 3, 4, ['p']);
     nodesBetweenEqual(tree, 3, 5, ['p', 'p']);
+  });
+
+  it('Can find index of the given node', function () {
+    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
+    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+    const tree = buildIndexTree({
+      type: 'root',
+      children: [
+        {
+          type: 'p',
+          children: [
+            { type: 'text', value: 'a' },
+            { type: 'text', value: 'b' },
+          ],
+        },
+        { type: 'p', children: [{ type: 'text', value: 'cde' }] },
+        { type: 'p', children: [{ type: 'text', value: 'fg' }] },
+      ],
+    });
+
+    let pos = tree.findTreePos(0, true);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['root', 0]);
+    assert.equal(tree.indexOf(pos.node), 0);
+
+    pos = tree.findTreePos(1, true);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.a', 0]);
+    assert.equal(tree.indexOf(pos.node), 1);
+
+    pos = tree.findTreePos(3, true);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.b', 1]);
+    assert.equal(tree.indexOf(pos.node), 2);
+
+    pos = tree.findTreePos(4, true);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['root', 1]);
+    assert.equal(tree.indexOf(pos.node), 0);
+
+    pos = tree.findTreePos(10, true);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.fg', 0]);
+    assert.equal(tree.indexOf(pos.node), 10);
+
+    const firstP = tree.getRoot().children[0];
+    assert.deepEqual([toDiagnostic(firstP), tree.indexOf(firstP)], ['p', 0]);
+
+    const secondP = tree.getRoot().children[1];
+    assert.deepEqual([toDiagnostic(secondP), tree.indexOf(secondP)], ['p', 4]);
+
+    const thirdP = tree.getRoot().children[2];
+    assert.deepEqual([toDiagnostic(secondP), tree.indexOf(thirdP)], ['p', 9]);
   });
 });
