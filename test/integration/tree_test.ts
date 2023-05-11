@@ -194,4 +194,32 @@ describe('Tree', () => {
       },
     ]);
   });
+
+  it('Path and index are interchangeable', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+      //       0 1 2 3  4
+      // <root><p>ab</p></root>
+      assert.equal(root.t.pathToIndex([0]), 0);
+      assert.equal(root.t.pathToIndex([0, 0]), 1);
+      assert.equal(root.t.pathToIndex([0, 0, 0]), 1);
+      assert.equal(root.t.pathToIndex([0, 0, 1]), 2);
+      assert.equal(root.t.pathToIndex([0, 0, 2]), 3);
+      assert.equal(root.t.pathToIndex([0, 1]), 3);
+      assert.equal(root.t.pathToIndex([1]), 4);
+
+      assert.deepEqual(root.t.indexToPath(0), []);
+      assert.deepEqual(root.t.indexToPath(1), [0, 0, 0]);
+      assert.deepEqual(root.t.indexToPath(2), [0, 0, 1]);
+      assert.deepEqual(root.t.indexToPath(3), [0, 0, 2]);
+      assert.deepEqual(root.t.indexToPath(4), []);
+    });
+  });
 });
