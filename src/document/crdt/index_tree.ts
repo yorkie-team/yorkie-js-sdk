@@ -615,6 +615,128 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `pathToIndex` returns index from path
+   */
+  public pathToIndex(path: Array<number>) {
+    const findLastAccessibleNodeFromPath = <T extends IndexTreeNode<T>>(
+      root: T,
+      path: Array<number>,
+    ) => {
+      for (let i = 0; i < path.length; i++) {
+        if (!root.children[path[i]]) {
+          return { node: root, index: i - 1 };
+        }
+
+        root = root.children[path[i]];
+      }
+      return { node: root, index: path.length - 1 };
+    };
+    const addSizesOfLeftSibilingsOnPath = <T extends IndexTreeNode<T>>(
+      root: T,
+      path: Array<number>,
+    ) => {
+      let size = 0;
+
+      for (let pathIndex = 0; pathIndex < path.length; pathIndex++) {
+        const pathInfo = path[pathIndex];
+
+        for (let i = 0; i < pathInfo; i++) {
+          const leftSibiling = root.children[i];
+
+          size += leftSibiling.isInline
+            ? leftSibiling.size + 1
+            : leftSibiling.size + 2;
+        }
+
+        root = root.children[pathInfo];
+      }
+
+      return size;
+    };
+    const resolveTypeByPath = <T extends IndexTreeNode<T>>(
+      root: T,
+      path: Array<number>,
+    ) => {
+      const { node, index } = findLastAccessibleNodeFromPath(root, path);
+
+      if (index === path.length - 1) {
+        return { isAccessible: true, type: 'node' };
+      }
+
+      if (
+        index === path.length - 2 &&
+        node.isInline &&
+        node.value.length >= path[path.length - 1]
+      ) {
+        return { isAccessible: true, type: 'text' };
+      }
+
+      const isEveryLeftPathIsZero = path
+        .slice(index + 1, path.length)
+        .every((pathInfo) => pathInfo === 0);
+      const leftSibilingOfFirstCut = node.children[path[index + 1] - 1];
+      const isNextEveryLeftPathIsZero = path
+        .slice(index + 2, path.length)
+        .every((pathInfo) => pathInfo === 0);
+
+      if (
+        !node.isInline &&
+        (isEveryLeftPathIsZero ||
+          (leftSibilingOfFirstCut && isNextEveryLeftPathIsZero))
+      ) {
+        return { isAccessible: true, type: 'disconnected' };
+      }
+
+      return { isAccessible: false, type: 'impossible' };
+    };
+
+    let index = 0;
+
+    if (!path.length) {
+      return index;
+    }
+
+    const { isAccessible, type } = resolveTypeByPath(this.root, path);
+
+    if (!isAccessible) {
+      throw new Error('impossible path');
+    }
+
+    switch (type) {
+      case 'node': {
+        index += addSizesOfLeftSibilingsOnPath(this.root, path);
+        index += path.length - 1;
+
+        break;
+      }
+      case 'text': {
+        index += addSizesOfLeftSibilingsOnPath(
+          this.root,
+          path.slice(0, path.length - 1),
+        );
+        index += path[path.length - 1];
+        index += path.length - 2;
+
+        break;
+      }
+      case 'disconnected': {
+        const { index: pathIndex } = findLastAccessibleNodeFromPath(
+          this.root,
+          path,
+        );
+
+        const size = addSizesOfLeftSibilingsOnPath(
+          this.root,
+          path.slice(0, pathIndex + 2),
+        );
+
+        index += size;
+      }
+    }
+
+    return index;
+  }
+  /**
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos<T> {

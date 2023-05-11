@@ -468,6 +468,13 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `pathToIndex` returns index returned from path
+   */
+  public pathToIndex(path: Array<number>) {
+    return this.indexTree.pathToIndex(path);
+  }
+
+  /**
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
