@@ -169,6 +169,13 @@ export class Tree {
   }
 
   /**
+   * `indexToPath` returns path from index
+   */
+  public indexToPath(index: number) {
+    return this.tree?.indexToPath(index);
+  }
+
+  /**
    * `split` splits this tree at the given index.
    */
   public split(index: number, depth: number): boolean {

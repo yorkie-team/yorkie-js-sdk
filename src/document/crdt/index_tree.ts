@@ -736,6 +736,31 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     return index;
   }
+
+  /**
+   * `indexToPath` returns path from index
+   */
+  public indexToPath(index: number): Array<number> {
+    const treePos = findTreePos(this.root, index, true);
+    const offset = treePos.offset;
+    let node = treePos.node;
+    let path = [];
+
+    if (node.isInline) {
+      path.push(offset);
+    }
+
+    while (node.parent) {
+      path.push(node.parent.children.indexOf(node));
+
+      node = node.parent;
+    }
+
+    path = path.reverse();
+
+    return path;
+  }
+
   /**
    * `split` splits the node at the given index.
    */

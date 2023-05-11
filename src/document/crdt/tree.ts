@@ -475,6 +475,13 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `indexToPath` returns path returned from index
+   */
+  public indexToPath(index: number) {
+    return this.indexTree.indexToPath(index);
+  }
+
+  /**
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
