@@ -659,6 +659,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     ) => {
       const { node, index } = findLastAccessibleNodeFromPath(root, path);
 
+      // 1. ㅑ
       if (index === path.length - 1) {
         return { isAccessible: true, type: 'node' };
       }
@@ -671,10 +672,15 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         return { isAccessible: true, type: 'text' };
       }
 
+      // [0, 1, 0, 0, 0] and [0, 1] is reachable
+      // then isEveryLeftPathIsZero [0, 0, 0]
       const isEveryLeftPathIsZero = path
         .slice(index + 1, path.length)
         .every((pathInfo) => pathInfo === 0);
+      // [0, 1, 2, 0, 0] and [0, 1] is reachable, then leftSibilingOfFirstCut is [0, 1, 1]
       const leftSibilingOfFirstCut = node.children[path[index + 1] - 1];
+      // [0, 1, 2, 0, 0] and [0, 1] is reachable and leftSibilingOfFirstCut is [0, 1, 1]
+      // then isNextEveryLeftPathIsZero is [0, 0]
       const isNextEveryLeftPathIsZero = path
         .slice(index + 2, path.length)
         .every((pathInfo) => pathInfo === 0);
@@ -692,6 +698,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     let index = 0;
 
+    // if there's no path, then it's pointing root
     if (!path.length) {
       return index;
     }
@@ -703,12 +710,19 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     }
 
     switch (type) {
+      // if path is heading to node(not text)
+      // add sizes of all left sibilings of path
+      // add depth - 1
       case 'node': {
         index += addSizesOfLeftSibilingsOnPath(this.root, path);
         index += path.length - 1;
 
         break;
       }
+      // if path is heading to text(not text)
+      // add sizes of all left sibilings of path - 1
+      // add depth - 2
+      // add path[path.length - 1] (index of text)
       case 'text': {
         index += addSizesOfLeftSibilingsOnPath(
           this.root,
@@ -719,18 +733,19 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
         break;
       }
+      // if path is heading to next node that does not exist
+      // add sizes of all left sibilings of path[next index of last existing node in path]
+      // no need to add depth (by adding value of left sibiling on the right)
       case 'disconnected': {
         const { index: pathIndex } = findLastAccessibleNodeFromPath(
           this.root,
           path,
         );
 
-        const size = addSizesOfLeftSibilingsOnPath(
+        index += addSizesOfLeftSibilingsOnPath(
           this.root,
           path.slice(0, pathIndex + 2),
         );
-
-        index += size;
       }
     }
 
