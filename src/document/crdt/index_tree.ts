@@ -641,6 +641,31 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `pathToTreePos` returns treePos from given path
+   */
+  public pathToTreePos(path: Array<number>): TreePos<T> {
+    if (!path.length) {
+      throw new Error('unacceptable path');
+    }
+
+    let node = this.root;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const pathInfo = path[i];
+
+      node = node.children[pathInfo];
+
+      if (!node) {
+        throw new Error('unacceptable path');
+      }
+    }
+
+    const preperInline = node.isInline;
+
+    return findTreePos(node, path[path.length - 1], preperInline);
+  }
+
+  /**
    * `getRoot` returns the root node of the tree.
    */
   public getRoot(): T {
