@@ -273,4 +273,65 @@ describe('IndexTree', function () {
     pos = tree.pathToTreePos([3]);
     assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 2]);
   });
+
+  it('Can find path from given treePos', function () {
+    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
+    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+    const tree = buildIndexTree({
+      type: 'root',
+      children: [
+        {
+          type: 'p',
+          children: [
+            { type: 'text', value: 'a' },
+            { type: 'text', value: 'b' },
+          ],
+        },
+        { type: 'p', children: [{ type: 'text', value: 'cde' }] },
+        { type: 'p', children: [{ type: 'text', value: 'fg' }] },
+      ],
+    });
+
+    let pos = tree.findTreePos(0);
+    assert.deepEqual(tree.treePosToPath(pos), [0]);
+
+    pos = tree.findTreePos(1);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0]);
+
+    pos = tree.findTreePos(2);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1]);
+
+    pos = tree.findTreePos(3);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 1, 1]);
+
+    pos = tree.findTreePos(4);
+    assert.deepEqual(tree.treePosToPath(pos), [1]);
+
+    pos = tree.findTreePos(5);
+    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 0]);
+
+    pos = tree.findTreePos(6);
+    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 1]);
+
+    pos = tree.findTreePos(7);
+    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 2]);
+
+    pos = tree.findTreePos(8);
+    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 3]);
+
+    pos = tree.findTreePos(9);
+    assert.deepEqual(tree.treePosToPath(pos), [2]);
+
+    pos = tree.findTreePos(10);
+    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 0]);
+
+    pos = tree.findTreePos(11);
+    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 1]);
+
+    pos = tree.findTreePos(12);
+    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 2]);
+
+    pos = tree.findTreePos(13);
+    assert.deepEqual(tree.treePosToPath(pos), [3]);
+  });
 });
