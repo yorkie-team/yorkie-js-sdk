@@ -101,7 +101,7 @@ function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
  * location in the tree, so whether the node is splitted or not, we can find
  * the adjacent node to pos by calling `map.floorEntry()`.
  */
-interface CRDTTreePos {
+export interface CRDTTreePos {
   /**
    * `createdAt` is the creation time of the node.
    */
@@ -121,8 +121,20 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   pos: CRDTTreePos;
   removedAt?: TimeTicket;
 
+  /**
+   * `next` is the next node of this node in the list.
+   */
   next?: CRDTTreeNode;
+
+  /**
+   * `prev` is the previous node of this node in the list.
+   */
   prev?: CRDTTreeNode;
+
+  /**
+   * `insPrev` is the previous node of this node after the node is split.
+   */
+  insPrev?: CRDTTreeNode;
 
   _value = '';
 
@@ -276,7 +288,8 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
-  private onChangesHandler?: (changes: Array<TreeChange>) => void;
+  public onChangesHandler?: (changes: Array<TreeChange>) => void;
+
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
@@ -349,15 +362,22 @@ export class CRDTTree extends CRDTElement {
   /**
    * `splitInline` splits the inline node at the given index.
    */
-  public splitInline(pos: TreePos<CRDTTreeNode>): CRDTTreeNode {
-    if (pos.node.isInline) {
-      const split = pos.node.split(pos.offset);
+  public splitInline(pos: CRDTTreePos): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
+    const treePos = this.toTreePos(pos);
+    if (!treePos) {
+      throw new Error(`cannot find node at ${pos}`);
+    }
+
+    if (treePos.node.isInline) {
+      const split = treePos.node.split(pos.offset);
       if (split) {
-        this.insertAfter(pos.node, split);
+        this.insertAfter(treePos.node, split);
+        split.insPrev = treePos.node;
       }
     }
 
-    return this.indexTree.findPostorderRight(pos)!;
+    const right = this.indexTree.findPostorderRight(treePos)!;
+    return [treePos, right];
   }
 
   /**
@@ -380,15 +400,13 @@ export class CRDTTree extends CRDTElement {
    * If the content is undefined, the range will be removed.
    */
   public edit(
-    range: [TreePos<CRDTTreeNode>, TreePos<CRDTTreeNode>],
+    range: [CRDTTreePos, CRDTTreePos],
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
   ): void {
-    const [fromPos, toPos] = range;
-
     // 01. split inline nodes at the given range if needed.
-    const toRight = this.splitInline(range[1]);
-    const fromRight = this.splitInline(range[0]);
+    const [toPos, toRight] = this.splitInline(range[1]);
+    const [fromPos, fromRight] = this.splitInline(range[0]);
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
@@ -461,23 +479,9 @@ export class CRDTTree extends CRDTElement {
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
   ): void {
-    const fromPos = this.indexTree.findTreePos(range[0], true);
-    const toPos = this.indexTree.findTreePos(range[1], true);
+    const fromPos = this.findTreePos(range[0], true);
+    const toPos = this.findTreePos(range[1], true);
     this.edit([fromPos, toPos], content, editedAt);
-
-    const changes: Array<TreeChange> = [];
-    // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to convert
-    // the following range from the logical timestamp.
-    changes.push({
-      type: TreeChangeType.Content,
-      from: range[0],
-      to: range[1],
-      value: content ? toJSON(content) : undefined,
-    });
-
-    if (this.onChangesHandler) {
-      this.onChangesHandler(changes);
-    }
   }
 
   /**
@@ -584,5 +588,26 @@ export class CRDTTree extends CRDTElement {
 
       node = node.next;
     }
+  }
+
+  /**
+   * `toTreePos` converts the given CRDTTreePos to TreePos<CRDTTreeNode>.
+   */
+  private toTreePos(pos: CRDTTreePos): TreePos<CRDTTreeNode> | undefined {
+    const entry = this.nodeMapByPos.floorEntry(pos);
+    if (!entry || !entry.key.createdAt.equals(pos.createdAt)) {
+      return;
+    }
+
+    // Choose the left node if the position is on the boundary of the split nodes.
+    let node = entry.value;
+    if (pos.offset > 0 && pos.offset === node.pos.offset && node.insPrev) {
+      node = node.insPrev;
+    }
+
+    return {
+      node,
+      offset: pos.offset - node.pos.offset,
+    };
   }
 }

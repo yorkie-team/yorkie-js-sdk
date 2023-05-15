@@ -1,10 +1,10 @@
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNode,
   TreeChange,
+  TreeChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
@@ -113,8 +113,7 @@ export class Tree {
    */
   public getSize(): number {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      return 0;
+      throw new Error('it is not initialized yet');
     }
 
     return this.tree.getSize();
@@ -136,17 +135,13 @@ export class Tree {
    */
   public edit(fromIdx: number, toIdx: number, node?: TreeNode): boolean {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      return false;
+      throw new Error('it is not initialized yet');
     }
-
     if (fromIdx > toIdx) {
-      logger.fatal('from should be less than or equal to to');
-      return false;
+      throw new Error('from should be less than or equal to to');
     }
 
     const ticket = this.context.issueTimeTicket();
-
     let crdtNode: CRDTTreeNode | undefined;
     if (node?.type === 'text') {
       const inlineNode = node as InlineNode;
@@ -155,8 +150,24 @@ export class Tree {
       crdtNode = CRDTTreeNode.create(ticket, node.type);
     }
 
-    // TODO(hackerwins): replace Tree.editByIndex with Tree.edit
-    this.tree.editByIndex([fromIdx, toIdx], crdtNode, ticket);
+    this.tree.edit(
+      [this.tree.findTreePos(fromIdx), this.tree.findTreePos(toIdx)],
+      crdtNode,
+      ticket,
+    );
+
+    const changes: Array<TreeChange> = [];
+    // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to calculate
+    // the following range from the logical timestamp.
+    changes.push({
+      type: TreeChangeType.Content,
+      from: fromIdx,
+      to: toIdx,
+      value: node,
+    });
+    if (this.tree.onChangesHandler) {
+      this.tree.onChangesHandler(changes);
+    }
 
     // TODO: add edit operation
     return true;
@@ -167,8 +178,7 @@ export class Tree {
    */
   public split(index: number, depth: number): boolean {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      return false;
+      throw new Error('it is not initialized yet');
     }
 
     this.tree.split(index, depth);
@@ -180,8 +190,7 @@ export class Tree {
    */
   public toXML(): string {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      return '';
+      throw new Error('it is not initialized yet');
     }
 
     return this.tree.toXML();
@@ -192,8 +201,7 @@ export class Tree {
    */
   onChanges(handler: (changes: Array<TreeChange>) => void): void {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      return;
+      throw new Error('it is not initialized yet');
     }
 
     this.tree.onChanges(handler);
