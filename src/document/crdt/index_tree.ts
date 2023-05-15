@@ -641,6 +641,33 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `treePosToPath` returns path from given treePos
+   */
+  public treePosToPath(treePos: TreePos<T>) {
+    const path = [];
+
+    if (treePos.node.isInline || !treePos.node.parent) {
+      path.push(treePos.offset);
+    }
+
+    let node = treePos.node;
+
+    while (node.parent) {
+      const pathInfo = node.parent.children.indexOf(node);
+
+      if (!~pathInfo) {
+        throw new Error('invalid treePos');
+      }
+
+      path.push(pathInfo);
+
+      node = node.parent;
+    }
+
+    return path.reverse();
+  }
+
+  /**
    * `pathToTreePos` returns treePos from given path
    */
   public pathToTreePos(path: Array<number>): TreePos<T> {
