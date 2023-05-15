@@ -203,4 +203,90 @@ describe('IndexTree', function () {
     const thirdP = tree.getRoot().children[2];
     assert.deepEqual([toDiagnostic(secondP), tree.indexOf(thirdP)], ['p', 9]);
   });
+  it('Can find treePos from given path', function () {
+    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
+    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+    const tree = buildIndexTree({
+      type: 'root',
+      children: [
+        {
+          type: 'p',
+          children: [
+            { type: 'text', value: 'a' },
+            { type: 'text', value: 'b' },
+          ],
+        },
+        { type: 'p', children: [{ type: 'text', value: 'cde' }] },
+        { type: 'p', children: [{ type: 'text', value: 'fg' }] },
+      ],
+    });
+
+    let path = [0];
+    let pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['root', 0]);
+
+    path = [0, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 0]);
+
+    path = [0, 0, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.a', 0]);
+
+    path = [0, 0, 1];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.a', 1]);
+
+    path = [0, 1, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.b', 0]);
+
+    path = [0, 1, 1];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.b', 1]);
+
+    path = [1];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 0]);
+
+    path = [1, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 0]);
+
+    path = [1, 0, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.cde', 0]);
+
+    path = [1, 0, 1];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.cde', 1]);
+
+    path = [1, 0, 2];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.cde', 2]);
+
+    path = [1, 0, 3];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.cde', 3]);
+
+    path = [2];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 1]);
+
+    path = [2, 0, 0];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.fg', 0]);
+
+    path = [2, 0, 1];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.fg', 1]);
+
+    path = [2, 0, 2];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.fg', 2]);
+
+    path = [3];
+    pos = tree.pathToTreePos(path);
+    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['p', 2]);
+  });
 });
