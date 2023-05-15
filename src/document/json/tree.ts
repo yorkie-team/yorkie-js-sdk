@@ -155,7 +155,8 @@ export class Tree {
       crdtNode = CRDTTreeNode.create(ticket, node.type);
     }
 
-    this.tree.edit([fromIdx, toIdx], crdtNode, ticket);
+    // TODO(hackerwins): replace Tree.editByIndex with Tree.edit
+    this.tree.editByIndex([fromIdx, toIdx], crdtNode, ticket);
 
     // TODO: add edit operation
     return true;

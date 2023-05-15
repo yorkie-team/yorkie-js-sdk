@@ -349,8 +349,7 @@ export class CRDTTree extends CRDTElement {
   /**
    * `splitInline` splits the inline node at the given index.
    */
-  public splitInline(index: number): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
-    const pos = this.indexTree.findTreePos(index, true);
+  public splitInline(pos: TreePos<CRDTTreeNode>): CRDTTreeNode {
     if (pos.node.isInline) {
       const split = pos.node.split(pos.offset);
       if (split) {
@@ -358,8 +357,7 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
-    const right = this.indexTree.findPostorderRight(pos);
-    return [pos, right!];
+    return this.indexTree.findPostorderRight(pos)!;
   }
 
   /**
@@ -378,19 +376,19 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `edit` edits the given range with the given value.
-   * If the given value is undefined, the given range will be deleted.
+   * `edit` edits the tree with the given range and content.
+   * If the content is undefined, the range will be removed.
    */
   public edit(
-    range: [number, number],
+    range: [TreePos<CRDTTreeNode>, TreePos<CRDTTreeNode>],
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
   ): void {
-    // 01. split inline nodes at the given range if needed.
-    const [fromPos, fromRight] = this.splitInline(range[0]);
-    const [toPos, toRight] = this.splitInline(range[1]);
+    const [fromPos, toPos] = range;
 
-    const changes: Array<TreeChange> = [];
+    // 01. split inline nodes at the given range if needed.
+    const toRight = this.splitInline(range[1]);
+    const fromRight = this.splitInline(range[0]);
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
@@ -452,7 +450,22 @@ export class CRDTTree extends CRDTElement {
         target.insertAt(content, fromPos.offset + 1);
       }
     }
+  }
 
+  /**
+   * `editByIndex` edits the given range with the given value.
+   * This method uses indexes instead of a pair of TreePos for testing.
+   */
+  public editByIndex(
+    range: [number, number],
+    content: CRDTTreeNode | undefined,
+    editedAt: TimeTicket,
+  ): void {
+    const fromPos = this.indexTree.findTreePos(range[0], true);
+    const toPos = this.indexTree.findTreePos(range[1], true);
+    this.edit([fromPos, toPos], content, editedAt);
+
+    const changes: Array<TreeChange> = [];
     // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to convert
     // the following range from the logical timestamp.
     changes.push({
