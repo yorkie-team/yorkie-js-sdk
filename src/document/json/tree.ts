@@ -4,7 +4,6 @@ import {
   CRDTTree,
   CRDTTreeNode,
   TreeChange,
-  TreeChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
@@ -13,6 +12,7 @@ import {
   DefaultInlineType,
   TreeNodeType,
 } from '@yorkie-js-sdk/src/document/crdt/index_tree';
+import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 
 export type TreeNode = InlineNode | BlockNode;
 
@@ -133,7 +133,7 @@ export class Tree {
   /**
    * `edit` edits this tree with the given node.
    */
-  public edit(fromIdx: number, toIdx: number, node?: TreeNode): boolean {
+  public edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
@@ -143,33 +143,27 @@ export class Tree {
 
     const ticket = this.context.issueTimeTicket();
     let crdtNode: CRDTTreeNode | undefined;
-    if (node?.type === 'text') {
-      const inlineNode = node as InlineNode;
+    if (content?.type === 'text') {
+      const inlineNode = content as InlineNode;
       crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
-    } else if (node) {
-      crdtNode = CRDTTreeNode.create(ticket, node.type);
+    } else if (content) {
+      crdtNode = CRDTTreeNode.create(ticket, content.type);
     }
 
-    this.tree.edit(
-      [this.tree.findTreePos(fromIdx), this.tree.findTreePos(toIdx)],
-      crdtNode,
-      ticket,
+    const fromPos = this.tree.findTreePos(fromIdx);
+    const toPos = this.tree.findTreePos(toIdx);
+    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+
+    this.context.push(
+      TreeEditOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNode,
+        ticket,
+      ),
     );
 
-    const changes: Array<TreeChange> = [];
-    // TODO(hackerwins, easylogic): After the implementation of CRDT, we need to calculate
-    // the following range from the logical timestamp.
-    changes.push({
-      type: TreeChangeType.Content,
-      from: fromIdx,
-      to: toIdx,
-      value: node,
-    });
-    if (this.tree.onChangesHandler) {
-      this.tree.onChangesHandler(changes);
-    }
-
-    // TODO: add edit operation
     return true;
   }
 

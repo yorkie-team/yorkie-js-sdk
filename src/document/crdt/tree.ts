@@ -172,6 +172,22 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
+   * `deepcopy` copies itself deeply.
+   */
+  deepcopy(): CRDTTreeNode {
+    const clone = new CRDTTreeNode(this.pos, this.type);
+    clone.removedAt = this.removedAt;
+    clone._value = this._value;
+    clone.size = this.size;
+    clone._children = this._children.map((child) => {
+      const childClone = child.deepcopy();
+      childClone.parent = clone;
+      return childClone;
+    });
+    return clone;
+  }
+
+  /**
    * `value` returns the value of the node.
    */
   get value() {
@@ -403,7 +419,7 @@ export class CRDTTree extends CRDTElement {
     range: [CRDTTreePos, CRDTTreePos],
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
-  ): void {
+  ): Array<TreeChange> {
     // 01. split inline nodes at the given range if needed.
     const [toPos, toRight] = this.splitInline(range[1]);
     const [fromPos, fromRight] = this.splitInline(range[0]);
@@ -447,6 +463,14 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
+    const changes: Array<TreeChange> = [];
+    changes.push({
+      type: TreeChangeType.Content,
+      from: this.toIndex(range[0]),
+      to: this.toIndex(range[1]),
+      value: content ? toJSON(content) : undefined,
+    });
+
     // 03. insert the given node at the given position.
     if (content) {
       // 03-1. insert the content nodes to the list.
@@ -468,6 +492,12 @@ export class CRDTTree extends CRDTElement {
         target.insertAt(content, fromPos.offset + 1);
       }
     }
+
+    if (this.onChangesHandler) {
+      this.onChangesHandler(changes);
+    }
+
+    return changes;
   }
 
   /**
@@ -571,8 +601,7 @@ export class CRDTTree extends CRDTElement {
    */
   public deepcopy(): CRDTTree {
     const root = this.getRoot();
-    // TODO(hackerwins, easylogic): Implement this with copying the root node deeply.
-    const tree = new CRDTTree(root.clone(root.pos.offset), this.getCreatedAt());
+    const tree = new CRDTTree(root.deepcopy(), this.getCreatedAt());
     return tree;
   }
 
@@ -588,6 +617,18 @@ export class CRDTTree extends CRDTElement {
 
       node = node.next;
     }
+  }
+
+  /**
+   * `toIndex` converts the given CRDTTreePos to the index of the tree.
+   */
+  private toIndex(pos: CRDTTreePos): number {
+    const treePos = this.toTreePos(pos);
+    if (!treePos) {
+      return -1;
+    }
+
+    return this.indexTree.indexOf(treePos.node) + treePos.offset;
   }
 
   /**

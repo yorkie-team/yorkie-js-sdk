@@ -144,6 +144,7 @@ describe('Tree', () => {
       root.t.edit(2, 3);
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
 
     doc.update((root) => {
       root.t = new Tree({
