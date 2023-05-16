@@ -16,11 +16,14 @@
 
 import { assert } from 'chai';
 import yorkie, {
+  Document,
   Tree,
   TreeNode,
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
+import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
 
 /**
@@ -33,6 +36,35 @@ function listEqual(tree: Tree, expected: Array<TreeNode>) {
     nodes.push(node);
   }
   assert.deepEqual(nodes, expected);
+}
+
+/**
+ * `createChangePack` is a helper function that creates a change pack from the
+ * given document. It is used to to emulate the behavior of the server.
+ */
+function createChangePack(doc: Document<unknown>): ChangePack {
+  // 01. Create a change pack from the given document and emulate the behavior
+  // of PushPullChanges API.
+  const reqPack = doc.createChangePack();
+  const reqCP = reqPack.getCheckpoint();
+  const resPack = ChangePack.create(
+    reqPack.getDocumentKey(),
+    Checkpoint.of(
+      reqCP.getServerSeq().add(reqPack.getChangeSize()),
+      reqCP.getClientSeq() + reqPack.getChangeSize(),
+    ),
+    false,
+    [],
+  );
+  doc.applyChangePack(resPack);
+
+  // 02. Create a pack to apply the changes to other replicas.
+  return ChangePack.create(
+    reqPack.getDocumentKey(),
+    Checkpoint.of(reqCP.getServerSeq().add(reqPack.getChangeSize()), 0),
+    false,
+    reqPack.getChanges(),
+  );
 }
 
 describe('Tree', () => {
@@ -194,5 +226,35 @@ describe('Tree', () => {
         value: { type: 'text', value: 'X' },
       },
     ]);
+  });
+
+  it.skip('Can edit its content concurrently', async function () {
+    // 01. Create documents with different actors.
+    const docA = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
+    docA.setActor('A');
+    const docB = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
+    docB.setActor('B');
+    docA.update((root) => {
+      root.t = new Tree({
+        type: 'r',
+        children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+      });
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+    docB.applyChangePack(createChangePack(docA));
+
+    // 02. Edit documents concurrently.
+    docA.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
+
+    docB.update((r) => r.t.edit(1, 1, { type: 'text', value: 'B' }));
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>B12</p></r>`);
+
+    // 03. Sync documents and check the result.
+    docB.applyChangePack(createChangePack(docA));
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+
+    docA.applyChangePack(createChangePack(docB));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
   });
 });

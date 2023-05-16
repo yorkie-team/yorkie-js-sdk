@@ -442,7 +442,7 @@ export class Document<T> {
    * @internal
    */
   public createChangePack(): ChangePack {
-    const changes = this.localChanges;
+    const changes = Array.from(this.localChanges);
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
     return ChangePack.create(this.key, checkpoint, false, changes);
   }
