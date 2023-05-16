@@ -15,10 +15,11 @@
  */
 
 /**
- * About `index`, `size` and `TreePos` in crdt.IndexTree.
+ * About `index`, `path`, `size` and `TreePos` in crdt.IndexTree.
  *
  * `index` of crdt.IndexTree represents a absolute position of a node in the tree.
  * `size` is used to calculate the relative index of nodes in the tree.
+ * `index` in yorkie.IndexTree inspired by ProseMirror's index.
  *
  * For example, empty paragraph's size is 0 and index 0 is the position of the:
  *    0
@@ -41,8 +42,8 @@
  * So the size of a node is the sum of the size and type of its children:
  *  `size = children(block type).length * 2 + children.reduce((child, acc) => child.size + acc, 0)`
  *
- * `TreePos` is the relative position of a node in the tree. `TreePos` can be converted
- * to `index` and vice versa.
+ * `TreePos` is also used to represent the position in the tree. It contains node and offset.
+ * `TreePos` can be converted to `index` and vice versa.
  *
  * For example, if a paragraph has <i>, there are 3 indexes:
  *     0   1    2
@@ -51,7 +52,17 @@
  * In this case, index of TreePos(p, 0) is 0, index of TreePos(p, 1) is 2.
  * Index 1 can be converted to TreePos(i, 0).
  *
- * index in yorkie.IndexTree inspired by ProseMirror's index.
+ * `path` of crdt.IndexTree represents a position like `index` in crdt.IndexTree.
+ * It contains offsets of each node from the root node as elements except the last.
+ * The last element of the path represents the position in the parent node.
+ *
+ * Let's say we have a tree like this:
+ *                     0 1 2
+ * <p> <i> a b </i> <b> c d </b> </p>
+ *
+ * The path of the position between 'c' and 'd' is [1, 1]. The first element of the
+ * path is the offset of the <b> in <p> and the second element represents the position
+ * between 'c' and 'd' in <b>.
  */
 
 /**
