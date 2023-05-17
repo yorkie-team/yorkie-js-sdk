@@ -19,6 +19,7 @@ import yorkie, {
   Document,
   Tree,
   TreeNode,
+  BlockNode,
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
@@ -65,6 +66,41 @@ function createChangePack(doc: Document<unknown>): ChangePack {
     false,
     reqPack.getChanges(),
   );
+}
+
+/**
+ * `createTwoDocuments` is a helper function that creates two documents with
+ * the given initial tree.
+ */
+function createTwoTreeDocs<T extends { t: Tree }>(
+  key: string,
+  initial: BlockNode,
+): [Document<T>, Document<T>] {
+  const doc1 = new yorkie.Document<T>(key);
+  const doc2 = new yorkie.Document<T>(key);
+  doc1.setActor('A');
+  doc2.setActor('B');
+
+  doc1.update((root) => (root.t = new Tree(initial)));
+  doc2.applyChangePack(createChangePack(doc1));
+
+  return [doc1, doc2];
+}
+
+/**
+ * `syncTwoTreeDocsAndAssertEqual` is a helper function that syncs two documents
+ * and asserts that the given expected tree is equal to the two documents.
+ */
+function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
+  doc1: Document<T>,
+  doc2: Document<T>,
+  expected: string,
+) {
+  doc2.applyChangePack(createChangePack(doc1));
+  doc1.applyChangePack(createChangePack(doc2));
+
+  assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
+  assert.equal(doc1.getRoot().t.toXML(), expected);
 }
 
 describe('Tree', () => {
@@ -227,34 +263,51 @@ describe('Tree', () => {
       },
     ]);
   });
+});
 
-  it.skip('Can edit its content concurrently', async function () {
-    // 01. Create documents with different actors.
-    const docA = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
-    docA.setActor('A');
-    const docB = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
-    docB.setActor('B');
-    docA.update((root) => {
-      root.t = new Tree({
-        type: 'r',
-        children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
-      });
+describe('Tree.edit', function () {
+  it.skip('Can insert inline content to the same position(left) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
-    docB.applyChangePack(createChangePack(docA));
 
-    // 02. Edit documents concurrently.
     docA.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
-
     docB.update((r) => r.t.edit(1, 1, { type: 'text', value: 'B' }));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>B12</p></r>`);
 
-    // 03. Sync documents and check the result.
-    docB.applyChangePack(createChangePack(docA));
-    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>BA12</p></r>`);
+  });
 
-    docA.applyChangePack(createChangePack(docB));
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+  it('Can insert inline content to the same position(middle) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(2, 2, { type: 'text', value: 'A' }));
+    docB.update((r) => r.t.edit(2, 2, { type: 'text', value: 'B' }));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>1B2</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1BA2</p></r>`);
+  });
+
+  it('Can insert inline content to the same position(right) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(3, 3, { type: 'text', value: 'A' }));
+    docB.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12A</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>12B</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12BA</p></r>`);
   });
 });

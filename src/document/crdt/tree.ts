@@ -376,9 +376,12 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `splitInline` splits the inline node at the given index.
+   * `splitInline` splits the inline node at the given position.
    */
-  public splitInline(pos: CRDTTreePos): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
+  public splitInline(
+    pos: CRDTTreePos,
+    editedAt: TimeTicket,
+  ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
     const treePos = this.toTreePos(pos);
     if (!treePos) {
       throw new Error(`cannot find node at ${pos}`);
@@ -392,8 +395,18 @@ export class CRDTTree extends CRDTElement {
       }
     }
 
+    // If there are nodes inserted concurrently, find the appropriate position
+    // for this edit. This logic is similar to the insertion of RGA.
+    let current = treePos;
+    while (current.node.next?.pos.createdAt.after(editedAt)) {
+      current = {
+        node: current.node.next,
+        offset: current.node.next.size,
+      };
+    }
+
     const right = this.indexTree.findPostorderRight(treePos)!;
-    return [treePos, right];
+    return [current, right];
   }
 
   /**
@@ -421,8 +434,8 @@ export class CRDTTree extends CRDTElement {
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     // 01. split inline nodes at the given range if needed.
-    const [toPos, toRight] = this.splitInline(range[1]);
-    const [fromPos, fromRight] = this.splitInline(range[0]);
+    const [toPos, toRight] = this.splitInline(range[1], editedAt);
+    const [fromPos, fromRight] = this.splitInline(range[0], editedAt);
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
