@@ -219,6 +219,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `hasInlineChild` returns true if the node has an inline child.
+   */
+  hasInlineChild(): boolean {
+    return this.children.some((child) => child.isInline);
+  }
+
+  /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<T>): void {

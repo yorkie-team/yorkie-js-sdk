@@ -108,7 +108,8 @@ export interface CRDTTreePos {
   createdAt: TimeTicket;
 
   /**
-   * `offset` is the distance from the beginning of the node.
+   * `offset` is the distance from the beginning of the node if the node is
+   * split.
    */
   offset: number;
 }
@@ -376,9 +377,14 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `splitInline` splits the inline node at the given position.
+   * `findTreePosWithSplitInline` finds `TreePos` of the given `CRDTTreePos` and
+   * splits the inline node if necessary.
+   *
+   * `CRDTTreePos` is a position in the CRDT perspective. This is
+   * different from `TreePos` which is a position of the tree in the local
+   * perspective.
    */
-  public splitInline(
+  public findTreePosWithSplitInline(
     pos: CRDTTreePos,
     editedAt: TimeTicket,
   ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
@@ -387,12 +393,13 @@ export class CRDTTree extends CRDTElement {
       throw new Error(`cannot find node at ${pos}`);
     }
 
+    // Find the appropriate position. This logic is similar to the logical to
+    // handle the same position insertion of RGA.
     let current = treePos;
-    // Find the appropriate position for this edit.
-    // This logic is similar to the insertion of RGA.
-
-    // TODO(hackerwins): Find the position within the parent scope.
-    while (current.node.next?.pos.createdAt.after(editedAt)) {
+    while (
+      current.node.next?.pos.createdAt.after(editedAt) &&
+      current.node.parent === current.node.next.parent
+    ) {
       current = {
         node: current.node.next,
         offset: current.node.next.size,
@@ -436,8 +443,14 @@ export class CRDTTree extends CRDTElement {
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     // 01. split inline nodes at the given range if needed.
-    const [toPos, toRight] = this.splitInline(range[1], editedAt);
-    const [fromPos, fromRight] = this.splitInline(range[0], editedAt);
+    const [toPos, toRight] = this.findTreePosWithSplitInline(
+      range[1],
+      editedAt,
+    );
+    const [fromPos, fromRight] = this.findTreePosWithSplitInline(
+      range[0],
+      editedAt,
+    );
 
     // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
     // range(from, to) into multiple ranges.
@@ -526,8 +539,8 @@ export class CRDTTree extends CRDTElement {
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
   ): void {
-    const fromPos = this.findTreePos(range[0], true);
-    const toPos = this.findTreePos(range[1], true);
+    const fromPos = this.findPos(range[0]);
+    const toPos = this.findPos(range[1]);
     this.edit([fromPos, toPos], content, editedAt);
   }
 
@@ -555,12 +568,12 @@ export class CRDTTree extends CRDTElement {
   /**
    * `findTreePos` finds the position of the given index in the tree.
    */
-  public findTreePos(index: number, preperInline = true): CRDTTreePos {
-    const indexTreePos = this.indexTree.findTreePos(index, preperInline);
+  public findPos(index: number, preperInline = true): CRDTTreePos {
+    const treePos = this.indexTree.findTreePos(index, preperInline);
 
     return {
-      createdAt: indexTreePos.node.pos.createdAt,
-      offset: indexTreePos.node.pos.offset + indexTreePos.offset,
+      createdAt: treePos.node.pos.createdAt,
+      offset: treePos.node.pos.offset + treePos.offset,
     };
   }
 

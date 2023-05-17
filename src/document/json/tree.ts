@@ -150,8 +150,8 @@ export class Tree {
       crdtNode = CRDTTreeNode.create(ticket, content.type);
     }
 
-    const fromPos = this.tree.findTreePos(fromIdx);
-    const toPos = this.tree.findTreePos(toIdx);
+    const fromPos = this.tree.findPos(fromIdx);
+    const toPos = this.tree.findPos(toIdx);
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
