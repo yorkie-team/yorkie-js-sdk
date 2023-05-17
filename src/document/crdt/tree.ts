@@ -387,22 +387,24 @@ export class CRDTTree extends CRDTElement {
       throw new Error(`cannot find node at ${pos}`);
     }
 
-    if (treePos.node.isInline) {
-      const split = treePos.node.split(pos.offset);
-      if (split) {
-        this.insertAfter(treePos.node, split);
-        split.insPrev = treePos.node;
-      }
-    }
-
-    // If there are nodes inserted concurrently, find the appropriate position
-    // for this edit. This logic is similar to the insertion of RGA.
     let current = treePos;
+    // Find the appropriate position for this edit.
+    // This logic is similar to the insertion of RGA.
+
+    // TODO(hackerwins): Find the position within the parent scope.
     while (current.node.next?.pos.createdAt.after(editedAt)) {
       current = {
         node: current.node.next,
         offset: current.node.next.size,
       };
+    }
+
+    if (current.node.isInline) {
+      const split = current.node.split(pos.offset);
+      if (split) {
+        this.insertAfter(current.node, split);
+        split.insPrev = current.node;
+      }
     }
 
     const right = this.indexTree.findPostorderRight(treePos)!;
@@ -436,6 +438,16 @@ export class CRDTTree extends CRDTElement {
     // 01. split inline nodes at the given range if needed.
     const [toPos, toRight] = this.splitInline(range[1], editedAt);
     const [fromPos, fromRight] = this.splitInline(range[0], editedAt);
+
+    // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
+    // range(from, to) into multiple ranges.
+    const changes: Array<TreeChange> = [];
+    changes.push({
+      type: TreeChangeType.Content,
+      from: this.toIndex(range[0]),
+      to: this.toIndex(range[1]),
+      value: content ? toJSON(content) : undefined,
+    });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
@@ -475,14 +487,6 @@ export class CRDTTree extends CRDTElement {
         }
       }
     }
-
-    const changes: Array<TreeChange> = [];
-    changes.push({
-      type: TreeChangeType.Content,
-      from: this.toIndex(range[0]),
-      to: this.toIndex(range[1]),
-      value: content ? toJSON(content) : undefined,
-    });
 
     // 03. insert the given node at the given position.
     if (content) {
