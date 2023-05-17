@@ -33,7 +33,6 @@ import {
   RemoveDocumentRequest,
   WatchDocumentRequest,
   WatchDocumentResponse,
-  UpdatePresenceRequest,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
@@ -41,15 +40,13 @@ import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import {
-  PresenceInfo,
-  Attachment,
-  WatchStream,
-} from '@yorkie-js-sdk/src/client/attachment';
+import { Attachment, WatchStream } from '@yorkie-js-sdk/src/client/attachment';
 import {
   Document,
   DocumentKey,
   DocumentStatus,
+  PresenceInfo,
+  Indexable,
 } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
@@ -59,7 +56,6 @@ import {
   MetricUnaryInterceptor,
   MetricStreamInterceptor,
 } from '@yorkie-js-sdk/src/client/metric_interceptor';
-import type { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `SyncMode` is the mode of synchronization. It is used to determine
@@ -277,19 +273,12 @@ export interface DocumentSyncedEvent extends BaseClientEvent {
  *
  * @public
  */
-export interface ClientOptions<P> {
+export interface ClientOptions {
   /**
    * `key` is the client key. It is used to identify the client.
    * If not set, a random key is generated.
    */
   key?: string;
-
-  /**
-   * `presence` is the presence information of this client. If the client
-   * attaches a document, the presence information is sent to the other peers
-   * attached to the document.
-   */
-  presence?: P;
 
   /**
    * `apiKey` is the API key of the project. It is used to identify the project.
@@ -341,12 +330,11 @@ const DefaultClientOptions = {
  *
  * @public
  */
-export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
+export class Client implements Observable<ClientEvent> {
   private id?: ActorID;
   private key: string;
-  private presenceInfo: PresenceInfo<P>;
   private status: ClientStatus;
-  private attachmentMap: Map<DocumentKey, Attachment<P>>;
+  private attachmentMap: Map<DocumentKey, Attachment<unknown, Indexable>>;
 
   private apiKey: string;
   private syncLoopDuration: number;
@@ -354,21 +342,17 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   private retrySyncLoopDelay: number;
 
   private rpcClient: RPCClient;
-  private eventStream: Observable<ClientEvent<P>>;
-  private eventStreamObserver!: Observer<ClientEvent<P>>;
+  private eventStream: Observable<ClientEvent>;
+  private eventStreamObserver!: Observer<ClientEvent>;
 
   /**
    * @param rpcAddr - the address of the RPC server.
    * @param opts - the options of the client.
    */
-  constructor(rpcAddr: string, opts?: ClientOptions<P>) {
+  constructor(rpcAddr: string, opts?: ClientOptions) {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
-    this.presenceInfo = {
-      clock: 0,
-      data: opts.presence ? opts.presence : ({} as P),
-    };
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
 
@@ -396,13 +380,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     }
 
     this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
-    this.eventStream = createObservable<ClientEvent<P>>((observer) => {
+    this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
   }
 
   /**
-   * `ativate` activates this client. That is, it registers itself to the server
+   * `activate` activates this client. That is, it registers itself to the server
    * and receives a unique ID from the server. The given ID is used to
    * distinguish different clients.
    */
@@ -479,22 +463,22 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `attach` attaches the given document to this client. It tells the server that
-   * this client will synchronize the given document.
+   * `connect` creates a new document with the given docKey and notifies the server
+   * that this client will synchronize the document.
    */
-  public attach(
-    doc: Document<unknown>,
+  public connect<T, P extends Indexable>(
+    docKey: string,
+    initialPresence?: P,
     isManualSync?: boolean,
-  ): Promise<Document<unknown>> {
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
-    if (doc.getStatus() !== DocumentStatus.Detached) {
-      throw new YorkieError(
-        Code.DocumentNotDetached,
-        `${doc.getKey()} is not detached`,
-      );
-    }
+    const doc = new Document<T, P>(
+      docKey,
+      this.id!,
+      initialPresence || ({} as P),
+    );
     doc.setActor(this.id!);
 
     return new Promise((resolve, reject) => {
@@ -512,13 +496,13 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Attached);
             this.attachmentMap.set(
               doc.getKey(),
-              new Attachment(
+              new Attachment<T, P>(
                 this.reconnectStreamDelay,
                 doc,
                 res.getDocumentId(),
@@ -543,7 +527,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach(doc: Document<unknown>): Promise<Document<unknown>> {
+  public detach<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -571,7 +557,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Detached);
@@ -588,7 +574,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   /**
    * `pause` changes the synchronization mode of the given document to manual.
    */
-  public pause(doc: Document<unknown>): Promise<Document<unknown>> {
+  public pause<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -599,7 +587,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   /**
    * `resume` changes the synchronization mode of the given document to realtime.
    */
-  public resume(doc: Document<unknown>): Promise<Document<unknown>> {
+  public resume<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -611,7 +601,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * `pauseRemoteChanges` pauses the synchronization of remote changes,
    * allowing only local changes to be applied.
    */
-  public pauseRemoteChanges(doc: Document<unknown>) {
+  public pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -630,7 +620,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * `resumeRemoteChanges` resumes the synchronization of remote changes,
    * allowing both local and remote changes to be applied.
    */
-  public resumeRemoteChanges(doc: Document<unknown>) {
+  public resumeRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -649,10 +639,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   /**
    * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
-  private async changeRealtimeSync(
-    doc: Document<unknown>,
+  private async changeRealtimeSync<T, P extends Indexable>(
+    doc: Document<T, P>,
     isRealtimeSync: boolean,
-  ): Promise<Document<unknown>> {
+  ): Promise<Document<T, P>> {
     // TODO(hackerwins): We need to consider extracting this method to `attachment`
     // with other methods like runWatchLoop, disconnectWatchStream.
     const attachment = this.attachmentMap.get(doc.getKey());
@@ -685,16 +675,17 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(
-    doc?: Document<unknown>,
+  public sync<T, P extends Indexable>(
+    doc?: Document<T, P>,
     syncMode = SyncMode.PushPull,
-  ): Promise<Array<Document<unknown>>> {
+  ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
     const promises = [];
     if (doc) {
-      const attachment = this.attachmentMap.get(doc.getKey());
+      // prettier-ignore
+      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<T, P>;
       if (!attachment) {
         throw new YorkieError(
           Code.DocumentNotAttached,
@@ -720,7 +711,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   /**
    * `remove` removes the given document.
    */
-  public remove(doc: Document<unknown>): Promise<void> {
+  public remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -753,7 +744,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           this.detachInternal(doc.getKey());
 
@@ -765,90 +756,15 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   }
 
   /**
-   * `updatePresence` updates the presence of this client.
-   */
-  public updatePresence<K extends keyof P>(key: K, value: P[K]): Promise<void> {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-
-    this.presenceInfo.clock += 1;
-    this.presenceInfo.data[key] = value;
-
-    if (this.attachmentMap.size === 0) {
-      return Promise.resolve();
-    }
-
-    const jobs: Array<Promise<void>> = [];
-    this.attachmentMap.forEach((attachment, docKey) => {
-      if (!attachment.isRealtimeSync) {
-        return;
-      }
-      attachment.setPresence(this.getID()!, this.presenceInfo);
-
-      const req = new UpdatePresenceRequest();
-      req.setClient(converter.toClient(this.id!, this.presenceInfo));
-      req.setDocumentId(attachment.docID);
-
-      jobs.push(
-        new Promise((resolve, reject) => {
-          this.rpcClient.updatePresence(
-            req,
-            { 'x-shard-key': `${this.apiKey}/${docKey}` },
-            (err) => {
-              if (err) {
-                logger.error(`[UM] c:"${this.getKey()}" err :`, err);
-                reject(err);
-                return;
-              }
-
-              logger.info(`[UM] c"${this.getKey()}" updated`);
-              resolve();
-            },
-          );
-        }),
-      );
-      if (this.eventStreamObserver) {
-        this.eventStreamObserver.next({
-          type: ClientEventType.PeersChanged,
-          value: {
-            type: 'presence-changed',
-            peers: {
-              [docKey]: [
-                {
-                  clientID: this.id!,
-                  presence: this.getPeerPresence(docKey, this.id!)!,
-                },
-              ],
-            },
-          },
-        });
-      }
-    });
-
-    return Promise.all(jobs)
-      .then(() => {
-        return;
-      })
-      .catch((err) => {
-        this.eventStreamObserver.next({
-          type: ClientEventType.DocumentSynced,
-          value: DocumentSyncResultType.SyncFailed,
-        });
-        throw err;
-      });
-  }
-
-  /**
    * `subscribe` subscribes to the given topics.
    */
   public subscribe(
-    nextOrObserver: Observer<ClientEvent<P>> | NextFn<ClientEvent<P>>,
+    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe {
     return this.eventStream.subscribe(
-      nextOrObserver as NextFn<ClientEvent<P>>,
+      nextOrObserver as NextFn<ClientEvent>,
       error,
       complete,
     );
@@ -880,43 +796,6 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
    */
   public getStatus(): ClientStatus {
     return this.status;
-  }
-
-  /**
-   * `getPresence` returns the presence of this client.
-   */
-  public getPresence(): P {
-    return this.presenceInfo.data;
-  }
-
-  /**
-   * `getPeerPresence` returns the presence of the given document and client.
-   */
-  public getPeerPresence(
-    docKey: DocumentKey,
-    clientID: ActorID,
-  ): P | undefined {
-    return this.attachmentMap.get(docKey)!.getPresence(clientID);
-  }
-
-  /**
-   * `getPeersByDocKey` returns the peers of the given document.
-   */
-  public getPeersByDocKey(
-    docKey: DocumentKey,
-  ): Array<{ clientID: ActorID; presence: P }> {
-    const peers: Array<{ clientID: ActorID; presence: P }> = [];
-    const attachment = this.attachmentMap.get(docKey);
-    if (!attachment) {
-      throw new YorkieError(
-        Code.DocumentNotAttached,
-        `${docKey} is not attached`,
-      );
-    }
-    for (const { clientID, presence } of attachment.getPeers()) {
-      peers.push({ clientID, presence });
-    }
-    return peers;
   }
 
   private runSyncLoop(): void {
@@ -969,7 +848,12 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         }
 
         const req = new WatchDocumentRequest();
-        req.setClient(converter.toClient(this.id!, this.presenceInfo));
+        req.setClient(
+          converter.toClient({
+            id: this.id!,
+            presence: attachment.doc.getPresenceInfo(this.id!),
+          }),
+        );
         req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {
           'x-shard-key': `${this.apiKey}/${docKey}`,
@@ -1002,15 +886,15 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     );
   }
 
-  private handleWatchDocumentsResponse(
-    attachment: Attachment<P>,
+  private handleWatchDocumentsResponse<T, P extends Indexable>(
+    attachment: Attachment<T, P>,
     resp: WatchDocumentResponse,
   ) {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
       const pbPeers = resp.getInitialization()!.getPeersList();
       pbPeers.forEach((pbClient) => {
-        attachment.setPresence(
+        attachment.doc.setPresenceInfo(
           converter.toHexString(pbClient.getId_asU8()),
           converter.fromPresence(pbClient.getPresence()!),
         );
@@ -1020,7 +904,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         type: ClientEventType.PeersChanged,
         value: {
           type: 'initialized',
-          peers: { [docKey]: attachment.getPeers() },
+          peers: { [docKey]: attachment.doc.getPeers() },
         },
       });
       return;
@@ -1031,9 +915,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     const publisher = converter.toHexString(
       pbWatchEvent.getPublisher()!.getId_asU8(),
     );
-    const presence = converter.fromPresence<P>(
+    const presence = converter.fromPresence(
       pbWatchEvent.getPublisher()!.getPresence()!,
-    );
+    ) as PresenceInfo<P>;
     switch (eventType) {
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
         attachment.remoteChangeEventReceived = true;
@@ -1043,7 +927,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-        attachment.setPresence(publisher, presence);
+        attachment.doc.setPresenceInfo(publisher, presence);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -1052,7 +936,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: attachment.getPresence(publisher)!,
+                  presence: attachment.doc.getPresenceInfo(publisher).data,
                 },
               ],
             },
@@ -1060,9 +944,9 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
-        const presence = attachment.getPresence(publisher);
+        const presence = attachment.doc.getPresenceInfo(publisher).data;
         if (!presence) break;
-        attachment.removePresence(publisher);
+        attachment.doc.removePresenceInfo(publisher);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -1080,7 +964,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
         break;
       }
       case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
-        attachment.setPresence(publisher, presence);
+        attachment.doc.setPresenceInfo(publisher, presence);
         this.eventStreamObserver.next({
           type: ClientEventType.PeersChanged,
           value: {
@@ -1089,7 +973,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               [docKey]: [
                 {
                   clientID: publisher,
-                  presence: attachment.getPresence(publisher)!,
+                  presence: attachment.doc.getPresenceInfo(publisher).data,
                 },
               ],
             },
@@ -1119,10 +1003,10 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     this.attachmentMap.delete(docKey);
   }
 
-  private syncInternal(
-    attachment: Attachment<unknown>,
+  private syncInternal<T, P extends Indexable>(
+    attachment: Attachment<T, P>,
     syncMode: SyncMode,
-  ): Promise<Document<unknown>> {
+  ): Promise<Document<T, P>> {
     const { doc, docID } = attachment;
     return new Promise((resolve, reject) => {
       const req = new PushPullChangesRequest();
@@ -1147,8 +1031,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
               return;
             }
 
-            const respPack = converter.fromChangePack(res.getChangePack()!);
-
+            const respPack = converter.fromChangePack<P>(res.getChangePack()!);
             // NOTE(chacha912, hackerwins): If syncLoop already executed with
             // PushPull, ignore the response when the syncMode is PushOnly.
             if (respPack.hasChanges() && syncMode === SyncMode.PushOnly) {
@@ -1156,6 +1039,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             }
 
             doc.applyChangePack(respPack);
+            console.log('pushpull', respPack);
             this.eventStreamObserver.next({
               type: ClientEventType.DocumentSynced,
               value: DocumentSyncResultType.Synced,

@@ -176,6 +176,23 @@ export interface RemoteChangeEvent extends BaseDocEvent {
 export type Indexable = Record<string, any>;
 
 /**
+ * `PresenceInfo` is presence information of peer.
+ */
+export type PresenceInfo<P extends Indexable> = {
+  clock: number;
+  data: P;
+};
+
+/**
+ * `Peer` represents the presence information of a peer.
+ * It is used to deliver changes in peer presence to the remote.
+ */
+export type Peer<P extends Indexable> = {
+  id: ActorID;
+  presence: PresenceInfo<P>;
+};
+
+/**
  * Document key type
  * @public
  */
@@ -187,24 +204,41 @@ export type DocumentKey = string;
  *
  * @public
  */
-export class Document<T> {
+export class Document<T, P extends Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
   private root: CRDTRoot;
   private clone?: CRDTRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
-  private localChanges: Array<Change>;
+  private buffer: {
+    localChanges: Array<Change>;
+    me: boolean;
+  };
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
+  private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
+  private myClientID: ActorID;
+  private changeContext: ChangeContext | undefined;
 
-  constructor(key: string) {
-    this.key = key;
+  constructor(docKey: string, clientID: string, initialPresence: P) {
+    this.key = docKey;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
-    this.localChanges = [];
+    this.buffer = {
+      localChanges: [],
+      me: false,
+    };
+    this.peerPresenceMap = new Map();
+    this.peerPresenceMap.set(clientID, {
+      clock: 0,
+      data: initialPresence,
+    });
+    this.myClientID = clientID;
+    this.changeContext = undefined;
+
     this.eventStream = createObservable<DocEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -213,8 +247,12 @@ export class Document<T> {
   /**
    * `create` creates a new instance of Document.
    */
-  public static create<T>(key: string): Document<T> {
-    return new Document<T>(key);
+  public static create<T, P extends Indexable>(
+    docKey: string,
+    clientID: string,
+    initialPresence: P,
+  ): Document<T, P> {
+    return new Document<T, P>(docKey, clientID, initialPresence);
   }
 
   /**
@@ -229,14 +267,18 @@ export class Document<T> {
     }
 
     this.ensureClone();
-    const context = ChangeContext.create(
-      this.changeID.next(),
-      this.clone!,
-      message,
-    );
-
+    if (!this.changeContext) {
+      this.changeContext = ChangeContext.create(
+        this.changeID.next(),
+        this.clone!,
+        message,
+      );
+    }
     try {
-      const proxy = createJSON<JSONObject<T>>(context, this.clone!.getObject());
+      const proxy = createJSON<JSONObject<T>>(
+        this.changeContext,
+        this.clone!.getObject(),
+      );
       updater(proxy);
     } catch (err) {
       // drop clone because it is contaminated.
@@ -245,14 +287,14 @@ export class Document<T> {
       throw err;
     }
 
-    if (context.hasOperations()) {
+    if (this.changeContext.hasOperations()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
-      const change = context.getChange();
+      const change = this.changeContext.getChange();
       const internalOpInfos = change.execute(this.root);
-      this.localChanges.push(change);
+      this.buffer.localChanges.push(change);
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
@@ -274,6 +316,25 @@ export class Document<T> {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
+    if (this.buffer.me && this.eventStreamObserver) {
+      // TODO(chacha912): publish peer presence event.
+    }
+
+    this.changeContext = undefined;
+  }
+
+  /**
+   * `updatePresence` updates the presence of the client who created this document.
+   */
+  public updatePresence<K extends keyof P>(key: K, value: P[K]) {
+    const myPresence = this.peerPresenceMap.get(this.myClientID)!;
+    myPresence.clock += 1;
+    myPresence.data[key] = value;
+
+    if (this.changeContext) {
+      this.buffer.me = true;
+    }
+    // TODO(chacha912): handle when updatePresence is called without a changeContext
   }
 
   /**
@@ -369,7 +430,7 @@ export class Document<T> {
    * @param pack - change pack
    * @internal
    */
-  public applyChangePack(pack: ChangePack): void {
+  public applyChangePack(pack: ChangePack<P>): void {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
@@ -378,14 +439,17 @@ export class Document<T> {
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
     }
+    if (pack.hasPeerPresence()) {
+      this.applyPeerPresence(pack.getPeerPresence());
+    }
 
     // 02. Remove local changes applied to server.
-    while (this.localChanges.length) {
-      const change = this.localChanges[0];
+    while (this.buffer.localChanges.length) {
+      const change = this.buffer.localChanges[0];
       if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
         break;
       }
-      this.localChanges.shift();
+      this.buffer.localChanges.shift();
     }
 
     // 03. Update the checkpoint.
@@ -419,7 +483,16 @@ export class Document<T> {
    * @internal
    */
   public hasLocalChanges(): boolean {
-    return this.localChanges.length > 0;
+    return this.buffer.localChanges.length > 0;
+  }
+
+  /**
+   * `hasBuffer` returns whether there is data that needs to be synchronized with the server.
+   *
+   * @internal
+   */
+  public hasBuffer(): boolean {
+    return this.hasLocalChanges() || this.buffer.me;
   }
 
   /**
@@ -436,15 +509,29 @@ export class Document<T> {
   }
 
   /**
-   * `createChangePack` create change pack of the local changes to send to the
-   * remote server.
+   * `createChangePack` create a change pack with local changes and presence updates
+   * for sending to the remote server.
    *
    * @internal
    */
-  public createChangePack(): ChangePack {
-    const changes = this.localChanges;
+  public createChangePack(): ChangePack<P> {
+    const changes = this.buffer.localChanges;
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
-    return ChangePack.create(this.key, checkpoint, false, changes);
+    const peerPresence = [] as Array<Peer<P>>;
+    if (this.buffer.me) {
+      peerPresence.push({
+        id: this.myClientID,
+        presence: this.peerPresenceMap.get(this.myClientID)!,
+      });
+      this.buffer.me = false;
+    }
+    return ChangePack.create({
+      key: this.key,
+      checkpoint,
+      isRemoved: false,
+      changes,
+      peerPresence,
+    });
   }
 
   /**
@@ -454,7 +541,7 @@ export class Document<T> {
    * @internal
    */
   public setActor(actorID: ActorID): void {
-    for (const change of this.localChanges) {
+    for (const change of this.buffer.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
@@ -634,6 +721,19 @@ export class Document<T> {
   }
 
   /**
+   * `applyPeerPresence` applies the given peer presence into this document.
+   */
+  public applyPeerPresence(peerPresence: Array<Peer<P>>): void {
+    for (const { id, presence } of peerPresence) {
+      this.setPresenceInfo(id, presence);
+    }
+
+    if (this.eventStreamObserver) {
+      // TODO(chacha912): publish peer presence event.
+    }
+  }
+
+  /**
    * `getValueByPath` returns the JSONElement corresponding to the given path.
    */
   public getValueByPath(path: string): JSONElement | undefined {
@@ -674,5 +774,64 @@ export class Document<T> {
       }
     }
     return opInfo;
+  }
+
+  /**
+   * `setPresenceInfo` sets the presence information of the client.
+   */
+  public setPresenceInfo(
+    clientID: ActorID,
+    presenceInfo: PresenceInfo<P>,
+  ): void {
+    if (
+      this.peerPresenceMap.has(clientID) &&
+      this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
+    ) {
+      return;
+    }
+
+    this.peerPresenceMap.set(clientID, presenceInfo);
+  }
+
+  /**
+   * `getPresenceInfo` returns the presence information of the client.
+   */
+  public getPresenceInfo(clientID: ActorID): PresenceInfo<P> {
+    if (!this.peerPresenceMap.has(clientID)) {
+      throw new Error(`There is no peer with the ID ${clientID}`);
+    }
+    return this.peerPresenceMap.get(clientID)!;
+  }
+
+  /**
+   * `removePresenceInfo` removes the presence information of the client.
+   */
+  public removePresenceInfo(clientID: ActorID): void {
+    this.peerPresenceMap.delete(clientID);
+  }
+
+  /**
+   * `getPresence` returns the presence of the client who created this document.
+   */
+  public getPresence(): P {
+    return this.peerPresenceMap.get(this.myClientID)!.data;
+  }
+
+  /**
+   * `getPeerPresence` returns the presence of the peer.
+   */
+  public getPeerPresence(clientID: ActorID) {
+    return this.peerPresenceMap.get(clientID)?.data;
+  }
+
+  /**
+   * `getPeers` returns the list of peers, including the client who created this document.
+   */
+  public getPeers(): Array<{ clientID: ActorID; presence: P }> {
+    const peers: Array<{ clientID: ActorID; presence: P }> = [];
+    for (const [clientID, presenceInfo] of this.peerPresenceMap!) {
+      peers.push({ clientID, presence: presenceInfo.data });
+    }
+    return peers;
   }
 }

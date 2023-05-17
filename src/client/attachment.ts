@@ -1,14 +1,5 @@
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js-sdk/src/document/document';
 import { SyncMode } from '@yorkie-js-sdk/src/client/client';
-
-/**
- * `PresenceInfo` is presence information of this client.
- */
-export type PresenceInfo<P> = {
-  clock: number;
-  data: P;
-};
 
 /**
  * `WatchStream` is a stream that watches the changes of the document.
@@ -18,22 +9,20 @@ export type WatchStream = any; // TODO(hackerwins): Define proper type of watchS
 /**
  * `Attachment` is a class that manages the state of the document.
  */
-export class Attachment<P> {
+export class Attachment<T, P extends Indexable> {
   // TODO(hackerwins): Consider to changing the modifiers of the following properties to private.
   private reconnectStreamDelay: number;
-  doc: Document<unknown>;
+  doc: Document<T, P>;
   docID: string;
   isRealtimeSync: boolean;
   syncMode: SyncMode;
-  private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
   remoteChangeEventReceived: boolean;
-
   watchStream?: WatchStream;
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
 
   constructor(
     reconnectStreamDelay: number,
-    doc: Document<unknown>,
+    doc: Document<T, P>,
     docID: string,
     isRealtimeSync: boolean,
   ) {
@@ -42,7 +31,6 @@ export class Attachment<P> {
     this.docID = docID;
     this.isRealtimeSync = isRealtimeSync;
     this.syncMode = SyncMode.PushPull;
-    this.peerPresenceMap = new Map();
     this.remoteChangeEventReceived = false;
   }
 
@@ -77,7 +65,7 @@ export class Attachment<P> {
   public needRealtimeSync(): boolean {
     return (
       this.isRealtimeSync &&
-      (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
+      (this.doc.hasBuffer() || this.remoteChangeEventReceived)
     );
   }
 
@@ -105,52 +93,6 @@ export class Attachment<P> {
     };
 
     await doLoop();
-  }
-
-  /**
-   * `hasPresence` returns whether the client has presence information.
-   */
-  public hasPresence(clientID: ActorID): boolean {
-    return this.peerPresenceMap.has(clientID);
-  }
-
-  /**
-   * `setPresence` sets the presence information of the client.
-   */
-  public setPresence(clientID: ActorID, presenceInfo: PresenceInfo<P>): void {
-    if (
-      this.peerPresenceMap.has(clientID) &&
-      this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
-    ) {
-      return;
-    }
-
-    this.peerPresenceMap.set(clientID, presenceInfo);
-  }
-
-  /**
-   * `getPresence` returns the presence information of the client.
-   */
-  public getPresence(clientID: ActorID): P | undefined {
-    return this.peerPresenceMap.get(clientID)?.data;
-  }
-
-  /**
-   * `removePresence` removes the presence information of the client.
-   */
-  public removePresence(clientID: ActorID): void {
-    this.peerPresenceMap.delete(clientID);
-  }
-
-  /**
-   * `getPeers` returns the list of peers.
-   */
-  public getPeers(): Array<{ clientID: ActorID; presence: P }> {
-    const peers: Array<{ clientID: ActorID; presence: P }> = [];
-    for (const [clientID, presenceInfo] of this.peerPresenceMap!) {
-      peers.push({ clientID, presence: presenceInfo.data });
-    }
-    return peers;
   }
 
   /**

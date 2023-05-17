@@ -31,6 +31,11 @@ export class ChangePack extends jspb.Message {
   getIsRemoved(): boolean;
   setIsRemoved(value: boolean): ChangePack;
 
+  getPeersList(): Array<Client>;
+  setPeersList(value: Array<Client>): ChangePack;
+  clearPeersList(): ChangePack;
+  addPeers(value?: Client, index?: number): Client;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
   static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
@@ -47,6 +52,7 @@ export namespace ChangePack {
     changesList: Array<Change.AsObject>,
     minSyncedTicket?: TimeTicket.AsObject,
     isRemoved: boolean,
+    peersList: Array<Client.AsObject>,
   }
 }
 
@@ -1127,22 +1133,22 @@ export namespace DocumentSummary {
   }
 }
 
-export class Presence extends jspb.Message {
+export class PresenceInfo extends jspb.Message {
   getClock(): number;
-  setClock(value: number): Presence;
+  setClock(value: number): PresenceInfo;
 
   getDataMap(): jspb.Map<string, string>;
-  clearDataMap(): Presence;
+  clearDataMap(): PresenceInfo;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Presence.AsObject;
-  static toObject(includeInstance: boolean, msg: Presence): Presence.AsObject;
-  static serializeBinaryToWriter(message: Presence, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Presence;
-  static deserializeBinaryFromReader(message: Presence, reader: jspb.BinaryReader): Presence;
+  toObject(includeInstance?: boolean): PresenceInfo.AsObject;
+  static toObject(includeInstance: boolean, msg: PresenceInfo): PresenceInfo.AsObject;
+  static serializeBinaryToWriter(message: PresenceInfo, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PresenceInfo;
+  static deserializeBinaryFromReader(message: PresenceInfo, reader: jspb.BinaryReader): PresenceInfo;
 }
 
-export namespace Presence {
+export namespace PresenceInfo {
   export type AsObject = {
     clock: number,
     dataMap: Array<[string, string]>,
@@ -1155,8 +1161,8 @@ export class Client extends jspb.Message {
   getId_asB64(): string;
   setId(value: Uint8Array | string): Client;
 
-  getPresence(): Presence | undefined;
-  setPresence(value?: Presence): Client;
+  getPresence(): PresenceInfo | undefined;
+  setPresence(value?: PresenceInfo): Client;
   hasPresence(): boolean;
   clearPresence(): Client;
 
@@ -1171,7 +1177,7 @@ export class Client extends jspb.Message {
 export namespace Client {
   export type AsObject = {
     id: Uint8Array | string,
-    presence?: Presence.AsObject,
+    presence?: PresenceInfo.AsObject,
   }
 }
 

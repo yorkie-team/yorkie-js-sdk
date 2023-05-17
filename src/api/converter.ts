@@ -16,7 +16,11 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
+import {
+  PresenceInfo,
+  Indexable,
+  Peer,
+} from '@yorkie-js-sdk/src/document/document';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -55,7 +59,7 @@ import {
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
   Client as PbClient,
-  Presence as PbPresence,
+  PresenceInfo as PbPresenceInfo,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -73,12 +77,13 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { Indexable } from '../yorkie';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
  */
-function fromPresence<M>(pbPresence: PbPresence): PresenceInfo<M> {
+function fromPresence<P extends Indexable>(
+  pbPresence: PbPresenceInfo,
+): PresenceInfo<P> {
   const data: Record<string, string> = {};
   pbPresence.getDataMap().forEach((value: string, key: string) => {
     data[key] = JSON.parse(value);
@@ -93,8 +98,8 @@ function fromPresence<M>(pbPresence: PbPresence): PresenceInfo<M> {
 /**
  * `toClient` converts the given model to Protobuf format.
  */
-function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
-  const pbPresence = new PbPresence();
+function toClient({ id, presence }: Peer<Indexable>): PbClient {
+  const pbPresence = new PbPresenceInfo();
   pbPresence.setClock(presence.clock);
   const pbDataMap = pbPresence.getDataMap();
   for (const [key, value] of Object.entries(presence.data)) {
@@ -105,6 +110,17 @@ function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
   pbClient.setId(toUint8Array(id));
   pbClient.setPresence(pbPresence);
   return pbClient;
+}
+
+/**
+ * `toClients` converts the given model to Protobuf format.
+ */
+function toClients(clients: Array<Peer<Indexable>>): Array<PbClient> {
+  const pbClients = [];
+  for (const { id, presence } of clients) {
+    pbClients.push(toClient({ id, presence }));
+  }
+  return pbClients;
 }
 
 /**
@@ -551,13 +567,14 @@ function toElement(element: CRDTElement): PbJSONElement {
 /**
  * `toChangePack` converts the given model to Protobuf format.
  */
-function toChangePack(pack: ChangePack): PbChangePack {
+function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
   pbChangePack.setIsRemoved(pack.getIsRemoved());
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
+  pbChangePack.setPeersList(toClients(pack.getPeerPresence()!));
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
   return pbChangePack;
 }
@@ -849,17 +866,37 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
 }
 
 /**
+ * `fromClients` converts the given Protobuf format to model format.
+ */
+function fromClients<P extends Indexable>(
+  pbClients: Array<PbClient>,
+): Array<Peer<P>> {
+  const clients = [] as Array<Peer<P>>;
+
+  for (const pbClient of pbClients) {
+    clients.push({
+      id: toHexString(pbClient.getId_asU8()),
+      presence: fromPresence(pbClient.getPresence()!),
+    });
+  }
+  return clients;
+}
+
+/**
  * `fromChangePack` converts the given Protobuf format to model format.
  */
-function fromChangePack(pbPack: PbChangePack): ChangePack {
-  return ChangePack.create(
-    pbPack.getDocumentKey()!,
-    fromCheckpoint(pbPack.getCheckpoint()!),
-    pbPack.getIsRemoved(),
-    fromChanges(pbPack.getChangesList()),
-    pbPack.getSnapshot_asU8(),
-    fromTimeTicket(pbPack.getMinSyncedTicket()),
-  );
+function fromChangePack<P extends Indexable>(
+  pbPack: PbChangePack,
+): ChangePack<P> {
+  return ChangePack.create<P>({
+    key: pbPack.getDocumentKey()!,
+    checkpoint: fromCheckpoint(pbPack.getCheckpoint()!),
+    isRemoved: pbPack.getIsRemoved(),
+    changes: fromChanges(pbPack.getChangesList()),
+    snapshot: pbPack.getSnapshot_asU8(),
+    peerPresence: fromClients<P>(pbPack.getPeersList()),
+    minSyncedTicket: fromTimeTicket(pbPack.getMinSyncedTicket()),
+  });
 }
 
 /**

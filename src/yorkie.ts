@@ -35,7 +35,6 @@ export {
   DocumentSyncedEvent,
   ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
-export { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 export {
   DocEventType,
   SnapshotEvent,
@@ -45,6 +44,7 @@ export {
   DocEvent,
   Document,
   ChangeInfo,
+  PresenceInfo,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
