@@ -42,10 +42,10 @@
           await client.activate();
 
           // 02. create a document then attach it into the client.
-          const doc = new yorkie.Document('drawing-panel');
+          const doc = await client.connect('drawing-panel');
           let draftShape = null;
           function displayLog() {
-            const peers = client.getPeersByDocKey(doc.getKey());
+            const peers = doc.getPeers();
             docPanel.innerText = JSON.stringify(doc.getRoot().toJS(), null, 2);
             peerPanel.innerText = JSON.stringify(peers, null, 2);
           }
@@ -69,7 +69,7 @@
               context.stroke();
             }
 
-            const peers = client.getPeersByDocKey(doc.getKey());
+            const peers = doc.getPeers();
             for (const peer of peers) {
               if (peer.presence.draftShape) {
                 context.beginPath();
@@ -88,17 +88,17 @@
           }
 
           client.subscribe((event) => {
+            console.log('client event', event);
             if (event.type === 'peers-changed') {
-              const peers = client.getPeersByDocKey(doc.getKey());
+              const peers = doc.getPeers();
               document.getElementById('peersCount').innerHTML = peers.length;
-              const peersPresence = client
-                .getPeersByDocKey(doc.getKey())
-                .map((peer) => peer.presence.draftShape);
+              const peersPresence = peers.map(
+                (peer) => peer.presence.draftShape,
+              );
               paintCanvas();
               displayLog();
             }
           });
-          await client.attach(doc);
 
           doc.update((root) => {
             if (!root['shapes']) {
@@ -107,6 +107,7 @@
           }, 'create points if not exists');
 
           doc.subscribe((event) => {
+            console.log('doc event', event);
             displayLog();
             paintCanvas(doc.getRoot().shapes);
           });
@@ -125,7 +126,9 @@
               }
 
               draftShape = { points: [point] };
-              client.updatePresence('draftShape', draftShape);
+              doc.update(() => {
+                doc.updatePresence('draftShape', draftShape);
+              });
             }
           });
 
@@ -142,7 +145,9 @@
               }
 
               draftShape.points.push(point);
-              client.updatePresence('draftShape', draftShape);
+              doc.update(() => {
+                doc.updatePresence('draftShape', draftShape);
+              });
             }
           });
 
@@ -154,7 +159,7 @@
                   root.shapes.push(draftShape);
                   draftShape = null;
                 }
-                client.updatePresence('draftShape', null);
+                doc.updatePresence('draftShape', null);
               });
             }
           });

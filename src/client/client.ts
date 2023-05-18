@@ -34,7 +34,7 @@ import {
   WatchDocumentRequest,
   WatchDocumentResponse,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
-import { DocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
+import { DocEventType as WatchDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -47,6 +47,7 @@ import {
   DocumentStatus,
   PresenceInfo,
   Indexable,
+  DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
@@ -126,15 +127,6 @@ export enum DocumentSyncResultType {
 }
 
 /**
- * `PeersChangedValue` represents the value of the PeersChanged event.
- * @public
- */
-export type PeersChangedValue<P> = {
-  type: 'initialized' | 'watched' | 'unwatched' | 'presence-changed';
-  peers: Record<DocumentKey, Array<{ clientID: ActorID; presence: P }>>;
-};
-
-/**
  * `ClientEventType` represents the type of the event that the client can emit.
  * @public
  */
@@ -147,10 +139,6 @@ export enum ClientEventType {
    * `DocumentsChanged` means that the documents of the client has changed.
    */
   DocumentsChanged = 'documents-changed',
-  /**
-   * `PeersChanged` means that the presences of the peer clients has changed.
-   */
-  PeersChanged = 'peers-changed',
   /**
    * `StreamConnectionStatusChanged` means that the stream connection status of
    * the client has changed.
@@ -168,10 +156,9 @@ export enum ClientEventType {
  *
  * @public
  */
-export type ClientEvent<P = Indexable> =
+export type ClientEvent =
   | StatusChangedEvent
   | DocumentsChangedEvent
-  | PeersChangedEvent<P>
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -213,23 +200,6 @@ export interface DocumentsChangedEvent extends BaseClientEvent {
    * `DocumentsChangedEvent` value
    */
   value: Array<string>;
-}
-
-/**
- * `PeersChangedEvent` is an event that occurs when the states of another peers
- * of the attached documents changes.
- *
- * @public
- */
-export interface PeersChangedEvent<P> extends BaseClientEvent {
-  /**
-   * enum {@link ClientEventType}.PeersChangedEvent
-   */
-  type: ClientEventType.PeersChanged;
-  /**
-   * `PeersChangedEvent` value
-   */
-  value: PeersChangedValue<P>;
 }
 
 /**
@@ -334,7 +304,7 @@ export class Client implements Observable<ClientEvent> {
   private id?: ActorID;
   private key: string;
   private status: ClientStatus;
-  private attachmentMap: Map<DocumentKey, Attachment<unknown, Indexable>>;
+  private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
   private syncLoopDuration: number;
@@ -900,11 +870,11 @@ export class Client implements Observable<ClientEvent> {
         );
       });
 
-      this.eventStreamObserver.next({
-        type: ClientEventType.PeersChanged,
+      attachment.doc.publish({
+        type: DocEventType.PeersChanged,
         value: {
           type: 'initialized',
-          peers: { [docKey]: attachment.doc.getPeers() },
+          peers: attachment.doc.getPeers(),
         },
       });
       return;
@@ -919,67 +889,46 @@ export class Client implements Observable<ClientEvent> {
       pbWatchEvent.getPublisher()!.getPresence()!,
     ) as PresenceInfo<P>;
     switch (eventType) {
-      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
         attachment.remoteChangeEventReceived = true;
         this.eventStreamObserver.next({
           type: ClientEventType.DocumentsChanged,
           value: [docKey],
         });
         break;
-      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
         attachment.doc.setPresenceInfo(publisher, presence);
-        this.eventStreamObserver.next({
-          type: ClientEventType.PeersChanged,
+        attachment.doc.publish({
+          type: DocEventType.PeersChanged,
           value: {
             type: 'watched',
-            peers: {
-              [docKey]: [
-                {
-                  clientID: publisher,
-                  presence: attachment.doc.getPresenceInfo(publisher).data,
-                },
-              ],
-            },
+            peers: [
+              {
+                clientID: publisher,
+                presence: attachment.doc.getPresenceInfo(publisher).data,
+              },
+            ],
           },
         });
         break;
-      case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
         const presence = attachment.doc.getPresenceInfo(publisher).data;
         if (!presence) break;
         attachment.doc.removePresenceInfo(publisher);
-        this.eventStreamObserver.next({
-          type: ClientEventType.PeersChanged,
+        attachment.doc.publish({
+          type: DocEventType.PeersChanged,
           value: {
             type: 'unwatched',
-            peers: {
-              [docKey]: [
-                {
-                  clientID: publisher,
-                  presence,
-                },
-              ],
-            },
+            peers: [
+              {
+                clientID: publisher,
+                presence,
+              },
+            ],
           },
         });
         break;
       }
-      case DocEventType.DOC_EVENT_TYPE_PRESENCE_CHANGED:
-        attachment.doc.setPresenceInfo(publisher, presence);
-        this.eventStreamObserver.next({
-          type: ClientEventType.PeersChanged,
-          value: {
-            type: 'presence-changed',
-            peers: {
-              [docKey]: [
-                {
-                  clientID: publisher,
-                  presence: attachment.doc.getPresenceInfo(publisher).data,
-                },
-              ],
-            },
-          },
-        });
-        break;
     }
   }
 

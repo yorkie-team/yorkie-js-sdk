@@ -91,6 +91,10 @@ export enum DocEventType {
    * remote document change event type
    */
   RemoteChange = 'remote-change',
+  /**
+   * `PeersChanged` means that the presences of the peer clients has changed.
+   */
+  PeersChanged = 'peers-changed',
 }
 
 /**
@@ -99,7 +103,11 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
+export type DocEvent<P extends Indexable> =
+  | SnapshotEvent
+  | LocalChangeEvent
+  | RemoteChangeEvent
+  | PeersChangedEvent<P>;
 
 /**
  * @internal
@@ -170,6 +178,32 @@ export interface RemoteChangeEvent extends BaseDocEvent {
 }
 
 /**
+ * `PeersChangedValue` represents the value of the PeersChanged event.
+ * @public
+ */
+export type PeersChangedValue<P extends Indexable> = {
+  type: 'initialized' | 'watched' | 'unwatched' | 'presence-changed';
+  peers: Array<{ clientID: ActorID; presence: P }>;
+};
+
+/**
+ * `PeersChangedEvent` is an event that occurs when the states of another peers
+ * of the attached documents changes.
+ *
+ * @public
+ */
+export interface PeersChangedEvent<P extends Indexable> extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.PeersChangedEvent
+   */
+  type: DocEventType.PeersChanged;
+  /**
+   * `PeersChangedEvent` value
+   */
+  value: PeersChangedValue<P>;
+}
+
+/**
  * Indexable key, value
  * @public
  */
@@ -215,8 +249,8 @@ export class Document<T, P extends Indexable> {
     localChanges: Array<Change>;
     me: boolean;
   };
-  private eventStream: Observable<DocEvent>;
-  private eventStreamObserver!: Observer<DocEvent>;
+  private eventStream: Observable<DocEvent<P>>;
+  private eventStreamObserver!: Observer<DocEvent<P>>;
   private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
   private myClientID: ActorID;
   private changeContext: ChangeContext | undefined;
@@ -239,7 +273,7 @@ export class Document<T, P extends Indexable> {
     this.myClientID = clientID;
     this.changeContext = undefined;
 
-    this.eventStream = createObservable<DocEvent>((observer) => {
+    this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
   }
@@ -297,27 +331,36 @@ export class Document<T, P extends Indexable> {
       this.buffer.localChanges.push(change);
       this.changeID = change.getID();
 
-      if (this.eventStreamObserver) {
-        this.eventStreamObserver.next({
-          type: DocEventType.LocalChange,
-          value: [
-            {
-              message: change.getMessage() || '',
-              operations: internalOpInfos.map((internalOpInfo) =>
-                this.toOperationInfo(internalOpInfo),
-              ),
-              actor: change.getID().getActorID(),
-            },
-          ],
-        });
-      }
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: [
+          {
+            message: change.getMessage() || '',
+            operations: internalOpInfos.map((internalOpInfo) =>
+              this.toOperationInfo(internalOpInfo),
+            ),
+            actor: change.getID().getActorID(),
+          },
+        ],
+      });
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
-    if (this.buffer.me && this.eventStreamObserver) {
-      // TODO(chacha912): publish peer presence event.
+    if (this.buffer.me) {
+      this.publish({
+        type: DocEventType.PeersChanged,
+        value: {
+          type: 'presence-changed',
+          peers: [
+            {
+              clientID: this.myClientID,
+              presence: this.getPresence(),
+            },
+          ],
+        },
+      });
     }
 
     this.changeContext = undefined;
@@ -342,7 +385,7 @@ export class Document<T, P extends Indexable> {
    * The callback will be called when the document is changed.
    */
   public subscribe(
-    nextOrObserver: Observer<DocEvent> | NextFn<DocEvent>,
+    nextOrObserver: Observer<DocEvent<P>> | NextFn<DocEvent<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -352,7 +395,16 @@ export class Document<T, P extends Indexable> {
    */
   public subscribe(
     targetPath: string,
-    next: NextFn<DocEvent>,
+    next: NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * Subscribe to the peer updates.
+   */
+  public subscribe(
+    type: 'peers',
+    next: NextFn<PeersChangedValue<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -360,8 +412,8 @@ export class Document<T, P extends Indexable> {
    * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
-    arg1: string | Observer<DocEvent> | NextFn<DocEvent>,
-    arg2?: NextFn<DocEvent> | ErrorFn,
+    arg1: string | Observer<DocEvent<P>> | NextFn<DocEvent<P>>,
+    arg2?: NextFn<DocEvent<P>> | NextFn<PeersChangedValue<P>> | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
   ): Unsubscribe {
@@ -369,10 +421,25 @@ export class Document<T, P extends Indexable> {
       if (typeof arg2 !== 'function') {
         throw new Error('Second argument must be a callback function');
       }
+      if (arg1 === 'peers') {
+        const callback = arg2 as NextFn<PeersChangedValue<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            if (event.type === DocEventType.PeersChanged) {
+              callback(event.value);
+            }
+          },
+          arg3,
+          arg4,
+        );
+      }
       const target = arg1;
-      const callback = arg2 as NextFn<DocEvent>;
+      const callback = arg2 as NextFn<DocEvent<P>>;
       return this.eventStream.subscribe(
         (event) => {
+          if (event.type === DocEventType.PeersChanged) {
+            return;
+          }
           if (event.type === DocEventType.Snapshot) {
             target === '$' && callback(event);
             return;
@@ -411,6 +478,16 @@ export class Document<T, P extends Indexable> {
     throw new Error(`"${arg1}" is not a valid`);
   }
 
+  /**
+   * `publish` triggers an event in this document, which can be received by
+   * callback functions from document.subscribe().
+   */
+  public publish(event: DocEvent<P>) {
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next(event);
+    }
+  }
+
   private isSameElementOrChildOf(elem: string, parent: string): boolean {
     if (parent === elem) {
       return true;
@@ -431,16 +508,28 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
+    const updates: {
+      snapshot?: Uint8Array;
+      changes?: Array<ChangeInfo>;
+      peers?: Array<{ clientID: ActorID; presence: P }>;
+    } = {};
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getSnapshot(),
       );
+      updates.snapshot = pack.getSnapshot();
     } else if (pack.hasChanges()) {
-      this.applyChanges(pack.getChanges());
+      updates.changes = this.applyChanges(pack.getChanges());
     }
     if (pack.hasPeerPresence()) {
       this.applyPeerPresence(pack.getPeerPresence());
+      updates.peers = pack
+        .getPeerPresence()
+        .map(({ id, presence: presenceInfo }) => ({
+          clientID: id,
+          presence: presenceInfo.data,
+        }));
     }
 
     // 02. Remove local changes applied to server.
@@ -462,6 +551,26 @@ export class Document<T, P extends Indexable> {
     if (pack.getIsRemoved()) {
       this.setStatus(DocumentStatus.Removed);
     }
+
+    // 06. Publish the event.
+    updates.snapshot &&
+      this.publish({
+        type: DocEventType.Snapshot,
+        value: updates.snapshot,
+      });
+    updates.changes &&
+      this.publish({
+        type: DocEventType.RemoteChange,
+        value: updates.changes,
+      });
+    updates.peers &&
+      this.publish({
+        type: DocEventType.PeersChanged,
+        value: {
+          type: 'presence-changed',
+          peers: updates.peers,
+        },
+      });
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
@@ -653,19 +762,12 @@ export class Document<T, P extends Indexable> {
 
     // drop clone because it is contaminated.
     this.clone = undefined;
-
-    if (this.eventStreamObserver) {
-      this.eventStreamObserver.next({
-        type: DocEventType.Snapshot,
-        value: snapshot,
-      });
-    }
   }
 
   /**
    * `applyChanges` applies the given changes into this document.
    */
-  public applyChanges(changes: Array<Change>): void {
+  public applyChanges(changes: Array<Change>): Array<ChangeInfo> {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
@@ -704,13 +806,6 @@ export class Document<T, P extends Indexable> {
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
 
-    if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next({
-        type: DocEventType.RemoteChange,
-        value: changeInfos,
-      });
-    }
-
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `after appling ${changes.length} remote changes.` +
@@ -718,6 +813,7 @@ export class Document<T, P extends Indexable> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
+    return changeInfos;
   }
 
   /**
@@ -726,10 +822,6 @@ export class Document<T, P extends Indexable> {
   public applyPeerPresence(peerPresence: Array<Peer<P>>): void {
     for (const { id, presence } of peerPresence) {
       this.setPresenceInfo(id, presence);
-    }
-
-    if (this.eventStreamObserver) {
-      // TODO(chacha912): publish peer presence event.
     }
   }
 
