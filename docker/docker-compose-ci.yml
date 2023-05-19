@@ -26,7 +26,6 @@ services:
     ports:
       - '11101:11101'
       - '11102:11102'
-      - '11103:11103'
     depends_on:
       - mongo
   mongo:
