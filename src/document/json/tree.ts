@@ -131,6 +131,50 @@ export class Tree {
   }
 
   /**
+   * `editByPath` edits this tree with the given node and path.
+   */
+  public editByPath(
+    fromPath: Array<number>,
+    toPath: Array<number>,
+    content?: TreeNode,
+  ): boolean {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+    if (fromPath.length !== toPath.length) {
+      throw new Error('path length should be equal');
+    }
+    if (!fromPath.length || !toPath) {
+      throw new Error('path should not be empty');
+    }
+
+    const ticket = this.context.issueTimeTicket();
+    let crdtNode: CRDTTreeNode | undefined;
+    if (content?.type === 'text') {
+      const inlineNode = content as InlineNode;
+      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
+    } else if (content) {
+      crdtNode = CRDTTreeNode.create(ticket, content.type);
+    }
+
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos(toPath);
+    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+
+    this.context.push(
+      TreeEditOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNode,
+        ticket,
+      ),
+    );
+
+    return true;
+  }
+
+  /**
    * `edit` edits this tree with the given node.
    */
   public edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean {
