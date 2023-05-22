@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.3.5] - 2023-05-22
+
+### Changed
+* Bump yaml and husky by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/505
+* Apply Integration of SDK and Admin RPC Server by @krapie in https://github.com/yorkie-team/yorkie-js-sdk/pull/512
+
+### Fixed
+* Fix quill example page image rendering issue by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/504
+* Add actor to ChangeInfo / update api-reference by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/508
+
 ## [0.3.4] - 2023-04-18
 
 ### Added
