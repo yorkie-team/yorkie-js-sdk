@@ -263,6 +263,42 @@ describe('Tree', () => {
       },
     ]);
   });
+  it('Can be subscribed by handler(path)', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+    });
+
+    const actualChanges: Array<
+      Omit<TreeChange, 'from' | 'to'> & {
+        from: Array<number>;
+        to: Array<number>;
+      }
+    > = [];
+    doc.getRoot().t.onChangesByPath((changes) => {
+      actualChanges.push(...changes);
+    });
+
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 0], [0, 0, 0], { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
+    });
+
+    assert.deepEqual(actualChanges, [
+      {
+        type: TreeChangeType.Content,
+        from: doc.getRoot().t.getIndexTree().indexToPath(1),
+        to: doc.getRoot().t.getIndexTree().indexToPath(1),
+        value: { type: 'text', value: 'X' },
+      },
+    ]);
+  });
 });
 
 describe('Tree.edit', function () {
