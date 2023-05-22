@@ -144,7 +144,7 @@ export class Tree {
     if (fromPath.length !== toPath.length) {
       throw new Error('path length should be equal');
     }
-    if (!fromPath.length || !toPath) {
+    if (!fromPath.length || !toPath.length) {
       throw new Error('path should not be empty');
     }
 
