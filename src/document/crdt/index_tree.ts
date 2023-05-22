@@ -779,4 +779,13 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     return index;
   }
+
+  /**
+   * `indexToPath` returns the path to the given node.
+   */
+  public indexToPath(index: number): Array<number> {
+    const treePos = this.findTreePos(index);
+
+    return this.treePosToPath(treePos);
+  }
 }

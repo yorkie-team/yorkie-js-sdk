@@ -246,6 +246,34 @@ export class Tree {
   }
 
   /**
+   * `onChangesByPath` registers a handler of onChanges event.
+   */
+  onChangesByPath(
+    handler: (
+      changes: Array<
+        Omit<TreeChange, 'from' | 'to'> & {
+          from: Array<number>;
+          to: Array<number>;
+        }
+      >,
+    ) => void,
+  ): void {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    this.tree.onChanges((changes) => {
+      const changesWithPath = changes.map(({ from, to, ...rest }) => ({
+        ...rest,
+        from: this.tree?.indexToPath(from) as Array<number>,
+        to: this.tree?.indexToPath(to) as Array<number>,
+      }));
+
+      handler(changesWithPath);
+    });
+  }
+
+  /**
    * eslint-disable-next-line jsdoc/require-jsdoc
    * @internal
    */

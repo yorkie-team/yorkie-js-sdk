@@ -578,6 +578,18 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `pathToPos` finds the position of the given index in the tree by path.
+   */
+  public pathToPos(path: Array<number>) {
+    const treePos = this.indexTree.pathToTreePos(path);
+
+    return {
+      createdAt: treePos.node.pos.createdAt,
+      offset: treePos.node.pos.offset + treePos.offset,
+    };
+  }
+
+  /**
    * `getRoot` returns the root node of the tree.
    */
   public getRoot(): CRDTTreeNode {
@@ -680,5 +692,12 @@ export class CRDTTree extends CRDTElement {
       node,
       offset: pos.offset - node.pos.offset,
     };
+  }
+
+  /**
+   * `indexToPath` converts the given tree index to path.
+   */
+  public indexToPath(index: number): Array<number> {
+    return this.indexTree.indexToPath(index);
   }
 }
