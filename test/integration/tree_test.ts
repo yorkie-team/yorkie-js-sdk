@@ -264,6 +264,7 @@ describe('Tree', () => {
       },
     ]);
   });
+
   it('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -290,8 +291,8 @@ describe('Tree', () => {
     assert.deepEqual(actualChanges, [
       {
         type: TreeChangeType.Content,
-        from: doc.getRoot().t.getIndexTree().indexToPath(1),
-        to: doc.getRoot().t.getIndexTree().indexToPath(1),
+        from: [0, 0, 0],
+        to: [0, 0, 0],
         value: { type: 'text', value: 'X' },
       },
     ]);
