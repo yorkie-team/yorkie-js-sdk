@@ -26,6 +26,7 @@ import yorkie, {
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { TreeChangeWithPath } from '@yorkie-js-sdk/src/document/json/tree';
 
 /**
  * `listEqual` is a helper function that the given tree is equal to the
@@ -259,6 +260,39 @@ describe('Tree', () => {
         type: TreeChangeType.Content,
         from: 1,
         to: 1,
+        value: { type: 'text', value: 'X' },
+      },
+    ]);
+  });
+
+  it('Can be subscribed by handler(path)', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+    });
+
+    const actualChanges: Array<TreeChangeWithPath> = [];
+    doc.getRoot().t.onChangesByPath((changes) => {
+      actualChanges.push(...changes);
+    });
+
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 0], [0, 0, 0], { type: 'text', value: 'X' });
+
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
+    });
+
+    assert.deepEqual(actualChanges, [
+      {
+        type: TreeChangeType.Content,
+        from: [0, 0, 0],
+        to: [0, 0, 0],
         value: { type: 'text', value: 'X' },
       },
     ]);

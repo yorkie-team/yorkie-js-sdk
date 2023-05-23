@@ -15,6 +15,10 @@ import {
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 
 export type TreeNode = InlineNode | BlockNode;
+export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
+  from: Array<number>;
+  to: Array<number>;
+};
 
 /**
  * `BlockNode` is a node that has children.
@@ -131,6 +135,50 @@ export class Tree {
   }
 
   /**
+   * `editByPath` edits this tree with the given node and path.
+   */
+  public editByPath(
+    fromPath: Array<number>,
+    toPath: Array<number>,
+    content?: TreeNode,
+  ): boolean {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+    if (fromPath.length !== toPath.length) {
+      throw new Error('path length should be equal');
+    }
+    if (!fromPath.length || !toPath.length) {
+      throw new Error('path should not be empty');
+    }
+
+    const ticket = this.context.issueTimeTicket();
+    let crdtNode: CRDTTreeNode | undefined;
+    if (content?.type === 'text') {
+      const inlineNode = content as InlineNode;
+      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
+    } else if (content) {
+      crdtNode = CRDTTreeNode.create(ticket, content.type);
+    }
+
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos(toPath);
+    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+
+    this.context.push(
+      TreeEditOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNode,
+        ticket,
+      ),
+    );
+
+    return true;
+  }
+
+  /**
    * `edit` edits this tree with the given node.
    */
   public edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean {
@@ -197,8 +245,44 @@ export class Tree {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
+    let localChanges: Array<TreeChange> = [];
 
-    this.tree.onChanges(handler);
+    this.tree.onChangeCollect((changes: Array<TreeChange>) => {
+      localChanges.push(...changes);
+    });
+    this.tree.onChanges(() => {
+      handler(localChanges as Array<TreeChange>);
+
+      localChanges = [];
+    });
+  }
+
+  /**
+   * `onChangesByPath` registers a handler of onChanges event.
+   */
+  onChangesByPath(handler: (changes: Array<TreeChangeWithPath>) => void): void {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+    let localChanges: Array<TreeChangeWithPath> = [];
+    const collect = (changes: Array<TreeChange>) => {
+      const changeWithPath = changes.map(({ from, to, ...rest }) => {
+        return {
+          from: this.tree!.indexToPath(from),
+          to: this.tree!.indexToPath(to),
+          ...rest,
+        };
+      });
+
+      (localChanges as Array<TreeChangeWithPath>).push(...changeWithPath);
+    };
+
+    this.tree.onChangeCollect(collect);
+    this.tree.onChanges(() => {
+      handler(localChanges as Array<TreeChangeWithPath>);
+
+      localChanges = [];
+    });
   }
 
   /**
