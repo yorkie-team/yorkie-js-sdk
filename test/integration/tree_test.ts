@@ -287,6 +287,7 @@ describe('Tree', () => {
 
     doc.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 0], { type: 'text', value: 'X' });
+
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
     });
 

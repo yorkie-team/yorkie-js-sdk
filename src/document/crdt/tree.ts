@@ -305,7 +305,8 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
-  public onChangesHandler?: (changes: Array<TreeChange>) => void;
+  public onChangesHandler?: () => void;
+  public changeCollector?: (changes: Array<TreeChange>) => void;
 
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
@@ -345,8 +346,17 @@ export class CRDTTree extends CRDTElement {
   /**
    * `onChanges` registers a handler of onChanges event.
    */
-  public onChanges(handler: (changes: Array<TreeChange>) => void): void {
+  public onChanges(handler: () => void): void {
     this.onChangesHandler = handler;
+  }
+
+  /**
+   * `onChanges` registers a handler of onChanges event.
+   */
+  public onChangeCollect(
+    collector: (changes: Array<TreeChange>) => void,
+  ): void {
+    this.changeCollector = collector;
   }
   /**
    * `nodesBetween` returns the nodes between the given range.
@@ -462,6 +472,10 @@ export class CRDTTree extends CRDTElement {
       value: content ? toJSON(content) : undefined,
     });
 
+    if (this.changeCollector) {
+      this.changeCollector(changes);
+    }
+
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
@@ -524,7 +538,7 @@ export class CRDTTree extends CRDTElement {
     }
 
     if (this.onChangesHandler) {
-      this.onChangesHandler(changes);
+      this.onChangesHandler();
     }
 
     return changes;

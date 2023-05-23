@@ -16,6 +16,11 @@ import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_ed
 
 export type TreeNode = InlineNode | BlockNode;
 
+type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
+  from: Array<number>;
+  to: Array<number>;
+};
+
 /**
  * `BlockNode` is a node that has children.
  */
@@ -40,9 +45,11 @@ export class Tree {
   private initialRoot?: BlockNode;
   private context?: ChangeContext;
   private tree?: CRDTTree;
+  private changes: Array<TreeChange> | Array<TreeChangeWithPath>;
 
   constructor(initialRoot?: BlockNode) {
     this.initialRoot = initialRoot;
+    this.changes = [];
   }
 
   /**
@@ -242,34 +249,40 @@ export class Tree {
       throw new Error('it is not initialized yet');
     }
 
-    this.tree.onChanges(handler);
+    this.tree.onChangeCollect((changes: Array<TreeChange>) => {
+      (this.changes as Array<TreeChange>).push(...changes);
+    });
+    this.tree.onChanges(() => {
+      handler(this.changes as Array<TreeChange>);
+
+      this.changes = [];
+    });
   }
 
   /**
    * `onChangesByPath` registers a handler of onChanges event.
    */
-  onChangesByPath(
-    handler: (
-      changes: Array<
-        Omit<TreeChange, 'from' | 'to'> & {
-          from: Array<number>;
-          to: Array<number>;
-        }
-      >,
-    ) => void,
-  ): void {
+  onChangesByPath(handler: (changes: Array<TreeChangeWithPath>) => void): void {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
+    const collect = (changes: Array<TreeChange>) => {
+      const changeWithPath = changes.map(({ from, to, ...rest }) => {
+        return {
+          from: this.tree!.indexToPath(from),
+          to: this.tree!.indexToPath(to),
+          ...rest,
+        };
+      });
 
-    this.tree.onChanges((changes) => {
-      const changesWithPath = changes.map(({ from, to, ...rest }) => ({
-        ...rest,
-        from: this.tree?.indexToPath(from) as Array<number>,
-        to: this.tree?.indexToPath(to) as Array<number>,
-      }));
+      (this.changes as Array<TreeChangeWithPath>).push(...changeWithPath);
+    };
 
-      handler(changesWithPath);
+    this.tree.onChangeCollect(collect);
+    this.tree.onChanges(() => {
+      handler(this.changes as Array<TreeChangeWithPath>);
+
+      this.changes = [];
     });
   }
 
