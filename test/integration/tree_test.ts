@@ -26,6 +26,7 @@ import yorkie, {
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { TreeChangeWithPath } from '@yorkie-js-sdk/src/document/json/tree';
 
 /**
  * `listEqual` is a helper function that the given tree is equal to the
@@ -275,12 +276,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
 
-    const actualChanges: Array<
-      Omit<TreeChange, 'from' | 'to'> & {
-        from: Array<number>;
-        to: Array<number>;
-      }
-    > = [];
+    const actualChanges: Array<TreeChangeWithPath> = [];
     doc.getRoot().t.onChangesByPath((changes) => {
       actualChanges.push(...changes);
     });

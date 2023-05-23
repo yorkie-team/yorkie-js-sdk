@@ -15,8 +15,7 @@ import {
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 
 export type TreeNode = InlineNode | BlockNode;
-
-type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
+export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
   from: Array<number>;
   to: Array<number>;
 };
@@ -45,11 +44,9 @@ export class Tree {
   private initialRoot?: BlockNode;
   private context?: ChangeContext;
   private tree?: CRDTTree;
-  private changes: Array<TreeChange> | Array<TreeChangeWithPath>;
 
   constructor(initialRoot?: BlockNode) {
     this.initialRoot = initialRoot;
-    this.changes = [];
   }
 
   /**
@@ -248,14 +245,15 @@ export class Tree {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
+    let localChanges: Array<TreeChange> = [];
 
     this.tree.onChangeCollect((changes: Array<TreeChange>) => {
-      (this.changes as Array<TreeChange>).push(...changes);
+      localChanges.push(...changes);
     });
     this.tree.onChanges(() => {
-      handler(this.changes as Array<TreeChange>);
+      handler(localChanges as Array<TreeChange>);
 
-      this.changes = [];
+      localChanges = [];
     });
   }
 
@@ -266,6 +264,7 @@ export class Tree {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
+    let localChanges: Array<TreeChangeWithPath> = [];
     const collect = (changes: Array<TreeChange>) => {
       const changeWithPath = changes.map(({ from, to, ...rest }) => {
         return {
@@ -275,14 +274,14 @@ export class Tree {
         };
       });
 
-      (this.changes as Array<TreeChangeWithPath>).push(...changeWithPath);
+      (localChanges as Array<TreeChangeWithPath>).push(...changeWithPath);
     };
 
     this.tree.onChangeCollect(collect);
     this.tree.onChanges(() => {
-      handler(this.changes as Array<TreeChangeWithPath>);
+      handler(localChanges as Array<TreeChangeWithPath>);
 
-      this.changes = [];
+      localChanges = [];
     });
   }
 
