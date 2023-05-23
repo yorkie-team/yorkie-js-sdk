@@ -294,8 +294,8 @@ describe('Tree', () => {
     assert.deepEqual(actualChanges, [
       {
         type: TreeChangeType.Content,
-        from: doc.getRoot().t.getIndexTree().indexToPath(1),
-        to: doc.getRoot().t.getIndexTree().indexToPath(1),
+        from: [0, 0, 0],
+        to: [0, 0, 0],
         value: { type: 'text', value: 'X' },
       },
     ]);
