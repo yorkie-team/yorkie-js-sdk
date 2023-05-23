@@ -263,6 +263,7 @@ describe('Tree', () => {
       },
     ]);
   });
+
   it('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
