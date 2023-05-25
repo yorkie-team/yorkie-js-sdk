@@ -799,7 +799,7 @@ if (goog.DEBUG && !COMPILED) {
  * @private {!Array<number>}
  * @const
  */
-proto.yorkie.v1.ChangePack.repeatedFields_ = [4,7];
+proto.yorkie.v1.ChangePack.repeatedFields_ = [4];
 
 
 
@@ -838,9 +838,7 @@ proto.yorkie.v1.ChangePack.toObject = function(includeInstance, msg) {
     changesList: jspb.Message.toObjectList(msg.getChangesList(),
     proto.yorkie.v1.Change.toObject, includeInstance),
     minSyncedTicket: (f = msg.getMinSyncedTicket()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
-    isRemoved: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
-    peersList: jspb.Message.toObjectList(msg.getPeersList(),
-    proto.yorkie.v1.Client.toObject, includeInstance)
+    isRemoved: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
   };
 
   if (includeInstance) {
@@ -903,11 +901,6 @@ proto.yorkie.v1.ChangePack.deserializeBinaryFromReader = function(msg, reader) {
     case 6:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setIsRemoved(value);
-      break;
-    case 7:
-      var value = new proto.yorkie.v1.Client;
-      reader.readMessage(value,proto.yorkie.v1.Client.deserializeBinaryFromReader);
-      msg.addPeers(value);
       break;
     default:
       reader.skipField();
@@ -981,14 +974,6 @@ proto.yorkie.v1.ChangePack.serializeBinaryToWriter = function(message, writer) {
     writer.writeBool(
       6,
       f
-    );
-  }
-  f = message.getPeersList();
-  if (f.length > 0) {
-    writer.writeRepeatedMessage(
-      7,
-      f,
-      proto.yorkie.v1.Client.serializeBinaryToWriter
     );
   }
 };
@@ -1184,44 +1169,6 @@ proto.yorkie.v1.ChangePack.prototype.setIsRemoved = function(value) {
 };
 
 
-/**
- * repeated Client peers = 7;
- * @return {!Array<!proto.yorkie.v1.Client>}
- */
-proto.yorkie.v1.ChangePack.prototype.getPeersList = function() {
-  return /** @type{!Array<!proto.yorkie.v1.Client>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.yorkie.v1.Client, 7));
-};
-
-
-/**
- * @param {!Array<!proto.yorkie.v1.Client>} value
- * @return {!proto.yorkie.v1.ChangePack} returns this
-*/
-proto.yorkie.v1.ChangePack.prototype.setPeersList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 7, value);
-};
-
-
-/**
- * @param {!proto.yorkie.v1.Client=} opt_value
- * @param {number=} opt_index
- * @return {!proto.yorkie.v1.Client}
- */
-proto.yorkie.v1.ChangePack.prototype.addPeers = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 7, opt_value, proto.yorkie.v1.Client, opt_index);
-};
-
-
-/**
- * Clears the list making it empty but non-null.
- * @return {!proto.yorkie.v1.ChangePack} returns this
- */
-proto.yorkie.v1.ChangePack.prototype.clearPeersList = function() {
-  return this.setPeersList([]);
-};
-
-
 
 /**
  * List of repeated fields within this message type.
@@ -1264,7 +1211,8 @@ proto.yorkie.v1.Change.toObject = function(includeInstance, msg) {
     id: (f = msg.getId()) && proto.yorkie.v1.ChangeID.toObject(includeInstance, f),
     message: jspb.Message.getFieldWithDefault(msg, 2, ""),
     operationsList: jspb.Message.toObjectList(msg.getOperationsList(),
-    proto.yorkie.v1.Operation.toObject, includeInstance)
+    proto.yorkie.v1.Operation.toObject, includeInstance),
+    presence: (f = msg.getPresence()) && proto.yorkie.v1.PresenceInfo.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -1314,6 +1262,11 @@ proto.yorkie.v1.Change.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.yorkie.v1.Operation;
       reader.readMessage(value,proto.yorkie.v1.Operation.deserializeBinaryFromReader);
       msg.addOperations(value);
+      break;
+    case 4:
+      var value = new proto.yorkie.v1.PresenceInfo;
+      reader.readMessage(value,proto.yorkie.v1.PresenceInfo.deserializeBinaryFromReader);
+      msg.setPresence(value);
       break;
     default:
       reader.skipField();
@@ -1365,6 +1318,14 @@ proto.yorkie.v1.Change.serializeBinaryToWriter = function(message, writer) {
       3,
       f,
       proto.yorkie.v1.Operation.serializeBinaryToWriter
+    );
+  }
+  f = message.getPresence();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      proto.yorkie.v1.PresenceInfo.serializeBinaryToWriter
     );
   }
 };
@@ -1460,6 +1421,43 @@ proto.yorkie.v1.Change.prototype.addOperations = function(opt_value, opt_index) 
  */
 proto.yorkie.v1.Change.prototype.clearOperationsList = function() {
   return this.setOperationsList([]);
+};
+
+
+/**
+ * optional PresenceInfo presence = 4;
+ * @return {?proto.yorkie.v1.PresenceInfo}
+ */
+proto.yorkie.v1.Change.prototype.getPresence = function() {
+  return /** @type{?proto.yorkie.v1.PresenceInfo} */ (
+    jspb.Message.getWrapperField(this, proto.yorkie.v1.PresenceInfo, 4));
+};
+
+
+/**
+ * @param {?proto.yorkie.v1.PresenceInfo|undefined} value
+ * @return {!proto.yorkie.v1.Change} returns this
+*/
+proto.yorkie.v1.Change.prototype.setPresence = function(value) {
+  return jspb.Message.setWrapperField(this, 4, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.yorkie.v1.Change} returns this
+ */
+proto.yorkie.v1.Change.prototype.clearPresence = function() {
+  return this.setPresence(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.yorkie.v1.Change.prototype.hasPresence = function() {
+  return jspb.Message.getField(this, 4) != null;
 };
 
 

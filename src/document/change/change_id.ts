@@ -123,6 +123,13 @@ export class ChangeID {
       this.clientSeq
     }`;
   }
+
+  /**
+   * `getInitialChangeID` returns the initial state ID.
+   */
+  public static getInitialChangeID(actorID?: ActorID): ChangeID {
+    return new ChangeID(0, Long.fromInt(0, true), actorID || InitialActorID);
+  }
 }
 
 /**

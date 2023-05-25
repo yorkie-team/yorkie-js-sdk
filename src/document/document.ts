@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import Long from 'long';
+import cloneDeep from 'lodash.clonedeep';
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import {
@@ -27,15 +28,13 @@ import {
 } from '@yorkie-js-sdk/src/util/observable';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
-import {
-  ChangeID,
-  InitialChangeID,
-} from '@yorkie-js-sdk/src/document/change/change_id';
+import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import {
   createJSON,
   JSONElement,
@@ -49,8 +48,6 @@ import {
   InternalOpInfo,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONObject } from './json/object';
-import { Trie } from '../util/trie';
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -105,8 +102,8 @@ export enum DocEventType {
  */
 export type DocEvent<P extends Indexable> =
   | SnapshotEvent
-  | LocalChangeEvent
-  | RemoteChangeEvent
+  | LocalChangeEvent<P>
+  | RemoteChangeEvent<P>
   | PeersChangedEvent<P>;
 
 /**
@@ -137,9 +134,10 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export interface ChangeInfo {
+export interface ChangeInfo<P extends Indexable> {
   message: string;
   operations: Array<OperationInfo>;
+  presence: P | undefined;
   actor: ActorID | undefined;
 }
 
@@ -149,7 +147,7 @@ export interface ChangeInfo {
  *
  * @public
  */
-export interface LocalChangeEvent extends BaseDocEvent {
+export interface LocalChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.LocalChange
    */
@@ -157,7 +155,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<ChangeInfo<P>>;
 }
 
 /**
@@ -166,7 +164,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
  *
  * @public
  */
-export interface RemoteChangeEvent extends BaseDocEvent {
+export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.RemoteChange
    */
@@ -174,7 +172,7 @@ export interface RemoteChangeEvent extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<ChangeInfo<P>>;
 }
 
 /**
@@ -245,26 +243,20 @@ export class Document<T, P extends Indexable> {
   private clone?: CRDTRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
-  private buffer: {
-    localChanges: Array<Change>;
-    me: boolean;
-  };
+  private localChanges: Array<Change<P>>;
   private eventStream: Observable<DocEvent<P>>;
   private eventStreamObserver!: Observer<DocEvent<P>>;
   private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
   private myClientID: ActorID;
-  private changeContext: ChangeContext | undefined;
+  private changeContext: ChangeContext<P> | undefined;
 
   constructor(docKey: string, clientID: string, initialPresence: P) {
     this.key = docKey;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
-    this.changeID = InitialChangeID;
+    this.changeID = ChangeID.getInitialChangeID(clientID);
     this.checkpoint = InitialCheckpoint;
-    this.buffer = {
-      localChanges: [],
-      me: false,
-    };
+    this.localChanges = [];
     this.peerPresenceMap = new Map();
     this.peerPresenceMap.set(clientID, {
       clock: 0,
@@ -302,7 +294,7 @@ export class Document<T, P extends Indexable> {
 
     this.ensureClone();
     if (!this.changeContext) {
-      this.changeContext = ChangeContext.create(
+      this.changeContext = ChangeContext.create<P>(
         this.changeID.next(),
         this.clone!,
         message,
@@ -321,14 +313,14 @@ export class Document<T, P extends Indexable> {
       throw err;
     }
 
-    if (this.changeContext.hasOperations()) {
+    if (this.changeContext.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
       const change = this.changeContext.getChange();
       const internalOpInfos = change.execute(this.root);
-      this.buffer.localChanges.push(change);
+      this.localChanges.push(change);
       this.changeID = change.getID();
 
       this.publish({
@@ -339,6 +331,9 @@ export class Document<T, P extends Indexable> {
             operations: internalOpInfos.map((internalOpInfo) =>
               this.toOperationInfo(internalOpInfo),
             ),
+            presence: this.changeContext.hasPresence()
+              ? this.getPresence()
+              : undefined,
             actor: change.getID().getActorID(),
           },
         ],
@@ -347,20 +342,6 @@ export class Document<T, P extends Indexable> {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
-    }
-    if (this.buffer.me) {
-      this.publish({
-        type: DocEventType.PeersChanged,
-        value: {
-          type: 'presence-changed',
-          peers: [
-            {
-              clientID: this.myClientID,
-              presence: this.getPresence(),
-            },
-          ],
-        },
-      });
     }
 
     this.changeContext = undefined;
@@ -375,7 +356,7 @@ export class Document<T, P extends Indexable> {
     myPresence.data[key] = value;
 
     if (this.changeContext) {
-      this.buffer.me = true;
+      this.changeContext.setPresence(cloneDeep(myPresence));
     }
     // TODO(chacha912): handle when updatePresence is called without a changeContext
   }
@@ -445,8 +426,8 @@ export class Document<T, P extends Indexable> {
             return;
           }
 
-          const changeInfos: Array<ChangeInfo> = [];
-          for (const { message, operations, actor } of event.value) {
+          const changeInfos: Array<ChangeInfo<P>> = [];
+          for (const { message, operations, presence, actor } of event.value) {
             const targetOps: Array<OperationInfo> = [];
             for (const op of operations) {
               if (this.isSameElementOrChildOf(op.path, target)) {
@@ -457,6 +438,7 @@ export class Document<T, P extends Indexable> {
               changeInfos.push({
                 message,
                 operations: targetOps,
+                presence,
                 actor,
               });
           }
@@ -508,37 +490,22 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    const updates: {
-      snapshot?: Uint8Array;
-      changes?: Array<ChangeInfo>;
-      peers?: Array<{ clientID: ActorID; presence: P }>;
-    } = {};
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getSnapshot(),
       );
-      updates.snapshot = pack.getSnapshot();
     } else if (pack.hasChanges()) {
-      updates.changes = this.applyChanges(pack.getChanges());
-    }
-    if (pack.hasPeerPresence()) {
-      this.applyPeerPresence(pack.getPeerPresence());
-      updates.peers = pack
-        .getPeerPresence()
-        .map(({ id, presence: presenceInfo }) => ({
-          clientID: id,
-          presence: presenceInfo.data,
-        }));
+      this.applyChanges(pack.getChanges());
     }
 
     // 02. Remove local changes applied to server.
-    while (this.buffer.localChanges.length) {
-      const change = this.buffer.localChanges[0];
+    while (this.localChanges.length) {
+      const change = this.localChanges[0];
       if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
         break;
       }
-      this.buffer.localChanges.shift();
+      this.localChanges.shift();
     }
 
     // 03. Update the checkpoint.
@@ -551,26 +518,6 @@ export class Document<T, P extends Indexable> {
     if (pack.getIsRemoved()) {
       this.setStatus(DocumentStatus.Removed);
     }
-
-    // 06. Publish the event.
-    updates.snapshot &&
-      this.publish({
-        type: DocEventType.Snapshot,
-        value: updates.snapshot,
-      });
-    updates.changes &&
-      this.publish({
-        type: DocEventType.RemoteChange,
-        value: updates.changes,
-      });
-    updates.peers &&
-      this.publish({
-        type: DocEventType.PeersChanged,
-        value: {
-          type: 'presence-changed',
-          peers: updates.peers,
-        },
-      });
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
@@ -592,16 +539,7 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public hasLocalChanges(): boolean {
-    return this.buffer.localChanges.length > 0;
-  }
-
-  /**
-   * `hasBuffer` returns whether there is data that needs to be synchronized with the server.
-   *
-   * @internal
-   */
-  public hasBuffer(): boolean {
-    return this.hasLocalChanges() || this.buffer.me;
+    return this.localChanges.length > 0;
   }
 
   /**
@@ -624,22 +562,13 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public createChangePack(): ChangePack<P> {
-    const changes = this.buffer.localChanges;
+    const changes = this.localChanges;
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
-    const peerPresence = [] as Array<Peer<P>>;
-    if (this.buffer.me) {
-      peerPresence.push({
-        id: this.myClientID,
-        presence: this.peerPresenceMap.get(this.myClientID)!,
-      });
-      this.buffer.me = false;
-    }
     return ChangePack.create({
       key: this.key,
       checkpoint,
       isRemoved: false,
       changes,
-      peerPresence,
     });
   }
 
@@ -650,7 +579,7 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public setActor(actorID: ActorID): void {
-    for (const change of this.buffer.localChanges) {
+    for (const change of this.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
@@ -762,12 +691,17 @@ export class Document<T, P extends Indexable> {
 
     // drop clone because it is contaminated.
     this.clone = undefined;
+
+    this.publish({
+      type: DocEventType.Snapshot,
+      value: snapshot,
+    });
   }
 
   /**
    * `applyChanges` applies the given changes into this document.
    */
-  public applyChanges(changes: Array<Change>): Array<ChangeInfo> {
+  public applyChanges(changes: Array<Change<P>>) {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
@@ -793,18 +727,29 @@ export class Document<T, P extends Indexable> {
       change.execute(this.clone!);
     }
 
-    const changeInfos: Array<ChangeInfo> = [];
+    const changeInfos: Array<ChangeInfo<P>> = [];
     for (const change of changes) {
+      const actorID = change.getID().getActorID()!;
       const inernalOpInfos = change.execute(this.root);
-      changeInfos.push({
+      const changeInfo: ChangeInfo<P> = {
+        actor: actorID,
         message: change.getMessage() || '',
         operations: inernalOpInfos.map((opInfo) =>
           this.toOperationInfo(opInfo),
         ),
-        actor: change.getID().getActorID(),
-      });
+        presence: undefined,
+      };
+      if (change.hasPresenceInfo() && this.hasPeer(actorID)) {
+        this.setPresenceInfo(actorID, change.getPresenceInfo()!);
+        changeInfo.presence = change.getPresenceInfo()!.data;
+      }
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+      changeInfos.push(changeInfo);
     }
+    this.publish({
+      type: DocEventType.RemoteChange,
+      value: changeInfos,
+    });
 
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
@@ -814,15 +759,6 @@ export class Document<T, P extends Indexable> {
       );
     }
     return changeInfos;
-  }
-
-  /**
-   * `applyPeerPresence` applies the given peer presence into this document.
-   */
-  public applyPeerPresence(peerPresence: Array<Peer<P>>): void {
-    for (const { id, presence } of peerPresence) {
-      this.setPresenceInfo(id, presence);
-    }
   }
 
   /**
@@ -840,19 +776,6 @@ export class Document<T, P extends Indexable> {
       if (value === undefined) return undefined;
     }
     return value;
-  }
-
-  private createPaths(change: Change): Array<string> {
-    const pathTrie = new Trie<string>('$');
-    for (const op of change.getOperations()) {
-      const createdAt = op.getEffectedCreatedAt();
-      if (createdAt) {
-        const subPaths = this.root.createSubPaths(createdAt)!;
-        subPaths.shift();
-        pathTrie.insert(subPaths);
-      }
-    }
-    return pathTrie.findPrefixes().map((element) => element.join('.'));
   }
 
   private toOperationInfo(internalOpInfo: InternalOpInfo): OperationInfo {
@@ -925,5 +848,12 @@ export class Document<T, P extends Indexable> {
       peers.push({ clientID, presence: presenceInfo.data });
     }
     return peers;
+  }
+
+  /**
+   * `hasPeer` returns whether the peer exists.
+   */
+  public hasPeer(clientID: ActorID): boolean {
+    return this.peerPresenceMap.has(clientID);
   }
 }

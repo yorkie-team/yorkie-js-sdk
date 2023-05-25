@@ -21,34 +21,55 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { PresenceInfo, Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `Change` represents a unit of modification in the document.
  */
-export class Change {
+export class Change<P extends Indexable> {
   private id: ChangeID;
 
   // `operations` represent a series of user edits.
   private operations: Array<Operation>;
 
+  // `presenceInfo` represent the updated presence info.
+  private presenceInfo: PresenceInfo<P> | undefined;
+
   // `message` is used to save a description of the change.
   private message?: string;
 
-  constructor(id: ChangeID, operations: Array<Operation>, message?: string) {
+  constructor({
+    id,
+    operations,
+    presenceInfo,
+    message,
+  }: {
+    id: ChangeID;
+    operations?: Array<Operation>;
+    presenceInfo?: PresenceInfo<P>;
+    message?: string;
+  }) {
     this.id = id;
-    this.operations = operations;
+    this.operations = operations || [];
+    this.presenceInfo = presenceInfo;
     this.message = message;
   }
 
   /**
    * `create` creates a new instance of Change.
    */
-  public static create(
-    id: ChangeID,
-    operations: Array<Operation>,
-    message?: string,
-  ): Change {
-    return new Change(id, operations, message);
+  public static create<P extends Indexable>({
+    id,
+    operations,
+    presenceInfo,
+    message,
+  }: {
+    id: ChangeID;
+    operations?: Array<Operation>;
+    presenceInfo?: PresenceInfo<P>;
+    message?: string;
+  }): Change<P> {
+    return new Change<P>({ id, operations, presenceInfo, message });
   }
 
   /**
@@ -66,10 +87,31 @@ export class Change {
   }
 
   /**
+   * `hasOperations` returns whether this change has operations or not.
+   */
+  public hasOperations(): boolean {
+    return this.operations.length > 0;
+  }
+
+  /**
    * `getOperations` returns the operations of this change.
    */
   public getOperations(): Array<Operation> {
     return this.operations;
+  }
+
+  /**
+   * `hasPresenceInfo` returns whether this change has presence or not.
+   */
+  public hasPresenceInfo(): boolean {
+    return this.presenceInfo !== undefined;
+  }
+
+  /**
+   * `getPresenceInfo` returns the updated presence info of this change.
+   */
+  public getPresenceInfo(): PresenceInfo<P> | undefined {
+    return this.presenceInfo;
   }
 
   /**

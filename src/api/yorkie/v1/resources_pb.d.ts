@@ -31,11 +31,6 @@ export class ChangePack extends jspb.Message {
   getIsRemoved(): boolean;
   setIsRemoved(value: boolean): ChangePack;
 
-  getPeersList(): Array<Client>;
-  setPeersList(value: Array<Client>): ChangePack;
-  clearPeersList(): ChangePack;
-  addPeers(value?: Client, index?: number): Client;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
   static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
@@ -52,7 +47,6 @@ export namespace ChangePack {
     changesList: Array<Change.AsObject>,
     minSyncedTicket?: TimeTicket.AsObject,
     isRemoved: boolean,
-    peersList: Array<Client.AsObject>,
   }
 }
 
@@ -70,6 +64,11 @@ export class Change extends jspb.Message {
   clearOperationsList(): Change;
   addOperations(value?: Operation, index?: number): Operation;
 
+  getPresence(): PresenceInfo | undefined;
+  setPresence(value?: PresenceInfo): Change;
+  hasPresence(): boolean;
+  clearPresence(): Change;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Change.AsObject;
   static toObject(includeInstance: boolean, msg: Change): Change.AsObject;
@@ -83,6 +82,7 @@ export namespace Change {
     id?: ChangeID.AsObject,
     message: string,
     operationsList: Array<Operation.AsObject>,
+    presence?: PresenceInfo.AsObject,
   }
 }
 

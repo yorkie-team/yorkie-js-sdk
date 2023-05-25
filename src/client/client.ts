@@ -438,18 +438,20 @@ export class Client implements Observable<ClientEvent> {
    */
   public connect<T, P extends Indexable>(
     docKey: string,
-    initialPresence?: P,
-    isManualSync?: boolean,
+    options: {
+      initialPresence?: P;
+      isManualSync?: boolean;
+    } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
+    const { initialPresence, isManualSync } = options;
     const doc = new Document<T, P>(
       docKey,
       this.id!,
       initialPresence || ({} as P),
     );
-    doc.setActor(this.id!);
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
@@ -870,13 +872,15 @@ export class Client implements Observable<ClientEvent> {
         );
       });
 
-      attachment.doc.publish({
-        type: DocEventType.PeersChanged,
-        value: {
-          type: 'initialized',
-          peers: attachment.doc.getPeers(),
-        },
-      });
+      setTimeout(() => {
+        attachment.doc.publish({
+          type: DocEventType.PeersChanged,
+          value: {
+            type: 'initialized',
+            peers: attachment.doc.getPeers(),
+          },
+        });
+      }, 0);
       return;
     }
 
@@ -988,7 +992,6 @@ export class Client implements Observable<ClientEvent> {
             }
 
             doc.applyChangePack(respPack);
-            console.log('pushpull', respPack);
             this.eventStreamObserver.next({
               type: ClientEventType.DocumentSynced,
               value: DocumentSyncResultType.Synced,

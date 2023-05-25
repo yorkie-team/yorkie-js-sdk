@@ -79,48 +79,26 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
- * `fromPresence` converts the given Protobuf format to model format.
+ * `toPresenceInfo` converts the given model to Protobuf format.
  */
-function fromPresence<P extends Indexable>(
-  pbPresence: PbPresenceInfo,
-): PresenceInfo<P> {
-  const data: Record<string, string> = {};
-  pbPresence.getDataMap().forEach((value: string, key: string) => {
-    data[key] = JSON.parse(value);
-  });
-
-  return {
-    clock: pbPresence.getClock(),
-    data: data as any,
-  };
+function toPresenceInfo(presenceInfo: PresenceInfo<Indexable>): PbPresenceInfo {
+  const pbPresenceInfo = new PbPresenceInfo();
+  pbPresenceInfo.setClock(presenceInfo.clock);
+  const pbDataMap = pbPresenceInfo.getDataMap();
+  for (const [key, value] of Object.entries(presenceInfo.data)) {
+    pbDataMap.set(key, JSON.stringify(value));
+  }
+  return pbPresenceInfo;
 }
 
 /**
  * `toClient` converts the given model to Protobuf format.
  */
 function toClient({ id, presence }: Peer<Indexable>): PbClient {
-  const pbPresence = new PbPresenceInfo();
-  pbPresence.setClock(presence.clock);
-  const pbDataMap = pbPresence.getDataMap();
-  for (const [key, value] of Object.entries(presence.data)) {
-    pbDataMap.set(key, JSON.stringify(value));
-  }
-
   const pbClient = new PbClient();
   pbClient.setId(toUint8Array(id));
-  pbClient.setPresence(pbPresence);
+  pbClient.setPresence(toPresenceInfo(presence));
   return pbClient;
-}
-
-/**
- * `toClients` converts the given model to Protobuf format.
- */
-function toClients(clients: Array<Peer<Indexable>>): Array<PbClient> {
-  const pbClients = [];
-  for (const { id, presence } of clients) {
-    pbClients.push(toClient({ id, presence }));
-  }
-  return pbClients;
 }
 
 /**
@@ -386,18 +364,23 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
 /**
  * `toChange` converts the given model to Protobuf format.
  */
-function toChange(change: Change): PbChange {
+function toChange(change: Change<Indexable>): PbChange {
   const pbChange = new PbChange();
   pbChange.setId(toChangeID(change.getID()));
   pbChange.setMessage(change.getMessage()!);
-  pbChange.setOperationsList(toOperations(change.getOperations()));
+  if (change.hasOperations()) {
+    pbChange.setOperationsList(toOperations(change.getOperations()));
+  }
+  if (change.hasPresenceInfo()) {
+    pbChange.setPresence(toPresenceInfo(change.getPresenceInfo()!));
+  }
   return pbChange;
 }
 
 /**
  * `toChanges` converts the given model to Protobuf format.
  */
-function toChanges(changes: Array<Change>): Array<PbChange> {
+function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
   const pbChanges = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
@@ -574,7 +557,6 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   pbChangePack.setIsRemoved(pack.getIsRemoved());
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
-  pbChangePack.setPeersList(toClients(pack.getPeerPresence()!));
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
   return pbChangePack;
 }
@@ -689,7 +671,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
   }
-
   throw new YorkieError(
     Code.Unimplemented,
     `unimplemented element: ${pbElementSimple}`,
@@ -738,6 +719,23 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
+}
+
+/**
+ * `fromPresence` converts the given Protobuf format to model format.
+ */
+function fromPresence<P extends Indexable>(
+  pbPresence: PbPresenceInfo,
+): PresenceInfo<P> {
+  const data: Record<string, string> = {};
+  pbPresence.getDataMap().forEach((value: string, key: string) => {
+    data[key] = JSON.parse(value);
+  });
+
+  return {
+    clock: pbPresence.getClock(),
+    data: data as P,
+  };
 }
 
 /**
@@ -839,16 +837,21 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 /**
  * `fromChanges` converts the given Protobuf format to model format.
  */
-function fromChanges(pbChanges: Array<PbChange>): Array<Change> {
+function fromChanges<P extends Indexable>(
+  pbChanges: Array<PbChange>,
+): Array<Change<P>> {
   const changes = [];
 
   for (const pbChange of pbChanges) {
     changes.push(
-      Change.create(
-        fromChangeID(pbChange.getId()!),
-        fromOperations(pbChange.getOperationsList()),
-        pbChange.getMessage(),
-      ),
+      Change.create({
+        id: fromChangeID(pbChange.getId()!),
+        operations: fromOperations(pbChange.getOperationsList()),
+        presenceInfo: pbChange.hasPresence()
+          ? fromPresence<P>(pbChange.getPresence()!)
+          : undefined,
+        message: pbChange.getMessage(),
+      }),
     );
   }
 
@@ -894,7 +897,6 @@ function fromChangePack<P extends Indexable>(
     isRemoved: pbPack.getIsRemoved(),
     changes: fromChanges(pbPack.getChangesList()),
     snapshot: pbPack.getSnapshot_asU8(),
-    peerPresence: fromClients<P>(pbPack.getPeersList()),
     minSyncedTicket: fromTimeTicket(pbPack.getMinSyncedTicket()),
   });
 }

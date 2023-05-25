@@ -17,7 +17,7 @@
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Peer, Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
@@ -39,13 +39,12 @@ export class ChangePack<P extends Indexable> {
    */
   private isRemoved: boolean;
 
-  private changes: Array<Change>;
+  private changes: Array<Change<P>>;
 
   /**
    * `snapshot` is a byte array that encodes the document.
    */
   private snapshot?: Uint8Array;
-  private peerPresence: Array<Peer<P>>;
 
   /**
    * `minSyncedTicket` is the minimum logical time taken by clients who attach
@@ -58,8 +57,7 @@ export class ChangePack<P extends Indexable> {
     key: string,
     checkpoint: Checkpoint,
     isRemoved: boolean,
-    changes: Array<Change>,
-    peerPresence: Array<Peer<P>>,
+    changes: Array<Change<P>>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ) {
@@ -67,7 +65,6 @@ export class ChangePack<P extends Indexable> {
     this.checkpoint = checkpoint;
     this.isRemoved = isRemoved;
     this.changes = changes;
-    this.peerPresence = peerPresence;
     this.snapshot = snapshot;
     this.minSyncedTicket = minSyncedTicket;
   }
@@ -80,15 +77,13 @@ export class ChangePack<P extends Indexable> {
     checkpoint,
     isRemoved,
     changes,
-    peerPresence,
     snapshot,
     minSyncedTicket,
   }: {
     key: string;
     checkpoint: Checkpoint;
     isRemoved: boolean;
-    changes: Array<Change>;
-    peerPresence: Array<Peer<P>>;
+    changes: Array<Change<P>>;
     snapshot?: Uint8Array;
     minSyncedTicket?: TimeTicket;
   }): ChangePack<P> {
@@ -97,7 +92,6 @@ export class ChangePack<P extends Indexable> {
       checkpoint,
       isRemoved,
       changes,
-      peerPresence,
       snapshot,
       minSyncedTicket,
     );
@@ -127,7 +121,7 @@ export class ChangePack<P extends Indexable> {
   /**
    * `getChanges` returns the changes of this pack.
    */
-  public getChanges(): Array<Change> {
+  public getChanges(): Array<Change<P>> {
     return this.changes;
   }
 
@@ -157,20 +151,6 @@ export class ChangePack<P extends Indexable> {
    */
   public getSnapshot(): Uint8Array | undefined {
     return this.snapshot;
-  }
-
-  /**
-   * `hasPeerPresence` returns the whether this pack has peer presence or not.
-   */
-  public hasPeerPresence(): boolean {
-    return this.peerPresence.length > 0;
-  }
-
-  /**
-   * `getPeerPresence` returns the peer presence of this pack.
-   */
-  public getPeerPresence(): Array<Peer<P>> {
-    return this.peerPresence;
   }
 
   /**

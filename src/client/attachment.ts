@@ -65,7 +65,7 @@ export class Attachment<T, P extends Indexable> {
   public needRealtimeSync(): boolean {
     return (
       this.isRealtimeSync &&
-      (this.doc.hasBuffer() || this.remoteChangeEventReceived)
+      (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
     );
   }
 
