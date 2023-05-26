@@ -618,7 +618,10 @@ export class Document<T> {
     }
 
     if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next({
+      // RemoteChange event should be sent synchronously.
+      // Because the next change should be applied after this event.
+      // application of the next change is blocked until this event is processed.
+      this.eventStreamObserver.nextSync({
         type: DocEventType.RemoteChange,
         value: changeInfos,
       });
