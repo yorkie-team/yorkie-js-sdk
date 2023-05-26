@@ -618,7 +618,12 @@ export class Document<T> {
     }
 
     if (changes.length && this.eventStreamObserver) {
-      this.eventStreamObserver.next({
+      // NOTE: RemoteChange event should be emitted synchronously with
+      // applying changes. This is because 3rd party model should be synced
+      // with the Document after RemoteChange event is emitted. If the event
+      // is emitted asynchronously, the model can be changed and breaking
+      // consistency.
+      this.eventStreamObserver.nextSync({
         type: DocEventType.RemoteChange,
         value: changeInfos,
       });
