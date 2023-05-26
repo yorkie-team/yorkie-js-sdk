@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Long from 'long';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
@@ -21,6 +22,10 @@ import { CRDTTextElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNodeRange,
+  RGATreeSplitNodeRangeStruct,
+  RGATreeSplitNodePosStruct,
+  RGATreeSplitNodePos,
+  RGATreeSplitNodeID,
   Selection,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -335,6 +340,53 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     }
 
     return [fromPos, this.rgaTreeSplit.findNodePos(toIdx)];
+  }
+
+  /**
+   * `getRangePos`
+   */
+  public getRangePos(
+    fromIdx: number,
+    toIdx: number,
+  ): RGATreeSplitNodeRangeStruct {
+    const fromPos = this.rgaTreeSplit.findNodePos(fromIdx).getStructure();
+    if (fromIdx === toIdx) {
+      return [fromPos, fromPos];
+    }
+
+    return [fromPos, this.rgaTreeSplit.findNodePos(toIdx).getStructure()];
+  }
+
+  /**
+   * `getRangeIndex`
+   */
+  getRangeIndex(
+    fromPos: RGATreeSplitNodePosStruct,
+    toPos: RGATreeSplitNodePosStruct,
+  ): [number, number] {
+    const fromNodePos = RGATreeSplitNodePos.of(
+      RGATreeSplitNodeID.of(
+        TimeTicket.of(
+          Long.fromString(fromPos.id.createdAt.lamport, true),
+          fromPos.id.createdAt.delimiter,
+          fromPos.id.createdAt.actorID,
+        ),
+        fromPos.id.offset,
+      ),
+      fromPos.relativeOffset,
+    );
+    const toNodePos = RGATreeSplitNodePos.of(
+      RGATreeSplitNodeID.of(
+        TimeTicket.of(
+          Long.fromString(toPos.id.createdAt.lamport, true),
+          toPos.id.createdAt.delimiter,
+          toPos.id.createdAt.actorID,
+        ),
+        toPos.id.offset,
+      ),
+      toPos.relativeOffset,
+    );
+    return this.rgaTreeSplit.findIndexesFromRange([fromNodePos, toNodePos]);
   }
 
   /**

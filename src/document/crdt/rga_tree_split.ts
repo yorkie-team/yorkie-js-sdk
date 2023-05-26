@@ -23,6 +23,7 @@ import {
   InitialTimeTicket,
   MaxTimeTicket,
   TimeTicket,
+  TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 
 export interface ValueChange<T> {
@@ -36,6 +37,11 @@ interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
+
+type RGATreeSplitNodeIDStruct = {
+  createdAt: TimeTicketStruct;
+  offset: number;
+};
 
 /**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
@@ -101,10 +107,24 @@ export class RGATreeSplitNodeID {
   public getStructureAsString(): string {
     return `${this.createdAt.getStructureAsString()}:${this.offset}`;
   }
+
+  /**
+   * `getStructure`
+   */
+  public getStructure(): RGATreeSplitNodeIDStruct {
+    return {
+      createdAt: this.createdAt.getStructure(),
+      offset: this.offset,
+    };
+  }
 }
 
 const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(InitialTimeTicket, 0);
 
+export type RGATreeSplitNodePosStruct = {
+  id: RGATreeSplitNodeIDStruct;
+  relativeOffset: number;
+};
 /**
  * `RGATreeSplitNodePos` is the position of the text inside the node.
  */
@@ -160,6 +180,16 @@ export class RGATreeSplitNodePos {
   }
 
   /**
+   * `getStructure`
+   */
+  public getStructure(): RGATreeSplitNodePosStruct {
+    return {
+      id: this.id.getStructure(),
+      relativeOffset: this.relativeOffset,
+    };
+  }
+
+  /**
    * `equals` returns whether given pos equal to this pos or not.
    */
   public equals(other: RGATreeSplitNodePos): boolean {
@@ -175,6 +205,10 @@ export class RGATreeSplitNodePos {
  * @internal
  */
 export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
+export type RGATreeSplitNodeRangeStruct = [
+  RGATreeSplitNodePosStruct,
+  RGATreeSplitNodePosStruct,
+];
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.

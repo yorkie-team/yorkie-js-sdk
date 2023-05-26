@@ -18,7 +18,11 @@ import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { RGATreeSplitNodeRange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import {
+  RGATreeSplitNodeRange,
+  RGATreeSplitNodeRangeStruct,
+  RGATreeSplitNodePosStruct,
+} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTText,
   TextValueType,
@@ -255,6 +259,35 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     return this.text.createRange(fromIdx, toIdx);
+  }
+
+  /**
+   * `getRangePos`
+   */
+  getRangePos(fromIdx: number, toIdx: number): RGATreeSplitNodeRangeStruct {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.text.getRangePos(fromIdx, toIdx);
+  }
+
+  /**
+   * `getRangeIndex`
+   */
+  getRangeIndex(
+    fromPos: RGATreeSplitNodePosStruct,
+    toPos: RGATreeSplitNodePosStruct,
+  ): [number, number] {
+    if (!this.context || !this.text) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.text.getRangeIndex(fromPos, toPos);
   }
 
   /**
