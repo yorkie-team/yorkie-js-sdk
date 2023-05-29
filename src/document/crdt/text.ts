@@ -202,7 +202,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
+  ): {
+    latestCreatedAtMap: Map<string, TimeTicket>;
+    changes: Array<TextChange<A>>;
+    selectionChange: { from: number; to: number };
+  } {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -231,7 +235,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       type: TextChangeType.Content,
     }));
 
-    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
+    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt)!;
     if (selectionChange) {
       changes.push(selectionChange);
     }
@@ -242,7 +246,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       this.remoteChangeLock = false;
     }
 
-    return [latestCreatedAtMap, changes];
+    return {
+      latestCreatedAtMap,
+      changes,
+      selectionChange: { from: selectionChange.from, to: selectionChange.to },
+    };
   }
 
   /**

@@ -238,25 +238,15 @@
             const content = change.text.join('\n');
 
             doc.update((root) => {
-              root.content.edit(from, to, content);
-
-              if (change.origin === '+input') {
-                const [fromPos, toPos] = root.content.getRangePos(
-                  to + 1,
-                  to + 1,
-                );
-                doc.updatePresence('selection', {
-                  from: fromPos,
-                  to: toPos,
-                });
-              }
-              if (change.origin === '+delete') {
-                const [fromPos, toPos] = root.content.getRangePos(from, from);
-                doc.updatePresence('selection', {
-                  from: fromPos,
-                  to: toPos,
-                });
-              }
+              const updatedIndex = root.content.edit(from, to, content);
+              const [fromPos, toPos] = root.content.getRangePos(
+                updatedIndex.from,
+                updatedIndex.to,
+              );
+              doc.updatePresence('selection', {
+                from: fromPos,
+                to: toPos,
+              });
             }, `update content by ${client.getID()}`);
 
             console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
@@ -266,7 +256,7 @@
             // NOTE: The following conditional statement ignores cursor changes
             //       that occur while applying remote changes to CodeMirror
             //       and handles only movement by keyboard and mouse.
-            if (!change.origin) {
+            if (change.origin === undefined) {
               return;
             }
 

@@ -88,13 +88,13 @@ export class EditOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
     const text = parentObject as CRDTText<A>;
-    const changes = text.edit(
+    const { changes } = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
       this.maxCreatedAtMapByActor,
-    )[1];
+    );
     if (!this.fromPos.equals(this.toPos)) {
       root.registerTextWithGarbage(text);
     }

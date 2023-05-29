@@ -68,15 +68,20 @@ export class Text<A extends Indexable = Indexable> {
     toIdx: number,
     content: string,
     attributes?: A,
-  ): boolean {
+  ):
+    | {
+        from: number;
+        to: number;
+      }
+    | undefined {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
-      return false;
+      return;
     }
 
     if (fromIdx > toIdx) {
       logger.fatal('from should be less than or equal to to');
-      return false;
+      return;
     }
 
     const range = this.text.createRange(fromIdx, toIdx);
@@ -89,12 +94,8 @@ export class Text<A extends Indexable = Indexable> {
       ? this.text.stringifyAttributes(attributes)
       : undefined;
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor] = this.text.edit(
-      range,
-      content,
-      ticket,
-      attrs,
-    );
+    const { latestCreatedAtMap: maxCreatedAtMapByActor, selectionChange } =
+      this.text.edit(range, content, ticket, attrs);
 
     this.context.push(
       new EditOperation(
@@ -112,20 +113,23 @@ export class Text<A extends Indexable = Indexable> {
       this.context.registerRemovedNodeTextElement(this.text);
     }
 
-    return true;
+    return selectionChange;
   }
 
   /**
    * `delete` deletes the text in the given range.
    */
-  delete(fromIdx: number, toIdx: number): boolean {
+  delete(
+    fromIdx: number,
+    toIdx: number,
+  ): { from: number; to: number } | undefined {
     return this.edit(fromIdx, toIdx, '');
   }
 
   /**
    * `empty` makes the text empty.
    */
-  empty(): boolean {
+  empty(): { from: number; to: number } | undefined {
     return this.edit(0, this.length, '');
   }
 
