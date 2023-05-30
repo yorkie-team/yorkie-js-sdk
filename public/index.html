@@ -89,14 +89,24 @@
         });
       }
 
-      function displayRemoteSelection(cm, from, to, actor, color) {
+      function displayRemoteSelection(cm, doc, fromPos, toPos, actor) {
         if (selectionMap.has(actor)) {
           const selection = selectionMap.get(actor);
           selection.marker.clear();
         }
 
-        if (from === to) {
-          const pos = cm.posFromIndex(from);
+        const [fromIdx, toIdx] = doc
+          .getRoot()
+          .content.getRangeIndex(fromPos, toPos);
+        const color = doc.getPeerPresence(actor).color;
+
+        console.log(
+          `%c remote selection from:${fromIdx} to:${toIdx}`,
+          'color: skyblue',
+        );
+
+        if (fromIdx === toIdx) {
+          const pos = cm.posFromIndex(fromIdx);
           const cursorCoords = cm.cursorCoords(pos);
           const cursorElement = document.createElement('span');
           cursorElement.style.borderLeftWidth = '2px';
@@ -117,8 +127,8 @@
             }),
           });
         } else {
-          const fromPos = cm.posFromIndex(Math.min(from, to));
-          const toPos = cm.posFromIndex(Math.max(from, to));
+          const fromPos = cm.posFromIndex(Math.min(fromIdx, toIdx));
+          const toPos = cm.posFromIndex(Math.max(fromIdx, toIdx));
 
           selectionMap.set(actor, {
             color: color,
@@ -161,6 +171,19 @@
                   selection.marker.clear();
                 }
               }
+              if (event.value.type === 'initialized') {
+                for (const peer of event.value.peers) {
+                  const { clientID, presence } = peer;
+                  if (!presence.selection) continue;
+                  displayRemoteSelection(
+                    codemirror,
+                    doc,
+                    presence.selection.from,
+                    presence.selection.to,
+                    clientID,
+                  );
+                }
+              }
             }
             if (event.type === 'snapshot') {
               // The text is replaced to snapshot and must be re-synced.
@@ -195,20 +218,12 @@
                 }
                 // 2) handle presence
                 if (presence && presence.selection) {
-                  const { from, to } = presence.selection;
-                  const content = doc.getRoot().content;
-                  const [fromIdx, toIdx] = content.getRangeIndex(from, to);
-
-                  console.log(
-                    `%c remote selection from:${fromIdx} to:${toIdx}`,
-                    'color: skyblue',
-                  );
                   displayRemoteSelection(
                     codemirror,
-                    fromIdx,
-                    toIdx,
+                    doc,
+                    presence.selection.from,
+                    presence.selection.to,
                     actor,
-                    doc.getPeerPresence(actor).color,
                   );
                 }
               }
