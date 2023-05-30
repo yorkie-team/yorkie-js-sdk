@@ -16,11 +16,7 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import {
-  PresenceInfo,
-  Indexable,
-  Peer,
-} from '@yorkie-js-sdk/src/document/document';
+import { PresenceInfo, Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -94,7 +90,7 @@ function toPresenceInfo(presenceInfo: PresenceInfo<Indexable>): PbPresenceInfo {
 /**
  * `toClient` converts the given model to Protobuf format.
  */
-function toClient({ id, presence }: Peer<Indexable>): PbClient {
+function toClient(id: string, presence: PresenceInfo<Indexable>): PbClient {
   const pbClient = new PbClient();
   pbClient.setId(toUint8Array(id));
   pbClient.setPresence(toPresenceInfo(presence));
@@ -866,23 +862,6 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
     Long.fromString(pbCheckpoint.getServerSeq(), true),
     pbCheckpoint.getClientSeq(),
   );
-}
-
-/**
- * `fromClients` converts the given Protobuf format to model format.
- */
-function fromClients<P extends Indexable>(
-  pbClients: Array<PbClient>,
-): Array<Peer<P>> {
-  const clients = [] as Array<Peer<P>>;
-
-  for (const pbClient of pbClients) {
-    clients.push({
-      id: toHexString(pbClient.getId_asU8()),
-      presence: fromPresence(pbClient.getPresence()!),
-    });
-  }
-  return clients;
 }
 
 /**

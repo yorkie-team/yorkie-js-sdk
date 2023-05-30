@@ -266,7 +266,7 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
-   * `getRangePos`
+   * `getRangePos` converts the integer index range into the Yorkie position structure.
    */
   getRangePos(fromIdx: number, toIdx: number): RGATreeSplitNodeRangeStruct {
     if (!this.context || !this.text) {
@@ -279,7 +279,7 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
-   * `getRangeIndex`
+   * `getRangeIndex` converts the Yorkie position structure into an integer index range.
    */
   getRangeIndex(
     fromPos: RGATreeSplitNodePosStruct,

@@ -109,7 +109,7 @@ export class RGATreeSplitNodeID {
   }
 
   /**
-   * `getStructure`
+   * `getStructure` returns the metadata of the node id.
    */
   public getStructure(): RGATreeSplitNodeIDStruct {
     return {
@@ -180,7 +180,7 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   * `getStructure`
+   * `getStructure` returns the metadata of the position for RGATreeSplitNodePos.
    */
   public getStructure(): RGATreeSplitNodePosStruct {
     return {

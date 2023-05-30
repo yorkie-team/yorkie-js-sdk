@@ -180,7 +180,7 @@ export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
  * @public
  */
 export type PeersChangedValue<P extends Indexable> = {
-  type: 'initialized' | 'watched' | 'unwatched' | 'presence-changed';
+  type: 'initialized' | 'watched' | 'unwatched';
   peers: Array<{ clientID: ActorID; presence: P }>;
 };
 
@@ -213,15 +213,6 @@ export type Indexable = Record<string, any>;
 export type PresenceInfo<P extends Indexable> = {
   clock: number;
   data: P;
-};
-
-/**
- * `Peer` represents the presence information of a peer.
- * It is used to deliver changes in peer presence to the remote.
- */
-export type Peer<P extends Indexable> = {
-  id: ActorID;
-  presence: PresenceInfo<P>;
 };
 
 /**
@@ -556,8 +547,8 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
-   * `createChangePack` create a change pack with local changes and presence updates
-   * for sending to the remote server.
+   * `createChangePack` create change pack of the local changes to send to the
+   * remote server.
    *
    * @internal
    */

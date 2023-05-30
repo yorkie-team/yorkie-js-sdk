@@ -88,7 +88,7 @@ export class TimeTicket {
   }
 
   /**
-   * `getStructure`
+   * `getStructure` returns the metadata of this Ticket.
    */
   public getStructure(): TimeTicketStruct {
     return {

@@ -821,10 +821,10 @@ export class Client implements Observable<ClientEvent> {
 
         const req = new WatchDocumentRequest();
         req.setClient(
-          converter.toClient({
-            id: this.id!,
-            presence: attachment.doc.getPresenceInfo(this.id!),
-          }),
+          converter.toClient(
+            this.id!,
+            attachment.doc.getPresenceInfo(this.id!),
+          ),
         );
         req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {

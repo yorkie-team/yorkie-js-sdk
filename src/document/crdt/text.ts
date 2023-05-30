@@ -351,7 +351,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   }
 
   /**
-   * `getRangePos`
+   * `getRangePos` converts the integer index range into the Yorkie position structure.
    */
   public getRangePos(
     fromIdx: number,
@@ -366,7 +366,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   }
 
   /**
-   * `getRangeIndex`
+   * `getRangeIndex` converts the Yorkie position structure into an integer index range.
    */
   getRangeIndex(
     fromPos: RGATreeSplitNodePosStruct,
