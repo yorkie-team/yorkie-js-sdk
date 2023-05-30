@@ -212,7 +212,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `children` returns the children of the node.
    */
   get children(): Array<T> {
-    // Tombstone nodes remain a while in the tree during editing.
+    // Tombstone nodes remain awhile in the tree during editing.
     // They will be removed after the editing is done.
     // So, we need to filter out the tombstone nodes to get the real children.
     return this._children.filter((child) => !child.isRemoved);
