@@ -1,8 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, {
-  type Text as YorkieText,
-  type EditOpInfo,
-} from 'yorkie-js-sdk';
+import yorkie, { type Text as YorkieText, OperationInfo } from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {
@@ -119,17 +116,23 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  const changeEventHandler = (ops: Array<EditOpInfo>) => {
-    const changeSpecs: Array<ChangeSpec> = ops
-      .filter((op) => op.type === 'edit')
-      .map((op) => ({
-        from: Math.max(0, op.from),
-        to: Math.max(0, op.to),
-        insert: op.value!.content,
-      }));
+  const changeEventHandler = (ops: Array<OperationInfo>) => {
+    const changeSpecs: Array<ChangeSpec | undefined> = ops
+      .map((op) => {
+        if (op.type === 'edit') {
+          return {
+            from: Math.max(0, op.from),
+            to: Math.max(0, op.to),
+            insert: op.value!.content,
+          };
+        }
+
+        return undefined;
+      })
+      .filter(Boolean);
 
     view.dispatch({
-      changes: changeSpecs,
+      changes: changeSpecs as Array<ChangeSpec>,
       annotations: [Transaction.remote.of(true)],
     });
   };

@@ -1,11 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, {
-  Text,
-  Indexable,
-  EditOpInfo,
-  StyleOpInfo,
-  SelectOpInfo,
-} from 'yorkie-js-sdk';
+import yorkie, { Text, Indexable, OperationInfo } from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
 import ShortUniqueId from 'short-unique-id';
@@ -102,10 +96,7 @@ async function main() {
       const changes = event.value;
       for (const change of changes) {
         const { actor, operations } = change;
-        changeEventHandler(
-          operations as Array<EditOpInfo | StyleOpInfo | SelectOpInfo>,
-          actor,
-        );
+        changeEventHandler(operations, actor);
       }
     }
   });
@@ -205,7 +196,7 @@ async function main() {
 
   // 04-2. document to Quill(remote).
   function changeEventHandler(
-    ops: Array<EditOpInfo | StyleOpInfo | SelectOpInfo>,
+    ops: Array<OperationInfo>,
     actor: string | undefined,
   ) {
     const deltaOperations = [];
@@ -215,12 +206,13 @@ async function main() {
         doc.getKey(),
         `${actor}`,
       )?.username;
-      const from = op.from;
-      const to = op.to;
-      const retainFrom = from - prevTo;
-      const retainTo = to - from;
 
       if (op.type === 'edit') {
+        const from = op.from;
+        const to = op.to;
+        const retainFrom = from - prevTo;
+        const retainTo = to - from;
+
         const { insert, attributes } = toDeltaOperation(op.value!);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
@@ -237,7 +229,12 @@ async function main() {
           }
           deltaOperations.push(op);
         }
+        prevTo = to;
       } else if (op.type === 'style') {
+        const from = op.from;
+        const to = op.to;
+        const retainFrom = from - prevTo;
+        const retainTo = to - from;
         const { attributes } = toDeltaOperation(op.value!);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
@@ -255,15 +252,19 @@ async function main() {
 
           deltaOperations.push(op);
         }
+        prevTo = to;
       } else if (actorName && op.type === 'select') {
+        const from = op.from;
+        const to = op.to;
+        const retainTo = to - from;
         cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
         cursors.moveCursor(actorName, {
           index: from,
           length: retainTo,
         });
-      }
 
-      prevTo = to;
+        prevTo = to;
+      }
     }
 
     if (deltaOperations.length) {
