@@ -1,5 +1,11 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { type TextChange, Text, Indexable } from 'yorkie-js-sdk';
+import yorkie, {
+  Text,
+  Indexable,
+  EditOpInfo,
+  StyleOpInfo,
+  SelectOpInfo,
+} from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
 import ShortUniqueId from 'short-unique-id';
@@ -90,6 +96,20 @@ async function main() {
     }
     displayLog(documentElem, documentTextElem, doc);
   });
+
+  doc.subscribe('$.content', (event) => {
+    if (event.type === 'remote-change') {
+      const changes = event.value;
+      for (const change of changes) {
+        const { actor, operations } = change;
+        changeEventHandler(
+          operations as Array<EditOpInfo | StyleOpInfo | SelectOpInfo>,
+          actor,
+        );
+      }
+    }
+  });
+
   await client.sync();
 
   // 03. create an instance of Quill
@@ -184,23 +204,24 @@ async function main() {
     });
 
   // 04-2. document to Quill(remote).
-  function changeEventHandler(changes: Array<TextChange>) {
+  function changeEventHandler(
+    ops: Array<EditOpInfo | StyleOpInfo | SelectOpInfo>,
+    actor: string | undefined,
+  ) {
     const deltaOperations = [];
     let prevTo = 0;
-    for (const change of changes) {
-      const actorID = change.actor;
-      if (actorID === client.getID()) {
-        continue;
-      }
-
-      const actorName = client.getPeerPresence(doc.getKey(), actorID)?.username;
-      const from = change.from;
-      const to = change.to;
+    for (const op of ops) {
+      const actorName = client.getPeerPresence(
+        doc.getKey(),
+        `${actor}`,
+      )?.username;
+      const from = op.from;
+      const to = op.to;
       const retainFrom = from - prevTo;
       const retainTo = to - from;
 
-      if (change.type === 'content') {
-        const { insert, attributes } = toDeltaOperation(change.value!);
+      if (op.type === 'edit') {
+        const { insert, attributes } = toDeltaOperation(op.value!);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
         if (retainFrom) {
@@ -216,8 +237,8 @@ async function main() {
           }
           deltaOperations.push(op);
         }
-      } else if (change.type === 'style') {
-        const { attributes } = toDeltaOperation(change.value!);
+      } else if (op.type === 'style') {
+        const { attributes } = toDeltaOperation(op.value!);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
           'color: skyblue',
@@ -234,7 +255,7 @@ async function main() {
 
           deltaOperations.push(op);
         }
-      } else if (actorName && change.type === 'selection') {
+      } else if (actorName && op.type === 'select') {
         cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
         cursors.moveCursor(actorName, {
           index: from,
@@ -260,7 +281,6 @@ async function main() {
   // 05. synchronize text of document and Quill.
   function syncText() {
     const text = doc.getRoot().content;
-    text.onChanges(changeEventHandler);
 
     const delta = {
       ops: text.values().map((val) => toDeltaOperation(val)),

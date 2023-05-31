@@ -32,6 +32,14 @@ export type OperationInfo =
   | EditOpInfo
   | StyleOpInfo
   | SelectOpInfo;
+export type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
+export type JSONOperationInfo =
+  | AddOpInfo
+  | IncreaseOpInfo
+  | RemoveOpInfo
+  | SetOpInfo
+  | MoveOpInfo;
+export type CounterOperationInfo = IncreaseOpInfo;
 export type AddOpInfo = {
   type: 'add';
   path: string;

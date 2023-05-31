@@ -256,16 +256,4 @@ export class Text<A extends Indexable = Indexable> {
 
     return this.text.createRange(fromIdx, toIdx);
   }
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
-    if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return;
-    }
-
-    this.text.onChanges(handler);
-  }
 }

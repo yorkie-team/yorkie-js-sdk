@@ -19,7 +19,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 /**
  * @internal
  */
-export type NextFn<T> = (value: T) => void;
+export type NextFn<T, B = unknown> = (value: T) => void;
 
 /**
  * @internal
@@ -74,13 +74,12 @@ class ObserverProxy<T> implements Observer<T> {
 
   constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
     this.onNoObservers = onNoObservers;
-    this.task
-      .then(() => {
-        executor(this);
-      })
-      .catch((error) => {
-        this.error(error);
-      });
+
+    try {
+      executor(this);
+    } catch (error: any) {
+      this.error(error);
+    }
   }
 
   /**

@@ -6,6 +6,8 @@ import {
   Text,
   TextChange,
   TextChangeType,
+  JSONArray,
+  JSONObject,
 } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
@@ -94,10 +96,20 @@ describe('Text', function () {
   });
 
   it('should handle deletion of nested nodes', function () {
-    const doc = Document.create<{ text: Text }>('test-doc');
+    const doc = Document.create<{
+      text: Text;
+    }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
-    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+    doc.subscribe('$.text', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+        for (const change of changes) {
+          const { operations } = change;
+          view.applyChanges(operations);
+        }
+      }
+    });
 
     const commands = [
       { from: 0, to: 0, content: 'ABC' },
@@ -116,7 +128,15 @@ describe('Text', function () {
     const doc = Document.create<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
-    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+    doc.subscribe('$.text', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+        for (const change of changes) {
+          const { operations } = change;
+          view.applyChanges(operations);
+        }
+      }
+    });
 
     const commands = [
       { from: 0, to: 0, content: 'A' },
@@ -143,7 +163,15 @@ describe('Text', function () {
     const doc = Document.create<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
-    doc.getRoot().text.onChanges((changes) => view.applyChanges(changes));
+    doc.subscribe('$.text', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+        for (const change of changes) {
+          const { operations } = change;
+          view.applyChanges(operations);
+        }
+      }
+    });
 
     const commands = [
       { from: 0, to: 0, content: '1A1BCXEF1' },
@@ -173,10 +201,17 @@ describe('Text', function () {
       root.text.edit(0, 0, 'ABCD');
     });
 
-    doc.getRoot().text.onChanges((changes: Array<TextChange>): void => {
-      if (changes[0].type === TextChangeType.Selection) {
-        assert.equal(changes[0].from, 2);
-        assert.equal(changes[0].to, 4);
+    doc.subscribe('$.text', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+        for (const change of changes) {
+          const { operations } = change;
+
+          if (operations[0].type === 'select') {
+            assert.equal(operations[0].from, 2);
+            assert.equal(operations[0].to, 4);
+          }
+        }
       }
     });
     doc.update((root) => root.text.select(2, 4));
@@ -321,7 +356,15 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       const view1 = new TextView();
-      d1.getRoot().k1.onChanges((changes) => view1.applyChanges(changes));
+      d1.subscribe('$.k1', (event) => {
+        if (event.type === 'local-change') {
+          const changes = event.value;
+          for (const change of changes) {
+            const { operations } = change;
+            view1.applyChanges(operations);
+          }
+        }
+      });
 
       d1.update((root) => {
         root.k1.edit(1, 7, '');

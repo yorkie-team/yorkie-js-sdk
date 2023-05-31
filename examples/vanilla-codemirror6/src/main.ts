@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import yorkie, {
-  type TextChange,
   type Text as YorkieText,
+  type EditOpInfo,
 } from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
@@ -73,6 +73,17 @@ async function main() {
     }
     displayLog(documentElem, documentTextElem, doc);
   });
+
+  doc.subscribe('$.content', (event) => {
+    if (event.type === 'remote-change') {
+      const changes = event.value;
+      for (const change of changes) {
+        const { operations } = change;
+        changeEventHandler(operations);
+      }
+    }
+  });
+
   await client.sync();
 
   // 03-1. define function that bind the document with the codemirror(broadcast local changes to peers)
@@ -108,16 +119,13 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  const changeEventHandler = (changes: Array<TextChange>) => {
-    const clientId = client.getID();
-    const changeSpecs: Array<ChangeSpec> = changes
-      .filter(
-        (change) => change.type === 'content' && change.actor !== clientId,
-      )
-      .map((change) => ({
-        from: Math.max(0, change.from),
-        to: Math.max(0, change.to),
-        insert: change.value!.content,
+  const changeEventHandler = (ops: Array<EditOpInfo>) => {
+    const changeSpecs: Array<ChangeSpec> = ops
+      .filter((op) => op.type === 'edit')
+      .map((op) => ({
+        from: Math.max(0, op.from),
+        to: Math.max(0, op.to),
+        insert: op.value!.content,
       }));
 
     view.dispatch({
@@ -125,8 +133,6 @@ async function main() {
       annotations: [Transaction.remote.of(true)],
     });
   };
-  const text = doc.getRoot().content;
-  text.onChanges(changeEventHandler);
   syncText();
   displayLog(documentElem, documentTextElem, doc);
 }

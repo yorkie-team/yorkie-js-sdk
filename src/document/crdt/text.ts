@@ -319,13 +319,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
   }
 
   /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  public onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
-    this.onChangesHandler = handler;
-  }
-
-  /**
    * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
    */
   public createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {

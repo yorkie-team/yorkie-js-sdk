@@ -7,25 +7,36 @@ import MainSection from './MainSection';
 import { Todo } from './model';
 import './App.css';
 
-const initialState = [{
-  id: 0,
-  text: 'Yorkie JS SDK',
-  completed: false,
-}, {
-  id: 1,
-  text: 'Garbage collection',
-  completed: false,
-}, {
-  id: 2,
-  text: 'RichText datatype',
-  completed: false,
-}] as Array<Todo>;
+const initialState = [
+  {
+    id: 0,
+    text: 'Yorkie JS SDK',
+    completed: false,
+  },
+  {
+    id: 1,
+    text: 'Garbage collection',
+    completed: false,
+  },
+  {
+    id: 2,
+    text: 'RichText datatype',
+    completed: false,
+  },
+] as Array<Todo>;
 
+/**
+ * `App` is the root component of the application.
+ */
 export default function App() {
-  const [doc,] = useState<Document<{ todos: JSONArray<Todo> }>>(() =>
-    new yorkie.Document<{ todos: JSONArray<Todo> }>(
-      `react-todomvc-${(new Date()).toISOString().substring(0, 10).replace(/-/g, '')}`
-    )
+  const [doc] = useState<Document<{ todos: JSONArray<Todo> }>>(
+    () =>
+      new yorkie.Document<{ todos: JSONArray<Todo> }>(
+        `react-todomvc-${new Date()
+          .toISOString()
+          .substring(0, 10)
+          .replace(/-/g, '')}`,
+      ),
   );
   const [todos, setTodos] = useState<Array<Todo>>([]);
 
@@ -33,7 +44,9 @@ export default function App() {
     addTodo: (text: string) => {
       doc?.update((root) => {
         root.todos.push({
-          id: root.todos.reduce((maxId, todo) => Math.max(todo.id, maxId), -1) + 1,
+          id:
+            root.todos.reduce((maxId, todo) => Math.max(todo.id, maxId), -1) +
+            1,
           completed: false,
           text,
         });
@@ -90,7 +103,7 @@ export default function App() {
           }
         }
       }, '');
-    }
+    },
   };
 
   useEffect(() => {
@@ -98,7 +111,13 @@ export default function App() {
       apiKey: import.meta.env.VITE_YORKIE_API_KEY,
     });
 
-    async function attachDoc(doc: Document<{ todos: JSONArray<Todo> }>, callback: (todos: any) => void) {
+    /**
+     * `attachDoc` is a helper function to attach the document into the client.
+     */
+    async function attachDoc(
+      doc: Document<{ todos: JSONArray<Todo> }>,
+      callback: (todos: any) => void,
+    ) {
       // 01. create client with RPCAddr(envoy) then activate it.
       await client.activate();
 
