@@ -694,7 +694,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     if (node.isInline) {
       const index = node.parent!.children.indexOf(node);
 
-      if (!~index) {
+      if (index === -1) {
         throw new Error('invalid treePos');
       }
 
@@ -713,7 +713,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     while (node.parent) {
       const pathInfo = node.parent.children.indexOf(node);
 
-      if (!~pathInfo) {
+      if (pathInfo === -1) {
         throw new Error('invalid treePos');
       }
 
