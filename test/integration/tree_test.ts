@@ -350,6 +350,33 @@ describe('Tree', () => {
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>aXb!</tn><tn></tn></p></tc></doc>`,
       );
+
+      root.t.editByPath([0, 0, 1, 0], [0, 0, 1, 0], {
+        type: 'text',
+        value: 'text',
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>text</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath([0, 0, 2], [0, 0, 2], {
+        type: 'tn',
+        children: [],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>text</tn><tn></tn></p></tc></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.editByPath([0, 0, 4], [0, 0, 4], {
+            type: 'tn',
+            children: [],
+          });
+        });
+      }, 'unacceptable path');
     });
   });
 });

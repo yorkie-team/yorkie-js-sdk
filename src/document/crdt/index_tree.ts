@@ -615,6 +615,10 @@ function findInlinePos<T extends IndexTreeNode<T>>(
   node: T,
   pathElement: number,
 ) {
+  if (node.size < pathElement) {
+    throw new Error('unacceptable path');
+  }
+
   for (let i = 0; i < node.children.length; i++) {
     const childNode = node.children[i];
 
@@ -727,6 +731,10 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     if (node.hasInlineChild()) {
       return findInlinePos(node, path[path.length - 1]);
+    }
+
+    if (node.children.length < path[path.length - 1]) {
+      throw new Error('unacceptable path');
     }
 
     return {
