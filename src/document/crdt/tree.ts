@@ -25,7 +25,7 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverse,
-} from '@yorkie-js-sdk/src/document/crdt/index_tree';
+} from '@yorkie-js-sdk/src/util/index_tree';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
