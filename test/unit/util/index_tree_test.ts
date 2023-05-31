@@ -204,10 +204,9 @@ describe('IndexTree', function () {
     assert.deepEqual([toDiagnostic(secondP), tree.indexOf(thirdP)], ['p', 9]);
   });
 
-  // TODO(JOOHOJANG): Fix this test
   it.skip('Can find treePos from given path', function () {
-    //       0  1  2    3 4 5 6 7     8   9 10 11 12 13  14 15  16
-    // <root><tc><p><tn> A B C D </tn><tn> E  F G  H </tn><p></tc></root>
+    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
+    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
     const tree = buildIndexTree({
       type: 'root',
       children: [
