@@ -206,8 +206,8 @@ describe('IndexTree', function () {
 
   // TODO(JOOHOJANG): Fix this test
   it.skip('Can find treePos from given path', function () {
-    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
-    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+    //       0  1  2    3 4 5 6 7     8   9 10 11 12 13  14 15  16
+    // <root><tc><p><tn> A B C D </tn><tn> E  F G  H </tn><p></tc></root>
     const tree = buildIndexTree({
       type: 'root',
       children: [
@@ -276,63 +276,89 @@ describe('IndexTree', function () {
   });
 
   it('Can find path from given treePos', function () {
-    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
-    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+    //       0  1  2    3 4 5 6 7     8   9 10 11 12 13  14 15  16
+    // <root><tc><p><tn> A B C D </tn><tn> E  F G  H </tn><p></tc></root>
     const tree = buildIndexTree({
       type: 'root',
       children: [
         {
-          type: 'p',
+          type: 'tc',
           children: [
-            { type: 'text', value: 'a' },
-            { type: 'text', value: 'b' },
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'tn',
+                  children: [
+                    { type: 'text', value: 'AB' },
+                    { type: 'text', value: 'CD' },
+                  ],
+                },
+                {
+                  type: 'tn',
+                  children: [
+                    { type: 'text', value: 'EF' },
+                    { type: 'text', value: 'GH' },
+                  ],
+                },
+              ],
+            },
           ],
         },
-        { type: 'p', children: [{ type: 'text', value: 'cde' }] },
-        { type: 'p', children: [{ type: 'text', value: 'fg' }] },
       ],
     });
 
+    //       0  1  2    3 4 5 6 7     8   9 10 11 12 13  14 15  16
+    // <root><tc><p><tn> A B C D </tn><tn> E  F G  H </tn><p></tc></root>
     let pos = tree.findTreePos(0);
     assert.deepEqual(tree.treePosToPath(pos), [0]);
 
     pos = tree.findTreePos(1);
-    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0]);
 
     pos = tree.findTreePos(2);
-    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0]);
 
     pos = tree.findTreePos(3);
-    assert.deepEqual(tree.treePosToPath(pos), [0, 1, 1]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0, 0]);
 
     pos = tree.findTreePos(4);
-    assert.deepEqual(tree.treePosToPath(pos), [1]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0, 1]);
 
     pos = tree.findTreePos(5);
-    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 0]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0, 2]);
 
     pos = tree.findTreePos(6);
-    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 1]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0, 3]);
 
     pos = tree.findTreePos(7);
-    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 2]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 0, 4]);
 
     pos = tree.findTreePos(8);
-    assert.deepEqual(tree.treePosToPath(pos), [1, 0, 3]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1]);
 
     pos = tree.findTreePos(9);
-    assert.deepEqual(tree.treePosToPath(pos), [2]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1, 0]);
 
     pos = tree.findTreePos(10);
-    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 0]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1, 1]);
 
     pos = tree.findTreePos(11);
-    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 1]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1, 2]);
 
     pos = tree.findTreePos(12);
-    assert.deepEqual(tree.treePosToPath(pos), [2, 0, 2]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1, 3]);
 
     pos = tree.findTreePos(13);
-    assert.deepEqual(tree.treePosToPath(pos), [3]);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 1, 4]);
+
+    pos = tree.findTreePos(14);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 0, 2]);
+
+    pos = tree.findTreePos(15);
+    assert.deepEqual(tree.treePosToPath(pos), [0, 1]);
+
+    pos = tree.findTreePos(16);
+    assert.deepEqual(tree.treePosToPath(pos), [1]);
   });
 });
