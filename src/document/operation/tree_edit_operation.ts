@@ -76,10 +76,10 @@ export class TreeEditOperation extends Operation {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
     if (!(parentObject instanceof CRDTTree)) {
-      logger.fatal(`fail to execute, only Text can execute edit`);
+      logger.fatal(`fail to execute, only Tree can execute edit`);
     }
-    const text = parentObject as CRDTTree;
-    const changes = text.edit(
+    const tree = parentObject as CRDTTree;
+    const changes = tree.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
