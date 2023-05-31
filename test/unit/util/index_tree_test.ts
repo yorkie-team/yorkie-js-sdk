@@ -20,7 +20,7 @@ import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   findCommonAncestor,
   IndexTree,
-} from '@yorkie-js-sdk/src/document/crdt/index_tree';
+} from '@yorkie-js-sdk/src/util/index_tree';
 
 /**
  * `toDiagnostic` is a helper function that converts the given node to a

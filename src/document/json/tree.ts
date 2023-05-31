@@ -11,7 +11,7 @@ import {
   DefaultRootType,
   DefaultInlineType,
   TreeNodeType,
-} from '@yorkie-js-sdk/src/document/crdt/index_tree';
+} from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 
 export type TreeNode = InlineNode | BlockNode;

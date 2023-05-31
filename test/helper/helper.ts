@@ -17,7 +17,7 @@
 import { assert } from 'chai';
 
 import yorkie, { Tree, BlockNode } from '@yorkie-js-sdk/src/yorkie';
-import { IndexTree } from '@yorkie-js-sdk/src/document/crdt/index_tree';
+import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   TextChange,
