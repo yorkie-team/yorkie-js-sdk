@@ -19,11 +19,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { RGATreeSplitNodeRange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import {
-  CRDTText,
-  TextValueType,
-  TextChange,
-} from '@yorkie-js-sdk/src/document/crdt/text';
+import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';

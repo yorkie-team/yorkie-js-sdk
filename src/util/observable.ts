@@ -19,7 +19,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 /**
  * @internal
  */
-export type NextFn<T, B = unknown> = (value: T) => void;
+export type NextFn<T> = (value: T) => void;
 
 /**
  * @internal

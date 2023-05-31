@@ -1,14 +1,7 @@
 import { assert } from 'chai';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import {
-  Document,
-  Text,
-  TextChange,
-  TextChangeType,
-  JSONArray,
-  JSONObject,
-} from '@yorkie-js-sdk/src/yorkie';
+import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {

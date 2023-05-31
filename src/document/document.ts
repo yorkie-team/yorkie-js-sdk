@@ -46,14 +46,10 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  CounterOperationInfo,
   InternalOpInfo,
   OperationInfo,
-  TextOperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { Trie } from '../util/trie';
 
 /**
@@ -189,25 +185,25 @@ type TPropPaths<T> = {
   [TKey in keyof T]: `$.${TKey & string}`;
 }[keyof T];
 
-type TPropYorkieType<TObject, TPath> = TPath extends keyof TObject
-  ? TObject[TPath] extends Text
-    ? TextOperationInfo
-    : TObject[TPath] extends Counter
-    ? CounterOperationInfo
-    : OperationInfo
-  : unknown;
+// type TPropYorkieType<TObject, TPath> = TPath extends keyof TObject
+//   ? TObject[TPath] extends Text
+//     ? TextOperationInfo
+//     : TObject[TPath] extends Counter
+//     ? CounterOperationInfo
+//     : OperationInfo
+//   : unknown;
 
-type TPropTypeAtPath<TObject, TPath> = TPath extends keyof TObject
-  ? TPropYorkieType<TObject, TPath>
-  : TPath extends `${infer TKey}.${infer TRest}`
-  ? TKey extends keyof TObject
-    ? TPropTypeAtPath<TObject[TKey], TRest>
-    : unknown
-  : unknown;
+// type TPropTypeAtPath<TObject, TPath> = TPath extends keyof TObject
+//   ? TPropYorkieType<TObject, TPath>
+//   : TPath extends `${infer TKey}.${infer TRest}`
+//   ? TKey extends keyof TObject
+//     ? TPropTypeAtPath<TObject[TKey], TRest>
+//     : unknown
+//   : unknown;
 
-type TPropPathsType<T, TPath> = TPath extends `$.${infer TKeyPath}`
-  ? TPropTypeAtPath<T, TKeyPath>
-  : TPropTypeAtPath<T, TPath>;
+// type TPropPathsType<T, TPath> = TPath extends `$.${infer TKeyPath}`
+//   ? TPropTypeAtPath<T, TKeyPath>
+//   : TPropTypeAtPath<T, TPath>;
 
 /**
  * `Document` is a CRDT-based data type. We can represent the model
@@ -310,7 +306,7 @@ export class Document<T> {
    */
   public subscribe<TPath extends TPropPaths<T>>(
     targetPath: TPath,
-    next: NextFn<DocEvent, TPropPathsType<T, TPath>>,
+    next: NextFn<DocEvent>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
