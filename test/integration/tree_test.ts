@@ -272,9 +272,24 @@ describe('Tree', () => {
     doc.update((root) => {
       root.t = new Tree({
         type: 'doc',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
       });
-      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>ab</tn></p></tc></doc>`,
+      );
     });
 
     const actualChanges: Array<TreeChangeWithPath> = [];
@@ -283,22 +298,28 @@ describe('Tree', () => {
     });
 
     doc.update((root) => {
-      root.t.editByPath([0, 0, 0], [0, 0, 0], { type: 'text', value: 'X' });
+      root.t.editByPath([0, 0, 0, 1], [0, 0, 0, 1], {
+        type: 'text',
+        value: 'X',
+      });
 
-      assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb</tn></p></tc></doc>`,
+      );
     });
 
     assert.deepEqual(actualChanges, [
       {
         type: TreeChangeType.Content,
-        from: [0, 0, 0],
-        to: [0, 0, 0],
+        from: [0, 0, 0, 1],
+        to: [0, 0, 0, 1],
         value: { type: 'text', value: 'X' },
       },
     ]);
   });
 
-  it('Can edit its content wit path', function () {
+  it('Can edit its content with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -360,13 +381,13 @@ describe('Tree', () => {
         /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>text</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath([0, 0, 2], [0, 0, 2], {
-        type: 'tn',
-        children: [],
+      root.t.editByPath([0, 0, 1, 1], [0, 0, 1, 1], {
+        type: 'text',
+        value: '123',
       });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>text</tn><tn></tn></p></tc></doc>`,
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>t123ext</tn></p></tc></doc>`,
       );
 
       assert.Throw(() => {
