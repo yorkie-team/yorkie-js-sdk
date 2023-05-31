@@ -417,7 +417,7 @@ export class CRDTTree extends CRDTElement {
     }
 
     if (current.node.isInline) {
-      const split = current.node.split(pos.offset);
+      const split = current.node.split(current.offset);
       if (split) {
         this.insertAfter(current.node, split);
         split.insPrev = current.node;
@@ -594,7 +594,7 @@ export class CRDTTree extends CRDTElement {
   /**
    * `pathToPos` finds the position of the given index in the tree by path.
    */
-  public pathToPos(path: Array<number>) {
+  public pathToPos(path: Array<number>): CRDTTreePos {
     const treePos = this.indexTree.pathToTreePos(path);
 
     return {

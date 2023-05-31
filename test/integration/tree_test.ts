@@ -298,7 +298,7 @@ describe('Tree', () => {
     ]);
   });
 
-  it('Can edit its content wit path', function () {
+  it('Can edit its content with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
