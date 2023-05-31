@@ -297,6 +297,61 @@ describe('Tree', () => {
       },
     ]);
   });
+
+  it('Can edit its content wit path', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>ab</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath([0, 0, 0, 1], [0, 0, 0, 1], {
+        type: 'text',
+        value: 'X',
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath([0, 0, 0, 3], [0, 0, 0, 3], {
+        type: 'text',
+        value: '!',
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb!</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath([0, 0, 1], [0, 0, 1], {
+        type: 'tn',
+        children: [],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn></tn></p></tc></doc>`,
+      );
+    });
+  });
 });
 
 describe('Tree.edit', function () {

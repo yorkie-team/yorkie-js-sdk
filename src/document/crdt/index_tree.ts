@@ -609,6 +609,28 @@ export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
 }
 
 /**
+ * `findInlinePos` returns the tree position of the given path element.
+ */
+function findInlinePos<T extends IndexTreeNode<T>>(
+  node: T,
+  pathElement: number,
+) {
+  for (let i = 0; i < node.children.length; i++) {
+    const childNode = node.children[i];
+
+    if (childNode.size < pathElement) {
+      pathElement -= childNode.size;
+    } else {
+      node = childNode;
+
+      break;
+    }
+  }
+
+  return { node, offset: pathElement };
+}
+
+/**
  * `IndexTree` is a tree structure for linear indexing.
  */
 export class IndexTree<T extends IndexTreeNode<T>> {
@@ -694,20 +716,23 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     }
 
     let node = this.root;
-
     for (let i = 0; i < path.length - 1; i++) {
-      const pathInfo = path[i];
-
-      node = node.children[pathInfo];
+      const pathElement = path[i];
+      node = node.children[pathElement];
 
       if (!node) {
         throw new Error('unacceptable path');
       }
     }
 
-    const preperInline = node.isInline;
+    if (node.hasInlineChild()) {
+      return findInlinePos(node, path[path.length - 1]);
+    }
 
-    return findTreePos(node, path[path.length - 1], preperInline);
+    return {
+      node,
+      offset: path[path.length - 1],
+    };
   }
 
   /**
