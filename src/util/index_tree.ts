@@ -88,7 +88,7 @@ export const DefaultInlineType = 'text';
  */
 export type TreeNodeType = string;
 
-const addSizesOfLeftSibilings = <T extends IndexTreeNode<T>>(
+const addSizeOfLeftSibilings = <T extends IndexTreeNode<T>>(
   root: T,
   offset: number,
 ) => {
@@ -96,8 +96,7 @@ const addSizesOfLeftSibilings = <T extends IndexTreeNode<T>>(
 
   for (let i = 0; i < offset; i++) {
     const leftSibiling = root.children[i];
-    const { size } = leftSibiling;
-    acc += leftSibiling.isInline ? size : size + 2;
+    acc += leftSibiling.paddedSize;
   }
 
   return acc;
@@ -707,33 +706,25 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     let node = treePos.node;
 
     if (node.isInline) {
-      const index = node.parent!.children.indexOf(node);
-
-      if (index === -1) {
+      const offset = node.parent!.children.indexOf(node);
+      if (offset === -1) {
         throw new Error('invalid treePos');
       }
 
-      let leftSibilingSizes = 0;
-
-      for (let i = 0; i < index; i++) {
-        leftSibilingSizes += node.parent!.children[i].size;
-      }
-
+      const leftSibilingSize = addSizeOfLeftSibilings(node.parent!, offset);
       node = node.parent!;
-      path.push(leftSibilingSizes + treePos.offset);
+      path.push(leftSibilingSize + treePos.offset);
     } else {
       path.push(treePos.offset);
     }
 
     while (node.parent) {
-      const pathInfo = node.parent.children.indexOf(node);
-
-      if (pathInfo === -1) {
+      const offset = node.parent.children.indexOf(node);
+      if (offset === -1) {
         throw new Error('invalid treePos');
       }
 
-      path.push(pathInfo);
-
+      path.push(offset);
       node = node.parent;
     }
 
@@ -814,9 +805,12 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `indexOf` returns the index of the given node.
+   * `indexOf` returns the index of the given tree position.
    */
-  public indexOf(node: T, offset: number): number {
+  public indexOf(pos: TreePos<T>): number {
+    let { node } = pos;
+    const { offset } = pos;
+
     const isInline = node.isInline;
     let size = 0;
     let depth = 1;
@@ -824,34 +818,27 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     if (isInline) {
       size += offset;
 
-      const parent = node.parent;
-      const indexOfNode = parent?.children.indexOf(node);
-
-      if (indexOfNode === -1) {
+      const parent = node.parent!;
+      const offsetOfNode = parent.children.indexOf(node);
+      if (offsetOfNode === -1) {
         throw new Error('invalid pos');
       }
 
-      size += addSizesOfLeftSibilings(parent as T, indexOfNode as number);
+      size += addSizeOfLeftSibilings(parent, offsetOfNode);
 
       node = node.parent!;
     } else {
-      size += addSizesOfLeftSibilings(node, offset);
+      size += addSizeOfLeftSibilings(node, offset);
     }
 
     while (node?.parent) {
       const parent = node.parent;
-
-      if (!parent) {
-        break;
-      }
-
-      const indexOfNode = parent.children.indexOf(node);
-
-      if (indexOfNode === -1) {
+      const offsetOfNode = parent.children.indexOf(node);
+      if (offsetOfNode === -1) {
         throw new Error('invalid pos');
       }
 
-      size += addSizesOfLeftSibilings(parent, indexOfNode);
+      size += addSizeOfLeftSibilings(parent, offsetOfNode);
       depth++;
       node = node.parent;
     }
