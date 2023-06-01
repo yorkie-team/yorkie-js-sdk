@@ -131,35 +131,8 @@ export class Tree {
       this.initialRoot.type,
     );
 
-    /**
-     * traverse traverses the given node and its children recursively.
-     */
-    function traverse(n: TreeNode, parent: CRDTTreeNode): void {
-      if (n.type === 'text') {
-        const inlineNode = n as InlineNode;
-        const treeNode = CRDTTreeNode.create(
-          context.issueTimeTicket(),
-          inlineNode.type,
-          inlineNode.value,
-        );
-        parent.append(treeNode);
-        return;
-      }
-
-      const blockNode = n as BlockNode;
-      const node = CRDTTreeNode.create(
-        context.issueTimeTicket(),
-        blockNode.type,
-      );
-      parent.append(node);
-
-      for (const child of blockNode.children) {
-        traverse(child, node);
-      }
-    }
-
     for (const child of this.initialRoot.children) {
-      traverse(child, root);
+      traverse(child, root, context);
     }
 
     return root;
@@ -208,7 +181,7 @@ export class Tree {
     const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
-    const ticket = this.context.issueTimeTicket();
+    const ticket = this.context.getLastTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
@@ -238,7 +211,7 @@ export class Tree {
     const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
-    const ticket = this.context.issueTimeTicket();
+    const ticket = this.context.getLastTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
