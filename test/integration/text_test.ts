@@ -99,7 +99,7 @@ describe('Text', function () {
         const changes = event.value;
         for (const change of changes) {
           const { operations } = change;
-          view.applyChanges(operations);
+          view.applyOperations(operations);
         }
       }
     });
@@ -126,7 +126,7 @@ describe('Text', function () {
         const changes = event.value;
         for (const change of changes) {
           const { operations } = change;
-          view.applyChanges(operations);
+          view.applyOperations(operations);
         }
       }
     });
@@ -161,7 +161,7 @@ describe('Text', function () {
         const changes = event.value;
         for (const change of changes) {
           const { operations } = change;
-          view.applyChanges(operations);
+          view.applyOperations(operations);
         }
       }
     });
@@ -354,7 +354,7 @@ describe('Text', function () {
           const changes = event.value;
           for (const change of changes) {
             const { operations } = change;
-            view1.applyChanges(operations);
+            view1.applyOperations(operations);
           }
         }
       });

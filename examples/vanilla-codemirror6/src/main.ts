@@ -7,7 +7,7 @@ import {
   markdownKeymap,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
-import { Transaction, type ChangeSpec } from '@codemirror/state';
+import { Transaction } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
 import './style.css';
@@ -76,7 +76,8 @@ async function main() {
       const changes = event.value;
       for (const change of changes) {
         const { operations } = change;
-        changeEventHandler(operations);
+
+        handleOperations(operations);
       }
     }
   });
@@ -116,26 +117,28 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  const changeEventHandler = (ops: Array<OperationInfo>) => {
-    const changeSpecs: Array<ChangeSpec | undefined> = ops
-      .map((op) => {
-        if (op.type === 'edit') {
-          return {
-            from: Math.max(0, op.from),
-            to: Math.max(0, op.to),
-            insert: op.value!.content,
-          };
-        }
-
-        return undefined;
-      })
-      .filter(Boolean);
+  function handleOperations(operations: Array<OperationInfo>) {
+    operations.forEach((op) => {
+      if (op.type === 'edit') {
+        handleEditOp(op);
+      }
+    });
+  }
+  function handleEditOp(op: any) {
+    const changes = [
+      {
+        from: Math.max(0, op.from),
+        to: Math.max(0, op.to),
+        insert: op.value!.content,
+      },
+    ];
 
     view.dispatch({
-      changes: changeSpecs as Array<ChangeSpec>,
+      changes,
       annotations: [Transaction.remote.of(true)],
     });
-  };
+  }
+
   syncText();
   displayLog(documentElem, documentTextElem, doc);
 }

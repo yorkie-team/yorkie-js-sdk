@@ -164,7 +164,7 @@
             });
           });
 
-          function changeEventHandler(ops) {
+          function handleOperations(ops) {
             const selectionStr = rangy.serializeSelection(
               rangy.getSelection(),
               true,
@@ -194,7 +194,7 @@
             if (event.type === 'remote-change') {
               for (const change of changes) {
                 const { operations } = change;
-                changeEventHandler(operations);
+                handleOperations(operations);
               }
             } else if (event.type === 'local-change') {
               for (const change of changes) {

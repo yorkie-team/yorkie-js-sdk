@@ -258,7 +258,7 @@
               const changes = event.value;
               for (const change of changes) {
                 const { actor, message, operations } = change;
-                changeEventHandler(operations, actor);
+                handleOperations(operations, actor);
               }
             }
           });
@@ -359,7 +359,7 @@
             });
 
           // 05-2. Document to Quill(remote).
-          function changeEventHandler(ops, actor) {
+          function handleOperations(ops, actor) {
             const deltaOperations = [];
             let prevTo = 0;
             for (const op of ops) {

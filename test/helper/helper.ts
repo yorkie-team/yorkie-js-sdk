@@ -102,7 +102,7 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(
+  public applyOperations(
     operations: Array<OperationInfo>,
     enableLog = false,
   ): void {

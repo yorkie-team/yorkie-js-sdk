@@ -96,7 +96,7 @@ async function main() {
       const changes = event.value;
       for (const change of changes) {
         const { actor, operations } = change;
-        changeEventHandler(operations, actor);
+        handleOperations(operations, actor);
       }
     }
   });
@@ -195,7 +195,7 @@ async function main() {
     });
 
   // 04-2. document to Quill(remote).
-  function changeEventHandler(
+  function handleOperations(
     ops: Array<OperationInfo>,
     actor: string | undefined,
   ) {
