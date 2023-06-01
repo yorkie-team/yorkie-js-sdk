@@ -220,6 +220,7 @@ describe('Tree', () => {
         type: 'doc',
         children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
       });
+
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
 
       root.t.edit(3, 3, { type: 'text', value: 'X' });
@@ -365,29 +366,38 @@ describe('Tree', () => {
 
       root.t.editByPath([0, 0, 1], [0, 0, 1], {
         type: 'tn',
-        children: [],
+        children: [{ type: 'text', value: 'cd' }],
       });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn></tn></p></tc></doc>`,
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>cd</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath([0, 0, 1, 0], [0, 0, 1, 0], {
-        type: 'text',
-        value: 'text',
+      root.t.editByPath([0, 1], [0, 1], {
+        type: 'p',
+        children: [{ type: 'tn', children: [{ type: 'text', value: 'q' }] }],
       });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>text</tn></p></tc></doc>`,
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>cd</tn></p><p><tn>q</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath([0, 0, 1, 1], [0, 0, 1, 1], {
+      root.t.editByPath([0, 1, 0, 0], [0, 1, 0, 0], {
         type: 'text',
-        value: '123',
+        value: 'a',
       });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>t123ext</tn></p></tc></doc>`,
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>cd</tn></p><p><tn>aq</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath([0, 1, 0, 2], [0, 1, 0, 2], {
+        type: 'text',
+        value: 'B',
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXb!</tn><tn>cd</tn></p><p><tn>aqB</tn></p></tc></doc>`,
       );
 
       assert.Throw(() => {
