@@ -42,23 +42,27 @@ export type InlineNode = {
 function traverse(
   treeNode: TreeNode,
   parent: CRDTTreeNode,
-  ticket: TimeTicket,
+  context: ChangeContext,
 ) {
   const { type } = treeNode;
 
   if (type === 'text') {
     const { value } = treeNode as InlineNode;
-    const inlineNode = CRDTTreeNode.create(ticket, type, value);
+    const inlineNode = CRDTTreeNode.create(
+      context.issueTimeTicket(),
+      type,
+      value,
+    );
 
     parent.append(inlineNode);
   } else {
     const { children } = treeNode as BlockNode;
-    const blockNode = CRDTTreeNode.create(ticket, type);
+    const blockNode = CRDTTreeNode.create(context.issueTimeTicket(), type);
 
     parent.append(blockNode);
 
     for (const child of children) {
-      traverse(child, blockNode, ticket);
+      traverse(child, blockNode, context);
     }
   }
 }
@@ -66,19 +70,19 @@ function traverse(
 /**
  * createCRDTTreeNode returns CRDTTreeNode by given TreeNode.
  */
-function createCRDTTreeNode(ticket: TimeTicket, content: TreeNode) {
+function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   const { type } = content;
 
   let root;
   if (type === 'text') {
     const { value } = content as InlineNode;
-    root = CRDTTreeNode.create(ticket, type, value);
+    root = CRDTTreeNode.create(context.issueTimeTicket(), type, value);
   } else if (content) {
     const { children = [] } = content as BlockNode;
-    root = CRDTTreeNode.create(ticket, type);
+    root = CRDTTreeNode.create(context.issueTimeTicket(), type);
 
     for (const child of children) {
-      traverse(child, root, ticket);
+      traverse(child, root, context);
     }
   }
 
@@ -201,10 +205,10 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const ticket = this.context.issueTimeTicket();
-    const crdtNode = content && createCRDTTreeNode(ticket, content);
+    const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
+    const ticket = this.context.issueTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
@@ -231,10 +235,10 @@ export class Tree {
       throw new Error('from should be less than or equal to to');
     }
 
-    const ticket = this.context.issueTimeTicket();
-    const crdtNode = content && createCRDTTreeNode(ticket, content);
+    const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.issueTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
