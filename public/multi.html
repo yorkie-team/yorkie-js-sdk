@@ -386,11 +386,11 @@
                   deltaOperations.push({ delete: retainTo });
                 }
                 if (insert) {
-                  const localOp = { insert };
+                  const deltaOp = { insert };
                   if (attributes) {
-                    localOp.attributes = attributes;
+                    deltaOp.attributes = attributes;
                   }
-                  deltaOperations.push(localOp);
+                  deltaOperations.push(deltaOp);
                 }
               } else if (op.type === 'style') {
                 const { attributes } = toDeltaOperation(op.value);
@@ -403,12 +403,12 @@
                   deltaOperations.push({ retain: retainFrom });
                 }
                 if (attributes) {
-                  const localOp = { attributes };
+                  const deltaOp = { attributes };
                   if (retainTo) {
-                    localOp.retain = retainTo;
+                    deltaOp.retain = retainTo;
                   }
 
-                  deltaOperations.push(localOp);
+                  deltaOperations.push(deltaOp);
                 }
               } else if (op.type === 'select') {
                 cursors.createCursor(
