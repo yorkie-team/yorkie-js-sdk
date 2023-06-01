@@ -37,6 +37,55 @@ export type InlineNode = {
 };
 
 /**
+ * traverse traverses the given node and its children recursively.
+ */
+function traverse(
+  treeNode: TreeNode,
+  parent: CRDTTreeNode,
+  ticket: TimeTicket,
+) {
+  const { type } = treeNode;
+
+  if (type === 'text') {
+    const { value } = treeNode as InlineNode;
+    const inlineNode = CRDTTreeNode.create(ticket, type, value);
+
+    parent.append(inlineNode);
+  } else {
+    const { children } = treeNode as BlockNode;
+    const blockNode = CRDTTreeNode.create(ticket, type);
+
+    parent.append(blockNode);
+
+    for (const child of children) {
+      traverse(child, blockNode, ticket);
+    }
+  }
+}
+
+/**
+ * createCRDTTreeNode returns CRDTTreeNode by given TreeNode.
+ */
+function createCRDTTreeNode(ticket: TimeTicket, content: TreeNode) {
+  const { type } = content;
+
+  let root;
+  if (type === 'text') {
+    const { value } = content as InlineNode;
+    root = CRDTTreeNode.create(ticket, type, value);
+  } else if (content) {
+    const { children = [] } = content as BlockNode;
+    root = CRDTTreeNode.create(ticket, type);
+
+    for (const child of children) {
+      traverse(child, root, ticket);
+    }
+  }
+
+  return root;
+}
+
+/**
  * `Tree` is a CRDT-based tree structure that is used to represent the document
  * tree of text-based editor such as ProseMirror.
  */
@@ -153,14 +202,7 @@ export class Tree {
     }
 
     const ticket = this.context.issueTimeTicket();
-    let crdtNode: CRDTTreeNode | undefined;
-    if (content?.type === 'text') {
-      const inlineNode = content as InlineNode;
-      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
-    } else if (content) {
-      crdtNode = CRDTTreeNode.create(ticket, content.type);
-    }
-
+    const crdtNode = content && createCRDTTreeNode(ticket, content);
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
@@ -190,14 +232,7 @@ export class Tree {
     }
 
     const ticket = this.context.issueTimeTicket();
-    let crdtNode: CRDTTreeNode | undefined;
-    if (content?.type === 'text') {
-      const inlineNode = content as InlineNode;
-      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
-    } else if (content) {
-      crdtNode = CRDTTreeNode.create(ticket, content.type);
-    }
-
+    const crdtNode = content && createCRDTTreeNode(ticket, content);
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
