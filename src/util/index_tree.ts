@@ -88,6 +88,21 @@ export const DefaultInlineType = 'text';
  */
 export type TreeNodeType = string;
 
+const addSizesOfLeftSibilings = <T extends IndexTreeNode<T>>(
+  root: T,
+  offset: number,
+) => {
+  let acc = 0;
+
+  for (let i = 0; i < offset; i++) {
+    const leftSibiling = root.children[i];
+    const { size } = leftSibiling;
+    acc += leftSibiling.isInline ? size : size + 2;
+  }
+
+  return acc;
+};
+
 /**
  * `IndexTreeNode` is the node of IndexTree. It is used to represent the
  * document of text-based editors.
@@ -801,30 +816,47 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   /**
    * `indexOf` returns the index of the given node.
    */
-  public indexOf(node: T): number {
-    let index = 0;
-    let current = node;
-    while (current !== this.root) {
-      const parent = current.parent;
-      if (!parent) {
-        throw new Error(`parent is not found`);
+  public indexOf(node: T, offset: number): number {
+    const isInline = node.isInline;
+    let size = 0;
+    let depth = 1;
+
+    if (isInline) {
+      size += offset;
+
+      const parent = node.parent;
+      const indexOfNode = parent?.children.indexOf(node);
+
+      if (indexOfNode === -1) {
+        throw new Error('invalid pos');
       }
 
-      const offset = parent.findOffset(current);
-      for (const previous of parent.children.slice(0, offset)) {
-        index += previous.paddedSize;
-      }
+      size += addSizesOfLeftSibilings(parent as T, indexOfNode as number);
 
-      // If this step escape from block node, we should add 1 to the index,
-      // because the block node has open tag.
-      if (current !== this.root && current !== node && !current.isInline) {
-        index += 1;
-      }
-
-      current = parent;
+      node = node.parent!;
+    } else {
+      size += addSizesOfLeftSibilings(node, offset);
     }
 
-    return index;
+    while (node?.parent) {
+      const parent = node.parent;
+
+      if (!parent) {
+        break;
+      }
+
+      const indexOfNode = parent.children.indexOf(node);
+
+      if (indexOfNode === -1) {
+        throw new Error('invalid pos');
+      }
+
+      size += addSizesOfLeftSibilings(parent, indexOfNode);
+      depth++;
+      node = node.parent;
+    }
+
+    return size + depth - 1;
   }
 
   /**
