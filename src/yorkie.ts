@@ -60,7 +60,17 @@ export {
   TextChange,
   TextChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/text';
-export type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+export type {
+  OperationInfo,
+  AddOpInfo,
+  IncreaseOpInfo,
+  RemoveOpInfo,
+  SetOpInfo,
+  MoveOpInfo,
+  EditOpInfo,
+  StyleOpInfo,
+  SelectOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 
 // TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
 // if not exported. We need to find a way to handle this without exporting the below.

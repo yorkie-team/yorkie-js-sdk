@@ -1,8 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, {
-  type TextChange,
-  type Text as YorkieText,
-} from 'yorkie-js-sdk';
+import yorkie, { type Text as YorkieText, OperationInfo } from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {
@@ -10,7 +7,7 @@ import {
   markdownKeymap,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
-import { Transaction, type ChangeSpec } from '@codemirror/state';
+import { Transaction } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
 import './style.css';
@@ -73,6 +70,18 @@ async function main() {
     }
     displayLog(documentElem, documentTextElem, doc);
   });
+
+  doc.subscribe('$.content', (event) => {
+    if (event.type === 'remote-change') {
+      const changes = event.value;
+      for (const change of changes) {
+        const { operations } = change;
+
+        handleOperations(operations);
+      }
+    }
+  });
+
   await client.sync();
 
   // 03-1. define function that bind the document with the codemirror(broadcast local changes to peers)
@@ -108,25 +117,28 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  const changeEventHandler = (changes: Array<TextChange>) => {
-    const clientId = client.getID();
-    const changeSpecs: Array<ChangeSpec> = changes
-      .filter(
-        (change) => change.type === 'content' && change.actor !== clientId,
-      )
-      .map((change) => ({
-        from: Math.max(0, change.from),
-        to: Math.max(0, change.to),
-        insert: change.value!.content,
-      }));
+  function handleOperations(operations: Array<OperationInfo>) {
+    operations.forEach((op) => {
+      if (op.type === 'edit') {
+        handleEditOp(op);
+      }
+    });
+  }
+  function handleEditOp(op: any) {
+    const changes = [
+      {
+        from: Math.max(0, op.from),
+        to: Math.max(0, op.to),
+        insert: op.value!.content,
+      },
+    ];
 
     view.dispatch({
-      changes: changeSpecs,
+      changes,
       annotations: [Transaction.remote.of(true)],
     });
-  };
-  const text = doc.getRoot().content;
-  text.onChanges(changeEventHandler);
+  }
+
   syncText();
   displayLog(documentElem, documentTextElem, doc);
 }

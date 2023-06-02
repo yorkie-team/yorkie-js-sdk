@@ -457,7 +457,7 @@ export class Document<T, P extends Indexable> {
    */
   public publish(event: DocEvent<P>) {
     if (this.eventStreamObserver) {
-      this.eventStreamObserver.next(event);
+      this.eventStreamObserver.nextSync(event);
     }
   }
 

@@ -191,9 +191,9 @@
             }
             // 04-2. document to codemirror(applying remote).
             if (event.type === 'remote-change') {
-              const changeInfos = event.value;
-              for (const changeInfo of changeInfos) {
-                const { actor, message, operations, presence } = changeInfo;
+              const changes = event.value;
+              for (const change of changes) {
+                const { actor, message, operations, presence } = change;
                 // 1) handle edit operation
                 for (const op of operations) {
                   if (op.type === 'edit') {

@@ -23,11 +23,7 @@ import {
   RGATreeSplitNodeRangeStruct,
   RGATreeSplitNodePosStruct,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import {
-  CRDTText,
-  TextValueType,
-  TextChange,
-} from '@yorkie-js-sdk/src/document/crdt/text';
+import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
@@ -292,17 +288,5 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     return this.text.getRangeIndex(fromPos, toPos);
-  }
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
-    if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return;
-    }
-
-    this.text.onChanges(handler);
   }
 }

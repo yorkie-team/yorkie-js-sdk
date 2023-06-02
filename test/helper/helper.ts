@@ -15,11 +15,7 @@
  */
 
 import { assert } from 'chai';
-
-import {
-  TextChange,
-  TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/text';
+import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export type Indexable = Record<string, any>;
 
@@ -106,18 +102,21 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(changes: Array<TextChange>, enableLog = false): void {
+  public applyOperations(
+    operations: Array<OperationInfo>,
+    enableLog = false,
+  ): void {
     const oldValue = this.value;
     const changeLogs = [];
-    for (const change of changes) {
-      if (change.type === TextChangeType.Content) {
+    for (const op of operations) {
+      if (op.type === 'edit') {
         this.value = [
-          this.value.substring(0, change.from),
-          change.value?.content,
-          this.value.substring(change.to),
+          this.value.substring(0, op.from),
+          op.value?.content,
+          this.value.substring(op.to),
         ].join('');
         changeLogs.push(
-          `{f:${change.from}, t:${change.to}, c:${change.value || ''}}`,
+          `{f:${op.from}, t:${op.to}, c:${op.value?.content || ''}}`,
         );
       }
     }
