@@ -36,6 +36,7 @@ export type CompleteFn = () => void;
  */
 export interface Observer<T> {
   next: NextFn<T>;
+  nextSync: NextFn<T>;
   error?: ErrorFn;
   complete?: CompleteFn;
 }
@@ -73,13 +74,12 @@ class ObserverProxy<T> implements Observer<T> {
 
   constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
     this.onNoObservers = onNoObservers;
-    this.task
-      .then(() => {
-        executor(this);
-      })
-      .catch((error) => {
-        this.error(error);
-      });
+
+    try {
+      executor(this);
+    } catch (error: any) {
+      this.error(error);
+    }
   }
 
   /**
@@ -87,6 +87,15 @@ class ObserverProxy<T> implements Observer<T> {
    */
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
+      observer.next(value);
+    });
+  }
+
+  /**
+   * `nextSync` iterates next observer synchronously.
+   */
+  public nextSync(value: T): void {
+    this.forEachObserverSync((observer: Observer<T>) => {
       observer.next(value);
     });
   }
@@ -196,16 +205,30 @@ class ObserverProxy<T> implements Observer<T> {
     }
   }
 
+  private forEachObserverSync(fn: (observer: Observer<T>) => void): void {
+    if (this.finalized) {
+      return;
+    }
+
+    for (let i = 0; i < this.observers!.length; i++) {
+      this.sendOneSync(i, fn);
+    }
+  }
+
   private sendOne(i: number, fn: (observer: Observer<T>) => void): void {
     this.task.then(() => {
-      if (this.observers !== undefined && this.observers[i] !== undefined) {
-        try {
-          fn(this.observers[i]);
-        } catch (err) {
-          logger.error(err);
-        }
-      }
+      this.sendOneSync(i, fn);
     });
+  }
+
+  private sendOneSync(i: number, fn: (observer: Observer<T>) => void): void {
+    if (this.observers !== undefined && this.observers[i] !== undefined) {
+      try {
+        fn(this.observers[i]);
+      } catch (err) {
+        logger.error(err);
+      }
+    }
   }
 
   private close(err?: Error): void {

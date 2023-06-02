@@ -87,7 +87,7 @@ export class TreeEditOperation extends Operation {
 
     return changes.map(({ from, to, value }) => {
       return {
-        type: 'edit',
+        type: 'tree-edit',
         from,
         to,
         value,
