@@ -27,7 +27,7 @@ import {
  * diagnostic string.
  */
 function toDiagnostic(node: CRDTTreeNode): string {
-  if (node.isInline) {
+  if (node.isText) {
     return `${node.type}.${node.value}`;
   }
   return node.type;
@@ -156,52 +156,43 @@ describe('IndexTree', function () {
     nodesBetweenEqual(tree, 3, 5, ['p', 'p']);
   });
 
-  it('Can find index of the given node', function () {
-    //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
-    // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
+  it('Can convert index to pos', function () {
+    //       0   1 2 3 4    5   6 7 8 9 10 11 12  13  14 15 16  17 18 19 20   21
+    // <root> <p> a b c </p> <p> c d e f  g  h </p> <p> i  j   k  l  m  n  </p>  </root>
+
     const tree = buildIndexTree({
       type: 'root',
       children: [
         {
           type: 'p',
           children: [
-            { type: 'text', value: 'a' },
-            { type: 'text', value: 'b' },
+            { type: 'text', value: 'ab' },
+            { type: 'text', value: 'c' },
           ],
         },
-        { type: 'p', children: [{ type: 'text', value: 'cde' }] },
-        { type: 'p', children: [{ type: 'text', value: 'fg' }] },
+        {
+          type: 'p',
+          children: [
+            { type: 'text', value: 'cde' },
+            { type: 'text', value: 'fgh' },
+          ],
+        },
+        {
+          type: 'p',
+          children: [
+            { type: 'text', value: 'ij' },
+            { type: 'text', value: 'k' },
+            { type: 'text', value: 'l' },
+            { type: 'text', value: 'mn' },
+          ],
+        },
       ],
     });
 
-    let pos = tree.findTreePos(0, true);
-    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['root', 0]);
-    assert.equal(tree.indexOf(pos.node), 0);
-
-    pos = tree.findTreePos(1, true);
-    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.a', 0]);
-    assert.equal(tree.indexOf(pos.node), 1);
-
-    pos = tree.findTreePos(3, true);
-    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.b', 1]);
-    assert.equal(tree.indexOf(pos.node), 2);
-
-    pos = tree.findTreePos(4, true);
-    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['root', 1]);
-    assert.equal(tree.indexOf(pos.node), 0);
-
-    pos = tree.findTreePos(10, true);
-    assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['text.fg', 0]);
-    assert.equal(tree.indexOf(pos.node), 10);
-
-    const firstP = tree.getRoot().children[0];
-    assert.deepEqual([toDiagnostic(firstP), tree.indexOf(firstP)], ['p', 0]);
-
-    const secondP = tree.getRoot().children[1];
-    assert.deepEqual([toDiagnostic(secondP), tree.indexOf(secondP)], ['p', 4]);
-
-    const thirdP = tree.getRoot().children[2];
-    assert.deepEqual([toDiagnostic(secondP), tree.indexOf(thirdP)], ['p', 9]);
+    for (let i = 0; i < 22; i++) {
+      const pos = tree.findTreePos(i, true);
+      assert.equal(tree.indexOf(pos), i);
+    }
   });
 
   it.skip('Can find treePos from given path', function () {

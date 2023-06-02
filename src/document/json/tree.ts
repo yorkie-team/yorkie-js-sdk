@@ -9,43 +9,96 @@ import {
 import {
   IndexTree,
   DefaultRootType,
-  DefaultInlineType,
+  DefaultTextType,
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 
-export type TreeNode = InlineNode | BlockNode;
+export type TreeNode = TextNode | ElementNode;
 export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
   from: Array<number>;
   to: Array<number>;
 };
 
 /**
- * `BlockNode` is a node that has children.
+ * `ElementNode` is a node that has children.
  */
-export type BlockNode = {
+export type ElementNode = {
   type: TreeNodeType;
   children: Array<TreeNode>;
 };
 
 /**
- * `InlineNode` is a node that has no children.
+ * `TextNode` is a node that has a value.
  */
-export type InlineNode = {
-  type: typeof DefaultInlineType;
+export type TextNode = {
+  type: typeof DefaultTextType;
   value: string;
 };
+
+/**
+ * `buildDescendants` builds descendants of the given tree node.
+ */
+function buildDescendants(
+  treeNode: TreeNode,
+  parent: CRDTTreeNode,
+  context: ChangeContext,
+) {
+  const { type } = treeNode;
+
+  if (type === 'text') {
+    const { value } = treeNode as TextNode;
+    const textNode = CRDTTreeNode.create(
+      context.issueTimeTicket(),
+      type,
+      value,
+    );
+
+    parent.append(textNode);
+  } else {
+    const { children } = treeNode as ElementNode;
+    const elementNode = CRDTTreeNode.create(context.issueTimeTicket(), type);
+
+    parent.append(elementNode);
+
+    for (const child of children) {
+      buildDescendants(child, elementNode, context);
+    }
+  }
+}
+
+/**
+ * createCRDTTreeNode returns CRDTTreeNode by given TreeNode.
+ */
+function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
+  const { type } = content;
+
+  let root;
+  if (content.type === 'text') {
+    const { value } = content as TextNode;
+    root = CRDTTreeNode.create(context.issueTimeTicket(), type, value);
+  } else if (content) {
+    const { children = [] } = content as ElementNode;
+    root = CRDTTreeNode.create(context.issueTimeTicket(), type);
+
+    for (const child of children) {
+      buildDescendants(child, root, context);
+    }
+  }
+
+  return root;
+}
 
 /**
  * `Tree` is a CRDT-based tree structure that is used to represent the document
  * tree of text-based editor such as ProseMirror.
  */
 export class Tree {
-  private initialRoot?: BlockNode;
+  private initialRoot?: ElementNode;
   private context?: ChangeContext;
   private tree?: CRDTTree;
 
-  constructor(initialRoot?: BlockNode) {
+  constructor(initialRoot?: ElementNode) {
     this.initialRoot = initialRoot;
   }
 
@@ -73,40 +126,14 @@ export class Tree {
       return CRDTTreeNode.create(context.issueTimeTicket(), DefaultRootType);
     }
 
+    // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
       context.issueTimeTicket(),
       this.initialRoot.type,
     );
 
-    /**
-     * traverse traverses the given node and its children recursively.
-     */
-    function traverse(n: TreeNode, parent: CRDTTreeNode): void {
-      if (n.type === 'text') {
-        const inlineNode = n as InlineNode;
-        const treeNode = CRDTTreeNode.create(
-          context.issueTimeTicket(),
-          inlineNode.type,
-          inlineNode.value,
-        );
-        parent.append(treeNode);
-        return;
-      }
-
-      const blockNode = n as BlockNode;
-      const node = CRDTTreeNode.create(
-        context.issueTimeTicket(),
-        blockNode.type,
-      );
-      parent.append(node);
-
-      for (const child of blockNode.children) {
-        traverse(child, node);
-      }
-    }
-
     for (const child of this.initialRoot.children) {
-      traverse(child, root);
+      buildDescendants(child, root, context);
     }
 
     return root;
@@ -152,17 +179,10 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const ticket = this.context.issueTimeTicket();
-    let crdtNode: CRDTTreeNode | undefined;
-    if (content?.type === 'text') {
-      const inlineNode = content as InlineNode;
-      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
-    } else if (content) {
-      crdtNode = CRDTTreeNode.create(ticket, content.type);
-    }
-
+    const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
+    const ticket = this.context.getLastTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
@@ -189,17 +209,10 @@ export class Tree {
       throw new Error('from should be less than or equal to to');
     }
 
-    const ticket = this.context.issueTimeTicket();
-    let crdtNode: CRDTTreeNode | undefined;
-    if (content?.type === 'text') {
-      const inlineNode = content as InlineNode;
-      crdtNode = CRDTTreeNode.create(ticket, inlineNode.type, inlineNode.value);
-    } else if (content) {
-      crdtNode = CRDTTreeNode.create(ticket, content.type);
-    }
-
+    const crdtNode = content && createCRDTTreeNode(this.context, content);
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.getLastTimeTicket();
     this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
 
     this.context.push(
@@ -258,18 +271,18 @@ export class Tree {
       return;
     }
 
-    // TODO(hackerwins): Fill children of BlockNode later.
+    // TODO(hackerwins): Fill children of element node later.
     for (const node of this.tree) {
-      if (node.isInline) {
-        const inlineNode = node as InlineNode;
+      if (node.isText) {
+        const textNode = node as TextNode;
         yield {
-          type: inlineNode.type,
-          value: inlineNode.value,
+          type: textNode.type,
+          value: textNode.value,
         };
       } else {
-        const blockNode = node as BlockNode;
+        const elementNode = node as ElementNode;
         yield {
-          type: blockNode.type,
+          type: elementNode.type,
           children: [],
         };
       }
