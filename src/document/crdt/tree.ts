@@ -192,8 +192,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `value` returns the value of the node.
    */
   get value() {
-    if (!this.isInline) {
-      throw new Error(`cannot get value of non-inline node: ${this.type}`);
+    if (!this.isText) {
+      throw new Error(`cannot get value of element node: ${this.type}`);
     }
 
     return this._value;
@@ -203,8 +203,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `value` sets the value of the node.
    */
   set value(v: string) {
-    if (!this.isInline) {
-      throw new Error(`cannot set value of non-inline node: ${this.type}`);
+    if (!this.isText) {
+      throw new Error(`cannot set value of element node: ${this.type}`);
     }
 
     this._value = v;
@@ -251,7 +251,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
  * toJSON converts the given CRDTNode to JSON.
  */
 function toJSON(node: CRDTTreeNode): TreeNode {
-  if (node.isInline) {
+  if (node.isText) {
     const currentNode = node;
     return {
       type: currentNode.type,
@@ -269,7 +269,7 @@ function toJSON(node: CRDTTreeNode): TreeNode {
  * toXML converts the given CRDTNode to XML string.
  */
 export function toXML(node: CRDTTreeNode): string {
-  if (node.isInline) {
+  if (node.isText) {
     const currentNode = node;
     return currentNode.value;
   }
@@ -283,7 +283,7 @@ export function toXML(node: CRDTTreeNode): string {
  * `toStructure` converts the given CRDTNode JSON for debugging.
  */
 function toStructure(node: CRDTTreeNode): TreeNodeForTest {
-  if (node.isInline) {
+  if (node.isText) {
     const currentNode = node;
     return {
       type: currentNode.type,
@@ -387,14 +387,14 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `findTreePosWithSplitInline` finds `TreePos` of the given `CRDTTreePos` and
-   * splits the inline node if necessary.
+   * `findTreePosWithSplitText` finds `TreePos` of the given `CRDTTreePos` and
+   * splits the text node if necessary.
    *
    * `CRDTTreePos` is a position in the CRDT perspective. This is
    * different from `TreePos` which is a position of the tree in the local
    * perspective.
    */
-  public findTreePosWithSplitInline(
+  public findTreePosWithSplitText(
     pos: CRDTTreePos,
     editedAt: TimeTicket,
   ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
@@ -416,7 +416,7 @@ export class CRDTTree extends CRDTElement {
       };
     }
 
-    if (current.node.isInline) {
+    if (current.node.isText) {
       const split = current.node.split(current.offset);
       if (split) {
         this.insertAfter(current.node, split);
@@ -452,12 +452,9 @@ export class CRDTTree extends CRDTElement {
     content: CRDTTreeNode | undefined,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
-    // 01. split inline nodes at the given range if needed.
-    const [toPos, toRight] = this.findTreePosWithSplitInline(
-      range[1],
-      editedAt,
-    );
-    const [fromPos, fromRight] = this.findTreePosWithSplitInline(
+    // 01. split text nodes at the given range if needed.
+    const [toPos, toRight] = this.findTreePosWithSplitText(range[1], editedAt);
+    const [fromPos, fromRight] = this.findTreePosWithSplitText(
       range[0],
       editedAt,
     );
@@ -490,22 +487,22 @@ export class CRDTTree extends CRDTElement {
         node.remove(editedAt);
       }
 
-      // move the alive children of the removed block node
+      // move the alive children of the removed element node
       if (isRangeOnSameBranch) {
-        let removedBlockNode: CRDTTreeNode | undefined;
+        let removedElementNode: CRDTTreeNode | undefined;
         if (fromPos.node.parent?.isRemoved) {
-          removedBlockNode = fromPos.node.parent;
-        } else if (!fromPos.node.isInline && fromPos.node.isRemoved) {
-          removedBlockNode = fromPos.node;
+          removedElementNode = fromPos.node.parent;
+        } else if (!fromPos.node.isText && fromPos.node.isRemoved) {
+          removedElementNode = fromPos.node;
         }
 
-        // If the nearest removed block node of the fromNode is found,
-        // insert the alive children of the removed block node to the toNode.
-        if (removedBlockNode) {
-          const blockNode = toPos.node;
-          const offset = blockNode.findBranchOffset(removedBlockNode);
-          for (const node of removedBlockNode.children.reverse()) {
-            blockNode.insertAt(node, offset);
+        // If the nearest removed element node of the fromNode is found,
+        // insert the alive children of the removed element node to the toNode.
+        if (removedElementNode) {
+          const elementNode = toPos.node;
+          const offset = elementNode.findBranchOffset(removedElementNode);
+          for (const node of removedElementNode.children.reverse()) {
+            elementNode.insertAt(node, offset);
           }
         }
       } else {
@@ -525,7 +522,7 @@ export class CRDTTree extends CRDTElement {
       });
 
       // 03-2. insert the content nodes to the tree.
-      if (fromPos.node.isInline) {
+      if (fromPos.node.isText) {
         if (fromPos.offset === 0) {
           fromPos.node.parent!.insertBefore(content, fromPos.node);
         } else {
@@ -582,8 +579,8 @@ export class CRDTTree extends CRDTElement {
   /**
    * `findTreePos` finds the position of the given index in the tree.
    */
-  public findPos(index: number, preperInline = true): CRDTTreePos {
-    const treePos = this.indexTree.findTreePos(index, preperInline);
+  public findPos(index: number, preferText = true): CRDTTreePos {
+    const treePos = this.indexTree.findTreePos(index, preferText);
 
     return {
       createdAt: treePos.node.pos.createdAt,

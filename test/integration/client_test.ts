@@ -197,22 +197,30 @@ describe('Client', function () {
 
     await waitStubCallCount(stubD2, 2); // d2 should be able to update
     assert.equal(d2Events.pop(), DocEventType.LocalChange);
-    await waitStubCallCount(stubC2, 1); // c2 should fail to sync
-    assert.equal(c2Events.pop(), DocumentSyncResultType.SyncFailed);
+    await waitStubCallCount(stubC2, 2); // c2 should fail to sync
+    assert.equal(
+      c2Events.pop(),
+      DocumentSyncResultType.SyncFailed,
+      'c2 sync fail',
+    );
 
     c1.sync();
-    await waitStubCallCount(stubC1, 1); // c1 should also fail to sync
-    assert.equal(c1Events.pop(), DocumentSyncResultType.SyncFailed);
+    await waitStubCallCount(stubC1, 4); // c1 should also fail to sync
+    assert.equal(
+      c1Events.pop(),
+      DocumentSyncResultType.SyncFailed,
+      'c1 sync fail',
+    );
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
     // Back to normal condition
     xhr.restore();
 
-    await waitStubCallCount(stubC2, 2);
-    assert.equal(c2Events.pop(), DocumentSyncResultType.Synced);
-    await waitStubCallCount(stubC1, 2);
-    assert.equal(c1Events.pop(), DocumentSyncResultType.Synced);
+    await waitStubCallCount(stubC2, 4); // wait for c2 to sync
+    assert.equal(c2Events.pop(), DocumentSyncResultType.Synced, 'c2 sync');
+    await waitStubCallCount(stubC1, 6);
+    assert.equal(c1Events.pop(), DocumentSyncResultType.Synced, 'c1 sync');
     await waitStubCallCount(stubD1, 2);
     assert.equal(d1Events.pop(), DocEventType.RemoteChange); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
@@ -678,7 +686,7 @@ describe('Client', function () {
       root.version = 'v2';
     });
     await c1.sync();
-    await waitStubCallCount(stubC2, 1);
+    await waitStubCallCount(stubC2, 2);
     assert.equal(c2Events.pop(), ClientEventType.DocumentSynced);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     unsub1();

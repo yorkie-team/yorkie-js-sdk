@@ -16,13 +16,10 @@
 
 import { assert } from 'chai';
 
-import yorkie, { Tree, BlockNode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import {
-  TextChange,
-  TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/text';
+import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export type Indexable = Record<string, any>;
 
@@ -109,18 +106,21 @@ export class TextView {
     this.value = '';
   }
 
-  public applyChanges(changes: Array<TextChange>, enableLog = false): void {
+  public applyOperations(
+    operations: Array<OperationInfo>,
+    enableLog = false,
+  ): void {
     const oldValue = this.value;
     const changeLogs = [];
-    for (const change of changes) {
-      if (change.type === TextChangeType.Content) {
+    for (const op of operations) {
+      if (op.type === 'edit') {
         this.value = [
-          this.value.substring(0, change.from),
-          change.value?.content,
-          this.value.substring(change.to),
+          this.value.substring(0, op.from),
+          op.value?.content,
+          this.value.substring(op.to),
         ].join('');
         changeLogs.push(
-          `{f:${change.from}, t:${change.to}, c:${change.value || ''}}`,
+          `{f:${op.from}, t:${op.to}, c:${op.value?.content || ''}}`,
         );
       }
     }
@@ -138,9 +138,9 @@ export class TextView {
 }
 
 /**
- * `buildIndexTree` builds an index tree from the given block node.
+ * `buildIndexTree` builds an index tree from the given element node.
  */
-export function buildIndexTree(node: BlockNode): IndexTree<CRDTTreeNode> {
+export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
   const doc = new yorkie.Document<{ t: Tree }>('test');
   doc.update((root) => {
     root.t = new Tree(node);

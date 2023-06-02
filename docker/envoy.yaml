@@ -5,7 +5,7 @@ admin:
 
 static_resources:
   listeners:
-  - name: listener_0
+  - name: yorkie_rpc_listener
     address:
       socket_address: { address: 0.0.0.0, port_value: 8080 }
     filter_chains:
@@ -22,7 +22,7 @@ static_resources:
               routes:
               - match: { prefix: "/" }
                 route:
-                  cluster: yorkie_service
+                  cluster: yorkie_rpc_service
                   # https://github.com/grpc/grpc-web/issues/361
                   max_stream_duration:
                     grpc_timeout_header_max: 0s
@@ -38,7 +38,7 @@ static_resources:
           - name: envoy.filters.http.cors
           - name: envoy.filters.http.router
   clusters:
-  - name: yorkie_service
+  - name: yorkie_rpc_service
     connect_timeout: 0.25s
     type: logical_dns
     http2_protocol_options: {}
@@ -49,7 +49,7 @@ static_resources:
     # - Linux: an IP address of the host machine or docker-0 interface or some addresses defined in extra hosts of docker-compose.yml
     # you can simply use the yorkie container name(e.g. yorkie) in docker-compose whatever your OS is.
     load_assignment:
-      cluster_name: cluster_0
+      cluster_name: yorkie_cluster
       endpoints:
       - lb_endpoints:
         - endpoint:

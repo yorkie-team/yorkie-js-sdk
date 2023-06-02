@@ -27,7 +27,7 @@ import {
  * diagnostic string.
  */
 function toDiagnostic(node: CRDTTreeNode): string {
-  if (node.isInline) {
+  if (node.isText) {
     return `${node.type}.${node.value}`;
   }
   return node.type;

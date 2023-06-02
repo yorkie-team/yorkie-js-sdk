@@ -86,10 +86,10 @@
         });
       }
 
-      function displayRemoteSelection(cm, change) {
+      function displayRemoteSelection(cm, change, actor) {
         let color;
-        if (selectionMap.has(change.actor)) {
-          const selection = selectionMap.get(change.actor);
+        if (selectionMap.has(actor)) {
+          const selection = selectionMap.get(actor);
           color = selection.color;
           selection.marker.clear();
         } else {
@@ -108,10 +108,10 @@
             '-1px';
           cursorElement.style.height =
             (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
-          cursorElement.setAttribute('data-actor-id', change.actor);
+          cursorElement.setAttribute('data-actor-id', actor);
           cursorElement.style.zIndex = 0;
 
-          selectionMap.set(change.actor, {
+          selectionMap.set(actor, {
             color: color,
             marker: cm.setBookmark(pos, {
               widget: cursorElement,
@@ -122,7 +122,7 @@
           const fromPos = cm.posFromIndex(Math.min(change.from, change.to));
           const toPos = cm.posFromIndex(Math.max(change.from, change.to));
 
-          selectionMap.set(change.actor, {
+          selectionMap.set(actor, {
             color: color,
             marker: cm.markText(fromPos, toPos, {
               css: `background: ${color}`,
@@ -167,6 +167,16 @@
             }
             displayLog(doc, codemirror);
           });
+
+          doc.subscribe('$.content', (event) => {
+            if (event.type === 'remote-change') {
+              const changes = event.value;
+              for (const change of changes) {
+                const { actor, operations } = change;
+                handleOperations(operations, actor);
+              }
+            }
+          });
           await client.sync();
 
           // 03. create an instance of codemirror.
@@ -209,34 +219,23 @@
           });
 
           // 04-2. document to codemirror(applying remote).
-          function changeEventHandler(changes) {
-            for (const change of changes) {
-              if (change.type === 'content') {
-                const actor = change.actor;
-                const from = change.from;
-                const to = change.to;
-                const content = change.value.content || '';
+          function handleOperations(ops, actor) {
+            for (const op of ops) {
+              if (op.type === 'edit') {
+                const from = op.from;
+                const to = op.to;
+                const content = op.value.content || '';
 
-                if (actor !== client.getID()) {
-                  console.log(
-                    `%c remote: ${from}-${to}: ${content}`,
-                    'color: skyblue',
-                  );
-                  const fromIdx = codemirror.posFromIndex(from);
-                  const toIdx = codemirror.posFromIndex(to);
-                  replaceRangeFix(
-                    codemirror,
-                    content,
-                    fromIdx,
-                    toIdx,
-                    'yorkie',
-                  );
-                }
-              } else if (change.type === 'selection') {
-                const actor = change.actor;
-                if (actor !== client.getID()) {
-                  displayRemoteSelection(codemirror, change);
-                }
+                console.log(
+                  `%c remote: ${from}-${to}: ${content}`,
+                  'color: skyblue',
+                );
+                const fromIdx = codemirror.posFromIndex(from);
+                const toIdx = codemirror.posFromIndex(to);
+                replaceRangeFix(codemirror, content, fromIdx, toIdx, 'yorkie');
+              } else if (op.type === 'select') {
+                console.log('%c remote selection', 'color: skyblue');
+                displayRemoteSelection(codemirror, op, actor);
               }
             }
           }
@@ -244,7 +243,6 @@
           // 05. synchronize text of document and codemirror.
           function syncText() {
             const text = doc.getRoot().content;
-            text.onChanges(changeEventHandler);
             codemirror.setValue(text.toString());
           }
           syncText();
