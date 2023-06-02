@@ -181,30 +181,6 @@ export type Indexable = Record<string, any>;
  */
 export type DocumentKey = string;
 
-type TPropPaths<T> = {
-  [TKey in keyof T]: `$.${TKey & string}`;
-}[keyof T];
-
-// type TPropYorkieType<TObject, TPath> = TPath extends keyof TObject
-//   ? TObject[TPath] extends Text
-//     ? TextOperationInfo
-//     : TObject[TPath] extends Counter
-//     ? CounterOperationInfo
-//     : OperationInfo
-//   : unknown;
-
-// type TPropTypeAtPath<TObject, TPath> = TPath extends keyof TObject
-//   ? TPropYorkieType<TObject, TPath>
-//   : TPath extends `${infer TKey}.${infer TRest}`
-//   ? TKey extends keyof TObject
-//     ? TPropTypeAtPath<TObject[TKey], TRest>
-//     : unknown
-//   : unknown;
-
-// type TPropPathsType<T, TPath> = TPath extends `$.${infer TKeyPath}`
-//   ? TPropTypeAtPath<T, TKeyPath>
-//   : TPropTypeAtPath<T, TPath>;
-
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
@@ -299,17 +275,6 @@ export class Document<T> {
       }
     }
   }
-
-  /**
-   * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the targetPath or any of its nested values change.
-   */
-  public subscribe<TPath extends TPropPaths<T>>(
-    targetPath: TPath,
-    next: NextFn<DocEvent>,
-    error?: ErrorFn,
-    complete?: CompleteFn,
-  ): Unsubscribe;
 
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
