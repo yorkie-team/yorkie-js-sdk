@@ -88,6 +88,20 @@ export const DefaultTextType = 'text';
  */
 export type TreeNodeType = string;
 
+const addSizeOfLeftSibilings = <T extends IndexTreeNode<T>>(
+  root: T,
+  offset: number,
+) => {
+  let acc = 0;
+
+  for (let i = 0; i < offset; i++) {
+    const leftSibiling = root.children[i];
+    acc += leftSibiling.paddedSize;
+  }
+
+  return acc;
+};
+
 /**
  * `IndexTreeNode` is the node of IndexTree. It is used to represent the
  * document of text-based editors.
@@ -689,33 +703,28 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     let node = treePos.node;
 
     if (node.isText) {
-      const index = node.parent!.children.indexOf(node);
-
-      if (index === -1) {
+      const offset = node.parent!.children.indexOf(node);
+      if (offset === -1) {
         throw new Error('invalid treePos');
       }
 
-      let leftSibilingSizes = 0;
-
-      for (let i = 0; i < index; i++) {
-        leftSibilingSizes += node.parent!.children[i].size;
-      }
-
+      const leftSibilingSize = addSizeOfLeftSibilings(
+        node.parent! as T,
+        offset,
+      );
       node = node.parent!;
-      path.push(leftSibilingSizes + treePos.offset);
+      path.push(leftSibilingSize + treePos.offset);
     } else {
       path.push(treePos.offset);
     }
 
     while (node.parent) {
-      const pathInfo = node.parent.children.indexOf(node);
-
-      if (pathInfo === -1) {
+      const offset = node.parent.children.indexOf(node);
+      if (offset === -1) {
         throw new Error('invalid treePos');
       }
 
-      path.push(pathInfo);
-
+      path.push(offset);
       node = node.parent;
     }
 
@@ -796,32 +805,43 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `indexOf` returns the index of the given node.
+   * `indexOf` returns the index of the given tree position.
    */
-  public indexOf(node: T): number {
-    let index = 0;
-    let current = node;
-    while (current !== this.root) {
-      const parent = current.parent;
-      if (!parent) {
-        throw new Error(`parent is not found`);
+  public indexOf(pos: TreePos<T>): number {
+    let { node } = pos;
+    const { offset } = pos;
+
+    let size = 0;
+    let depth = 1;
+    if (node.isText) {
+      size += offset;
+
+      const parent = node.parent! as T;
+      const offsetOfNode = parent.children.indexOf(node);
+      if (offsetOfNode === -1) {
+        throw new Error('invalid pos');
       }
 
-      const offset = parent.findOffset(current);
-      for (const previous of parent.children.slice(0, offset)) {
-        index += previous.paddedSize;
-      }
+      size += addSizeOfLeftSibilings(parent, offsetOfNode);
 
-      // If this step escape from element node, we should add 1 to the index,
-      // because the element node has open tag.
-      if (current !== this.root && current !== node && !current.isText) {
-        index += 1;
-      }
-
-      current = parent;
+      node = node.parent!;
+    } else {
+      size += addSizeOfLeftSibilings(node, offset);
     }
 
-    return index;
+    while (node?.parent) {
+      const parent = node.parent;
+      const offsetOfNode = parent.children.indexOf(node);
+      if (offsetOfNode === -1) {
+        throw new Error('invalid pos');
+      }
+
+      size += addSizeOfLeftSibilings(parent, offsetOfNode);
+      depth++;
+      node = node.parent;
+    }
+
+    return size + depth - 1;
   }
 
   /**

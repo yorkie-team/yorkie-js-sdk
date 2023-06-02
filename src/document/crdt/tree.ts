@@ -681,7 +681,7 @@ export class CRDTTree extends CRDTElement {
       return -1;
     }
 
-    return this.indexTree.indexOf(treePos.node) + treePos.offset;
+    return this.indexTree.indexOf(treePos);
   }
 
   /**
