@@ -90,6 +90,8 @@ export class TreeEditOperation extends Operation {
         type: 'tree-edit',
         from,
         to,
+        fromTreePath: tree.indexToPath(from),
+        toTreePath: tree.indexToPath(to),
         value,
         element: this.getParentCreatedAt(),
       };

@@ -20,13 +20,11 @@ import yorkie, {
   Tree,
   TreeNode,
   BlockNode,
-  TreeChange,
-  TreeChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TreeChangeWithPath } from '@yorkie-js-sdk/src/document/json/tree';
+import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `listEqual` is a helper function that the given tree is equal to the
@@ -245,23 +243,40 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
 
-    const actualChanges: Array<TreeChange> = [];
-    doc.getRoot().t.onChanges((changes) => {
-      actualChanges.push(...changes);
+    const actualOperations: Array<TreeEditOpInfo> = [];
+    doc.subscribe('$.t', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+
+        actualOperations.push(
+          ...changes
+            .map((change) => {
+              const { operations } = change;
+              return operations.filter(
+                (op) => op.type === 'tree-edit',
+              ) as Array<TreeEditOpInfo>;
+            })
+            .flat(),
+        );
+      }
     });
+
+    // doc.getRoot().t.onChanges((changes) => {
+    //   actualChanges.push(...changes);
+    // });
 
     doc.update((root) => {
       root.t.edit(1, 1, { type: 'text', value: 'X' });
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
     });
 
-    assert.deepEqual(actualChanges, [
+    assert.deepEqual(actualOperations, [
       {
-        type: TreeChangeType.Content,
+        type: 'tree-edit',
         from: 1,
         to: 1,
         value: { type: 'text', value: 'X' },
-      },
+      } as any,
     ]);
   });
 
@@ -292,9 +307,22 @@ describe('Tree', () => {
       );
     });
 
-    const actualChanges: Array<TreeChangeWithPath> = [];
-    doc.getRoot().t.onChangesByPath((changes) => {
-      actualChanges.push(...changes);
+    const actualOperations: Array<TreeEditOpInfo> = [];
+    doc.subscribe('$.t', (event) => {
+      if (event.type === 'local-change') {
+        const changes = event.value;
+
+        actualOperations.push(
+          ...changes
+            .map((change) => {
+              const { operations } = change;
+              return operations.filter(
+                (op) => op.type === 'tree-edit',
+              ) as Array<TreeEditOpInfo>;
+            })
+            .flat(),
+        );
+      }
     });
 
     doc.update((root) => {
@@ -309,13 +337,13 @@ describe('Tree', () => {
       );
     });
 
-    assert.deepEqual(actualChanges, [
+    assert.deepEqual(actualOperations, [
       {
-        type: TreeChangeType.Content,
-        from: [0, 0, 0, 1],
-        to: [0, 0, 0, 1],
+        type: 'tree-edit',
+        fromTreePath: [0, 0, 0, 1],
+        toTreePath: [0, 0, 0, 1],
         value: { type: 'text', value: 'X' },
-      },
+      } as any,
     ]);
   });
 
