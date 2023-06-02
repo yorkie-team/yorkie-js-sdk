@@ -164,17 +164,46 @@
             });
           });
 
+          function handleOperations(ops) {
+            const selectionStr = rangy.serializeSelection(
+              rangy.getSelection(),
+              true,
+            );
+
+            const deltaOperations = [];
+            let prevTo = 0;
+            for (const op of ops) {
+              if (op.type === 'edit') {
+                const content = op.value.content || '';
+                renderText();
+                // Restore local cursor
+                // TODO: When text input occurs from a remote peer before the location
+                // of the local cursor, index adjustment is necessary.
+                try {
+                  rangy.deserializeSelection(selectionStr);
+                } catch (err) {
+                  console.warn(err);
+                }
+              }
+            }
+          }
+
           // 02-2. subscribe document event.
-          doc.subscribe((event) => {
-            if (event.type === 'local-change') {
-              for (const changeInfo of event.value) {
-                const { message } = changeInfo;
+          doc.subscribe('$.text', (event) => {
+            const changes = event.value;
+            if (event.type === 'remote-change') {
+              for (const change of changes) {
+                const { operations } = change;
+                handleOperations(operations);
+              }
+            } else if (event.type === 'local-change') {
+              for (const change of changes) {
+                const { message } = change;
                 if (message === 'simulate') {
                   renderText();
                 }
               }
             }
-            displayLog(doc);
           });
 
           function renderText() {
@@ -182,30 +211,6 @@
           }
           function syncText() {
             renderText();
-            doc.getRoot().text.onChanges((changes) => {
-              for (const change of changes) {
-                const selectionStr = rangy.serializeSelection(
-                  rangy.getSelection(),
-                  true,
-                );
-                const { type, actor, from, to, value } = change;
-
-                if (type === 'content') {
-                  const content = value.content || '';
-                  if (actor !== client.getID()) {
-                    renderText();
-                    // Restore local cursor
-                    // TODO: When text input occurs from a remote peer before the location
-                    // of the local cursor, index adjustment is necessary.
-                    try {
-                      rangy.deserializeSelection(selectionStr);
-                    } catch (err) {
-                      console.warn(err);
-                    }
-                  }
-                }
-              }
-            });
           }
           syncText();
           displayLog(doc);

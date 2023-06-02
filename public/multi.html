@@ -254,7 +254,13 @@
 
           // 05. Quill example
           doc.subscribe('$.content', (event) => {
-            console.log('🔵 quill event', event);
+            if (event.type === 'remote-change') {
+              const changes = event.value;
+              for (const change of changes) {
+                const { actor, message, operations } = change;
+                handleOperations(operations, actor);
+              }
+            }
           });
 
           Quill.register('modules/cursors', QuillCursors);
@@ -353,26 +359,21 @@
             });
 
           // 05-2. Document to Quill(remote).
-          function changeEventHandler(changes) {
+          function handleOperations(ops, actor) {
             const deltaOperations = [];
             let prevTo = 0;
-            for (const change of changes) {
-              const actorID = change.actor;
-              if (actorID === client.getID()) {
-                continue;
-              }
-
+            for (const op of ops) {
               const actorName = client.getPeerPresence(
                 doc.getKey(),
-                actorID,
+                actor,
               ).username;
-              const from = change.from;
-              const to = change.to;
+              const from = op.from;
+              const to = op.to;
               const retainFrom = from - prevTo;
               const retainTo = to - from;
 
-              if (change.type === 'content') {
-                const { insert, attributes } = toDeltaOperation(change.value);
+              if (op.type === 'edit') {
+                const { insert, attributes } = toDeltaOperation(op.value);
                 console.log(
                   `%c remote: ${from}-${to}: ${insert}`,
                   'color: skyblue',
@@ -385,14 +386,14 @@
                   deltaOperations.push({ delete: retainTo });
                 }
                 if (insert) {
-                  const op = { insert };
+                  const deltaOp = { insert };
                   if (attributes) {
-                    op.attributes = attributes;
+                    deltaOp.attributes = attributes;
                   }
-                  deltaOperations.push(op);
+                  deltaOperations.push(deltaOp);
                 }
-              } else if (change.type === 'style') {
-                const { attributes } = toDeltaOperation(change.value);
+              } else if (op.type === 'style') {
+                const { attributes } = toDeltaOperation(op.value);
                 console.log(
                   `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
                   'color: skyblue',
@@ -402,14 +403,14 @@
                   deltaOperations.push({ retain: retainFrom });
                 }
                 if (attributes) {
-                  const op = { attributes };
+                  const deltaOp = { attributes };
                   if (retainTo) {
-                    op.retain = retainTo;
+                    deltaOp.retain = retainTo;
                   }
 
-                  deltaOperations.push(op);
+                  deltaOperations.push(deltaOp);
                 }
-              } else if (change.type === 'selection') {
+              } else if (op.type === 'select') {
                 cursors.createCursor(
                   actorName,
                   actorName,
@@ -436,7 +437,6 @@
           // 05-3. synchronize text of document and Quill.
           function syncText() {
             const text = doc.getRoot().content;
-            text.onChanges(changeEventHandler);
 
             const delta = {
               ops: text.values().map((val) => toDeltaOperation(val)),

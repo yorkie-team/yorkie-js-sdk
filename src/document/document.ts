@@ -49,7 +49,7 @@ import {
   InternalOpInfo,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONObject } from './json/object';
+import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { Trie } from '../util/trie';
 
 /**
@@ -256,7 +256,7 @@ export class Document<T> {
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
-        this.eventStreamObserver.next({
+        this.eventStreamObserver.nextSync({
           type: DocEventType.LocalChange,
           value: [
             {

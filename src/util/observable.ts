@@ -74,13 +74,12 @@ class ObserverProxy<T> implements Observer<T> {
 
   constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
     this.onNoObservers = onNoObservers;
-    this.task
-      .then(() => {
-        executor(this);
-      })
-      .catch((error) => {
-        this.error(error);
-      });
+
+    try {
+      executor(this);
+    } catch (error: any) {
+      this.error(error);
+    }
   }
 
   /**
