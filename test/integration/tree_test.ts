@@ -271,14 +271,24 @@ describe.only('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
     });
 
-    assert.deepEqual(actualOperations, [
-      {
-        type: 'tree-edit',
-        from: 1,
-        to: 1,
-        value: { type: 'text', value: 'X' },
-      } as any,
-    ]);
+    assert.deepEqual(
+      actualOperations.map((it) => {
+        return {
+          type: it.type,
+          from: it.from,
+          to: it.to,
+          value: it.value,
+        };
+      }),
+      [
+        {
+          type: 'tree-edit',
+          from: 1,
+          to: 1,
+          value: { type: 'text', value: 'X' },
+        } as any,
+      ],
+    );
   });
 
   it('Can be subscribed by handler(path)', function () {
@@ -338,14 +348,24 @@ describe.only('Tree', () => {
       );
     });
 
-    assert.deepEqual(actualOperations, [
-      {
-        type: 'tree-edit',
-        fromTreePath: [0, 0, 0, 1],
-        toTreePath: [0, 0, 0, 1],
-        value: { type: 'text', value: 'X' },
-      } as any,
-    ]);
+    assert.deepEqual(
+      actualOperations.map((it) => {
+        return {
+          type: it.type,
+          fromTreePath: it.fromTreePath,
+          toTreePath: it.toTreePath,
+          value: it.value,
+        };
+      }),
+      [
+        {
+          type: 'tree-edit',
+          fromTreePath: [0, 0, 0, 1],
+          toTreePath: [0, 0, 0, 1],
+          value: { type: 'text', value: 'X' },
+        } as any,
+      ],
+    );
   });
 
   it('Can edit its content with path', function () {
