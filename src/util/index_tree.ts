@@ -88,15 +88,15 @@ export const DefaultTextType = 'text';
  */
 export type TreeNodeType = string;
 
-const addSizeOfLeftSibilings = <T extends IndexTreeNode<T>>(
+const addSizeOfLeftSiblings = <T extends IndexTreeNode<T>>(
   root: T,
   offset: number,
 ) => {
   let acc = 0;
 
   for (let i = 0; i < offset; i++) {
-    const leftSibiling = root.children[i];
-    acc += leftSibiling.paddedSize;
+    const leftSibling = root.children[i];
+    acc += leftSibling.paddedSize;
   }
 
   return acc;
@@ -708,12 +708,9 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         throw new Error('invalid treePos');
       }
 
-      const leftSibilingSize = addSizeOfLeftSibilings(
-        node.parent! as T,
-        offset,
-      );
+      const leftSiblingSize = addSizeOfLeftSiblings(node.parent! as T, offset);
       node = node.parent!;
-      path.push(leftSibilingSize + treePos.offset);
+      path.push(leftSiblingSize + treePos.offset);
     } else {
       path.push(treePos.offset);
     }
@@ -822,11 +819,11 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         throw new Error('invalid pos');
       }
 
-      size += addSizeOfLeftSibilings(parent, offsetOfNode);
+      size += addSizeOfLeftSiblings(parent, offsetOfNode);
 
       node = node.parent!;
     } else {
-      size += addSizeOfLeftSibilings(node, offset);
+      size += addSizeOfLeftSiblings(node, offset);
     }
 
     while (node?.parent) {
@@ -836,7 +833,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         throw new Error('invalid pos');
       }
 
-      size += addSizeOfLeftSibilings(parent, offsetOfNode);
+      size += addSizeOfLeftSiblings(parent, offsetOfNode);
       depth++;
       node = node.parent;
     }
