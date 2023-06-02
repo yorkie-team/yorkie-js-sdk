@@ -111,7 +111,7 @@ export class ChangeContext {
   }
 
   /**
-   * `getLastTimeTicket` returns current time ticket.
+   * `getLastTimeTicket` returns the last time ticket issued in this context.
    */
   public getLastTimeTicket(): TimeTicket {
     return this.id.createTimeTicket(this.delimiter);

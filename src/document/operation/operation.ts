@@ -87,7 +87,7 @@ export type SelectOpInfo = {
   path: string;
 };
 export type TreeEditOpInfo = {
-  type: 'edit';
+  type: 'tree-edit';
   from: number;
   to: number;
   value: TreeNode;

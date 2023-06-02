@@ -47,8 +47,8 @@ export interface TextValueType<A> {
 }
 
 /**
- * `TextChange` is the value passed as an argument to `Text.onChanges()`.
- * `Text.onChanges()` is called when the `Text` is modified.
+ * `TextChange` is the value passed as an argument to `Document.subscribe()`.
+ * `Document.subscribe()` is called when the `Text` is modified.
  */
 export interface TextChange<A = Indexable>
   extends ValueChange<TextValueType<A>> {
@@ -161,10 +161,8 @@ export class CRDTTextValue {
  * @internal
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
-  private onChangesHandler?: (changes: Array<TextChange<A>>) => void;
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
   private selectionMap: Map<string, Selection>;
-  private remoteChangeLock: boolean;
 
   constructor(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
@@ -173,7 +171,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
     this.selectionMap = new Map();
-    this.remoteChangeLock = false;
   }
 
   /**
@@ -231,12 +228,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       changes.push(selectionChange);
     }
 
-    if (this.onChangesHandler) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler(changes);
-      this.remoteChangeLock = false;
-    }
-
     return [latestCreatedAtMap, changes];
   }
 
@@ -288,11 +279,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       }
     }
 
-    if (this.onChangesHandler) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler(changes);
-      this.remoteChangeLock = false;
-    }
     return changes;
   }
 
@@ -305,24 +291,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
     range: RGATreeSplitNodeRange,
     updatedAt: TimeTicket,
   ): TextChange<A> | undefined {
-    if (this.remoteChangeLock) {
-      return;
-    }
-
-    const change = this.selectPriv(range, updatedAt);
-    if (this.onChangesHandler && change) {
-      this.remoteChangeLock = true;
-      this.onChangesHandler([change]);
-      this.remoteChangeLock = false;
-    }
-    return change;
-  }
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  public onChanges(handler: (changes: Array<TextChange<A>>) => void): void {
-    this.onChangesHandler = handler;
+    return this.selectPriv(range, updatedAt);
   }
 
   /**

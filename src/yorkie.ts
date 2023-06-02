@@ -61,6 +61,18 @@ export {
   TextChange,
   TextChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/text';
+export type {
+  OperationInfo,
+  AddOpInfo,
+  IncreaseOpInfo,
+  RemoveOpInfo,
+  SetOpInfo,
+  MoveOpInfo,
+  EditOpInfo,
+  StyleOpInfo,
+  SelectOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
+
 // TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
 // if not exported. We need to find a way to handle this without exporting the below.
 export { ValueChange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -68,7 +80,6 @@ export {
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-export type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {
   Primitive,
@@ -85,8 +96,8 @@ export { Text } from '@yorkie-js-sdk/src/document/json/text';
 export {
   Tree,
   TreeNode,
-  BlockNode,
-  InlineNode,
+  ElementNode,
+  TextNode,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
