@@ -40,7 +40,7 @@
  *  <p> A B C </p>                          p.size = 3,   text.size = 3
  *
  * So the size of a node is the sum of the size and type of its children:
- *  `size = children(block type).length * 2 + children.reduce((child, acc) => child.size + acc, 0)`
+ *  `size = children(element type).length * 2 + children.reduce((child, acc) => child.size + acc, 0)`
  *
  * `TreePos` is also used to represent the position in the tree. It contains node and offset.
  * `TreePos` can be converted to `index` and vice versa.
@@ -66,10 +66,10 @@
  */
 
 /**
- * `BlockNodePaddingSize` is the size of a block node as a child of another block node.
- * Because a block node could be considered as a pair of open and close tags.
+ * `ElementPaddingSize` is the size of an element node as a child of another element node.
+ * Because an element node could be considered as a pair of open and close tags.
  */
-export const BlockNodePaddingSize = 2;
+export const ElementPaddingSize = 2;
 
 /**
  * `DefaultRootType` is the default type of the root node.
@@ -78,10 +78,10 @@ export const BlockNodePaddingSize = 2;
 export const DefaultRootType = 'root';
 
 /**
- * `DefaultInlineType` is the default type of the inline node.
- * It is used when the type of the inline node is not specified.
+ * `DefaultTextType` is the default type of the text node.
+ * It is used when the type of the text node is not specified.
  */
-export const DefaultInlineType = 'text';
+export const DefaultTextType = 'text';
 
 /**
  * `NoteType` is the type of a node in the tree.
@@ -103,8 +103,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this.size = 0;
     this._children = children;
 
-    if (this.isInline && this._children.length > 0) {
-      throw new Error(`Inline node cannot have children: ${this.type}`);
+    if (this.isText && this._children.length > 0) {
+      throw new Error(`Text node cannot have children: ${this.type}`);
     }
   }
 
@@ -122,19 +122,19 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `isInline` returns true if the node is a inline node.
+   * `isText` returns true if the node is a text node.
    */
-  get isInline(): boolean {
-    // TODO(hackerwins): We need to get the type of inline node from user.
-    // Consider the use schema to get the type of inline node.
-    return this.type === DefaultInlineType;
+  get isText(): boolean {
+    // TODO(hackerwins): We need to get the type of text node from user.
+    // Consider the use schema to get the type of text node.
+    return this.type === DefaultTextType;
   }
 
   /**
    * `paddedSize` returns the size of the node including padding size.
    */
   get paddedSize(): number {
-    return this.size + (this.isInline ? 0 : BlockNodePaddingSize);
+    return this.size + (this.isText ? 0 : ElementPaddingSize);
   }
 
   /**
@@ -161,11 +161,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `split` splits the node at the given offset.
    */
   split(offset: number): T | undefined {
-    if (this.isInline) {
-      return this.splitInline(offset);
+    if (this.isText) {
+      return this.splitText(offset);
     }
 
-    return this.splitBlock(offset);
+    return this.splitElement(offset);
   }
 
   /**
@@ -189,9 +189,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   abstract set value(v: string);
 
   /**
-   * `splitInline` splits the given node at the given offset.
+   * `splitText` splits the given node at the given offset.
    */
-  splitInline(offset: number): T | undefined {
+  splitText(offset: number): T | undefined {
     if (offset === 0 || offset === this.size) {
       return;
     }
@@ -219,18 +219,18 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `hasInlineChild` returns true if the node has an inline child.
+   * `hasTextChild` returns true if the node has an text child.
    */
-  hasInlineChild(): boolean {
-    return this.children.some((child) => child.isInline);
+  hasTextChild(): boolean {
+    return this.children.some((child) => child.isText);
   }
 
   /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<T>): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     this._children.push(...newNode);
@@ -244,8 +244,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `prepend` prepends the given nodes to the children.
    */
   prepend(...newNode: Array<T>): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     this._children.unshift(...newNode);
@@ -259,8 +259,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `insertBefore` inserts the given node before the given child.
    */
   insertBefore(newNode: T, referenceNode: T): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -276,8 +276,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `insertAfter` inserts the given node after the given child.
    */
   insertAfter(newNode: T, referenceNode: T): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -293,8 +293,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `insertAt` inserts the given node at the given offset.
    */
   insertAt(newNode: T, offset: number): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     this.insertAtInternal(newNode, offset);
@@ -305,8 +305,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `removeChild` removes the given child.
    */
   removeChild(childNode: T) {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     const offset = this._children.indexOf(childNode);
@@ -319,9 +319,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `splitNode` splits the given node at the given offset.
+   * `splitElement` splits the given element at the given offset.
    */
-  splitBlock(offset: number): T | undefined {
+  splitElement(offset: number): T | undefined {
     const clone = this.clone(offset);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
@@ -350,8 +350,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * This method does not update the size of the ancestors.
    */
   insertAfterInternal(newNode: T, referenceNode: T): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -367,8 +367,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * This method does not update the size of the ancestors.
    */
   insertAtInternal(newNode: T, offset: number): void {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     this._children.splice(offset, 0, newNode);
@@ -379,8 +379,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * findOffset returns the offset of the given node in the children.
    */
   findOffset(node: T): number {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     return this.children.indexOf(node);
@@ -391,8 +391,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * If the given node is not a descendant of this node, it returns -1.
    */
   findBranchOffset(node: T): number {
-    if (this.isInline) {
-      throw new Error('Inline node cannot have children');
+    if (this.isText) {
+      throw new Error('Text node cannot have children');
     }
 
     let current: T | undefined = node;
@@ -412,9 +412,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 /**
  * `TreePos` is the position of a node in the tree.
  *
- * `offset` is the position of node's token. For example, if the node is a
- * block node, the offset is the index of the child node. If the node is a
- * inline node, the offset is the index of the character.
+ * `offset` is the position of node's token. For example, if the node is an
+ * element node, the offset is the index of the child node. If the node is a
+ * text node, the offset is the index of the character.
  */
 export type TreePos<T extends IndexTreeNode<T>> = {
   node: T;
@@ -467,13 +467,13 @@ function nodesBetween<T extends IndexTreeNode<T>>(
 
   let pos = 0;
   for (const child of root.children) {
-    // If the child is a block node, the size of the child.
+    // If the child is an element node, the size of the child.
     if (from - child.paddedSize < pos && pos < to) {
-      // If the child is a block node, the range of the child
-      // is from - 1 to to - 1. Because the range of the block node is from
+      // If the child is an element node, the range of the child
+      // is from - 1 to to - 1. Because the range of the element node is from
       // the open tag to the close tag.
-      const fromChild = child.isInline ? from - pos : from - pos - 1;
-      const toChild = child.isInline ? to - pos : to - pos - 1;
+      const fromChild = child.isText ? from - pos : from - pos - 1;
+      const toChild = child.isText ? to - pos : to - pos - 1;
       nodesBetween(
         child,
         Math.max(0, fromChild),
@@ -483,7 +483,7 @@ function nodesBetween<T extends IndexTreeNode<T>>(
 
       // If the range spans outside the child,
       // the callback is called with the child.
-      if (fromChild < 0 || toChild > child.size || child.isInline) {
+      if (fromChild < 0 || toChild > child.size || child.isText) {
         callback(child);
       }
     }
@@ -510,13 +510,13 @@ export function traverse<T extends IndexTreeNode<T>>(
 function findTreePos<T extends IndexTreeNode<T>>(
   node: T,
   index: number,
-  preperInline = true,
+  preferText = true,
 ): TreePos<T> {
   if (index > node.size) {
     throw new Error(`index is out of range: ${index} > ${node.size}`);
   }
 
-  if (node.isInline) {
+  if (node.isText) {
     return { node, offset: index };
   }
 
@@ -525,27 +525,27 @@ function findTreePos<T extends IndexTreeNode<T>>(
   let offset = 0;
   let pos = 0;
   for (const child of node.children) {
-    // The pos is in bothsides of the inline node, we should traverse
-    // inside of the inline node if preperInline is true.
-    if (preperInline && child.isInline && child.size >= index - pos) {
-      return findTreePos(child, index - pos, preperInline);
+    // The pos is in bothsides of the text node, we should traverse
+    // inside of the text node if preferText is true.
+    if (preferText && child.isText && child.size >= index - pos) {
+      return findTreePos(child, index - pos, preferText);
     }
 
-    // The position is in leftside of the block node.
+    // The position is in leftside of the element node.
     if (index === pos) {
       return { node, offset };
     }
 
-    // The position is in rightside of the block node and preperInline is false.
-    if (!preperInline && child.paddedSize === index - pos) {
+    // The position is in rightside of the element node and preferText is false.
+    if (!preferText && child.paddedSize === index - pos) {
       return { node, offset: offset + 1 };
     }
 
-    // The position is in middle the block node.
+    // The position is in middle the element node.
     if (child.paddedSize > index - pos) {
-      // If we traverse inside of the block node, we should skip the open.
+      // If we traverse inside of the element node, we should skip the open.
       const skipOpenSize = 1;
-      return findTreePos(child, index - pos - skipOpenSize, preperInline);
+      return findTreePos(child, index - pos - skipOpenSize, preferText);
     }
 
     pos += child.paddedSize;
@@ -601,7 +601,7 @@ export function findCommonAncestor<T extends IndexTreeNode<T>>(
  * `findLeftmost` finds the leftmost node of the given tree.
  */
 export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
-  if (node.isInline || node.children.length === 0) {
+  if (node.isText || node.children.length === 0) {
     return node;
   }
 
@@ -609,12 +609,9 @@ export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
 }
 
 /**
- * `findInlinePos` returns the tree position of the given path element.
+ * `findTextPos` returns the tree position of the given path element.
  */
-function findInlinePos<T extends IndexTreeNode<T>>(
-  node: T,
-  pathElement: number,
-) {
+function findTextPos<T extends IndexTreeNode<T>>(node: T, pathElement: number) {
   if (node.size < pathElement) {
     throw new Error('unacceptable path');
   }
@@ -680,8 +677,8 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   /**
    * findTreePos finds the position of the given index in the tree.
    */
-  public findTreePos(index: number, preperInline = true): TreePos<T> {
-    return findTreePos(this.root, index, preperInline);
+  public findTreePos(index: number, preferText = true): TreePos<T> {
+    return findTreePos(this.root, index, preferText);
   }
 
   /**
@@ -691,7 +688,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     const path = [];
     let node = treePos.node;
 
-    if (node.isInline) {
+    if (node.isText) {
       const index = node.parent!.children.indexOf(node);
 
       if (index === -1) {
@@ -743,8 +740,8 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       }
     }
 
-    if (node.hasInlineChild()) {
-      return findInlinePos(node, path[path.length - 1]);
+    if (node.hasTextChild()) {
+      return findTextPos(node, path[path.length - 1]);
     }
 
     if (node.children.length < path[path.length - 1]) {
@@ -778,7 +775,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   public findPostorderRight(treePos: TreePos<T>): T | undefined {
     const { node, offset } = treePos;
 
-    if (node.isInline) {
+    if (node.isText) {
       if (node.size === offset) {
         const nextSibling = node.nextSibling;
         if (nextSibling) {
@@ -815,9 +812,9 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         index += previous.paddedSize;
       }
 
-      // If this step escape from block node, we should add 1 to the index,
-      // because the block node has open tag.
-      if (current !== this.root && current !== node && !current.isInline) {
+      // If this step escape from element node, we should add 1 to the index,
+      // because the element node has open tag.
+      if (current !== this.root && current !== node && !current.isText) {
         index += 1;
       }
 

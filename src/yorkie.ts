@@ -96,8 +96,8 @@ export { Text } from '@yorkie-js-sdk/src/document/json/text';
 export {
   Tree,
   TreeNode,
-  BlockNode,
-  InlineNode,
+  ElementNode,
+  TextNode,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';

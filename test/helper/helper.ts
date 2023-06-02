@@ -16,7 +16,7 @@
 
 import { assert } from 'chai';
 
-import yorkie, { Tree, BlockNode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -138,9 +138,9 @@ export class TextView {
 }
 
 /**
- * `buildIndexTree` builds an index tree from the given block node.
+ * `buildIndexTree` builds an index tree from the given element node.
  */
-export function buildIndexTree(node: BlockNode): IndexTree<CRDTTreeNode> {
+export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
   const doc = new yorkie.Document<{ t: Tree }>('test');
   doc.update((root) => {
     root.t = new Tree(node);

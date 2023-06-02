@@ -19,7 +19,7 @@ import yorkie, {
   Document,
   Tree,
   TreeNode,
-  BlockNode,
+  ElementNode,
   TreeChange,
   TreeChangeType,
 } from '@yorkie-js-sdk/src/yorkie';
@@ -75,7 +75,7 @@ function createChangePack(doc: Document<unknown>): ChangePack {
  */
 function createTwoTreeDocs<T extends { t: Tree }>(
   key: string,
-  initial: BlockNode,
+  initial: ElementNode,
 ): [Document<T>, Document<T>] {
   const doc1 = new yorkie.Document<T>(key);
   const doc2 = new yorkie.Document<T>(key);
@@ -104,7 +104,7 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
 
-describe('Tree', () => {
+describe.only('Tree', () => {
   it('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -403,7 +403,7 @@ describe('Tree', () => {
 });
 
 describe('Tree.edit', function () {
-  it.skip('Can insert inline content to the same position(left) concurrently', function () {
+  it.skip('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
@@ -418,7 +418,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>BA12</p></r>`);
   });
 
-  it('Can insert inline content to the same position(middle) concurrently', function () {
+  it('Can insert text to the same position(middle) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
@@ -433,7 +433,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1BA2</p></r>`);
   });
 
-  it('Can insert inline content to the same position(right) concurrently', function () {
+  it('Can insert text content to the same position(right) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
