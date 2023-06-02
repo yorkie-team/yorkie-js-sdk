@@ -35,7 +35,6 @@ declare class Text<A extends Indexable = Indexable>
 |  [empty()](./yorkie-js-sdk.text.empty.md) |  | <code>empty</code> makes the text empty. |
 |  [getID()](./yorkie-js-sdk.text.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [getStructureAsString()](./yorkie-js-sdk.text.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a String containing the meta data of the node for debugging purpose. |
-|  [onChanges(handler)](./yorkie-js-sdk.text.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.text.select.md) |  | <code>select</code> selects the given range. |
 |  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.text.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
 |  [toString()](./yorkie-js-sdk.text.tostring.md) |  | <code>toString</code> returns the string representation of this text. |
