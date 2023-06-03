@@ -102,7 +102,7 @@ function issueTime(): TimeTicket {
   return dummyContext.issueTimeTicket();
 }
 
-describe.only('CRDTTreeNode', function () {
+describe('CRDTTreeNode', function () {
   it('Can be created', function () {
     const node = new CRDTTreeNode(ITP, 'text', 'hello');
     assert.equal(node.pos, ITP);
@@ -133,7 +133,7 @@ describe.only('CRDTTreeNode', function () {
 });
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
-describe.only('CRDTTree', function () {
+describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>

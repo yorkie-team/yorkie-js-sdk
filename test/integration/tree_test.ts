@@ -104,7 +104,7 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
 
-describe.only('Tree', () => {
+describe('Tree', () => {
   it('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -411,7 +411,7 @@ describe.only('Tree', () => {
     });
   });
 
-  it.only('Can edit its content with path', function () {
+  it('Can edit its content with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
