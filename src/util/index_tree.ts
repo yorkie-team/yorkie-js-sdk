@@ -88,19 +88,22 @@ export const DefaultTextType = 'text';
  */
 export type TreeNodeType = string;
 
-const addSizeOfLeftSiblings = <T extends IndexTreeNode<T>>(
-  root: T,
+/**
+ * `addSizeOfLeftSiblings` returns the size of left siblings of the given offset.
+ */
+function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
+  parent: T,
   offset: number,
-) => {
+): number {
   let acc = 0;
 
   for (let i = 0; i < offset; i++) {
-    const leftSibling = root.children[i];
+    const leftSibling = parent.children[i];
     acc += leftSibling.paddedSize;
   }
 
   return acc;
-};
+}
 
 /**
  * `IndexTreeNode` is the node of IndexTree. It is used to represent the
@@ -318,18 +321,18 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `removeChild` removes the given child.
    */
-  removeChild(childNode: T) {
+  removeChild(child: T) {
     if (this.isText) {
       throw new Error('Text node cannot have children');
     }
 
-    const offset = this._children.indexOf(childNode);
+    const offset = this._children.indexOf(child);
     if (offset === -1) {
       throw new Error('child not found');
     }
 
     this._children.splice(offset, 1);
-    childNode.parent = undefined;
+    child.parent = undefined;
   }
 
   /**
@@ -391,6 +394,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
   /**
    * findOffset returns the offset of the given node in the children.
+   * It excludes the removed nodes.
    */
   findOffset(node: T): number {
     if (this.isText) {
@@ -569,6 +573,7 @@ function findTreePos<T extends IndexTreeNode<T>>(
   // The position is in rightmost of the given node.
   return { node, offset };
 }
+
 /**
  * `getAncestors` returns the ancestors of the given node.
  */
@@ -631,12 +636,12 @@ function findTextPos<T extends IndexTreeNode<T>>(node: T, pathElement: number) {
   }
 
   for (let i = 0; i < node.children.length; i++) {
-    const childNode = node.children[i];
+    const child = node.children[i];
 
-    if (childNode.size < pathElement) {
-      pathElement -= childNode.size;
+    if (child.size < pathElement) {
+      pathElement -= child.size;
     } else {
-      node = childNode;
+      node = child;
 
       break;
     }
@@ -703,20 +708,23 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     let node = treePos.node;
 
     if (node.isText) {
-      const offset = node.parent!.children.indexOf(node);
+      const offset = node.parent!.findOffset(node);
       if (offset === -1) {
         throw new Error('invalid treePos');
       }
 
-      const leftSiblingSize = addSizeOfLeftSiblings(node.parent! as T, offset);
+      const sizeOfLeftSiblings = addSizeOfLeftSiblings(
+        node.parent! as T,
+        offset,
+      );
       node = node.parent!;
-      path.push(leftSiblingSize + treePos.offset);
+      path.push(sizeOfLeftSiblings + treePos.offset);
     } else {
       path.push(treePos.offset);
     }
 
     while (node.parent) {
-      const offset = node.parent.children.indexOf(node);
+      const offset = node.parent.findOffset(node);
       if (offset === -1) {
         throw new Error('invalid treePos');
       }
@@ -814,7 +822,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       size += offset;
 
       const parent = node.parent! as T;
-      const offsetOfNode = parent.children.indexOf(node);
+      const offsetOfNode = parent.findOffset(node);
       if (offsetOfNode === -1) {
         throw new Error('invalid pos');
       }
@@ -828,7 +836,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
     while (node?.parent) {
       const parent = node.parent;
-      const offsetOfNode = parent.children.indexOf(node);
+      const offsetOfNode = parent.findOffset(node);
       if (offsetOfNode === -1) {
         throw new Error('invalid pos');
       }
@@ -846,7 +854,6 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    */
   public indexToPath(index: number): Array<number> {
     const treePos = this.findTreePos(index);
-
     return this.treePosToPath(treePos);
   }
 }

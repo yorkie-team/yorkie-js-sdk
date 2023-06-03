@@ -25,7 +25,10 @@ import yorkie, {
 } from '@yorkie-js-sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { toDocKey } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  toDocKey,
+  withTwoClientsAndDocuments,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import { TreeChangeWithPath } from '@yorkie-js-sdk/src/document/json/tree';
 
 /**
@@ -505,6 +508,18 @@ describe('Tree', () => {
         '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p><p><tn>d</tn></p></tc></doc>',
       );
     });
+  });
+
+  it.skip('Can sync its content with other replicas', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({ type: 'doc', children: [] });
+      });
+      c1.sync();
+      c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+    }, this.test!.title);
   });
 });
 

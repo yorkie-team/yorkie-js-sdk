@@ -208,10 +208,7 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
     pbElementSimple.setValue(element.toBytes());
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${element}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 
   return pbElementSimple;
@@ -541,10 +538,7 @@ function toElement(element: CRDTElement): PbJSONElement {
   } else if (element instanceof CRDTCounter) {
     return toCounter(element);
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${element}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 }
 
@@ -673,10 +667,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
   }
 
-  throw new YorkieError(
-    Code.Unimplemented,
-    `unimplemented element: ${pbElementSimple}`,
-  );
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
@@ -972,10 +963,7 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
   } else if (pbElement.hasCounter()) {
     return fromCounter(pbElement.getCounter()!);
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${pbElement}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 }
 
