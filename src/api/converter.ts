@@ -806,29 +806,22 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
  * `fromTreeNodes` converts the given Protobuf format to model format.
  */
 function fromTreeNodes(pbTreeNodes: Array<PbTreeNode>): CRDTTreeNode {
-  const root = fromTreeNode(pbTreeNodes[pbTreeNodes.length - 1]);
+  const nodes: Array<CRDTTreeNode> = [];
+  for (const pbTreeNode of pbTreeNodes) {
+    nodes.push(fromTreeNode(pbTreeNode));
+  }
 
-  let prevNode = root;
-  for (let i = pbTreeNodes.length - 2; i >= 0; i--) {
-    const currentPBNode = pbTreeNodes[i];
-    const prevPBNode = pbTreeNodes[i + 1];
-
-    const current = fromTreeNode(currentPBNode);
-
-    if (currentPBNode.getDepth() === prevPBNode.getDepth()) {
-      // current is the sibling of prev.
-    } else {
-      // current is a child of previous, so find the parent.
-      for (
-        let j = i + 1;
-        currentPBNode.getDepth() - 1 != pbTreeNodes[j].getDepth();
-        j++
-      ) {
-        prevNode = prevNode.parent!;
+  const root = nodes[nodes.length - 1];
+  for (let i = nodes.length - 2; i >= 0; i--) {
+    let parent: CRDTTreeNode;
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (pbTreeNodes[i].getDepth() - 1 === pbTreeNodes[j].getDepth()) {
+        parent = nodes[j];
+        break;
       }
-      prevNode.prepend(current);
     }
-    prevNode = current;
+
+    parent!.prepend(nodes[i]);
   }
 
   // build CRDTTree from the root to construct the links between nodes.
