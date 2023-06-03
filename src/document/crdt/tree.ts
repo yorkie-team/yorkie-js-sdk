@@ -158,18 +158,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `create` creates a new instance of CRDTTreeNode.
    */
   static create(
-    createdAt: TimeTicket,
+    pos: CRDTTreePos,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
   ) {
-    return new CRDTTreeNode(
-      {
-        createdAt,
-        offset: 0,
-      },
-      type,
-      opts,
-    );
+    return new CRDTTreeNode(pos, type, opts);
   }
 
   /**

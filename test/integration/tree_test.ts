@@ -510,15 +510,37 @@ describe('Tree', () => {
     });
   });
 
-  it.skip('Can sync its content with other replicas', async function () {
+  it('Can sync its content with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.t = new Tree({ type: 'doc', children: [] });
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
       });
-      c1.sync();
-      c2.sync();
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      d1.update((root) => {
+        root.t.edit(7, 7, {
+          type: 'p',
+          children: [{ type: 'text', value: 'yorkie' }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
+      );
     }, this.test!.title);
   });
 });

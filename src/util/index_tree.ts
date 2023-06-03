@@ -514,12 +514,13 @@ function nodesBetween<T extends IndexTreeNode<T>>(
  */
 export function traverse<T extends IndexTreeNode<T>>(
   node: T,
-  callback: (node: T) => void,
+  callback: (node: T, depth: number) => void,
+  depth = 0,
 ) {
   for (const child of node.children) {
-    traverse(child, callback);
+    traverse(child, callback, depth + 1);
   }
-  callback(node);
+  callback(node, depth);
 }
 
 /**
@@ -671,7 +672,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    * `traverse` traverses the tree with postorder traversal.
    */
   traverse(callback: (node: T) => void): void {
-    traverse(this.root, callback);
+    traverse(this.root, callback, 0);
   }
 
   /**
