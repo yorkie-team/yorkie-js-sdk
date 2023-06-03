@@ -530,7 +530,7 @@ export class CRDTTree extends CRDTElement {
         }
       } else {
         const target = fromPos.node;
-        target.insertAt(content, fromPos.offset + 1);
+        target.insertAt(content, fromPos.offset);
       }
     }
 
