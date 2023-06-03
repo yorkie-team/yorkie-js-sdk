@@ -265,6 +265,17 @@ export class Tree {
   }
 
   /**
+   * `toJSON` returns the JSON string of this tree.
+   */
+  public toJSON(): string {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.toJSON();
+  }
+
+  /**
    * `onChanges` registers a handler of onChanges event.
    */
   onChanges(handler: (changes: Array<TreeChange>) => void): void {

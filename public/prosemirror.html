@@ -23,20 +23,6 @@
             </div>
           </div>
         </div>
-        <div class="editor-area">
-          <div id="pm2-sub-log" class="sub-log"></div>
-          <div>
-            <h2>Second</h2>
-            <div id="app2"></div>
-          </div>
-
-          <div>
-            <div class="pm">
-              <h2>Second Doc</h2>
-              <div id="pm2-log" class="log-view"></div>
-            </div>
-          </div>
-        </div>
       </div>
       <div class="log">
         <div class="tr">
@@ -161,7 +147,7 @@
         ],
       };
 
-      function convertDocForTree(pmNode) {
+      function docToTreeNode(pmNode) {
         if (pmNode.type === 'text') {
           return {
             type: 'text',
@@ -174,7 +160,25 @@
           children: [],
         };
         for (const child of pmNode.content) {
-          node.children.push(convertDocForTree(child));
+          node.children.push(docToTreeNode(child));
+        }
+        return node;
+      }
+
+      function treeNodeToDoc(treeNode) {
+        if (treeNode.type === 'text') {
+          return {
+            type: 'text',
+            text: treeNode.value,
+          };
+        }
+
+        const node = {
+          type: treeNode.type,
+          content: [],
+        };
+        for (const child of treeNode.children) {
+          node.content.push(treeNodeToDoc(child));
         }
         return node;
       }
@@ -197,21 +201,25 @@
        * main is the entry point of the example.
        */
       async function main() {
-        // TODO(hackerwins): Uncomment this after implementing CRDT.
-        // const client = new yorkie.Client('http://localhost:8080');
-        // await client.activate();
+        const client = new yorkie.Client('http://localhost:8080');
+        await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
-        const doc = new yorkie.Document();
+        const doc = new yorkie.Document('prosemirror');
         window.doc = doc;
-        // await client.attach(doc);
+        await client.attach(doc);
         doc.update((root) => {
-          root.tree = new yorkie.Tree(convertDocForTree(initialDoc));
+          if (!root.tree) {
+            root.tree = new yorkie.Tree(docToTreeNode(initialDoc));
+          }
         });
 
         // 02. Create ProseMirror Editor.
         const state = EditorState.create({
-          doc: Node.fromJSON(mySchema, initialDoc),
+          doc: Node.fromJSON(
+            mySchema,
+            treeNodeToDoc(JSON.parse(doc.getRoot().tree.toJSON())),
+          ),
           plugins: [
             keymap({
               'Ctrl-b': toggleMark(mySchema.marks.shouting),
@@ -222,55 +230,36 @@
         });
 
         // 04. Downstream: yorkie.Text to ProseMirror.
-        doc.getRoot().tree.onChanges((changes) => {
-          // console.log({ changes });
+        doc.subscribe('$.tree', (event) => {
+          if (event.type !== 'remote-change') {
+            return;
+          }
 
-          window.firstChanges = changes;
-          // loop through changes and apply to ProseMirror.
-          changes.forEach((it) => {
-            switch (it.type) {
-              // insert a new node.
-              case 'content':
-                const { from, to, value: content } = it;
+          for (const change of event.value) {
+            const { message, actor, operations } = change;
+            for (const op of operations) {
+              if (op.type !== 'tree-edit') {
+                continue;
+              }
 
-                const transform = view2.state.tr;
-                if (content) {
-                  transform.replaceWith(
-                    from,
-                    to,
-                    Node.fromJSON(mySchema, {
-                      type: content.type,
-                      text: content.value,
-                    }),
-                  );
-                } else {
-                  transform.replace(from, to);
-                }
-                const newState = view2.state.apply(transform);
-
-                view2.updateState(newState);
-
-                const paintText = (str) => {
-                  return `<strong style="color:red;font-size:1.2rem;"><em>${str}</em></strong>`;
-                };
-
-                // display log
-                if (content) {
-                  document.getElementById('pm2-sub-log').innerHTML = `<pre>
-  transform.replaceWidth(${paintText(from)}, ${paintText(
-                    to,
-                  )}, Node.fromJSON(mySchema, {type: "${paintText(
-                    content?.type,
-                  )}",text: "${paintText(content?.value)}"})
-      </pre>`;
-                } else {
-                  document.getElementById('pm2-sub-log').innerHTML = `<pre>
-  transform.replace(${paintText(from)}, ${paintText(to)})
-      </pre>`;
-                }
-                break;
+              const { from, to, value: content } = op;
+              const transform = view.state.tr;
+              if (content) {
+                transform.replaceWith(
+                  from,
+                  to,
+                  Node.fromJSON(mySchema, {
+                    type: content.type,
+                    text: content.value,
+                  }),
+                );
+              } else {
+                transform.replace(from, to);
+              }
+              const newState = view.state.apply(transform);
+              view.updateState(newState);
             }
-          });
+          }
         });
 
         // 03. Upstream: ProseMirror to yorkie.Text.
@@ -334,7 +323,7 @@
 
                 // 03-4. Edit: Insert the given content.
                 for (const node of content.content) {
-                  root.tree.edit(from, to, convertDocForTree(node.toJSON()));
+                  root.tree.edit(from, to, docToTreeNode(node.toJSON()));
                 }
               }
             });
@@ -342,22 +331,7 @@
           },
         });
 
-        // 03. Upstream: ProseMirror to yorkie.Text.
-        const view2 = new EditorView(document.querySelector('#app2'), {
-          state,
-          dispatchTransaction: (transaction) => {
-            view2.updateState(view2.state.apply(transaction));
-
-            console.log('lastTransaction', { transaction });
-          },
-        });
-
         window.view = view;
-        window.view2 = view2;
-
-        // 04. Downstream: yorkie.Text to ProseMirror.
-        // TODO(hackerwins): Implement this.
-
         view.focus();
         showLog();
       }
@@ -382,7 +356,6 @@
               2,
             )}</pre>`;
           } else {
-            // console.log(t.transaction);
             document.getElementById('tr-info').innerHTML = `<pre>
             selection : ${JSON.stringify(
               t.transaction.curSelection.toJSON(),
@@ -410,11 +383,8 @@
           .join('');
         showTransaction();
 
-        // console.log(view.state);
-
         printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         printDoc(view.state.doc, 'pm-log');
-        printDoc(view2.state.doc, 'pm2-log');
         printDocList(doc.getRoot().tree.tree, 'yorkie-list-log');
         printChanges();
       }
@@ -450,8 +420,6 @@
 
       function printDocList(doc, id) {
         const head = doc.dummyHead;
-
-        console.log('printDocList', head);
 
         const arr = [];
         let node = head;
