@@ -33,6 +33,8 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
@@ -186,7 +188,7 @@ export class ObjectProxy {
         );
         value.initialize(context, text);
       } else if (value instanceof Counter) {
-        const counter = CRDTCounter.of(
+        const counter = CRDTCounter.create(
           value.getValueType(),
           value.getValue(),
           ticket,
@@ -202,6 +204,19 @@ export class ObjectProxy {
           ),
         );
         value.initialize(context, counter);
+      } else if (value instanceof Tree) {
+        const tree = CRDTTree.create(value.buildRoot(context), ticket);
+        target.set(key, tree);
+        context.registerElement(tree, target);
+        context.push(
+          SetOperation.create(
+            key,
+            tree.deepcopy(),
+            target.getCreatedAt(),
+            ticket,
+          ),
+        );
+        value.initialize(context, tree);
       } else {
         const obj = CRDTObject.create(ticket);
         setAndRegister(obj);

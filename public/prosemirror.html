@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Prosemirror Example</title>
+    <link rel="stylesheet" href="prosemirror.css" />
+    <script src="./yorkie.js"></script>
+    <script src="./util.js"></script>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="application">
+        <div class="editor-area">
+          <div id="pm-sub-log" class="sub-log"></div>
+          <div>
+            <h2>Main</h2>
+            <div id="app"></div>
+          </div>
+          <div>
+            <div class="pm">
+              <h2>ProseMirror Doc</h2>
+              <div id="pm-log" class="log-view"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="log">
+        <div class="tr">
+          <h2>Transaction</h2>
+          <div class="tr-container">
+            <div id="tr-log" class="log-view"></div>
+            <div id="tr-info"></div>
+          </div>
+        </div>
+        <div class="data-view">
+          <div class="tree-view">
+            <div class="yorkie">
+              <h2>Yorkie IndexTree</h2>
+              <div id="yorkie-log" class="log-view"></div>
+            </div>
+            <div class="list-view">
+              <h2>Yorkie LinkedList</h2>
+              <div id="yorkie-list-log" class="log-list-view"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "prosemirror-state": "https://cdn.jsdelivr.net/npm/prosemirror-state@1.4.3/+esm",
+          "prosemirror-view": "https://cdn.jsdelivr.net/npm/prosemirror-view@1.31.4/+esm",
+          "prosemirror-model": "https://cdn.jsdelivr.net/npm/prosemirror-model@1.19.2/+esm",
+          "prosemirror-transform": "https://cdn.jsdelivr.net//npm/prosemirror-transform@1.7.3/+esm",
+          "prosemirror-keymap": "https://cdn.jsdelivr.net/npm/prosemirror-keymap@1.2.2/+esm",
+          "prosemirror-example-setup": "https://cdn.jsdelivr.net/npm/prosemirror-example-setup@1.2.2/+esm",
+          "prosemirror-commands": "https://cdn.jsdelivr.net/npm/prosemirror-commands@1.5.2/+esm"
+        }
+      }
+    </script>
+    <script type="module">
+      import { EditorState, Transaction } from 'prosemirror-state';
+      import { EditorView } from 'prosemirror-view';
+      import { Schema, Node } from 'prosemirror-model';
+      import { exampleSetup } from 'prosemirror-example-setup';
+      import { toggleMark } from 'prosemirror-commands';
+      import { keymap } from 'prosemirror-keymap';
+
+      window.transactions = [];
+
+      const mySchema = new Schema({
+        nodes: {
+          text: { group: 'inline' },
+          star: {
+            inline: true,
+            group: 'inline',
+            toDOM() {
+              return ['star', '<🌟>'];
+            },
+            parseDOM: [{ tag: 'star' }],
+          },
+          paragraph: {
+            group: 'block',
+            content: 'inline*',
+            toDOM() {
+              return ['p', 0];
+            },
+            parseDOM: [{ tag: 'p' }],
+          },
+          boring_paragraph: {
+            group: 'block',
+            content: 'text*',
+            marks: '',
+            toDOM() {
+              return ['p', { class: 'boring' }, 0];
+            },
+            parseDOM: [{ tag: 'p.boring', priority: 60 }],
+          },
+          note: {
+            group: 'block',
+            content: 'text*',
+            toDOM() {
+              return ['note', 0];
+            },
+            parseDOM: [{ tag: 'note' }],
+          },
+          notegroup: {
+            group: 'block',
+            content: 'note+',
+            toDOM() {
+              return ['notegroup', 0];
+            },
+            parseDOM: [{ tag: 'notegroup' }],
+          },
+          doc: { content: 'block+' },
+        },
+        marks: {
+          shouting: {
+            toDOM() {
+              return ['shouting', 0];
+            },
+            parseDOM: [{ tag: 'shouting' }],
+          },
+        },
+      });
+
+      const initialDoc = {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'ab' }],
+          },
+          {
+            type: 'notegroup',
+            content: [
+              { type: 'note', content: [{ type: 'text', text: 'cd' }] },
+              { type: 'note', content: [{ type: 'text', text: 'ef' }] },
+            ],
+          },
+          {
+            type: 'boring_paragraph',
+            content: [{ type: 'text', text: 'gh' }],
+          },
+        ],
+      };
+
+      function docToTreeNode(pmNode) {
+        if (pmNode.type === 'text') {
+          return {
+            type: 'text',
+            value: pmNode.text,
+          };
+        }
+
+        const node = {
+          type: pmNode.type,
+          children: [],
+        };
+        for (const child of pmNode.content) {
+          node.children.push(docToTreeNode(child));
+        }
+        return node;
+      }
+
+      function treeNodeToDoc(treeNode) {
+        if (treeNode.type === 'text') {
+          return {
+            type: 'text',
+            text: treeNode.value,
+          };
+        }
+
+        const node = {
+          type: treeNode.type,
+          content: [],
+        };
+        for (const child of treeNode.children) {
+          node.content.push(treeNodeToDoc(child));
+        }
+        return node;
+      }
+
+      /**
+       * Insert a star at the current cursor position.
+       */
+      function insertStar(state, dispatch) {
+        const type = mySchema.nodes.star;
+        const { $from } = state.selection;
+        if (!$from.parent.canReplaceWith($from.index(), $from.index(), type)) {
+          return false;
+        }
+
+        dispatch(state.tr.replaceSelectionWith(type.create()));
+        return true;
+      }
+
+      /**
+       * main is the entry point of the example.
+       */
+      async function main() {
+        const client = new yorkie.Client('http://localhost:8080');
+        await client.activate();
+
+        // 01. Build yorkie.Text from ProseMirror doc.
+        const doc = new yorkie.Document('prosemirror');
+        window.doc = doc;
+        await client.attach(doc);
+        doc.update((root) => {
+          if (!root.tree) {
+            root.tree = new yorkie.Tree(docToTreeNode(initialDoc));
+          }
+        });
+
+        // 02. Create ProseMirror Editor.
+        const state = EditorState.create({
+          doc: Node.fromJSON(
+            mySchema,
+            treeNodeToDoc(JSON.parse(doc.getRoot().tree.toJSON())),
+          ),
+          plugins: [
+            keymap({
+              'Ctrl-b': toggleMark(mySchema.marks.shouting),
+              'Ctrl-u': insertStar,
+            }),
+            ...exampleSetup({ schema: mySchema }),
+          ],
+        });
+
+        // 04. Downstream: yorkie.Text to ProseMirror.
+        doc.subscribe('$.tree', (event) => {
+          if (event.type !== 'remote-change') {
+            return;
+          }
+
+          for (const change of event.value) {
+            const { message, actor, operations } = change;
+            for (const op of operations) {
+              if (op.type !== 'tree-edit') {
+                continue;
+              }
+
+              const { from, to, value: content } = op;
+              const transform = view.state.tr;
+              if (content) {
+                transform.replaceWith(
+                  from,
+                  to,
+                  Node.fromJSON(mySchema, {
+                    type: content.type,
+                    text: content.value,
+                  }),
+                );
+              } else {
+                transform.replace(from, to);
+              }
+              const newState = view.state.apply(transform);
+              view.updateState(newState);
+            }
+          }
+        });
+
+        // 03. Upstream: ProseMirror to yorkie.Text.
+        const view = new EditorView(document.querySelector('#app'), {
+          state,
+          dispatchTransaction: (transaction) => {
+            view.updateState(view.state.apply(transaction));
+
+            // If the steps are empty, it means the transaction is not applied to the document.
+            // Only the selection is changed.
+            if (!transaction.steps.length) {
+              window.transactions.unshift({
+                type: 'selection',
+                selection: transaction.curSelection,
+              });
+              showLog();
+              return;
+            }
+
+            window.transactions.unshift({
+              type: 'transaction',
+              transaction: transaction,
+            });
+
+            doc.update((root) => {
+              for (const step of transaction.steps) {
+                const {
+                  jsonID: stepType,
+                  from,
+                  to,
+                  gapFrom,
+                  gapTo,
+                  structure,
+                  slice: { content, openStart, openEnd },
+                } = step;
+
+                // 02-1. Backspace: Level delete
+                // TODO(hackerwins): replaceAround replaces the given range with given gap.
+                if (stepType === 'replaceAround') {
+                  root.tree.move(from, to, gapFrom, gapTo);
+                  return;
+                }
+
+                // 02-2. Enter Key: Insert Paragraph
+                if (
+                  stepType === 'replace' &&
+                  openStart &&
+                  openEnd &&
+                  structure
+                ) {
+                  // TODO(hackerwins): Figure out how many depth to split.
+                  root.tree.split(from, 2);
+                  return;
+                }
+
+                // 02-1. Delete the given range.
+                if (!content.content.length) {
+                  root.tree.edit(from, to);
+                  return;
+                }
+
+                // 03-4. Edit: Insert the given content.
+                for (const node of content.content) {
+                  root.tree.edit(from, to, docToTreeNode(node.toJSON()));
+                }
+              }
+            });
+            showLog();
+          },
+        });
+
+        window.view = view;
+        view.focus();
+        showLog();
+      }
+
+      document.getElementById('tr-log').onclick = (e) => {
+        const index = e.target.getAttribute('data-index');
+        if (index) {
+          showTransaction(+index);
+        }
+      };
+
+      function showTransaction(index) {
+        const t = window.transactions[index || 0];
+
+        if (t) {
+          if (t.type === 'selection') {
+            document.getElementById(
+              'tr-info',
+            ).innerHTML = `<pre>selection\n${JSON.stringify(
+              t.selection.toJSON(),
+              null,
+              2,
+            )}</pre>`;
+          } else {
+            document.getElementById('tr-info').innerHTML = `<pre>
+            selection : ${JSON.stringify(
+              t.transaction.curSelection.toJSON(),
+              null,
+              2,
+            )}
+            transaction
+            ${JSON.stringify(t.transaction.steps, null, 2)}
+            </pre>`;
+          }
+        }
+      }
+
+      function showLog() {
+        // how to show transaction view
+        document.getElementById('tr-log').innerHTML = window.transactions
+          .slice(0, 100)
+          .map((transaction, index) => {
+            if (transaction.type === 'selection') {
+              return `<span data-index="${index}" class="selection-item" id="${transaction.selection.anchor}">.</span>`;
+            }
+
+            return `<span data-index="${index}" class="tr-item">T</span>`;
+          })
+          .join('');
+        showTransaction();
+
+        printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
+        printDoc(view.state.doc, 'pm-log');
+        printDocList(doc.getRoot().tree.tree, 'yorkie-list-log');
+        printChanges();
+      }
+
+      let globalIndex = 0;
+
+      function printNode(node, depth, arr, index) {
+        const nodeType = node.type.name || node.type;
+
+        if (nodeType === 'text') {
+          arr.push({
+            type: nodeType,
+            depth,
+            index,
+            value: node.text || node.value,
+          });
+          return;
+        }
+
+        arr.push({
+          type: nodeType,
+          depth,
+          index,
+          size: node.content?.size || node.size,
+        });
+
+        const list = node.content?.content || node.children || [];
+
+        for (let i = 0; i < list.length; i++) {
+          printNode(list[i], depth + 1, arr, i);
+        }
+      }
+
+      function printDocList(doc, id) {
+        const head = doc.dummyHead;
+
+        const arr = [];
+        let node = head;
+        while (node) {
+          const nodeType = node.type;
+          const pos = `${node.pos.createdAt.getStructureAsString()}-${
+            node.pos.offset
+          }`;
+          if (nodeType === 'text') {
+            arr.push({
+              type: nodeType,
+              value: node.value,
+              pos,
+              removedAt: node.removedAt,
+            });
+          } else {
+            arr.push({
+              type: nodeType,
+              size: node.size,
+              pos,
+              removedAt: node.removedAt,
+            });
+          }
+
+          node = node.next;
+        }
+
+        const html = arr
+          .map((node) => {
+            const className = node.removedAt ? 'removed' : '';
+
+            if (node.type === 'text') {
+              return `<div class="inline ${className}" data-id="${node.pos}">${
+                node.value === ' ' ? '&nbsp;&nbsp;' : node.value
+              }</div>`;
+            }
+            return `<div class="block ${className}" data-id="${node.pos}">${
+              node.type
+            }${
+              node.size ? `<span class="size">(${node.size})</span>` : ''
+            }</div>`;
+          })
+          .join('');
+
+        document.getElementById(id).innerHTML = html;
+      }
+
+      /**
+       * `printDoc` prints the content of the yorkie.Text.
+       */
+      function printDoc(doc, id) {
+        const arr = [];
+        globalIndex = 0;
+        printNode(doc, 0, arr);
+
+        const html = arr
+          .map((node) => {
+            if (node.type === 'text') {
+              return `<div class="inline" style="padding-left: ${
+                node.index === 0 ? node.depth * 14 : 0
+              }px">${node.value === ' ' ? '&nbsp;&nbsp;' : node.value}</div>`;
+            }
+            return `<div class="block" style="padding-left: ${
+              node.depth * 14
+            }px;">${node.type}${
+              node.size ? `<span class="size">(${node.size})</span>` : ''
+            }</div>`;
+          })
+          .join('');
+        document.getElementById(id).innerHTML = html;
+      }
+
+      function printChanges(doc) {
+        const arr = [];
+        globalIndex = 0;
+
+        const html = (window.firstChanges || [])
+          .map((it) => {
+            return `<div>${JSON.stringify(it)}</div>`;
+          })
+          .join('');
+
+        document.getElementById('pm-sub-log').innerHTML = html;
+      }
+
+      main();
+    </script>
+  </body>
+</html>
