@@ -7,6 +7,15 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.0] - 2023-06-05
+
+### Added
+* Implement yorkie.Tree for text editors using tree model by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/507
+
+### Changed
+* Bump socket.io-parser from 4.2.1 to 4.2.3 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/516
+* Replace Text.onChanges with Document.subscribe by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/519
+
 ## [0.3.5] - 2023-05-22
 
 ### Changed
