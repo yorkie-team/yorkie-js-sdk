@@ -214,6 +214,18 @@
           }
         });
 
+        // 04. Downstream: yorkie.Text to ProseMirror.
+        doc.subscribe('$.tree', (event) => {
+          if (event.type === 'remote-change') {
+            const changes = event.value;
+            for (const change of changes) {
+              const { message, actor, operations } = change;
+
+              handlerOperations(operations);
+            }
+          }
+        });
+
         // 02. Create ProseMirror Editor.
         const state = EditorState.create({
           doc: Node.fromJSON(
@@ -229,18 +241,6 @@
           ],
         });
 
-        // 04. Downstream: yorkie.Text to ProseMirror.
-        doc.subscribe('$.tree', (event) => {
-          if (event.type === 'local-change') {
-            const changes = event.value;
-            for (const change of changes) {
-              const { message, actor, operations } = change;
-
-              handlerOperations(operations);
-            }
-          }
-        });
-
         function handlerOperations(operations) {
           console.log(operations);
           operations.forEach((op) => {
@@ -254,27 +254,10 @@
           return `<strong style="color:red;font-size:1.2rem;"><em>${str}</em></strong>`;
         }
 
-        function displayPm2Log(from, to, content) {
-          // display log
-          if (content) {
-            document.getElementById('pm2-sub-log').innerHTML = `<pre>
-      transform.replaceWidth(${paintText(from)}, ${paintText(
-              to,
-            )}, Node.fromJSON(mySchema, {type: "${paintText(
-              content?.type,
-            )}",text: "${paintText(content?.value)}"})
-          </pre>`;
-          } else {
-            document.getElementById('pm2-sub-log').innerHTML = `<pre>
-      transform.replace(${paintText(from)}, ${paintText(to)})
-          </pre>`;
-          }
-        }
-
         function handleTreeEdit(op) {
           const { from, to, value: content } = op;
 
-          const transform = view2.state.tr;
+          const transform = view.state.tr;
           if (content) {
             transform.replaceWith(
               from,
@@ -287,11 +270,9 @@
           } else {
             transform.replace(from, to);
           }
-          const newState = view2.state.apply(transform);
+          const newState = view.state.apply(transform);
 
-          view2.updateState(newState);
-
-          displayPm2Log(from, to, content);
+          view.updateState(newState);
         }
 
         // 03. Upstream: ProseMirror to yorkie.Text.
