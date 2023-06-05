@@ -29,6 +29,7 @@ import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_op
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
+import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
@@ -67,13 +68,21 @@ import {
   TextNodeAttr as PbTextNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
+  TreeNode as PbTreeNode,
+  TreePos as PbTreePos,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {
+  CRDTTree,
+  CRDTTreeNode,
+  CRDTTreePos,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 import { Indexable } from '../yorkie';
+import { traverse } from '../util/index_tree';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
@@ -207,11 +216,13 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
     pbElementSimple.setType(toCounterType(counter.getType()));
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
     pbElementSimple.setValue(element.toBytes());
+  } else if (element instanceof CRDTTree) {
+    const tree = element as CRDTTree;
+    pbElementSimple.setType(PbValueType.VALUE_TYPE_TREE);
+    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
+    pbElementSimple.setValue(treeToBytes(tree));
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${element}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 
   return pbElementSimple;
@@ -236,6 +247,16 @@ function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
   pbTextNodePos.setOffset(pos.getID().getOffset());
   pbTextNodePos.setRelativeOffset(pos.getRelativeOffset());
   return pbTextNodePos;
+}
+
+/**
+ * `toTreePos` converts the given model to Protobuf format.
+ */
+function toTreePos(pos: CRDTTreePos): PbTreePos {
+  const pbTreePos = new PbTreePos();
+  pbTreePos.setCreatedAt(toTimeTicket(pos.createdAt));
+  pbTreePos.setOffset(pos.offset);
+  return pbTreePos;
 }
 
 /**
@@ -349,6 +370,21 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(increaseOperation.getExecutedAt()),
     );
     pbOperation.setIncrease(pbIncreaseOperation);
+  } else if (operation instanceof TreeEditOperation) {
+    const treeEditOperation = operation as TreeEditOperation;
+    const pbTreeEditOperation = new PbOperation.TreeEdit();
+    pbTreeEditOperation.setParentCreatedAt(
+      toTimeTicket(treeEditOperation.getParentCreatedAt()),
+    );
+    pbTreeEditOperation.setFrom(toTreePos(treeEditOperation.getFromPos()));
+    pbTreeEditOperation.setTo(toTreePos(treeEditOperation.getToPos()));
+    pbTreeEditOperation.setContentList(
+      toTreeNodes(treeEditOperation.getContent()!),
+    );
+    pbTreeEditOperation.setExecutedAt(
+      toTimeTicket(treeEditOperation.getExecutedAt()),
+    );
+    pbOperation.setTreeEdit(pbTreeEditOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -450,6 +486,30 @@ function toTextNodes(
 }
 
 /**
+ * `toTreeNodes` converts the given model to Protobuf format.
+ */
+function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
+  if (!node) {
+    return [];
+  }
+
+  const pbTreeNodes: Array<PbTreeNode> = [];
+  traverse(node, (n, depth) => {
+    const pbTreeNode = new PbTreeNode();
+    pbTreeNode.setPos(toTreePos(n.pos));
+    pbTreeNode.setType(n.type);
+    if (n.isText) {
+      pbTreeNode.setValue(n.value);
+    }
+    pbTreeNode.setRemovedAt(toTimeTicket(n.removedAt));
+    pbTreeNode.setDepth(depth);
+    pbTreeNodes.push(pbTreeNode);
+  });
+
+  return pbTreeNodes;
+}
+
+/**
  * `toObject` converts the given model to Protobuf format.
  */
 function toObject(obj: CRDTObject): PbJSONElement {
@@ -527,6 +587,21 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
 }
 
 /**
+ * `toTree` converts the given model to Protobuf format.
+ */
+function toTree(tree: CRDTTree): PbJSONElement {
+  const pbTree = new PbJSONElement.Tree();
+  pbTree.setNodesList(toTreeNodes(tree.getRoot()));
+  pbTree.setCreatedAt(toTimeTicket(tree.getCreatedAt()));
+  pbTree.setMovedAt(toTimeTicket(tree.getMovedAt()));
+  pbTree.setRemovedAt(toTimeTicket(tree.getRemovedAt()));
+
+  const pbElement = new PbJSONElement();
+  pbElement.setTree(pbTree);
+  return pbElement;
+}
+
+/**
  * `toElement` converts the given model to Protobuf format.
  */
 function toElement(element: CRDTElement): PbJSONElement {
@@ -540,11 +615,10 @@ function toElement(element: CRDTElement): PbJSONElement {
     return toText(element);
   } else if (element instanceof CRDTCounter) {
     return toCounter(element);
+  } else if (element instanceof CRDTTree) {
+    return toTree(element);
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${element}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 }
 
@@ -646,6 +720,8 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         RGATreeSplit.create(),
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
+    case PbValueType.VALUE_TYPE_TREE:
+      return bytesToTree(pbElementSimple.getValue_asU8())!;
     case PbValueType.VALUE_TYPE_NULL:
     case PbValueType.VALUE_TYPE_BOOLEAN:
     case PbValueType.VALUE_TYPE_INTEGER:
@@ -663,7 +739,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
     case PbValueType.VALUE_TYPE_INTEGER_CNT:
     case PbValueType.VALUE_TYPE_LONG_CNT:
-      return CRDTCounter.of(
+      return CRDTCounter.create(
         fromCounterType(pbElementSimple.getType()),
         CRDTCounter.valueFromBytes(
           fromCounterType(pbElementSimple.getType()),
@@ -673,10 +749,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
   }
 
-  throw new YorkieError(
-    Code.Unimplemented,
-    `unimplemented element: ${pbElementSimple}`,
-  );
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
@@ -721,6 +794,60 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
   );
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
+}
+
+/**
+ * `fromTreePos` converts the given Protobuf format to model format.
+ */
+function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
+  return {
+    createdAt: fromTimeTicket(pbTreePos.getCreatedAt())!,
+    offset: pbTreePos.getOffset(),
+  };
+}
+
+/**
+ * `fromTreeNodes` converts the given Protobuf format to model format.
+ */
+function fromTreeNodes(
+  pbTreeNodes: Array<PbTreeNode>,
+): CRDTTreeNode | undefined {
+  if (pbTreeNodes.length === 0) {
+    return;
+  }
+
+  const nodes: Array<CRDTTreeNode> = [];
+  for (const pbTreeNode of pbTreeNodes) {
+    nodes.push(fromTreeNode(pbTreeNode));
+  }
+
+  const root = nodes[nodes.length - 1];
+  for (let i = nodes.length - 2; i >= 0; i--) {
+    let parent: CRDTTreeNode;
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (pbTreeNodes[i].getDepth() - 1 === pbTreeNodes[j].getDepth()) {
+        parent = nodes[j];
+        break;
+      }
+    }
+
+    parent!.prepend(nodes[i]);
+  }
+
+  // build CRDTTree from the root to construct the links between nodes.
+  return CRDTTree.create(root, InitialTimeTicket).getRoot();
+}
+
+/**
+ * `fromTreeNode` converts the given Protobuf format to model format.
+ */
+function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
+  const pos = fromTreePos(pbTreeNode.getPos()!);
+  const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
+  if (node.isText) {
+    node.value = pbTreeNode.getValue();
+  }
+  return node;
 }
 
 /**
@@ -808,6 +935,15 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbIncreaseOperation!.getParentCreatedAt())!,
         fromElementSimple(pbIncreaseOperation!.getValue()!),
         fromTimeTicket(pbIncreaseOperation!.getExecutedAt())!,
+      );
+    } else if (pbOperation.hasTreeEdit()) {
+      const pbTreeEditOperation = pbOperation.getTreeEdit();
+      operation = TreeEditOperation.create(
+        fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
+        fromTreePos(pbTreeEditOperation!.getFrom()!),
+        fromTreePos(pbTreeEditOperation!.getTo()!),
+        fromTreeNodes(pbTreeEditOperation!.getContentList()),
+        fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
@@ -944,7 +1080,7 @@ function fromText<A extends Indexable>(
  * `fromCounter` converts the given Protobuf format to model format.
  */
 function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
-  const counter = CRDTCounter.of(
+  const counter = CRDTCounter.create(
     fromCounterType(pbCounter.getType()),
     CRDTCounter.valueFromBytes(
       fromCounterType(pbCounter.getType()),
@@ -955,6 +1091,14 @@ function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
   counter.setMovedAt(fromTimeTicket(pbCounter.getMovedAt()));
   counter.setRemovedAt(fromTimeTicket(pbCounter.getRemovedAt()));
   return counter;
+}
+
+/**
+ * `fromTree` converts the given Protobuf format to model format.
+ */
+function fromTree(pbTree: PbJSONElement.Tree): CRDTTree {
+  const root = fromTreeNodes(pbTree.getNodesList());
+  return CRDTTree.create(root!, fromTimeTicket(pbTree.getCreatedAt())!);
 }
 
 /**
@@ -971,11 +1115,10 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
     return fromText(pbElement.getText()!);
   } else if (pbElement.hasCounter()) {
     return fromCounter(pbElement.getCounter()!);
+  } else if (pbElement.hasTree()) {
+    return fromTree(pbElement.getTree()!);
   } else {
-    throw new YorkieError(
-      Code.Unimplemented,
-      `unimplemented element: ${pbElement}`,
-    );
+    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
 }
 
@@ -996,6 +1139,25 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
   return toElement(obj).serializeBinary();
+}
+
+/**
+ * `bytesToTree` creates an JSONArray from the given byte array.
+ */
+function bytesToTree(bytes?: Uint8Array): CRDTTree {
+  if (!bytes) {
+    throw new Error('bytes is empty');
+  }
+
+  const pbElement = PbJSONElement.deserializeBinary(bytes);
+  return fromTree(pbElement.getTree()!);
+}
+
+/**
+ * `treeToBytes` converts the given JSONArray to byte array.
+ */
+function treeToBytes(tree: CRDTTree): Uint8Array {
+  return toTree(tree).serializeBinary();
 }
 
 /**

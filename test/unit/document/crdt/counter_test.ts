@@ -25,12 +25,12 @@ import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
-    const double = CRDTCounter.of(
+    const double = CRDTCounter.create(
       CounterType.IntegerCnt,
       10,
       InitialTimeTicket,
     );
-    const long = CRDTCounter.of(
+    const long = CRDTCounter.create(
       CounterType.LongCnt,
       Long.fromString('100'),
       InitialTimeTicket,
