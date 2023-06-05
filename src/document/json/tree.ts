@@ -49,7 +49,7 @@ function buildDescendants(
   if (type === 'text') {
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
-      context.issueTimeTicket(),
+      { createdAt: context.issueTimeTicket(), offset: 0 },
       type,
       value,
     );
@@ -57,7 +57,10 @@ function buildDescendants(
     parent.append(textNode);
   } else {
     const { children } = treeNode as ElementNode;
-    const elementNode = CRDTTreeNode.create(context.issueTimeTicket(), type);
+    const elementNode = CRDTTreeNode.create(
+      { createdAt: context.issueTimeTicket(), offset: 0 },
+      type,
+    );
 
     parent.append(elementNode);
 
@@ -76,10 +79,17 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === 'text') {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create(context.issueTimeTicket(), type, value);
+    root = CRDTTreeNode.create(
+      { createdAt: context.issueTimeTicket(), offset: 0 },
+      type,
+      value,
+    );
   } else if (content) {
     const { children = [] } = content as ElementNode;
-    root = CRDTTreeNode.create(context.issueTimeTicket(), type);
+    root = CRDTTreeNode.create(
+      { createdAt: context.issueTimeTicket(), offset: 0 },
+      type,
+    );
 
     for (const child of children) {
       buildDescendants(child, root, context);
@@ -123,12 +133,15 @@ export class Tree {
    */
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
-      return CRDTTreeNode.create(context.issueTimeTicket(), DefaultRootType);
+      return CRDTTreeNode.create(
+        { createdAt: context.issueTimeTicket(), offset: 0 },
+        DefaultRootType,
+      );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      context.issueTimeTicket(),
+      { createdAt: context.issueTimeTicket(), offset: 0 },
       this.initialRoot.type,
     );
 
@@ -249,6 +262,17 @@ export class Tree {
     }
 
     return this.tree.toXML();
+  }
+
+  /**
+   * `toJSON` returns the JSON string of this tree.
+   */
+  public toJSON(): string {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.toJSON();
   }
 
   /**
