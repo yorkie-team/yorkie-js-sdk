@@ -81,7 +81,7 @@ export class TreeEditOperation extends Operation {
     const tree = parentObject as CRDTTree;
     const changes = tree.edit(
       [this.fromPos, this.toPos],
-      this.content,
+      this.content?.deepcopy(),
       this.getExecutedAt(),
     );
 
