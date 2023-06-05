@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type WrappedElement<T = unknown, A extends Indexable = Indexable> = Primitive | JSONObject<T> | JSONArray<T> | Text<A> | Counter;
+export declare type WrappedElement<T = unknown, A extends Indexable = Indexable> = Primitive | JSONObject<T> | JSONArray<T> | Text<A> | Counter | Tree;
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [Primitive](./yorkie-js-sdk.primitive.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [Primitive](./yorkie-js-sdk.primitive.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)<!-- -->, [Tree](./yorkie-js-sdk.tree.md)
 

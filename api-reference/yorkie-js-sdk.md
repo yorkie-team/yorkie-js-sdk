@@ -15,6 +15,7 @@
 |  [Primitive](./yorkie-js-sdk.primitive.md) | <code>Primitive</code> represents primitive data type including logical clock. It has a type and a value. |
 |  [Text](./yorkie-js-sdk.text.md) | <code>Text</code> is an extended data type for the contents of a text editor. |
 |  [TimeTicket](./yorkie-js-sdk.timeticket.md) | <code>TimeTicket</code> is a timestamp of the logical clock. Ticket is immutable. It is created by <code>ChangeID</code>. |
+|  [Tree](./yorkie-js-sdk.tree.md) | <code>Tree</code> is a CRDT-based tree structure that is used to represent the document tree of text-based editor such as ProseMirror. |
 
 ## Enumerations
 
@@ -26,6 +27,7 @@
 |  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> represents the result of synchronizing the document with the server. |
 |  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> represents whether the stream connection between the client and the server is connected or not. |
 |  [SyncMode](./yorkie-js-sdk.syncmode.md) | <code>SyncMode</code> is the mode of synchronization. It is used to determine whether to push and pull changes in PushPullChanges API. |
+|  [TreeChangeType](./yorkie-js-sdk.treechangetype.md) | <code>TreeChangeType</code> represents the type of change in the tree. |
 
 ## Interfaces
 
@@ -42,6 +44,7 @@
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
 |  [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md) | <code>StreamConnectionStatusChangedEvent</code> is an event that occurs when the client's stream connection state changes. |
 |  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Document.subscribe()</code>. <code>Document.subscribe()</code> is called when the <code>Text</code> is modified. |
+|  [TreeChange](./yorkie-js-sdk.treechange.md) | <code>TreeChange</code> represents the change in the tree. |
 |  [ValueChange](./yorkie-js-sdk.valuechange.md) |  |
 
 ## Variables
@@ -60,6 +63,7 @@
 |  [ClientEvent](./yorkie-js-sdk.clientevent.md) | <code>ClientEvent</code> is an event that occurs in <code>Client</code>. It can be delivered using <code>Client.subscribe()</code>. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>Document</code>. It can be delivered using <code>Document.subscribe()</code>. |
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) |  |
+|  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> is a node that has children. |
 |  [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md) |  |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
@@ -73,5 +77,7 @@
 |  [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md) |  |
 |  [SetOpInfo](./yorkie-js-sdk.setopinfo.md) |  |
 |  [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md) |  |
+|  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> is a node that has a value. |
+|  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

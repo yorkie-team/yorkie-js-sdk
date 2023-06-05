@@ -18,6 +18,7 @@ yorkie: {
     Document: typeof Document;
     Text: typeof Text;
     Counter: typeof Counter;
+    Tree: typeof Tree;
     IntType: CounterType;
     LongType: CounterType;
 }

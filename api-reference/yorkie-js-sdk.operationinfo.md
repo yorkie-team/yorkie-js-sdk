@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type OperationInfo = AddOpInfo | IncreaseOpInfo | RemoveOpInfo | SetOpInfo | MoveOpInfo | EditOpInfo | StyleOpInfo | SelectOpInfo;
+export declare type OperationInfo = AddOpInfo | IncreaseOpInfo | RemoveOpInfo | SetOpInfo | MoveOpInfo | EditOpInfo | StyleOpInfo | SelectOpInfo | TreeEditOpInfo;
 ```
 <b>References:</b> [AddOpInfo](./yorkie-js-sdk.addopinfo.md)<!-- -->, [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md)<!-- -->, [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md)<!-- -->, [SetOpInfo](./yorkie-js-sdk.setopinfo.md)<!-- -->, [MoveOpInfo](./yorkie-js-sdk.moveopinfo.md)<!-- -->, [EditOpInfo](./yorkie-js-sdk.editopinfo.md)<!-- -->, [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md)<!-- -->, [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md)
 
