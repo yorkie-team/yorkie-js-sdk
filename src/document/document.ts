@@ -256,7 +256,7 @@ export class Document<T> {
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
-        this.eventStreamObserver.nextSync({
+        this.eventStreamObserver.next({
           type: DocEventType.LocalChange,
           value: [
             {
@@ -623,7 +623,7 @@ export class Document<T> {
       // with the Document after RemoteChange event is emitted. If the event
       // is emitted asynchronously, the model can be changed and breaking
       // consistency.
-      this.eventStreamObserver.nextSync({
+      this.eventStreamObserver.next({
         type: DocEventType.RemoteChange,
         value: changeInfos,
       });
