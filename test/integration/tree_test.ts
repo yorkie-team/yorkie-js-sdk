@@ -264,6 +264,7 @@ describe('Tree', () => {
         type: TreeChangeType.Content,
         from: 1,
         to: 1,
+        actor: doc.getRoot().t.getID().getActorID()!,
         value: { type: 'text', value: 'X' },
       },
     ]);
@@ -317,6 +318,7 @@ describe('Tree', () => {
       {
         type: TreeChangeType.Content,
         from: [0, 0, 0, 1],
+        actor: doc.getRoot().t.getID().getActorID()!,
         to: [0, 0, 0, 1],
         value: { type: 'text', value: 'X' },
       },
