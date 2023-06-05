@@ -159,7 +159,9 @@
           type: pmNode.type,
           children: [],
         };
-        for (const child of pmNode.content) {
+
+        const content = pmNode.content || [];
+        for (const child of content) {
           node.children.push(docToTreeNode(child));
         }
         return node;
@@ -242,7 +244,6 @@
         });
 
         function handlerOperations(operations) {
-          console.log(operations);
           operations.forEach((op) => {
             if (op.type === 'tree-edit') {
               handleTreeEdit(op);
