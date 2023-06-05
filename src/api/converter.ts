@@ -489,6 +489,10 @@ function toTextNodes(
  * `toTreeNodes` converts the given model to Protobuf format.
  */
 function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
+  if (!node) {
+    return [];
+  }
+
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode();
@@ -805,7 +809,13 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
 /**
  * `fromTreeNodes` converts the given Protobuf format to model format.
  */
-function fromTreeNodes(pbTreeNodes: Array<PbTreeNode>): CRDTTreeNode {
+function fromTreeNodes(
+  pbTreeNodes: Array<PbTreeNode>,
+): CRDTTreeNode | undefined {
+  if (pbTreeNodes.length === 0) {
+    return;
+  }
+
   const nodes: Array<CRDTTreeNode> = [];
   for (const pbTreeNode of pbTreeNodes) {
     nodes.push(fromTreeNode(pbTreeNode));
@@ -1088,7 +1098,7 @@ function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
  */
 function fromTree(pbTree: PbJSONElement.Tree): CRDTTree {
   const root = fromTreeNodes(pbTree.getNodesList());
-  return CRDTTree.create(root, fromTimeTicket(pbTree.getCreatedAt())!);
+  return CRDTTree.create(root!, fromTimeTicket(pbTree.getCreatedAt())!);
 }
 
 /**
