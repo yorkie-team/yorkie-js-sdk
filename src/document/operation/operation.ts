@@ -16,6 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
@@ -27,12 +28,14 @@ export type OperationInfo =
   | TextOperationInfo
   | CounterOperationInfo
   | ArrayOperationInfo
-  | ObjectOperationInfo;
+  | ObjectOperationInfo
+  | TreeOperationInfo;
 
 export type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
 export type CounterOperationInfo = IncreaseOpInfo;
 export type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
 export type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
+export type TreeOperationInfo = TreeEditOpInfo;
 export type AddOpInfo = {
   type: 'add';
   path: string;
@@ -85,6 +88,13 @@ export type SelectOpInfo = {
   to: number;
   path: string;
 };
+export type TreeEditOpInfo = {
+  type: 'tree-edit';
+  from: number;
+  to: number;
+  value: TreeNode;
+  path: string;
+};
 
 /**
  * `InternalOpInfo` represents the information of the operation. It is used to
@@ -98,7 +108,8 @@ export type InternalOpInfo =
   | ToInternalOpInfo<MoveOpInfo>
   | ToInternalOpInfo<EditOpInfo>
   | ToInternalOpInfo<StyleOpInfo>
-  | ToInternalOpInfo<SelectOpInfo>;
+  | ToInternalOpInfo<SelectOpInfo>
+  | ToInternalOpInfo<TreeEditOpInfo>;
 type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };

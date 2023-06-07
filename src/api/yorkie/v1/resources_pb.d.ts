@@ -153,6 +153,11 @@ export class Operation extends jspb.Message {
   hasIncrease(): boolean;
   clearIncrease(): Operation;
 
+  getTreeEdit(): Operation.TreeEdit | undefined;
+  setTreeEdit(value?: Operation.TreeEdit): Operation;
+  hasTreeEdit(): boolean;
+  clearTreeEdit(): Operation;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -173,6 +178,7 @@ export namespace Operation {
     select?: Operation.Select.AsObject,
     style?: Operation.Style.AsObject,
     increase?: Operation.Increase.AsObject,
+    treeEdit?: Operation.TreeEdit.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -489,6 +495,51 @@ export namespace Operation {
   }
 
 
+  export class TreeEdit extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): TreeEdit;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): TreeEdit;
+
+    getFrom(): TreePos | undefined;
+    setFrom(value?: TreePos): TreeEdit;
+    hasFrom(): boolean;
+    clearFrom(): TreeEdit;
+
+    getTo(): TreePos | undefined;
+    setTo(value?: TreePos): TreeEdit;
+    hasTo(): boolean;
+    clearTo(): TreeEdit;
+
+    getContentList(): Array<TreeNode>;
+    setContentList(value: Array<TreeNode>): TreeEdit;
+    clearContentList(): TreeEdit;
+    addContent(value?: TreeNode, index?: number): TreeNode;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): TreeEdit;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): TreeEdit;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): TreeEdit.AsObject;
+    static toObject(includeInstance: boolean, msg: TreeEdit): TreeEdit.AsObject;
+    static serializeBinaryToWriter(message: TreeEdit, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): TreeEdit;
+    static deserializeBinaryFromReader(message: TreeEdit, reader: jspb.BinaryReader): TreeEdit;
+  }
+
+  export namespace TreeEdit {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      from?: TreePos.AsObject,
+      to?: TreePos.AsObject,
+      contentList: Array<TreeNode.AsObject>,
+      executedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
@@ -499,6 +550,7 @@ export namespace Operation {
     SELECT = 6,
     STYLE = 7,
     INCREASE = 8,
+    TREE_EDIT = 9,
   }
 }
 
@@ -570,6 +622,11 @@ export class JSONElement extends jspb.Message {
   hasCounter(): boolean;
   clearCounter(): JSONElement;
 
+  getTree(): JSONElement.Tree | undefined;
+  setTree(value?: JSONElement.Tree): JSONElement;
+  hasTree(): boolean;
+  clearTree(): JSONElement;
+
   getBodyCase(): JSONElement.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -587,6 +644,7 @@ export namespace JSONElement {
     primitive?: JSONElement.Primitive.AsObject,
     text?: JSONElement.Text.AsObject,
     counter?: JSONElement.Counter.AsObject,
+    tree?: JSONElement.Tree.AsObject,
   }
 
   export class JSONObject extends jspb.Message {
@@ -792,6 +850,45 @@ export namespace JSONElement {
   }
 
 
+  export class Tree extends jspb.Message {
+    getNodesList(): Array<TreeNode>;
+    setNodesList(value: Array<TreeNode>): Tree;
+    clearNodesList(): Tree;
+    addNodes(value?: TreeNode, index?: number): TreeNode;
+
+    getCreatedAt(): TimeTicket | undefined;
+    setCreatedAt(value?: TimeTicket): Tree;
+    hasCreatedAt(): boolean;
+    clearCreatedAt(): Tree;
+
+    getMovedAt(): TimeTicket | undefined;
+    setMovedAt(value?: TimeTicket): Tree;
+    hasMovedAt(): boolean;
+    clearMovedAt(): Tree;
+
+    getRemovedAt(): TimeTicket | undefined;
+    setRemovedAt(value?: TimeTicket): Tree;
+    hasRemovedAt(): boolean;
+    clearRemovedAt(): Tree;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Tree.AsObject;
+    static toObject(includeInstance: boolean, msg: Tree): Tree.AsObject;
+    static serializeBinaryToWriter(message: Tree, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Tree;
+    static deserializeBinaryFromReader(message: Tree, reader: jspb.BinaryReader): Tree;
+  }
+
+  export namespace Tree {
+    export type AsObject = {
+      nodesList: Array<TreeNode.AsObject>,
+      createdAt?: TimeTicket.AsObject,
+      movedAt?: TimeTicket.AsObject,
+      removedAt?: TimeTicket.AsObject,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     JSON_OBJECT = 1,
@@ -799,6 +896,7 @@ export namespace JSONElement {
     PRIMITIVE = 3,
     TEXT = 5,
     COUNTER = 6,
+    TREE = 7,
   }
 }
 
@@ -934,6 +1032,74 @@ export class TextNodeID extends jspb.Message {
 }
 
 export namespace TextNodeID {
+  export type AsObject = {
+    createdAt?: TimeTicket.AsObject,
+    offset: number,
+  }
+}
+
+export class TreeNode extends jspb.Message {
+  getPos(): TreePos | undefined;
+  setPos(value?: TreePos): TreeNode;
+  hasPos(): boolean;
+  clearPos(): TreeNode;
+
+  getType(): string;
+  setType(value: string): TreeNode;
+
+  getValue(): string;
+  setValue(value: string): TreeNode;
+
+  getRemovedAt(): TimeTicket | undefined;
+  setRemovedAt(value?: TimeTicket): TreeNode;
+  hasRemovedAt(): boolean;
+  clearRemovedAt(): TreeNode;
+
+  getInsPrevPos(): TreePos | undefined;
+  setInsPrevPos(value?: TreePos): TreeNode;
+  hasInsPrevPos(): boolean;
+  clearInsPrevPos(): TreeNode;
+
+  getDepth(): number;
+  setDepth(value: number): TreeNode;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TreeNode.AsObject;
+  static toObject(includeInstance: boolean, msg: TreeNode): TreeNode.AsObject;
+  static serializeBinaryToWriter(message: TreeNode, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TreeNode;
+  static deserializeBinaryFromReader(message: TreeNode, reader: jspb.BinaryReader): TreeNode;
+}
+
+export namespace TreeNode {
+  export type AsObject = {
+    pos?: TreePos.AsObject,
+    type: string,
+    value: string,
+    removedAt?: TimeTicket.AsObject,
+    insPrevPos?: TreePos.AsObject,
+    depth: number,
+  }
+}
+
+export class TreePos extends jspb.Message {
+  getCreatedAt(): TimeTicket | undefined;
+  setCreatedAt(value?: TimeTicket): TreePos;
+  hasCreatedAt(): boolean;
+  clearCreatedAt(): TreePos;
+
+  getOffset(): number;
+  setOffset(value: number): TreePos;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TreePos.AsObject;
+  static toObject(includeInstance: boolean, msg: TreePos): TreePos.AsObject;
+  static serializeBinaryToWriter(message: TreePos, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TreePos;
+  static deserializeBinaryFromReader(message: TreePos, reader: jspb.BinaryReader): TreePos;
+}
+
+export namespace TreePos {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     offset: number,
@@ -1295,6 +1461,7 @@ export enum ValueType {
   VALUE_TYPE_TEXT = 10,
   VALUE_TYPE_INTEGER_CNT = 11,
   VALUE_TYPE_LONG_CNT = 12,
+  VALUE_TYPE_TREE = 13,
 }
 export enum DocEventType { 
   DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,

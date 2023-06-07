@@ -109,4 +109,11 @@ export class ChangeContext {
     this.delimiter += 1;
     return this.id.createTimeTicket(this.delimiter);
   }
+
+  /**
+   * `getLastTimeTicket` returns the last time ticket issued in this context.
+   */
+  public getLastTimeTicket(): TimeTicket {
+    return this.id.createTimeTicket(this.delimiter);
+  }
 }

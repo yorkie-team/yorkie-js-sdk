@@ -52,11 +52,13 @@ import {
   TextOperationInfo,
   CounterOperationInfo,
   ArrayOperationInfo,
+  TreeOperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
+import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Trie } from '../util/trie';
 
 /**
@@ -192,13 +194,15 @@ export type Indexable = Record<string, any>;
 export type DocumentKey = string;
 
 type TPrimitive = string | number | boolean | bigint | symbol;
-type TLeafType = TPrimitive | Text | Counter;
+type TLeafType = TPrimitive | Text | Counter | Tree;
 
 // get OperationType by TObject
 type OperationInfoType<TObject> = TObject extends Text
   ? TextOperationInfo
   : TObject extends Counter
   ? CounterOperationInfo
+  : TObject extends Tree
+  ? TreeOperationInfo
   : TObject extends Array<any> | JSONArray<any>
   ? ArrayOperationInfo
   : TObject extends object | JSONObject<any>
@@ -560,7 +564,7 @@ export class Document<T> {
    * @internal
    */
   public createChangePack(): ChangePack {
-    const changes = this.localChanges;
+    const changes = Array.from(this.localChanges);
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
     return ChangePack.create(this.key, checkpoint, false, changes);
   }

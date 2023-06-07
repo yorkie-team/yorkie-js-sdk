@@ -25,7 +25,7 @@ import {
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Counter, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
@@ -1332,6 +1332,7 @@ describe('Document', function () {
         completed: boolean;
       }>;
       text: Text;
+      tree: Tree;
       counter: Counter;
       textList: Array<string>;
     }>('test-doc');
@@ -1451,6 +1452,26 @@ describe('Document', function () {
 
     doc.update((root) => {
       root.textList = ['hello world'];
+    });
+
+    doc.subscribe('$.tree', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'tree-edit') {
+              assert.equal(op.path, '$.tree');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.tree = new Tree();
+      root.tree.edit(0, 0, {
+        type: 'text',
+        value: 'hello world',
+      });
     });
   });
 });

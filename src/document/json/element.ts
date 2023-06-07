@@ -24,6 +24,12 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
+  CounterType,
+  CRDTCounter,
+} from '@yorkie-js-sdk/src/document/crdt/counter';
+import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+
+import {
   JSONObject,
   createJSONObject,
 } from '@yorkie-js-sdk/src/document/json/object';
@@ -33,10 +39,7 @@ import {
 } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import {
-  CounterType,
-  CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Indexable } from '../document';
 
 /**
@@ -57,7 +60,8 @@ export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | JSONObject<T>
   | JSONArray<T>
   | Text<A>
-  | Counter;
+  | Counter
+  | Tree;
 
 /**
  * `JSONElement` is a wrapper for `CRDTElement` that provides users with an
@@ -68,7 +72,8 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | JSONObject<T>
   | JSONArray<T>
   | Text<A>
-  | Counter;
+  | Counter
+  | Tree;
 
 /**
  * `toWrappedElement` converts the CRDT type to `WrappedElement`.
@@ -91,6 +96,10 @@ export function toWrappedElement(
     const counter = new Counter(CounterType.IntegerCnt, 0);
     counter.initialize(context, elem);
     return counter;
+  } else if (elem instanceof CRDTTree) {
+    const tree = new Tree();
+    tree.initialize(context, elem);
+    return tree;
   }
 
   throw new TypeError(`Unsupported type of element: ${typeof elem}`);
