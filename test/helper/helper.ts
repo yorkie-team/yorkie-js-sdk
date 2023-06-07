@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
+import { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';

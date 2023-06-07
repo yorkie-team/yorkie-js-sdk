@@ -175,6 +175,11 @@ describe('Document', function () {
         cursor: { x: 1, y: 1 },
       },
     });
+    assert.deepEqual(d2.getPeerPresence(c1.getID()!), {
+      name: 'a',
+      cursor: { x: 0, y: 0 },
+    });
+
     await waitStubCallCount(stub1, 1); // watched
     assert.deepEqual(d1.getPeerPresence(c2.getID()!), {
       name: 'b',
