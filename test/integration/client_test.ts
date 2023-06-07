@@ -124,8 +124,8 @@ describe('Client', function () {
     await c2.activate();
 
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ k1: string }>(docKey);
-    const d2 = await c2.connect<{ k1: string }>(docKey);
+    const d1 = await c1.attach<{ k1: string }>(docKey);
+    const d2 = await c2.attach<{ k1: string }>(docKey);
 
     const c1Events: Array<string> = [];
     const c2Events: Array<string> = [];
@@ -242,10 +242,10 @@ describe('Client', function () {
     // 01. c1 and c2 attach the doc with manual sync mode.
     //     c1 updates the doc, but c2 does't get until call sync manually.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ version: string }>(docKey, {
+    const d1 = await c1.attach<{ version: string }>(docKey, {
       isRealtimeSync: false,
     });
-    const d2 = await c2.connect<{ version: string }>(docKey, {
+    const d2 = await c2.attach<{ version: string }>(docKey, {
       isRealtimeSync: false,
     });
     d1.update((root) => {
@@ -296,13 +296,13 @@ describe('Client', function () {
 
     // 01. c1, c2, c3 attach to the same document in manual sync.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ c1: number; c2: number }>(docKey, {
+    const d1 = await c1.attach<{ c1: number; c2: number }>(docKey, {
       isRealtimeSync: false,
     });
-    const d2 = await c2.connect<{ c1: number; c2: number }>(docKey, {
+    const d2 = await c2.attach<{ c1: number; c2: number }>(docKey, {
       isRealtimeSync: false,
     });
-    const d3 = await c3.connect<{ c1: number; c2: number }>(docKey, {
+    const d3 = await c3.attach<{ c1: number; c2: number }>(docKey, {
       isRealtimeSync: false,
     });
 
@@ -357,9 +357,9 @@ describe('Client', function () {
 
     // 01. c1, c2, c3 attach to the same document in realtime sync.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ c1: number; c2: number }>(docKey);
-    const d2 = await c2.connect<{ c1: number; c2: number }>(docKey);
-    const d3 = await c3.connect<{ c1: number; c2: number }>(docKey);
+    const d1 = await c1.attach<{ c1: number; c2: number }>(docKey);
+    const d2 = await c2.attach<{ c1: number; c2: number }>(docKey);
+    const d3 = await c3.attach<{ c1: number; c2: number }>(docKey);
 
     const d1Events: Array<string> = [];
     const d2Events: Array<string> = [];
@@ -430,7 +430,7 @@ describe('Client', function () {
 
     // 01. cli attach to the document having counter.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ counter: Counter }>(docKey, {
+    const d1 = await c1.attach<{ counter: Counter }>(docKey, {
       isRealtimeSync: false,
     });
 

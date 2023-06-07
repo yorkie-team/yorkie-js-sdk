@@ -28,10 +28,10 @@ export async function withTwoClientsAndDocuments<T>(
   await client2.activate();
 
   const docKey = `${toDocKey(title)}-${new Date().getTime()}`;
-  const doc1 = await client1.connect<T, Indexable>(docKey, {
+  const doc1 = await client1.attach<T, Indexable>(docKey, {
     isRealtimeSync: false,
   });
-  const doc2 = await client2.connect<T, Indexable>(docKey, {
+  const doc2 = await client2.attach<T, Indexable>(docKey, {
     isRealtimeSync: false,
   });
 

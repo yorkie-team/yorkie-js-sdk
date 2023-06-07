@@ -29,7 +29,7 @@ describe('Document', function () {
     await client1.activate();
     await client2.activate();
 
-    const doc1 = await client1.connect<TestDoc>(docKey, {
+    const doc1 = await client1.attach<TestDoc>(docKey, {
       isRealtimeSync: false,
     });
     doc1.update((root) => {
@@ -39,7 +39,7 @@ describe('Document', function () {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
-    const doc2 = await client2.connect<TestDoc>(docKey, {
+    const doc2 = await client2.attach<TestDoc>(docKey, {
       isRealtimeSync: false,
     });
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
@@ -58,8 +58,8 @@ describe('Document', function () {
     await c2.activate();
 
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.connect<{ k1: string }>(docKey);
-    const d2 = await c2.connect<{ k1: string }>(docKey);
+    const d1 = await c1.attach<{ k1: string }>(docKey);
+    const d2 = await c2.attach<{ k1: string }>(docKey);
     const d1Events: Array<string> = [];
     const d2Events: Array<string> = [];
     const stub1 = sinon.stub().callsFake((event) => {
@@ -101,13 +101,13 @@ describe('Document', function () {
       name: string;
       cursor: { x: number; y: number };
     };
-    const doc1 = await c1.connect<{}, PresenceType>(docKey, {
+    const doc1 = await c1.attach<{}, PresenceType>(docKey, {
       initialPresence: {
         name: 'a',
         cursor: { x: 0, y: 0 },
       },
     });
-    const doc2 = await c2.connect<{}, PresenceType>(docKey, {
+    const doc2 = await c2.attach<{}, PresenceType>(docKey, {
       initialPresence: {
         name: 'b',
         cursor: { x: 1, y: 1 },
@@ -159,7 +159,7 @@ describe('Document', function () {
       name: string;
       cursor: { x: number; y: number };
     };
-    const d1 = await c1.connect<{ version: string }, PresenceType>(docKey, {
+    const d1 = await c1.attach<{ version: string }, PresenceType>(docKey, {
       initialPresence: {
         name: 'a',
         cursor: { x: 0, y: 0 },
@@ -169,7 +169,7 @@ describe('Document', function () {
     const unsub1 = d1.subscribe(stub1);
     assert.deepEqual(d1.getPeerPresence(c2.getID()!), undefined);
 
-    const d2 = await c2.connect<{ version: string }, PresenceType>(docKey, {
+    const d2 = await c2.attach<{ version: string }, PresenceType>(docKey, {
       initialPresence: {
         name: 'b',
         cursor: { x: 1, y: 1 },
@@ -225,13 +225,13 @@ describe('Document', function () {
     });
 
     // 01. c1 attaches doc with docKey1
-    const doc1C1 = await c1.connect<{}, PresenceType>(docKey1, {
+    const doc1C1 = await c1.attach<{}, PresenceType>(docKey1, {
       initialPresence: c1Presence,
     });
     const unsub1 = doc1C1.subscribe(stub1);
 
     // 02. c2 attaches doc with docKey1
-    const doc1C2 = await c2.connect<{}, PresenceType>(docKey1, {
+    const doc1C2 = await c2.attach<{}, PresenceType>(docKey1, {
       initialPresence: c2Presence,
     });
     const unsub2 = doc1C2.subscribe(stub2);
@@ -301,7 +301,7 @@ describe('Document', function () {
     );
 
     // 04. c1 attaches doc with docKey2
-    const doc2C1 = await c1.connect<{}, PresenceType>(docKey2, {
+    const doc2C1 = await c1.attach<{}, PresenceType>(docKey2, {
       initialPresence: c1Presence,
     });
     assert.deepEqual(deepSort(doc2C1.getPeers()), [
@@ -359,8 +359,8 @@ describe('Document', function () {
         score: Record<string, number>;
       };
     };
-    const d1 = await c1.connect<TestDoc>(docKey);
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     const events1: Array<OperationInfo> = [];
     let expectedEvents1: Array<OperationInfo> = [];
     const events2: Array<OperationInfo> = [];
@@ -505,8 +505,8 @@ describe('Document', function () {
       counter: Counter;
       todos: JSONArray<string>;
     };
-    const d1 = await c1.connect<TestDoc>(docKey);
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     let events: Array<OperationInfo> = [];
     let todoEvents: Array<OperationInfo> = [];
     let counterEvents: Array<OperationInfo> = [];
@@ -610,8 +610,8 @@ describe('Document', function () {
       }>;
       obj: Record<string, { name: string; age: number }>;
     };
-    const d1 = await c1.connect<TestDoc>(docKey);
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     let events: Array<OperationInfo> = [];
     let todoEvents: Array<OperationInfo> = [];
     let objEvents: Array<OperationInfo> = [];
@@ -722,8 +722,8 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    const d1 = await c1.connect<TestDoc>(docKey);
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
 
     d1.update((root) => {
       root['k1'] = [1, 2];
@@ -753,7 +753,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
 
     // 01. remove a document.
     await c1.remove(d1);
@@ -779,7 +779,7 @@ describe('Document', function () {
     // 01. c1 creates d1 and removes it.
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
@@ -789,10 +789,10 @@ describe('Document', function () {
     // 02. c2 creates d2 with the same key.
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
 
     // 02. c1 creates d3 with the same key.
-    const d3 = await c1.connect<TestDoc>(docKey);
+    const d3 = await c1.attach<TestDoc>(docKey);
     assert.equal(d2.toSortedJSON(), '{}');
     assert.equal(d3.toSortedJSON(), '{}');
 
@@ -807,7 +807,7 @@ describe('Document', function () {
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
@@ -816,7 +816,7 @@ describe('Document', function () {
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 updates d1 and removes it.
@@ -843,7 +843,7 @@ describe('Document', function () {
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
@@ -852,7 +852,7 @@ describe('Document', function () {
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 detaches d2.
@@ -873,7 +873,7 @@ describe('Document', function () {
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
@@ -882,7 +882,7 @@ describe('Document', function () {
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
-    const d2 = await c2.connect<TestDoc>(docKey);
+    const d2 = await c2.attach<TestDoc>(docKey);
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 removes d2.
@@ -907,7 +907,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
-    const d1 = await c1.connect<TestDoc>(docKey);
+    const d1 = await c1.attach<TestDoc>(docKey);
 
     // 01. abnormal behavior on removed state
     await c1.remove(d1);
@@ -933,11 +933,11 @@ describe('Document', function () {
       `${docKey} is not attached`,
     );
 
-    const d2 = await c1.connect<TestDoc>(docKey);
+    const d2 = await c1.attach<TestDoc>(docKey);
     // 02. abnormal behavior on attached state
     assertThrowsAsync(
       async () => {
-        await c1.connect<TestDoc>(docKey);
+        await c1.attach<TestDoc>(docKey);
       },
       YorkieError,
       `${docKey} is not detached`,

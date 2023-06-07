@@ -433,10 +433,10 @@ export class Client implements Observable<ClientEvent> {
   }
 
   /**
-   * `connect` creates a new document with the given docKey and notifies the server
+   * `attach` creates a new document with the given docKey and notifies the server
    * that this client will synchronize the document.
    */
-  public connect<T, P extends Indexable = Indexable>(
+  public attach<T, P extends Indexable = Indexable>(
     docKey: string,
     options: {
       initialPresence?: P;

@@ -184,8 +184,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    const doc1 = await client1.connect<TestDoc>(docKey);
-    const doc2 = await client2.connect<TestDoc>(docKey);
+    const doc1 = await client1.attach<TestDoc>(docKey);
+    const doc2 = await client2.attach<TestDoc>(docKey);
 
     doc1.update((root) => {
       root['1'] = 1;
@@ -250,8 +250,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    const doc1 = await client1.connect<TestDoc>(docKey);
-    const doc2 = await client2.connect<TestDoc>(docKey);
+    const doc1 = await client1.attach<TestDoc>(docKey);
+    const doc2 = await client2.attach<TestDoc>(docKey);
 
     doc1.update((root) => {
       root.text = new Text();
@@ -325,8 +325,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    const doc1 = await client1.connect<TestDoc>(docKey);
-    const doc2 = await client2.connect<TestDoc>(docKey);
+    const doc1 = await client1.attach<TestDoc>(docKey);
+    const doc2 = await client2.attach<TestDoc>(docKey);
 
     doc1.update((root) => {
       root['1'] = 1;
