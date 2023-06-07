@@ -305,7 +305,7 @@ export class Document<T, P extends Indexable> {
       throw err;
     }
 
-    if (this.changeContext.hasChange()) {
+    if (this.changeContext && this.changeContext.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
@@ -554,7 +554,7 @@ export class Document<T, P extends Indexable> {
    * @internal
    */
   public createChangePack(): ChangePack<P> {
-    const changes = this.localChanges;
+    const changes = Array.from(this.localChanges);
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
     return ChangePack.create({
       key: this.key,

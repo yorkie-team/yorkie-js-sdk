@@ -10,12 +10,15 @@ module.exports = {
   ],
   rules: {
     'prettier/prettier': 'error',
-    '@typescript-eslint/naming-convention': ['error', {
-      selector: 'variable',
-      format: ['camelCase', 'PascalCase'],
-      leadingUnderscore: 'allowDouble',
-      trailingUnderscore: 'allowDouble',
-    }],
+    '@typescript-eslint/naming-convention': [
+      'error',
+      {
+        selector: 'variable',
+        format: ['camelCase', 'PascalCase'],
+        leadingUnderscore: 'allowDouble',
+        trailingUnderscore: 'allowDouble',
+      },
+    ],
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/ban-ts-comment': 'off',

@@ -82,7 +82,7 @@ export class TimeTicket {
     if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
-    return `${this.lamport.toString()}:${this.actorID.substring(22, 24)}:${
+    return `${this.lamport.toString()}:${this.actorID.slice(-2)}:${
       this.delimiter
     }`;
   }

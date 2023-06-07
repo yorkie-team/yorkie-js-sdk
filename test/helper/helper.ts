@@ -15,9 +15,12 @@
  */
 
 import { assert } from 'chai';
+import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
+import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export type Indexable = Record<string, any>;
 
@@ -140,4 +143,19 @@ export class TextView {
   public toString(): string {
     return this.value;
   }
+}
+
+/**
+ * `buildIndexTree` builds an index tree from the given element node.
+ */
+export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
+  const doc = Document.create<{ t: Tree }, Indexable>(
+    'test',
+    InitialActorID,
+    {},
+  );
+  doc.update((root) => {
+    root.t = new Tree(node);
+  });
+  return doc.getRoot().t.getIndexTree();
 }
