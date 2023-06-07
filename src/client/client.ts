@@ -436,22 +436,25 @@ export class Client implements Observable<ClientEvent> {
    * `connect` creates a new document with the given docKey and notifies the server
    * that this client will synchronize the document.
    */
-  public connect<T, P extends Indexable>(
+  public connect<T, P extends Indexable = Indexable>(
     docKey: string,
     options: {
       initialPresence?: P;
-      isManualSync?: boolean;
+      isRealtimeSync?: boolean;
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
-    const { initialPresence, isManualSync } = options;
-    const doc = new Document<T, P>(
-      docKey,
-      this.id!,
-      initialPresence || ({} as P),
-    );
+    if (this.attachmentMap.has(docKey)) {
+      throw new YorkieError(
+        Code.DocumentNotDetached,
+        `${docKey} is not detached`,
+      );
+    }
+    const initialPresence = options.initialPresence || ({} as P);
+    const isRealtimeSync = options.isRealtimeSync ?? true;
+    const doc = new Document<T, P>(docKey, this.id!, initialPresence);
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
@@ -478,7 +481,7 @@ export class Client implements Observable<ClientEvent> {
                 this.reconnectStreamDelay,
                 doc,
                 res.getDocumentId(),
-                !isManualSync,
+                isRealtimeSync,
               ),
             );
             await this.runWatchLoop(doc.getKey());
@@ -872,15 +875,6 @@ export class Client implements Observable<ClientEvent> {
         );
       });
 
-      setTimeout(() => {
-        attachment.doc.publish({
-          type: DocEventType.PeersChanged,
-          value: {
-            type: 'initialized',
-            peers: attachment.doc.getPeers(),
-          },
-        });
-      }, 0);
       return;
     }
 

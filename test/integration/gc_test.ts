@@ -2,6 +2,7 @@ import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
+import { createTestDocument } from '@yorkie-js-sdk/test/helper/helper';
 import {
   testRPCAddr,
   toDocKey,
@@ -10,7 +11,7 @@ import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
-    const doc = new yorkie.Document<{
+    const doc = createTestDocument<{
       1: number;
       2?: Array<number>;
       3: number;
@@ -35,7 +36,7 @@ describe('Garbage Collection', function () {
 
   it('garbage collection test2', function () {
     const size = 10000;
-    const doc = new yorkie.Document<{ 1?: Array<unknown> }>('test-doc');
+    const doc = createTestDocument<{ 1?: Array<unknown> }>('test-doc');
     doc.update((root) => {
       root['1'] = Array.from(Array(size).keys());
     }, 'sets big array');
@@ -48,7 +49,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test3', function () {
-    const doc = new yorkie.Document<{ list: Array<number> }>('test-doc');
+    const doc = createTestDocument<{ list: Array<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -76,7 +77,7 @@ describe('Garbage Collection', function () {
   });
 
   it('text garbage collection test', function () {
-    const doc = new yorkie.Document<{ text: Text }>('test-doc');
+    const doc = createTestDocument<{ text: Text }>('test-doc');
     doc.update((root) => (root.text = new Text()));
     doc.update((root) => root.text.edit(0, 0, 'ABCD'));
     doc.update((root) => root.text.edit(0, 2, '12'));
@@ -104,7 +105,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text', function () {
-    const doc = new yorkie.Document<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expectedMessage = '{"k1":[{"val":"Hello "},{"val":"mario"}]}';
@@ -138,7 +139,7 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test for text with attributes', function () {
-    const doc = new yorkie.Document<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let expectedMessage =
@@ -176,8 +177,6 @@ describe('Garbage Collection', function () {
   it('Can handle garbage collection for container type', async function () {
     type TestDoc = { 1: number; 2?: Array<number>; 3: number };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
     const client1 = new yorkie.Client(testRPCAddr);
     const client2 = new yorkie.Client(testRPCAddr);
@@ -185,8 +184,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1);
-    await client2.attach(doc2);
+    const doc1 = await client1.connect<TestDoc>(docKey);
+    const doc2 = await client2.connect<TestDoc>(docKey);
 
     doc1.update((root) => {
       root['1'] = 1;
@@ -244,8 +243,6 @@ describe('Garbage Collection', function () {
   it('Can handle garbage collection for text type', async function () {
     type TestDoc = { text: Text; textWithAttr: Text };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
     const client1 = new yorkie.Client(testRPCAddr);
     const client2 = new yorkie.Client(testRPCAddr);
@@ -253,8 +250,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1);
-    await client2.attach(doc2);
+    const doc1 = await client1.connect<TestDoc>(docKey);
+    const doc2 = await client2.connect<TestDoc>(docKey);
 
     doc1.update((root) => {
       root.text = new Text();
@@ -321,8 +318,6 @@ describe('Garbage Collection', function () {
       5: Text;
     };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
     const client1 = new yorkie.Client(testRPCAddr);
     const client2 = new yorkie.Client(testRPCAddr);
@@ -330,8 +325,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1);
-    await client2.attach(doc2);
+    const doc1 = await client1.connect<TestDoc>(docKey);
+    const doc2 = await client2.connect<TestDoc>(docKey);
 
     doc1.update((root) => {
       root['1'] = 1;

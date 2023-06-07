@@ -16,21 +16,20 @@
 
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  waitStubCallCount,
+  createTestDocument,
+} from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import {
-  Document,
-  DocEvent,
-  DocEventType,
-} from '@yorkie-js-sdk/src/document/document';
+import { DocEvent, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
   it('doesnt return error when trying to delete a missing key', function () {
-    const doc = Document.create<{
+    const doc = createTestDocument<{
       k1?: string;
       k2?: string;
       k3: Array<number>;
@@ -53,7 +52,7 @@ describe('Document', function () {
   it('generic type parameter test', function () {
     type Todos = { todos: Array<{ title: string; done: boolean }> };
 
-    const doc = Document.create<Todos>('test-doc');
+    const doc = createTestDocument<Todos>('test-doc');
     doc.update((root) => {
       root.todos = [
         {
@@ -81,7 +80,9 @@ describe('Document', function () {
   });
 
   it('null value test', function () {
-    const doc = Document.create<{ data: { '': null; null: null } }>('test-doc');
+    const doc = createTestDocument<{ data: { '': null; null: null } }>(
+      'test-doc',
+    );
     doc.update((root) => {
       root.data = {
         '': null,
@@ -92,7 +93,7 @@ describe('Document', function () {
   });
 
   it('delete elements of array test', function () {
-    const doc = Document.create<{ data: Array<number> }>('test-doc');
+    const doc = createTestDocument<{ data: Array<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -119,7 +120,7 @@ describe('Document', function () {
   });
 
   it('splice array with number', function () {
-    const doc = Document.create<{ list: Array<number> }>('test-doc');
+    const doc = createTestDocument<{ list: Array<number> }>('test-doc');
     doc.update((root) => {
       root.list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     });
@@ -199,7 +200,7 @@ describe('Document', function () {
   });
 
   it('splice array with string', function () {
-    const doc = Document.create<{ list: Array<string> }>('test-doc');
+    const doc = createTestDocument<{ list: Array<string> }>('test-doc');
 
     doc.update((root) => {
       root.list = ['a', 'b', 'c'];
@@ -214,7 +215,7 @@ describe('Document', function () {
   });
 
   it('splice array with object', function () {
-    const doc = Document.create<{ list: Array<{ id: number }> }>('test-doc');
+    const doc = createTestDocument<{ list: Array<{ id: number }> }>('test-doc');
 
     doc.update((root) => {
       root.list = [{ id: 1 }, { id: 2 }];
@@ -236,7 +237,7 @@ describe('Document', function () {
     };
 
     it('concat()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -248,7 +249,7 @@ describe('Document', function () {
     });
 
     it('entries()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -273,7 +274,7 @@ describe('Document', function () {
     });
 
     it('every()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -306,7 +307,7 @@ describe('Document', function () {
     });
 
     it('filter()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -337,7 +338,7 @@ describe('Document', function () {
     });
 
     it('find()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -374,7 +375,7 @@ describe('Document', function () {
     });
 
     it('findIndex()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -405,7 +406,7 @@ describe('Document', function () {
     });
 
     it('forEach()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -434,7 +435,7 @@ describe('Document', function () {
       type TestDoc = {
         list: JSONArray<number | string>;
       };
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3, NaN, '4'];
       });
@@ -451,7 +452,7 @@ describe('Document', function () {
     });
 
     it('includes() with objects', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -463,7 +464,7 @@ describe('Document', function () {
     });
 
     it('indexOf()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3, 3];
       });
@@ -475,7 +476,7 @@ describe('Document', function () {
     });
 
     it('indexOf() with objects', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -487,7 +488,7 @@ describe('Document', function () {
     });
 
     it('join()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -500,7 +501,7 @@ describe('Document', function () {
     });
 
     it('keys()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -514,7 +515,7 @@ describe('Document', function () {
     });
 
     it('lastIndexOf()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3, 3];
       });
@@ -527,7 +528,7 @@ describe('Document', function () {
     });
 
     it('lastIndexOf() with objects', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -539,7 +540,7 @@ describe('Document', function () {
     });
 
     it('map()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -570,7 +571,7 @@ describe('Document', function () {
     });
 
     it('reduce()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -608,7 +609,7 @@ describe('Document', function () {
     });
 
     it('reduceRight()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -646,7 +647,7 @@ describe('Document', function () {
     });
 
     it('slice()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -661,7 +662,7 @@ describe('Document', function () {
     });
 
     it('some()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -693,7 +694,7 @@ describe('Document', function () {
     });
 
     it('toString()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.empty = [];
         root.list = [1, 2, 3];
@@ -712,7 +713,7 @@ describe('Document', function () {
     });
 
     it('values()', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3];
       });
@@ -726,7 +727,7 @@ describe('Document', function () {
     });
 
     it('should allow mutation of objects returned from built in list iteration', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -746,7 +747,7 @@ describe('Document', function () {
     });
 
     it('should allow mutation of objects returned from readonly list methods', () => {
-      const doc = Document.create<TestDoc>('test-doc');
+      const doc = createTestDocument<TestDoc>('test-doc');
       doc.update((root) => {
         root.objects = [{ id: 'first' }, { id: 'second' }];
       });
@@ -763,7 +764,7 @@ describe('Document', function () {
   });
 
   it('move elements before a specific node of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -790,7 +791,7 @@ describe('Document', function () {
   });
 
   it('simple move elements before a specific node of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -809,7 +810,7 @@ describe('Document', function () {
   });
 
   it('move elements after a specific node of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -836,7 +837,7 @@ describe('Document', function () {
   });
 
   it('simple move elements after a specific node of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -855,7 +856,7 @@ describe('Document', function () {
   });
 
   it('move elements at the first of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -880,7 +881,7 @@ describe('Document', function () {
   });
 
   it('simple move elements at the first of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -898,7 +899,7 @@ describe('Document', function () {
   });
 
   it('move elements at the last of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -923,7 +924,7 @@ describe('Document', function () {
   });
 
   it('simple move elements at the last of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -941,7 +942,7 @@ describe('Document', function () {
   });
 
   it('changeInfo test for object', async function () {
-    const doc = Document.create<any>('test-doc');
+    const doc = createTestDocument<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];
     const ops: Array<OperationInfo> = [];
@@ -982,7 +983,7 @@ describe('Document', function () {
   });
 
   it('changeInfo test for array', async function () {
-    const doc = Document.create<any>('test-doc');
+    const doc = createTestDocument<any>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];
     const ops: Array<OperationInfo> = [];
@@ -1022,7 +1023,7 @@ describe('Document', function () {
 
   it('changeInfo test for counter', async function () {
     type TestDoc = { cnt: Counter };
-    const doc = Document.create<TestDoc>('test-doc');
+    const doc = createTestDocument<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];
     const ops: Array<OperationInfo> = [];
@@ -1063,7 +1064,7 @@ describe('Document', function () {
       text: Text;
     };
 
-    const doc = Document.create<TestDoc>('test-doc');
+    const doc = createTestDocument<TestDoc>('test-doc');
     doc.update((root) => {
       root.array = [1, 2];
       root.text = new Text();
@@ -1074,7 +1075,7 @@ describe('Document', function () {
   it('changeInfo test for text', async function () {
     type TestDoc = { text: Text };
 
-    const doc = Document.create<TestDoc>('test-doc');
+    const doc = createTestDocument<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];
     const ops: Array<OperationInfo> = [];
@@ -1125,7 +1126,7 @@ describe('Document', function () {
 
   it('changeInfo test for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
-    const doc = Document.create<TestDoc>('test-doc');
+    const doc = createTestDocument<TestDoc>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];
     const ops: Array<OperationInfo> = [];
@@ -1176,7 +1177,7 @@ describe('Document', function () {
   });
 
   it('insert elements before a specific node of array', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -1206,7 +1207,7 @@ describe('Document', function () {
   });
 
   it('can insert an element before specific position after delete operation', function () {
-    const doc = Document.create<{ data: JSONArray<number> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
       root.data = [0, 1, 2];
     });
@@ -1235,7 +1236,7 @@ describe('Document', function () {
   });
 
   it('should remove previously inserted elements in heap when running GC', function () {
-    const doc = Document.create<{ a?: number }>('test-doc');
+    const doc = createTestDocument<{ a?: number }>('test-doc');
     doc.update((root) => {
       root.a = 1;
       root.a = 2;
@@ -1250,7 +1251,7 @@ describe('Document', function () {
   });
 
   it('escapes string for object', function () {
-    const doc = Document.create<{ a?: string }>('test-doc');
+    const doc = createTestDocument<{ a?: string }>('test-doc');
     doc.update((root) => {
       root.a = '"hello"\n\f\b\r\t\\';
     });
@@ -1258,7 +1259,7 @@ describe('Document', function () {
   });
 
   it('escapes string for text', function () {
-    const doc = Document.create<{ text?: Text }>('test-doc');
+    const doc = createTestDocument<{ text?: Text }>('test-doc');
     doc.update((root) => {
       root.text = new Text();
       root.text.edit(0, 0, '"hello"');
@@ -1268,7 +1269,7 @@ describe('Document', function () {
 
   it('escapes string for text with Attributes', function () {
     type TestDoc = { textWithAttr: Text };
-    const doc = Document.create<TestDoc>('test-doc');
+    const doc = createTestDocument<TestDoc>('test-doc');
     doc.update((root) => {
       root.textWithAttr = new Text();
       root.textWithAttr.edit(0, 0, '"hello"', { b: '\n' });
@@ -1280,7 +1281,7 @@ describe('Document', function () {
   });
 
   it('escapes string for elements in array', function () {
-    const doc = Document.create<{ data: JSONArray<string> }>('test-doc');
+    const doc = createTestDocument<{ data: JSONArray<string> }>('test-doc');
     doc.update((root) => {
       root.data = ['"hello"', '\n', '\b', '\t', '\f', '\r', '\\'];
     });
@@ -1291,7 +1292,7 @@ describe('Document', function () {
   });
 
   it('gets the value of the counter', function () {
-    const doc = Document.create<{ counter: Counter }>('test-doc');
+    const doc = createTestDocument<{ counter: Counter }>('test-doc');
     doc.update((root) => {
       root.counter = new Counter(CounterType.IntegerCnt, 155);
     });
@@ -1305,7 +1306,9 @@ describe('Document', function () {
       italic?: boolean | null;
       color?: string;
     };
-    const doc = Document.create<{ textWithAttr: Text<AttrsType> }>('test-doc');
+    const doc = createTestDocument<{ textWithAttr: Text<AttrsType> }>(
+      'test-doc',
+    );
     doc.update((root) => {
       root.textWithAttr = new Text();
       root.textWithAttr.edit(0, 0, 'aaa', { bold: true });

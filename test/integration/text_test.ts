@@ -1,11 +1,14 @@
 import { assert } from 'chai';
-import { TextView } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  createTestDocument,
+  TextView,
+} from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
+import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
@@ -46,7 +49,7 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
@@ -72,7 +75,7 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -89,7 +92,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion of nested nodes', function () {
-    const doc = Document.create<{
+    const doc = createTestDocument<{
       text: Text;
     }>('test-doc');
     const view = new TextView();
@@ -118,7 +121,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion of the last nodes', function () {
-    const doc = Document.create<{ text: Text }>('test-doc');
+    const doc = createTestDocument<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -153,7 +156,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion with boundary nodes already removed', function () {
-    const doc = Document.create<{ text: Text }>('test-doc');
+    const doc = createTestDocument<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -185,7 +188,7 @@ describe('Text', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{
+    const doc = createTestDocument<{
       text: Text;
     }>('test-doc');
 
@@ -234,7 +237,7 @@ describe('Text', function () {
   });
 
   it('should handle text edit operations with attributes', function () {
-    const doc = Document.create<{ k1: Text<{ b: string }> }>('test-doc');
+    const doc = createTestDocument<{ k1: Text<{ b: string }> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -257,7 +260,7 @@ describe('Text', function () {
   });
 
   it('should handle text delete operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
@@ -271,7 +274,7 @@ describe('Text', function () {
   });
 
   it('should handle text empty operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = createTestDocument<{ k1: Text }>('test-doc');
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
@@ -292,8 +295,7 @@ describe('Text', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), `{"k1":[]}`);
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-
+      assert.equal(d2.toSortedJSON(), `{"k1":[]}`);
       d1.update((root) => {
         root['k1'].edit(0, 0, 'ABCD');
       }, 'edit 0,0 ABCD by c1');

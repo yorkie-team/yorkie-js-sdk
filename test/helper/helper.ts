@@ -15,6 +15,8 @@
  */
 
 import { assert } from 'chai';
+import { Document } from '@yorkie-js-sdk/src/document/document';
+import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export type Indexable = Record<string, any>;
@@ -89,6 +91,13 @@ export async function assertThrowsAsync(
   } finally {
     assert.throws(errFn, errType, message);
   }
+}
+
+export function createTestDocument<T, P extends Indexable = Indexable>(
+  docKey: string,
+): Document<T, P> {
+  const initialPresence = {} as P;
+  return Document.create<T, P>(docKey, InitialActorID, initialPresence);
 }
 
 /**

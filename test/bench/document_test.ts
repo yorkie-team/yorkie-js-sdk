@@ -15,7 +15,8 @@
  */
 
 import { assert } from 'chai';
-import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
+import { createTestDocument } from '@yorkie-js-sdk/test/helper/helper';
+import { JSONArray, Text } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
@@ -23,7 +24,7 @@ import { Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 const benchmarkTextEditGC = (size: number) => {
-  const doc = Document.create<{ text: Text }>('test-doc');
+  const doc = createTestDocument<{ text: Text }>('test-doc');
   assert.equal('{}', doc.toJSON());
   // 01. initial
   doc.update((root) => {
@@ -47,7 +48,7 @@ const benchmarkTextEditGC = (size: number) => {
   assert.equal(empty, doc.getGarbageLen());
 };
 const benchmarkTextSplitGC = (size: number) => {
-  const doc = Document.create<{ text: Text }>('test-doc');
+  const doc = createTestDocument<{ text: Text }>('test-doc');
   assert.equal('{}', doc.toJSON());
 
   // 01. initial
@@ -70,7 +71,7 @@ const benchmarkTextSplitGC = (size: number) => {
   assert.equal(empty, doc.getGarbageLen());
 };
 const benchmarkTextDeleteAll = (size: number) => {
-  const doc = Document.create<{ text: Text }>('test-doc');
+  const doc = createTestDocument<{ text: Text }>('test-doc');
   doc.update((root) => {
     root.text = new Text();
   }, 'initialize');
@@ -87,7 +88,7 @@ const benchmarkTextDeleteAll = (size: number) => {
   assert.equal(doc.getRoot().text.toString(), '');
 };
 const benchmarkText = (size: number) => {
-  const doc = Document.create<{ text: Text }>('test-doc');
+  const doc = createTestDocument<{ text: Text }>('test-doc');
 
   doc.update((root) => {
     root.text = new Text();
@@ -98,7 +99,7 @@ const benchmarkText = (size: number) => {
   });
 };
 const benchmarkCounter = (size: number) => {
-  const doc = Document.create<{ counter: Counter }>('test-doc');
+  const doc = createTestDocument<{ counter: Counter }>('test-doc');
 
   doc.update((root) => {
     root.counter = new Counter(CounterType.IntegerCnt, 0);
@@ -108,7 +109,7 @@ const benchmarkCounter = (size: number) => {
   });
 };
 const benchmarkObject = (size: number) => {
-  const doc = Document.create<{ k1: number }>('test-doc');
+  const doc = createTestDocument<{ k1: number }>('test-doc');
 
   doc.update((root) => {
     for (let i = 0; i < size; i++) {
@@ -117,7 +118,7 @@ const benchmarkObject = (size: number) => {
   });
 };
 const benchmarkArray = (size: number) => {
-  const doc = Document.create<{ k1: JSONArray<number> }>('test-doc');
+  const doc = createTestDocument<{ k1: JSONArray<number> }>('test-doc');
 
   doc.update((root) => {
     root.k1 = [];
@@ -128,7 +129,7 @@ const benchmarkArray = (size: number) => {
   });
 };
 const benchmarkArrayGC = (size: number) => {
-  const doc = Document.create<{ k1?: JSONArray<number> }>('test-doc');
+  const doc = createTestDocument<{ k1?: JSONArray<number> }>('test-doc');
 
   doc.update((root) => {
     root.k1 = [];
@@ -148,7 +149,7 @@ const tests = [
   {
     name: 'Document#constructor',
     run: (): void => {
-      const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
+      const doc = createTestDocument<{ text: JSONArray<string> }>(`test-doc`);
       assert.equal('{}', doc.toJSON());
       assert.equal(doc.getCheckpoint(), InitialCheckpoint);
       assert.isFalse(doc.hasLocalChanges());
@@ -157,7 +158,7 @@ const tests = [
   {
     name: 'Document#status',
     run: (): void => {
-      const doc = Document.create<{ text: JSONArray<string> }>(`test-doc`);
+      const doc = createTestDocument<{ text: JSONArray<string> }>(`test-doc`);
       assert.equal(doc.getStatus(), DocumentStatus.Detached);
       doc.setStatus(DocumentStatus.Attached);
       assert.equal(doc.getStatus(), DocumentStatus.Attached);
@@ -166,9 +167,9 @@ const tests = [
   {
     name: 'Document#equals',
     run: (): void => {
-      const doc1 = Document.create<{ text: string }>('d1');
-      const doc2 = Document.create<{ text: string }>('d2');
-      const doc3 = Document.create<{ text: string }>('d3');
+      const doc1 = createTestDocument<{ text: string }>('d1');
+      const doc2 = createTestDocument<{ text: string }>('d2');
+      const doc3 = createTestDocument<{ text: string }>('d3');
       doc1.update((root) => {
         root.text = 'value';
       }, 'update text');
@@ -180,7 +181,7 @@ const tests = [
     name: 'Document#nested update',
     run: (): void => {
       const expected = `{"k1":"v1","k2":{"k4":"v4"},"k3":["v5","v6"]}`;
-      const doc = Document.create<{
+      const doc = createTestDocument<{
         k1: string;
         k2: { k4: string };
         k3: Array<string>;
@@ -199,7 +200,7 @@ const tests = [
   {
     name: 'Document#delete',
     run: (): void => {
-      const doc = Document.create<{
+      const doc = createTestDocument<{
         k1?: string;
         k2?: { k4: string };
         k3?: Array<string>;
@@ -223,7 +224,7 @@ const tests = [
   {
     name: 'Document#object',
     run: (): void => {
-      const doc = Document.create<{ k1: string }>('test-doc');
+      const doc = createTestDocument<{ k1: string }>('test-doc');
       doc.update((root) => {
         root.k1 = 'v1';
         root.k1 = 'v2';
@@ -234,7 +235,7 @@ const tests = [
   {
     name: 'Document#array',
     run: (): void => {
-      const doc = Document.create<{ k1: JSONArray<number> }>('test-doc');
+      const doc = createTestDocument<{ k1: JSONArray<number> }>('test-doc');
 
       doc.update((root) => {
         root.k1 = [];
@@ -284,7 +285,7 @@ const tests = [
   {
     name: 'Document#text',
     run: (): void => {
-      const doc = Document.create<{ k1: Text }>('test-doc');
+      const doc = createTestDocument<{ k1: Text }>('test-doc');
       doc.update((root) => {
         root.k1 = new Text();
         root.k1.edit(0, 0, 'ABCD');
@@ -315,7 +316,7 @@ const tests = [
   {
     name: 'Document#text composition test',
     run: (): void => {
-      const doc = Document.create<{ k1: Text }>('test-doc');
+      const doc = createTestDocument<{ k1: Text }>('test-doc');
       doc.update((root) => {
         root.k1 = new Text();
         root.k1.edit(0, 0, 'ㅎ');
@@ -331,7 +332,7 @@ const tests = [
   {
     name: 'Document#rich text test',
     run: (): void => {
-      const doc = Document.create<{ k1: Text }>('test-doc');
+      const doc = createTestDocument<{ k1: Text }>('test-doc');
       doc.update((root) => {
         root.k1 = new Text();
         root.k1.edit(0, 0, 'Hello world');
@@ -396,7 +397,9 @@ const tests = [
   {
     name: 'Document#counter test',
     run: (): void => {
-      const doc = Document.create<{ age: Counter; price: Counter }>('test-doc');
+      const doc = createTestDocument<{ age: Counter; price: Counter }>(
+        'test-doc',
+      );
       const integer = 10;
       const long = 5;
       const uinteger = 100;

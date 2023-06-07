@@ -15,14 +15,14 @@
  */
 
 import { assert } from 'chai';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { createTestDocument } from '@yorkie-js-sdk/test/helper/helper';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
-    const doc = Document.create<{
+    const doc = createTestDocument<{
       k1: {
         ['k1.1']: boolean;
         ['k1.2']: number;

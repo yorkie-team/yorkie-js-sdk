@@ -98,7 +98,7 @@ export type InternalOpInfo =
   | ToInternalOpInfo<EditOpInfo>
   | ToInternalOpInfo<StyleOpInfo>
   | ToInternalOpInfo<SelectOpInfo>;
-type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
+export type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };
 

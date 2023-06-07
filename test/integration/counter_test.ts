@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { createTestDocument } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -7,7 +7,7 @@ import Long from 'long';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
-    const doc = Document.create<{
+    const doc = createTestDocument<{
       k1: { age?: Counter; length?: Counter };
     }>('test-doc');
 
@@ -90,7 +90,7 @@ describe('Counter', function () {
   });
 
   it('can handle overflow', function () {
-    const doc = Document.create<{ age: Counter }>('test-doc');
+    const doc = createTestDocument<{ age: Counter }>('test-doc');
 
     doc.update((root) => {
       root.age = new Counter(CounterType.IntegerCnt, 2147483647);

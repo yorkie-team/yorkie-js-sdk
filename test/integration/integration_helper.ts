@@ -1,6 +1,6 @@
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/client/client';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js-sdk/src/document/document';
 
 const __karma__ = (global as any).__karma__;
 export const testRPCAddr =
@@ -16,9 +16,9 @@ export function toDocKey(title: string): string {
 export async function withTwoClientsAndDocuments<T>(
   callback: (
     c1: Client,
-    d1: Document<T>,
+    d1: Document<T, Indexable>,
     c2: Client,
-    d2: Document<T>,
+    d2: Document<T, Indexable>,
   ) => Promise<void>,
   title: string,
 ): Promise<void> {
@@ -28,11 +28,12 @@ export async function withTwoClientsAndDocuments<T>(
   await client2.activate();
 
   const docKey = `${toDocKey(title)}-${new Date().getTime()}`;
-  const doc1 = new yorkie.Document<T>(docKey);
-  const doc2 = new yorkie.Document<T>(docKey);
-
-  await client1.attach(doc1, true);
-  await client2.attach(doc2, true);
+  const doc1 = await client1.connect<T, Indexable>(docKey, {
+    isRealtimeSync: false,
+  });
+  const doc2 = await client2.connect<T, Indexable>(docKey, {
+    isRealtimeSync: false,
+  });
 
   await callback(client1, doc1, client2, doc2);
 

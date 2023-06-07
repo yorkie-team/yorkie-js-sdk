@@ -100,7 +100,7 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent<P extends Indexable> =
+export type DocEvent<P extends Indexable = Indexable> =
   | SnapshotEvent
   | LocalChangeEvent<P>
   | RemoteChangeEvent<P>
@@ -300,6 +300,7 @@ export class Document<T, P extends Indexable> {
     } catch (err) {
       // drop clone because it is contaminated.
       this.clone = undefined;
+      this.changeContext = undefined;
       logger.error(err);
       throw err;
     }
