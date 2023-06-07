@@ -48,8 +48,15 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   InternalOpInfo,
   OperationInfo,
+  ObjectOperationInfo,
+  TextOperationInfo,
+  CounterOperationInfo,
+  ArrayOperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+import { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Trie } from '../util/trie';
 
 /**
@@ -99,7 +106,10 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent = SnapshotEvent | LocalChangeEvent | RemoteChangeEvent;
+export type DocEvent<T = OperationInfo> =
+  | SnapshotEvent
+  | LocalChangeEvent<T>
+  | RemoteChangeEvent<T>;
 
 /**
  * @internal
@@ -129,9 +139,9 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export interface ChangeInfo {
+export interface ChangeInfo<T = OperationInfo> {
   message: string;
-  operations: Array<OperationInfo>;
+  operations: Array<T>;
   actor: ActorID | undefined;
 }
 
@@ -141,7 +151,7 @@ export interface ChangeInfo {
  *
  * @public
  */
-export interface LocalChangeEvent extends BaseDocEvent {
+export interface LocalChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.LocalChange
    */
@@ -149,7 +159,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<ChangeInfo<T>>;
 }
 
 /**
@@ -158,7 +168,7 @@ export interface LocalChangeEvent extends BaseDocEvent {
  *
  * @public
  */
-export interface RemoteChangeEvent extends BaseDocEvent {
+export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.RemoteChange
    */
@@ -166,7 +176,7 @@ export interface RemoteChangeEvent extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<ChangeInfo>;
+  value: Array<ChangeInfo<T>>;
 }
 
 /**
@@ -180,6 +190,107 @@ export type Indexable = Record<string, any>;
  * @public
  */
 export type DocumentKey = string;
+
+type TPrimitive = string | number | boolean | bigint | symbol;
+type TLeafType = TPrimitive | Text | Counter;
+
+// get OperationType by TObject
+type OperationInfoType<TObject> = TObject extends Text
+  ? TextOperationInfo
+  : TObject extends Counter
+  ? CounterOperationInfo
+  : TObject extends Array<any> | JSONArray<any>
+  ? ArrayOperationInfo
+  : TObject extends object | JSONObject<any>
+  ? ObjectOperationInfo
+  : OperationInfo;
+
+type SubscribeOperationInfoType<
+  TObject,
+  TKey,
+  Depth extends number = 0,
+> = Depth extends 0
+  ? TObject
+  : TKey extends `${infer TPath}.${infer TRest}`
+  ? TPath extends keyof TObject
+    ? TObject[TPath] extends Array<any> // if TFirst is array, TPath must be number
+      ? SubscribeOperationInfoType<TObject[TPath], number, DepthTarget<Depth>>
+      : SubscribeOperationInfoType<TObject[TPath], TRest, DepthTarget<Depth>>
+    : OperationInfo
+  : TKey extends keyof TObject
+  ? TObject[TKey] extends Array<any>
+    ? ArrayOperationInfo
+    : OperationInfoType<TObject[TKey]>
+  : OperationInfo;
+
+// get OperationInfoType by subscribe key
+type SubscribeOperationType<
+  TObject,
+  TKey extends string = '',
+  Depth extends number = 10,
+> = TKey extends `$.${infer TPath}`
+  ? SubscribeOperationInfoType<TObject, TPath, Depth>
+  : SubscribeOperationInfoType<TObject, TKey, Depth>;
+
+type DepthTarget<Depth extends number = 0> = Depth extends 10
+  ? 9
+  : Depth extends 9
+  ? 8
+  : Depth extends 8
+  ? 7
+  : Depth extends 7
+  ? 6
+  : Depth extends 6
+  ? 5
+  : Depth extends 5
+  ? 4
+  : Depth extends 4
+  ? 3
+  : Depth extends 3
+  ? 2
+  : Depth extends 2
+  ? 1
+  : Depth extends 1
+  ? 0
+  : -1;
+
+// create subscribe message field type
+type FlattenKeys<
+  TObject,
+  Prefix extends string = '',
+  Depth extends number = 0,
+> = Depth extends 0
+  ? Prefix
+  : TObject extends Record<string, any>
+  ? {
+      [TKey in keyof TObject]: TObject[TKey] extends TLeafType
+        ? `${Prefix}${TKey & string}`
+        : TObject[TKey] extends Array<infer TItem>
+        ?
+            | `${Prefix}${TKey & string}`
+            | `${Prefix}${TKey & string}.${number}`
+            | FlattenKeys<
+                TItem,
+                `${Prefix}${TKey & string}.${number}.`,
+                DepthTarget<Depth>
+              >
+        :
+            | `${Prefix}${TKey & string}`
+            | FlattenKeys<
+                TObject[TKey],
+                `${Prefix}${TKey & string}.`,
+                DepthTarget<Depth>
+              >;
+    }[keyof TObject]
+  : Prefix extends `${infer TRest}.`
+  ? TRest
+  : Prefix;
+
+type TSubscribeType<NestedObject, Depth extends number = 10> = FlattenKeys<
+  NestedObject,
+  '$.',
+  Depth
+>;
 
 /**
  * `Document` is a CRDT-based data type. We can represent the model
@@ -289,18 +400,24 @@ export class Document<T> {
    * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the targetPath or any of its nested values change.
    */
-  public subscribe(
-    targetPath: string,
-    next: NextFn<DocEvent>,
+  public subscribe<
+    TPath extends TSubscribeType<T>,
+    TPathOperationInfo extends SubscribeOperationType<T, TPath>,
+  >(
+    targetPath: TPath,
+    next: NextFn<DocEvent<TPathOperationInfo>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
    */
-  public subscribe(
-    arg1: string | Observer<DocEvent> | NextFn<DocEvent>,
-    arg2?: NextFn<DocEvent> | ErrorFn,
+  public subscribe<
+    TPath extends TSubscribeType<T>,
+    TPathOperationInfo extends SubscribeOperationType<T, TPath>,
+  >(
+    arg1: TPath | string | Observer<DocEvent> | NextFn<DocEvent>,
+    arg2?: NextFn<DocEvent<TPathOperationInfo>> | NextFn<DocEvent> | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
   ): Unsubscribe {
@@ -343,9 +460,10 @@ export class Document<T> {
       );
     }
     if (typeof arg1 === 'function') {
+      const nextFn = arg1 as any;
       const error = arg2 as ErrorFn;
       const complete = arg3 as CompleteFn;
-      return this.eventStream.subscribe(arg1, error, complete);
+      return this.eventStream.subscribe(nextFn, error, complete);
     }
     throw new Error(`"${arg1}" is not a valid`);
   }

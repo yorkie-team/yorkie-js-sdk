@@ -1322,4 +1322,135 @@ describe('Document', function () {
       JSON.parse(doc.toSortedJSON());
     });
   });
+
+  it('check OperationInfo type for subscribe path', function () {
+    const doc = Document.create<{
+      a?: number;
+      b: { c: Array<number>; d: { e: { fname: Array<number> } } };
+      todos: Array<{
+        text: string;
+        completed: boolean;
+      }>;
+      text: Text;
+      counter: Counter;
+      textList: Array<string>;
+    }>('test-doc');
+
+    doc.subscribe('$.a', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'set') {
+              assert.equal(op.path, '$.a');
+            } else if (op.type === 'remove') {
+              assert.equal(op.path, '$.a');
+            }
+          });
+        });
+      }
+    });
+    doc.update((root) => {
+      root.a = 1;
+    });
+
+    doc.update((root) => {
+      delete root.a;
+    });
+
+    doc.subscribe('$.b.d.e.fname', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'add') {
+              assert.equal(op.path, '$.b.d.e.fname');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.b = {
+        c: [],
+        d: {
+          e: {
+            fname: [],
+          },
+        },
+      };
+
+      root.b.d.e.fname.push(1);
+    });
+
+    doc.subscribe('$.counter', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'increase') {
+              assert.equal(op.path, '$.counter');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.counter = new Counter(CounterType.IntegerCnt, 0);
+      root.counter.increase(1);
+    });
+
+    doc.subscribe('$.text', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'edit') {
+              assert.equal(op.path, '$.text');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'hello world');
+    });
+
+    doc.subscribe('$.todos.0', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'set') {
+              assert.equal(op.path, '$.todos.0');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.todos = [
+        {
+          text: 'hello',
+          completed: false,
+        },
+      ];
+    });
+
+    doc.subscribe('$.textList', (event) => {
+      if (event.type == 'local-change') {
+        event.value.forEach((change) => {
+          change.operations.forEach((op) => {
+            if (op.type === 'add') {
+              assert.equal(op.path, '$.textList');
+            }
+          });
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.textList = ['hello world'];
+    });
+  });
 });
