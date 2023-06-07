@@ -56,7 +56,7 @@ export interface SubscribeFn<T> {
 }
 
 interface ObserverEntry<T> {
-  id: string;
+  subscriptionID: string;
   observer: Observer<T>;
 }
 
@@ -148,11 +148,11 @@ class ObserverProxy<T> implements Observer<T> {
       observer.complete = Noop as CompleteFn;
     }
 
-    const idString = uuid();
-    const unsub = this.unsubscribeOne.bind(this, idString);
+    const id = uuid();
+    const unsub = this.unsubscribeOne.bind(this, id);
 
     this.observers!.push({
-      id: idString,
+      subscriptionID: id,
       observer: observer as Observer<T>,
     });
 
@@ -172,8 +172,8 @@ class ObserverProxy<T> implements Observer<T> {
     return unsub;
   }
 
-  private unsubscribeOne(subscribeId: string): void {
-    this.observers = this.observers?.filter((it) => it.id !== subscribeId);
+  private unsubscribeOne(id: string): void {
+    this.observers = this.observers?.filter((it) => it.subscriptionID !== id);
   }
 
   private forEachObserver(fn: (observer: Observer<T>) => void): void {
@@ -182,11 +182,11 @@ class ObserverProxy<T> implements Observer<T> {
     }
 
     for (let i = 0; i < this.observers!.length; i++) {
-      this.sendOneSync(i, fn);
+      this.sendOne(i, fn);
     }
   }
 
-  private sendOneSync(i: number, fn: (observer: Observer<T>) => void): void {
+  private sendOne(i: number, fn: (observer: Observer<T>) => void): void {
     if (this.observers !== undefined && this.observers[i] !== undefined) {
       try {
         fn(this.observers[i].observer);
