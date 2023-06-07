@@ -38,14 +38,7 @@
 
       function displayLog(doc, codemirror) {
         logHolder.innerText = doc.toJSON();
-        const textLength = codemirror.getValue().length;
-        if (
-          doc.getRoot().content.length !=
-            doc.getRoot().content.toString().length ||
-          (textLength != doc.getRoot().content.length && textLength != 0)
-        ) {
-          debugger;
-        }
+
         textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
       }
 
@@ -162,8 +155,7 @@
           // 02-2. subscribe document event.
           doc.subscribe((event) => {
             if (event.type === 'snapshot') {
-              // The text is replaced to snapshot and must be re-synced.
-              syncText();
+              codemirror.setValue(doc.getRoot().content.toString());
             }
             displayLog(doc, codemirror);
           });
@@ -174,6 +166,15 @@
               for (const change of changes) {
                 const { actor, operations } = change;
                 handleOperations(operations, actor);
+              }
+
+              const textLength = codemirror.getValue().length;
+              if (
+                doc.getRoot().content.length !=
+                  doc.getRoot().content.toString().length ||
+                (textLength != doc.getRoot().content.length && textLength != 0)
+              ) {
+                debugger;
               }
             }
           });
@@ -201,6 +202,21 @@
 
             console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           });
+          codemirror.on('change', (cm, change) => {
+            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+              return;
+            }
+
+            const textLength = codemirror.getValue().length;
+            if (
+              doc.getRoot().content.length !=
+                doc.getRoot().content.toString().length ||
+              (textLength != doc.getRoot().content.length && textLength != 0)
+            ) {
+              debugger;
+            }
+          });
+
           codemirror.on('beforeSelectionChange', (cm, change) => {
             // Fix concurrent issue.
             // NOTE: The following conditional statement ignores cursor changes
@@ -241,12 +257,7 @@
           }
 
           // 05. synchronize text of document and codemirror.
-          function syncText() {
-            const text = doc.getRoot().content;
-            codemirror.setValue(text.toString());
-          }
-          syncText();
-
+          codemirror.setValue(doc.getRoot().content.toString());
           displayLog(doc, codemirror);
         } catch (e) {
           console.error(e);
