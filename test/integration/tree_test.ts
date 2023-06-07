@@ -265,10 +265,6 @@ describe('Tree', () => {
       }
     });
 
-    // doc.getRoot().t.onChanges((changes) => {
-    //   actualChanges.push(...changes);
-    // });
-
     doc.update((root) => {
       root.t.edit(1, 1, { type: 'text', value: 'X' });
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>Xab</p></doc>`);
@@ -462,7 +458,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content with path', function () {
+  it('Can edit its content with path 2', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -484,13 +480,19 @@ describe('Tree', () => {
         ],
       });
 
-      assert.equal(root.t.toXML(), '<doc><tc><p><tn></tn></p></tc></doc>');
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn></tn></p></tc></doc>`,
+      );
 
       root.t.editByPath([0, 0, 0, 0], [0, 0, 0, 0], {
         type: 'text',
         value: 'a',
       });
-      assert.equal(root.t.toXML(), '<doc><tc><p><tn>a</tn></p></tc></doc>');
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>a</tn></p></tc></doc>`,
+      );
 
       root.t.editByPath([0, 1], [0, 1], {
         type: 'p',
@@ -498,7 +500,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn></tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn></tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 1, 0, 0], [0, 1, 0, 0], {
@@ -507,7 +509,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 2], [0, 2], {
@@ -516,7 +518,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn></tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn></tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 2, 0, 0], [0, 2, 0, 0], {
@@ -525,7 +527,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 3], [0, 3], {
@@ -534,7 +536,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 3, 0, 0], [0, 3, 0, 0], {
@@ -543,7 +545,7 @@ describe('Tree', () => {
       });
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn>d</tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn>d</tn></p></tc></doc>`,
       );
 
       root.t.editByPath([0, 3], [0, 3], {
@@ -553,7 +555,7 @@ describe('Tree', () => {
 
       assert.equal(
         root.t.toXML(),
-        '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p><p><tn>d</tn></p></tc></doc>',
+        /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p><p><tn>d</tn></p></tc></doc>`,
       );
     });
   });
@@ -591,134 +593,6 @@ describe('Tree', () => {
       );
     }, this.test!.title);
   });
-});
-
-it('Can edit its content with path', function () {
-  const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-  const doc = new yorkie.Document<{ t: Tree }>(key);
-
-  doc.update((root) => {
-    root.t = new Tree({
-      type: 'doc',
-      children: [
-        {
-          type: 'tc',
-          children: [
-            {
-              type: 'p',
-              children: [
-                { type: 'tn', children: [{ type: 'text', value: '' }] },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    assert.equal(root.t.toXML(), '<doc><tc><p><tn></tn></p></tc></doc>');
-
-    root.t.editByPath([0, 0, 0, 0], [0, 0, 0, 0], {
-      type: 'text',
-      value: 'a',
-    });
-    assert.equal(root.t.toXML(), '<doc><tc><p><tn>a</tn></p></tc></doc>');
-
-    root.t.editByPath([0, 1], [0, 1], {
-      type: 'p',
-      children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn></tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 1, 0, 0], [0, 1, 0, 0], {
-      type: 'text',
-      value: 'b',
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 2], [0, 2], {
-      type: 'p',
-      children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn></tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 2, 0, 0], [0, 2, 0, 0], {
-      type: 'text',
-      value: 'c',
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 3], [0, 3], {
-      type: 'p',
-      children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 3, 0, 0], [0, 3, 0, 0], {
-      type: 'text',
-      value: 'd',
-    });
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn>d</tn></p></tc></doc>',
-    );
-
-    root.t.editByPath([0, 3], [0, 3], {
-      type: 'p',
-      children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
-    });
-
-    assert.equal(
-      root.t.toXML(),
-      '<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p><p><tn>c</tn></p><p><tn></tn></p><p><tn>d</tn></p></tc></doc>',
-    );
-  });
-});
-
-it('Can sync its content with other replicas', async function () {
-  await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
-    d1.update((root) => {
-      root.t = new Tree({
-        type: 'doc',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'hello' }] }],
-      });
-    });
-    await c1.sync();
-    await c2.sync();
-    assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
-    assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
-
-    d1.update((root) => {
-      root.t.edit(7, 7, {
-        type: 'p',
-        children: [{ type: 'text', value: 'yorkie' }],
-      });
-    });
-    await c1.sync();
-    await c2.sync();
-    assert.equal(
-      d1.getRoot().t.toXML(),
-      /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
-    );
-    assert.equal(
-      d2.getRoot().t.toXML(),
-      /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
-    );
-  }, this.test!.title);
 });
 
 describe('Tree.edit', function () {
