@@ -235,30 +235,28 @@
             return;
           }
 
-          for (const change of event.value) {
-            const { message, actor, operations } = change;
-            for (const op of operations) {
-              if (op.type !== 'tree-edit') {
-                continue;
-              }
-
-              const { from, to, value: content } = op;
-              const transform = view.state.tr;
-              if (content) {
-                transform.replaceWith(
-                  from,
-                  to,
-                  Node.fromJSON(mySchema, {
-                    type: content.type,
-                    text: content.value,
-                  }),
-                );
-              } else {
-                transform.replace(from, to);
-              }
-              const newState = view.state.apply(transform);
-              view.updateState(newState);
+          const { message, actor, operations } = event.value;
+          for (const op of operations) {
+            if (op.type !== 'tree-edit') {
+              continue;
             }
+
+            const { from, to, value: content } = op;
+            const transform = view.state.tr;
+            if (content) {
+              transform.replaceWith(
+                from,
+                to,
+                Node.fromJSON(mySchema, {
+                  type: content.type,
+                  text: content.value,
+                }),
+              );
+            } else {
+              transform.replace(from, to);
+            }
+            const newState = view.state.apply(transform);
+            view.updateState(newState);
           }
         });
 
