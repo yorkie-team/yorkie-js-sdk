@@ -159,7 +159,6 @@
           type: pmNode.type,
           children: [],
         };
-
         const content = pmNode.content || [];
         for (const child of content) {
           node.children.push(docToTreeNode(child));
@@ -371,14 +370,14 @@
             )}</pre>`;
           } else {
             document.getElementById('tr-info').innerHTML = `<pre>
-                selection : ${JSON.stringify(
-                  t.transaction.curSelection.toJSON(),
-                  null,
-                  2,
-                )}
-                transaction
-                ${JSON.stringify(t.transaction.steps, null, 2)}
-                </pre>`;
+                      selection : ${JSON.stringify(
+                        t.transaction.curSelection.toJSON(),
+                        null,
+                        2,
+                      )}
+                      transaction
+                      ${JSON.stringify(t.transaction.steps, null, 2)}
+                      </pre>`;
           }
         }
       }
@@ -434,8 +433,6 @@
 
       function printDocList(doc, id) {
         const head = doc.dummyHead;
-
-        // console.log('printDocList', head);
 
         const arr = [];
         let node = head;

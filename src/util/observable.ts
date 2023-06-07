@@ -15,6 +15,7 @@
  */
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { uuid } from '@yorkie-js-sdk/src/util/uuid';
 
 /**
  * @internal
@@ -36,7 +37,6 @@ export type CompleteFn = () => void;
  */
 export interface Observer<T> {
   next: NextFn<T>;
-  nextSync: NextFn<T>;
   error?: ErrorFn;
   complete?: CompleteFn;
 }
@@ -55,6 +55,11 @@ export interface SubscribeFn<T> {
   (observer: Observer<T>): Unsubscribe;
 }
 
+interface ObserverEntry<T> {
+  subscriptionID: string;
+  observer: Observer<T>;
+}
+
 const Noop = (): void => {
   // Do nothing
 };
@@ -64,17 +69,11 @@ const Noop = (): void => {
  */
 class ObserverProxy<T> implements Observer<T> {
   public finalized = false;
-  public onNoObservers: Executor<T> | undefined;
 
-  private observers: Array<Observer<T>> | undefined = [];
-  private unsubscribes: Array<Unsubscribe> = [];
-  private observerCount = 0;
-  private task = Promise.resolve();
+  private observers: Array<ObserverEntry<T>> | undefined = [];
   private finalError?: Error;
 
-  constructor(executor: Executor<T>, onNoObservers?: Executor<T>) {
-    this.onNoObservers = onNoObservers;
-
+  constructor(executor: Executor<T>) {
     try {
       executor(this);
     } catch (error: any) {
@@ -83,19 +82,10 @@ class ObserverProxy<T> implements Observer<T> {
   }
 
   /**
-   * `next` iterates next observer.
+   * `next` iterates next observer synchronously.
    */
   public next(value: T): void {
     this.forEachObserver((observer: Observer<T>) => {
-      observer.next(value);
-    });
-  }
-
-  /**
-   * `nextSync` iterates next observer synchronously.
-   */
-  public nextSync(value: T): void {
-    this.forEachObserverSync((observer: Observer<T>) => {
       observer.next(value);
     });
   }
@@ -158,41 +148,32 @@ class ObserverProxy<T> implements Observer<T> {
       observer.complete = Noop as CompleteFn;
     }
 
-    const unsub = this.unsubscribeOne.bind(this, this.observers!.length);
+    const id = uuid();
+    const unsub = this.unsubscribeOne.bind(this, id);
+
+    this.observers!.push({
+      subscriptionID: id,
+      observer: observer as Observer<T>,
+    });
 
     if (this.finalized) {
-      this.task.then(() => {
-        try {
-          if (this.finalError) {
-            observer.error!(this.finalError);
-          } else {
-            observer.complete!();
-          }
-        } catch (err) {
-          // nothing
-          logger.warn(err);
+      try {
+        if (this.finalError) {
+          observer.error!(this.finalError);
+        } else {
+          observer.complete!();
         }
-        return;
-      });
+      } catch (err) {
+        // nothing
+        logger.warn(err);
+      }
     }
-
-    this.observers!.push(observer as Observer<T>);
-    this.observerCount += 1;
 
     return unsub;
   }
 
-  private unsubscribeOne(i: number): void {
-    if (this.observers === undefined || this.observers[i] === undefined) {
-      return;
-    }
-
-    delete this.observers[i];
-
-    this.observerCount -= 1;
-    if (this.observerCount === 0 && this.onNoObservers !== undefined) {
-      this.onNoObservers(this);
-    }
+  private unsubscribeOne(id: string): void {
+    this.observers = this.observers?.filter((it) => it.subscriptionID !== id);
   }
 
   private forEachObserver(fn: (observer: Observer<T>) => void): void {
@@ -205,26 +186,10 @@ class ObserverProxy<T> implements Observer<T> {
     }
   }
 
-  private forEachObserverSync(fn: (observer: Observer<T>) => void): void {
-    if (this.finalized) {
-      return;
-    }
-
-    for (let i = 0; i < this.observers!.length; i++) {
-      this.sendOneSync(i, fn);
-    }
-  }
-
   private sendOne(i: number, fn: (observer: Observer<T>) => void): void {
-    this.task.then(() => {
-      this.sendOneSync(i, fn);
-    });
-  }
-
-  private sendOneSync(i: number, fn: (observer: Observer<T>) => void): void {
     if (this.observers !== undefined && this.observers[i] !== undefined) {
       try {
-        fn(this.observers[i]);
+        fn(this.observers[i].observer);
       } catch (err) {
         logger.error(err);
       }
@@ -241,10 +206,7 @@ class ObserverProxy<T> implements Observer<T> {
       this.finalError = err;
     }
 
-    this.task.then(() => {
-      this.observers = undefined;
-      this.onNoObservers = undefined;
-    });
+    this.observers = undefined;
   }
 }
 

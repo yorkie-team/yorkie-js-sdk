@@ -1115,6 +1115,8 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
     return fromText(pbElement.getText()!);
   } else if (pbElement.hasCounter()) {
     return fromCounter(pbElement.getCounter()!);
+  } else if (pbElement.hasTree()) {
+    return fromTree(pbElement.getTree()!);
   } else {
     throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }

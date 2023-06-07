@@ -26,6 +26,7 @@ import {
   TreeNodeType,
   traverse,
 } from '@yorkie-js-sdk/src/util/index_tree';
+import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
@@ -65,6 +66,7 @@ export enum TreeChangeType {
  * `TreeChange` represents the change in the tree.
  */
 export interface TreeChange {
+  actor: ActorID;
   type: TreeChangeType;
   from: number;
   to: number;
@@ -441,6 +443,7 @@ export class CRDTTree extends CRDTElement {
       type: TreeChangeType.Content,
       from: this.toIndex(range[0]),
       to: this.toIndex(range[1]),
+      actor: editedAt.getActorID()!,
       value: content ? toJSON(content) : undefined,
     });
 
