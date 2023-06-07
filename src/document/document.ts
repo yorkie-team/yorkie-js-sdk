@@ -373,15 +373,6 @@ export class Document<T, P extends Indexable> {
     complete?: CompleteFn,
   ): Unsubscribe;
   /**
-   * Subscribe to the peer updates.
-   */
-  public subscribe(
-    type: 'peers',
-    next: NextFn<PeersChangedValue<P>>,
-    error?: ErrorFn,
-    complete?: CompleteFn,
-  ): Unsubscribe;
-  /**
    * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
@@ -393,18 +384,6 @@ export class Document<T, P extends Indexable> {
     if (typeof arg1 === 'string') {
       if (typeof arg2 !== 'function') {
         throw new Error('Second argument must be a callback function');
-      }
-      if (arg1 === 'peers') {
-        const callback = arg2 as NextFn<PeersChangedValue<P>>;
-        return this.eventStream.subscribe(
-          (event) => {
-            if (event.type === DocEventType.PeersChanged) {
-              callback(event.value);
-            }
-          },
-          arg3,
-          arg4,
-        );
       }
       const target = arg1;
       const callback = arg2 as NextFn<DocEvent<P>>;
