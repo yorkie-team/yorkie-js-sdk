@@ -282,15 +282,29 @@ export class Document<T, P extends Indexable> {
     if (this.getStatus() === DocumentStatus.Removed) {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
+    if (this.changeContext) {
+      try {
+        const proxy = createJSON<JSONObject<T>>(
+          this.changeContext,
+          this.clone!.getObject(),
+        );
+        updater(proxy);
+        return;
+      } catch (err) {
+        // drop clone because it is contaminated.
+        this.clone = undefined;
+        this.changeContext = undefined;
+        logger.error(err);
+        throw err;
+      }
+    }
 
     this.ensureClone();
-    if (!this.changeContext) {
-      this.changeContext = ChangeContext.create<P>(
-        this.changeID.next(),
-        this.clone!,
-        message,
-      );
-    }
+    this.changeContext = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!,
+      message,
+    );
     try {
       const proxy = createJSON<JSONObject<T>>(
         this.changeContext,
@@ -349,8 +363,29 @@ export class Document<T, P extends Indexable> {
 
     if (this.changeContext) {
       this.changeContext.setPresence(cloneDeep(myPresence));
+      return;
     }
-    // TODO(chacha912): handle when updatePresence is called without a changeContext
+
+    this.changeContext = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!,
+    );
+    this.changeContext.setPresence(cloneDeep(myPresence));
+    const change = this.changeContext.getChange();
+    this.localChanges.push(change);
+    this.changeID = change.getID();
+    this.publish({
+      type: DocEventType.LocalChange,
+      value: [
+        {
+          message: '',
+          operations: [],
+          presence: this.getPresence(),
+          actor: change.getID().getActorID(),
+        },
+      ],
+    });
+    this.changeContext = undefined;
   }
 
   /**
