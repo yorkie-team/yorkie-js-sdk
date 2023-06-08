@@ -117,11 +117,11 @@ describe('Document', function () {
     const stub2 = sinon.stub();
     const unsub1 = doc1.subscribe(stub1);
     const unsub2 = doc2.subscribe(stub2);
-    doc1.updatePresence('name', 'A');
-    doc2.updatePresence('name', 'B');
-    doc2.updatePresence('name', 'Z');
-    doc1.updatePresence('cursor', { x: 2, y: 2 });
-    doc1.updatePresence('name', 'Y');
+    doc1.updatePresence({ name: 'A' });
+    doc2.updatePresence({ name: 'B' });
+    doc2.updatePresence({ name: 'Z' });
+    doc1.updatePresence({ cursor: { x: 2, y: 2 } });
+    doc1.updatePresence({ name: 'Y' });
 
     await waitStubCallCount(stub1, 5);
     await waitStubCallCount(stub2, 3);
@@ -209,7 +209,7 @@ describe('Document', function () {
     const unsub = doc.subscribe(stub);
 
     doc.update(() => {
-      doc.updatePresence('name', 'z');
+      doc.updatePresence({ name: 'z' });
     });
 
     pushEvent(expectedEvents, {
@@ -267,11 +267,11 @@ describe('Document', function () {
           doc.update((root) => {
             root.arr.push(2);
           }, 'nest3');
-          doc.updatePresence('cursor', { x: 1, y: 1 });
+          doc.updatePresence({ cursor: { x: 1, y: 1 } });
         }, 'nest2');
       }, 'nest1');
       root.arr.push(3);
-      doc.updatePresence('name', 'z');
+      doc.updatePresence({ name: 'z' });
     }, 'nest0');
 
     pushEvent(expectedEvents, {
@@ -365,7 +365,7 @@ describe('Document', function () {
     );
 
     // 03. c1 updates presence
-    doc1C1.updatePresence('name', 'z');
+    doc1C1.updatePresence({ name: 'z' });
 
     // 03-1. c1 receives the local change event
     pushEvent(d1ExpectedEvents, {

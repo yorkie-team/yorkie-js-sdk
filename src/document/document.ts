@@ -356,10 +356,12 @@ export class Document<T, P extends Indexable> {
   /**
    * `updatePresence` updates the presence of the client who created this document.
    */
-  public updatePresence<K extends keyof P>(key: K, value: P[K]) {
+  public updatePresence(presence: Partial<P>) {
     const myPresence = this.peerPresenceMap.get(this.myClientID)!;
     myPresence.clock += 1;
-    myPresence.data[key] = value;
+    for (const [key, value] of Object.entries(presence)) {
+      myPresence.data[key as keyof P] = value;
+    }
 
     if (this.changeContext) {
       this.changeContext.setPresence(cloneDeep(myPresence));

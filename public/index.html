@@ -258,9 +258,11 @@
                 updatedIndex.from,
                 updatedIndex.to,
               );
-              doc.updatePresence('selection', {
-                from: fromPos,
-                to: toPos,
+              doc.updatePresence({
+                selection: {
+                  from: fromPos,
+                  to: toPos,
+                },
               });
             }, `update content by ${client.getID()}`);
 
@@ -294,9 +296,11 @@
             const to = cm.indexFromPos(change.ranges[0].head);
             doc.update((root) => {
               const [fromPos, toPos] = root.content.getRangePos(from, to);
-              doc.updatePresence('selection', {
-                from: fromPos,
-                to: toPos,
+              doc.updatePresence({
+                selection: {
+                  from: fromPos,
+                  to: toPos,
+                },
               });
             }, `update selection by ${client.getID()}`);
           });
