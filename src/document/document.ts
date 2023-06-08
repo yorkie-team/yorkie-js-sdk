@@ -161,7 +161,7 @@ export interface LocalChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: ChangeInfo;
+  value: ChangeInfo<T>;
 }
 
 /**
@@ -178,7 +178,7 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: ChangeInfo;
+  value: ChangeInfo<T>;
 }
 
 /**
