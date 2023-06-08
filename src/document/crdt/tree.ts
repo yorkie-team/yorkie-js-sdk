@@ -1,4 +1,3 @@
-import { ActorID } from './../time/actor_id';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -27,6 +26,7 @@ import {
   TreeNodeType,
   traverse,
 } from '@yorkie-js-sdk/src/util/index_tree';
+import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
@@ -70,6 +70,8 @@ export interface TreeChange {
   type: TreeChangeType;
   from: number;
   to: number;
+  fromPath: Array<number>;
+  toPath: Array<number>;
   value?: TreeNode;
 }
 
@@ -300,9 +302,6 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement {
-  public onChangesHandler?: () => void;
-  public changeCollector?: (changes: Array<TreeChange>) => void;
-
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
@@ -338,21 +337,6 @@ export class CRDTTree extends CRDTElement {
     this.indexTree.nodesBetween(from, to, callback);
   }
 
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  public onChanges(handler: () => void): void {
-    this.onChangesHandler = handler;
-  }
-
-  /**
-   * `onChanges` registers a handler of onChanges event.
-   */
-  public onChangeCollect(
-    collector: (changes: Array<TreeChange>) => void,
-  ): void {
-    this.changeCollector = collector;
-  }
   /**
    * `nodesBetween` returns the nodes between the given range.
    * This method includes the given left node but excludes the given right node.
@@ -461,13 +445,11 @@ export class CRDTTree extends CRDTElement {
       type: TreeChangeType.Content,
       from: this.toIndex(range[0]),
       to: this.toIndex(range[1]),
+      fromPath: this.indexTree.treePosToPath(fromPos),
+      toPath: this.indexTree.treePosToPath(toPos),
       actor: editedAt.getActorID()!,
       value: content ? toJSON(content) : undefined,
     });
-
-    if (this.changeCollector) {
-      this.changeCollector(changes);
-    }
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
@@ -528,10 +510,6 @@ export class CRDTTree extends CRDTElement {
         const target = fromPos.node;
         target.insertAt(content, fromPos.offset);
       }
-    }
-
-    if (this.onChangesHandler) {
-      this.onChangesHandler();
     }
 
     return changes;

@@ -7,6 +7,7 @@
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
   </head>
+
   <body>
     <div class="layout">
       <div class="application">
@@ -35,11 +36,11 @@
         <div class="data-view">
           <div class="tree-view">
             <div class="yorkie">
-              <h2>Yorkie IndexTree</h2>
+              <h2>Yorkie.IndexTree</h2>
               <div id="yorkie-log" class="log-view"></div>
             </div>
             <div class="list-view">
-              <h2>Yorkie LinkedList</h2>
+              <h2>Yorkie.RGASplit</h2>
               <div id="yorkie-list-log" class="log-list-view"></div>
             </div>
           </div>
@@ -147,6 +148,9 @@
         ],
       };
 
+      /**
+       * `docToTreeNode` converts ProseMirror's document to Yorkie.TreeNode.
+       */
       function docToTreeNode(pmNode) {
         if (pmNode.type === 'text') {
           return {
@@ -159,12 +163,16 @@
           type: pmNode.type,
           children: [],
         };
-        for (const child of pmNode.content) {
+        const content = pmNode.content || [];
+        for (const child of content) {
           node.children.push(docToTreeNode(child));
         }
         return node;
       }
 
+      /**
+       * `treeNodeToDoc` converts Yorkie.TreeNode to ProseMirror's document.
+       */
       function treeNodeToDoc(treeNode) {
         if (treeNode.type === 'text') {
           return {
@@ -273,7 +281,7 @@
                 type: 'selection',
                 selection: transaction.curSelection,
               });
-              showLog();
+              printLog();
               return;
             }
 
@@ -325,23 +333,56 @@
                 }
               }
             });
-            showLog();
+            printLog();
           },
+        });
+
+        // 03. Downstream: yorkie.Tree to ProseMirror.
+        doc.subscribe('$.tree', (event) => {
+          if (event.type !== 'remote-change') {
+            return;
+          }
+
+          for (const change of event.value) {
+            const { operations } = change;
+            for (const op of operations) {
+              if (op.type !== 'tree-edit') {
+                continue;
+              }
+              const { from, to, value: content } = op;
+              const transform = view.state.tr;
+              if (content) {
+                transform.replaceWith(
+                  from,
+                  to,
+                  Node.fromJSON(mySchema, {
+                    type: content.type,
+                    text: content.value,
+                  }),
+                );
+              } else {
+                transform.replace(from, to);
+              }
+              const newState = view.state.apply(transform);
+              view.updateState(newState);
+            }
+            printLog();
+          }
         });
 
         window.view = view;
         view.focus();
-        showLog();
+        printLog();
       }
 
       document.getElementById('tr-log').onclick = (e) => {
         const index = e.target.getAttribute('data-index');
         if (index) {
-          showTransaction(+index);
+          printTransaction(+index);
         }
       };
 
-      function showTransaction(index) {
+      function printTransaction(index) {
         const t = window.transactions[index || 0];
 
         if (t) {
@@ -354,20 +395,19 @@
               2,
             )}</pre>`;
           } else {
-            document.getElementById('tr-info').innerHTML = `<pre>
-            selection : ${JSON.stringify(
+            document.getElementById(
+              'tr-info',
+            ).innerHTML = `<pre>selection: ${JSON.stringify(
               t.transaction.curSelection.toJSON(),
               null,
               2,
-            )}
-            transaction
-            ${JSON.stringify(t.transaction.steps, null, 2)}
-            </pre>`;
+            )}, steps: ${JSON.stringify(t.transaction.steps, null, 2)}
+          </pre>`;
           }
         }
       }
 
-      function showLog() {
+      function printLog() {
         // how to show transaction view
         document.getElementById('tr-log').innerHTML = window.transactions
           .slice(0, 100)
@@ -379,7 +419,7 @@
             return `<span data-index="${index}" class="tr-item">T</span>`;
           })
           .join('');
-        showTransaction();
+        printTransaction();
 
         printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         printDoc(view.state.doc, 'pm-log');
