@@ -161,19 +161,17 @@
           doc.subscribe('$.todos', (event) => {
             console.log('🟡 todos event', event);
 
-            for (const changeInfo of event.value) {
-              const { message, operations } = changeInfo;
-              for (const op of operations) {
-                const { type, path, index } = op;
-                switch (type) {
-                  case 'add':
-                    const value = doc.getValueByPath(`${path}.${index}`);
-                    addTodo(value);
-                    break;
-                  default:
-                    displayTodos();
-                    break;
-                }
+            const { message, operations } = event.value;
+            for (const op of operations) {
+              const { type, path, index } = op;
+              switch (type) {
+                case 'add':
+                  const value = doc.getValueByPath(`${path}.${index}`);
+                  addTodo(value);
+                  break;
+                default:
+                  displayTodos();
+                  break;
               }
             }
 
@@ -255,11 +253,8 @@
           // 05. Quill example
           doc.subscribe('$.content', (event) => {
             if (event.type === 'remote-change') {
-              const changes = event.value;
-              for (const change of changes) {
-                const { actor, message, operations } = change;
-                handleOperations(operations, actor);
-              }
+              const { actor, message, operations } = event.value;
+              handleOperations(operations, actor);
             }
           });
 
