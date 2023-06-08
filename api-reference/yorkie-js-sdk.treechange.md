@@ -18,7 +18,9 @@ export declare interface TreeChange
 |  --- | --- | --- |
 |  [actor](./yorkie-js-sdk.treechange.actor.md) | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 |  [from](./yorkie-js-sdk.treechange.from.md) | number |  |
+|  [fromPath](./yorkie-js-sdk.treechange.frompath.md) | Array&lt;number&gt; |  |
 |  [to](./yorkie-js-sdk.treechange.to.md) | number |  |
+|  [toPath](./yorkie-js-sdk.treechange.topath.md) | Array&lt;number&gt; |  |
 |  [type](./yorkie-js-sdk.treechange.type.md) | [TreeChangeType](./yorkie-js-sdk.treechangetype.md) |  |
 |  [value?](./yorkie-js-sdk.treechange.value.md) | TreeNode | <i>(Optional)</i> |
 

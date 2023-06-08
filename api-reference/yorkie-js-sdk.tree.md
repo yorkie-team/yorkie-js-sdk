@@ -28,8 +28,7 @@ export declare class Tree
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
 |  [getSize()](./yorkie-js-sdk.tree.getsize.md) |  | <code>getSize</code> returns the size of this tree. |
-|  [onChanges(handler)](./yorkie-js-sdk.tree.onchanges.md) |  | <code>onChanges</code> registers a handler of onChanges event. |
-|  [onChangesByPath(handler)](./yorkie-js-sdk.tree.onchangesbypath.md) |  | <code>onChangesByPath</code> registers a handler of onChanges event. |
+|  [indexToPath(index)](./yorkie-js-sdk.tree.indextopath.md) |  | <code>indexToPath</code> returns the path of the given index. |
 |  [split(index, depth)](./yorkie-js-sdk.tree.split.md) |  | <code>split</code> splits this tree at the given index. |
 |  [toJSON()](./yorkie-js-sdk.tree.tojson.md) |  | <code>toJSON</code> returns the JSON string of this tree. |
 |  [toXML()](./yorkie-js-sdk.tree.toxml.md) |  | <code>toXML</code> returns the XML string of this tree. |
