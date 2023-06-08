@@ -1334,14 +1334,12 @@ describe('Document', function () {
 
     doc.subscribe('$.a', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'set') {
-              assert.equal(op.path, '$.a');
-            } else if (op.type === 'remove') {
-              assert.equal(op.path, '$.a');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'set') {
+            assert.equal(op.path, '$.a');
+          } else if (op.type === 'remove') {
+            assert.equal(op.path, '$.a');
+          }
         });
       }
     });
@@ -1355,12 +1353,10 @@ describe('Document', function () {
 
     doc.subscribe('$.b.d.e.fname', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'add') {
-              assert.equal(op.path, '$.b.d.e.fname');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'add') {
+            assert.equal(op.path, '$.b.d.e.fname');
+          }
         });
       }
     });
@@ -1380,12 +1376,10 @@ describe('Document', function () {
 
     doc.subscribe('$.counter', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'increase') {
-              assert.equal(op.path, '$.counter');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'increase') {
+            assert.equal(op.path, '$.counter');
+          }
         });
       }
     });
@@ -1397,12 +1391,10 @@ describe('Document', function () {
 
     doc.subscribe('$.text', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'edit') {
-              assert.equal(op.path, '$.text');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'edit') {
+            assert.equal(op.path, '$.text');
+          }
         });
       }
     });
@@ -1414,12 +1406,10 @@ describe('Document', function () {
 
     doc.subscribe('$.todos.0', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'set') {
-              assert.equal(op.path, '$.todos.0');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'set') {
+            assert.equal(op.path, '$.todos.0');
+          }
         });
       }
     });
@@ -1435,12 +1425,10 @@ describe('Document', function () {
 
     doc.subscribe('$.textList', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'add') {
-              assert.equal(op.path, '$.textList');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'add') {
+            assert.equal(op.path, '$.textList');
+          }
         });
       }
     });
@@ -1451,12 +1439,10 @@ describe('Document', function () {
 
     doc.subscribe('$.tree', (event) => {
       if (event.type == 'local-change') {
-        event.value.forEach((change) => {
-          change.operations.forEach((op) => {
-            if (op.type === 'tree-edit') {
-              assert.equal(op.path, '$.tree');
-            }
-          });
+        event.value.operations.forEach((op) => {
+          if (op.type === 'tree-edit') {
+            assert.equal(op.path, '$.tree');
+          }
         });
       }
     });
