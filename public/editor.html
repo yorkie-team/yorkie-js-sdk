@@ -190,18 +190,13 @@
 
           // 02-2. subscribe document event.
           doc.subscribe('$.text', (event) => {
-            const changes = event.value;
             if (event.type === 'remote-change') {
-              for (const change of changes) {
-                const { operations } = change;
-                handleOperations(operations);
-              }
+              const { operations } = event.value;
+              handleOperations(operations);
             } else if (event.type === 'local-change') {
-              for (const change of changes) {
-                const { message } = change;
-                if (message === 'simulate') {
-                  renderText();
-                }
+              const { message } = event.value;
+              if (message === 'simulate') {
+                renderText();
               }
             }
           });

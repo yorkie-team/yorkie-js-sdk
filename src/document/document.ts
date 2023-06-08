@@ -161,7 +161,7 @@ export interface LocalChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<ChangeInfo<T>>;
+  value: ChangeInfo;
 }
 
 /**
@@ -178,7 +178,7 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<ChangeInfo<T>>;
+  value: ChangeInfo;
 }
 
 /**
@@ -371,17 +371,15 @@ export class Document<T> {
       this.changeID = change.getID();
 
       if (this.eventStreamObserver) {
-        this.eventStreamObserver.nextSync({
+        this.eventStreamObserver.next({
           type: DocEventType.LocalChange,
-          value: [
-            {
-              message: change.getMessage() || '',
-              operations: internalOpInfos.map((internalOpInfo) =>
-                this.toOperationInfo(internalOpInfo),
-              ),
-              actor: change.getID().getActorID(),
-            },
-          ],
+          value: {
+            message: change.getMessage() || '',
+            operations: internalOpInfos.map((internalOpInfo) =>
+              this.toOperationInfo(internalOpInfo),
+            ),
+            actor: change.getID().getActorID(),
+          },
         });
       }
 
@@ -438,25 +436,21 @@ export class Document<T> {
             return;
           }
 
-          const changeInfos: Array<ChangeInfo> = [];
-          for (const { message, operations, actor } of event.value) {
-            const targetOps: Array<OperationInfo> = [];
-            for (const op of operations) {
-              if (this.isSameElementOrChildOf(op.path, target)) {
-                targetOps.push(op);
-              }
+          const { message, operations, actor } = event.value;
+          const targetOps: Array<OperationInfo> = [];
+          for (const op of operations) {
+            if (this.isSameElementOrChildOf(op.path, target)) {
+              targetOps.push(op);
             }
-            targetOps.length &&
-              changeInfos.push({
+          }
+          targetOps.length &&
+            callback({
+              type: event.type,
+              value: {
                 message,
                 operations: targetOps,
                 actor,
-              });
-          }
-          changeInfos.length &&
-            callback({
-              type: event.type,
-              value: changeInfos,
+              },
             });
         },
         arg3,
@@ -745,10 +739,12 @@ export class Document<T> {
       // with the Document after RemoteChange event is emitted. If the event
       // is emitted asynchronously, the model can be changed and breaking
       // consistency.
-      this.eventStreamObserver.nextSync({
-        type: DocEventType.RemoteChange,
-        value: changeInfos,
-      });
+      for (const changeInfo of changeInfos) {
+        this.eventStreamObserver.next({
+          type: DocEventType.RemoteChange,
+          value: changeInfo,
+        });
+      }
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {

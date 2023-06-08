@@ -947,9 +947,8 @@ describe('Document', function () {
     const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      for (const { operations } of event.value) {
-        ops.push(...operations);
-      }
+      const { operations } = event.value;
+      ops.push(...operations);
     });
     const unsub1 = doc.subscribe(stub1);
 
@@ -988,9 +987,8 @@ describe('Document', function () {
     const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      for (const { operations } of event.value) {
-        ops.push(...operations);
-      }
+      const { operations } = event.value;
+      ops.push(...operations);
     });
     const unsub1 = doc.subscribe(stub1);
 
@@ -1029,9 +1027,8 @@ describe('Document', function () {
 
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      for (const { operations } of event.value) {
-        ops.push(...operations);
-      }
+      const { operations } = event.value;
+      ops.push(...operations);
     });
     const unsub1 = doc.subscribe(stub1);
 
@@ -1080,9 +1077,8 @@ describe('Document', function () {
     const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      for (const { operations } of event.value) {
-        ops.push(...operations);
-      }
+      const { operations } = event.value;
+      ops.push(...operations);
     });
     const unsub1 = doc.subscribe(stub1);
 
@@ -1131,9 +1127,8 @@ describe('Document', function () {
     const ops: Array<OperationInfo> = [];
     const stub1 = sinon.stub().callsFake((event: DocEvent) => {
       if (event.type !== DocEventType.LocalChange) return;
-      for (const { operations } of event.value) {
-        ops.push(...operations);
-      }
+      const { operations } = event.value;
+      ops.push(...operations);
     });
     const unsub1 = doc.subscribe(stub1);
 
