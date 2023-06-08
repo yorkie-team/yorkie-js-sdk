@@ -250,17 +250,12 @@ describe('Tree', () => {
     const actualOperations: Array<TreeEditOpInfo> = [];
     doc.subscribe('$.t', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
+        const { operations } = event.value;
 
         actualOperations.push(
-          ...changes
-            .map((change) => {
-              const { operations } = change;
-              return operations.filter(
-                (op) => op.type === 'tree-edit',
-              ) as Array<TreeEditOpInfo>;
-            })
-            .flat(),
+          ...(operations.filter(
+            (op) => op.type === 'tree-edit',
+          ) as Array<TreeEditOpInfo>),
         );
       }
     });
@@ -320,17 +315,12 @@ describe('Tree', () => {
     const actualOperations: Array<TreeEditOpInfo> = [];
     doc.subscribe('$.t', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
+        const { operations } = event.value;
 
         actualOperations.push(
-          ...changes
-            .map((change) => {
-              const { operations } = change;
-              return operations.filter(
-                (op) => op.type === 'tree-edit',
-              ) as Array<TreeEditOpInfo>;
-            })
-            .flat(),
+          ...(operations.filter(
+            (op) => op.type === 'tree-edit',
+          ) as Array<TreeEditOpInfo>),
         );
       }
     });
