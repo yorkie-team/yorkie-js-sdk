@@ -341,16 +341,16 @@ describe('Tree', () => {
       actualOperations.map((it) => {
         return {
           type: it.type,
-          fromTreePath: it.fromTreePath,
-          toTreePath: it.toTreePath,
+          fromPath: it.fromPath,
+          toPath: it.toPath,
           value: it.value,
         };
       }),
       [
         {
           type: 'tree-edit',
-          fromTreePath: [0, 0, 0, 1],
-          toTreePath: [0, 0, 0, 1],
+          fromPath: [0, 0, 0, 1],
+          toPath: [0, 0, 0, 1],
           value: { type: 'text', value: 'X' },
         } as any,
       ],
