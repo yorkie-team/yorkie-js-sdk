@@ -191,7 +191,7 @@
           // 02-2. subscribe document event.
           doc.subscribe('$.text', (event) => {
             if (event.type === 'remote-change') {
-              const { operations } = event.alue;
+              const { operations } = event.value;
               handleOperations(operations);
             } else if (event.type === 'local-change') {
               const { message } = event.value;

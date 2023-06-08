@@ -315,7 +315,6 @@ export class Document<T> {
             return;
           }
 
-          const changeInfos: Array<ChangeInfo> = [];
           const { message, operations, actor } = event.value;
           const targetOps: Array<OperationInfo> = [];
           for (const op of operations) {
@@ -324,18 +323,14 @@ export class Document<T> {
             }
           }
           targetOps.length &&
-            changeInfos.push({
-              message,
-              operations: targetOps,
-              actor,
-            });
-
-          changeInfos.forEach((changeInfo) => {
             callback({
               type: event.type,
-              value: changeInfo,
+              value: {
+                message,
+                operations: targetOps,
+                actor,
+              },
             });
-          });
         },
         arg3,
         arg4,
