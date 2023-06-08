@@ -90,8 +90,8 @@ export type TreeEditOpInfo = {
   type: 'tree-edit';
   from: number;
   to: number;
-  fromTreePath: Array<number>;
-  toTreePath: Array<number>;
+  fromPath: Array<number>;
+  toPath: Array<number>;
   value: TreeNode;
   path: string;
 };

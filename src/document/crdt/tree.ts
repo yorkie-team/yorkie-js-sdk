@@ -70,6 +70,8 @@ export interface TreeChange {
   type: TreeChangeType;
   from: number;
   to: number;
+  fromPath: Array<number>;
+  toPath: Array<number>;
   value?: TreeNode;
 }
 
@@ -443,6 +445,8 @@ export class CRDTTree extends CRDTElement {
       type: TreeChangeType.Content,
       from: this.toIndex(range[0]),
       to: this.toIndex(range[1]),
+      fromPath: this.indexTree.treePosToPath(fromPos),
+      toPath: this.indexTree.treePosToPath(toPos),
       actor: editedAt.getActorID()!,
       value: content ? toJSON(content) : undefined,
     });
