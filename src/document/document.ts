@@ -617,12 +617,12 @@ export class Document<T> {
       // with the Document after RemoteChange event is emitted. If the event
       // is emitted asynchronously, the model can be changed and breaking
       // consistency.
-      changeInfos.forEach((changeInfo) => {
+      for (const changeInfo of changeInfos) {
         this.eventStreamObserver.next({
           type: DocEventType.RemoteChange,
           value: changeInfo,
         });
-      });
+      }
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {
