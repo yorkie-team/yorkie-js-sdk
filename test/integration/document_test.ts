@@ -124,7 +124,7 @@ describe('Document', function () {
     doc1.updatePresence({ name: 'Y' });
 
     await waitStubCallCount(stub1, 5);
-    await waitStubCallCount(stub2, 3);
+    await waitStubCallCount(stub2, 5);
     assert.deepEqual(deepSort(doc1.getPeers()), deepSort(doc2.getPeers()));
 
     await c1.detach(doc1);
@@ -214,14 +214,12 @@ describe('Document', function () {
 
     pushEvent(expectedEvents, {
       type: DocEventType.LocalChange,
-      value: [
-        {
-          message: '',
-          operations: [],
-          presence: { ...presence, name: 'z' },
-          actor: cliID,
-        },
-      ],
+      value: {
+        message: '',
+        operations: [],
+        presence: { ...presence, name: 'z' },
+        actor: cliID,
+      },
     });
     assert.equal(1, stub.callCount);
     assert.deepEqual(events, expectedEvents);
@@ -276,19 +274,17 @@ describe('Document', function () {
 
     pushEvent(expectedEvents, {
       type: DocEventType.LocalChange,
-      value: [
-        {
-          message: 'nest0',
-          operations: [
-            { key: 'arr', path: '$', type: 'set' },
-            { index: 0, path: '$.arr', type: 'add' },
-            { index: 1, path: '$.arr', type: 'add' },
-            { index: 2, path: '$.arr', type: 'add' },
-          ],
-          presence: { name: 'z', cursor: { x: 1, y: 1 } },
-          actor: cliID,
-        },
-      ],
+      value: {
+        message: 'nest0',
+        operations: [
+          { key: 'arr', path: '$', type: 'set' },
+          { index: 0, path: '$.arr', type: 'add' },
+          { index: 1, path: '$.arr', type: 'add' },
+          { index: 2, path: '$.arr', type: 'add' },
+        ],
+        presence: { name: 'z', cursor: { x: 1, y: 1 } },
+        actor: cliID,
+      },
     });
     assert.equal(1, stub.callCount);
     assert.deepEqual(events, expectedEvents);
@@ -370,14 +366,12 @@ describe('Document', function () {
     // 03-1. c1 receives the local change event
     pushEvent(d1ExpectedEvents, {
       type: DocEventType.LocalChange,
-      value: [
-        {
-          message: '',
-          operations: [],
-          presence: { ...c1Presence, name: 'z' },
-          actor: c1ID,
-        },
-      ],
+      value: {
+        message: '',
+        operations: [],
+        presence: { ...c1Presence, name: 'z' },
+        actor: c1ID,
+      },
     });
     assert.equal(2, stub1.callCount);
     assert.deepEqual(
@@ -391,14 +385,12 @@ describe('Document', function () {
     // 03-2. c2 receives the remote change event
     pushEvent(d2ExpectedEvents, {
       type: DocEventType.RemoteChange,
-      value: [
-        {
-          message: '',
-          operations: [],
-          presence: { ...c1Presence, name: 'z' },
-          actor: c1ID,
-        },
-      ],
+      value: {
+        message: '',
+        operations: [],
+        presence: { ...c1Presence, name: 'z' },
+        actor: c1ID,
+      },
     });
     await waitStubCallCount(stub2, 1);
     assert.deepEqual(
@@ -476,9 +468,8 @@ describe('Document', function () {
     let expectedEvents2: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub1 = sinon.stub().callsFake((event) => pushEvent(event, events1));
     const stub2 = sinon.stub().callsFake((event) => pushEvent(event, events2));
@@ -621,9 +612,8 @@ describe('Document', function () {
     let counterEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
     const stubTodo = sinon
@@ -726,9 +716,8 @@ describe('Document', function () {
     let objEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
     const stubTodo = sinon

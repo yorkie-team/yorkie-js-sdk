@@ -85,12 +85,14 @@ export class TreeEditOperation extends Operation {
       this.getExecutedAt(),
     );
 
-    return changes.map(({ from, to, value }) => {
+    return changes.map(({ from, to, value, fromPath, toPath }) => {
       return {
         type: 'tree-edit',
         from,
         to,
         value,
+        fromPath,
+        toPath,
         element: this.getParentCreatedAt(),
       };
     }) as Array<InternalOpInfo>;

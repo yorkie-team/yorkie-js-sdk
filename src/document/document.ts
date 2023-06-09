@@ -155,7 +155,7 @@ export interface LocalChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: Array<ChangeInfo<P>>;
+  value: ChangeInfo<P>;
 }
 
 /**
@@ -172,7 +172,7 @@ export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: Array<ChangeInfo<P>>;
+  value: ChangeInfo<P>;
 }
 
 /**
@@ -331,18 +331,16 @@ export class Document<T, P extends Indexable> {
 
       this.publish({
         type: DocEventType.LocalChange,
-        value: [
-          {
-            message: change.getMessage() || '',
-            operations: internalOpInfos.map((internalOpInfo) =>
-              this.toOperationInfo(internalOpInfo),
-            ),
-            presence: this.changeContext.hasPresence()
-              ? this.getPresence()
-              : undefined,
-            actor: change.getID().getActorID(),
-          },
-        ],
+        value: {
+          message: change.getMessage() || '',
+          operations: internalOpInfos.map((internalOpInfo) =>
+            this.toOperationInfo(internalOpInfo),
+          ),
+          presence: this.changeContext.hasPresence()
+            ? this.getPresence()
+            : undefined,
+          actor: change.getID().getActorID(),
+        },
       });
 
       if (logger.isEnabled(LogLevel.Trivial)) {
@@ -378,14 +376,12 @@ export class Document<T, P extends Indexable> {
     this.changeID = change.getID();
     this.publish({
       type: DocEventType.LocalChange,
-      value: [
-        {
-          message: '',
-          operations: [],
-          presence: this.getPresence(),
-          actor: change.getID().getActorID(),
-        },
-      ],
+      value: {
+        message: '',
+        operations: [],
+        presence: this.getPresence(),
+        actor: change.getID().getActorID(),
+      },
     });
     this.changeContext = undefined;
   }
@@ -434,26 +430,17 @@ export class Document<T, P extends Indexable> {
             return;
           }
 
-          const changeInfos: Array<ChangeInfo<P>> = [];
-          for (const { message, operations, presence, actor } of event.value) {
-            const targetOps: Array<OperationInfo> = [];
-            for (const op of operations) {
-              if (this.isSameElementOrChildOf(op.path, target)) {
-                targetOps.push(op);
-              }
+          const { message, operations, presence, actor } = event.value;
+          const targetOps: Array<OperationInfo> = [];
+          for (const op of operations) {
+            if (this.isSameElementOrChildOf(op.path, target)) {
+              targetOps.push(op);
             }
-            targetOps.length &&
-              changeInfos.push({
-                message,
-                operations: targetOps,
-                presence,
-                actor,
-              });
           }
-          changeInfos.length &&
+          targetOps.length &&
             callback({
               type: event.type,
-              value: changeInfos,
+              value: { message, operations: targetOps, presence, actor },
             });
         },
         arg3,
@@ -735,7 +722,6 @@ export class Document<T, P extends Indexable> {
       change.execute(this.clone!);
     }
 
-    const changeInfos: Array<ChangeInfo<P>> = [];
     for (const change of changes) {
       const actorID = change.getID().getActorID()!;
       const inernalOpInfos = change.execute(this.root);
@@ -752,13 +738,11 @@ export class Document<T, P extends Indexable> {
         changeInfo.presence = change.getPresenceInfo()!.data;
       }
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
-      changeInfos.push(changeInfo);
+      this.publish({
+        type: DocEventType.RemoteChange,
+        value: changeInfo,
+      });
     }
-    this.publish({
-      type: DocEventType.RemoteChange,
-      value: changeInfos,
-    });
-
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `after appling ${changes.length} remote changes.` +
@@ -766,7 +750,6 @@ export class Document<T, P extends Indexable> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
-    return changeInfos;
   }
 
   /**

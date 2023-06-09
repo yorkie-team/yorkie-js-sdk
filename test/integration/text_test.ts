@@ -99,11 +99,8 @@ describe('Text', function () {
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
-        for (const change of changes) {
-          const { operations } = change;
-          view.applyOperations(operations);
-        }
+        const { operations } = event.value;
+        view.applyOperations(operations);
       }
     });
 
@@ -126,11 +123,8 @@ describe('Text', function () {
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
-        for (const change of changes) {
-          const { operations } = change;
-          view.applyOperations(operations);
-        }
+        const { operations } = event.value;
+        view.applyOperations(operations);
       }
     });
 
@@ -161,11 +155,8 @@ describe('Text', function () {
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
-        for (const change of changes) {
-          const { operations } = change;
-          view.applyOperations(operations);
-        }
+        const { operations } = event.value;
+        view.applyOperations(operations);
       }
     });
 
@@ -199,14 +190,11 @@ describe('Text', function () {
 
     doc.subscribe('$.text', (event) => {
       if (event.type === 'local-change') {
-        const changes = event.value;
-        for (const change of changes) {
-          const { operations } = change;
+        const { operations } = event.value;
 
-          if (operations[0].type === 'select') {
-            assert.equal(operations[0].from, 2);
-            assert.equal(operations[0].to, 4);
-          }
+        if (operations[0].type === 'select') {
+          assert.equal(operations[0].from, 2);
+          assert.equal(operations[0].to, 4);
         }
       }
     });
@@ -353,11 +341,8 @@ describe('Text', function () {
       const view1 = new TextView();
       d1.subscribe('$.k1', (event) => {
         if (event.type === 'local-change') {
-          const changes = event.value;
-          for (const change of changes) {
-            const { operations } = change;
-            view1.applyOperations(operations);
-          }
+          const { operations } = event.value;
+          view1.applyOperations(operations);
         }
       });
 

@@ -182,41 +182,38 @@
             }
             // 04-2. document to codemirror(applying remote).
             if (event.type === 'remote-change') {
-              const changes = event.value;
-              for (const change of changes) {
-                const { actor, message, operations, presence } = change;
-                // 1) handle edit operation
-                for (const op of operations) {
-                  if (op.type === 'edit') {
-                    const from = op.from;
-                    const to = op.to;
-                    const content = op.value.content || '';
+              const { actor, message, operations, presence } = event.value;
+              // 1) handle edit operation
+              for (const op of operations) {
+                if (op.type === 'edit') {
+                  const from = op.from;
+                  const to = op.to;
+                  const content = op.value.content || '';
 
-                    console.log(
-                      `%c remote: ${from}-${to}: ${content}`,
-                      'color: skyblue',
-                    );
-                    const fromIdx = codemirror.posFromIndex(from);
-                    const toIdx = codemirror.posFromIndex(to);
-                    replaceRangeFix(
-                      codemirror,
-                      content,
-                      fromIdx,
-                      toIdx,
-                      'yorkie',
-                    );
-                  }
-                }
-                // 2) handle presence
-                if (presence && presence.selection) {
-                  displayRemoteSelection(
+                  console.log(
+                    `%c remote: ${from}-${to}: ${content}`,
+                    'color: skyblue',
+                  );
+                  const fromIdx = codemirror.posFromIndex(from);
+                  const toIdx = codemirror.posFromIndex(to);
+                  replaceRangeFix(
                     codemirror,
-                    doc,
-                    presence.selection.from,
-                    presence.selection.to,
-                    actor,
+                    content,
+                    fromIdx,
+                    toIdx,
+                    'yorkie',
                   );
                 }
+              }
+              // 2) handle presence
+              if (presence && presence.selection) {
+                displayRemoteSelection(
+                  codemirror,
+                  doc,
+                  presence.selection.from,
+                  presence.selection.to,
+                  actor,
+                );
               }
 
               const textLength = codemirror.getValue().length;
