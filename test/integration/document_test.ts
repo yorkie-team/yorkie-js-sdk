@@ -8,6 +8,7 @@ import {
 import {
   waitStubCallCount,
   assertThrowsAsync,
+  remote,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
@@ -467,6 +468,75 @@ describe('Document', function () {
     assert.deepEqual(objEvents, []);
 
     unsub();
+    await c1.detach(d1);
+    await c2.detach(d2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it.only('specify the custom message topic to subscribe to', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type TestDoc = {
+      obj: Record<string, { name: string; age: number }>;
+    };
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+    let events: Array<OperationInfo> = [];
+    const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
+      console.log({ event });
+      if (event.type !== DocEventType.RemoteChange) return;
+      for (const { operations } of event.value) {
+        events.push(...operations);
+      }
+    };
+    const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
+    const remoteStub = sinon
+      .stub()
+      .callsFake(remote((event: any) => pushEvent(event, events)));
+    const unsub = d1.subscribe(stub);
+    const unsubObj = d1.subscribe(remoteStub);
+
+    d2.update((root) => {
+      root.obj = {
+        c1: { name: 'josh', age: 14 },
+      };
+    });
+    await waitStubCallCount(stub, 1);
+    await waitStubCallCount(remoteStub, 1);
+
+    assert.deepEqual(events, [
+      { type: 'set', path: '$', key: 'obj' },
+      { type: 'set', path: '$.obj', key: 'c1' },
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+      { type: 'set', path: '$.obj.c1', key: 'age' },
+      { type: 'set', path: '$', key: 'obj' },
+      { type: 'set', path: '$.obj', key: 'c1' },
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+      { type: 'set', path: '$.obj.c1', key: 'age' },
+    ]);
+    events = [];
+
+    d2.update((root) => {
+      root.obj.c1.name = 'john';
+    });
+    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(remoteStub, 2);
+
+    // Note: The following events are running double.
+    assert.deepEqual(events, [
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+      { type: 'set', path: '$.obj.c1', key: 'name' },
+    ]);
+
+    unsub();
+    unsubObj();
     await c1.detach(d1);
     await c2.detach(d2);
     await c1.deactivate();

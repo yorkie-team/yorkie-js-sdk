@@ -16,7 +16,7 @@
 
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import { waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
+import { local, waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
@@ -1321,5 +1321,39 @@ describe('Document', function () {
     assert.doesNotThrow(() => {
       JSON.parse(doc.toSortedJSON());
     });
+  });
+
+  it.only('subscribe for local-change message', async function () {
+    const doc = Document.create<{ text: string }>('test-doc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const expectedOps: Array<OperationInfo> = [];
+    const ops: Array<OperationInfo> = [];
+    const secondOps: Array<string> = [];
+    const stub1 = sinon.stub().callsFake((event: DocEvent) => {
+      if (event.type !== DocEventType.LocalChange) return;
+      for (const { operations } of event.value) {
+        ops.push(...operations);
+      }
+    });
+    const unsub1 = doc.subscribe(local(stub1));
+
+    doc.update((root) => {
+      root.text = 'aaaa';
+      expectedOps.push({ type: 'set', path: '$', key: 'text' });
+    });
+
+    await waitStubCallCount(stub1, 1);
+    assert.deepEqual(
+      ops,
+      expectedOps,
+      `actual: ${JSON.stringify(ops)} \n expected: ${JSON.stringify(
+        expectedOps,
+      )}`,
+    );
+
+    // NOTE: secondOps should not be called
+    assert.equal(secondOps.length, 0);
+
+    unsub1();
   });
 });

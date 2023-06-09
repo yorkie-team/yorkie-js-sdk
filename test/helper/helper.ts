@@ -16,7 +16,12 @@
 
 import { assert } from 'chai';
 
-import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, {
+  Tree,
+  ElementNode,
+  DocEventType,
+  DocEvent,
+} from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -29,7 +34,9 @@ export async function waitStubCallCount(
 ) {
   return new Promise<void>((resolve) => {
     const doLoop = () => {
+      console.log(`waitStubCallCount: ${stub.callCount} >= ${callCount}`);
       if (stub.callCount >= callCount) {
+        console.log(`waitStubCallCount: ${stub.callCount} >= ${callCount}`);
         resolve();
       }
       return false;
@@ -147,3 +154,11 @@ export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
   });
   return doc.getRoot().t.getIndexTree();
 }
+
+export const subscribeFilter =
+  (type: DocEventType) => (callback: any) => (event: DocEvent) =>
+    event.type === type && callback(event);
+
+export const snapshot = subscribeFilter(DocEventType.Snapshot);
+export const local = subscribeFilter(DocEventType.LocalChange);
+export const remote = subscribeFilter(DocEventType.RemoteChange);
