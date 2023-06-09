@@ -474,7 +474,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.only('specify the custom message topic to subscribe to', async function () {
+  it('specify the remote message filter to subscribe to', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();

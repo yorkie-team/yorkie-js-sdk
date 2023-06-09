@@ -1323,7 +1323,7 @@ describe('Document', function () {
     });
   });
 
-  it.only('subscribe for local-change message', async function () {
+  it('subscribe for local-change message', async function () {
     const doc = Document.create<{ text: string }>('test-doc');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const expectedOps: Array<OperationInfo> = [];

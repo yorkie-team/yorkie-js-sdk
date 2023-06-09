@@ -34,9 +34,7 @@ export async function waitStubCallCount(
 ) {
   return new Promise<void>((resolve) => {
     const doLoop = () => {
-      console.log(`waitStubCallCount: ${stub.callCount} >= ${callCount}`);
       if (stub.callCount >= callCount) {
-        console.log(`waitStubCallCount: ${stub.callCount} >= ${callCount}`);
         resolve();
       }
       return false;
