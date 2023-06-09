@@ -7,6 +7,14 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.1] - 2023-06-09
+
+### Changed
+* Bump vite from 3.2.5 to 3.2.7 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/531
+* change to next method as synchronously by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/526
+* Change the value of XXXChange to Change in Document.subscribe by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/538
+* Replace Tree.onChanges with Document.subscribe by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/523
+
 ## [0.4.0] - 2023-06-05
 
 ### Added
