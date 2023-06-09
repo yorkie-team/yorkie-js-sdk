@@ -73,12 +73,8 @@ async function main() {
 
   doc.subscribe('$.content', (event) => {
     if (event.type === 'remote-change') {
-      const changes = event.value;
-      for (const change of changes) {
-        const { operations } = change;
-
-        handleOperations(operations);
-      }
+      const { operations } = event.value;
+      handleOperations(operations);
     }
   });
 
