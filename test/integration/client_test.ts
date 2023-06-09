@@ -824,7 +824,7 @@ describe('Client', function () {
 
     await waitStubCallCount(stub1, 3); // local-change
     await waitStubCallCount(stub2, 3); // local-change
-    await waitStubCallCount(stub3, 2);
+    await waitStubCallCount(stub3, 3);
     assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
     assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
     assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');

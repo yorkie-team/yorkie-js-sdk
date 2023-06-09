@@ -124,9 +124,8 @@ describe('Document', function () {
     let expectedEvents2: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub1 = sinon.stub().callsFake((event) => pushEvent(event, events1));
     const stub2 = sinon.stub().callsFake((event) => pushEvent(event, events2));
@@ -271,9 +270,8 @@ describe('Document', function () {
     let counterEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
     const stubTodo = sinon
@@ -378,9 +376,8 @@ describe('Document', function () {
     let objEvents: Array<OperationInfo> = [];
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const { operations } = event.value;
+      events.push(...operations);
     };
     const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
     const stubTodo = sinon

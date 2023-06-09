@@ -276,50 +276,14 @@ export class Tree {
   }
 
   /**
-   * `onChanges` registers a handler of onChanges event.
+   * `indexToPath` returns the path of the given index.
    */
-  onChanges(handler: (changes: Array<TreeChange>) => void): void {
+  public indexToPath(index: number): Array<number> {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
-    let localChanges: Array<TreeChange> = [];
 
-    this.tree.onChangeCollect((changes: Array<TreeChange>) => {
-      localChanges.push(...changes);
-    });
-    this.tree.onChanges(() => {
-      handler(localChanges as Array<TreeChange>);
-
-      localChanges = [];
-    });
-  }
-
-  /**
-   * `onChangesByPath` registers a handler of onChanges event.
-   */
-  onChangesByPath(handler: (changes: Array<TreeChangeWithPath>) => void): void {
-    if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
-    }
-    let localChanges: Array<TreeChangeWithPath> = [];
-    const collect = (changes: Array<TreeChange>) => {
-      const changeWithPath = changes.map(({ from, to, ...rest }) => {
-        return {
-          from: this.tree!.indexToPath(from),
-          to: this.tree!.indexToPath(to),
-          ...rest,
-        };
-      });
-
-      (localChanges as Array<TreeChangeWithPath>).push(...changeWithPath);
-    };
-
-    this.tree.onChangeCollect(collect);
-    this.tree.onChanges(() => {
-      handler(localChanges as Array<TreeChangeWithPath>);
-
-      localChanges = [];
-    });
+    return this.tree.indexToPath(index);
   }
 
   /**
