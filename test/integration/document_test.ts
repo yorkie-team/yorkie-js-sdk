@@ -489,9 +489,9 @@ describe('Document', function () {
     const pushEvent = (event: DocEvent, events: Array<OperationInfo>) => {
       console.log({ event });
       if (event.type !== DocEventType.RemoteChange) return;
-      for (const { operations } of event.value) {
-        events.push(...operations);
-      }
+      const change = event.value;
+      const { operations } = change;
+      events.push(...operations);
     };
     const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
     const remoteStub = sinon
