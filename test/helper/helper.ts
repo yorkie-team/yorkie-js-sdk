@@ -99,8 +99,7 @@ export async function assertThrowsAsync(
 export function createTestDocument<T, P extends Indexable = Indexable>(
   docKey: string,
 ): Document<T, P> {
-  const initialPresence = {} as P;
-  return Document.create<T, P>(docKey, InitialActorID, initialPresence);
+  return Document.create<T, P>(docKey, InitialActorID);
 }
 
 /**
@@ -149,11 +148,7 @@ export class TextView {
  * `buildIndexTree` builds an index tree from the given element node.
  */
 export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
-  const doc = Document.create<{ t: Tree }, Indexable>(
-    'test',
-    InitialActorID,
-    {},
-  );
+  const doc = Document.create<{ t: Tree }, Indexable>('test', InitialActorID);
   doc.update((root) => {
     root.t = new Tree(node);
   });

@@ -45,9 +45,9 @@ import {
   Document,
   DocumentKey,
   DocumentStatus,
-  PresenceInfo,
   Indexable,
   DocEventType,
+  PeersChangedEventType,
 } from '@yorkie-js-sdk/src/document/document';
 import {
   AuthUnaryInterceptor,
@@ -454,8 +454,8 @@ export class Client implements Observable<ClientEvent> {
     }
     const initialPresence = options.initialPresence || ({} as P);
     const isRealtimeSync = options.isRealtimeSync ?? true;
-    const doc = new Document<T, P>(docKey, this.id!, initialPresence);
-
+    const doc = new Document<T, P>(docKey, this.id!);
+    doc.initPresence(initialPresence);
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
       req.setClientId(converter.toUint8Array(this.id!));
@@ -484,7 +484,9 @@ export class Client implements Observable<ClientEvent> {
                 isRealtimeSync,
               ),
             );
-            await this.runWatchLoop(doc.getKey());
+            if (isRealtimeSync) {
+              await this.runWatchLoop(doc.getKey());
+            }
           }
 
           logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
@@ -823,12 +825,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         const req = new WatchDocumentRequest();
-        req.setClient(
-          converter.toClient(
-            this.id!,
-            attachment.doc.getPresenceInfo(this.id!),
-          ),
-        );
+        req.setClientId(converter.toUint8Array(this.id!));
         req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {
           'x-shard-key': `${this.apiKey}/${docKey}`,
@@ -868,24 +865,18 @@ export class Client implements Observable<ClientEvent> {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
       const pbPeers = resp.getInitialization()!.getPeersList();
-      pbPeers.forEach((pbClient) => {
-        attachment.doc.setPresenceInfo(
-          converter.toHexString(pbClient.getId_asU8()),
-          converter.fromPresence(pbClient.getPresence()!),
-        );
-      });
-
+      const watchedPeerMap: Set<ActorID> = new Set();
+      for (const pbPeer of pbPeers) {
+        const peerID = converter.toHexString(pbPeer as Uint8Array);
+        watchedPeerMap.add(peerID);
+      }
+      attachment.doc.setWatchedPeerSet(watchedPeerMap);
       return;
     }
 
     const pbWatchEvent = resp.getEvent()!;
     const eventType = pbWatchEvent.getType();
-    const publisher = converter.toHexString(
-      pbWatchEvent.getPublisher()!.getId_asU8(),
-    );
-    const presence = converter.fromPresence(
-      pbWatchEvent.getPublisher()!.getPresence()!,
-    ) as PresenceInfo<P>;
+    const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
     switch (eventType) {
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
         attachment.remoteChangeEventReceived = true;
@@ -895,34 +886,34 @@ export class Client implements Observable<ClientEvent> {
         });
         break;
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-        attachment.doc.setPresenceInfo(publisher, presence);
-        attachment.doc.publish({
-          type: DocEventType.PeersChanged,
-          value: {
-            type: 'watched',
-            peers: [
-              {
+        if (
+          attachment.doc.hasPresenceInfo(publisher) &&
+          attachment.doc.getPresenceInfo(publisher)
+        ) {
+          attachment.doc.addWatchedPeerSet(publisher);
+          attachment.doc.publish({
+            type: DocEventType.PeersChanged,
+            value: {
+              type: PeersChangedEventType.Watched,
+              peer: {
                 clientID: publisher,
-                presence: attachment.doc.getPresenceInfo(publisher).data,
+                presence: attachment.doc.getPeerPresence(publisher)!,
               },
-            ],
-          },
-        });
+            },
+          });
+        } else {
+          attachment.doc.setPresenceInfo(publisher, undefined);
+        }
         break;
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
-        const presence = attachment.doc.getPresenceInfo(publisher).data;
-        if (!presence) break;
+        const presence = attachment.doc.getPeerPresence(publisher)!;
+        attachment.doc.removeWatchedPeerSet(publisher);
         attachment.doc.removePresenceInfo(publisher);
         attachment.doc.publish({
           type: DocEventType.PeersChanged,
           value: {
-            type: 'unwatched',
-            peers: [
-              {
-                clientID: publisher,
-                presence,
-              },
-            ],
+            type: PeersChangedEventType.Unwatched,
+            peer: { clientID: publisher, presence },
           },
         });
         break;

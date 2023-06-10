@@ -55,7 +55,6 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
-  Client as PbClient,
   PresenceInfo as PbPresenceInfo,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
@@ -94,16 +93,6 @@ function toPresenceInfo(presenceInfo: PresenceInfo<Indexable>): PbPresenceInfo {
     pbDataMap.set(key, JSON.stringify(value));
   }
   return pbPresenceInfo;
-}
-
-/**
- * `toClient` converts the given model to Protobuf format.
- */
-function toClient(id: string, presence: PresenceInfo<Indexable>): PbClient {
-  const pbClient = new PbClient();
-  pbClient.setId(toUint8Array(id));
-  pbClient.setPresence(toPresenceInfo(presence));
-  return pbClient;
 }
 
 /**
@@ -1221,7 +1210,6 @@ function toUint8Array(hex: string): Uint8Array {
  */
 export const converter = {
   fromPresence,
-  toClient,
   toChangePack,
   fromChangePack,
   fromChanges,

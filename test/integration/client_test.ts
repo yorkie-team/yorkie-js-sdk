@@ -169,7 +169,7 @@ describe('Client', function () {
 
     await waitStubCallCount(stubD2, 1); // d2 should be able to update
     assert.equal(d2Events.pop(), DocEventType.LocalChange);
-    await waitStubCallCount(stubD1, 2); // d1 should be able to receive d2's update
+    await waitStubCallCount(stubD1, 1); // d1 should be able to receive d2's update
     assert.equal(d1Events.pop(), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
@@ -199,9 +199,8 @@ describe('Client', function () {
     );
 
     await c1.sync().catch((err) => {
-      assert.equal(err.message, 'INVALID_STATE_ERR - 0');
+      assert.equal(err.message, 'INVALID_STATE_ERR - 0'); // c1 should also fail to sync
     });
-    await waitStubCallCount(stubC1, 3); // c1 should also fail to sync
     assert.equal(
       c1Events.pop(),
       DocumentSyncResultType.SyncFailed,
@@ -217,7 +216,7 @@ describe('Client', function () {
     assert.equal(c2Events.pop(), DocumentSyncResultType.Synced, 'c2 sync');
     await waitStubCallCount(stubC1, 5);
     assert.equal(c1Events.pop(), DocumentSyncResultType.Synced, 'c1 sync');
-    await waitStubCallCount(stubD1, 3);
+    await waitStubCallCount(stubD1, 2);
     assert.equal(d1Events.pop(), DocEventType.RemoteChange); // d1 should be able to receive d2's update
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
@@ -357,9 +356,9 @@ describe('Client', function () {
 
     // 01. c1, c2, c3 attach to the same document in realtime sync.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const d1 = await c1.attach<{ c1: number; c2: number }>(docKey);
-    const d2 = await c2.attach<{ c1: number; c2: number }>(docKey);
-    const d3 = await c3.attach<{ c1: number; c2: number }>(docKey);
+    const d1 = await c1.attach<{ c: Counter }>(docKey);
+    const d2 = await c2.attach<{ c: Counter }>(docKey);
+    const d3 = await c3.attach<{ c: Counter }>(docKey);
 
     const d1Events: Array<string> = [];
     const d2Events: Array<string> = [];
@@ -379,15 +378,20 @@ describe('Client', function () {
 
     // 02. c1, c2 sync in realtime.
     d1.update((root) => {
-      root.c1 = 0;
+      root.c = new yorkie.Counter(yorkie.IntType, 0);
     });
+    await waitStubCallCount(stub1, 1); // local-change
+    await waitStubCallCount(stub2, 1); // remote-change
+    await waitStubCallCount(stub3, 1); // remote-change
     d2.update((root) => {
-      root.c2 = 0;
+      root.c.increase(1);
     });
-    await waitStubCallCount(stub1, 4); // local-change, remote-change
-    await waitStubCallCount(stub2, 3); // local-change, remote-change
-    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}');
+    await waitStubCallCount(stub1, 2); // remote-change
+    await waitStubCallCount(stub2, 2); // local-change
+    await waitStubCallCount(stub3, 2); // remote-change
+    assert.equal(d1.toSortedJSON(), '{"c":1}');
+    assert.equal(d2.toSortedJSON(), '{"c":1}');
+    assert.equal(d3.toSortedJSON(), '{"c":1}');
 
     // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
     // are not reflected to each other.
@@ -395,26 +399,26 @@ describe('Client', function () {
     c1.pauseRemoteChanges(d1);
     c2.pauseRemoteChanges(d2);
     d1.update((root) => {
-      root.c1 = 1;
+      root.c.increase(2);
     });
     d2.update((root) => {
-      root.c2 = 1;
+      root.c.increase(3);
     });
 
-    await waitStubCallCount(stub1, 5); // local-change
-    await waitStubCallCount(stub2, 4); // local-change
-    await waitStubCallCount(stub3, 4);
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
-    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');
+    await waitStubCallCount(stub1, 3); // local-change
+    await waitStubCallCount(stub2, 3); // local-change
+    await waitStubCallCount(stub3, 4); // remote-change, remote-change
+    assert.equal(d1.toSortedJSON(), '{"c":3}');
+    assert.equal(d2.toSortedJSON(), '{"c":4}');
+    assert.equal(d3.toSortedJSON(), '{"c":6}');
 
     // 04. c1 and c2 sync with push-pull mode.
     c1.resumeRemoteChanges(d1);
     c2.resumeRemoteChanges(d2);
-    await waitStubCallCount(stub1, 6);
-    await waitStubCallCount(stub2, 5);
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}');
-    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}');
+    await waitStubCallCount(stub1, 4); // remote-change
+    await waitStubCallCount(stub2, 4); // remote-change
+    assert.equal(d1.toSortedJSON(), '{"c":6}');
+    assert.equal(d2.toSortedJSON(), '{"c":6}');
 
     unsub1();
     unsub2();
@@ -435,22 +439,22 @@ describe('Client', function () {
     });
 
     // 02. cli update the document with creating a counter
-    //     and sync with push-pull mode: CP(0, 0) -> CP(1, 1)
+    //     and sync with push-pull mode: CP(1, 1) -> CP(2, 2)
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
     });
 
     let checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 0);
-    assert.equal(checkpoint.getServerSeq().toInt(), 0);
-
-    await c1.sync();
-    checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 1);
     assert.equal(checkpoint.getServerSeq().toInt(), 1);
 
+    await c1.sync();
+    checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 2);
+    assert.equal(checkpoint.getServerSeq().toInt(), 2);
+
     // 03. cli update the document with increasing the counter(0 -> 1)
-    //     and sync with push-only mode: CP(1, 1) -> CP(2, 1)
+    //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
     d1.update((root) => {
       root.counter.increase(1);
     });
@@ -459,11 +463,11 @@ describe('Client', function () {
 
     await c1.sync(d1, SyncMode.PushOnly);
     checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 2);
-    assert.equal(checkpoint.getServerSeq().toInt(), 1);
+    assert.equal(checkpoint.getClientSeq(), 3);
+    assert.equal(checkpoint.getServerSeq().toInt(), 2);
 
     // 04. cli update the document with increasing the counter(1 -> 2)
-    //     and sync with push-pull mode. CP(2, 1) -> CP(3, 3)
+    //     and sync with push-pull mode. CP(3, 2) -> CP(4, 4)
     d1.update((root) => {
       root.counter.increase(1);
     });
@@ -475,8 +479,8 @@ describe('Client', function () {
 
     await c1.sync();
     checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 3);
-    assert.equal(checkpoint.getServerSeq().toInt(), 3);
+    assert.equal(checkpoint.getClientSeq(), 4);
+    assert.equal(checkpoint.getServerSeq().toInt(), 4);
     assert.equal(d1.getRoot().counter.getValue(), 2);
 
     await c1.deactivate();

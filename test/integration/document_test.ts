@@ -15,6 +15,8 @@ import {
   DocumentStatus,
   DocEvent,
   DocEventType,
+  PeersChangedEventType,
+  PeersChangedValue,
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -77,7 +79,7 @@ describe('Document', function () {
 
     await waitStubCallCount(stub2, 1);
     assert.equal(d2Events.pop(), DocEventType.LocalChange);
-    await waitStubCallCount(stub1, 2);
+    await waitStubCallCount(stub1, 1);
     assert.equal(d1Events.pop(), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
@@ -107,23 +109,25 @@ describe('Document', function () {
         cursor: { x: 0, y: 0 },
       },
     });
+    const stub1 = sinon.stub();
+    const unsub1 = doc1.subscribe('peers', stub1);
+
     const doc2 = await c2.attach<{}, PresenceType>(docKey, {
       initialPresence: {
         name: 'b',
         cursor: { x: 1, y: 1 },
       },
     });
-    const stub1 = sinon.stub();
     const stub2 = sinon.stub();
-    const unsub1 = doc1.subscribe(stub1);
-    const unsub2 = doc2.subscribe(stub2);
+    const unsub2 = doc2.subscribe('peers', stub2);
+
     doc1.updatePresence({ name: 'A' });
     doc2.updatePresence({ name: 'B' });
     doc2.updatePresence({ name: 'Z' });
     doc1.updatePresence({ cursor: { x: 2, y: 2 } });
     doc1.updatePresence({ name: 'Y' });
 
-    await waitStubCallCount(stub1, 5);
+    await waitStubCallCount(stub1, 6);
     await waitStubCallCount(stub2, 5);
     assert.deepEqual(deepSort(doc1.getPeers()), deepSort(doc2.getPeers()));
 
@@ -154,7 +158,7 @@ describe('Document', function () {
       },
     });
     const stub1 = sinon.stub();
-    const unsub1 = d1.subscribe(stub1);
+    const unsub1 = d1.subscribe('peers', stub1);
     assert.deepEqual(d1.getPeerPresence(c2.getID()!), undefined);
 
     const d2 = await c2.attach<{ version: string }, PresenceType>(docKey, {
@@ -199,26 +203,27 @@ describe('Document', function () {
 
     const events: Array<string> = [];
     const expectedEvents: Array<string> = [];
-    function pushEvent(array: Array<string>, event: DocEvent<PresenceType>) {
+    function pushEvent(
+      array: Array<string>,
+      event: PeersChangedValue<PresenceType>,
+    ) {
       const sortedEvent = deepSort(event);
       array.push(JSON.stringify(sortedEvent));
     }
     const stub = sinon.stub().callsFake((event) => {
       pushEvent(events, event);
     });
-    const unsub = doc.subscribe(stub);
+    const unsub = doc.subscribe('peers', stub);
 
     doc.update(() => {
       doc.updatePresence({ name: 'z' });
     });
 
     pushEvent(expectedEvents, {
-      type: DocEventType.LocalChange,
-      value: {
-        message: '',
-        operations: [],
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: cliID,
         presence: { ...presence, name: 'z' },
-        actor: cliID,
       },
     });
     assert.equal(1, stub.callCount);
@@ -248,14 +253,21 @@ describe('Document', function () {
 
     const events: Array<string> = [];
     const expectedEvents: Array<string> = [];
-    function pushEvent(array: Array<string>, event: DocEvent<PresenceType>) {
+    function pushEvent(
+      array: Array<string>,
+      event: DocEvent<PresenceType> | PeersChangedValue<PresenceType>,
+    ) {
       const sortedEvent = deepSort(event);
       array.push(JSON.stringify(sortedEvent));
     }
-    const stub = sinon.stub().callsFake((event) => {
+    const stub1 = sinon.stub().callsFake((event) => {
       pushEvent(events, event);
     });
-    const unsub = doc.subscribe(stub);
+    const unsub1 = doc.subscribe(stub1);
+    const stub2 = sinon.stub().callsFake((event) => {
+      pushEvent(events, event);
+    });
+    const unsub2 = doc.subscribe('peers', stub2);
 
     doc.update((root) => {
       root.arr = [];
@@ -282,15 +294,23 @@ describe('Document', function () {
           { index: 1, path: '$.arr', type: 'add' },
           { index: 2, path: '$.arr', type: 'add' },
         ],
-        presence: { name: 'z', cursor: { x: 1, y: 1 } },
         actor: cliID,
       },
     });
-    assert.equal(1, stub.callCount);
+    pushEvent(expectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: cliID,
+        presence: { name: 'z', cursor: { x: 1, y: 1 } },
+      },
+    });
+    assert.equal(1, stub1.callCount);
+    assert.equal(1, stub2.callCount);
     assert.deepEqual(events, expectedEvents);
 
     await cli.deactivate();
-    unsub();
+    unsub1();
+    unsub2();
   });
 
   it('detects the peers-changed events from doc.subscribe', async function () {
@@ -320,7 +340,10 @@ describe('Document', function () {
     const d1ExpectedEvents: Array<string> = [];
     const d2Events: Array<string> = [];
     const d2ExpectedEvents: Array<string> = [];
-    function pushEvent(array: Array<string>, event: DocEvent<PresenceType>) {
+    function pushEvent(
+      array: Array<string>,
+      event: PeersChangedValue<PresenceType>,
+    ) {
       const sortedEvent = deepSort(event);
       array.push(JSON.stringify(sortedEvent));
     }
@@ -335,21 +358,18 @@ describe('Document', function () {
     const doc1C1 = await c1.attach<{}, PresenceType>(docKey1, {
       initialPresence: c1Presence,
     });
-    const unsub1 = doc1C1.subscribe(stub1);
+    const unsub1 = doc1C1.subscribe('peers', stub1);
 
     // 02. c2 attaches doc with docKey1
     const doc1C2 = await c2.attach<{}, PresenceType>(docKey1, {
       initialPresence: c2Presence,
     });
-    const unsub2 = doc1C2.subscribe(stub2);
+    const unsub2 = doc1C2.subscribe('peers', stub2);
 
     // 02-1. c1 receives the watched event
     pushEvent(d1ExpectedEvents, {
-      type: DocEventType.PeersChanged,
-      value: {
-        type: 'watched',
-        peers: [{ clientID: c2ID, presence: { ...c2Presence } }],
-      },
+      type: PeersChangedEventType.Watched,
+      peer: { clientID: c2ID, presence: { ...c2Presence } },
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
@@ -365,12 +385,10 @@ describe('Document', function () {
 
     // 03-1. c1 receives the local change event
     pushEvent(d1ExpectedEvents, {
-      type: DocEventType.LocalChange,
-      value: {
-        message: '',
-        operations: [],
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c1ID,
         presence: { ...c1Presence, name: 'z' },
-        actor: c1ID,
       },
     });
     assert.equal(2, stub1.callCount);
@@ -384,12 +402,10 @@ describe('Document', function () {
 
     // 03-2. c2 receives the remote change event
     pushEvent(d2ExpectedEvents, {
-      type: DocEventType.RemoteChange,
-      value: {
-        message: '',
-        operations: [],
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c1ID,
         presence: { ...c1Presence, name: 'z' },
-        actor: c1ID,
       },
     });
     await waitStubCallCount(stub2, 1);
@@ -405,26 +421,29 @@ describe('Document', function () {
     const doc2C1 = await c1.attach<{}, PresenceType>(docKey2, {
       initialPresence: c1Presence,
     });
-    assert.deepEqual(deepSort(doc2C1.getPeers()), [
-      {
-        clientID: c1ID,
-        presence: {
-          name: 'a',
-          cursor: { x: 0, y: 0 },
+    assert.deepEqual(
+      deepSort(doc2C1.getPeers()),
+      [
+        {
+          clientID: c1ID,
+          presence: {
+            name: 'a',
+            cursor: { x: 0, y: 0 },
+          },
         },
-      },
-    ]);
+      ],
+      `[c1] c1 attach doc2: \n actual: ${JSON.stringify(
+        deepSort(doc2C1.getPeers()),
+      )}`,
+    );
 
     // 05. c1 detaches doc with docKey1
     await c1.detach(doc1C1);
 
     // 05-1. c2 receives the unwatched event
     pushEvent(d2ExpectedEvents, {
-      type: DocEventType.PeersChanged,
-      value: {
-        type: 'unwatched',
-        peers: [{ clientID: c1ID, presence: { ...c1Presence, name: 'z' } }],
-      },
+      type: PeersChangedEventType.Unwatched,
+      peer: { clientID: c1ID, presence: { ...c1Presence, name: 'z' } },
     });
     await waitStubCallCount(stub2, 2);
     assert.deepEqual(
@@ -471,8 +490,12 @@ describe('Document', function () {
       const { operations } = event.value;
       events.push(...operations);
     };
-    const stub1 = sinon.stub().callsFake((event) => pushEvent(event, events1));
-    const stub2 = sinon.stub().callsFake((event) => pushEvent(event, events2));
+    const stub1 = sinon.stub().callsFake((event) => {
+      pushEvent(event, events1);
+    });
+    const stub2 = sinon.stub().callsFake((event) => {
+      pushEvent(event, events2);
+    });
     const unsub1 = d1.subscribe(stub1);
     const unsub2 = d2.subscribe(stub2);
 
@@ -533,8 +556,8 @@ describe('Document', function () {
       ];
     });
 
-    await waitStubCallCount(stub1, 2);
-    await waitStubCallCount(stub2, 1);
+    await waitStubCallCount(stub1, 1); // local-change
+    await waitStubCallCount(stub2, 1); // remote-change
 
     d2.update((root) => {
       root.counter.increase(1);
@@ -568,8 +591,8 @@ describe('Document', function () {
         },
       ];
     });
-    await waitStubCallCount(stub1, 3);
-    await waitStubCallCount(stub2, 2);
+    await waitStubCallCount(stub1, 2); // remote-change
+    await waitStubCallCount(stub2, 2); // local-change
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     assert.deepEqual(
       events1,
@@ -615,13 +638,15 @@ describe('Document', function () {
       const { operations } = event.value;
       events.push(...operations);
     };
-    const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
-    const stubTodo = sinon
-      .stub()
-      .callsFake((event) => pushEvent(event, todoEvents));
-    const stubCounter = sinon
-      .stub()
-      .callsFake((event) => pushEvent(event, counterEvents));
+    const stub = sinon.stub().callsFake((event) => {
+      pushEvent(event, events);
+    });
+    const stubTodo = sinon.stub().callsFake((event) => {
+      pushEvent(event, todoEvents);
+    });
+    const stubCounter = sinon.stub().callsFake((event) => {
+      pushEvent(event, counterEvents);
+    });
     const unsub = d1.subscribe(stub);
     const unsubTodo = d1.subscribe('$.todos', stubTodo);
     const unsubCounter = d1.subscribe('$.counter', stubCounter);
@@ -630,7 +655,7 @@ describe('Document', function () {
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
       root.todos = ['todo1', 'todo2'];
     });
-    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(stub, 1);
     await waitStubCallCount(stubTodo, 1);
     assert.deepEqual(events, [
       { type: 'set', path: '$', key: 'counter' },
@@ -648,7 +673,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.counter.increase(10);
     });
-    await waitStubCallCount(stub, 3);
+    await waitStubCallCount(stub, 2);
     await waitStubCallCount(stubCounter, 1);
     assert.deepEqual(events, [
       { type: 'increase', path: '$.counter', value: 10 },
@@ -662,7 +687,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.todos.push('todo3');
     });
-    await waitStubCallCount(stub, 4);
+    await waitStubCallCount(stub, 3);
     await waitStubCallCount(stubTodo, 2);
     assert.deepEqual(events, [{ type: 'add', path: '$.todos', index: 2 }]);
     assert.deepEqual(todoEvents, [{ type: 'add', path: '$.todos', index: 2 }]);
@@ -673,7 +698,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.todos.push('todo4');
     });
-    await waitStubCallCount(stub, 5);
+    await waitStubCallCount(stub, 4);
     assert.deepEqual(events, [{ type: 'add', path: '$.todos', index: 3 }]);
     assert.deepEqual(todoEvents, []);
     events = [];
@@ -682,7 +707,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.counter.increase(10);
     });
-    await waitStubCallCount(stub, 6);
+    await waitStubCallCount(stub, 5);
     assert.deepEqual(events, [
       { type: 'increase', path: '$.counter', value: 10 },
     ]);
@@ -719,13 +744,15 @@ describe('Document', function () {
       const { operations } = event.value;
       events.push(...operations);
     };
-    const stub = sinon.stub().callsFake((event) => pushEvent(event, events));
-    const stubTodo = sinon
-      .stub()
-      .callsFake((event) => pushEvent(event, todoEvents));
-    const stubObj = sinon
-      .stub()
-      .callsFake((event) => pushEvent(event, objEvents));
+    const stub = sinon.stub().callsFake((event) => {
+      pushEvent(event, events);
+    });
+    const stubTodo = sinon.stub().callsFake((event) => {
+      pushEvent(event, todoEvents);
+    });
+    const stubObj = sinon.stub().callsFake((event) => {
+      pushEvent(event, objEvents);
+    });
     const unsub = d1.subscribe(stub);
     const unsubTodo = d1.subscribe('$.todos.0', stubTodo);
     const unsubObj = d1.subscribe('$.obj.c1', stubObj);
@@ -736,7 +763,7 @@ describe('Document', function () {
         c1: { name: 'josh', age: 14 },
       };
     });
-    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(stub, 1);
     await waitStubCallCount(stubTodo, 1);
     await waitStubCallCount(stubObj, 1);
     assert.deepEqual(events, [
@@ -764,8 +791,8 @@ describe('Document', function () {
     d2.update((root) => {
       root.obj.c1.name = 'john';
     });
-    await waitStubCallCount(stub, 3);
-    await waitStubCallCount(stubObj, 1);
+    await waitStubCallCount(stub, 2);
+    await waitStubCallCount(stubObj, 2);
     assert.deepEqual(events, [{ type: 'set', path: '$.obj.c1', key: 'name' }]);
     assert.deepEqual(objEvents, [
       { type: 'set', path: '$.obj.c1', key: 'name' },
@@ -776,7 +803,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.todos[0].completed = true;
     });
-    await waitStubCallCount(stub, 4);
+    await waitStubCallCount(stub, 3);
     await waitStubCallCount(stubTodo, 2);
     assert.deepEqual(events, [
       { type: 'set', path: '$.todos.0', key: 'completed' },
@@ -791,7 +818,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.todos[0].text = 'todo_1';
     });
-    await waitStubCallCount(stub, 5);
+    await waitStubCallCount(stub, 4);
     assert.deepEqual(events, [{ type: 'set', path: '$.todos.0', key: 'text' }]);
     assert.deepEqual(todoEvents, []);
     events = [];
@@ -800,7 +827,7 @@ describe('Document', function () {
     d2.update((root) => {
       root.obj.c1.age = 15;
     });
-    await waitStubCallCount(stub, 6);
+    await waitStubCallCount(stub, 5);
     assert.deepEqual(events, [{ type: 'set', path: '$.obj.c1', key: 'age' }]);
     assert.deepEqual(objEvents, []);
 

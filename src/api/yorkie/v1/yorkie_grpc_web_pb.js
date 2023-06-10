@@ -198,67 +198,6 @@ proto.yorkie.v1.YorkieServicePromiseClient.prototype.deactivateClient =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.yorkie.v1.UpdatePresenceRequest,
- *   !proto.yorkie.v1.UpdatePresenceResponse>}
- */
-const methodDescriptor_YorkieService_UpdatePresence = new grpc.web.MethodDescriptor(
-  '/yorkie.v1.YorkieService/UpdatePresence',
-  grpc.web.MethodType.UNARY,
-  proto.yorkie.v1.UpdatePresenceRequest,
-  proto.yorkie.v1.UpdatePresenceResponse,
-  /**
-   * @param {!proto.yorkie.v1.UpdatePresenceRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.yorkie.v1.UpdatePresenceResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.yorkie.v1.UpdatePresenceRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.yorkie.v1.UpdatePresenceResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.yorkie.v1.UpdatePresenceResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.yorkie.v1.YorkieServiceClient.prototype.updatePresence =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/yorkie.v1.YorkieService/UpdatePresence',
-      request,
-      metadata || {},
-      methodDescriptor_YorkieService_UpdatePresence,
-      callback);
-};
-
-
-/**
- * @param {!proto.yorkie.v1.UpdatePresenceRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.yorkie.v1.UpdatePresenceResponse>}
- *     Promise that resolves to the response
- */
-proto.yorkie.v1.YorkieServicePromiseClient.prototype.updatePresence =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/yorkie.v1.YorkieService/UpdatePresence',
-      request,
-      metadata || {},
-      methodDescriptor_YorkieService_UpdatePresence);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.yorkie.v1.AttachDocumentRequest,
  *   !proto.yorkie.v1.AttachDocumentResponse>}
  */

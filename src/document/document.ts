@@ -95,6 +95,26 @@ export enum DocEventType {
 }
 
 /**
+ * `PeersChangedEventType` is peers changed event types
+ * @public
+ */
+export enum PeersChangedEventType {
+  /**
+   * `Watched` means that the peer has established a connection with the server,
+   * enabling real-time synchronization.
+   */
+  Watched = 'watched',
+  /**
+   * `Unwatched` means that the connection has been disconnected.
+   */
+  Unwatched = 'unwatched',
+  /**
+   * `PeersChanged` means that the presences of the peer clients has updated.
+   */
+  PresenceChanged = 'presence-changed',
+}
+
+/**
  * `DocEvent` is an event that occurs in `Document`. It can be delivered
  * using `Document.subscribe()`.
  *
@@ -102,8 +122,8 @@ export enum DocEventType {
  */
 export type DocEvent<P extends Indexable = Indexable> =
   | SnapshotEvent
-  | LocalChangeEvent<P>
-  | RemoteChangeEvent<P>
+  | LocalChangeEvent
+  | RemoteChangeEvent
   | PeersChangedEvent<P>;
 
 /**
@@ -134,10 +154,9 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export interface ChangeInfo<P extends Indexable> {
+export interface ChangeInfo {
   message: string;
   operations: Array<OperationInfo>;
-  presence: P | undefined;
   actor: ActorID | undefined;
 }
 
@@ -147,7 +166,7 @@ export interface ChangeInfo<P extends Indexable> {
  *
  * @public
  */
-export interface LocalChangeEvent<P extends Indexable> extends BaseDocEvent {
+export interface LocalChangeEvent extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.LocalChange
    */
@@ -155,7 +174,7 @@ export interface LocalChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * LocalChangeEvent type
    */
-  value: ChangeInfo<P>;
+  value: ChangeInfo;
 }
 
 /**
@@ -164,7 +183,7 @@ export interface LocalChangeEvent<P extends Indexable> extends BaseDocEvent {
  *
  * @public
  */
-export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
+export interface RemoteChangeEvent extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.RemoteChange
    */
@@ -172,7 +191,7 @@ export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
   /**
    * RemoteChangeEvent type
    */
-  value: ChangeInfo<P>;
+  value: ChangeInfo;
 }
 
 /**
@@ -180,8 +199,8 @@ export interface RemoteChangeEvent<P extends Indexable> extends BaseDocEvent {
  * @public
  */
 export type PeersChangedValue<P extends Indexable> = {
-  type: 'initialized' | 'watched' | 'unwatched';
-  peers: Array<{ clientID: ActorID; presence: P }>;
+  type: PeersChangedEventType;
+  peer: { clientID: ActorID; presence: P };
 };
 
 /**
@@ -237,25 +256,22 @@ export class Document<T, P extends Indexable> {
   private localChanges: Array<Change<P>>;
   private eventStream: Observable<DocEvent<P>>;
   private eventStreamObserver!: Observer<DocEvent<P>>;
-  private peerPresenceMap: Map<ActorID, PresenceInfo<P>>;
+  private peerPresenceMap: Map<ActorID, PresenceInfo<P> | undefined>;
+  private watchedPeerSet: Set<ActorID>;
   private myClientID: ActorID;
   private changeContext: ChangeContext<P> | undefined;
 
-  constructor(docKey: string, clientID: string, initialPresence: P) {
+  constructor(docKey: string, clientID: string) {
     this.key = docKey;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
     this.changeID = ChangeID.getInitialChangeID(clientID);
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.peerPresenceMap = new Map();
-    this.peerPresenceMap.set(clientID, {
-      clock: 0,
-      data: initialPresence,
-    });
     this.myClientID = clientID;
     this.changeContext = undefined;
-
+    this.peerPresenceMap = new Map();
+    this.watchedPeerSet = new Set();
     this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -267,9 +283,8 @@ export class Document<T, P extends Indexable> {
   public static create<T, P extends Indexable>(
     docKey: string,
     clientID: string,
-    initialPresence: P,
   ): Document<T, P> {
-    return new Document<T, P>(docKey, clientID, initialPresence);
+    return new Document<T, P>(docKey, clientID);
   }
 
   /**
@@ -319,33 +334,49 @@ export class Document<T, P extends Indexable> {
       throw err;
     }
 
-    if (this.changeContext && this.changeContext.hasChange()) {
-      if (logger.isEnabled(LogLevel.Trivial)) {
-        logger.trivial(`trying to update a local change: ${this.toJSON()}`);
-      }
+    if (!this.changeContext) return;
+    if (!this.changeContext.hasChange()) {
+      this.changeContext = undefined;
+      return;
+    }
 
-      const change = this.changeContext.getChange();
+    if (logger.isEnabled(LogLevel.Trivial)) {
+      logger.trivial(`trying to update a local change: ${this.toJSON()}`);
+    }
+
+    const change = this.changeContext.getChange();
+    this.localChanges.push(change);
+
+    if (change.hasOperations()) {
       const internalOpInfos = change.execute(this.root);
-      this.localChanges.push(change);
-      this.changeID = change.getID();
-
       this.publish({
         type: DocEventType.LocalChange,
         value: {
+          actor: this.myClientID,
           message: change.getMessage() || '',
           operations: internalOpInfos.map((internalOpInfo) =>
             this.toOperationInfo(internalOpInfo),
           ),
-          presence: this.changeContext.hasPresence()
-            ? this.getPresence()
-            : undefined,
-          actor: change.getID().getActorID(),
         },
       });
+    }
 
-      if (logger.isEnabled(LogLevel.Trivial)) {
-        logger.trivial(`after update a local change: ${this.toJSON()}`);
-      }
+    if (change.hasPresenceInfo()) {
+      this.publish({
+        type: DocEventType.PeersChanged,
+        value: {
+          type: PeersChangedEventType.PresenceChanged,
+          peer: {
+            clientID: this.myClientID,
+            presence: this.getPresence(),
+          },
+        },
+      });
+    }
+
+    this.changeID = change.getID();
+    if (logger.isEnabled(LogLevel.Trivial)) {
+      logger.trivial(`after update a local change: ${this.toJSON()}`);
     }
 
     this.changeContext = undefined;
@@ -375,14 +406,37 @@ export class Document<T, P extends Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     this.publish({
-      type: DocEventType.LocalChange,
+      type: DocEventType.PeersChanged,
       value: {
-        message: '',
-        operations: [],
-        presence: this.getPresence(),
-        actor: change.getID().getActorID(),
+        type: PeersChangedEventType.PresenceChanged,
+        peer: {
+          clientID: this.myClientID,
+          presence: this.getPresence(),
+        },
       },
     });
+    this.changeContext = undefined;
+  }
+
+  /**
+   * `initPresence` initializes the presence of the client who created this document.
+   */
+  public initPresence(presence: P) {
+    const initPresenceInfo = {
+      clock: 0,
+      data: presence,
+    };
+    this.peerPresenceMap.set(this.myClientID, cloneDeep(initPresenceInfo));
+    this.watchedPeerSet.add(this.myClientID);
+
+    this.changeContext = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!,
+    );
+    this.changeContext.setPresence(cloneDeep(initPresenceInfo));
+    const change = this.changeContext.getChange();
+    this.localChanges.push(change);
+    this.changeID = change.getID();
     this.changeContext = undefined;
   }
 
@@ -392,6 +446,17 @@ export class Document<T, P extends Indexable> {
    */
   public subscribe(
     nextOrObserver: Observer<DocEvent<P>> | NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the peer eestablishes or terminates a connection,
+   * or updates its presence.
+   */
+  public subscribe(
+    type: 'peers',
+    next: NextFn<PeersChangedValue<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -418,6 +483,18 @@ export class Document<T, P extends Indexable> {
       if (typeof arg2 !== 'function') {
         throw new Error('Second argument must be a callback function');
       }
+      if (arg1 === 'peers') {
+        const callback = arg2 as NextFn<PeersChangedValue<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            if (event.type === DocEventType.PeersChanged) {
+              callback(event.value);
+            }
+          },
+          arg3,
+          arg4,
+        );
+      }
       const target = arg1;
       const callback = arg2 as NextFn<DocEvent<P>>;
       return this.eventStream.subscribe(
@@ -430,7 +507,7 @@ export class Document<T, P extends Indexable> {
             return;
           }
 
-          const { message, operations, presence, actor } = event.value;
+          const { message, operations, actor } = event.value;
           const targetOps: Array<OperationInfo> = [];
           for (const op of operations) {
             if (this.isSameElementOrChildOf(op.path, target)) {
@@ -440,7 +517,7 @@ export class Document<T, P extends Indexable> {
           targetOps.length &&
             callback({
               type: event.type,
-              value: { message, operations: targetOps, presence, actor },
+              value: { message, operations: targetOps, actor },
             });
         },
         arg3,
@@ -448,9 +525,20 @@ export class Document<T, P extends Indexable> {
       );
     }
     if (typeof arg1 === 'function') {
+      const callback = arg1 as NextFn<DocEvent<P>>;
       const error = arg2 as ErrorFn;
       const complete = arg3 as CompleteFn;
-      return this.eventStream.subscribe(arg1, error, complete);
+      return this.eventStream.subscribe(
+        (event) => {
+          if (event.type === DocEventType.PeersChanged) {
+            return;
+          }
+
+          callback(event);
+        },
+        error,
+        complete,
+      );
     }
     throw new Error(`"${arg1}" is not a valid`);
   }
@@ -724,24 +812,60 @@ export class Document<T, P extends Indexable> {
 
     for (const change of changes) {
       const actorID = change.getID().getActorID()!;
-      const inernalOpInfos = change.execute(this.root);
-      const changeInfo: ChangeInfo<P> = {
-        actor: actorID,
-        message: change.getMessage() || '',
-        operations: inernalOpInfos.map((opInfo) =>
-          this.toOperationInfo(opInfo),
-        ),
-        presence: undefined,
-      };
-      if (change.hasPresenceInfo() && this.hasPeer(actorID)) {
-        this.setPresenceInfo(actorID, change.getPresenceInfo()!);
-        changeInfo.presence = change.getPresenceInfo()!.data;
+      if (change.hasOperations()) {
+        const inernalOpInfos = change.execute(this.root);
+        this.publish({
+          type: DocEventType.RemoteChange,
+          value: {
+            actor: actorID,
+            message: change.getMessage() || '',
+            operations: inernalOpInfos.map((opInfo) =>
+              this.toOperationInfo(opInfo),
+            ),
+          },
+        });
       }
+
+      if (change.hasPresenceInfo()) {
+        if (!this.peerPresenceMap.has(actorID)) {
+          this.setPresenceInfo(actorID, change.getPresenceInfo()!);
+        } else if (
+          this.peerPresenceMap.has(actorID) &&
+          this.peerPresenceMap.get(actorID) === undefined
+        ) {
+          this.watchedPeerSet.add(actorID);
+          this.setPresenceInfo(actorID, change.getPresenceInfo()!);
+          this.publish({
+            type: DocEventType.PeersChanged,
+            value: {
+              type: PeersChangedEventType.Watched,
+              peer: {
+                clientID: actorID,
+                presence: this.getPeerPresence(actorID)!,
+              },
+            },
+          });
+        } else {
+          const isUpdated = this.setPresenceInfo(
+            actorID,
+            change.getPresenceInfo()!,
+          );
+          if (isUpdated) {
+            this.publish({
+              type: DocEventType.PeersChanged,
+              value: {
+                type: PeersChangedEventType.PresenceChanged,
+                peer: {
+                  clientID: actorID,
+                  presence: this.getPeerPresence(actorID)!,
+                },
+              },
+            });
+          }
+        }
+      }
+
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
-      this.publish({
-        type: DocEventType.RemoteChange,
-        value: changeInfo,
-      });
     }
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
@@ -787,16 +911,25 @@ export class Document<T, P extends Indexable> {
    */
   public setPresenceInfo(
     clientID: ActorID,
-    presenceInfo: PresenceInfo<P>,
-  ): void {
+    presenceInfo: PresenceInfo<P> | undefined,
+  ): boolean {
+    if (
+      presenceInfo === undefined ||
+      (this.peerPresenceMap.has(clientID) &&
+        this.peerPresenceMap.get(clientID) === undefined)
+    ) {
+      this.peerPresenceMap.set(clientID, presenceInfo);
+      return true;
+    }
     if (
       this.peerPresenceMap.has(clientID) &&
       this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
     ) {
-      return;
+      return false;
     }
 
     this.peerPresenceMap.set(clientID, presenceInfo);
+    return true;
   }
 
   /**
@@ -817,6 +950,34 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
+   * `hasPresenceInfo` returns whether the peer presence exists.
+   */
+  public hasPresenceInfo(clientID: ActorID): boolean {
+    return this.peerPresenceMap.has(clientID);
+  }
+
+  /**
+   * `setWatchedPeerSet` sets the watched peer set.
+   */
+  public setWatchedPeerSet(watchedPeerSet: Set<ActorID>) {
+    this.watchedPeerSet = watchedPeerSet;
+  }
+
+  /**
+   * `addWatchedPeerSet` adds the peer to the watched peer set.
+   */
+  public addWatchedPeerSet(clientID: ActorID) {
+    this.watchedPeerSet.add(clientID);
+  }
+
+  /**
+   * `removeWatchedPeerSet` removes the peer from the watched peer set.
+   */
+  public removeWatchedPeerSet(clientID: ActorID) {
+    this.watchedPeerSet.delete(clientID);
+  }
+
+  /**
    * `getPresence` returns the presence of the client who created this document.
    */
   public getPresence(): P {
@@ -827,6 +988,9 @@ export class Document<T, P extends Indexable> {
    * `getPeerPresence` returns the presence of the peer.
    */
   public getPeerPresence(clientID: ActorID) {
+    if (!this.watchedPeerSet.has(clientID)) {
+      return undefined;
+    }
     return this.peerPresenceMap.get(clientID)?.data;
   }
 
@@ -835,16 +999,12 @@ export class Document<T, P extends Indexable> {
    */
   public getPeers(): Array<{ clientID: ActorID; presence: P }> {
     const peers: Array<{ clientID: ActorID; presence: P }> = [];
-    for (const [clientID, presenceInfo] of this.peerPresenceMap!) {
-      peers.push({ clientID, presence: presenceInfo.data });
+    for (const clientID of this.watchedPeerSet) {
+      peers.push({
+        clientID,
+        presence: this.peerPresenceMap.get(clientID)!.data,
+      });
     }
     return peers;
-  }
-
-  /**
-   * `hasPeer` returns whether the peer exists.
-   */
-  public hasPeer(clientID: ActorID): boolean {
-    return this.peerPresenceMap.has(clientID);
   }
 }

@@ -1321,32 +1321,6 @@ export namespace PresenceInfo {
   }
 }
 
-export class Client extends jspb.Message {
-  getId(): Uint8Array | string;
-  getId_asU8(): Uint8Array;
-  getId_asB64(): string;
-  setId(value: Uint8Array | string): Client;
-
-  getPresence(): PresenceInfo | undefined;
-  setPresence(value?: PresenceInfo): Client;
-  hasPresence(): boolean;
-  clearPresence(): Client;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Client.AsObject;
-  static toObject(includeInstance: boolean, msg: Client): Client.AsObject;
-  static serializeBinaryToWriter(message: Client, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Client;
-  static deserializeBinaryFromReader(message: Client, reader: jspb.BinaryReader): Client;
-}
-
-export namespace Client {
-  export type AsObject = {
-    id: Uint8Array | string,
-    presence?: PresenceInfo.AsObject,
-  }
-}
-
 export class Checkpoint extends jspb.Message {
   getServerSeq(): string;
   setServerSeq(value: string): Checkpoint;
@@ -1429,13 +1403,10 @@ export class DocEvent extends jspb.Message {
   getType(): DocEventType;
   setType(value: DocEventType): DocEvent;
 
-  getPublisher(): Client | undefined;
-  setPublisher(value?: Client): DocEvent;
-  hasPublisher(): boolean;
-  clearPublisher(): DocEvent;
-
-  getDocumentId(): string;
-  setDocumentId(value: string): DocEvent;
+  getPublisher(): Uint8Array | string;
+  getPublisher_asU8(): Uint8Array;
+  getPublisher_asB64(): string;
+  setPublisher(value: Uint8Array | string): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1448,8 +1419,7 @@ export class DocEvent extends jspb.Message {
 export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
-    publisher?: Client.AsObject,
-    documentId: string,
+    publisher: Uint8Array | string,
   }
 }
 
@@ -1473,5 +1443,4 @@ export enum DocEventType {
   DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,
   DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1,
   DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2,
-  DOC_EVENT_TYPE_PRESENCE_CHANGED = 3,
 }
