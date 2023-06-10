@@ -14,7 +14,7 @@
     <div>
       <div>status: <span id="network-status"></span></div>
       <textarea id="placeholder" cols="30" rows="10"></textarea>
-      <div>peers:</div>
+      <div>peers: <span id="peers-count"></span></div>
       <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
       <div>document:</div>
       <pre style="white-space: pre-wrap"><code id="log-holder"></code></pre>
@@ -28,6 +28,7 @@
     <script>
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
+      const peersCount = document.getElementById('peers-count');
       const peersHolder = document.getElementById('peers-holder');
       const logHolder = document.getElementById('log-holder');
       const textLogHolder = document.getElementById('text-log-holder');
@@ -39,7 +40,7 @@
         return colors[randomIndex];
       }
 
-      function displayLog(doc, codemirror) {
+      function displayLog(doc) {
         logHolder.innerText = doc.toJSON();
         textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
       }
@@ -51,7 +52,22 @@
             clientID === myClientID ? `<b>${clientID}</b>` : clientID,
           );
         }
+        peersCount.textContent = peers.length;
         peersHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      function displayPeerSelection(doc, codemirror, myClientID) {
+        for (const peer of doc.getPeers()) {
+          const { clientID, presence } = peer;
+          if (!presence.selection || clientID === myClientID) continue;
+          displayRemoteSelection(
+            codemirror,
+            doc,
+            presence.selection.from,
+            presence.selection.to,
+            clientID,
+          );
+        }
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619
@@ -151,39 +167,37 @@
             },
           });
           // 02-2. subscribe document event.
+          doc.subscribe('peers', (event) => {
+            console.log('peers event', event);
+            if (event.type === 'watched' || event.type === 'unwatched') {
+              displayPeers(doc.getPeers(), client.getID());
+            }
+          });
           doc.subscribe((event) => {
             console.log('doc event', event);
-            displayLog(doc, codemirror);
-            if (event.type === 'peers-changed') {
-              displayPeers(doc.getPeers(), client.getID());
-              if (event.value.type === 'unwatched') {
-                const peerID = event.value.peers[0].clientID;
-                if (selectionMap.has(peerID)) {
-                  const selection = selectionMap.get(peerID);
-                  selection.marker.clear();
-                }
-              }
-              if (event.value.type === 'initialized') {
-                for (const peer of event.value.peers) {
-                  const { clientID, presence } = peer;
-                  if (!presence.selection) continue;
-                  displayRemoteSelection(
-                    codemirror,
-                    doc,
-                    presence.selection.from,
-                    presence.selection.to,
-                    clientID,
-                  );
-                }
-              }
+            displayLog(doc);
+          });
+
+          doc.update((root) => {
+            if (!root.content) {
+              root.content = new yorkie.Text();
             }
+          }, 'create content if not exists');
+
+          // 03. create an instance of codemirror.
+          const codemirror = CodeMirror.fromTextArea(placeholder, {
+            lineNumbers: true,
+          });
+
+          // 04. bind the document with the codemirror.
+
+          // 04-1. document to codemirror(applying remote).
+          doc.subscribe((event) => {
             if (event.type === 'snapshot') {
               codemirror.setValue(doc.getRoot().content.toString());
             }
-            // 04-2. document to codemirror(applying remote).
             if (event.type === 'remote-change') {
               const { actor, message, operations, presence } = event.value;
-              // 1) handle edit operation
               for (const op of operations) {
                 if (op.type === 'edit') {
                   const from = op.from;
@@ -205,16 +219,6 @@
                   );
                 }
               }
-              // 2) handle presence
-              if (presence && presence.selection) {
-                displayRemoteSelection(
-                  codemirror,
-                  doc,
-                  presence.selection.from,
-                  presence.selection.to,
-                  actor,
-                );
-              }
 
               const textLength = codemirror.getValue().length;
               if (
@@ -226,20 +230,30 @@
               }
             }
           });
-
-          doc.update((root) => {
-            if (!root.content) {
-              root.content = new yorkie.Text();
+          doc.subscribe('peers', (event) => {
+            if (event.type === 'unwatched') {
+              const { clientID } = event.peer;
+              if (selectionMap.has(clientID)) {
+                const selection = selectionMap.get(clientID);
+                selection.marker.clear();
+              }
             }
-          }, 'create content if not exists');
-
-          // 03. create an instance of codemirror.
-          const codemirror = CodeMirror.fromTextArea(placeholder, {
-            lineNumbers: true,
+            if (event.type === 'presence-changed') {
+              const { clientID, presence } = event.peer;
+              if (clientID === client.getID()) return;
+              if (presence && presence.selection) {
+                displayRemoteSelection(
+                  codemirror,
+                  doc,
+                  presence.selection.from,
+                  presence.selection.to,
+                  clientID,
+                );
+              }
+            }
           });
 
-          // 04. bind the document with the codemirror.
-          // 04-1. codemirror to document(applying local).
+          // 04-2. codemirror to document(applying local).
           codemirror.on('beforeChange', (cm, change) => {
             if (change.origin === 'yorkie' || change.origin === 'setValue') {
               return;
@@ -304,7 +318,9 @@
 
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
-          displayLog(doc, codemirror);
+          displayPeers(doc.getPeers(), client.getID());
+          displayPeerSelection(doc, codemirror, client.getID());
+          displayLog(doc);
         } catch (e) {
           console.error(e);
         }

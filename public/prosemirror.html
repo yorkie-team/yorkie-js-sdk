@@ -213,9 +213,8 @@
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
-        const doc = new yorkie.Document('prosemirror');
+        const doc = await client.attach('prosemirror');
         window.doc = doc;
-        await client.attach(doc);
         doc.update((root) => {
           if (!root.tree) {
             root.tree = new yorkie.Tree(docToTreeNode(initialDoc));
