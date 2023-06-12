@@ -1,3 +1,4 @@
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
@@ -23,8 +24,9 @@ export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
 /**
  * `ElementNode` is a node that has children.
  */
-export type ElementNode = {
+export type ElementNode<A extends Indexable = Indexable> = {
   type: TreeNodeType;
+  attributes?: A;
   children: Array<TreeNode>;
 };
 

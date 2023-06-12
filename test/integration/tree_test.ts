@@ -631,3 +631,32 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12BA</p></r>`);
   });
 });
+
+describe.skip('TreeNode', function () {
+  it('Can be inserted with attributes', function () {
+    // TODO(hackerwins): implement this.
+    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span bold="true">hello</span></p></doc>`,
+    );
+  });
+});
