@@ -118,6 +118,8 @@ export interface CRDTTreePos {
   offset: number;
 }
 
+export type TreeRange = [CRDTTreePos, CRDTTreePos];
+
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
  * links to other nodes to resolve conflicts.
@@ -551,7 +553,7 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
-   * `findTreePos` finds the position of the given index in the tree.
+   * `findPos` finds the position of the given index in the tree.
    */
   public findPos(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
@@ -684,5 +686,31 @@ export class CRDTTree extends CRDTElement {
    */
   public indexToPath(index: number): Array<number> {
     return this.indexTree.indexToPath(index);
+  }
+
+  /**
+   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   */
+  public createRange(fromIdx: number, toIdx: number): TreeRange {
+    const fromPos = this.findPos(fromIdx);
+    if (fromIdx === toIdx) {
+      return [fromPos, fromPos];
+    }
+
+    return [fromPos, this.findPos(toIdx)];
+  }
+
+  /**
+   * `rangeToIndex` returns pair of integer offsets of the given Tree.
+   */
+  public rangeToIndex(range: TreeRange): Array<number> {
+    return [this.toIndex(range[0]), this.toIndex(range[1])];
+  }
+
+  /**
+   * `rangeToPath` returns pair of integer offsets of the given Tree.
+   */
+  public rangeToPath(range: TreeRange): Array<Array<number>> {
+    return this.rangeToIndex(range).map((index) => this.indexToPath(index));
   }
 }

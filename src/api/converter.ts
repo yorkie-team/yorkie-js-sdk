@@ -1135,6 +1135,14 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
 }
 
 /**
+ * `bytesToPrimitive` converts the given bytes to Primitive
+ */
+function bytesToPrimitive(bytes: Uint8Array): Primitive {
+  const pbElement = PbJSONElement.deserializeBinary(bytes!);
+  return fromPrimitive(pbElement.getPrimitive()!);
+}
+
+/**
  * `objectToBytes` converts the given JSONObject to byte array.
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
@@ -1210,4 +1218,5 @@ export const converter = {
   bytesToObject,
   toHexString,
   toUint8Array,
+  bytesToPrimitive,
 };
