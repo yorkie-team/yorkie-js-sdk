@@ -138,7 +138,200 @@ describe('Document', function () {
 
     unsub1();
     unsub2();
-  });
+  }).timeout(10000);
+
+  it('Can only watch peersChanged event when using realtime sync', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    const c3 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    await c3.activate();
+    const c2ID = c2.getID()!;
+    const c3ID = c3.getID()!;
+
+    function pushEvent(
+      array: Array<string>,
+      event: DocEvent<PresenceType> | PeersChangedValue<PresenceType>,
+    ) {
+      const sortedEvent = deepSort(event);
+      array.push(JSON.stringify(sortedEvent));
+    }
+    const d1Events: Array<string> = [];
+    const d1ExpectedEvents: Array<string> = [];
+    type PresenceType = {
+      name: string;
+      cursor: { x: number; y: number };
+    };
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = await c1.attach<{}, PresenceType>(docKey, {
+      initialPresence: {
+        name: 'd1',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    const stub1 = sinon.stub().callsFake((event) => {
+      pushEvent(d1Events, event);
+    });
+    d1.subscribe('peers', stub1);
+
+    // 01. c2 attaches doc in realtime sync, and c3 attached doc in manual sync.
+    //     c1 receives the watched event from c2.
+    const d2 = await c2.attach<{ version: string }>(docKey, {
+      initialPresence: {
+        name: 'd2',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    const d3 = await c3.attach<{ version: string }>(docKey, {
+      isRealtimeSync: false,
+      initialPresence: {
+        name: 'd3',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    await waitStubCallCount(stub1, 1);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.Watched,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    // 02. c2 and c3 update the presence.
+    //     c1 receives the presence-changed event from c2.
+    d2.updatePresence({ name: 'd2-2' });
+    d3.updatePresence({ name: 'd3-2' });
+    await waitStubCallCount(stub1, 2);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2-2',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    // 03. c2 pauses the document (in manual sync), c3 resumes the document (in realtime sync).
+    //     c1 receives an unwatched event from c2 and a watched event from c3.
+    await c2.pause(d2);
+    await waitStubCallCount(stub1, 3);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.Unwatched,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2-2',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    await c3.resume(d3);
+    await waitStubCallCount(stub1, 5);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.Watched,
+      peer: {
+        clientID: c3ID,
+        presence: {
+          name: 'd3',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c3ID,
+        presence: {
+          name: 'd3-2',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    // 04. c2 and c3 update the presence.
+    //     c1 receives the presence-changed event from c3.
+    d2.updatePresence({ name: 'd2-3' });
+    d3.updatePresence({ name: 'd3-3' });
+    await waitStubCallCount(stub1, 6);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c3ID,
+        presence: {
+          name: 'd3-3',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    // 05. c3 pauses the document (in manual sync), c2 resumes the document (in realtime sync).
+    //     c1 receives an unwatched event from c3 and a watched event from c2.
+    await c2.resume(d2);
+    await waitStubCallCount(stub1, 8);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.Watched,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2-2',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2-3',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    await c3.pause(d3);
+    await waitStubCallCount(stub1, 9);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.Unwatched,
+      peer: {
+        clientID: c3ID,
+        presence: {
+          name: 'd3-3',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    // 06. c2 and c3 update the presence.
+    //     c1 receives the presence-changed event from c2.
+    d2.updatePresence({ name: 'd2-4' });
+    d3.updatePresence({ name: 'd3-4' });
+
+    await waitStubCallCount(stub1, 10);
+    pushEvent(d1ExpectedEvents, {
+      type: PeersChangedEventType.PresenceChanged,
+      peer: {
+        clientID: c2ID,
+        presence: {
+          name: 'd2-4',
+          cursor: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    assert.deepEqual(d1Events, d1ExpectedEvents);
+    await c1.deactivate();
+    await c2.deactivate();
+  }).timeout(10000);
 
   it(`Can get peer's presence`, async function () {
     const c1 = new yorkie.Client(testRPCAddr);

@@ -865,12 +865,12 @@ export class Client implements Observable<ClientEvent> {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
       const pbPeers = resp.getInitialization()!.getPeersList();
-      const watchedPeerMap: Set<ActorID> = new Set();
+      const watchedPeerMap: Map<ActorID, boolean> = new Map();
       for (const pbPeer of pbPeers) {
         const peerID = converter.toHexString(pbPeer as Uint8Array);
-        watchedPeerMap.add(peerID);
+        watchedPeerMap.set(peerID, true);
       }
-      attachment.doc.setWatchedPeerSet(watchedPeerMap);
+      attachment.doc.setWatchedPeerMap(watchedPeerMap);
       return;
     }
 
@@ -886,11 +886,8 @@ export class Client implements Observable<ClientEvent> {
         });
         break;
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-        if (
-          attachment.doc.hasPresenceInfo(publisher) &&
-          attachment.doc.getPresenceInfo(publisher)
-        ) {
-          attachment.doc.addWatchedPeerSet(publisher);
+        if (attachment.doc.hasPresenceInfo(publisher)) {
+          attachment.doc.addWatchedPeerMap(publisher, true);
           attachment.doc.publish({
             type: DocEventType.PeersChanged,
             value: {
@@ -902,13 +899,12 @@ export class Client implements Observable<ClientEvent> {
             },
           });
         } else {
-          attachment.doc.setPresenceInfo(publisher, undefined);
+          attachment.doc.addWatchedPeerMap(publisher, false);
         }
         break;
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
         const presence = attachment.doc.getPeerPresence(publisher)!;
-        attachment.doc.removeWatchedPeerSet(publisher);
-        attachment.doc.removePresenceInfo(publisher);
+        attachment.doc.removeWatchedPeerMap(publisher);
         attachment.doc.publish({
           type: DocEventType.PeersChanged,
           value: {

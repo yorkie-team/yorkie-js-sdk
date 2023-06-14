@@ -257,7 +257,7 @@ export class Document<T, P extends Indexable> {
   private eventStream: Observable<DocEvent<P>>;
   private eventStreamObserver!: Observer<DocEvent<P>>;
   private peerPresenceMap: Map<ActorID, PresenceInfo<P> | undefined>;
-  private watchedPeerSet: Set<ActorID>;
+  private watchedPeerMap: Map<ActorID, boolean>;
   private myClientID: ActorID;
   private changeContext: ChangeContext<P> | undefined;
 
@@ -271,7 +271,7 @@ export class Document<T, P extends Indexable> {
     this.myClientID = clientID;
     this.changeContext = undefined;
     this.peerPresenceMap = new Map();
-    this.watchedPeerSet = new Set();
+    this.watchedPeerMap = new Map();
     this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -297,6 +297,8 @@ export class Document<T, P extends Indexable> {
     if (this.getStatus() === DocumentStatus.Removed) {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
+    this.ensureClone();
+
     if (this.changeContext) {
       try {
         const proxy = createJSON<JSONObject<T>>(
@@ -314,7 +316,6 @@ export class Document<T, P extends Indexable> {
       }
     }
 
-    this.ensureClone();
     this.changeContext = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!,
@@ -427,7 +428,7 @@ export class Document<T, P extends Indexable> {
       data: presence,
     };
     this.peerPresenceMap.set(this.myClientID, cloneDeep(initPresenceInfo));
-    this.watchedPeerSet.add(this.myClientID);
+    this.watchedPeerMap.set(this.myClientID, true);
 
     this.changeContext = ChangeContext.create<P>(
       this.changeID.next(),
@@ -827,13 +828,8 @@ export class Document<T, P extends Indexable> {
       }
 
       if (change.hasPresenceInfo()) {
-        if (!this.peerPresenceMap.has(actorID)) {
-          this.setPresenceInfo(actorID, change.getPresenceInfo()!);
-        } else if (
-          this.peerPresenceMap.has(actorID) &&
-          this.peerPresenceMap.get(actorID) === undefined
-        ) {
-          this.watchedPeerSet.add(actorID);
+        if (this.watchedPeerMap.get(actorID) === false) {
+          this.watchedPeerMap.set(actorID, true);
           this.setPresenceInfo(actorID, change.getPresenceInfo()!);
           this.publish({
             type: DocEventType.PeersChanged,
@@ -850,7 +846,7 @@ export class Document<T, P extends Indexable> {
             actorID,
             change.getPresenceInfo()!,
           );
-          if (isUpdated) {
+          if (isUpdated && this.watchedPeerMap.get(actorID)) {
             this.publish({
               type: DocEventType.PeersChanged,
               value: {
@@ -911,16 +907,8 @@ export class Document<T, P extends Indexable> {
    */
   public setPresenceInfo(
     clientID: ActorID,
-    presenceInfo: PresenceInfo<P> | undefined,
+    presenceInfo: PresenceInfo<P>,
   ): boolean {
-    if (
-      presenceInfo === undefined ||
-      (this.peerPresenceMap.has(clientID) &&
-        this.peerPresenceMap.get(clientID) === undefined)
-    ) {
-      this.peerPresenceMap.set(clientID, presenceInfo);
-      return true;
-    }
     if (
       this.peerPresenceMap.has(clientID) &&
       this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
@@ -957,24 +945,24 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
-   * `setWatchedPeerSet` sets the watched peer set.
+   * `setWatchedPeerMap` sets the watched peer map.
    */
-  public setWatchedPeerSet(watchedPeerSet: Set<ActorID>) {
-    this.watchedPeerSet = watchedPeerSet;
+  public setWatchedPeerMap(watchedPeerSet: Map<ActorID, boolean>) {
+    this.watchedPeerMap = watchedPeerSet;
   }
 
   /**
-   * `addWatchedPeerSet` adds the peer to the watched peer set.
+   * `addWatchedPeerMap` adds the peer to the watched peer map.
    */
-  public addWatchedPeerSet(clientID: ActorID) {
-    this.watchedPeerSet.add(clientID);
+  public addWatchedPeerMap(clientID: ActorID, hasPresence: boolean) {
+    this.watchedPeerMap.set(clientID, hasPresence);
   }
 
   /**
-   * `removeWatchedPeerSet` removes the peer from the watched peer set.
+   * `removeWatchedPeerMap` removes the peer from the watched peer map.
    */
-  public removeWatchedPeerSet(clientID: ActorID) {
-    this.watchedPeerSet.delete(clientID);
+  public removeWatchedPeerMap(clientID: ActorID) {
+    this.watchedPeerMap.delete(clientID);
   }
 
   /**
@@ -988,7 +976,7 @@ export class Document<T, P extends Indexable> {
    * `getPeerPresence` returns the presence of the peer.
    */
   public getPeerPresence(clientID: ActorID) {
-    if (!this.watchedPeerSet.has(clientID)) {
+    if (!this.watchedPeerMap.get(clientID)) {
       return undefined;
     }
     return this.peerPresenceMap.get(clientID)?.data;
@@ -999,7 +987,8 @@ export class Document<T, P extends Indexable> {
    */
   public getPeers(): Array<{ clientID: ActorID; presence: P }> {
     const peers: Array<{ clientID: ActorID; presence: P }> = [];
-    for (const clientID of this.watchedPeerSet) {
+    for (const [clientID, hasPresence] of this.watchedPeerMap) {
+      if (!hasPresence) continue;
       peers.push({
         clientID,
         presence: this.peerPresenceMap.get(clientID)!.data,
