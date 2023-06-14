@@ -6,6 +6,27 @@
     <link rel="stylesheet" href="prosemirror.css" />
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
+    <style type="text/css">
+      .username-layer::before {
+        content: '';
+        position: absolute;
+        width: 2px;
+        left: -1px;
+        background-color: currentColor;
+        bottom: -100%;
+        height: 100%;
+      }
+
+      .username-layer.first-top::before {
+        content: '';
+        position: absolute;
+        width: 2px;
+        left: -1px;
+        background-color: currentColor;
+        top: -100%;
+        height: 100%;
+      }
+    </style>
   </head>
 
   <body>
@@ -63,12 +84,87 @@
       }
     </script>
     <script type="module">
-      import { EditorState, Transaction } from 'prosemirror-state';
+      import {
+        EditorState,
+        Transaction,
+        TextSelection,
+        Plugin,
+      } from 'prosemirror-state';
       import { EditorView } from 'prosemirror-view';
       import { Schema, Node } from 'prosemirror-model';
       import { exampleSetup } from 'prosemirror-example-setup';
       import { toggleMark } from 'prosemirror-commands';
       import { keymap } from 'prosemirror-keymap';
+
+      const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
+      let nextColorIdx = 0;
+
+      const peersHolder = document.getElementById('peers-holder');
+      const selectionMap = new Map();
+
+      function displayPeers(peers, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of peers) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        peersHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      function displayRemoteSelection(view, from, to, actor) {
+        let color, layer;
+        if (selectionMap.has(actor)) {
+          const selection = selectionMap.get(actor);
+          color = selection.color;
+          layer = selection.layer;
+        } else {
+          color = colors[nextColorIdx];
+          nextColorIdx = (nextColorIdx + 1) % colors.length;
+
+          layer = document.createElement('div');
+          layer.className = 'username-layer'; // 레이어에 사용될 CSS 클래스 지정
+          layer.textContent = actor.substr(-2); // 사용자 이름 설정
+          layer.style.position = 'absolute';
+          layer.style.backgroundColor = color;
+          layer.style.color = 'black';
+
+          view.dom.parentNode.appendChild(layer);
+
+          selectionMap.set(actor, {
+            color,
+            layer,
+          });
+        }
+
+        if (from === to) {
+          const newStartCoords = view.coordsAtPos(from);
+
+          // 선택 영역이 변경되었으므로 레이어 업데이트
+          layer.style.left = `${newStartCoords.left - 10}px`;
+
+          if (newStartCoords.top < 130) {
+            layer.classList.add('first-top');
+            layer.style.top = `${newStartCoords.top + 10}px`;
+          } else {
+            layer.classList.remove('first-top');
+            layer.style.top = `${newStartCoords.top - 30}px`;
+          }
+        } else {
+          const newStartCoords = view.coordsAtPos(Math.min(from, to));
+
+          // 선택 영역이 변경되었으므로 레이어 업데이트
+          layer.style.left = `${newStartCoords.left - 10}px`;
+
+          if (newStartCoords.top < 130) {
+            layer.classList.add('first-top');
+            layer.style.top = `${newStartCoords.top + 10}px`;
+          } else {
+            layer.classList.remove('first-top');
+            layer.style.top = `${newStartCoords.top - 30}px`;
+          }
+        }
+      }
 
       window.transactions = [];
 
@@ -207,10 +303,7 @@
       }
 
       function getSelectionInfo(root, from, to) {
-        console.log({ from, to }, root.tree.createRange(from, to));
         return root.tree.createRange(from, to).map((it) => {
-          console.log(yorkie.Primitive.of(it.offset, it.createdAt));
-
           return yorkie.converter.toHexString(
             yorkie.converter.objectToBytes(
               yorkie.Primitive.of(it.offset, it.createdAt),
@@ -252,12 +345,9 @@
         });
 
         // 03. Upstream: ProseMirror to yorkie.Text.
-        console.log(yorkie);
-        console.log('03');
         const view = new EditorView(document.querySelector('#app'), {
           state,
           dispatchTransaction: (transaction) => {
-            console.log('self', transaction);
             view.updateState(view.state.apply(transaction));
 
             // If the steps are empty, it means the transaction is not applied to the document.
@@ -274,18 +364,7 @@
                   transaction.curSelection.from,
                   transaction.curSelection.to,
                 );
-
-                console.log(
-                  getSelectionInfo(
-                    root,
-                    transaction.curSelection.from,
-                    transaction.curSelection.to,
-                  ),
-                );
               });
-
-              console.log(transaction.curSelection);
-
               printLog();
               return;
             }
@@ -348,47 +427,57 @@
           },
         });
 
-        console.log('fdsaf');
         // 03. Downstream: yorkie.Tree to ProseMirror.
         doc.subscribe((event) => {
           if (event.type !== 'remote-change') {
             return;
           }
 
-          console.log('remote-change', event);
-
           const root = doc.getRoot();
-          const { operations } = event.value;
+          const { operations, actor } = event.value;
           let fromPos = -1;
           let toPos = -1;
           for (const op of operations) {
             if (op.type !== 'tree-edit') {
-              if (op.type === 'add' && op.path === '$.selection') {
-                if (op.index === 0) {
-                  // const obj = yorkie.converter.bytesToObject(
-                  //   yorkie.converter.toUint8Array(doc.getRoot().selection[0]),
-                  // );
-                  fromPos = yorkie.converter.bytesToPrimitive(
-                    yorkie.converter.toUint8Array(doc.getRoot().selection[0]),
-                  );
-                  fromPos = {
-                    offset: fromPos.value,
-                    createdAt: fromPos.createdAt,
-                  };
-                } else if (op.index === 1) {
-                  toPos = yorkie.converter.bytesToPrimitive(
-                    yorkie.converter.toUint8Array(doc.getRoot().selection[1]),
-                  );
-                  toPos = { offset: toPos.value, createdAt: toPos.createdAt };
+              if (
+                op.type === 'set' &&
+                op.path === '$' &&
+                op.key === 'selection'
+              ) {
+                fromPos = yorkie.converter.bytesToPrimitive(
+                  yorkie.converter.toUint8Array(doc.getRoot().selection[0]),
+                );
+                fromPos = {
+                  offset: fromPos.value,
+                  createdAt: fromPos.createdAt,
+                };
 
-                  console.log(fromPos, toPos);
-                  const [fromIndex, toIndex] = root.tree.rangeToIndex([
-                    fromPos,
-                    toPos,
-                  ]);
+                toPos = yorkie.converter.bytesToPrimitive(
+                  yorkie.converter.toUint8Array(doc.getRoot().selection[1]),
+                );
+                toPos = { offset: toPos.value, createdAt: toPos.createdAt };
 
-                  console.log(fromIndex, toIndex);
-                }
+                const [fromIndex, toIndex] = root.tree.rangeToIndex([
+                  fromPos,
+                  toPos,
+                ]);
+
+                // update prosemirror text selection
+                const selection = TextSelection.create(
+                  view.state.doc,
+                  fromIndex,
+                  toIndex,
+                );
+
+                const transform = view.state.tr;
+
+                view.focus();
+
+                transform.setSelection(selection);
+                const newState = view.state.apply(transform);
+                view.updateState(newState);
+
+                displayRemoteSelection(view, fromIndex, toIndex, actor);
               }
               continue;
             }
