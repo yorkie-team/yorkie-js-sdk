@@ -371,10 +371,15 @@
                   fromPos = yorkie.converter.bytesToPrimitive(
                     yorkie.converter.toUint8Array(doc.getRoot().selection[0]),
                   );
+                  fromPos = {
+                    offset: fromPos.value,
+                    createdAt: fromPos.createdAt,
+                  };
                 } else if (op.index === 1) {
                   toPos = yorkie.converter.bytesToPrimitive(
                     yorkie.converter.toUint8Array(doc.getRoot().selection[1]),
                   );
+                  toPos = { offset: toPos.value, createdAt: toPos.createdAt };
 
                   console.log(fromPos, toPos);
                   const [fromIndex, toIndex] = root.tree.rangeToIndex([
