@@ -679,6 +679,47 @@ describe('Tree', () => {
       );
     }, this.test!.title);
   });
+
+  it.skip('Can sync its content containing attributes with other replicas', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'hello' }],
+              attributes: { italic: 'true' },
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.style(7, 7, { bold: 'true' });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+      );
+    }, this.test!.title);
+  });
 });
 
 describe('Tree.edit', function () {

@@ -65,7 +65,7 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
-  TextNodeAttr as PbTextNodeAttr,
+  NodeAttr as PbNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
   TreeNode as PbTreeNode,
@@ -470,13 +470,13 @@ function toTextNodes(
     pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
-    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const pbNodeAttrsMap = pbTextNode.getAttributesMap();
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
-      const pbTextNodeAttr = new PbTextNodeAttr();
-      pbTextNodeAttr.setValue(attr.getValue());
-      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
-      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+      const pbNodeAttr = new PbNodeAttr();
+      pbNodeAttr.setValue(attr.getValue());
+      pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
     }
 
     pbTextNodes.push(pbTextNode);

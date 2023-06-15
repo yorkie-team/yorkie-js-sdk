@@ -24,7 +24,8 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- * `TreeEditOperation` is an operation representing Tree editing.
+ * `TreeStyleOperation` represents an operation that modifies the style of the
+ * node in the Tree.
  */
 export class TreeStyleOperation extends Operation {
   private fromPos: CRDTTreePos;
@@ -45,7 +46,7 @@ export class TreeStyleOperation extends Operation {
   }
 
   /**
-   * `create` creates a new instance of EditOperation.
+   * `create` creates a new instance of TreeStyleOperation.
    */
   public static create(
     parentCreatedAt: TimeTicket,
@@ -134,9 +135,9 @@ export class TreeStyleOperation extends Operation {
   }
 
   /**
-   * `getAttributes` returns the attributes of Edit.
+   * `getAttributes` returns the attributes of Style.
    */
-  public getContent(): { [key: string]: string } | undefined {
+  public getAttributes(): { [key: string]: string } | undefined {
     return this.attributes;
   }
 }
