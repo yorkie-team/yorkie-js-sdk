@@ -550,6 +550,102 @@ describe('Tree', () => {
     });
   });
 
+  it('style can be edited', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                ],
+                attributes: { a: 'b' },
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(4, 5, { c: 'd' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(4, 5, { c: 'q' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(3, 4, { z: 'm' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
+      );
+    });
+  });
+
+  it('style can be edited (path)', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                ],
+                attributes: { a: 'b' },
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0], { c: 'd' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0], { c: 'q' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0, 0], { z: 'm' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
+      );
+    });
+  });
+
   it('Can sync its content with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
