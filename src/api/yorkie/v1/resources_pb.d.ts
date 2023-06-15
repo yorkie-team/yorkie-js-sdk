@@ -31,6 +31,9 @@ export class ChangePack extends jspb.Message {
   getIsRemoved(): boolean;
   setIsRemoved(value: boolean): ChangePack;
 
+  getSnapshotPresence(): string;
+  setSnapshotPresence(value: string): ChangePack;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
   static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
@@ -47,6 +50,7 @@ export namespace ChangePack {
     changesList: Array<Change.AsObject>,
     minSyncedTicket?: TimeTicket.AsObject,
     isRemoved: boolean,
+    snapshotPresence: string,
   }
 }
 

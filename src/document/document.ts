@@ -579,6 +579,7 @@ export class Document<T, P extends Indexable> {
         pack.getCheckpoint().getServerSeq(),
         pack.getSnapshot(),
       );
+      this.applySnapshotPresence(pack.getSnapshotPresence()!);
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
     }
@@ -766,13 +767,19 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
+   * `applySnapshotPresence` applies the given presence snapshot into this document.
+   */
+  public applySnapshotPresence(snapshotPresence: string): void {
+    this.setPeerPresenceMap(converter.fromSnapshotPresence(snapshotPresence));
+  }
+
+  /**
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
     const obj = converter.bytesToObject(snapshot);
     this.root = new CRDTRoot(obj);
     this.changeID = this.changeID.syncLamport(serverSeq);
-
     // drop clone because it is contaminated.
     this.clone = undefined;
 
@@ -945,10 +952,17 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
+   * `setPeerPresenceMap` sets the peer presence map.
+   */
+  public setPeerPresenceMap(peerPresenceMap: Map<ActorID, PresenceInfo<P>>) {
+    this.peerPresenceMap = peerPresenceMap;
+  }
+
+  /**
    * `setWatchedPeerMap` sets the watched peer map.
    */
-  public setWatchedPeerMap(watchedPeerSet: Map<ActorID, boolean>) {
-    this.watchedPeerMap = watchedPeerSet;
+  public setWatchedPeerMap(watchedPeerMap: Map<ActorID, boolean>) {
+    this.watchedPeerMap = watchedPeerMap;
   }
 
   /**

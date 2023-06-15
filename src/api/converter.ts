@@ -21,6 +21,7 @@ import {
   InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
@@ -617,6 +618,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
+  pbChangePack.setSnapshotPresence(pack.getSnapshotPresence()!);
   return pbChangePack;
 }
 
@@ -781,9 +783,9 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
 }
 
 /**
- * `fromPresence` converts the given Protobuf format to model format.
+ * `fromPresenceInfo` converts the given Protobuf format to model format.
  */
-function fromPresence<P extends Indexable>(
+function fromPresenceInfo<P extends Indexable>(
   pbPresence: PbPresenceInfo,
 ): PresenceInfo<P> {
   const data: Record<string, string> = {};
@@ -795,6 +797,34 @@ function fromPresence<P extends Indexable>(
     clock: pbPresence.getClock(),
     data: data as P,
   };
+}
+
+/**
+ * `fromSnapshotPresence` converts the given Protobuf format to model format.
+ */
+function fromSnapshotPresence<P extends Indexable>(
+  pbSnapshotPresence: string,
+): Map<ActorID, PresenceInfo<P>> {
+  const snapshotPresence = JSON.parse(pbSnapshotPresence) as {
+    [actorID: string]: {
+      Clock: number;
+      Presence: P;
+    };
+  };
+  const presenceMap = new Map<ActorID, PresenceInfo<P>>();
+  for (const [actorID, pbPresenceInfo] of Object.entries(snapshotPresence)) {
+    const presence = {} as P;
+    if (pbPresenceInfo.Presence) {
+      for (const [key, value] of Object.entries(pbPresenceInfo.Presence)) {
+        presence[key as keyof P] = JSON.parse(value as string);
+      }
+    }
+    presenceMap.set(actorID, {
+      clock: pbPresenceInfo.Clock,
+      data: presence,
+    });
+  }
+  return presenceMap;
 }
 
 /**
@@ -970,7 +1000,7 @@ function fromChanges<P extends Indexable>(
         id: fromChangeID(pbChange.getId()!),
         operations: fromOperations(pbChange.getOperationsList()),
         presenceInfo: pbChange.hasPresence()
-          ? fromPresence<P>(pbChange.getPresence()!)
+          ? fromPresenceInfo<P>(pbChange.getPresence()!)
           : undefined,
         message: pbChange.getMessage(),
       }),
@@ -1002,6 +1032,7 @@ function fromChangePack<P extends Indexable>(
     isRemoved: pbPack.getIsRemoved(),
     changes: fromChanges(pbPack.getChangesList()),
     snapshot: pbPack.getSnapshot_asU8(),
+    snapshotPresence: pbPack.getSnapshotPresence(),
     minSyncedTicket: fromTimeTicket(pbPack.getMinSyncedTicket()),
   });
 }
@@ -1209,7 +1240,8 @@ function toUint8Array(hex: string): Uint8Array {
  * is also used to convert models to bytes and vice versa.
  */
 export const converter = {
-  fromPresence,
+  fromPresenceInfo,
+  fromSnapshotPresence,
   toChangePack,
   fromChangePack,
   fromChanges,

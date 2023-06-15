@@ -904,7 +904,8 @@ proto.yorkie.v1.ChangePack.toObject = function(includeInstance, msg) {
     changesList: jspb.Message.toObjectList(msg.getChangesList(),
     proto.yorkie.v1.Change.toObject, includeInstance),
     minSyncedTicket: (f = msg.getMinSyncedTicket()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
-    isRemoved: jspb.Message.getBooleanFieldWithDefault(msg, 6, false)
+    isRemoved: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
+    snapshotPresence: jspb.Message.getFieldWithDefault(msg, 7, "")
   };
 
   if (includeInstance) {
@@ -967,6 +968,10 @@ proto.yorkie.v1.ChangePack.deserializeBinaryFromReader = function(msg, reader) {
     case 6:
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setIsRemoved(value);
+      break;
+    case 7:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setSnapshotPresence(value);
       break;
     default:
       reader.skipField();
@@ -1039,6 +1044,13 @@ proto.yorkie.v1.ChangePack.serializeBinaryToWriter = function(message, writer) {
   if (f) {
     writer.writeBool(
       6,
+      f
+    );
+  }
+  f = message.getSnapshotPresence();
+  if (f.length > 0) {
+    writer.writeString(
+      7,
       f
     );
   }
@@ -1232,6 +1244,24 @@ proto.yorkie.v1.ChangePack.prototype.getIsRemoved = function() {
  */
 proto.yorkie.v1.ChangePack.prototype.setIsRemoved = function(value) {
   return jspb.Message.setProto3BooleanField(this, 6, value);
+};
+
+
+/**
+ * optional string snapshot_presence = 7;
+ * @return {string}
+ */
+proto.yorkie.v1.ChangePack.prototype.getSnapshotPresence = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.yorkie.v1.ChangePack} returns this
+ */
+proto.yorkie.v1.ChangePack.prototype.setSnapshotPresence = function(value) {
+  return jspb.Message.setProto3StringField(this, 7, value);
 };
 
 
