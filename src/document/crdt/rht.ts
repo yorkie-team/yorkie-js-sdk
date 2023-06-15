@@ -131,6 +131,28 @@ export class RHT {
   }
 
   /**
+   * `toXML` converts the given RHT to XML string.
+   */
+  public toXML(): string {
+    if (!this.size()) {
+      return '';
+    }
+
+    const obj = this.toObject();
+
+    return ` ${Object.entries(obj)
+      .map(([key, value]) => key + '=' + '"' + value + '"')
+      .join(' ')}`;
+  }
+
+  /**
+   * `size` returns the size of RHT
+   */
+  public size(): number {
+    return this.nodeMapByKey.size;
+  }
+
+  /**
    * `toObject` returns the object of this hashtable.
    */
   public toObject(): Record<string, string> {
