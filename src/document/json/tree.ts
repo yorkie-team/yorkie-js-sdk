@@ -223,7 +223,7 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        attributes,
+        new Map(Object.entries(attributes)),
         ticket,
       ),
     );
@@ -256,7 +256,7 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        attributes,
+        new Map(Object.entries(attributes)),
         ticket,
       ),
     );

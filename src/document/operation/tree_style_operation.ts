@@ -30,13 +30,13 @@ import {
 export class TreeStyleOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
-  private attributes: { [key: string]: string } | undefined;
+  private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    attributes: { [key: string]: string } | undefined,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -52,7 +52,7 @@ export class TreeStyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    attributes: { [key: string]: string } | undefined,
+    attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
     return new TreeStyleOperation(
@@ -75,10 +75,14 @@ export class TreeStyleOperation extends Operation {
     if (!(parentObject instanceof CRDTTree)) {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
+    const attributes: { [key: string]: string } = {};
+    this.attributes.forEach(([key, value]) => {
+      attributes[key] = value;
+    });
     const tree = parentObject as CRDTTree;
     const changes = tree.style(
       [this.fromPos, this.toPos],
-      this.attributes,
+      attributes,
       this.getExecutedAt(),
     );
 
@@ -137,7 +141,7 @@ export class TreeStyleOperation extends Operation {
   /**
    * `getAttributes` returns the attributes of Style.
    */
-  public getAttributes(): { [key: string]: string } | undefined {
-    return this.attributes;
+  public getAttributes(): Map<string, string> {
+    return this.attributes!;
   }
 }

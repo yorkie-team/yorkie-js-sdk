@@ -680,7 +680,7 @@ describe('Tree', () => {
     }, this.test!.title);
   });
 
-  it.skip('Can sync its content containing attributes with other replicas', async function () {
+  it.only('Can sync its content containing attributes with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -706,10 +706,11 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.style(7, 7, { bold: 'true' });
+        root.t.style(6, 7, { bold: 'true' });
       });
       await c1.sync();
       await c2.sync();
+      debugger;
       assert.equal(
         d1.getRoot().t.toXML(),
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
