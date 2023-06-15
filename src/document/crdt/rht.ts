@@ -138,10 +138,8 @@ export class RHT {
       return '';
     }
 
-    const obj = this.toObject();
-
-    return ` ${Object.entries(obj)
-      .map(([key, value]) => key + '=' + '"' + value + '"')
+    return ` ${[...this.nodeMapByKey]
+      .map(([key, value]) => key + '=' + '"' + value.getValue() + '"')
       .join(' ')}`;
   }
 

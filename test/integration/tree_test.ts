@@ -680,7 +680,7 @@ describe('Tree', () => {
     }, this.test!.title);
   });
 
-  it.only('Can sync its content containing attributes with other replicas', async function () {
+  it('Can sync its content containing attributes with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
