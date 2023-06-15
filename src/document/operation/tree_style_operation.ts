@@ -76,9 +76,10 @@ export class TreeStyleOperation extends Operation {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
     const attributes: { [key: string]: string } = {};
-    this.attributes.forEach(([key, value]) => {
+    for (const [key, value] of this.attributes.entries()) {
       attributes[key] = value;
-    });
+    }
+
     const tree = parentObject as CRDTTree;
     const changes = tree.style(
       [this.fromPos, this.toPos],

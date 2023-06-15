@@ -710,11 +710,12 @@ describe('Tree', () => {
       });
       await c1.sync();
       await c2.sync();
-      debugger;
+
       assert.equal(
         d1.getRoot().t.toXML(),
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
+
       assert.equal(
         d2.getRoot().t.toXML(),
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
