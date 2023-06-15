@@ -316,7 +316,7 @@ export class Tree {
   }
 
   /**
-   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
    */
   createRange(fromIdx: number, toIdx: number): TreeRange {
     if (!this.context || !this.tree) {

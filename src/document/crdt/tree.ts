@@ -118,6 +118,9 @@ export interface CRDTTreePos {
   offset: number;
 }
 
+/**
+ * `TreeRange` represents a pair of CRDTTreePos.
+ */
 export type TreeRange = [CRDTTreePos, CRDTTreePos];
 
 /**

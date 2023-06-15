@@ -98,75 +98,50 @@
 
       const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
       let nextColorIdx = 0;
+      let transactions = [];
 
-      const peersHolder = document.getElementById('peers-holder');
       const selectionMap = new Map();
 
-      function displayPeers(peers, myClientID) {
-        const usernames = [];
-        for (const { clientID, presence } of peers) {
-          usernames.push(
-            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
-          );
+      /**
+       * `updateSelectionLayer` updates the selection layer of the given actor.
+       */
+      function updateSelectionLayer(view, tree, actor) {
+        const { layer, fromPos, toPos } = selectionMap.get(actor);
+        const [fromIndex, toIndex] = tree.rangeToIndex([fromPos, toPos]);
+        const coords = view.coordsAtPos(Math.min(fromIndex, toIndex));
+
+        layer.style.left = `${coords.left - 10}px`;
+        if (coords.top < 130) {
+          layer.classList.add('first-top');
+          layer.style.top = `${coords.top + 10}px`;
+        } else {
+          layer.classList.remove('first-top');
+          layer.style.top = `${coords.top - 30}px`;
         }
-        peersHolder.innerHTML = JSON.stringify(usernames);
       }
 
-      function displayRemoteSelection(view, from, to, actor) {
-        let color, layer;
-        if (selectionMap.has(actor)) {
-          const selection = selectionMap.get(actor);
-          color = selection.color;
-          layer = selection.layer;
-        } else {
-          color = colors[nextColorIdx];
+      function displayRemoteSelection(view, tree, fromPos, toPos, actor) {
+        if (!selectionMap.has(actor)) {
+          const color = colors[nextColorIdx];
           nextColorIdx = (nextColorIdx + 1) % colors.length;
 
-          layer = document.createElement('div');
-          layer.className = 'username-layer'; // 레이어에 사용될 CSS 클래스 지정
-          layer.textContent = actor.substr(-2); // 사용자 이름 설정
+          const layer = document.createElement('div');
+          layer.className = 'username-layer';
+          layer.textContent = actor.substr(-2);
           layer.style.position = 'absolute';
           layer.style.backgroundColor = color;
           layer.style.color = 'black';
+          selectionMap.set(actor, { color, layer });
 
           view.dom.parentNode.appendChild(layer);
-
-          selectionMap.set(actor, {
-            color,
-            layer,
-          });
         }
+        selectionMap.get(actor).fromPos = fromPos;
+        selectionMap.get(actor).toPos = toPos;
 
-        if (from === to) {
-          const newStartCoords = view.coordsAtPos(from);
-
-          // 선택 영역이 변경되었으므로 레이어 업데이트
-          layer.style.left = `${newStartCoords.left - 10}px`;
-
-          if (newStartCoords.top < 130) {
-            layer.classList.add('first-top');
-            layer.style.top = `${newStartCoords.top + 10}px`;
-          } else {
-            layer.classList.remove('first-top');
-            layer.style.top = `${newStartCoords.top - 30}px`;
-          }
-        } else {
-          const newStartCoords = view.coordsAtPos(Math.min(from, to));
-
-          // 선택 영역이 변경되었으므로 레이어 업데이트
-          layer.style.left = `${newStartCoords.left - 10}px`;
-
-          if (newStartCoords.top < 130) {
-            layer.classList.add('first-top');
-            layer.style.top = `${newStartCoords.top + 10}px`;
-          } else {
-            layer.classList.remove('first-top');
-            layer.style.top = `${newStartCoords.top - 30}px`;
-          }
+        for (var [actor] of selectionMap) {
+          updateSelectionLayer(view, tree, actor);
         }
       }
-
-      window.transactions = [];
 
       const mySchema = new Schema({
         nodes: {
@@ -302,14 +277,17 @@
         return true;
       }
 
-      function getSelectionInfo(root, from, to) {
-        return root.tree.createRange(from, to).map((it) => {
-          return yorkie.converter.toHexString(
-            yorkie.converter.objectToBytes(
-              yorkie.Primitive.of(it.offset, it.createdAt),
-            ),
-          );
-        });
+      function encodeRange(tree, from, to) {
+        const range = tree.createRange(from, to);
+        const fromBytes = yorkie.converter.treePosToBytes(range[0]);
+        const toBytes = yorkie.converter.treePosToBytes(range[1]);
+        return [fromBytes, toBytes];
+      }
+
+      function decodeRange(fromBytes, toBytes) {
+        const from = yorkie.converter.bytesToTreePos(fromBytes);
+        const to = yorkie.converter.bytesToTreePos(toBytes);
+        return [from, to];
       }
 
       /**
@@ -320,7 +298,7 @@
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
-        const doc = new yorkie.Document('prosemirror-3');
+        const doc = new yorkie.Document('prosemirror');
         window.doc = doc;
         await client.attach(doc);
         doc.update((root) => {
@@ -353,14 +331,14 @@
             // If the steps are empty, it means the transaction is not applied to the document.
             // Only the selection is changed.
             if (!transaction.steps.length) {
-              window.transactions.unshift({
+              transactions.unshift({
                 type: 'selection',
                 selection: transaction.curSelection,
               });
 
               doc.update((root) => {
-                root.selection = getSelectionInfo(
-                  root,
+                root.selection = encodeRange(
+                  root.tree,
                   transaction.curSelection.from,
                   transaction.curSelection.to,
                 );
@@ -369,7 +347,7 @@
               return;
             }
 
-            window.transactions.unshift({
+            transactions.unshift({
               type: 'transaction',
               transaction: transaction,
             });
@@ -417,8 +395,8 @@
                 }
               }
 
-              root.selection = getSelectionInfo(
-                root,
+              root.selection = encodeRange(
+                root.tree,
                 transaction.curSelection.from,
                 transaction.curSelection.to,
               );
@@ -444,40 +422,15 @@
                 op.path === '$' &&
                 op.key === 'selection'
               ) {
-                fromPos = yorkie.converter.bytesToPrimitive(
-                  yorkie.converter.toUint8Array(doc.getRoot().selection[0]),
+                const selection = doc.getRoot().selection;
+                const range = decodeRange(selection[0], selection[1]);
+                displayRemoteSelection(
+                  view,
+                  root.tree,
+                  range[0],
+                  range[1],
+                  actor,
                 );
-                fromPos = {
-                  offset: fromPos.value,
-                  createdAt: fromPos.createdAt,
-                };
-
-                toPos = yorkie.converter.bytesToPrimitive(
-                  yorkie.converter.toUint8Array(doc.getRoot().selection[1]),
-                );
-                toPos = { offset: toPos.value, createdAt: toPos.createdAt };
-
-                const [fromIndex, toIndex] = root.tree.rangeToIndex([
-                  fromPos,
-                  toPos,
-                ]);
-
-                // update prosemirror text selection
-                const selection = TextSelection.create(
-                  view.state.doc,
-                  fromIndex,
-                  toIndex,
-                );
-
-                const transform = view.state.tr;
-
-                view.focus();
-
-                transform.setSelection(selection);
-                const newState = view.state.apply(transform);
-                view.updateState(newState);
-
-                displayRemoteSelection(view, fromIndex, toIndex, actor);
               }
               continue;
             }
@@ -514,7 +467,7 @@
       };
 
       function printTransaction(index) {
-        const t = window.transactions[index || 0];
+        const t = transactions[index || 0];
 
         if (t) {
           if (t.type === 'selection') {
@@ -540,7 +493,7 @@
 
       function printLog() {
         // how to show transaction view
-        document.getElementById('tr-log').innerHTML = window.transactions
+        document.getElementById('tr-log').innerHTML = transactions
           .slice(0, 100)
           .map((transaction, index) => {
             if (transaction.type === 'selection') {
@@ -555,16 +508,12 @@
         printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         printDoc(view.state.doc, 'pm-log');
         printDocList(doc.getRoot().tree.tree, 'yorkie-list-log');
-        printChanges();
       }
 
-      let globalIndex = 0;
-
-      function printNode(node, depth, arr, index) {
+      function buildNodes(node, depth, nodes, index) {
         const nodeType = node.type.name || node.type;
-
         if (nodeType === 'text') {
-          arr.push({
+          nodes.push({
             type: nodeType,
             depth,
             index,
@@ -573,17 +522,15 @@
           return;
         }
 
-        arr.push({
+        nodes.push({
           type: nodeType,
           depth,
           index,
           size: node.content?.size || node.size,
         });
-
-        const list = node.content?.content || node.children || [];
-
-        for (let i = 0; i < list.length; i++) {
-          printNode(list[i], depth + 1, arr, i);
+        const children = node.content?.content || node.children || [];
+        for (let i = 0; i < children.length; i++) {
+          buildNodes(children[i], depth + 1, nodes, i);
         }
       }
 
@@ -640,11 +587,10 @@
        * `printDoc` prints the content of the yorkie.Text.
        */
       function printDoc(doc, id) {
-        const arr = [];
-        globalIndex = 0;
-        printNode(doc, 0, arr);
+        const nodes = [];
+        buildNodes(doc, 0, nodes);
 
-        const html = arr
+        const html = nodes
           .map((node) => {
             if (node.type === 'text') {
               return `<div class="inline" style="padding-left: ${
@@ -659,19 +605,6 @@
           })
           .join('');
         document.getElementById(id).innerHTML = html;
-      }
-
-      function printChanges(doc) {
-        const arr = [];
-        globalIndex = 0;
-
-        const html = (window.firstChanges || [])
-          .map((it) => {
-            return `<div>${JSON.stringify(it)}</div>`;
-          })
-          .join('');
-
-        document.getElementById('pm-sub-log').innerHTML = html;
       }
 
       main();

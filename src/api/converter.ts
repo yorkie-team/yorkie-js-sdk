@@ -1135,14 +1135,6 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
 }
 
 /**
- * `bytesToPrimitive` converts the given bytes to Primitive
- */
-function bytesToPrimitive(bytes: Uint8Array): Primitive {
-  const pbElement = PbJSONElement.deserializeBinary(bytes!);
-  return fromPrimitive(pbElement.getPrimitive()!);
-}
-
-/**
  * `objectToBytes` converts the given JSONObject to byte array.
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
@@ -1150,7 +1142,7 @@ function objectToBytes(obj: CRDTObject): Uint8Array {
 }
 
 /**
- * `bytesToTree` creates an JSONArray from the given byte array.
+ * `bytesToTree` creates an CRDTTree from the given bytes.
  */
 function bytesToTree(bytes?: Uint8Array): CRDTTree {
   if (!bytes) {
@@ -1162,10 +1154,28 @@ function bytesToTree(bytes?: Uint8Array): CRDTTree {
 }
 
 /**
- * `treeToBytes` converts the given JSONArray to byte array.
+ * `treeToBytes` converts the given tree to bytes.
  */
 function treeToBytes(tree: CRDTTree): Uint8Array {
   return toTree(tree).serializeBinary();
+}
+
+/**
+ * `treePosToBytes` converts the given CRDTTreePos to byte array.
+ */
+function treePosToBytes(pos: CRDTTreePos): Uint8Array {
+  return toTreePos(pos).serializeBinary();
+}
+
+/**
+ * `bytesToTreePos` creates an CRDTTreePos from the given bytes.
+ */
+function bytesToTreePos(bytes: Uint8Array): CRDTTreePos {
+  if (!bytes) {
+    throw new Error('bytes is empty');
+  }
+  const pbTreePos = PbTreePos.deserializeBinary(bytes);
+  return fromTreePos(pbTreePos);
 }
 
 /**
@@ -1218,5 +1228,6 @@ export const converter = {
   bytesToObject,
   toHexString,
   toUint8Array,
-  bytesToPrimitive,
+  bytesToTreePos,
+  treePosToBytes,
 };
