@@ -201,10 +201,7 @@ export class Tree {
   /**
    * `styleByPath` sets the attributes to the elements of the given path.
    */
-  public styleByPath(
-    path: Array<number>,
-    attributes: { [key: string]: string },
-  ) {
+  public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
@@ -235,7 +232,7 @@ export class Tree {
   public style(
     fromIdx: number,
     toIdx: number,
-    attributes: { [key: string]: string },
+    attributes: { [key: string]: any },
   ) {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');

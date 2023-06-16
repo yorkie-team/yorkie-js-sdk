@@ -101,7 +101,7 @@ export type TreeStyleOpInfo = {
   from: number;
   to: number;
   fromPath: Array<number>;
-  value: { [key: string]: string };
+  value: { [key: string]: any };
   path: string;
 };
 

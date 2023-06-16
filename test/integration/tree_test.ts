@@ -137,7 +137,10 @@ describe('Tree', () => {
       );
 
       // 04. Replace ABCD with Yorkie
-      root.t.edit(1, 5, { type: 'text', value: 'Yorkie' });
+      root.t.edit(1, 5, {
+        type: 'text',
+        value: 'Yorkie',
+      });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>Yorkie</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"Yorkie"}]}]}}',
@@ -642,6 +645,11 @@ describe('Tree', () => {
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
+      );
+
+      assert.equal(
+        root.toJSON!(),
+        /*html*/ `{"t":{"type":"doc","children":[{"type":"tc","children":[{"type":"p","children":[{"type":"tn","children":[{"type":"text","value":""}],"attributes":{"z":"m"}}],"attributes":{"a":"b","c":"q"}}]}]}}`,
       );
     });
   });

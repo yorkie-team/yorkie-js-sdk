@@ -44,6 +44,7 @@ export type TreeNode = {
   type: TreeNodeType;
   children?: Array<TreeNode>;
   value?: string;
+  attributes?: { [key: string]: any };
 };
 
 /**
@@ -74,7 +75,7 @@ export interface TreeChange {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value?: TreeNode | { [key: string]: string };
+  value?: TreeNode | { [key: string]: any };
 }
 
 /**
@@ -266,6 +267,7 @@ function toJSON(node: CRDTTreeNode): TreeNode {
   return {
     type: node.type,
     children: node.children.map(toJSON),
+    attributes: node.attrs?.toObject(),
   };
 }
 
@@ -463,7 +465,7 @@ export class CRDTTree extends CRDTElement {
    */
   public style(
     range: [CRDTTreePos, CRDTTreePos],
-    attributes: { [key: string]: string } | undefined,
+    attributes: { [key: string]: any } | undefined,
     editedAt: TimeTicket,
   ) {
     const [, toRight] = this.findTreePos(range[1], editedAt);
