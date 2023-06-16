@@ -65,7 +65,7 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
-  TextNodeAttr as PbTextNodeAttr,
+  NodeAttr as PbNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
   TreeNode as PbTreeNode,
@@ -83,6 +83,8 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { Indexable } from '../yorkie';
 import { traverse } from '../util/index_tree';
+import { TreeStyleOperation } from '../document/operation/tree_style_operation';
+import { RHT } from '../document/crdt/rht';
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
@@ -385,6 +387,24 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(treeEditOperation.getExecutedAt()),
     );
     pbOperation.setTreeEdit(pbTreeEditOperation);
+  } else if (operation instanceof TreeStyleOperation) {
+    const treeStyleOperation = operation as TreeStyleOperation;
+    const pbTreeStyleOperation = new PbOperation.TreeStyle();
+    pbTreeStyleOperation.setParentCreatedAt(
+      toTimeTicket(treeStyleOperation.getParentCreatedAt()),
+    );
+    pbTreeStyleOperation.setFrom(toTreePos(treeStyleOperation.getFromPos()));
+    pbTreeStyleOperation.setTo(toTreePos(treeStyleOperation.getToPos()));
+
+    const attributesMap = pbTreeStyleOperation.getAttributesMap();
+
+    for (const [key, value] of treeStyleOperation.getAttributes()) {
+      attributesMap.set(key, value);
+    }
+    pbTreeStyleOperation.setExecutedAt(
+      toTimeTicket(treeStyleOperation.getExecutedAt()),
+    );
+    pbOperation.setTreeStyle(pbTreeStyleOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -470,13 +490,13 @@ function toTextNodes(
     pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
-    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const pbNodeAttrsMap = pbTextNode.getAttributesMap();
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
-      const pbTextNodeAttr = new PbTextNodeAttr();
-      pbTextNodeAttr.setValue(attr.getValue());
-      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
-      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+      const pbNodeAttr = new PbNodeAttr();
+      pbNodeAttr.setValue(attr.getValue());
+      pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
     }
 
     pbTextNodes.push(pbTextNode);
@@ -503,6 +523,17 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     }
     pbTreeNode.setRemovedAt(toTimeTicket(n.removedAt));
     pbTreeNode.setDepth(depth);
+
+    if (n.attrs) {
+      const pbNodeAttrsMap = pbTreeNode.getAttributesMap();
+      for (const attr of n.attrs) {
+        const pbNodeAttr = new PbNodeAttr();
+        pbNodeAttr.setValue(attr.getValue());
+        pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+        pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
+      }
+    }
+
     pbTreeNodes.push(pbTreeNode);
   });
 
@@ -846,6 +877,12 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();
+  } else {
+    const attrs = RHT.create();
+    pbTreeNode.getAttributesMap().forEach((value, key) => {
+      attrs.set(key, value.getValue(), fromTimeTicket(value.getUpdatedAt())!);
+    });
+    node.attrs = attrs;
   }
   return node;
 }
@@ -944,6 +981,20 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTreePos(pbTreeEditOperation!.getTo()!),
         fromTreeNodes(pbTreeEditOperation!.getContentList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
+      );
+    } else if (pbOperation.hasTreeStyle()) {
+      const pbTreeStyleOperation = pbOperation.getTreeStyle();
+      const attributes = new Map();
+
+      pbTreeStyleOperation!.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      operation = TreeStyleOperation.create(
+        fromTimeTicket(pbTreeStyleOperation!.getParentCreatedAt())!,
+        fromTreePos(pbTreeStyleOperation!.getFrom()!),
+        fromTreePos(pbTreeStyleOperation!.getTo()!),
+        attributes,
+        fromTimeTicket(pbTreeStyleOperation!.getExecutedAt())!,
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);

@@ -137,7 +137,10 @@ describe('Tree', () => {
       );
 
       // 04. Replace ABCD with Yorkie
-      root.t.edit(1, 5, { type: 'text', value: 'Yorkie' });
+      root.t.edit(1, 5, {
+        type: 'text',
+        value: 'Yorkie',
+      });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>Yorkie</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"Yorkie"}]}]}}',
@@ -550,6 +553,107 @@ describe('Tree', () => {
     });
   });
 
+  it('style can be edited', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                ],
+                attributes: { a: 'b' },
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(4, 5, { c: 'd' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(4, 5, { c: 'q' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.style(3, 4, { z: 'm' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
+      );
+    });
+  });
+
+  it('style can be edited (path)', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                ],
+                attributes: { a: 'b' },
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0], { c: 'd' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0], { c: 'q' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.styleByPath([0, 0, 0], { z: 'm' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
+      );
+
+      assert.equal(
+        root.toJSON!(),
+        /*html*/ `{"t":{"type":"doc","children":[{"type":"tc","children":[{"type":"p","children":[{"type":"tn","children":[{"type":"text","value":""}],"attributes":{"z":"m"}}],"attributes":{"a":"b","c":"q"}}]}]}}`,
+      );
+    });
+  });
+
   it('Can sync its content with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -580,6 +684,49 @@ describe('Tree', () => {
       assert.equal(
         d2.getRoot().t.toXML(),
         /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can sync its content containing attributes with other replicas', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'hello' }],
+              attributes: { italic: 'true' },
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.style(6, 7, { bold: 'true' });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+      );
+
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
     }, this.test!.title);
   });

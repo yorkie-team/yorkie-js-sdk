@@ -33,7 +33,8 @@ export type OperationInfo =
   | EditOpInfo
   | StyleOpInfo
   | SelectOpInfo
-  | TreeEditOpInfo;
+  | TreeEditOpInfo
+  | TreeStyleOpInfo;
 export type AddOpInfo = {
   type: 'add';
   path: string;
@@ -95,6 +96,14 @@ export type TreeEditOpInfo = {
   value: TreeNode;
   path: string;
 };
+export type TreeStyleOpInfo = {
+  type: 'tree-style';
+  from: number;
+  to: number;
+  fromPath: Array<number>;
+  value: { [key: string]: any };
+  path: string;
+};
 
 /**
  * `InternalOpInfo` represents the information of the operation. It is used to
@@ -109,7 +118,8 @@ export type InternalOpInfo =
   | ToInternalOpInfo<EditOpInfo>
   | ToInternalOpInfo<StyleOpInfo>
   | ToInternalOpInfo<SelectOpInfo>
-  | ToInternalOpInfo<TreeEditOpInfo>;
+  | ToInternalOpInfo<TreeEditOpInfo>
+  | ToInternalOpInfo<TreeStyleOpInfo>;
 type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };
