@@ -1320,7 +1320,7 @@ describe('Document', function () {
 
   it('check OperationInfo type for subscribe path', function () {
     const doc = Document.create<{
-      a?: number;
+      num?: number;
       b: { c: Array<number>; d: { e: { fname: Array<number> } } };
       todos: Array<{
         text: string;
@@ -1332,7 +1332,7 @@ describe('Document', function () {
       textList: Array<string>;
     }>('test-doc');
 
-    doc.subscribe('$.a', (event) => {
+    doc.subscribe('$.num', (event) => {
       if (event.type == 'local-change') {
         event.value.operations.forEach((op) => {
           if (op.type === 'set') {
@@ -1344,11 +1344,11 @@ describe('Document', function () {
       }
     });
     doc.update((root) => {
-      root.a = 1;
+      root.num = 1;
     });
 
     doc.update((root) => {
-      delete root.a;
+      delete root.num;
     });
 
     doc.subscribe('$.b.d.e.fname', (event) => {
