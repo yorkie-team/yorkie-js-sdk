@@ -9,5 +9,5 @@ RemoteChangeEvent type
 <b>Signature:</b>
 
 ```typescript
-value: ChangeInfo;
+value: ChangeInfo<T>;
 ```

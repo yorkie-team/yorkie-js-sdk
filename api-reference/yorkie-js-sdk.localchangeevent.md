@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface LocalChangeEvent 
+export declare interface LocalChangeEvent<T = OperationInfo> 
 ```
 
 ## Properties
@@ -17,5 +17,5 @@ export declare interface LocalChangeEvent
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [type](./yorkie-js-sdk.localchangeevent.type.md) | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
-|  [value](./yorkie-js-sdk.localchangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md) | LocalChangeEvent type |
+|  [value](./yorkie-js-sdk.localchangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | LocalChangeEvent type |
 

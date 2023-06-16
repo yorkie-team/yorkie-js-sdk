@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface RemoteChangeEvent 
+export declare interface RemoteChangeEvent<T = OperationInfo> 
 ```
 
 ## Properties
@@ -17,5 +17,5 @@ export declare interface RemoteChangeEvent
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [type](./yorkie-js-sdk.remotechangeevent.type.md) | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
-|  [value](./yorkie-js-sdk.remotechangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md) | RemoteChangeEvent type |
+|  [value](./yorkie-js-sdk.remotechangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | RemoteChangeEvent type |
 

@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-operations: Array<OperationInfo>;
+operations: Array<T>;
 ```

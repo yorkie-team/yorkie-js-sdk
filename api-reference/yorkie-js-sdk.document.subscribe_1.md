@@ -9,15 +9,15 @@
 <b>Signature:</b>
 
 ```typescript
-subscribe(targetPath: string, next: NextFn<DocEvent>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPath>>(targetPath: TPath, next: NextFn<DocEvent<TOperationInfo>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  targetPath | string |  |
-|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&gt; |  |
+|  targetPath | TPath |  |
+|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;TOperationInfo&gt;&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

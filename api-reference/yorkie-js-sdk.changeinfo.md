@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface ChangeInfo 
+export declare interface ChangeInfo<T = OperationInfo> 
 ```
 
 ## Properties
@@ -18,5 +18,5 @@ export declare interface ChangeInfo
 |  --- | --- | --- |
 |  [actor](./yorkie-js-sdk.changeinfo.actor.md) | [ActorID](./yorkie-js-sdk.actorid.md) \| undefined |  |
 |  [message](./yorkie-js-sdk.changeinfo.message.md) | string |  |
-|  [operations](./yorkie-js-sdk.changeinfo.operations.md) | Array&lt;[OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->&gt; |  |
+|  [operations](./yorkie-js-sdk.changeinfo.operations.md) | Array&lt;T&gt; |  |
 
