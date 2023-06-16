@@ -563,6 +563,26 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `pathToPosRange` finds the range of pos from given path.
+   */
+  public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
+    const index = this.pathToIndex(path);
+    const {
+      node: { size },
+    } = this.pathToTreePos(path);
+    const fromIdx = index + size - 1;
+
+    return [this.findPos(fromIdx), this.findPos(fromIdx + 1)];
+  }
+
+  /**
+   * `pathToTreePos` finds the tree position path.
+   */
+  public pathToTreePos(path: Array<number>): TreePos<CRDTTreeNode> {
+    return this.indexTree.pathToTreePos(path);
+  }
+
+  /**
    * `pathToPos` finds the position of the given index in the tree by path.
    */
   public pathToPos(path: Array<number>): CRDTTreePos {
@@ -649,7 +669,7 @@ export class CRDTTree extends CRDTElement {
   /**
    * `toIndex` converts the given CRDTTreePos to the index of the tree.
    */
-  private toIndex(pos: CRDTTreePos): number {
+  public toIndex(pos: CRDTTreePos): number {
     const treePos = this.toTreePos(pos);
     if (!treePos) {
       return -1;
@@ -684,5 +704,12 @@ export class CRDTTree extends CRDTElement {
    */
   public indexToPath(index: number): Array<number> {
     return this.indexTree.indexToPath(index);
+  }
+
+  /**
+   * `indexToPath` converts the given path to index.
+   */
+  public pathToIndex(path: Array<number>): number {
+    return this.indexTree.pathToIndex(path);
   }
 }
