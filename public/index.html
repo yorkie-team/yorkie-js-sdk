@@ -197,7 +197,7 @@
               codemirror.setValue(doc.getRoot().content.toString());
             }
             if (event.type === 'remote-change') {
-              const { actor, message, operations, presence } = event.value;
+              const { actor, message, operations } = event.value;
               for (const op of operations) {
                 if (op.type === 'edit') {
                   const from = op.from;
@@ -279,6 +279,7 @@
 
             console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           });
+
           codemirror.on('change', (cm, change) => {
             if (change.origin === 'yorkie' || change.origin === 'setValue') {
               return;
