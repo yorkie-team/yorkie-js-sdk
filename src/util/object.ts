@@ -24,3 +24,29 @@ export const isEmpty = (object: object) => {
 
   return Object.entries(object).length === 0;
 };
+
+/**
+ * `stringifyObjectValues` makes values of attributes to JSON parsable string.
+ */
+export const stringifyObjectValues = <A extends object>(
+  attributes: A,
+): Record<string, string> => {
+  const attrs: Record<string, string> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    attrs[key] = JSON.stringify(value);
+  }
+  return attrs;
+};
+
+/**
+ `parseObjectValues` returns the JSON parsable string values to the origin states.
+ */
+export const parseObjectValues = <A extends object>(
+  attrs: Record<string, string>,
+): A => {
+  const attributes: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    attributes[key] = JSON.parse(value);
+  }
+  return attributes as A;
+};
