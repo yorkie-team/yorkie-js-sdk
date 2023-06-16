@@ -587,11 +587,12 @@ describe('CRDTTree', function () {
     );
   });
 
-  it('Can edit different levels', function () {
+  it('Get correct range from index', function () {
     const tree = new CRDTTree(
       new CRDTTreeNode(issuePos(), 'root'),
       issueTime(),
     );
+
     tree.editByIndex([0, 0], new CRDTTreeNode(issuePos(), 'p'), issueTime());
     tree.editByIndex([1, 1], new CRDTTreeNode(issuePos(), 'b'), issueTime());
     tree.editByIndex([2, 2], new CRDTTreeNode(issuePos(), 'i'), issueTime());
@@ -602,6 +603,8 @@ describe('CRDTTree', function () {
     );
     //     0  1  2   3 4 5    6   7   8
     //<root><p><b><i> a b </i></b></p></root>
+
+    // console.log('-----------------', tree.toXML());
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
@@ -621,6 +624,13 @@ describe('CRDTTree', function () {
     fromIdx = tree.toIndex(from);
     toIdx = tree.toIndex(to);
     assert.deepEqual([fromIdx, toIdx], [5, 6]);
+    assert.equal(tree.getSize(), 8);
+
+    let range = tree.createRange(0, 5);
+    assert.deepEqual(tree.rangeToIndex(range), [0, 5]);
+
+    range = tree.createRange(5, 7);
+    assert.deepEqual(tree.rangeToIndex(range), [5, 7]);
   });
 });
 
