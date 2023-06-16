@@ -3,6 +3,7 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNode,
+  TreeRange,
   TreeChange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -13,6 +14,7 @@ import {
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
 
 export type TreeNode = TextNode | ElementNode;
 export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
@@ -311,5 +313,38 @@ export class Tree {
         };
       }
     }
+  }
+
+  /**
+   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
+   */
+  createRange(fromIdx: number, toIdx: number): TreeRange {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.createRange(fromIdx, toIdx);
+  }
+
+  /**
+   * `rangeToIndex` returns the integer offsets of the given range.
+   */
+  rangeToIndex(range: TreeRange): Array<number> {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.rangeToIndex(range);
+  }
+
+  /**
+   * `rangeToPath` returns the path of the given range.
+   */
+  rangeToPath(range: TreeRange): Array<Array<number>> {
+    return this.rangeToPath(range);
   }
 }

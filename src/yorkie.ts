@@ -20,6 +20,7 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 
 export {
   Client,
@@ -85,6 +86,8 @@ export {
   Primitive,
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+
 export {
   WrappedElement,
   JSONElement,
@@ -100,7 +103,7 @@ export {
   TextNode,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
-export { converter } from '@yorkie-js-sdk/src/api/converter';
+export { converter };
 
 /**
  * The top-level yorkie namespace with additional properties.
@@ -115,11 +118,13 @@ export { converter } from '@yorkie-js-sdk/src/api/converter';
 const yorkie = {
   Client,
   Document,
+  Primitive,
   Text,
   Counter,
   Tree,
   IntType: CounterType.IntegerCnt,
   LongType: CounterType.LongCnt,
+  converter,
 };
 
 export default yorkie;
