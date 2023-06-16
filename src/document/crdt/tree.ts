@@ -647,8 +647,13 @@ export class CRDTTree extends CRDTElement {
   public posToStartIndex(pos: CRDTTreePos): number {
     const treePos = this.toTreePos(pos);
     const index = this.toIndex(pos);
+    let size = treePos?.node.size;
 
-    return index - treePos!.node.size - 1;
+    if (treePos!.node.type === 'text') {
+      size = treePos!.node.parent?.size;
+    }
+
+    return index - size! - 1;
   }
 
   /**
