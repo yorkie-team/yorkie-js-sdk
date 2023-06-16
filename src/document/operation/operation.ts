@@ -25,15 +25,17 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
  * It is used to inform to the user what kind of operation was executed.
  */
 export type OperationInfo =
-  | AddOpInfo
-  | IncreaseOpInfo
-  | RemoveOpInfo
-  | SetOpInfo
-  | MoveOpInfo
-  | EditOpInfo
-  | StyleOpInfo
-  | SelectOpInfo
-  | TreeEditOpInfo;
+  | TextOperationInfo
+  | CounterOperationInfo
+  | ArrayOperationInfo
+  | ObjectOperationInfo
+  | TreeOperationInfo;
+
+export type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
+export type CounterOperationInfo = IncreaseOpInfo;
+export type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
+export type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
+export type TreeOperationInfo = TreeEditOpInfo;
 export type AddOpInfo = {
   type: 'add';
   path: string;

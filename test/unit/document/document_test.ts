@@ -25,7 +25,7 @@ import {
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONArray, Text, Counter } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Counter, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
@@ -1315,6 +1315,144 @@ describe('Document', function () {
     );
     assert.doesNotThrow(() => {
       JSON.parse(doc.toSortedJSON());
+    });
+  });
+
+  it('check OperationInfo type for subscribe path', function () {
+    const doc = Document.create<{
+      num?: number;
+      b: { c: Array<number>; d: { e: { fname: Array<number> } } };
+      todos: Array<{
+        text: string;
+        completed: boolean;
+      }>;
+      text: Text;
+      tree: Tree;
+      counter: Counter;
+      textList: Array<string>;
+    }>('test-doc');
+
+    doc.subscribe('$.num', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'set') {
+            assert.equal(op.path, '$.a');
+          } else if (op.type === 'remove') {
+            assert.equal(op.path, '$.a');
+          }
+        });
+      }
+    });
+    doc.update((root) => {
+      root.num = 1;
+    });
+
+    doc.update((root) => {
+      delete root.num;
+    });
+
+    doc.subscribe('$.b.d.e.fname', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'add') {
+            assert.equal(op.path, '$.b.d.e.fname');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.b = {
+        c: [],
+        d: {
+          e: {
+            fname: [],
+          },
+        },
+      };
+
+      root.b.d.e.fname.push(1);
+    });
+
+    doc.subscribe('$.counter', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'increase') {
+            assert.equal(op.path, '$.counter');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.counter = new Counter(CounterType.IntegerCnt, 0);
+      root.counter.increase(1);
+    });
+
+    doc.subscribe('$.text', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'edit') {
+            assert.equal(op.path, '$.text');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'hello world');
+    });
+
+    doc.subscribe('$.todos.0', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'set') {
+            assert.equal(op.path, '$.todos.0');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.todos = [
+        {
+          text: 'hello',
+          completed: false,
+        },
+      ];
+    });
+
+    doc.subscribe('$.textList', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'add') {
+            assert.equal(op.path, '$.textList');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.textList = ['hello world'];
+    });
+
+    doc.subscribe('$.tree', (event) => {
+      if (event.type == 'local-change') {
+        event.value.operations.forEach((op) => {
+          if (op.type === 'tree-edit') {
+            assert.equal(op.path, '$.tree');
+          }
+        });
+      }
+    });
+
+    doc.update((root) => {
+      root.tree = new Tree();
+      root.tree.edit(0, 0, {
+        type: 'text',
+        value: 'hello world',
+      });
     });
   });
 });
