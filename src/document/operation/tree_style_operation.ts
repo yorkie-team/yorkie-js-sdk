@@ -120,7 +120,7 @@ export class TreeStyleOperation extends Operation {
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},
     )
-      .map(([key, value]) => key + ':' + '"' + value + '"')
+      .map(([k, v]) => `${k}:"${v}"`)
       .join(' ')})`;
   }
 

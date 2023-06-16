@@ -377,20 +377,18 @@ describe('IndexTree', function () {
       ],
     });
 
-    /**
-     *         <root>
-     *         /
-     *       <tc>
-     *       /   /
-     *     <p>   <p>
-     *     /      /
-     *   <tn>    <tn>
-     *   /        /
-     * AB        CD
-     */
-
-    //       0  1  2    3 4 5    6    7 8 9    10 11   12
-    // <root><tc><p><tn> A B </tn><tn> C D </tn><p></tc></root>
+    //      <root>
+    //        |
+    //       <tc>
+    //      /   \
+    //    <p>   <p>
+    //     |     |
+    //   <tn>   <tn>
+    //    |      |
+    //    AB     CD
+    //
+    //       0    1   2    3 4 5     6    7 8 9     10   11     12
+    // <root> <tc> <p> <tn> A B </tn> <tn> C D </tn>  <p>  </tc>  </root>
     let pos = tree.pathToIndex([0]);
     assert.equal(pos, 0);
     assert.deepEqual(tree.indexToPath(pos + 1), [0, 0]);
