@@ -661,10 +661,13 @@ export class CRDTTree extends CRDTElement {
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
     const index = this.pathToIndex(path);
-    const {
-      node: { size },
-    } = this.pathToTreePos(path);
-    const fromIdx = index + size - 1;
+    const { node: parentNode, offset } = this.pathToTreePos(path);
+
+    if (parentNode.hasTextChild()) {
+      throw new Error('invalid Path');
+    }
+    const node = parentNode.children[offset];
+    const fromIdx = index + node.size + 1;
 
     return [this.findPos(fromIdx), this.findPos(fromIdx + 1)];
   }
