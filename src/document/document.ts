@@ -109,7 +109,7 @@ export enum PeersChangedEventType {
    */
   Unwatched = 'unwatched',
   /**
-   * `PeersChanged` means that the presences of the peer clients has updated.
+   * `PeersChanged` means that the presences of the peer has updated.
    */
   PresenceChanged = 'presence-changed',
 }

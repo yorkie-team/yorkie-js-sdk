@@ -136,9 +136,9 @@ export enum ClientEventType {
    */
   StatusChanged = 'status-changed',
   /**
-   * `DocumentsChanged` means that the documents of the client has changed.
+   * `DocumentChanged` means that the document has changed.
    */
-  DocumentsChanged = 'documents-changed',
+  DocumentChanged = 'document-changed',
   /**
    * `StreamConnectionStatusChanged` means that the stream connection status of
    * the client has changed.
@@ -158,7 +158,7 @@ export enum ClientEventType {
  */
 export type ClientEvent =
   | StatusChangedEvent
-  | DocumentsChangedEvent
+  | DocumentChangedEvent
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -180,24 +180,24 @@ export interface StatusChangedEvent extends BaseClientEvent {
    */
   type: ClientEventType.StatusChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `DocumentChangedEvent` value
    */
   value: ClientStatus;
 }
 
 /**
- * `DocumentsChangedEvent` is an event that occurs when documents attached to
+ * `DocumentChangedEvent` is an event that occurs when document attached to
  * the client changes.
  *
  * @public
  */
-export interface DocumentsChangedEvent extends BaseClientEvent {
+export interface DocumentChangedEvent extends BaseClientEvent {
   /**
-   * enum {@link ClientEventType}.DocumentsChangedEvent
+   * enum {@link ClientEventType}.DocumentChangedEvent
    */
-  type: ClientEventType.DocumentsChanged;
+  type: ClientEventType.DocumentChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `DocumentChangedEvent` value
    */
   value: Array<string>;
 }
@@ -878,14 +878,14 @@ export class Client implements Observable<ClientEvent> {
     const eventType = pbWatchEvent.getType();
     const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
     switch (eventType) {
-      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENT_CHANGED:
         attachment.remoteChangeEventReceived = true;
         this.eventStreamObserver.next({
-          type: ClientEventType.DocumentsChanged,
+          type: ClientEventType.DocumentChanged,
           value: [docKey],
         });
         break;
-      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENT_WATCHED:
         if (attachment.doc.hasPresenceInfo(publisher)) {
           attachment.doc.addWatchedPeerMap(publisher, true);
           attachment.doc.publish({
@@ -902,7 +902,7 @@ export class Client implements Observable<ClientEvent> {
           attachment.doc.addWatchedPeerMap(publisher, false);
         }
         break;
-      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+      case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: {
         const presence = attachment.doc.getPeerPresence(publisher)!;
         attachment.doc.removeWatchedPeerMap(publisher);
         attachment.doc.publish({

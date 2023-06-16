@@ -11887,9 +11887,9 @@ proto.yorkie.v1.ValueType = {
  * @enum {number}
  */
 proto.yorkie.v1.DocEventType = {
-  DOC_EVENT_TYPE_DOCUMENTS_CHANGED: 0,
-  DOC_EVENT_TYPE_DOCUMENTS_WATCHED: 1,
-  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: 2
+  DOC_EVENT_TYPE_DOCUMENT_CHANGED: 0,
+  DOC_EVENT_TYPE_DOCUMENT_WATCHED: 1,
+  DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: 2
 };
 
 goog.object.extend(exports, proto.yorkie.v1);
