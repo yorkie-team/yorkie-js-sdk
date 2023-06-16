@@ -139,7 +139,9 @@ export class RHT {
     }
 
     return ` ${[...this.nodeMapByKey]
-      .map(([key, value]) => key + '=' + '"' + value.getValue() + '"')
+      .map(
+        ([key, value]) => key + '=' + '"' + JSON.parse(value.getValue()) + '"',
+      )
       .join(' ')}`;
   }
 

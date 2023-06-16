@@ -29,6 +29,7 @@ import {
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { RHT } from './rht';
+import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * DummyHeadType is a type of dummy head. It is used to represent the head node
@@ -267,7 +268,9 @@ function toJSON(node: CRDTTreeNode): TreeNode {
   return {
     type: node.type,
     children: node.children.map(toJSON),
-    attributes: node.attrs?.toObject(),
+    attributes: node.attrs
+      ? parseObjectValues(node.attrs?.toObject())
+      : undefined,
   };
 }
 
@@ -465,7 +468,7 @@ export class CRDTTree extends CRDTElement {
    */
   public style(
     range: [CRDTTreePos, CRDTTreePos],
-    attributes: { [key: string]: any } | undefined,
+    attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
   ) {
     const [, toRight] = this.findTreePos(range[1], editedAt);
@@ -479,7 +482,7 @@ export class CRDTTree extends CRDTElement {
       fromPath: this.indexTree.indexToPath(this.posToStartIndex(range[0])),
       toPath: this.indexTree.indexToPath(this.posToStartIndex(range[0])),
       actor: editedAt.getActorID()!,
-      value: attributes ? attributes : undefined,
+      value: attributes ? parseObjectValues(attributes) : undefined,
     });
 
     this.nodesBetween(fromRight, toRight, (node) => {

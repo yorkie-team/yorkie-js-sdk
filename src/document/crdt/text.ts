@@ -25,6 +25,7 @@ import {
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
+import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -213,7 +214,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       ...change,
       value: change.value
         ? {
-            attributes: this.parseAttributes(change.value.getAttributes()),
+            attributes: parseObjectValues<A>(change.value.getAttributes()),
             content: change.value.getContent(),
           }
         : {
@@ -270,7 +271,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
         from: fromIdx,
         to: toIdx,
         value: {
-          attributes: this.parseAttributes(attributes) as A,
+          attributes: parseObjectValues(attributes) as A,
         },
       });
 
@@ -360,7 +361,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
       if (!node.isRemoved()) {
         const value = node.getValue();
         values.push({
-          attributes: this.parseAttributes(value.getAttributes()),
+          attributes: parseObjectValues<A>(value.getAttributes()),
           content: value.getContent(),
         });
       }
@@ -433,27 +434,5 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTTextElement {
         to,
       };
     }
-  }
-
-  /**
-   * `stringifyAttributes` makes values of attributes to JSON parsable string.
-   */
-  public stringifyAttributes(attributes: A): Record<string, string> {
-    const attrs: Record<string, string> = {};
-    for (const [key, value] of Object.entries(attributes)) {
-      attrs[key] = JSON.stringify(value);
-    }
-    return attrs;
-  }
-
-  /**
-   * `parseAttributes` returns the JSON parsable string values to the origin states.
-   */
-  private parseAttributes(attrs: Record<string, string>): A {
-    const attributes: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(attrs)) {
-      attributes[key] = JSON.parse(value);
-    }
-    return attributes as A;
   }
 }

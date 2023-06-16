@@ -14,7 +14,7 @@ import {
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
-import { isEmpty } from '@yorkie-js-sdk/src/util/object';
+import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 
@@ -62,11 +62,14 @@ function buildDescendants(
 
     parent.append(textNode);
   } else {
-    const { children = [], attributes } = treeNode as ElementNode;
+    const { children = [] } = treeNode as ElementNode;
+    let { attributes } = treeNode as ElementNode;
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
+      attributes = stringifyObjectValues(attributes);
       attrs = new RHT();
+
       for (const [key, value] of Object.entries(attributes)) {
         attrs.set(key, value, ticket);
       }
@@ -98,11 +101,14 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     const { value } = content as TextNode;
     root = CRDTTreeNode.create({ createdAt: ticket, offset: 0 }, type, value);
   } else if (content) {
-    const { children = [], attributes } = content as ElementNode;
+    const { children = [] } = content as ElementNode;
+    let { attributes } = content as ElementNode;
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
+      attributes = stringifyObjectValues(attributes);
       attrs = new RHT();
+
       for (const [key, value] of Object.entries(attributes)) {
         attrs.set(key, value, ticket);
       }
@@ -212,15 +218,16 @@ export class Tree {
 
     const [fromPos, toPos] = this.tree.pathToPosRange(path);
     const ticket = this.context.issueTimeTicket();
+    const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    this.tree!.style([fromPos, toPos], attributes, ticket);
+    this.tree!.style([fromPos, toPos], attrs, ticket);
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        new Map(Object.entries(attributes)),
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
     );
@@ -245,15 +252,16 @@ export class Tree {
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
+    const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    this.tree!.style([fromPos, toPos], attributes, ticket);
+    this.tree!.style([fromPos, toPos], attrs, ticket);
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        new Map(Object.entries(attributes)),
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
     );
