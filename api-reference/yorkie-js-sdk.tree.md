@@ -23,12 +23,15 @@ export declare class Tree
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [buildRoot(context)](./yorkie-js-sdk.tree.buildroot.md) |  | <code>getInitialRoot</code> returns the root node of this tree. |
+|  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.tree.createrange.md) |  | <code>createRange</code> returns pair of CRDTTreePos of the given integer offsets. |
 |  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.tree.edit.md) |  | <code>edit</code> edits this tree with the given node. |
 |  [editByPath(fromPath, toPath, content)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
 |  [getSize()](./yorkie-js-sdk.tree.getsize.md) |  | <code>getSize</code> returns the size of this tree. |
 |  [indexToPath(index)](./yorkie-js-sdk.tree.indextopath.md) |  | <code>indexToPath</code> returns the path of the given index. |
+|  [rangeToIndex(range)](./yorkie-js-sdk.tree.rangetoindex.md) |  | <code>rangeToIndex</code> returns the integer offsets of the given range. |
+|  [rangeToPath(range)](./yorkie-js-sdk.tree.rangetopath.md) |  | <code>rangeToPath</code> returns the path of the given range. |
 |  [split(index, depth)](./yorkie-js-sdk.tree.split.md) |  | <code>split</code> splits this tree at the given index. |
 |  [toJSON()](./yorkie-js-sdk.tree.tojson.md) |  | <code>toJSON</code> returns the JSON string of this tree. |
 |  [toXML()](./yorkie-js-sdk.tree.toxml.md) |  | <code>toXML</code> returns the XML string of this tree. |

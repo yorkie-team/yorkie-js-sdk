@@ -19,5 +19,7 @@ converter: {
     bytesToObject: typeof bytesToObject;
     toHexString: typeof toHexString;
     toUint8Array: typeof toUint8Array;
+    bytesToTreePos: typeof bytesToTreePos;
+    treePosToBytes: typeof treePosToBytes;
 }
 ```

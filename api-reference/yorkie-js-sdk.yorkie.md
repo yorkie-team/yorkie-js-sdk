@@ -16,10 +16,24 @@ e.g) `new yorkie.Client(...);`
 yorkie: {
     Client: typeof Client;
     Document: typeof Document;
+    Primitive: typeof Primitive;
     Text: typeof Text;
     Counter: typeof Counter;
     Tree: typeof Tree;
     IntType: CounterType;
     LongType: CounterType;
+    converter: {
+        fromPresence: <M>(pbPresence: Presence) => PresenceInfo<M>;
+        toClient: <M_1>(id: string, presence: PresenceInfo<M_1>) => Client;
+        toChangePack: (pack: ChangePack) => ChangePack;
+        fromChangePack: (pbPack: ChangePack) => ChangePack;
+        fromChanges: (pbChanges: Change[]) => Change[];
+        objectToBytes: (obj: CRDTObject) => Uint8Array;
+        bytesToObject: (bytes?: Uint8Array | undefined) => CRDTObject;
+        toHexString: (bytes: Uint8Array) => string;
+        toUint8Array: (hex: string) => Uint8Array;
+        bytesToTreePos: (bytes: Uint8Array) => CRDTTreePos;
+        treePosToBytes: (pos: CRDTTreePos) => Uint8Array;
+    };
 }
 ```
