@@ -601,12 +601,29 @@ describe('CRDTTree', function () {
       new CRDTTreeNode(issuePos(), 'text', 'ab'),
       issueTime(),
     );
+    //     0  1  2   3 4 5    6   7   8
+    //<root><p><b><i> a b </i></b></p></root>
 
     // console.log('-----------------', tree.toXML());
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
+
+    let [from, to] = tree.pathToPosRange([0]);
+    let fromIdx = tree.toIndex(from);
+    let toIdx = tree.toIndex(to);
+    assert.deepEqual([fromIdx, toIdx], [7, 8]);
+
+    [from, to] = tree.pathToPosRange([0, 0]);
+    fromIdx = tree.toIndex(from);
+    toIdx = tree.toIndex(to);
+    assert.deepEqual([fromIdx, toIdx], [6, 7]);
+
+    [from, to] = tree.pathToPosRange([0, 0, 0]);
+    fromIdx = tree.toIndex(from);
+    toIdx = tree.toIndex(to);
+    assert.deepEqual([fromIdx, toIdx], [5, 6]);
     assert.equal(tree.getSize(), 8);
 
     let range = tree.createRange(0, 5);

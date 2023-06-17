@@ -23,6 +23,7 @@ import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
+import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `Text` is an extended data type for the contents of a text editor.
@@ -77,9 +78,7 @@ export class Text<A extends Indexable = Indexable> {
         `EDIT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} c:${content}`,
       );
     }
-    const attrs = attributes
-      ? this.text.stringifyAttributes(attributes)
-      : undefined;
+    const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
     const [maxCreatedAtMapByActor] = this.text.edit(
       range,
@@ -144,7 +143,7 @@ export class Text<A extends Indexable = Indexable> {
       );
     }
 
-    const attrs = this.text.stringifyAttributes(attributes);
+    const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
     this.text.setStyle(range, attrs, ticket);
 

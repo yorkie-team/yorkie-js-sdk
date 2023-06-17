@@ -1,3 +1,4 @@
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
@@ -14,6 +15,9 @@ import {
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
+import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
+import { RHT } from '../crdt/rht';
+import { TreeStyleOperation } from '../operation/tree_style_operation';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 
 export type TreeNode = TextNode | ElementNode;
@@ -25,8 +29,9 @@ export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
 /**
  * `ElementNode` is a node that has children.
  */
-export type ElementNode = {
+export type ElementNode<A extends Indexable = Indexable> = {
   type: TreeNodeType;
+  attributes?: A;
   children: Array<TreeNode>;
 };
 
@@ -47,21 +52,35 @@ function buildDescendants(
   context: ChangeContext,
 ) {
   const { type } = treeNode;
+  const ticket = context.issueTimeTicket();
 
   if (type === 'text') {
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      { createdAt: ticket, offset: 0 },
       type,
       value,
     );
 
     parent.append(textNode);
   } else {
-    const { children } = treeNode as ElementNode;
+    const { children = [] } = treeNode as ElementNode;
+    let { attributes } = treeNode as ElementNode;
+    let attrs;
+
+    if (typeof attributes === 'object' && !isEmpty(attributes)) {
+      attributes = stringifyObjectValues(attributes);
+      attrs = new RHT();
+
+      for (const [key, value] of Object.entries(attributes)) {
+        attrs.set(key, value, ticket);
+      }
+    }
     const elementNode = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      { createdAt: ticket, offset: 0 },
       type,
+      undefined,
+      attrs,
     );
 
     parent.append(elementNode);
@@ -77,20 +96,31 @@ function buildDescendants(
  */
 function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   const { type } = content;
+  const ticket = context.issueTimeTicket();
 
   let root;
   if (content.type === 'text') {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
-      type,
-      value,
-    );
+    root = CRDTTreeNode.create({ createdAt: ticket, offset: 0 }, type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
+    let { attributes } = content as ElementNode;
+    let attrs;
+
+    if (typeof attributes === 'object' && !isEmpty(attributes)) {
+      attributes = stringifyObjectValues(attributes);
+      attrs = new RHT();
+
+      for (const [key, value] of Object.entries(attributes)) {
+        attrs.set(key, value, ticket);
+      }
+    }
+
     root = CRDTTreeNode.create(
       { createdAt: context.issueTimeTicket(), offset: 0 },
       type,
+      undefined,
+      attrs,
     );
 
     for (const child of children) {
@@ -174,6 +204,69 @@ export class Tree {
     }
 
     return this.tree.getIndexTree();
+  }
+
+  /**
+   * `styleByPath` sets the attributes to the elements of the given path.
+   */
+  public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    if (!path.length) {
+      throw new Error('path should not be empty');
+    }
+
+    const [fromPos, toPos] = this.tree.pathToPosRange(path);
+    const ticket = this.context.issueTimeTicket();
+    const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
+
+    this.tree!.style([fromPos, toPos], attrs, ticket);
+
+    this.context.push(
+      TreeStyleOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
+        ticket,
+      ),
+    );
+  }
+
+  /**
+   * `style` sets the attributes to the elements of the given range.
+   */
+  public style(
+    fromIdx: number,
+    toIdx: number,
+    attributes: { [key: string]: any },
+  ) {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    if (fromIdx > toIdx) {
+      throw new Error('from should be less than or equal to to');
+    }
+
+    const fromPos = this.tree.findPos(fromIdx);
+    const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.issueTimeTicket();
+    const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
+
+    this.tree!.style([fromPos, toPos], attrs, ticket);
+
+    this.context.push(
+      TreeStyleOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        attrs ? new Map(Object.entries(attrs)) : new Map(),
+        ticket,
+      ),
+    );
   }
 
   /**

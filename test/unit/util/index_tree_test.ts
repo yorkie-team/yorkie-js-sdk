@@ -351,4 +351,90 @@ describe('IndexTree', function () {
     pos = tree.findTreePos(16);
     assert.deepEqual(tree.treePosToPath(pos), [1]);
   });
+
+  it('Can find index from given path', function () {
+    const tree = buildIndexTree({
+      type: 'root',
+      children: [
+        {
+          type: 'tc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'tn',
+                  children: [{ type: 'text', value: 'AB' }],
+                },
+                {
+                  type: 'tn',
+                  children: [{ type: 'text', value: 'CD' }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    //      <root>
+    //        |
+    //       <tc>
+    //      /   \
+    //    <p>   <p>
+    //     |     |
+    //   <tn>   <tn>
+    //    |      |
+    //    AB     CD
+    //
+    //       0    1   2    3 4 5     6    7 8 9     10   11     12
+    // <root> <tc> <p> <tn> A B </tn> <tn> C D </tn>  <p>  </tc>  </root>
+    let pos = tree.pathToIndex([0]);
+    assert.equal(pos, 0);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0]);
+
+    pos = tree.pathToIndex([0, 0]);
+    assert.equal(pos, 1);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 0]);
+
+    pos = tree.pathToIndex([0, 0, 0]);
+    assert.equal(pos, 2);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 0, 0]);
+
+    pos = tree.pathToIndex([0, 0, 0, 0]);
+    assert.equal(pos, 3);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 0, 1]);
+
+    pos = tree.pathToIndex([0, 0, 0, 1]);
+    assert.equal(pos, 4);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 0, 2]);
+
+    pos = tree.pathToIndex([0, 0, 0, 2]);
+    assert.equal(pos, 5);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 1]);
+
+    pos = tree.pathToIndex([0, 0, 1]);
+    assert.equal(pos, 6);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 1, 0]);
+
+    pos = tree.pathToIndex([0, 0, 1, 0]);
+    assert.equal(pos, 7);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 1, 1]);
+
+    pos = tree.pathToIndex([0, 0, 1, 1]);
+    assert.equal(pos, 8);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 1, 2]);
+
+    pos = tree.pathToIndex([0, 0, 1, 2]);
+    assert.equal(pos, 9);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 0, 2]);
+
+    pos = tree.pathToIndex([0, 0, 2]);
+    assert.equal(pos, 10);
+    assert.deepEqual(tree.indexToPath(pos + 1), [0, 1]);
+
+    pos = tree.pathToIndex([0, 1]);
+    assert.equal(pos, 11);
+    assert.deepEqual(tree.indexToPath(pos + 1), [1]);
+  });
 });

@@ -28,6 +28,8 @@ import {
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+import { RHT } from './rht';
+import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * DummyHeadType is a type of dummy head. It is used to represent the head node
@@ -43,6 +45,7 @@ export type TreeNode = {
   type: TreeNodeType;
   children?: Array<TreeNode>;
   value?: string;
+  attributes?: { [key: string]: any };
 };
 
 /**
@@ -60,6 +63,7 @@ export type TreeNodeForTest = TreeNode & {
  */
 export enum TreeChangeType {
   Content = 'content',
+  Style = 'style',
 }
 
 /**
@@ -72,7 +76,7 @@ export interface TreeChange {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value?: TreeNode;
+  value?: TreeNode | { [key: string]: any };
 }
 
 /**
@@ -130,6 +134,7 @@ export type TreeRange = [CRDTTreePos, CRDTTreePos];
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   pos: CRDTTreePos;
   removedAt?: TimeTicket;
+  attrs?: RHT;
 
   /**
    * `next` is the next node of this node in the list.
@@ -152,9 +157,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     pos: CRDTTreePos,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
+    attributes?: RHT,
   ) {
     super(type);
     this.pos = pos;
+    attributes && (this.attrs = attributes);
 
     if (typeof opts === 'string') {
       this.value = opts;
@@ -170,8 +177,9 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     pos: CRDTTreePos,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
+    attributes?: RHT,
   ) {
-    return new CRDTTreeNode(pos, type, opts);
+    return new CRDTTreeNode(pos, type, opts, attributes);
   }
 
   /**
@@ -182,6 +190,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     clone.removedAt = this.removedAt;
     clone._value = this._value;
     clone.size = this.size;
+    clone.attrs = this.attrs?.deepcopy();
     clone._children = this._children.map((child) => {
       const childClone = child.deepcopy();
       childClone.parent = clone;
@@ -264,6 +273,9 @@ function toJSON(node: CRDTTreeNode): TreeNode {
   return {
     type: node.type,
     children: node.children.map(toJSON),
+    attributes: node.attrs
+      ? parseObjectValues(node.attrs?.toObject())
+      : undefined,
   };
 }
 
@@ -276,7 +288,7 @@ export function toXML(node: CRDTTreeNode): string {
     return currentNode.value;
   }
 
-  return `<${node.type}>${node.children
+  return `<${node.type}${node.attrs?.toXML() || ''}>${node.children
     .map((child) => toXML(child))
     .join('')}</${node.type}>`;
 }
@@ -371,6 +383,35 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `findTreePos` finds `TreePos` of the given `CRDTTreePos`
+   */
+  public findTreePos(
+    pos: CRDTTreePos,
+    editedAt: TimeTicket,
+  ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
+    const treePos = this.toTreePos(pos);
+    if (!treePos) {
+      throw new Error(`cannot find node at ${pos}`);
+    }
+
+    // Find the appropriate position. This logic is similar to the logical to
+    // handle the same position insertion of RGA.
+    let current = treePos;
+    while (
+      current.node.next?.pos.createdAt.after(editedAt) &&
+      current.node.parent === current.node.next.parent
+    ) {
+      current = {
+        node: current.node.next,
+        offset: current.node.next.size,
+      };
+    }
+
+    const right = this.indexTree.findPostorderRight(treePos)!;
+    return [current, right];
+  }
+
+  /**
    * `findTreePosWithSplitText` finds `TreePos` of the given `CRDTTreePos` and
    * splits the text node if necessary.
    *
@@ -425,6 +466,43 @@ export class CRDTTree extends CRDTElement {
     }
 
     this.nodeMapByPos.put(newNode.pos, newNode);
+  }
+
+  /**
+   * `style` applies the given attributes of the given range.
+   */
+  public style(
+    range: [CRDTTreePos, CRDTTreePos],
+    attributes: { [key: string]: string } | undefined,
+    editedAt: TimeTicket,
+  ) {
+    const [, toRight] = this.findTreePos(range[1], editedAt);
+    const [, fromRight] = this.findTreePos(range[0], editedAt);
+    const changes: Array<TreeChange> = [];
+
+    changes.push({
+      type: TreeChangeType.Style,
+      from: this.toIndex(range[0]),
+      to: this.toIndex(range[1]),
+      fromPath: this.indexTree.indexToPath(this.posToStartIndex(range[0])),
+      toPath: this.indexTree.indexToPath(this.posToStartIndex(range[0])),
+      actor: editedAt.getActorID()!,
+      value: attributes ? parseObjectValues(attributes) : undefined,
+    });
+
+    this.nodesBetween(fromRight, toRight, (node) => {
+      if (!node.isRemoved && attributes) {
+        if (!node.attrs) {
+          node.attrs = new RHT();
+        }
+
+        for (const [key, value] of Object.entries(attributes)) {
+          node.attrs.set(key, value, editedAt);
+        }
+      }
+    });
+
+    return changes;
   }
 
   /**
@@ -568,6 +646,48 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `posToStartIndex` returns start index of pos
+   *       0   1   2 3 4 5 6    7  8
+   *  <doc><p><tn>t e x t </tn></p></doc>
+   *  if tree is just like above, and the pos is pointing index of 7
+   * this returns 0 (start index of tag)
+   */
+  public posToStartIndex(pos: CRDTTreePos): number {
+    const treePos = this.toTreePos(pos);
+    const index = this.toIndex(pos);
+    let size = treePos?.node.size;
+
+    if (treePos!.node.type === 'text') {
+      size = treePos!.node.parent?.size;
+    }
+
+    return index - size! - 1;
+  }
+
+  /**
+   * `pathToPosRange` finds the range of pos from given path.
+   */
+  public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
+    const index = this.pathToIndex(path);
+    const { node: parentNode, offset } = this.pathToTreePos(path);
+
+    if (parentNode.hasTextChild()) {
+      throw new Error('invalid Path');
+    }
+    const node = parentNode.children[offset];
+    const fromIdx = index + node.size + 1;
+
+    return [this.findPos(fromIdx), this.findPos(fromIdx + 1)];
+  }
+
+  /**
+   * `pathToTreePos` finds the tree position path.
+   */
+  public pathToTreePos(path: Array<number>): TreePos<CRDTTreeNode> {
+    return this.indexTree.pathToTreePos(path);
+  }
+
+  /**
    * `pathToPos` finds the position of the given index in the tree by path.
    */
   public pathToPos(path: Array<number>): CRDTTreePos {
@@ -654,7 +774,7 @@ export class CRDTTree extends CRDTElement {
   /**
    * `toIndex` converts the given CRDTTreePos to the index of the tree.
    */
-  private toIndex(pos: CRDTTreePos): number {
+  public toIndex(pos: CRDTTreePos): number {
     const treePos = this.toTreePos(pos);
     if (!treePos) {
       return -1;
@@ -689,6 +809,13 @@ export class CRDTTree extends CRDTElement {
    */
   public indexToPath(index: number): Array<number> {
     return this.indexTree.indexToPath(index);
+  }
+
+  /**
+   * `indexToPath` converts the given path to index.
+   */
+  public pathToIndex(path: Array<number>): number {
+    return this.indexTree.pathToIndex(path);
   }
 
   /**
