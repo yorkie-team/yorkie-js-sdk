@@ -17,4 +17,5 @@ export declare enum TreeChangeType
 |  Member | Value | Description |
 |  --- | --- | --- |
 |  Content | <code>&quot;content&quot;</code> |  |
+|  Style | <code>&quot;style&quot;</code> |  |
 

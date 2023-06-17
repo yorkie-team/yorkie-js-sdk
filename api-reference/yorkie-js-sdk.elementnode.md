@@ -9,10 +9,11 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type ElementNode = {
+export declare type ElementNode<A extends Indexable = Indexable> = {
     type: TreeNodeType;
+    attributes?: A;
     children: Array<TreeNode>;
 };
 ```
-<b>References:</b> [TreeNode](./yorkie-js-sdk.treenode.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TreeNode](./yorkie-js-sdk.treenode.md)
 
