@@ -439,7 +439,7 @@ export class Tree {
   /**
    * `rangeToIndex` returns the integer offsets of the given range.
    */
-  rangeToIndex(range: TreeRange): Array<number> {
+  rangeToIndex(range: TreeRange): [number, number] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -452,7 +452,7 @@ export class Tree {
   /**
    * `rangeToPath` returns the path of the given range.
    */
-  rangeToPath(range: TreeRange): Array<Array<number>> {
+  rangeToPath(range: TreeRange): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
