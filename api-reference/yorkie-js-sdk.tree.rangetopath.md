@@ -9,7 +9,10 @@
 <b>Signature:</b>
 
 ```typescript
-rangeToPath(range: TreeRange): Array<Array<number>>;
+rangeToPath(range: TreeRange): [
+        Array<number>,
+        Array<number>
+    ];
 ```
 
 ## Parameters
@@ -20,5 +23,5 @@ rangeToPath(range: TreeRange): Array<Array<number>>;
 
 <b>Returns:</b>
 
-Array&lt;Array&lt;number&gt;&gt;
+\[ Array&lt;number&gt;, Array&lt;number&gt; \]
 

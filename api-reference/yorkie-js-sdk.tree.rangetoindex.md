@@ -9,7 +9,10 @@
 <b>Signature:</b>
 
 ```typescript
-rangeToIndex(range: TreeRange): Array<number>;
+rangeToIndex(range: TreeRange): [
+        number,
+        number
+    ];
 ```
 
 ## Parameters
@@ -20,5 +23,5 @@ rangeToIndex(range: TreeRange): Array<number>;
 
 <b>Returns:</b>
 
-Array&lt;number&gt;
+\[ number, number \]
 
