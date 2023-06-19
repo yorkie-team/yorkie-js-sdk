@@ -833,14 +833,17 @@ export class CRDTTree extends CRDTElement {
   /**
    * `rangeToIndex` returns pair of integer offsets of the given Tree.
    */
-  public rangeToIndex(range: TreeRange): Array<number> {
+  public rangeToIndex(range: TreeRange): [number, number] {
     return [this.toIndex(range[0]), this.toIndex(range[1])];
   }
 
   /**
    * `rangeToPath` returns pair of integer offsets of the given Tree.
    */
-  public rangeToPath(range: TreeRange): Array<Array<number>> {
-    return this.rangeToIndex(range).map((index) => this.indexToPath(index));
+  public rangeToPath(range: TreeRange): [Array<number>, Array<number>] {
+    const fromPath = this.indexTree.indexToPath(this.toIndex(range[0]));
+    const toPath = this.indexTree.indexToPath(this.toIndex(range[1]));
+
+    return [fromPath, toPath];
   }
 }

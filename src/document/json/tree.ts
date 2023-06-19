@@ -422,9 +422,24 @@ export class Tree {
   }
 
   /**
+   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
+   */
+  createRangeByPath(fromPath: Array<number>, toPath: Array<number>): TreeRange {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+    const fromIdx = this.tree.pathToIndex(fromPath);
+    const toIdx = this.tree.pathToIndex(toPath);
+
+    return this.tree.createRange(fromIdx, toIdx);
+  }
+
+  /**
    * `rangeToIndex` returns the integer offsets of the given range.
    */
-  rangeToIndex(range: TreeRange): Array<number> {
+  rangeToIndex(range: TreeRange): [number, number] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -437,7 +452,13 @@ export class Tree {
   /**
    * `rangeToPath` returns the path of the given range.
    */
-  rangeToPath(range: TreeRange): Array<Array<number>> {
-    return this.rangeToPath(range);
+  rangeToPath(range: TreeRange): [Array<number>, Array<number>] {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.rangeToPath(range);
   }
 }
