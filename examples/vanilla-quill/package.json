@@ -20,6 +20,6 @@
     "quill-cursors": "^4.0.0",
     "quill-delta": "^5.0.0",
     "short-unique-id": "^4.4.4",
-    "yorkie-js-sdk": "^0.4.1"
+    "yorkie-js-sdk": "^0.4.2"
   }
 }
