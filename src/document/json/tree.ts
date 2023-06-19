@@ -453,6 +453,12 @@ export class Tree {
    * `rangeToPath` returns the path of the given range.
    */
   rangeToPath(range: TreeRange): Array<Array<number>> {
-    return this.rangeToPath(range);
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.rangeToPath(range);
   }
 }
