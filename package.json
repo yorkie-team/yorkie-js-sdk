@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
