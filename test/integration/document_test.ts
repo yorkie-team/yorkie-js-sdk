@@ -140,7 +140,7 @@ describe('Document', function () {
     unsub2();
   }).timeout(10000);
 
-  it('Can only watch peersChanged event when using realtime sync', async function () {
+  it('Can watch peersChanged event only when using realtime sync', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -504,6 +504,35 @@ describe('Document', function () {
     await cli.deactivate();
     unsub1();
     unsub2();
+  });
+
+  it('build presence from snapshot', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const d1 = await c1.attach<{ k1: string }>(docKey, {
+      initialPresence: {
+        initial: true,
+      },
+    });
+
+    // Updates 700 changes over snapshot threshold.
+    const changeCount = 700;
+    for (let idx = 1; idx <= changeCount; idx++) {
+      d1.updatePresence({ presence: idx });
+    }
+    await c1.sync();
+
+    const d2 = await c2.attach<{ k1: string }>(docKey);
+    assert.deepEqual(d2.getPeerPresence(c1.getID()!), {
+      initial: true,
+      presence: changeCount,
+    });
+    await c1.deactivate();
+    await c2.deactivate();
   });
 
   it('detects the peers-changed events from doc.subscribe', async function () {
