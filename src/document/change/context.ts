@@ -27,6 +27,7 @@ import {
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { CRDTTree } from '../crdt/tree';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -86,6 +87,14 @@ export class ChangeContext {
    */
   public registerRemovedNodeTextElement(text: CRDTTextElement): void {
     this.root.registerTextWithGarbage(text);
+  }
+
+  /**
+   * `registerRemovedNodeTreeElement` register text element has removed node for
+   * garbage collection.
+   */
+  public registerRemovedNodeTreeElement(tree: CRDTTree): void {
+    this.root.registerTreeWithGarbage(tree);
   }
 
   /**

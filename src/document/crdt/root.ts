@@ -25,6 +25,7 @@ import {
   CRDTTextElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { CRDTTree, CRDTTreeNode } from './tree';
 
 interface CRDTElementPair {
   element: CRDTElement;
@@ -44,12 +45,14 @@ export class CRDTRoot {
   private elementPairMapByCreatedAt: Map<string, CRDTElementPair>;
   private removedElementSetByCreatedAt: Set<string>;
   private textWithGarbageSetByCreatedAt: Set<string>;
+  private treeWithGarbageSetByCreatedAt: Set<string>;
 
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
     this.textWithGarbageSetByCreatedAt = new Set();
+    this.treeWithGarbageSetByCreatedAt = new Set();
 
     this.elementPairMapByCreatedAt.set(
       this.rootObject.getCreatedAt().toIDString(),
@@ -152,6 +155,13 @@ export class CRDTRoot {
   }
 
   /**
+   * `registerTreeWithGarbage` registers the given tree to hash set.
+   */
+  public registerTreeWithGarbage(tree: CRDTTree): void {
+    this.treeWithGarbageSetByCreatedAt.add(tree.getCreatedAt().toIDString());
+  }
+
+  /**
    * `getElementMapSize` returns the size of element map.
    */
   public getElementMapSize(): number {
@@ -195,6 +205,12 @@ export class CRDTRoot {
       count += text.getRemovedNodesLen();
     }
 
+    for (const createdAt of this.treeWithGarbageSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const tree = pair.element as CRDTTextElement;
+      count += tree.getRemovedNodesLen();
+    }
+
     return count;
   }
 
@@ -220,6 +236,20 @@ export class CRDTRoot {
         pair.parent!.purge(pair.element);
         count += this.garbageCollectInternal(pair.element);
       }
+    }
+
+    for (const createdAt of this.treeWithGarbageSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      const tree = pair.element as CRDTTree;
+
+      const removedNodeCnt = tree.purgeTreeNodesWithGarbage(ticket);
+      if (removedNodeCnt > 0) {
+        this.treeWithGarbageSetByCreatedAt.delete(
+          tree.getCreatedAt().toIDString(),
+        );
+      }
+
+      count += removedNodeCnt;
     }
 
     for (const createdAt of this.textWithGarbageSetByCreatedAt) {
