@@ -738,6 +738,15 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `pathToIndex` returns index from given path
+   */
+  public pathToIndex(path: Array<number>): number {
+    const treePos = this.pathToTreePos(path);
+
+    return this.indexOf(treePos);
+  }
+
+  /**
    * `pathToTreePos` returns treePos from given path
    */
   public pathToTreePos(path: Array<number>): TreePos<T> {

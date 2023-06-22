@@ -36,6 +36,7 @@ import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
+import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
@@ -65,13 +66,14 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
-  TextNodeAttr as PbTextNodeAttr,
+  NodeAttr as PbNodeAttr,
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
   TreeNode as PbTreeNode,
   TreePos as PbTreePos,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
+import { TreeStyleOperation } from '@yorkie-js-sdk/src/document/operation/tree_style_operation';
 import {
   CounterType,
   CRDTCounter,
@@ -365,6 +367,24 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(treeEditOperation.getExecutedAt()),
     );
     pbOperation.setTreeEdit(pbTreeEditOperation);
+  } else if (operation instanceof TreeStyleOperation) {
+    const treeStyleOperation = operation as TreeStyleOperation;
+    const pbTreeStyleOperation = new PbOperation.TreeStyle();
+    pbTreeStyleOperation.setParentCreatedAt(
+      toTimeTicket(treeStyleOperation.getParentCreatedAt()),
+    );
+    pbTreeStyleOperation.setFrom(toTreePos(treeStyleOperation.getFromPos()));
+    pbTreeStyleOperation.setTo(toTreePos(treeStyleOperation.getToPos()));
+
+    const attributesMap = pbTreeStyleOperation.getAttributesMap();
+
+    for (const [key, value] of treeStyleOperation.getAttributes()) {
+      attributesMap.set(key, value);
+    }
+    pbTreeStyleOperation.setExecutedAt(
+      toTimeTicket(treeStyleOperation.getExecutedAt()),
+    );
+    pbOperation.setTreeStyle(pbTreeStyleOperation);
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -455,13 +475,13 @@ function toTextNodes(
     pbTextNode.setValue(textNode.getValue().getContent());
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
-    const pbTextNodeAttrsMap = pbTextNode.getAttributesMap();
+    const pbNodeAttrsMap = pbTextNode.getAttributesMap();
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
-      const pbTextNodeAttr = new PbTextNodeAttr();
-      pbTextNodeAttr.setValue(attr.getValue());
-      pbTextNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
-      pbTextNodeAttrsMap.set(attr.getKey(), pbTextNodeAttr);
+      const pbNodeAttr = new PbNodeAttr();
+      pbNodeAttr.setValue(attr.getValue());
+      pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+      pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
     }
 
     pbTextNodes.push(pbTextNode);
@@ -488,6 +508,17 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     }
     pbTreeNode.setRemovedAt(toTimeTicket(n.removedAt));
     pbTreeNode.setDepth(depth);
+
+    if (n.attrs) {
+      const pbNodeAttrsMap = pbTreeNode.getAttributesMap();
+      for (const attr of n.attrs) {
+        const pbNodeAttr = new PbNodeAttr();
+        pbNodeAttr.setValue(attr.getValue());
+        pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
+        pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
+      }
+    }
+
     pbTreeNodes.push(pbTreeNode);
   });
 
@@ -877,6 +908,12 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();
+  } else {
+    const attrs = RHT.create();
+    pbTreeNode.getAttributesMap().forEach((value, key) => {
+      attrs.set(key, value.getValue(), fromTimeTicket(value.getUpdatedAt())!);
+    });
+    node.attrs = attrs;
   }
   return node;
 }
@@ -975,6 +1012,20 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTreePos(pbTreeEditOperation!.getTo()!),
         fromTreeNodes(pbTreeEditOperation!.getContentList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
+      );
+    } else if (pbOperation.hasTreeStyle()) {
+      const pbTreeStyleOperation = pbOperation.getTreeStyle();
+      const attributes = new Map();
+
+      pbTreeStyleOperation!.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      operation = TreeStyleOperation.create(
+        fromTimeTicket(pbTreeStyleOperation!.getParentCreatedAt())!,
+        fromTreePos(pbTreeStyleOperation!.getFrom()!),
+        fromTreePos(pbTreeStyleOperation!.getTo()!),
+        attributes,
+        fromTimeTicket(pbTreeStyleOperation!.getExecutedAt())!,
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
@@ -1181,7 +1232,7 @@ function objectToBytes(obj: CRDTObject): Uint8Array {
 }
 
 /**
- * `bytesToTree` creates an JSONArray from the given byte array.
+ * `bytesToTree` creates an CRDTTree from the given bytes.
  */
 function bytesToTree(bytes?: Uint8Array): CRDTTree {
   if (!bytes) {
@@ -1193,10 +1244,28 @@ function bytesToTree(bytes?: Uint8Array): CRDTTree {
 }
 
 /**
- * `treeToBytes` converts the given JSONArray to byte array.
+ * `treeToBytes` converts the given tree to bytes.
  */
 function treeToBytes(tree: CRDTTree): Uint8Array {
   return toTree(tree).serializeBinary();
+}
+
+/**
+ * `treePosToBytes` converts the given CRDTTreePos to byte array.
+ */
+function treePosToBytes(pos: CRDTTreePos): Uint8Array {
+  return toTreePos(pos).serializeBinary();
+}
+
+/**
+ * `bytesToTreePos` creates an CRDTTreePos from the given bytes.
+ */
+function bytesToTreePos(bytes: Uint8Array): CRDTTreePos {
+  if (!bytes) {
+    throw new Error('bytes is empty');
+  }
+  const pbTreePos = PbTreePos.deserializeBinary(bytes);
+  return fromTreePos(pbTreePos);
 }
 
 /**
@@ -1249,4 +1318,6 @@ export const converter = {
   bytesToObject,
   toHexString,
   toUint8Array,
+  bytesToTreePos,
+  treePosToBytes,
 };

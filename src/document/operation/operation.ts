@@ -25,15 +25,17 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
  * It is used to inform to the user what kind of operation was executed.
  */
 export type OperationInfo =
-  | AddOpInfo
-  | IncreaseOpInfo
-  | RemoveOpInfo
-  | SetOpInfo
-  | MoveOpInfo
-  | EditOpInfo
-  | StyleOpInfo
-  | SelectOpInfo
-  | TreeEditOpInfo;
+  | TextOperationInfo
+  | CounterOperationInfo
+  | ArrayOperationInfo
+  | ObjectOperationInfo
+  | TreeOperationInfo;
+
+export type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
+export type CounterOperationInfo = IncreaseOpInfo;
+export type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
+export type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
+export type TreeOperationInfo = TreeEditOpInfo | TreeStyleOpInfo;
 export type AddOpInfo = {
   type: 'add';
   path: string;
@@ -95,6 +97,14 @@ export type TreeEditOpInfo = {
   value: TreeNode;
   path: string;
 };
+export type TreeStyleOpInfo = {
+  type: 'tree-style';
+  from: number;
+  to: number;
+  fromPath: Array<number>;
+  value: { [key: string]: any };
+  path: string;
+};
 
 /**
  * `InternalOpInfo` represents the information of the operation. It is used to
@@ -109,9 +119,9 @@ export type InternalOpInfo =
   | ToInternalOpInfo<EditOpInfo>
   | ToInternalOpInfo<StyleOpInfo>
   | ToInternalOpInfo<SelectOpInfo>
-  | ToInternalOpInfo<TreeEditOpInfo>;
-
-export type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
+  | ToInternalOpInfo<TreeEditOpInfo>
+  | ToInternalOpInfo<TreeStyleOpInfo>;
+type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
   element: TimeTicket;
 };
 

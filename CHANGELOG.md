@@ -7,6 +7,13 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.2] - 2023-06-19
+
+### Added
+* Support for OperationInfo inference on Document.subscribe by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/535
+* Add peer selection display example by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/544
+* Implement Tree.Style and Tree.StyleByPath by @JOOHOJANG, @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/542
+
 ## [0.4.1] - 2023-06-09
 
 ### Changed

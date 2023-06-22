@@ -76,6 +76,18 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | Tree;
 
 /**
+ * `LeafElement` is a leaf element of JSONElement.
+ */
+export type LeafElement = PrimitiveValue | Primitive | Text | Counter | Tree;
+
+/**
+ * `BaseArray` is a base type of JSONArray.
+ */
+export type BaseArray<T> = JSONArray<T> | Array<T>;
+
+export type BaseObject<T> = JSONObject<T> | Record<string, T>;
+
+/**
  * `toWrappedElement` converts the CRDT type to `WrappedElement`.
  */
 export function toWrappedElement(
