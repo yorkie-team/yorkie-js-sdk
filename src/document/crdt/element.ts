@@ -130,9 +130,9 @@ export abstract class CRDTContainer extends CRDTElement {
 }
 
 /**
- * `CRDTTextElement` represents CRDTText.
+ * `CRDTGarbageCollectionElement` represents element which has garbage collecting method.
  */
-export abstract class CRDTTextElement extends CRDTElement {
+export abstract class CRDTGarbageCollectionElement extends CRDTElement {
   abstract getRemovedNodesLen(): number;
-  abstract purgeTextNodesWithGarbage(ticket: TimeTicket): number;
+  abstract purgeNodesWithGarbage(ticket: TimeTicket): number;
 }

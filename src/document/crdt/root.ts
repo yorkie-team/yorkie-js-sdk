@@ -22,7 +22,7 @@ import {
 import {
   CRDTContainer,
   CRDTElement,
-  CRDTTextElement,
+  CRDTGarbageCollectionElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTTree, CRDTTreeNode } from './tree';
@@ -150,14 +150,14 @@ export class CRDTRoot {
   /**
    * `registerTextWithGarbage` registers the given text to hash set.
    */
-  public registerTextWithGarbage(text: CRDTTextElement): void {
+  public registerTextWithGarbage(text: CRDTGarbageCollectionElement): void {
     this.textWithGarbageSetByCreatedAt.add(text.getCreatedAt().toIDString());
   }
 
   /**
    * `registerTreeWithGarbage` registers the given tree to hash set.
    */
-  public registerTreeWithGarbage(tree: CRDTTree): void {
+  public registerTreeWithGarbage(tree: CRDTGarbageCollectionElement): void {
     this.treeWithGarbageSetByCreatedAt.add(tree.getCreatedAt().toIDString());
   }
 
@@ -201,13 +201,13 @@ export class CRDTRoot {
 
     for (const createdAt of this.textWithGarbageSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const text = pair.element as CRDTTextElement;
+      const text = pair.element as CRDTGarbageCollectionElement;
       count += text.getRemovedNodesLen();
     }
 
     for (const createdAt of this.treeWithGarbageSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const tree = pair.element as CRDTTextElement;
+      const tree = pair.element as CRDTGarbageCollectionElement;
       count += tree.getRemovedNodesLen();
     }
 
@@ -240,9 +240,9 @@ export class CRDTRoot {
 
     for (const createdAt of this.treeWithGarbageSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const tree = pair.element as CRDTTree;
+      const tree = pair.element as CRDTGarbageCollectionElement;
 
-      const removedNodeCnt = tree.purgeTreeNodesWithGarbage(ticket);
+      const removedNodeCnt = tree.purgeNodesWithGarbage(ticket);
       if (removedNodeCnt > 0) {
         this.treeWithGarbageSetByCreatedAt.delete(
           tree.getCreatedAt().toIDString(),
@@ -254,9 +254,9 @@ export class CRDTRoot {
 
     for (const createdAt of this.textWithGarbageSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const text = pair.element as CRDTTextElement;
+      const text = pair.element as CRDTGarbageCollectionElement;
 
-      const removedNodeCnt = text.purgeTextNodesWithGarbage(ticket);
+      const removedNodeCnt = text.purgeNodesWithGarbage(ticket);
       if (removedNodeCnt > 0) {
         this.textWithGarbageSetByCreatedAt.delete(
           text.getCreatedAt().toIDString(),
