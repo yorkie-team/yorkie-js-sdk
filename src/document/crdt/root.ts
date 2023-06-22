@@ -25,7 +25,6 @@ import {
   CRDTGarbageCollectionElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { CRDTTree, CRDTTreeNode } from './tree';
 
 interface CRDTElementPair {
   element: CRDTElement;
