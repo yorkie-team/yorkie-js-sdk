@@ -32,7 +32,7 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
  *
  * @internal
  */
-export enum TextChangeType {
+enum TextChangeType {
   Content = 'content',
   Selection = 'selection',
   Style = 'style',
@@ -48,11 +48,10 @@ export interface TextValueType<A> {
 }
 
 /**
- * `TextChange` is the value passed as an argument to `Document.subscribe()`.
- * `Document.subscribe()` is called when the `Text` is modified.
+ * `TextChange` represents the changes to the text
+ * when executing the edit, setstyle, and select methods.
  */
-export interface TextChange<A = Indexable>
-  extends ValueChange<TextValueType<A>> {
+interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
 }
 
