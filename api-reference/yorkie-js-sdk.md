@@ -43,9 +43,7 @@
 |  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from the server. |
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
 |  [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md) | <code>StreamConnectionStatusChangedEvent</code> is an event that occurs when the client's stream connection state changes. |
-|  [TextChange](./yorkie-js-sdk.textchange.md) | <code>TextChange</code> is the value passed as an argument to <code>Document.subscribe()</code>. <code>Document.subscribe()</code> is called when the <code>Text</code> is modified. |
 |  [TreeChange](./yorkie-js-sdk.treechange.md) | <code>TreeChange</code> represents the change in the tree. |
-|  [ValueChange](./yorkie-js-sdk.valuechange.md) |  |
 
 ## Variables
 
