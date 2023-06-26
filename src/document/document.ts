@@ -972,54 +972,58 @@ export class Document<T, P extends Indexable> {
     }
 
     for (const change of changes) {
+      const updates: {
+        changeInfo?: ChangeInfo;
+        peer?: PeersChangedValue<P>;
+      } = {};
       const actorID = change.getID().getActorID()!;
       if (change.hasOperations()) {
         const inernalOpInfos = change.execute(this.root);
-        this.publish({
-          type: DocEventType.RemoteChange,
-          value: {
-            actor: actorID,
-            message: change.getMessage() || '',
-            operations: inernalOpInfos.map((opInfo) =>
-              this.toOperationInfo(opInfo),
-            ),
-          },
-        });
+        updates.changeInfo = {
+          actor: actorID,
+          message: change.getMessage() || '',
+          operations: inernalOpInfos.map((opInfo) =>
+            this.toOperationInfo(opInfo),
+          ),
+        };
       }
-
       if (change.hasPresenceInfo()) {
         if (this.watchedPeerMap.get(actorID) === false) {
           this.watchedPeerMap.set(actorID, true);
           this.setPresenceInfo(actorID, change.getPresenceInfo()!);
-          this.publish({
-            type: DocEventType.PeersChanged,
-            value: {
-              type: PeersChangedEventType.Watched,
-              peer: {
-                clientID: actorID,
-                presence: this.getPeerPresence(actorID)!,
-              },
+          updates.peer = {
+            type: PeersChangedEventType.Watched,
+            peer: {
+              clientID: actorID,
+              presence: this.getPeerPresence(actorID)!,
             },
-          });
+          };
         } else {
           const isUpdated = this.setPresenceInfo(
             actorID,
             change.getPresenceInfo()!,
           );
           if (isUpdated && this.watchedPeerMap.get(actorID)) {
-            this.publish({
-              type: DocEventType.PeersChanged,
-              value: {
-                type: PeersChangedEventType.PresenceChanged,
-                peer: {
-                  clientID: actorID,
-                  presence: this.getPeerPresence(actorID)!,
-                },
+            updates.peer = {
+              type: PeersChangedEventType.PresenceChanged,
+              peer: {
+                clientID: actorID,
+                presence: this.getPeerPresence(actorID)!,
               },
-            });
+            };
           }
         }
       }
+      updates.changeInfo &&
+        this.publish({
+          type: DocEventType.RemoteChange,
+          value: updates.changeInfo,
+        });
+      updates.peer &&
+        this.publish({
+          type: DocEventType.PeersChanged,
+          value: updates.peer,
+        });
 
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
