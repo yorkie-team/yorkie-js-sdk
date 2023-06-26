@@ -303,6 +303,13 @@ export class Tree {
       ),
     );
 
+    if (
+      !fromPos.createdAt.equals(toPos.createdAt) ||
+      fromPos.offset !== toPos.offset
+    ) {
+      this.context.registerElementHasRemovedNodes(this.tree!);
+    }
+
     return true;
   }
 
@@ -332,6 +339,13 @@ export class Tree {
         ticket,
       ),
     );
+
+    if (
+      !fromPos.createdAt.equals(toPos.createdAt) ||
+      fromPos.offset !== toPos.offset
+    ) {
+      this.context.registerElementHasRemovedNodes(this.tree!);
+    }
 
     return true;
   }

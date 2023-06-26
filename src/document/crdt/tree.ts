@@ -18,7 +18,7 @@ import {
   TimeTicket,
   InitialTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   IndexTree,
   TreePos,
@@ -256,6 +256,13 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       this.type,
     );
   }
+
+  /**
+   * `getCreatedAt` returns the creation time of this element.
+   */
+  public getCreatedAt(): TimeTicket {
+    return this.pos.createdAt;
+  }
 }
 
 /**
@@ -318,16 +325,18 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 /**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
-export class CRDTTree extends CRDTElement {
+export class CRDTTree extends CRDTGCElement {
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
+  private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.dummyHead = new CRDTTreeNode(InitialCRDTTreePos, DummyHeadType);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByPos = new LLRBTree(compareCRDTTreePos);
+    this.removedNodeMap = new Map();
 
     let previous = this.dummyHead;
     this.indexTree.traverse((node) => {
@@ -546,6 +555,13 @@ export class CRDTTree extends CRDTElement {
       const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
       for (const node of toBeRemoveds) {
         node.remove(editedAt);
+
+        if (node.isRemoved) {
+          this.removedNodeMap.set(
+            `${node.getCreatedAt().getStructureAsString()}:${node.pos.offset}`,
+            node,
+          );
+        }
       }
 
       // move the alive children of the removed element node
@@ -634,6 +650,64 @@ export class CRDTTree extends CRDTElement {
   }
 
   /**
+   * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
+   */
+  public purgeRemovedNodesBefore(ticket: TimeTicket) {
+    const nodesToRemoved = new Set<CRDTTreeNode>();
+    let count = 0;
+
+    for (const [, node] of this.removedNodeMap) {
+      if (node.removedAt && ticket.compare(node.removedAt!) >= 0) {
+        nodesToRemoved.add(node);
+        count++;
+      }
+    }
+
+    this.indexTree.traverse((treeNode) => {
+      if (nodesToRemoved.has(treeNode)) {
+        const parent = treeNode.parent;
+
+        if (!parent) {
+          nodesToRemoved.delete(treeNode);
+          count--;
+          return;
+        }
+
+        parent.removeChild(treeNode);
+      }
+    });
+
+    [...nodesToRemoved].forEach((node) => {
+      this.nodeMapByPos.remove(node.pos);
+      this.purge(node);
+      this.removedNodeMap.delete(
+        `${node.getCreatedAt().getStructureAsString()}:${node.pos.offset}`,
+      );
+    });
+
+    return count;
+  }
+
+  /**
+   * `purge` physically purges the given node from RGATreeSplit.
+   */
+  public purge(node: CRDTTreeNode): void {
+    const prev = node.prev;
+    const next = node.next;
+
+    if (prev) {
+      prev.next = next;
+    }
+    if (next) {
+      next.prev = prev;
+    }
+
+    node.prev = undefined;
+    node.next = undefined;
+    node.insPrev = undefined;
+  }
+
+  /**
    * `findPos` finds the position of the given index in the tree.
    */
   public findPos(index: number, preferText = true): CRDTTreePos {
@@ -643,6 +717,13 @@ export class CRDTTree extends CRDTElement {
       createdAt: treePos.node.pos.createdAt,
       offset: treePos.node.pos.offset + treePos.offset,
     };
+  }
+
+  /**
+   * `getRemovedNodesLen` returns size of removed nodes.
+   */
+  public getRemovedNodesLen(): number {
+    return this.removedNodeMap.size;
   }
 
   /**

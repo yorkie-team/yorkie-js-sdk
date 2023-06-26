@@ -96,7 +96,7 @@ export class EditOperation extends Operation {
       this.maxCreatedAtMapByActor,
     )[1];
     if (!this.fromPos.equals(this.toPos)) {
-      root.registerTextWithGarbage(text);
+      root.registerElementHasRemovedNodes(text);
     }
     return changes.map(({ type, from, to, value }) => {
       return type === 'content'

@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import yorkie from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -171,6 +171,147 @@ describe('Garbage Collection', function () {
 
     const empty = 0;
     assert.equal(empty, doc.getGarbageLen());
+  });
+
+  it('garbage collection test for tree', function () {
+    const doc = new yorkie.Document<{ t: Tree }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [
+                  { type: 'text', value: 'a' },
+                  { type: 'text', value: 'b' },
+                ],
+              },
+              { type: 'tn', children: [{ type: 'text', value: 'cd' }] },
+            ],
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'gh' });
+      assert.equal(root.t.toXML(), `<doc><p><tn>gh</tn><tn>cd</tn></p></doc>`);
+    });
+
+    // [text(a), text(b)]
+    assert.equal(doc.getGarbageLen(), 2);
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 2);
+    assert.equal(doc.getGarbageLen(), 0);
+
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'cv' });
+      assert.equal(root.t.toXML(), `<doc><p><tn>cv</tn><tn>cd</tn></p></doc>`);
+    });
+
+    // [text(cd)]
+    assert.equal(doc.getGarbageLen(), 1);
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 1);
+    assert.equal(doc.getGarbageLen(), 0);
+
+    doc.update((root) => {
+      root.t.editByPath([0], [1], {
+        type: 'p',
+        children: [{ type: 'tn', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), `<doc><p><tn>ab</tn></p></doc>`);
+    });
+
+    // [p, tn, tn, text(cv), text(cd)]
+    assert.equal(doc.getGarbageLen(), 5);
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 5);
+    assert.equal(doc.getGarbageLen(), 0);
+  });
+
+  it('Can handle tree garbage collection for multi client', async function () {
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<{ t: Tree }>(docKey);
+    const doc2 = new yorkie.Document<{ t: Tree }>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1);
+    await client2.attach(doc2);
+
+    doc1.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [
+                  { type: 'text', value: 'a' },
+                  { type: 'text', value: 'b' },
+                ],
+              },
+              { type: 'tn', children: [{ type: 'text', value: 'cd' }] },
+            ],
+          },
+        ],
+      });
+    });
+
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(0, doc2.getGarbageLen());
+
+    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
+    await client1.sync();
+
+    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
+    await client2.sync();
+
+    doc2.update((root) => {
+      root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'gh' });
+    }, 'removes 2');
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(2, doc2.getGarbageLen());
+
+    // (1, 1) -> (1, 2): syncedseqs:(0, 1)
+    await client2.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(2, doc2.getGarbageLen());
+
+    // (1, 2) -> (2, 2): syncedseqs:(1, 1)
+    await client1.sync();
+    assert.equal(2, doc1.getGarbageLen());
+    assert.equal(2, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(1, 2)
+    await client2.sync();
+    assert.equal(2, doc1.getGarbageLen());
+    assert.equal(2, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
+    await client1.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(2, doc2.getGarbageLen());
+
+    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
+    await client2.sync();
+    assert.equal(0, doc1.getGarbageLen());
+    assert.equal(0, doc2.getGarbageLen());
+
+    await client1.detach(doc1);
+    await client2.detach(doc2);
+
+    await client1.deactivate();
+    await client2.deactivate();
   });
 
   it('Can handle garbage collection for container type', async function () {
