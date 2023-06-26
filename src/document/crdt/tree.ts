@@ -18,7 +18,7 @@ import {
   TimeTicket,
   InitialTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTGarbageCollectionElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   IndexTree,
   TreePos,
@@ -325,7 +325,7 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 /**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
-export class CRDTTree extends CRDTGarbageCollectionElement {
+export class CRDTTree extends CRDTGCElement {
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
@@ -650,9 +650,9 @@ export class CRDTTree extends CRDTGarbageCollectionElement {
   }
 
   /**
-   * `purgeNodesWithGarbage` physically purges nodes that have been removed.
+   * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
    */
-  public purgeNodesWithGarbage(ticket: TimeTicket) {
+  public purgeRemovedNodesBefore(ticket: TimeTicket) {
     const nodesToRemoved = new Set<CRDTTreeNode>();
     let count = 0;
 

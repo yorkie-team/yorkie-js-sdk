@@ -928,9 +928,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `purgeNodesWithGarbage` physically purges nodes that have been removed.
+   * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
    */
-  public purgeNodesWithGarbage(ticket: TimeTicket): number {
+  public purgeRemovedNodesBefore(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
       if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {

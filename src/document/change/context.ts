@@ -22,12 +22,11 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTContainer,
   CRDTElement,
-  CRDTGarbageCollectionElement,
+  CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
-import { CRDTTree } from '../crdt/tree';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -82,21 +81,11 @@ export class ChangeContext {
   }
 
   /**
-   * `registerRemovedNodeTextElement` register text element has removed node for
+   * `registerElementHasRemovedNodes` register GC element has removed node for
    * garbage collection.
    */
-  public registerRemovedNodeTextElement(
-    text: CRDTGarbageCollectionElement,
-  ): void {
-    this.root.registerTextWithGarbage(text);
-  }
-
-  /**
-   * `registerRemovedNodeTreeElement` register text element has removed node for
-   * garbage collection.
-   */
-  public registerRemovedNodeTreeElement(tree: CRDTTree): void {
-    this.root.registerTreeWithGarbage(tree);
+  public registerElementHasRemovedNodes(elem: CRDTGCElement): void {
+    this.root.registerElementHasRemovedNodes(elem);
   }
 
   /**

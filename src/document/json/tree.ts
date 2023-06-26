@@ -307,7 +307,7 @@ export class Tree {
       !fromPos.createdAt.equals(toPos.createdAt) ||
       fromPos.offset !== toPos.offset
     ) {
-      this.context.registerRemovedNodeTreeElement(this.tree!);
+      this.context.registerElementHasRemovedNodes(this.tree!);
     }
 
     return true;
@@ -344,7 +344,7 @@ export class Tree {
       !fromPos.createdAt.equals(toPos.createdAt) ||
       fromPos.offset !== toPos.offset
     ) {
-      this.context.registerRemovedNodeTreeElement(this.tree!);
+      this.context.registerElementHasRemovedNodes(this.tree!);
     }
 
     return true;

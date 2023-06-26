@@ -89,7 +89,7 @@ export class TreeEditOperation extends Operation {
       !this.fromPos.createdAt.equals(this.toPos.createdAt) ||
       this.fromPos.offset !== this.toPos.offset
     ) {
-      root.registerTreeWithGarbage(tree);
+      root.registerElementHasRemovedNodes(tree);
     }
     return changes.map(({ from, to, value, fromPath, toPath }) => {
       return {

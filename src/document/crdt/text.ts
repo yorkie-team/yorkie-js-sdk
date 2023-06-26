@@ -17,7 +17,7 @@
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
-import { CRDTGarbageCollectionElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNodeRange,
@@ -161,9 +161,7 @@ export class CRDTTextValue {
  *
  * @internal
  */
-export class CRDTText<
-  A extends Indexable = Indexable,
-> extends CRDTGarbageCollectionElement {
+export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
   private selectionMap: Map<string, Selection>;
 
@@ -397,12 +395,12 @@ export class CRDTText<
   }
 
   /**
-   * `purgeNodesWithGarbage` physically purges nodes that have been removed.
+   * `purgeRemovedNodesBefore` purges removed nodes before the given time.
    *
    * @internal
    */
-  public purgeNodesWithGarbage(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.purgeNodesWithGarbage(ticket);
+  public purgeRemovedNodesBefore(ticket: TimeTicket): number {
+    return this.rgaTreeSplit.purgeRemovedNodesBefore(ticket);
   }
 
   /**
