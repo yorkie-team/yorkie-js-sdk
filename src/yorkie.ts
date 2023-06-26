@@ -58,10 +58,6 @@ export {
 } from '@yorkie-js-sdk/src/util/observable';
 export { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-export {
-  TextChange,
-  TextChangeType,
-} from '@yorkie-js-sdk/src/document/crdt/text';
 export type {
   OperationInfo,
   AddOpInfo,
@@ -74,9 +70,6 @@ export type {
   SelectOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
-// TODO(hackerwins): ValueChange is missing in TextChange in the index.d.ts file
-// if not exported. We need to find a way to handle this without exporting the below.
-export { ValueChange } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 export {
   TreeChange,
   TreeChangeType,
