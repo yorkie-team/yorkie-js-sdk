@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
@@ -150,13 +149,6 @@ export abstract class Operation {
    */
   public getExecutedAt(): TimeTicket {
     return this.executedAt;
-  }
-
-  /**
-   * `setActor` sets the given actor to this operation.
-   */
-  public setActor(actorID: ActorID): void {
-    this.executedAt = this.executedAt.setActor(actorID);
   }
 
   /**

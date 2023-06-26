@@ -85,10 +85,8 @@ function createTwoTreeDocs<T extends { t: Tree }>(
   key: string,
   initial: ElementNode,
 ): [Document<T, Indexable>, Document<T, Indexable>] {
-  const doc1 = createTestDocument<T>(key);
-  const doc2 = createTestDocument<T>(key);
-  doc1.setActor('A');
-  doc2.setActor('B');
+  const doc1 = createTestDocument<T>(key, 'A');
+  const doc2 = createTestDocument<T>(key, 'B');
 
   doc1.update((root) => (root.t = new Tree(initial)));
   doc2.applyChangePack(createChangePack(doc1));

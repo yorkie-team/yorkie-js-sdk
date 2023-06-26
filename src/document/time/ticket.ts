@@ -99,13 +99,6 @@ export class TimeTicket {
   }
 
   /**
-   * `setActor` creates a new instance of Ticket with the given actorID.
-   */
-  public setActor(actorID: ActorID): TimeTicket {
-    return new TimeTicket(this.lamport, this.delimiter, actorID);
-  }
-
-  /**
    * `getLamportAsString` returns the lamport string.
    */
   public getLamportAsString(): string {

@@ -811,21 +811,6 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
-   * `setActor` sets actor into this document. This is also applied in the local
-   * changes the document has.
-   *
-   * @internal
-   */
-  public setActor(actorID: ActorID): void {
-    for (const change of this.localChanges) {
-      change.setActor(actorID);
-    }
-    this.changeID = this.changeID.setActor(actorID);
-
-    // TODO also apply into root.
-  }
-
-  /**
    * `getKey` returns the key of this document.
    *
    * @internal

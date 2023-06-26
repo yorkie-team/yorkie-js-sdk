@@ -78,13 +78,6 @@ export class ChangeID {
   }
 
   /**
-   * `setActor` sets the given actor.
-   */
-  public setActor(actorID: ActorID): ChangeID {
-    return new ChangeID(this.clientSeq, this.lamport, actorID);
-  }
-
-  /**
    * `getClientSeq` returns the client sequence of this ID.
    */
   public getClientSeq(): number {

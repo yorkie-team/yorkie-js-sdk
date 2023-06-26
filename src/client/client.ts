@@ -699,7 +699,6 @@ export class Client implements Observable<ClientEvent> {
         `${doc.getKey()} is not attached`,
       );
     }
-    doc.setActor(this.id!);
     return new Promise((resolve, reject) => {
       const req = new RemoveDocumentRequest();
       req.setClientId(converter.toUint8Array(this.id!));

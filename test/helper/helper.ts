@@ -98,8 +98,9 @@ export async function assertThrowsAsync(
 
 export function createTestDocument<T, P extends Indexable = Indexable>(
   docKey: string,
+  actorID?: string,
 ): Document<T, P> {
-  return Document.create<T, P>(docKey, InitialActorID);
+  return Document.create<T, P>(docKey, actorID || InitialActorID);
 }
 
 /**

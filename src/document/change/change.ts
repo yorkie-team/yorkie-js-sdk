@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
   Operation,
   InternalOpInfo,
@@ -112,17 +111,6 @@ export class Change<P extends Indexable> {
    */
   public getPresenceInfo(): PresenceInfo<P> | undefined {
     return this.presenceInfo;
-  }
-
-  /**
-   * `setActor` sets the given actor.
-   */
-  public setActor(actorID: ActorID): void {
-    for (const operation of this.operations) {
-      operation.setActor(actorID);
-    }
-
-    this.id = this.id.setActor(actorID);
   }
 
   /**
