@@ -105,7 +105,7 @@ export class Text<A extends Indexable = Indexable> {
     );
 
     if (!range[0].equals(range[1])) {
-      this.context.registerRemovedNodeTextElement(this.text);
+      this.context.registerElementHasRemovedNodes(this.text);
     }
 
     return selectionChange;
