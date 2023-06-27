@@ -18,7 +18,7 @@ import {
   TimeTicket,
   InitialDelimiter,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Indexable, PresenceInfo } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTContainer,
@@ -38,7 +38,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   private id: ChangeID;
   private root: CRDTRoot;
   private operations: Array<Operation>;
-  private presenceInfo: PresenceInfo<P> | undefined;
+  private presence: P | undefined;
   private message?: string;
   private delimiter: number;
 
@@ -47,7 +47,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
     this.root = root;
     this.message = message;
     this.operations = [];
-    this.presenceInfo = undefined;
+    this.presence = undefined;
     this.delimiter = InitialDelimiter;
   }
 
@@ -98,7 +98,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
     return Change.create({
       id: this.id,
       operations: this.operations,
-      presenceInfo: this.presenceInfo,
+      presence: this.presence,
       message: this.message,
     });
   }
@@ -118,17 +118,17 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
-   * `hasPresence` returns whether this context has presenceInfo or not.
+   * `hasPresence` returns whether this context has presence or not.
    */
   public hasPresence(): boolean {
-    return this.presenceInfo !== undefined;
+    return this.presence !== undefined;
   }
 
   /**
-   * `setPresence` registers the updated presenceInfo to this context.
+   * `setPresence` registers the updated presence to this context.
    */
-  public setPresence(presenceInfo: PresenceInfo<P>) {
-    this.presenceInfo = presenceInfo;
+  public setPresence(presence: P) {
+    this.presence = presence;
   }
 
   /**

@@ -11407,7 +11407,6 @@ proto.yorkie.v1.PresenceInfo.prototype.toObject = function(opt_includeInstance) 
  */
 proto.yorkie.v1.PresenceInfo.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clock: jspb.Message.getFieldWithDefault(msg, 1, 0),
     dataMap: (f = msg.getDataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
@@ -11446,10 +11445,6 @@ proto.yorkie.v1.PresenceInfo.deserializeBinaryFromReader = function(msg, reader)
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readInt32());
-      msg.setClock(value);
-      break;
-    case 2:
       var value = msg.getDataMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
@@ -11484,47 +11479,22 @@ proto.yorkie.v1.PresenceInfo.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.PresenceInfo.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClock();
-  if (f !== 0) {
-    writer.writeInt32(
-      1,
-      f
-    );
-  }
   f = message.getDataMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(2, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
 
 /**
- * optional int32 clock = 1;
- * @return {number}
- */
-proto.yorkie.v1.PresenceInfo.prototype.getClock = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.yorkie.v1.PresenceInfo} returns this
- */
-proto.yorkie.v1.PresenceInfo.prototype.setClock = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
-};
-
-
-/**
- * map<string, string> data = 2;
+ * map<string, string> data = 1;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,string>}
  */
 proto.yorkie.v1.PresenceInfo.prototype.getDataMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,string>} */ (
-      jspb.Message.getMapField(this, 2, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
       null));
 };
 

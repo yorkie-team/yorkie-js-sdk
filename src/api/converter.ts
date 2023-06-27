@@ -16,7 +16,7 @@
 
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { PresenceInfo, Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -57,7 +57,7 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
-  PresenceInfo as PbPresenceInfo,
+  PresenceInfo as PbPresence,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -86,16 +86,15 @@ import {
 import { traverse } from '@yorkie-js-sdk/src/util/index_tree';
 
 /**
- * `toPresenceInfo` converts the given model to Protobuf format.
+ * `toPresence` converts the given model to Protobuf format.
  */
-function toPresenceInfo(presenceInfo: PresenceInfo<Indexable>): PbPresenceInfo {
-  const pbPresenceInfo = new PbPresenceInfo();
-  pbPresenceInfo.setClock(presenceInfo.clock);
-  const pbDataMap = pbPresenceInfo.getDataMap();
-  for (const [key, value] of Object.entries(presenceInfo.data)) {
+function toPresence(presence: Indexable): PbPresence {
+  const pbPresence = new PbPresence();
+  const pbDataMap = pbPresence.getDataMap();
+  for (const [key, value] of Object.entries(presence)) {
     pbDataMap.set(key, JSON.stringify(value));
   }
-  return pbPresenceInfo;
+  return pbPresence;
 }
 
 /**
@@ -413,8 +412,8 @@ function toChange(change: Change<Indexable>): PbChange {
   if (change.hasOperations()) {
     pbChange.setOperationsList(toOperations(change.getOperations()));
   }
-  if (change.hasPresenceInfo()) {
-    pbChange.setPresence(toPresenceInfo(change.getPresenceInfo()!));
+  if (change.hasPresence()) {
+    pbChange.setPresence(toPresence(change.getPresence()!));
   }
   return pbChange;
 }
@@ -814,20 +813,15 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
 }
 
 /**
- * `fromPresenceInfo` converts the given Protobuf format to model format.
+ * `fromPresence` converts the given Protobuf format to model format.
  */
-function fromPresenceInfo<P extends Indexable>(
-  pbPresence: PbPresenceInfo,
-): PresenceInfo<P> {
+function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
   const data: Record<string, string> = {};
   pbPresence.getDataMap().forEach((value: string, key: string) => {
     data[key] = JSON.parse(value);
   });
 
-  return {
-    clock: pbPresence.getClock(),
-    data: data as P,
-  };
+  return data as P;
 }
 
 /**
@@ -835,25 +829,17 @@ function fromPresenceInfo<P extends Indexable>(
  */
 function fromSnapshotPresence<P extends Indexable>(
   pbSnapshotPresence: string,
-): Map<ActorID, PresenceInfo<P>> {
+): Map<ActorID, P> {
   const snapshotPresence = JSON.parse(pbSnapshotPresence) as {
-    [actorID: string]: {
-      Clock: number;
-      Presence: P;
-    };
+    [actorID: string]: P;
   };
-  const presenceMap = new Map<ActorID, PresenceInfo<P>>();
-  for (const [actorID, pbPresenceInfo] of Object.entries(snapshotPresence)) {
+  const presenceMap = new Map<ActorID, P>();
+  for (const [actorID, pbPresence] of Object.entries(snapshotPresence)) {
     const presence = {} as P;
-    if (pbPresenceInfo.Presence) {
-      for (const [key, value] of Object.entries(pbPresenceInfo.Presence)) {
-        presence[key as keyof P] = JSON.parse(value as string);
-      }
+    for (const [key, value] of Object.entries(pbPresence)) {
+      presence[key as keyof P] = JSON.parse(value as string);
     }
-    presenceMap.set(actorID, {
-      clock: pbPresenceInfo.Clock,
-      data: presence,
-    });
+    presenceMap.set(actorID, presence);
   }
   return presenceMap;
 }
@@ -1047,11 +1033,11 @@ function fromChanges<P extends Indexable>(
 
   for (const pbChange of pbChanges) {
     changes.push(
-      Change.create({
+      Change.create<P>({
         id: fromChangeID(pbChange.getId()!),
         operations: fromOperations(pbChange.getOperationsList()),
-        presenceInfo: pbChange.hasPresence()
-          ? fromPresenceInfo<P>(pbChange.getPresence()!)
+        presence: pbChange.hasPresence()
+          ? fromPresence<P>(pbChange.getPresence()!)
           : undefined,
         message: pbChange.getMessage(),
       }),
@@ -1309,7 +1295,7 @@ function toUint8Array(hex: string): Uint8Array {
  * is also used to convert models to bytes and vice versa.
  */
 export const converter = {
-  fromPresenceInfo,
+  fromPresence,
   fromSnapshotPresence,
   toChangePack,
   fromChangePack,

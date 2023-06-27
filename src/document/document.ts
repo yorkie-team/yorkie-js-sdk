@@ -238,14 +238,6 @@ export interface PeersChangedEvent<P extends Indexable> extends BaseDocEvent {
 export type Indexable = Record<string, any>;
 
 /**
- * `PresenceInfo` is presence information of peer.
- */
-export type PresenceInfo<P extends Indexable> = {
-  clock: number;
-  data: P;
-};
-
-/**
  * Document key type
  * @public
  */
@@ -409,7 +401,7 @@ export class Document<T, P extends Indexable> {
    * if the presence of the peer is stored in `peerPresenceMap`.
    */
   private watchedPeerMap: Map<ActorID, boolean>;
-  private peerPresenceMap: Map<ActorID, PresenceInfo<P> | undefined>;
+  private peerPresenceMap: Map<ActorID, P>;
 
   private changeContext: ChangeContext<P> | undefined;
 
@@ -521,7 +513,7 @@ export class Document<T, P extends Indexable> {
       });
     }
 
-    if (change.hasPresenceInfo()) {
+    if (change.hasPresence()) {
       this.publish({
         type: DocEventType.PeersChanged,
         value: {
@@ -547,9 +539,8 @@ export class Document<T, P extends Indexable> {
    */
   public updatePresence(presence: Partial<P>) {
     const myPresence = this.peerPresenceMap.get(this.myClientID)!;
-    myPresence.clock += 1;
     for (const [key, value] of Object.entries(presence)) {
-      myPresence.data[key as keyof P] = value;
+      myPresence[key as keyof P] = value as any;
     }
 
     if (this.changeContext) {
@@ -582,15 +573,11 @@ export class Document<T, P extends Indexable> {
    * `initPresence` initializes the presence of the client who created this document.
    */
   public initPresence(presence: P) {
-    const initPresenceInfo = {
-      clock: 0,
-      data: presence,
-    };
-    this.peerPresenceMap.set(this.myClientID, cloneDeep(initPresenceInfo));
+    this.peerPresenceMap.set(this.myClientID, cloneDeep(presence));
     this.watchedPeerMap.set(this.myClientID, true);
 
     const context = ChangeContext.create<P>(this.changeID.next(), this.clone!);
-    context.setPresence(cloneDeep(initPresenceInfo));
+    context.setPresence(cloneDeep(presence));
     const change = context.getChange();
     this.localChanges.push(change);
     this.changeID = change.getID();
@@ -983,23 +970,21 @@ export class Document<T, P extends Indexable> {
           ),
         };
       }
-      if (change.hasPresenceInfo()) {
-        if (this.watchedPeerMap.get(actorID) === false) {
-          this.watchedPeerMap.set(actorID, true);
-          this.setPresenceInfo(actorID, change.getPresenceInfo()!);
-          updates.peer = {
-            type: PeersChangedEventType.Watched,
-            peer: {
-              clientID: actorID,
-              presence: this.getPeerPresence(actorID)!,
-            },
-          };
-        } else {
-          const isUpdated = this.setPresenceInfo(
-            actorID,
-            change.getPresenceInfo()!,
-          );
-          if (isUpdated && this.watchedPeerMap.get(actorID)) {
+
+      if (change.hasPresence()) {
+        this.setPresence(actorID, change.getPresence()!);
+
+        if (this.watchedPeerMap.has(actorID)) {
+          if (this.watchedPeerMap.get(actorID) === false) {
+            this.watchedPeerMap.set(actorID, true);
+            updates.peer = {
+              type: PeersChangedEventType.Watched,
+              peer: {
+                clientID: actorID,
+                presence: this.getPeerPresence(actorID)!,
+              },
+            };
+          } else {
             updates.peer = {
               type: PeersChangedEventType.PresenceChanged,
               peer: {
@@ -1063,51 +1048,24 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
-   * `setPresenceInfo` sets the presence information of the client.
+   * `setPresence` sets the presence of the client.
    */
-  public setPresenceInfo(
-    clientID: ActorID,
-    presenceInfo: PresenceInfo<P>,
-  ): boolean {
-    if (
-      this.peerPresenceMap.has(clientID) &&
-      this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
-    ) {
-      return false;
-    }
-
-    this.peerPresenceMap.set(clientID, presenceInfo);
-    return true;
+  public setPresence(clientID: ActorID, presence: P) {
+    this.peerPresenceMap.set(clientID, presence);
   }
 
   /**
-   * `getPresenceInfo` returns the presence information of the client.
+   * `hasPresence` returns whether the peer presence exists regardless of
+   *  whether the client is watching the document or not.
    */
-  public getPresenceInfo(clientID: ActorID): PresenceInfo<P> {
-    if (!this.peerPresenceMap.has(clientID)) {
-      throw new Error(`There is no peer with the ID ${clientID}`);
-    }
-    return this.peerPresenceMap.get(clientID)!;
-  }
-
-  /**
-   * `removePresenceInfo` removes the presence information of the client.
-   */
-  public removePresenceInfo(clientID: ActorID): void {
-    this.peerPresenceMap.delete(clientID);
-  }
-
-  /**
-   * `hasPresenceInfo` returns whether the peer presence exists.
-   */
-  public hasPresenceInfo(clientID: ActorID): boolean {
+  public hasPresence(clientID: ActorID): boolean {
     return this.peerPresenceMap.has(clientID);
   }
 
   /**
    * `setPeerPresenceMap` sets the peer presence map.
    */
-  public setPeerPresenceMap(peerPresenceMap: Map<ActorID, PresenceInfo<P>>) {
+  public setPeerPresenceMap(peerPresenceMap: Map<ActorID, P>) {
     this.peerPresenceMap = peerPresenceMap;
   }
 
@@ -1136,7 +1094,7 @@ export class Document<T, P extends Indexable> {
    * `getPresence` returns the presence of the client who created this document.
    */
   public getPresence(): P {
-    return this.peerPresenceMap.get(this.myClientID)!.data;
+    return this.peerPresenceMap.get(this.myClientID)!;
   }
 
   /**
@@ -1146,7 +1104,7 @@ export class Document<T, P extends Indexable> {
     if (!this.watchedPeerMap.get(clientID)) {
       return undefined;
     }
-    return this.peerPresenceMap.get(clientID)?.data;
+    return this.peerPresenceMap.get(clientID);
   }
 
   /**
@@ -1158,7 +1116,7 @@ export class Document<T, P extends Indexable> {
       if (!hasPresence) continue;
       peers.push({
         clientID,
-        presence: this.peerPresenceMap.get(clientID)!.data,
+        presence: this.peerPresenceMap.get(clientID)!,
       });
     }
     return peers;

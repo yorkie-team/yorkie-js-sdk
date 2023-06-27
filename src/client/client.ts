@@ -885,7 +885,7 @@ export class Client implements Observable<ClientEvent> {
         });
         break;
       case WatchDocEventType.DOC_EVENT_TYPE_DOCUMENT_WATCHED:
-        if (attachment.doc.hasPresenceInfo(publisher)) {
+        if (attachment.doc.hasPresence(publisher)) {
           attachment.doc.addWatchedPeerMap(publisher, true);
           attachment.doc.publish({
             type: DocEventType.PeersChanged,

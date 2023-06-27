@@ -48,7 +48,7 @@ export class ChangePack<P extends Indexable> {
 
   /**
    * snapshotPresence is a string that encodes the presenceMap,
-   * representing the presence information of peers.
+   * representing the presence of peers.
    */
   private snapshotPresence?: string;
 

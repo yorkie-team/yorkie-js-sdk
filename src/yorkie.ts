@@ -46,7 +46,6 @@ export {
   DocEvent,
   Document,
   ChangeInfo,
-  PresenceInfo,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,

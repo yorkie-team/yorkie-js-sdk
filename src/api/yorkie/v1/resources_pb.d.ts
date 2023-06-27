@@ -1358,9 +1358,6 @@ export namespace DocumentSummary {
 }
 
 export class PresenceInfo extends jspb.Message {
-  getClock(): number;
-  setClock(value: number): PresenceInfo;
-
   getDataMap(): jspb.Map<string, string>;
   clearDataMap(): PresenceInfo;
 
@@ -1374,7 +1371,6 @@ export class PresenceInfo extends jspb.Message {
 
 export namespace PresenceInfo {
   export type AsObject = {
-    clock: number,
     dataMap: Array<[string, string]>,
   }
 }
