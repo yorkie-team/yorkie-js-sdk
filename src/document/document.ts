@@ -393,32 +393,47 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 export class Document<T, P extends Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
+
   private root: CRDTRoot;
   private clone?: CRDTRoot;
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
+
   private eventStream: Observable<DocEvent<P>>;
   private eventStreamObserver!: Observer<DocEvent<P>>;
-  private peerPresenceMap: Map<ActorID, PresenceInfo<P> | undefined>;
+
+  /**
+   * `watchedPeerMap` is a map of the peers that watch the document. It is used
+   * to determine whether the peer is online or offline. If the value is true
+   * if the presence of the peer is stored in `peerPresenceMap`.
+   */
   private watchedPeerMap: Map<ActorID, boolean>;
-  private myClientID: ActorID;
+  private peerPresenceMap: Map<ActorID, PresenceInfo<P> | undefined>;
+
   private changeContext: ChangeContext<P> | undefined;
 
   constructor(docKey: string, clientID: string) {
     this.key = docKey;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
-    this.changeID = ChangeID.getInitialChangeID(clientID);
+    this.changeID = ChangeID.initialChangeIDOf(clientID);
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.myClientID = clientID;
     this.changeContext = undefined;
     this.peerPresenceMap = new Map();
     this.watchedPeerMap = new Map();
     this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
+  }
+
+  /**
+   * `myClientID` returns the actor ID of the client that attaches this document.
+   */
+  get myClientID(): ActorID {
+    // TODO(hackerwins): Consider to remove nullable from actorID.
+    return this.changeID.getActorID()!;
   }
 
   /**
@@ -574,15 +589,11 @@ export class Document<T, P extends Indexable> {
     this.peerPresenceMap.set(this.myClientID, cloneDeep(initPresenceInfo));
     this.watchedPeerMap.set(this.myClientID, true);
 
-    this.changeContext = ChangeContext.create<P>(
-      this.changeID.next(),
-      this.clone!,
-    );
-    this.changeContext.setPresence(cloneDeep(initPresenceInfo));
-    const change = this.changeContext.getChange();
+    const context = ChangeContext.create<P>(this.changeID.next(), this.clone!);
+    context.setPresence(cloneDeep(initPresenceInfo));
+    const change = context.getChange();
     this.localChanges.push(change);
     this.changeID = change.getID();
-    this.changeContext = undefined;
   }
 
   /**

@@ -51,6 +51,14 @@ export class ChangeID {
   }
 
   /**
+   * `initialChangeIDOf` creates a new instance of ChangeID with the given
+   * actorID.
+   */
+  public static initialChangeIDOf(actorID: ActorID): ChangeID {
+    return new ChangeID(0, Long.fromInt(0, true), actorID);
+  }
+
+  /**
    * `next` creates a next ID of this ID.
    */
   public next(): ChangeID {
@@ -115,13 +123,6 @@ export class ChangeID {
     return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${
       this.clientSeq
     }`;
-  }
-
-  /**
-   * `getInitialChangeID` returns the initial state ID.
-   */
-  public static getInitialChangeID(actorID?: ActorID): ChangeID {
-    return new ChangeID(0, Long.fromInt(0, true), actorID || InitialActorID);
   }
 }
 
