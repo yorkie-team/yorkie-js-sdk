@@ -413,11 +413,10 @@ export class Document<T, P extends Indexable> {
   private eventStreamObserver!: Observer<DocEvent<P>>;
 
   /**
-   * `watchedPeerMap` is a map of the peers that watch the document. It is used
-   * to determine whether the peer is online or offline. If the value is true
-   * if the presence of the peer is stored in `peerPresenceMap`.
+   * `watchedPeerSet` is a set of the peers that watch the document.
+   * It is used to determine whether the peer is online or offline.
    */
-  private watchedPeerMap: Map<ActorID, boolean>;
+  private watchedPeerSet: Set<ActorID>;
   private peerPresenceMap: Map<ActorID, P>;
 
   private changeContext: ChangeContext<P> | undefined;
@@ -430,8 +429,8 @@ export class Document<T, P extends Indexable> {
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
     this.changeContext = undefined;
+    this.watchedPeerSet = new Set();
     this.peerPresenceMap = new Map();
-    this.watchedPeerMap = new Map();
     this.eventStream = createObservable<DocEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -591,7 +590,7 @@ export class Document<T, P extends Indexable> {
    */
   public initPresence(presence: P) {
     this.peerPresenceMap.set(this.myClientID, cloneDeep(presence));
-    this.watchedPeerMap.set(this.myClientID, true);
+    this.watchedPeerSet.add(this.myClientID);
 
     const context = ChangeContext.create<P>(this.changeID.next(), this.clone!);
     context.setPresence(cloneDeep(presence));
@@ -989,28 +988,27 @@ export class Document<T, P extends Indexable> {
       }
 
       if (change.hasPresence()) {
-        this.setPresence(actorID, change.getPresence()!);
-
-        if (this.watchedPeerMap.has(actorID)) {
-          if (this.watchedPeerMap.get(actorID) === false) {
-            this.watchedPeerMap.set(actorID, true);
-            updates.peer = {
-              type: PeersChangedEventType.Watched,
-              peer: {
-                clientID: actorID,
-                presence: this.getPeerPresence(actorID)!,
-              },
-            };
-          } else {
+        const newPresence = change.getPresence()!;
+        if (this.watchedPeerSet.has(actorID)) {
+          if (this.peerPresenceMap.has(actorID)) {
             updates.peer = {
               type: PeersChangedEventType.PresenceChanged,
               peer: {
                 clientID: actorID,
-                presence: this.getPeerPresence(actorID)!,
+                presence: newPresence,
+              },
+            };
+          } else {
+            updates.peer = {
+              type: PeersChangedEventType.Watched,
+              peer: {
+                clientID: actorID,
+                presence: newPresence,
               },
             };
           }
         }
+        this.setPresence(actorID, newPresence);
       }
       updates.changeInfo &&
         this.publish({
@@ -1087,33 +1085,33 @@ export class Document<T, P extends Indexable> {
   }
 
   /**
-   * `setWatchedPeerMap` sets the watched peer map.
+   * `setWatchedPeerSet` sets the watched peer set.
    */
-  public setWatchedPeerMap(watchedPeerMap: Map<ActorID, boolean>) {
-    this.watchedPeerMap = watchedPeerMap;
+  public setWatchedPeerSet(watchedPeerSet: Set<ActorID>) {
+    this.watchedPeerSet = watchedPeerSet;
   }
 
   /**
-   * `addWatchedPeerMap` adds the peer to the watched peer map.
+   * `addWatchedPeerSet` adds the peer to the watched peer set.
    */
-  public addWatchedPeerMap(clientID: ActorID, hasPresence: boolean) {
-    this.watchedPeerMap.set(clientID, hasPresence);
+  public addWatchedPeerSet(clientID: ActorID) {
+    this.watchedPeerSet.add(clientID);
   }
 
   /**
-   * `removeWatchedPeerMap` removes the peer from the watched peer map.
+   * `removeWatchedPeerSet` removes the peer from the watched peer set.
    */
-  public removeWatchedPeerMap(clientID: ActorID) {
-    this.watchedPeerMap.delete(clientID);
+  public removeWatchedPeerSet(clientID: ActorID) {
+    this.watchedPeerSet.delete(clientID);
   }
 
   /**
-   * `clearWatchedPeerMap` removes the other peers from the watched peer map.
+   * `clearWatchedPeerSet` removes the other peers from the watched peer set.
    */
-  public clearWatchedPeerMap() {
-    const map = new Map<ActorID, boolean>();
-    map.set(this.myClientID, true);
-    this.watchedPeerMap = map;
+  public clearWatchedPeerSet() {
+    const set = new Set<ActorID>();
+    set.add(this.myClientID);
+    this.watchedPeerSet = set;
   }
 
   /**
@@ -1127,7 +1125,7 @@ export class Document<T, P extends Indexable> {
    * `getPeerPresence` returns the presence of the peer.
    */
   public getPeerPresence(clientID: ActorID) {
-    if (!this.watchedPeerMap.get(clientID)) {
+    if (!this.watchedPeerSet.has(clientID)) {
       return undefined;
     }
     return this.peerPresenceMap.get(clientID);
@@ -1138,12 +1136,13 @@ export class Document<T, P extends Indexable> {
    */
   public getPeers(): Array<{ clientID: ActorID; presence: P }> {
     const peers: Array<{ clientID: ActorID; presence: P }> = [];
-    for (const [clientID, hasPresence] of this.watchedPeerMap) {
-      if (!hasPresence) continue;
-      peers.push({
-        clientID,
-        presence: this.peerPresenceMap.get(clientID)!,
-      });
+    for (const clientID of this.watchedPeerSet) {
+      if (this.peerPresenceMap.has(clientID)) {
+        peers.push({
+          clientID,
+          presence: this.peerPresenceMap.get(clientID)!,
+        });
+      }
     }
     return peers;
   }
