@@ -524,6 +524,20 @@ export function traverse<T extends IndexTreeNode<T>>(
 }
 
 /**
+ * `traverseAll` traverses the whole tree (include tombstones) with postorder traversal.
+ */
+function traverseAll<T extends IndexTreeNode<T>>(
+  node: T,
+  callback: (node: T, depth: number) => void,
+  depth = 0,
+) {
+  for (const child of node._children) {
+    traverseAll(child, callback, depth + 1);
+  }
+  callback(node, depth);
+}
+
+/**
  * `findTreePos` finds the position of the given index in the given node.
  */
 function findTreePos<T extends IndexTreeNode<T>>(
@@ -673,6 +687,13 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    */
   traverse(callback: (node: T) => void): void {
     traverse(this.root, callback, 0);
+  }
+
+  /**
+   * `traverseAll` traverses the whole tree (include tombstones) with postorder traversal.
+   */
+  traverseAll(callback: (node: T) => void): void {
+    traverseAll(this.root, callback, 0);
   }
 
   /**
