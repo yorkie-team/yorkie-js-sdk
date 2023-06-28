@@ -57,7 +57,7 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
-  PresenceInfo as PbPresence,
+  Presence as PbPresence,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,

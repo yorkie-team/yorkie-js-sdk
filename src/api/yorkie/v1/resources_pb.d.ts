@@ -68,8 +68,8 @@ export class Change extends jspb.Message {
   clearOperationsList(): Change;
   addOperations(value?: Operation, index?: number): Operation;
 
-  getPresence(): PresenceInfo | undefined;
-  setPresence(value?: PresenceInfo): Change;
+  getPresence(): Presence | undefined;
+  setPresence(value?: Presence): Change;
   hasPresence(): boolean;
   clearPresence(): Change;
 
@@ -86,7 +86,7 @@ export namespace Change {
     id?: ChangeID.AsObject,
     message: string,
     operationsList: Array<Operation.AsObject>,
-    presence?: PresenceInfo.AsObject,
+    presence?: Presence.AsObject,
   }
 }
 
@@ -1357,19 +1357,19 @@ export namespace DocumentSummary {
   }
 }
 
-export class PresenceInfo extends jspb.Message {
+export class Presence extends jspb.Message {
   getDataMap(): jspb.Map<string, string>;
-  clearDataMap(): PresenceInfo;
+  clearDataMap(): Presence;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): PresenceInfo.AsObject;
-  static toObject(includeInstance: boolean, msg: PresenceInfo): PresenceInfo.AsObject;
-  static serializeBinaryToWriter(message: PresenceInfo, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): PresenceInfo;
-  static deserializeBinaryFromReader(message: PresenceInfo, reader: jspb.BinaryReader): PresenceInfo;
+  toObject(includeInstance?: boolean): Presence.AsObject;
+  static toObject(includeInstance: boolean, msg: Presence): Presence.AsObject;
+  static serializeBinaryToWriter(message: Presence, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Presence;
+  static deserializeBinaryFromReader(message: Presence, reader: jspb.BinaryReader): Presence;
 }
 
-export namespace PresenceInfo {
+export namespace Presence {
   export type AsObject = {
     dataMap: Array<[string, string]>,
   }
