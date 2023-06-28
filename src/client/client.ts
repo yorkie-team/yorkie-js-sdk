@@ -643,6 +643,13 @@ export class Client implements Observable<ClientEvent> {
       type: ClientEventType.StreamConnectionStatusChanged,
       value: StreamConnectionStatus.Disconnected,
     });
+    attachment.doc.publish({
+      type: DocEventType.PeersChanged,
+      value: {
+        type: PeersChangedEventType.Initialized,
+        peers: attachment.doc.getPeers(),
+      },
+    });
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
     return doc;
   }
@@ -867,9 +874,17 @@ export class Client implements Observable<ClientEvent> {
       const watchedPeerMap: Map<ActorID, boolean> = new Map();
       for (const pbPeer of pbPeers) {
         const peerID = converter.toHexString(pbPeer as Uint8Array);
-        watchedPeerMap.set(peerID, true);
+        const hasPresence = attachment.doc.hasPresence(peerID);
+        watchedPeerMap.set(peerID, hasPresence);
       }
       attachment.doc.setWatchedPeerMap(watchedPeerMap);
+      attachment.doc.publish({
+        type: DocEventType.PeersChanged,
+        value: {
+          type: PeersChangedEventType.Initialized,
+          peers: attachment.doc.getPeers(),
+        },
+      });
       return;
     }
 
@@ -949,7 +964,6 @@ export class Client implements Observable<ClientEvent> {
       const localSize = reqPack.getChangeSize();
       req.setChangePack(converter.toChangePack(reqPack));
       req.setPushOnly(syncMode === SyncMode.PushOnly);
-
       let isRejected = false;
       this.rpcClient
         .pushPullChanges(

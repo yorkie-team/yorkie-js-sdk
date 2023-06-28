@@ -49,6 +49,7 @@ export class Attachment<T, P extends Indexable> {
 
     this.cancelWatchStream();
     this.isRealtimeSync = false;
+    this.doc.clearWatchedPeerMap();
     return true;
   }
 

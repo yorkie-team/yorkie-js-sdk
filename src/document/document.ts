@@ -111,6 +111,10 @@ export enum DocEventType {
  */
 export enum PeersChangedEventType {
   /**
+   * `Initialized` means that the peer list has been initialized.
+   */
+  Initialized = 'initialized',
+  /**
    * `Watched` means that the peer has established a connection with the server,
    * enabling real-time synchronization.
    */
@@ -209,10 +213,23 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
  * `PeersChangedValue` represents the value of the PeersChanged event.
  * @public
  */
-export type PeersChangedValue<P extends Indexable> = {
-  type: PeersChangedEventType;
-  peer: { clientID: ActorID; presence: P };
-};
+export type PeersChangedValue<P extends Indexable> =
+  | {
+      type: PeersChangedEventType.Initialized;
+      peers: Array<{ clientID: ActorID; presence: P }>;
+    }
+  | {
+      type: PeersChangedEventType.Watched;
+      peer: { clientID: ActorID; presence: P };
+    }
+  | {
+      type: PeersChangedEventType.Unwatched;
+      peer: { clientID: ActorID; presence: P };
+    }
+  | {
+      type: PeersChangedEventType.PresenceChanged;
+      peer: { clientID: ActorID; presence: P };
+    };
 
 /**
  * `PeersChangedEvent` is an event that occurs when the states of another peers
@@ -1088,6 +1105,15 @@ export class Document<T, P extends Indexable> {
    */
   public removeWatchedPeerMap(clientID: ActorID) {
     this.watchedPeerMap.delete(clientID);
+  }
+
+  /**
+   * `clearWatchedPeerMap` removes the other peers from the watched peer map.
+   */
+  public clearWatchedPeerMap() {
+    const map = new Map<ActorID, boolean>();
+    map.set(this.myClientID, true);
+    this.watchedPeerMap = map;
   }
 
   /**

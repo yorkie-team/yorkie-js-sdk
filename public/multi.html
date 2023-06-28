@@ -18,6 +18,28 @@
       <div>status: <span id="network-status"></span></div>
       <div>peers:</div>
       <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
+      <div class="syncTools">
+        <div>
+          Sync State:
+          <span class="syncState" style="font-weight: bold">realtime</span>
+        </div>
+        <div style="margin: 10px 0">
+          <button class="sync realtime">realtime sync</button>
+        </div>
+        <div>
+          <button class="sync manual">manual sync</button>
+          <button class="sync try">try sync</button>
+        </div>
+        <div style="margin-top: 10px">
+          Enter <b>test</b> value of presence:
+          <input
+            type="text"
+            name="presenceUpdate"
+            id="presenceUpdate"
+            placeholder="test value"
+          />
+        </div>
+      </div>
       <div class="counter">
         <h2>Counter</h2>
         <button class="increaseButton">
@@ -44,6 +66,11 @@
       const placeholder = document.getElementById('placeholder');
       const peersHolder = document.getElementById('peers-holder');
       const logHolder = document.getElementById('log-holder');
+      const syncState = document.querySelector('.syncState');
+      const realtimeSyncButton = document.querySelector('.sync.realtime');
+      const manualSyncButton = document.querySelector('.sync.manual');
+      const trySyncButton = document.querySelector('.sync.try');
+      const presenceUpdateInput = document.getElementById('presenceUpdate');
       const shortUniqueID = new ShortUniqueId();
       const colorHash = new ColorHash();
       const counter = document.querySelector('.count');
@@ -66,15 +93,10 @@
       }
 
       function displayPeers(peers, myClientID) {
-        const usernames = [];
-        for (const { clientID, presence } of peers) {
-          usernames.push(
-            myClientID === clientID
-              ? `<b>${presence.username}</b>`
-              : presence.username,
-          );
-        }
-        peersHolder.innerHTML = JSON.stringify(usernames);
+        peersHolder.innerHTML = JSON.stringify(peers, null, 2).replace(
+          myClientID,
+          `<b>${myClientID}</b>`,
+        );
       }
 
       async function main() {
@@ -90,9 +112,11 @@
           const doc = await client.attach('multi-example', {
             initialPresence: {
               username: `user-${shortUniqueID()}`,
+              test: 'presence-test',
             },
           });
           doc.subscribe('peers', (event) => {
+            console.log('🟠 peers event', event);
             displayPeers(doc.getPeers(), client.getID());
           });
 
@@ -128,6 +152,27 @@
               delete root.obj.food;
             }
           }, 'initaialize doc');
+
+          // * sync mode test
+          realtimeSyncButton.addEventListener('click', async () => {
+            await client.resume(doc);
+            syncState.textContent = 'realtime';
+          });
+          manualSyncButton.addEventListener('click', async () => {
+            await client.pause(doc);
+            syncState.textContent = 'manual';
+          });
+          trySyncButton.addEventListener('click', async () => {
+            await client.sync(doc);
+          });
+          presenceUpdateInput.addEventListener('keyup', async (e) => {
+            if (e.key === 'Enter' && presenceUpdateInput.value) {
+              await doc.updatePresence({
+                test: presenceUpdateInput.value,
+              });
+              presenceUpdateInput.value = '';
+            }
+          });
 
           // 03. Counter example
           doc.subscribe('$.counter', (event) => {
@@ -242,6 +287,7 @@
 
           // 05. Quill example
           doc.subscribe('$.content', (event) => {
+            console.log('🔵 quill event', event);
             if (event.type === 'remote-change') {
               const { actor, message, operations } = event.value;
               handleOperations(operations, actor);
@@ -252,7 +298,9 @@
               cursors.removeCursor(event.peer.presence.username);
               return;
             }
-            displayRemoteCursors([event.peer]);
+            displayRemoteCursors(
+              event.type === 'initialized' ? event.peers : [event.peer],
+            );
           });
 
           function displayRemoteCursors(peers) {
