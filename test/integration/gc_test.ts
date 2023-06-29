@@ -7,6 +7,23 @@ import {
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Text } from '@yorkie-js-sdk/src/yorkie';
+import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { IndexTreeNode } from '@yorkie-js-sdk/src/util/index_tree';
+
+// `getNodeLength` returns the number of nodes in the given tree.
+function getNodeLength(root: IndexTreeNode<CRDTTreeNode>) {
+  let size = 0;
+
+  size += root._children.length;
+
+  if (root._children.length) {
+    root._children.forEach((child) => {
+      size += getNodeLength(child);
+    });
+  }
+
+  return size;
+}
 
 describe('Garbage Collection', function () {
   it('garbage collection test', function () {
@@ -204,9 +221,16 @@ describe('Garbage Collection', function () {
     });
 
     // [text(a), text(b)]
+    let nodeLengthBeforeGC = getNodeLength(
+      doc.getRoot().t.getIndexTree().getRoot(),
+    );
     assert.equal(doc.getGarbageLen(), 2);
     assert.equal(doc.garbageCollect(MaxTimeTicket), 2);
     assert.equal(doc.getGarbageLen(), 0);
+    let nodeLengthAfterGC = getNodeLength(
+      doc.getRoot().t.getIndexTree().getRoot(),
+    );
+    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 1);
 
     doc.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'cv' });
@@ -214,9 +238,14 @@ describe('Garbage Collection', function () {
     });
 
     // [text(cd)]
+    nodeLengthBeforeGC = getNodeLength(
+      doc.getRoot().t.getIndexTree().getRoot(),
+    );
     assert.equal(doc.getGarbageLen(), 1);
     assert.equal(doc.garbageCollect(MaxTimeTicket), 1);
     assert.equal(doc.getGarbageLen(), 0);
+    nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
+    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 1);
 
     doc.update((root) => {
       root.t.editByPath([0], [1], {
@@ -227,9 +256,14 @@ describe('Garbage Collection', function () {
     });
 
     // [p, tn, tn, text(cv), text(cd)]
+    nodeLengthBeforeGC = getNodeLength(
+      doc.getRoot().t.getIndexTree().getRoot(),
+    );
     assert.equal(doc.getGarbageLen(), 5);
     assert.equal(doc.garbageCollect(MaxTimeTicket), 5);
     assert.equal(doc.getGarbageLen(), 0);
+    nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
+    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 6);
   });
 
   it('Can handle tree garbage collection for multi client', async function () {
