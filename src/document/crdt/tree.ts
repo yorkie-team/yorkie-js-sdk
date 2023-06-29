@@ -663,7 +663,7 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    this.indexTree.traverse((treeNode) => {
+    this.indexTree.traverseAll((treeNode) => {
       if (nodesToRemoved.has(treeNode)) {
         const parent = treeNode.parent;
 
