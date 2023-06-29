@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.3] - 2023-06-29
+
+### Added
+* Apply garbage collection to tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/550
+
+### Changed
+* Cleanup TextChange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/551
+
+### Fixed
+* Fix garbage collection bug by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/555
+
 ## [0.4.2] - 2023-06-19
 
 ### Added
