@@ -1212,24 +1212,6 @@ function treeToBytes(tree: CRDTTree): Uint8Array {
 }
 
 /**
- * `treePosToBytes` converts the given CRDTTreePos to byte array.
- */
-function treePosToBytes(pos: CRDTTreePos): Uint8Array {
-  return toTreePos(pos).serializeBinary();
-}
-
-/**
- * `bytesToTreePos` creates an CRDTTreePos from the given bytes.
- */
-function bytesToTreePos(bytes: Uint8Array): CRDTTreePos {
-  if (!bytes) {
-    throw new Error('bytes is empty');
-  }
-  const pbTreePos = PbTreePos.deserializeBinary(bytes);
-  return fromTreePos(pbTreePos);
-}
-
-/**
  * `bytesToHex` creates an hex string from the given byte array.
  */
 function bytesToHex(bytes?: Uint8Array): string {
@@ -1279,6 +1261,4 @@ export const converter = {
   bytesToObject,
   toHexString,
   toUint8Array,
-  bytesToTreePos,
-  treePosToBytes,
 };
