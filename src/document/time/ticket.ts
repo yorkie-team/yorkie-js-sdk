@@ -29,6 +29,12 @@ export const TicketComparator: Comparator<TimeTicket> = (
   return p1.compare(p2);
 };
 
+export type TimeTicketStruct = {
+  lamport: string;
+  delimiter: number;
+  actorID: ActorID | undefined;
+};
+
 /**
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
  * It is created by `ChangeID`.
@@ -66,6 +72,17 @@ export class TimeTicket {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }
     return `${this.lamport.toString()}:${this.actorID}:${this.delimiter}`;
+  }
+
+  /**
+   * `getStructure` returns the structure of this Ticket.
+   */
+  public getStructure(): TimeTicketStruct {
+    return {
+      lamport: this.getLamportAsString(),
+      delimiter: this.getDelimiter(),
+      actorID: this.getActorID(),
+    };
   }
 
   /**

@@ -256,8 +256,8 @@ function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
   const pbTreePos = new PbTreePos();
-  pbTreePos.setCreatedAt(toTimeTicket(pos.createdAt));
-  pbTreePos.setOffset(pos.offset);
+  pbTreePos.setCreatedAt(toTimeTicket(pos.getCreatedAt()));
+  pbTreePos.setOffset(pos.getOffset());
   return pbTreePos;
 }
 
@@ -831,10 +831,10 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
  * `fromTreePos` converts the given Protobuf format to model format.
  */
 function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
-  return {
-    createdAt: fromTimeTicket(pbTreePos.getCreatedAt())!,
-    offset: pbTreePos.getOffset(),
-  };
+  return CRDTTreePos.of(
+    fromTimeTicket(pbTreePos.getCreatedAt())!,
+    pbTreePos.getOffset(),
+  );
 }
 
 /**

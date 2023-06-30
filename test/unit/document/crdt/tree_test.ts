@@ -89,10 +89,7 @@ const dummyContext = ChangeContext.create(
  * `issuePos` is a helper function that issues a new CRDTTreePos.
  */
 function issuePos(offset = 0): CRDTTreePos {
-  return {
-    createdAt: dummyContext.issueTimeTicket(),
-    offset,
-  };
+  return CRDTTreePos.of(dummyContext.issueTimeTicket(), offset);
 }
 
 /**
@@ -127,8 +124,8 @@ describe('CRDTTreeNode', function () {
 
     assert.equal(left.value, 'hello');
     assert.equal(right!.value, 'yorkie');
-    assert.deepEqual(left.pos, { createdAt: ITT, offset: 0 });
-    assert.deepEqual(right!.pos, { createdAt: ITT, offset: 5 });
+    assert.deepEqual(left.pos, CRDTTreePos.of(ITT, 0));
+    assert.deepEqual(right!.pos, CRDTTreePos.of(ITT, 5));
   });
 });
 
@@ -626,11 +623,11 @@ describe('CRDTTree', function () {
     assert.deepEqual([fromIdx, toIdx], [5, 6]);
     assert.equal(tree.getSize(), 8);
 
-    let range = tree.createRange(0, 5);
-    assert.deepEqual(tree.rangeToIndex(range), [0, 5]);
+    let range = tree.toPosRange([0, 5]);
+    assert.deepEqual(tree.toIndexRange(range), [0, 5]);
 
-    range = tree.createRange(5, 7);
-    assert.deepEqual(tree.rangeToIndex(range), [5, 7]);
+    range = tree.toPosRange([5, 7]);
+    assert.deepEqual(tree.toIndexRange(range), [5, 7]);
   });
 });
 

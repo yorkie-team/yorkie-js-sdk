@@ -110,12 +110,12 @@ export class TreeStyleOperation extends Operation {
    */
   public getStructureAsString(): string {
     const parent = this.getParentCreatedAt().getStructureAsString();
-    const fromPos = `${this.fromPos.createdAt.getStructureAsString()}:${
-      this.fromPos.offset
-    }`;
-    const toPos = `${this.toPos.createdAt.getStructureAsString()}:${
-      this.toPos.offset
-    }`;
+    const fromPos = `${this.fromPos
+      .getCreatedAt()
+      .getStructureAsString()}:${this.fromPos.getOffset()}`;
+    const toPos = `${this.toPos
+      .getCreatedAt()
+      .getStructureAsString()}:${this.toPos.getOffset()}`;
 
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},
