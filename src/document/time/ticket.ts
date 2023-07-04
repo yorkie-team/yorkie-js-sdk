@@ -75,9 +75,9 @@ export class TimeTicket {
   }
 
   /**
-   * `getStructure` returns the structure of this Ticket.
+   * `toStructure` returns the structure of this Ticket.
    */
-  public getStructure(): TimeTicketStruct {
+  public toStructure(): TimeTicketStruct {
     return {
       lamport: this.getLamportAsString(),
       delimiter: this.getDelimiter(),
