@@ -117,6 +117,13 @@ export class RGATreeSplitNodeID {
   public toTestString(): string {
     return `${this.createdAt.toTestString()}:${this.offset}`;
   }
+
+  /**
+   * `toIDString` returns a string that can be used as an ID for this node id.
+   */
+  public toIDString(): string {
+    return `${this.createdAt.toIDString()}:${this.offset}`;
+  }
 }
 
 const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(InitialTimeTicket, 0);
@@ -826,7 +833,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(JSON.stringify(node.getID().toStructure()), node);
+      removedNodeMap.set(node.getID().toIDString(), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
@@ -953,7 +960,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         this.treeByIndex.delete(node);
         this.purge(node);
         this.treeByID.remove(node.getID());
-        this.removedNodeMap.delete(JSON.stringify(node.getID().toStructure()));
+        this.removedNodeMap.delete(node.getID().toIDString());
         count++;
       }
     }

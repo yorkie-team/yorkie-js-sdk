@@ -133,6 +133,13 @@ export class CRDTTreePos {
       offset: this.offset,
     };
   }
+
+  /**
+   * `toIDString` returns a string that can be used as an ID for this position.
+   */
+  public toIDString(): string {
+    return `${this.createdAt.toIDString()}:${this.offset}`;
+  }
 }
 
 export type CRDTTreePosStruct = { createdAt: TimeTicketStruct; offset: number };
@@ -592,7 +599,7 @@ export class CRDTTree extends CRDTGCElement {
         node.remove(editedAt);
 
         if (node.isRemoved) {
-          this.removedNodeMap.set(JSON.stringify(node.pos.toStructure()), node);
+          this.removedNodeMap.set(node.pos.toIDString(), node);
         }
       }
 
@@ -712,7 +719,7 @@ export class CRDTTree extends CRDTGCElement {
     [...nodesToRemoved].forEach((node) => {
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
-      this.removedNodeMap.delete(JSON.stringify(node.pos.toStructure()));
+      this.removedNodeMap.delete(node.pos.toIDString());
     });
 
     return count;
