@@ -124,12 +124,12 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    const parent = this.getParentCreatedAt().getStructureAsString();
-    const fromPos = this.fromPos.getStructureAsString();
-    const toPos = this.toPos.getStructureAsString();
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
+    const fromPos = this.fromPos.toTestString();
+    const toPos = this.toPos.toTestString();
     const content = this.content;
     return `${parent}.EDIT(${fromPos},${toPos},${content})`;
   }

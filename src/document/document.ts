@@ -739,9 +739,7 @@ export class Document<T> {
         changes
           .map(
             (change) =>
-              `${change
-                .getID()
-                .getStructureAsString()}\t${change.getStructureAsString()}`,
+              `${change.getID().toTestString()}\t${change.toTestString()}`,
           )
           .join('\n'),
       );

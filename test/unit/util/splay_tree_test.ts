@@ -76,22 +76,16 @@ describe('SplayTree', function () {
     const tree = new SplayTree<string>();
 
     const nodeA = tree.insert(StringNode.create('A2'));
-    assert.equal('[2,2]A2', tree.getStructureAsString());
+    assert.equal('[2,2]A2', tree.toTestString());
     const nodeB = tree.insert(StringNode.create('B23'));
-    assert.equal('[2,2]A2[5,3]B23', tree.getStructureAsString());
+    assert.equal('[2,2]A2[5,3]B23', tree.toTestString());
     const nodeC = tree.insert(StringNode.create('C234'));
-    assert.equal('[2,2]A2[5,3]B23[9,4]C234', tree.getStructureAsString());
+    assert.equal('[2,2]A2[5,3]B23[9,4]C234', tree.toTestString());
     const nodeD = tree.insert(StringNode.create('D2345'));
-    assert.equal(
-      '[2,2]A2[5,3]B23[9,4]C234[14,5]D2345',
-      tree.getStructureAsString(),
-    );
+    assert.equal('[2,2]A2[5,3]B23[9,4]C234[14,5]D2345', tree.toTestString());
 
     tree.splayNode(nodeB);
-    assert.equal(
-      '[2,2]A2[14,3]B23[9,4]C234[5,5]D2345',
-      tree.getStructureAsString(),
-    );
+    assert.equal('[2,2]A2[14,3]B23[9,4]C234[5,5]D2345', tree.toTestString());
 
     assert.equal(tree.indexOf(nodeA), 0);
     assert.equal(tree.indexOf(nodeB), 2);
@@ -105,16 +99,16 @@ describe('SplayTree', function () {
     const tree = new SplayTree<string>();
 
     const nodeH = tree.insert(StringNode.create('H'));
-    assert.equal('[1,1]H', tree.getStructureAsString());
+    assert.equal('[1,1]H', tree.toTestString());
     const nodeE = tree.insert(StringNode.create('E'));
-    assert.equal('[1,1]H[2,1]E', tree.getStructureAsString());
+    assert.equal('[1,1]H[2,1]E', tree.toTestString());
     const nodeL = tree.insert(StringNode.create('LL'));
-    assert.equal('[1,1]H[2,1]E[4,2]LL', tree.getStructureAsString());
+    assert.equal('[1,1]H[2,1]E[4,2]LL', tree.toTestString());
     const nodeO = tree.insert(StringNode.create('O'));
-    assert.equal('[1,1]H[2,1]E[4,2]LL[5,1]O', tree.getStructureAsString());
+    assert.equal('[1,1]H[2,1]E[4,2]LL[5,1]O', tree.toTestString());
 
     tree.delete(nodeE);
-    assert.equal('[4,1]H[3,2]LL[1,1]O', tree.getStructureAsString());
+    assert.equal('[4,1]H[3,2]LL[1,1]O', tree.toTestString());
 
     assert.equal(tree.indexOf(nodeH), 0);
     assert.equal(tree.indexOf(nodeE), -1);

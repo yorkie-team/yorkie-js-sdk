@@ -336,9 +336,9 @@ export function toXML(node: CRDTTreeNode): string {
 }
 
 /**
- * `toStructure` converts the given CRDTNode JSON for debugging.
+ * `toTestTreeNode` converts the given CRDTNode JSON for debugging.
  */
-function toStructure(node: CRDTTreeNode): TreeNodeForTest {
+function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
   if (node.isText) {
     const currentNode = node;
     return {
@@ -351,7 +351,7 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 
   return {
     type: node.type,
-    children: node.children.map(toStructure),
+    children: node.children.map(toTestTreeNode),
     size: node.size,
     isRemoved: node.isRemoved,
   };
@@ -849,10 +849,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toStructure` returns the JSON of this tree for debugging.
+   * `toTestTreeNode` returns the JSON of this tree for debugging.
    */
-  public toStructure(): TreeNodeForTest {
-    return toStructure(this.indexTree.getRoot());
+  public toTestTreeNode(): TreeNodeForTest {
+    return toTestTreeNode(this.indexTree.getRoot());
   }
 
   /**

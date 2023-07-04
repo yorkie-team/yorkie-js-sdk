@@ -415,10 +415,10 @@ export class SplayTree<V> {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of the Node
+   * `toTestString` returns a string containing the meta data of the Node
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     const metaString: Array<SplayNode<V>> = [];
     this.traverseInorder(this.root!, metaString);
     return metaString

@@ -111,11 +111,11 @@ export class RGATreeSplitNodeID {
   }
 
   /**
-   * `getStructureAsString` returns a String containing
+   * `toTestString` returns a String containing
    * the meta data of the node id for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.createdAt.getStructureAsString()}:${this.offset}`;
+  public toTestString(): string {
+    return `${this.createdAt.toTestString()}:${this.offset}`;
   }
 }
 
@@ -168,11 +168,11 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   *`getStructureAsString` returns a String containing
+   *`toTestString` returns a String containing
    * the meta data of the position for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.id.getStructureAsString()}:${this.relativeOffset}`;
+  public toTestString(): string {
+    return `${this.id.toTestString()}:${this.relativeOffset}`;
   }
 
   /**
@@ -421,11 +421,11 @@ export class RGATreeSplitNode<
   }
 
   /**
-   * `getStructureAsString` returns a String containing
+   * `toTestString` returns a String containing
    * the meta data of the node for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.id.getStructureAsString()} ${this.value ? this.value : ''}`;
+  public toTestString(): string {
+    return `${this.id.toTestString()} ${this.value ? this.value : ''}`;
   }
 
   private splitValue(offset: number): T {
@@ -563,7 +563,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       : this.findFloorNode(absoluteID);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${absoluteID.getStructureAsString()}`,
+        `the node of the given id should be found: ${absoluteID.toTestString()}`,
       );
     }
     const index = this.treeByIndex.indexOf(node!);
@@ -651,18 +651,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node
+   * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     const result = [];
 
     let node: RGATreeSplitNode<T> | undefined = this.head;
     while (node) {
       if (node.isRemoved()) {
-        result.push(`{${node.getStructureAsString()}}`);
+        result.push(`{${node.toTestString()}}`);
       } else {
-        result.push(`[${node.getStructureAsString()}]`);
+        result.push(`[${node.toTestString()}]`);
       }
 
       node = node.getNext();
@@ -716,7 +716,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     let node = this.findFloorNode(id);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${id.getStructureAsString()}`,
+        `the node of the given id should be found: ${id.toTestString()}`,
       );
     }
 

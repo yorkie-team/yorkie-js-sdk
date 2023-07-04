@@ -246,7 +246,7 @@ const tests = [
         assert.equal(root.k1.length, 3);
         assert.equal(
           '[1:000000000000000000000000:2:1][1:000000000000000000000000:3:2][1:000000000000000000000000:4:3]',
-          root.k1.getStructureAsString!(),
+          root.k1.toTestString!(),
         );
 
         root.k1.splice(1, 1);
@@ -254,7 +254,7 @@ const tests = [
         assert.equal(root.k1.length, 2);
         assert.equal(
           '[1:000000000000000000000000:2:1]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3]',
-          root.k1.getStructureAsString!(),
+          root.k1.toTestString!(),
         );
 
         const first = root.k1.getElementByIndex!(0);
@@ -263,7 +263,7 @@ const tests = [
         assert.equal(root.k1.length, 3);
         assert.equal(
           '[1:000000000000000000000000:2:1][1:000000000000000000000000:6:2]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3]',
-          root.k1.getStructureAsString!(),
+          root.k1.toTestString!(),
         );
 
         const third = root.k1.getElementByIndex!(2);
@@ -272,7 +272,7 @@ const tests = [
         assert.equal(root.k1.length, 4);
         assert.equal(
           '[1:000000000000000000000000:2:1][1:000000000000000000000000:6:2]{1:000000000000000000000000:3:2}[1:000000000000000000000000:4:3][1:000000000000000000000000:7:4]',
-          root.k1.getStructureAsString!(),
+          root.k1.toTestString!(),
         );
 
         for (let i = 0; i < root.k1.length; i++) {
@@ -296,19 +296,19 @@ const tests = [
       );
       assert.equal(
         `[0:00:0:0 ][1:00:2:0 A][1:00:3:0 12]{1:00:2:1 BC}[1:00:2:3 D]`,
-        doc.getRoot().k1.getStructureAsString(),
+        doc.getRoot().k1.toTestString(),
       );
       doc.update((root) => {
         const [pos1] = root.k1.createRange(0, 0);
-        assert.equal('0:00:0:0:0', pos1.getStructureAsString());
+        assert.equal('0:00:0:0:0', pos1.toTestString());
         const [pos2] = root.k1.createRange(1, 1);
-        assert.equal('1:00:2:0:1', pos2.getStructureAsString());
+        assert.equal('1:00:2:0:1', pos2.toTestString());
         const [pos3] = root.k1.createRange(2, 2);
-        assert.equal('1:00:3:0:1', pos3.getStructureAsString());
+        assert.equal('1:00:3:0:1', pos3.toTestString());
         const [pos4] = root.k1.createRange(3, 3);
-        assert.equal('1:00:3:0:2', pos4.getStructureAsString());
+        assert.equal('1:00:3:0:2', pos4.toTestString());
         const [pos5] = root.k1.createRange(4, 4);
-        assert.equal('1:00:2:3:1', pos5.getStructureAsString());
+        assert.equal('1:00:2:3:1', pos5.toTestString());
       });
     },
   },
@@ -337,7 +337,7 @@ const tests = [
         root.k1.edit(0, 0, 'Hello world');
         assert.equal(
           '[0:00:0:0 ][1:00:2:0 Hello world]',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
       });
       assert.equal('{"k1":[{"val":"Hello world"}]}', doc.toJSON());
@@ -345,7 +345,7 @@ const tests = [
         root.k1.setStyle(0, 5, { b: '1' });
         assert.equal(
           '[0:00:0:0 ][1:00:2:0 Hello][1:00:2:5  world]',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
       });
       assert.equal(
@@ -356,12 +356,12 @@ const tests = [
         root.k1.setStyle(0, 5, { b: '1' });
         assert.equal(
           '[0:00:0:0 ][1:00:2:0 Hello][1:00:2:5  world]',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
         root.k1.setStyle(3, 5, { i: '1' });
         assert.equal(
           '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][1:00:2:5  world]',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
       });
       assert.equal(
@@ -372,7 +372,7 @@ const tests = [
         root.k1.edit(5, 11, ' yorkie');
         assert.equal(
           '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][4:00:1:0  yorkie]{1:00:2:5  world}',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
       });
       assert.equal(
@@ -384,7 +384,7 @@ const tests = [
         assert(
           '[0:00:0:0 ][1:00:2:0 Hel][1:00:2:3 lo][5:00:1:0 ]' +
             '[4:00:1:0  yorkie]{1:00:2:5  world}',
-          root.k1.getStructureAsString(),
+          root.k1.toTestString(),
         );
       });
       assert.equal(
