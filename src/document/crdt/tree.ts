@@ -125,11 +125,11 @@ export class CRDTTreePos {
   }
 
   /**
-   * `getStructure` returns the structure of this position.
+   * `toStructure` returns the structure of this position.
    */
-  public getStructure(): CRDTTreePosStruct {
+  public toStructure(): CRDTTreePosStruct {
     return {
-      createdAt: this.createdAt.getStructure(),
+      createdAt: this.createdAt.toStructure(),
       offset: this.offset,
     };
   }
@@ -592,10 +592,7 @@ export class CRDTTree extends CRDTGCElement {
         node.remove(editedAt);
 
         if (node.isRemoved) {
-          this.removedNodeMap.set(
-            JSON.stringify(node.pos.getStructure()),
-            node,
-          );
+          this.removedNodeMap.set(JSON.stringify(node.pos.toStructure()), node);
         }
       }
 
@@ -715,7 +712,7 @@ export class CRDTTree extends CRDTGCElement {
     [...nodesToRemoved].forEach((node) => {
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
-      this.removedNodeMap.delete(JSON.stringify(node.pos.getStructure()));
+      this.removedNodeMap.delete(JSON.stringify(node.pos.toStructure()));
     });
 
     return count;
@@ -953,12 +950,12 @@ export class CRDTTree extends CRDTGCElement {
    */
   public toPosRange(range: [number, number]): TreeRangeStruct {
     const [fromIdx, toIdx] = range;
-    const fromPos = this.findPos(fromIdx).getStructure();
+    const fromPos = this.findPos(fromIdx).toStructure();
     if (fromIdx === toIdx) {
       return [fromPos, fromPos];
     }
 
-    return [fromPos, this.findPos(toIdx).getStructure()];
+    return [fromPos, this.findPos(toIdx).toStructure()];
   }
 
   /**

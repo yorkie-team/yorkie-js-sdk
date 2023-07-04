@@ -101,11 +101,11 @@ export class RGATreeSplitNodeID {
   }
 
   /**
-   * `getStructure` returns the structure of this node id.
+   * `toStructure` returns the structure of this node id.
    */
-  public getStructure(): RGATreeSplitNodeIDStruct {
+  public toStructure(): RGATreeSplitNodeIDStruct {
     return {
-      createdAt: this.createdAt.getStructure(),
+      createdAt: this.createdAt.toStructure(),
       offset: this.offset,
     };
   }
@@ -826,7 +826,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(JSON.stringify(node.getID().getStructure()), node);
+      removedNodeMap.set(JSON.stringify(node.getID().toStructure()), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
@@ -953,7 +953,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         this.treeByIndex.delete(node);
         this.purge(node);
         this.treeByID.remove(node.getID());
-        this.removedNodeMap.delete(JSON.stringify(node.getID().getStructure()));
+        this.removedNodeMap.delete(JSON.stringify(node.getID().toStructure()));
         count++;
       }
     }
