@@ -23,6 +23,7 @@ import {
   InitialTimeTicket,
   MaxTimeTicket,
   TimeTicket,
+  TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 
 export interface ValueChange<T> {
@@ -36,6 +37,11 @@ interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
+
+type RGATreeSplitNodeIDStruct = {
+  createdAt: TimeTicketStruct;
+  offset: number;
+};
 
 /**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
@@ -92,6 +98,16 @@ export class RGATreeSplitNodeID {
    */
   public split(offset: number): RGATreeSplitNodeID {
     return new RGATreeSplitNodeID(this.createdAt, this.offset + offset);
+  }
+
+  /**
+   * `getStructure` returns the structure of this node id.
+   */
+  public getStructure(): RGATreeSplitNodeIDStruct {
+    return {
+      createdAt: this.createdAt.getStructure(),
+      offset: this.offset,
+    };
   }
 
   /**
@@ -810,7 +826,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(node.getID().getStructureAsString(), node);
+      removedNodeMap.set(JSON.stringify(node.getID().getStructure()), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
@@ -937,7 +953,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         this.treeByIndex.delete(node);
         this.purge(node);
         this.treeByID.remove(node.getID());
-        this.removedNodeMap.delete(node.getID().getStructureAsString());
+        this.removedNodeMap.delete(JSON.stringify(node.getID().getStructure()));
         count++;
       }
     }

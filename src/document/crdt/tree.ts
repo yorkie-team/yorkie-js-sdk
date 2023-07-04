@@ -593,9 +593,7 @@ export class CRDTTree extends CRDTGCElement {
 
         if (node.isRemoved) {
           this.removedNodeMap.set(
-            `${node
-              .getCreatedAt()
-              .getStructureAsString()}:${node.pos.getOffset()}`,
+            JSON.stringify(node.pos.getStructure()),
             node,
           );
         }
@@ -717,9 +715,7 @@ export class CRDTTree extends CRDTGCElement {
     [...nodesToRemoved].forEach((node) => {
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
-      this.removedNodeMap.delete(
-        `${node.getCreatedAt().getStructureAsString()}:${node.pos.getOffset()}`,
-      );
+      this.removedNodeMap.delete(JSON.stringify(node.pos.getStructure()));
     });
 
     return count;
