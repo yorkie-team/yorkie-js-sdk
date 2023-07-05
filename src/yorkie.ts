@@ -55,7 +55,10 @@ export {
   CompleteFn,
   Unsubscribe,
 } from '@yorkie-js-sdk/src/util/observable';
-export { TimeTicket, TimeTicketStruct } from '@yorkie-js-sdk/src/document/time/ticket';
+export {
+  TimeTicket,
+  TimeTicketStruct,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
