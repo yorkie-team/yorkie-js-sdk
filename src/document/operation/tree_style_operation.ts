@@ -106,16 +106,16 @@ export class TreeStyleOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    const parent = this.getParentCreatedAt().getStructureAsString();
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
       .getCreatedAt()
-      .getStructureAsString()}:${this.fromPos.getOffset()}`;
+      .toTestString()}:${this.fromPos.getOffset()}`;
     const toPos = `${this.toPos
       .getCreatedAt()
-      .getStructureAsString()}:${this.toPos.getOffset()}`;
+      .toTestString()}:${this.toPos.getOffset()}`;
 
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},

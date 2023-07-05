@@ -34,7 +34,7 @@
 
       function displayLog(elem, textElem, doc) {
         elem.innerText = doc.toJSON();
-        textElem.innerText = doc.getRoot().content.getStructureAsString();
+        textElem.innerText = doc.getRoot().content.toTestString();
       }
 
       function toDeltaOperation(textValue) {

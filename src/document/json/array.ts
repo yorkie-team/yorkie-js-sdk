@@ -96,10 +96,10 @@ export type JSONArray<T> = {
   moveLast?(id: TimeTicket): void;
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node
+   * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  getStructureAsString?(): string;
+  toTestString?(): string;
 } & Array<T>;
 
 /**
@@ -288,8 +288,8 @@ export class ArrayProxy {
               fromIndex,
             );
           };
-        } else if (method === 'getStructureAsString') {
-          return (): string => ArrayProxy.getStructureAsString(target);
+        } else if (method === 'toTestString') {
+          return (): string => ArrayProxy.toTestString(target);
         } else if (
           typeof method === 'string' &&
           isReadOnlyArrayMethod(method)
@@ -705,11 +705,11 @@ export class ArrayProxy {
     return -1;
   }
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node
+   * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  public static getStructureAsString(target: CRDTArray): string {
-    return target.getStructureAsString();
+  public static toTestString(target: CRDTArray): string {
+    return target.toTestString();
   }
 
   /**

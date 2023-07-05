@@ -177,7 +177,7 @@ describe('CRDTTree', function () {
     listEqual(tree, ['text.hello', 'text.!', 'p', 'text.world', 'p', 'r']);
 
     assert.deepEqual(
-      JSON.stringify(tree.toStructure()),
+      JSON.stringify(tree.toTestTreeNode()),
       JSON.stringify({
         type: 'r',
         children: [
@@ -246,10 +246,10 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
-    let structure = tree.toStructure();
-    assert.equal(structure.size, 8);
-    assert.equal(structure.children![0].size, 2);
-    assert.equal(structure.children![0].children![0].size, 2);
+    let treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 8);
+    assert.equal(treeNode.children![0].size, 2);
+    assert.equal(treeNode.children![0].children![0].size, 2);
 
     // 02. delete b from first paragraph
     //       0   1 2    3   4 5 6    7
@@ -258,10 +258,10 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
     listEqual(tree, ['text.a', 'p', 'text.cd', 'p', 'root']);
 
-    structure = tree.toStructure();
-    assert.equal(structure.size, 7);
-    assert.equal(structure.children![0].size, 1);
-    assert.equal(structure.children![0].children![0].size, 1);
+    treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 7);
+    assert.equal(treeNode.children![0].size, 1);
+    assert.equal(treeNode.children![0].children![0].size, 1);
   });
 
   it('Can delete nodes between element nodes with edit', function () {
@@ -295,11 +295,11 @@ describe('CRDTTree', function () {
 
     // TODO(hackerwins): Uncomment the below line.
     // listEqual(tree, ['text.a', 'text.d', 'p', 'root']);
-    const structure = tree.toStructure();
-    assert.equal(structure.size, 4); // root
-    assert.equal(structure.children![0].size, 2); // p
-    assert.equal(structure.children![0].children![0].size, 1); // a
-    assert.equal(structure.children![0].children![1].size, 1); // d
+    const treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 4); // root
+    assert.equal(treeNode.children![0].size, 2); // p
+    assert.equal(treeNode.children![0].children![0].size, 1); // a
+    assert.equal(treeNode.children![0].children![1].size, 1); // d
 
     // 03. insert a new text node at the start of the first paragraph.
     tree.editByIndex(

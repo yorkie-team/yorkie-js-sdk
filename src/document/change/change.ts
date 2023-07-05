@@ -96,11 +96,11 @@ export class Change {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of this change.
+   * `toTestString` returns a string containing the meta data of this change.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     return `${this.operations
-      .map((operation) => operation.getStructureAsString())
+      .map((operation) => operation.toTestString())
       .join(',')}`;
   }
 }

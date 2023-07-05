@@ -75,7 +75,7 @@ export class Text<A extends Indexable = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `EDIT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} c:${content}`,
+        `EDIT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} c:${content}`,
       );
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
@@ -137,7 +137,7 @@ export class Text<A extends Indexable = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `STYL: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()} a:${JSON.stringify(
+        `STYL: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} a:${JSON.stringify(
           attributes,
         )}`,
       );
@@ -172,7 +172,7 @@ export class Text<A extends Indexable = Indexable> {
     const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `SELT: f:${fromIdx}->${range[0].getStructureAsString()}, t:${toIdx}->${range[1].getStructureAsString()}`,
+        `SELT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()}`,
       );
     }
     const ticket = this.context.issueTimeTicket();
@@ -186,17 +186,17 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node
+   * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  getStructureAsString(): string {
+  toTestString(): string {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.text.getStructureAsString();
+    return this.text.toTestString();
   }
 
   /**

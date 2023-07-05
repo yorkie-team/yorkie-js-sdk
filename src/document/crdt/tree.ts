@@ -133,6 +133,13 @@ export class CRDTTreePos {
       offset: this.offset,
     };
   }
+
+  /**
+   * `toIDString` returns a string that can be used as an ID for this position.
+   */
+  public toIDString(): string {
+    return `${this.createdAt.toIDString()}:${this.offset}`;
+  }
 }
 
 export type CRDTTreePosStruct = { createdAt: TimeTicketStruct; offset: number };
@@ -336,9 +343,9 @@ export function toXML(node: CRDTTreeNode): string {
 }
 
 /**
- * `toStructure` converts the given CRDTNode JSON for debugging.
+ * `toTestTreeNode` converts the given CRDTNode JSON for debugging.
  */
-function toStructure(node: CRDTTreeNode): TreeNodeForTest {
+function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
   if (node.isText) {
     const currentNode = node;
     return {
@@ -351,7 +358,7 @@ function toStructure(node: CRDTTreeNode): TreeNodeForTest {
 
   return {
     type: node.type,
-    children: node.children.map(toStructure),
+    children: node.children.map(toTestTreeNode),
     size: node.size,
     isRemoved: node.isRemoved,
   };
@@ -592,12 +599,7 @@ export class CRDTTree extends CRDTGCElement {
         node.remove(editedAt);
 
         if (node.isRemoved) {
-          this.removedNodeMap.set(
-            `${node
-              .getCreatedAt()
-              .getStructureAsString()}:${node.pos.getOffset()}`,
-            node,
-          );
+          this.removedNodeMap.set(node.pos.toIDString(), node);
         }
       }
 
@@ -717,9 +719,7 @@ export class CRDTTree extends CRDTGCElement {
     [...nodesToRemoved].forEach((node) => {
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
-      this.removedNodeMap.delete(
-        `${node.getCreatedAt().getStructureAsString()}:${node.pos.getOffset()}`,
-      );
+      this.removedNodeMap.delete(node.pos.toIDString());
     });
 
     return count;
@@ -853,10 +853,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toStructure` returns the JSON of this tree for debugging.
+   * `toTestTreeNode` returns the JSON of this tree for debugging.
    */
-  public toStructure(): TreeNodeForTest {
-    return toStructure(this.indexTree.getRoot());
+  public toTestTreeNode(): TreeNodeForTest {
+    return toTestTreeNode(this.indexTree.getRoot());
   }
 
   /**

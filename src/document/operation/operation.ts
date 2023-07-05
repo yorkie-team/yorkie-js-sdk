@@ -165,9 +165,9 @@ export abstract class Operation {
   public abstract getEffectedCreatedAt(): TimeTicket;
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data for debugging purpose.
    */
-  public abstract getStructureAsString(): string;
+  public abstract toTestString(): string;
 
   /**
    * `execute` executes this operation on the given `CRDTRoot`.

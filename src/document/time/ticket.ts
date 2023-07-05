@@ -86,10 +86,10 @@ export class TimeTicket {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of the ticket
+   * `toTestString` returns a string containing the meta data of the ticket
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }

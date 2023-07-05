@@ -525,9 +525,7 @@
         let node = head;
         while (node) {
           const nodeType = node.type;
-          const pos = `${node.pos.createdAt.getStructureAsString()}-${
-            node.pos.offset
-          }`;
+          const pos = `${node.pos.createdAt.toTestString()}-${node.pos.offset}`;
           if (nodeType === 'text') {
             arr.push({
               type: nodeType,
