@@ -27,6 +27,6 @@ export declare class Change
 |  [getID()](./yorkie-js-sdk.change.getid.md) |  | <code>getID</code> returns the ID of this change. |
 |  [getMessage()](./yorkie-js-sdk.change.getmessage.md) |  | <code>getMessage</code> returns the message of this change. |
 |  [getOperations()](./yorkie-js-sdk.change.getoperations.md) |  | <code>getOperations</code> returns the operations of this change. |
-|  [getStructureAsString()](./yorkie-js-sdk.change.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a string containing the meta data of this change. |
 |  [setActor(actorID)](./yorkie-js-sdk.change.setactor.md) |  | <code>setActor</code> sets the given actor. |
+|  [toTestString()](./yorkie-js-sdk.change.toteststring.md) |  | <code>toTestString</code> returns a string containing the meta data of this change. |
 

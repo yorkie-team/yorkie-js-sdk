@@ -34,9 +34,9 @@ declare class Text<A extends Indexable = Indexable>
 |  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.text.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [empty()](./yorkie-js-sdk.text.empty.md) |  | <code>empty</code> makes the text empty. |
 |  [getID()](./yorkie-js-sdk.text.getid.md) |  | <code>getID</code> returns the ID of this text. |
-|  [getStructureAsString()](./yorkie-js-sdk.text.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a String containing the meta data of the node for debugging purpose. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.text.select.md) |  | <code>select</code> selects the given range. |
 |  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.text.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
 |  [toString()](./yorkie-js-sdk.text.tostring.md) |  | <code>toString</code> returns the string representation of this text. |
+|  [toTestString()](./yorkie-js-sdk.text.toteststring.md) |  | <code>toTestString</code> returns a String containing the meta data of the node for debugging purpose. |
 |  [values()](./yorkie-js-sdk.text.values.md) |  | <code>values</code> returns values of this text. |
 

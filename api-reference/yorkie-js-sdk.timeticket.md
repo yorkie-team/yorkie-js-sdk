@@ -22,8 +22,9 @@ export declare class TimeTicket
 |  [getActorID()](./yorkie-js-sdk.timeticket.getactorid.md) |  | <code>getActorID</code> returns actorID. |
 |  [getDelimiter()](./yorkie-js-sdk.timeticket.getdelimiter.md) |  | <code>getDelimiter</code> returns delimiter. |
 |  [getLamportAsString()](./yorkie-js-sdk.timeticket.getlamportasstring.md) |  | <code>getLamportAsString</code> returns the lamport string. |
-|  [getStructureAsString()](./yorkie-js-sdk.timeticket.getstructureasstring.md) |  | <code>getStructureAsString</code> returns a string containing the meta data of the ticket for debugging purpose. |
 |  [of(lamport, delimiter, actorID)](./yorkie-js-sdk.timeticket.of.md) | <code>static</code> | <code>of</code> creates an instance of Ticket. |
 |  [setActor(actorID)](./yorkie-js-sdk.timeticket.setactor.md) |  | <code>setActor</code> creates a new instance of Ticket with the given actorID. |
 |  [toIDString()](./yorkie-js-sdk.timeticket.toidstring.md) |  | <code>toIDString</code> returns the lamport string for this Ticket. |
+|  [toStructure()](./yorkie-js-sdk.timeticket.tostructure.md) |  | <code>toStructure</code> returns the structure of this Ticket. |
+|  [toTestString()](./yorkie-js-sdk.timeticket.toteststring.md) |  | <code>toTestString</code> returns a string containing the meta data of the ticket for debugging purpose. |
 
