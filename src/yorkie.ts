@@ -55,7 +55,7 @@ export {
   CompleteFn,
   Unsubscribe,
 } from '@yorkie-js-sdk/src/util/observable';
-export { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+export { TimeTicket, TimeTicketStruct } from '@yorkie-js-sdk/src/document/time/ticket';
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
@@ -72,6 +72,8 @@ export type {
 export {
   TreeChange,
   TreeChangeType,
+  CRDTTreePosStruct,
+  TreeRangeStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {

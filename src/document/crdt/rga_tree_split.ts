@@ -38,6 +38,10 @@ interface RGATreeSplitValue {
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
 
+/**
+ * `RGATreeSplitNodeIDStruct` is a structure represents the meta data of the node id.
+ * It is used to serialize and deserialize the node id.
+ */
 type RGATreeSplitNodeIDStruct = {
   createdAt: TimeTicketStruct;
   offset: number;

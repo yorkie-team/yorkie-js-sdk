@@ -142,6 +142,10 @@ export class CRDTTreePos {
   }
 }
 
+/**
+ * `CRDTTreePosStruct` represents the structure of CRDTTreePos.
+ * It is used to serialize and deserialize the CRDTTreePos.
+ */
 export type CRDTTreePosStruct = { createdAt: TimeTicketStruct; offset: number };
 
 /**
@@ -170,6 +174,11 @@ function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
  * `TreeRange` represents a pair of CRDTTreePos.
  */
 export type TreeRange = [CRDTTreePos, CRDTTreePos];
+
+/**
+ * `TreeRangeStruct` represents the structure of TreeRange.
+ * It is used to serialize and deserialize the TreeRange.
+ */
 export type TreeRangeStruct = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
