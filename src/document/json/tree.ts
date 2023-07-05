@@ -163,7 +163,8 @@ export class Tree {
   }
 
   /**
-   * `getInitialRoot` returns the root node of this tree.
+   * `buildRoot` builds the root of this tree with the given initial root
+   * which set by the user.
    */
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
@@ -438,7 +439,7 @@ export class Tree {
   }
 
   /**
-   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
+   * `createRangeByPath` returns pair of CRDTTreePos of the given path.
    */
   createRangeByPath(fromPath: Array<number>, toPath: Array<number>): TreeRange {
     if (!this.context || !this.tree) {

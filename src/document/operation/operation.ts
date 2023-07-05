@@ -36,33 +36,57 @@ export type CounterOperationInfo = IncreaseOpInfo;
 export type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
 export type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
 export type TreeOperationInfo = TreeEditOpInfo | TreeStyleOpInfo;
+
+/**
+ * `AddOpInfo` represents the information of the add operation.
+ */
 export type AddOpInfo = {
   type: 'add';
   path: string;
   index: number;
 };
+
+/**
+ * `MoveOpInfo` represents the information of the move operation.
+ */
 export type MoveOpInfo = {
   type: 'move';
   path: string;
   previousIndex: number;
   index: number;
 };
+
+/**
+ * `SetOpInfo` represents the information of the set operation.
+ */
 export type SetOpInfo = {
   type: 'set';
   path: string;
   key: string;
 };
+
+/**
+ * `RemoveOpInfo` represents the information of the remove operation.
+ */
 export type RemoveOpInfo = {
   type: 'remove';
   path: string;
   key?: string;
   index?: number;
 };
+
+/**
+ * `IncreaseOpInfo` represents the information of the increase operation.
+ */
 export type IncreaseOpInfo = {
   type: 'increase';
   path: string;
   value: number;
 };
+
+/**
+ * `EditOpInfo` represents the information of the edit operation.
+ */
 export type EditOpInfo = {
   type: 'edit';
   from: number;
@@ -73,6 +97,10 @@ export type EditOpInfo = {
     content: string;
   };
 };
+
+/**
+ * `StyleOpInfo` represents the information of the style operation.
+ */
 export type StyleOpInfo = {
   type: 'style';
   from: number;
@@ -82,12 +110,20 @@ export type StyleOpInfo = {
     attributes: Indexable;
   };
 };
+
+/**
+ * `SelectOpInfo` represents the information of the select operation.
+ */
 export type SelectOpInfo = {
   type: 'select';
   from: number;
   to: number;
   path: string;
 };
+
+/**
+ * `TreeEditOpInfo` represents the information of the tree edit operation.
+ */
 export type TreeEditOpInfo = {
   type: 'tree-edit';
   from: number;
@@ -97,6 +133,10 @@ export type TreeEditOpInfo = {
   value: TreeNode;
   path: string;
 };
+
+/**
+ * `TreeStyleOpInfo` represents the information of the tree style operation.
+ */
 export type TreeStyleOpInfo = {
   type: 'tree-style';
   from: number;
