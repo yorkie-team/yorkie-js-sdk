@@ -22,9 +22,9 @@ export declare class Tree
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [buildRoot(context)](./yorkie-js-sdk.tree.buildroot.md) |  | <code>getInitialRoot</code> returns the root node of this tree. |
+|  [buildRoot(context)](./yorkie-js-sdk.tree.buildroot.md) |  | <code>buildRoot</code> builds the root of this tree with the given initial root which set by the user. |
 |  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.tree.createrange.md) |  | <code>createRange</code> returns pair of CRDTTreePos of the given integer offsets. |
-|  [createRangeByPath(fromPath, toPath)](./yorkie-js-sdk.tree.createrangebypath.md) |  | <code>createRange</code> returns pair of CRDTTreePos of the given integer offsets. |
+|  [createRangeByPath(fromPath, toPath)](./yorkie-js-sdk.tree.createrangebypath.md) |  | <code>createRangeByPath</code> returns pair of CRDTTreePos of the given path. |
 |  [edit(fromIdx, toIdx, content)](./yorkie-js-sdk.tree.edit.md) |  | <code>edit</code> edits this tree with the given node. |
 |  [editByPath(fromPath, toPath, content)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |

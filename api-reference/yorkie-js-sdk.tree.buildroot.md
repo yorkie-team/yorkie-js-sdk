@@ -4,7 +4,7 @@
 
 ## Tree.buildRoot() method
 
-`getInitialRoot` returns the root node of this tree.
+`buildRoot` builds the root of this tree with the given initial root which set by the user.
 
 <b>Signature:</b>
 

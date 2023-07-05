@@ -4,6 +4,8 @@
 
 ## IncreaseOpInfo type
 
+`IncreaseOpInfo` represents the information of the increase operation.
+
 <b>Signature:</b>
 
 ```typescript

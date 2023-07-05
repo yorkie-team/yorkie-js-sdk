@@ -4,6 +4,8 @@
 
 ## SelectOpInfo type
 
+`SelectOpInfo` represents the information of the select operation.
+
 <b>Signature:</b>
 
 ```typescript

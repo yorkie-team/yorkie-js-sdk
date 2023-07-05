@@ -4,6 +4,8 @@
 
 ## MoveOpInfo type
 
+`MoveOpInfo` represents the information of the move operation.
+
 <b>Signature:</b>
 
 ```typescript

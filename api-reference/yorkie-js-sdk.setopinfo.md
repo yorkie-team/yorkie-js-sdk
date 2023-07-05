@@ -4,6 +4,8 @@
 
 ## SetOpInfo type
 
+`SetOpInfo` represents the information of the set operation.
+
 <b>Signature:</b>
 
 ```typescript

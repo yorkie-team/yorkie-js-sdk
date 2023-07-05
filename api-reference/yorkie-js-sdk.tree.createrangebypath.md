@@ -4,7 +4,7 @@
 
 ## Tree.createRangeByPath() method
 
-`createRange` returns pair of CRDTTreePos of the given integer offsets.
+`createRangeByPath` returns pair of CRDTTreePos of the given path.
 
 <b>Signature:</b>
 

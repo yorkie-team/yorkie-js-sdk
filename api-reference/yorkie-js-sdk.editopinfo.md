@@ -4,6 +4,8 @@
 
 ## EditOpInfo type
 
+`EditOpInfo` represents the information of the edit operation.
+
 <b>Signature:</b>
 
 ```typescript

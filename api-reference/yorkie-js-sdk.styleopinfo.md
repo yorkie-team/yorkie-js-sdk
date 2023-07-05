@@ -4,6 +4,8 @@
 
 ## StyleOpInfo type
 
+`StyleOpInfo` represents the information of the style operation.
+
 <b>Signature:</b>
 
 ```typescript

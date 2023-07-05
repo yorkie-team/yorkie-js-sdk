@@ -4,6 +4,8 @@
 
 ## AddOpInfo type
 
+`AddOpInfo` represents the information of the add operation.
+
 <b>Signature:</b>
 
 ```typescript

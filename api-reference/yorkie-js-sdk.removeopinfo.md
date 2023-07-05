@@ -4,6 +4,8 @@
 
 ## RemoveOpInfo type
 
+`RemoveOpInfo` represents the information of the remove operation.
+
 <b>Signature:</b>
 
 ```typescript
