@@ -3,8 +3,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
+  CRDTTreePos,
   CRDTTreeNode,
   TreeRange,
+  TreeRangeStruct,
   TreeChange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -57,7 +59,7 @@ function buildDescendants(
   if (type === 'text') {
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
-      { createdAt: ticket, offset: 0 },
+      CRDTTreePos.of(ticket, 0),
       type,
       value,
     );
@@ -77,7 +79,7 @@ function buildDescendants(
       }
     }
     const elementNode = CRDTTreeNode.create(
-      { createdAt: ticket, offset: 0 },
+      CRDTTreePos.of(ticket, 0),
       type,
       undefined,
       attrs,
@@ -101,7 +103,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === 'text') {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create({ createdAt: ticket, offset: 0 }, type, value);
+    root = CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
     let { attributes } = content as ElementNode;
@@ -117,7 +119,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     }
 
     root = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      CRDTTreePos.of(context.issueTimeTicket(), 0),
       type,
       undefined,
       attrs,
@@ -166,14 +168,14 @@ export class Tree {
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
       return CRDTTreeNode.create(
-        { createdAt: context.issueTimeTicket(), offset: 0 },
+        CRDTTreePos.of(context.issueTimeTicket(), 0),
         DefaultRootType,
       );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      CRDTTreePos.of(context.issueTimeTicket(), 0),
       this.initialRoot.type,
     );
 
@@ -304,8 +306,8 @@ export class Tree {
     );
 
     if (
-      !fromPos.createdAt.equals(toPos.createdAt) ||
-      fromPos.offset !== toPos.offset
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
     ) {
       this.context.registerElementHasRemovedNodes(this.tree!);
     }
@@ -341,8 +343,8 @@ export class Tree {
     );
 
     if (
-      !fromPos.createdAt.equals(toPos.createdAt) ||
-      fromPos.offset !== toPos.offset
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
     ) {
       this.context.registerElementHasRemovedNodes(this.tree!);
     }
@@ -451,16 +453,29 @@ export class Tree {
   }
 
   /**
-   * `rangeToIndex` returns the integer offsets of the given range.
+   * `toPosRange` converts the integer index range into the Tree position range structure.
    */
-  rangeToIndex(range: TreeRange): [number, number] {
+  toPosRange(range: [number, number]): TreeRangeStruct {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.tree.rangeToIndex(range);
+    return this.tree.toPosRange(range);
+  }
+
+  /**
+   * `toIndexRange` converts the Tree position range into the integer index range.
+   */
+  toIndexRange(range: TreeRangeStruct): [number, number] {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.toIndexRange(range);
   }
 
   /**

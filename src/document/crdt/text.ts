@@ -379,11 +379,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of this value
+   * `toTestString` returns a String containing the meta data of this value
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return this.rgaTreeSplit.getStructureAsString();
+  public toTestString(): string {
+    return this.rgaTreeSplit.toTestString();
   }
 
   /**

@@ -20,7 +20,6 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
 
 export {
   Client,
@@ -56,7 +55,7 @@ export {
   CompleteFn,
   Unsubscribe,
 } from '@yorkie-js-sdk/src/util/observable';
-export { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+export { TimeTicket, TimeTicketStruct } from '@yorkie-js-sdk/src/document/time/ticket';
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
@@ -73,6 +72,8 @@ export type {
 export {
   TreeChange,
   TreeChangeType,
+  CRDTTreePosStruct,
+  TreeRangeStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {
@@ -96,7 +97,7 @@ export {
   TextNode,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
-export { converter };
+export { converter } from '@yorkie-js-sdk/src/api/converter';
 
 /**
  * The top-level yorkie namespace with additional properties.
@@ -117,7 +118,6 @@ const yorkie = {
   Tree,
   IntType: CounterType.IntegerCnt,
   LongType: CounterType.LongCnt,
-  converter,
 };
 
 export default yorkie;

@@ -86,8 +86,8 @@ export class TreeEditOperation extends Operation {
     );
 
     if (
-      !this.fromPos.createdAt.equals(this.toPos.createdAt) ||
-      this.fromPos.offset !== this.toPos.offset
+      !this.fromPos.getCreatedAt().equals(this.toPos.getCreatedAt()) ||
+      this.fromPos.getOffset() !== this.toPos.getOffset()
     ) {
       root.registerElementHasRemovedNodes(tree);
     }
@@ -112,16 +112,16 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    const parent = this.getParentCreatedAt().getStructureAsString();
-    const fromPos = `${this.fromPos.createdAt.getStructureAsString()}:${
-      this.fromPos.offset
-    }`;
-    const toPos = `${this.toPos.createdAt.getStructureAsString()}:${
-      this.toPos.offset
-    }`;
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
+    const fromPos = `${this.fromPos
+      .getCreatedAt()
+      .toTestString()}:${this.fromPos.getOffset()}`;
+    const toPos = `${this.toPos
+      .getCreatedAt()
+      .toTestString()}:${this.toPos.getOffset()}`;
     const content = this.content;
     return `${parent}.EDIT(${fromPos},${toPos},${content})`;
   }

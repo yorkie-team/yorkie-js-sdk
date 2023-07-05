@@ -86,10 +86,10 @@ export class AddOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    return `${this.getParentCreatedAt().getStructureAsString()}.ADD`;
+  public toTestString(): string {
+    return `${this.getParentCreatedAt().toTestString()}.ADD`;
   }
 
   /**

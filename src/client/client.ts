@@ -1171,7 +1171,7 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
             logger.info(
               `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
                 .getCheckpoint()
-                .getStructureAsString()}`,
+                .toTestString()}`,
             );
           },
         )
