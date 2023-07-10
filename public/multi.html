@@ -252,6 +252,7 @@
 
           // 05. Quill example
           doc.subscribe('$.content', (event) => {
+            console.log('🔵 quill event', event);
             if (event.type === 'remote-change') {
               const { actor, message, operations } = event.value;
               handleOperations(operations, actor);

@@ -49,7 +49,6 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  InternalOpInfo,
   OperationInfo,
   ObjectOperationInfo,
   TextOperationInfo,
@@ -61,7 +60,6 @@ import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
-import { Trie } from '../util/trie';
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -398,7 +396,7 @@ export class Document<T> {
       }
 
       const change = context.getChange();
-      const internalOpInfos = change.execute(this.root);
+      const opInfos = change.execute(this.root);
       this.localChanges.push(change);
       this.changeID = change.getID();
 
@@ -407,9 +405,7 @@ export class Document<T> {
           type: DocEventType.LocalChange,
           value: {
             message: change.getMessage() || '',
-            operations: internalOpInfos.map((internalOpInfo) =>
-              this.toOperationInfo(internalOpInfo),
-            ),
+            operations: opInfos,
             actor: change.getID().getActorID(),
           },
         });
@@ -752,12 +748,10 @@ export class Document<T> {
 
     const changeInfos: Array<ChangeInfo> = [];
     for (const change of changes) {
-      const inernalOpInfos = change.execute(this.root);
+      const opInfos = change.execute(this.root);
       changeInfos.push({
         message: change.getMessage() || '',
-        operations: inernalOpInfos.map((opInfo) =>
-          this.toOperationInfo(opInfo),
-        ),
+        operations: opInfos,
         actor: change.getID().getActorID(),
       });
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
@@ -801,31 +795,5 @@ export class Document<T> {
       if (value === undefined) return undefined;
     }
     return value;
-  }
-
-  private createPaths(change: Change): Array<string> {
-    const pathTrie = new Trie<string>('$');
-    for (const op of change.getOperations()) {
-      const createdAt = op.getEffectedCreatedAt();
-      if (createdAt) {
-        const subPaths = this.root.createSubPaths(createdAt)!;
-        subPaths.shift();
-        pathTrie.insert(subPaths);
-      }
-    }
-    return pathTrie.findPrefixes().map((element) => element.join('.'));
-  }
-
-  private toOperationInfo(internalOpInfo: InternalOpInfo): OperationInfo {
-    const opInfo = {} as OperationInfo;
-    for (const key of Object.keys(internalOpInfo)) {
-      if (key === 'element') {
-        opInfo.path = this.root.createSubPaths(internalOpInfo[key])!.join('.');
-      } else {
-        const k = key as keyof Omit<InternalOpInfo, 'element'>;
-        opInfo[k] = internalOpInfo[k];
-      }
-    }
-    return opInfo;
   }
 }

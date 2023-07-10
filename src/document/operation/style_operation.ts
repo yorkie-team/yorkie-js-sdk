@@ -21,7 +21,7 @@ import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_s
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 
@@ -68,7 +68,7 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute<A extends Indexable>(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -88,9 +88,9 @@ export class StyleOperation extends Operation {
         from,
         to,
         value,
-        element: this.getParentCreatedAt(),
+        path: root.createPath(this.getParentCreatedAt()),
       };
-    }) as Array<InternalOpInfo>;
+    }) as Array<OperationInfo>;
   }
 
   /**

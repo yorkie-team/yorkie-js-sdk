@@ -147,25 +147,6 @@ export type TreeStyleOpInfo = {
 };
 
 /**
- * `InternalOpInfo` represents the information of the operation. It is used to
- * internally and can be converted to `OperationInfo` to inform to the user.
- */
-export type InternalOpInfo =
-  | ToInternalOpInfo<AddOpInfo>
-  | ToInternalOpInfo<IncreaseOpInfo>
-  | ToInternalOpInfo<RemoveOpInfo>
-  | ToInternalOpInfo<SetOpInfo>
-  | ToInternalOpInfo<MoveOpInfo>
-  | ToInternalOpInfo<EditOpInfo>
-  | ToInternalOpInfo<StyleOpInfo>
-  | ToInternalOpInfo<SelectOpInfo>
-  | ToInternalOpInfo<TreeEditOpInfo>
-  | ToInternalOpInfo<TreeStyleOpInfo>;
-type ToInternalOpInfo<T extends OperationInfo> = Omit<T, 'path'> & {
-  element: TimeTicket;
-};
-
-/**
  * `Operation` represents an operation to be executed on a document.
  */
 export abstract class Operation {
@@ -212,5 +193,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): Array<InternalOpInfo>;
+  public abstract execute(root: CRDTRoot): Array<OperationInfo>;
 }
