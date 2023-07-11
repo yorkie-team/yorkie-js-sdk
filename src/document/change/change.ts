@@ -17,7 +17,7 @@
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
@@ -86,8 +86,8 @@ export class Change {
   /**
    * `execute` executes the operations of this change to the given root.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
-    const opInfos: Array<InternalOpInfo> = [];
+  public execute(root: CRDTRoot): Array<OperationInfo> {
+    const opInfos: Array<OperationInfo> = [];
     for (const operation of this.operations) {
       const infos = operation.execute(root);
       opInfos.push(...infos);

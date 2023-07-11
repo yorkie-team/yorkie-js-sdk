@@ -19,7 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
@@ -53,7 +53,7 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -70,14 +70,14 @@ export class RemoveOperation extends Operation {
       ? [
           {
             type: 'remove',
-            element: this.getEffectedCreatedAt(),
+            path: root.createPath(this.getParentCreatedAt()),
             index: Number(key),
           },
         ]
       : [
           {
             type: 'remove',
-            element: this.getEffectedCreatedAt(),
+            path: root.createPath(this.getParentCreatedAt()),
             key,
           },
         ];
