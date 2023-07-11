@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-execute(root: CRDTRoot): Array<InternalOpInfo>;
+execute(root: CRDTRoot): Array<OperationInfo>;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ execute(root: CRDTRoot): Array<InternalOpInfo>;
 
 <b>Returns:</b>
 
-Array&lt;InternalOpInfo&gt;
+Array&lt;[OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->&gt;
 
