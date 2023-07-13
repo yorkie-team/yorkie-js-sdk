@@ -89,6 +89,8 @@ describe('Document', function () {
       };
     });
     assert.equal('{"data":{"":null,"null":null}}', doc.toSortedJSON());
+    assert.equal(null, doc.getValueByPath('$.'));
+    assert.equal(null, doc.getValueByPath('$.null'));
   });
 
   it('delete elements of array test', function () {
@@ -961,10 +963,10 @@ describe('Document', function () {
       expectedOps.push({ type: 'set', path: '$.obj', key: 'a' });
       delete root.obj.a;
       expectedOps.push({ type: 'remove', path: '$.obj', key: 'a' });
-      root.obj['$.hello'] = 1;
-      expectedOps.push({ type: 'set', path: '$.obj', key: '$.hello' });
-      delete root.obj['$.hello'];
-      expectedOps.push({ type: 'remove', path: '$.obj', key: '$.hello' });
+      root.obj['$hello'] = 1;
+      expectedOps.push({ type: 'set', path: '$.obj', key: '$hello' });
+      delete root.obj['$hello'];
+      expectedOps.push({ type: 'remove', path: '$.obj', key: '$hello' });
       delete root.obj;
       expectedOps.push({ type: 'remove', path: '$', key: 'obj' });
     });
@@ -1001,10 +1003,10 @@ describe('Document', function () {
       expectedOps.push({ type: 'add', path: '$.arr', index: 1 });
       delete root.arr[1];
       expectedOps.push({ type: 'remove', path: '$.arr', index: 1 });
-      root['$$...hello'] = [];
-      expectedOps.push({ type: 'set', path: '$', key: '$$...hello' });
-      root['$$...hello'].push(0);
-      expectedOps.push({ type: 'add', path: '$.$$...hello', index: 0 });
+      root['$$hello'] = [];
+      expectedOps.push({ type: 'set', path: '$', key: '$$hello' });
+      root['$$hello'].push(0);
+      expectedOps.push({ type: 'add', path: '$.$$hello', index: 0 });
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(

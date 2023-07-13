@@ -25,22 +25,22 @@ describe('Primitive', function () {
 
   it('can rollback, primitive deepcopy', function () {
     const doc = Document.create<{
-      k1: { ['k1.1']?: number; ['k1.2']?: number };
+      k1: { ['k1-1']?: number; ['k1-2']?: number };
     }>('test-doc');
 
     doc.update((root) => {
       root['k1'] = {};
-      root['k1']['k1.1'] = 1;
-      root['k1']['k1.2'] = 2;
+      root['k1']['k1-1'] = 1;
+      root['k1']['k1-2'] = 2;
     });
-    assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
+    assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
     assert.throws(() => {
       doc.update((root) => {
-        delete root['k1']['k1.1'];
+        delete root['k1']['k1-1'];
         throw Error('dummy error');
       }, 'dummy error');
     });
-    assert.equal('{"k1":{"k1.1":1,"k1.2":2}}', doc.toSortedJSON());
+    assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
   });
 
   it('Can handle primitive types', async function () {
