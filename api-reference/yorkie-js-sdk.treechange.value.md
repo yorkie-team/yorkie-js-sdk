@@ -7,7 +7,7 @@
 <b>Signature:</b>
 
 ```typescript
-value?: TreeNode | {
+value?: Array<TreeNode> | {
         [key: string]: any;
     };
 ```

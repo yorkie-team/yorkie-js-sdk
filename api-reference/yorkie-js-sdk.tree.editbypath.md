@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-editByPath(fromPath: Array<number>, toPath: Array<number>, content?: TreeNode): boolean;
+editByPath(fromPath: Array<number>, toPath: Array<number>, ...contents: Array<TreeNode>): boolean;
 ```
 
 ## Parameters
@@ -18,7 +18,7 @@ editByPath(fromPath: Array<number>, toPath: Array<number>, content?: TreeNode): 
 |  --- | --- | --- |
 |  fromPath | Array&lt;number&gt; |  |
 |  toPath | Array&lt;number&gt; |  |
-|  content | [TreeNode](./yorkie-js-sdk.treenode.md) |  |
+|  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
 
 <b>Returns:</b>
 

@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean;
+edit(fromIdx: number, toIdx: number, ...contents: Array<TreeNode>): boolean;
 ```
 
 ## Parameters
@@ -18,7 +18,7 @@ edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean;
 |  --- | --- | --- |
 |  fromIdx | number |  |
 |  toIdx | number |  |
-|  content | [TreeNode](./yorkie-js-sdk.treenode.md) |  |
+|  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
 
 <b>Returns:</b>
 
