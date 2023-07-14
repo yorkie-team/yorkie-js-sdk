@@ -785,7 +785,7 @@ export class Document<T> {
    */
   public getValueByPath(path: string): JSONElement | undefined {
     if (!path.startsWith('$')) {
-      throw new Error('The path must start with "$"');
+      throw new YorkieError(Code.InvalidArgument, `path must start with "$"`);
     }
     const pathArr = path.split('.');
     pathArr.shift();

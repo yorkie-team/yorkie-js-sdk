@@ -33,19 +33,19 @@ import {
 export class TreeEditOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
-  private content: CRDTTreeNode | undefined;
+  private contents: Array<CRDTTreeNode> | undefined;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.content = content;
+    this.contents = contents;
   }
 
   /**
@@ -55,14 +55,14 @@ export class TreeEditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ): TreeEditOperation {
     return new TreeEditOperation(
       parentCreatedAt,
       fromPos,
       toPos,
-      content,
+      contents,
       executedAt,
     );
   }
@@ -81,7 +81,7 @@ export class TreeEditOperation extends Operation {
     const tree = parentObject as CRDTTree;
     const changes = tree.edit(
       [this.fromPos, this.toPos],
-      this.content?.deepcopy(),
+      this.contents?.map((content) => content.deepcopy()),
       this.getExecutedAt(),
     );
 
@@ -122,8 +122,8 @@ export class TreeEditOperation extends Operation {
     const toPos = `${this.toPos
       .getCreatedAt()
       .toTestString()}:${this.toPos.getOffset()}`;
-    const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
+    const contents = this.contents;
+    return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
   }
 
   /**
@@ -143,7 +143,7 @@ export class TreeEditOperation extends Operation {
   /**
    * `getContent` returns the content of Edit.
    */
-  public getContent(): CRDTTreeNode | undefined {
-    return this.content;
+  public getContents(): Array<CRDTTreeNode> | undefined {
+    return this.contents;
   }
 }

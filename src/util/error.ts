@@ -35,6 +35,12 @@ export enum Code {
 
   // DocumentRemoved is returned when the document is removed.
   DocumentRemoved = 'document-removed',
+
+  // InvalidObjectKey is returned when the object key is invalid.
+  InvalidObjectKey = 'invalid-object-key',
+
+  // InvalidArgument is returned when the argument is invalid.
+  InvalidArgument = 'invalid-argument',
 }
 
 /**
