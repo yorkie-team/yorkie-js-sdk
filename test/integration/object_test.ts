@@ -2,8 +2,31 @@ import { assert } from 'chai';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Object', function () {
+  it('valid key test', function () {
+    const doc = Document.create<any>('test-doc');
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root['.'] = 'dot';
+      });
+    }, YorkieError);
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root['$...hello'] = 'world';
+      });
+    }, YorkieError);
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root[''] = { '.': 'dot' };
+      });
+    }, YorkieError);
+  });
+
   it('should apply updates inside nested map', function () {
     const doc = Document.create<{
       k1: { 'k1-1'?: string; 'k1-2'?: string };
