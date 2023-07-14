@@ -69,6 +69,7 @@ import {
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
   TreeNode as PbTreeNode,
+  TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
@@ -108,7 +109,7 @@ function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
   const pbPresence = new PbPresence();
   pbPresence.setClock(presence.clock);
   const pbDataMap = pbPresence.getDataMap();
-  for (const [key, value] of Object.entries(presence.data)) {
+  for (const [key, value] of Object.entries(presence.data!)) {
     pbDataMap.set(key, JSON.stringify(value));
   }
 
@@ -380,8 +381,8 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbTreeEditOperation.setFrom(toTreePos(treeEditOperation.getFromPos()));
     pbTreeEditOperation.setTo(toTreePos(treeEditOperation.getToPos()));
-    pbTreeEditOperation.setContentList(
-      toTreeNodes(treeEditOperation.getContent()!),
+    pbTreeEditOperation.setContentsList(
+      toTreeNodesWhenEdit(treeEditOperation.getContents()!),
     );
     pbTreeEditOperation.setExecutedAt(
       toTimeTicket(treeEditOperation.getExecutedAt()),
@@ -503,6 +504,25 @@ function toTextNodes(
   }
 
   return pbTextNodes;
+}
+
+/**
+ * `toTreeNodesWhenEdit` converts the given model to Protobuf format.
+ */
+function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
+  const pbTreeNodesList: Array<PbTreeNodes> = [];
+
+  if (!nodes.length) {
+    return pbTreeNodesList;
+  }
+
+  nodes.forEach((node) => {
+    const pbTreeNodes = new PbTreeNodes();
+    pbTreeNodes.setContentList(toTreeNodes(node));
+    pbTreeNodesList.push(pbTreeNodes);
+  });
+
+  return pbTreeNodesList;
 }
 
 /**
@@ -838,6 +858,27 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
 }
 
 /**
+ * `fromTreeNodesWhenEdit` converts the given Protobuf format to model format.
+ */
+function fromTreeNodesWhenEdit(
+  pbTreeNodes: Array<PbTreeNodes>,
+): Array<CRDTTreeNode> | undefined {
+  if (!pbTreeNodes.length) {
+    return;
+  }
+
+  const treeNodes: Array<CRDTTreeNode> = [];
+
+  pbTreeNodes.forEach((node) => {
+    const treeNode = fromTreeNodes(node.getContentList());
+
+    treeNodes.push(treeNode!);
+  });
+
+  return treeNodes;
+}
+
+/**
  * `fromTreeNodes` converts the given Protobuf format to model format.
  */
 function fromTreeNodes(
@@ -979,7 +1020,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
-        fromTreeNodes(pbTreeEditOperation!.getContentList()),
+        fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasTreeStyle()) {
