@@ -282,7 +282,7 @@ describe('Tree', () => {
           type: 'tree-edit',
           from: 1,
           to: 1,
-          value: { type: 'text', value: 'X' },
+          value: [{ type: 'text', value: 'X' }],
         } as any,
       ],
     );
@@ -354,7 +354,7 @@ describe('Tree', () => {
           type: 'tree-edit',
           fromPath: [0, 0, 0, 1],
           toPath: [0, 0, 0, 1],
-          value: { type: 'text', value: 'X' },
+          value: [{ type: 'text', value: 'X' }],
         } as any,
       ],
     );

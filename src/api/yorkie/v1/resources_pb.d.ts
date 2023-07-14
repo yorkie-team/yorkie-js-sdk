@@ -517,10 +517,10 @@ export namespace Operation {
     hasTo(): boolean;
     clearTo(): TreeEdit;
 
-    getContentList(): Array<TreeNode>;
-    setContentList(value: Array<TreeNode>): TreeEdit;
-    clearContentList(): TreeEdit;
-    addContent(value?: TreeNode, index?: number): TreeNode;
+    getContentsList(): Array<TreeNodes>;
+    setContentsList(value: Array<TreeNodes>): TreeEdit;
+    clearContentsList(): TreeEdit;
+    addContents(value?: TreeNodes, index?: number): TreeNodes;
 
     getExecutedAt(): TimeTicket | undefined;
     setExecutedAt(value?: TimeTicket): TreeEdit;
@@ -540,7 +540,7 @@ export namespace Operation {
       parentCreatedAt?: TimeTicket.AsObject,
       from?: TreePos.AsObject,
       to?: TreePos.AsObject,
-      contentList: Array<TreeNode.AsObject>,
+      contentsList: Array<TreeNodes.AsObject>,
       executedAt?: TimeTicket.AsObject,
     }
   }
@@ -1133,6 +1133,26 @@ export namespace TreeNode {
     insPrevPos?: TreePos.AsObject,
     depth: number,
     attributesMap: Array<[string, NodeAttr.AsObject]>,
+  }
+}
+
+export class TreeNodes extends jspb.Message {
+  getContentList(): Array<TreeNode>;
+  setContentList(value: Array<TreeNode>): TreeNodes;
+  clearContentList(): TreeNodes;
+  addContent(value?: TreeNode, index?: number): TreeNode;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TreeNodes.AsObject;
+  static toObject(includeInstance: boolean, msg: TreeNodes): TreeNodes.AsObject;
+  static serializeBinaryToWriter(message: TreeNodes, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TreeNodes;
+  static deserializeBinaryFromReader(message: TreeNodes, reader: jspb.BinaryReader): TreeNodes;
+}
+
+export namespace TreeNodes {
+  export type AsObject = {
+    contentList: Array<TreeNode.AsObject>,
   }
 }
 
