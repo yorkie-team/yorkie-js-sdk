@@ -99,10 +99,10 @@ export class Checkpoint {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of this
+   * `toTestString` returns a string containing the meta data of this
    * checkpoint.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     return `serverSeq=${this.serverSeq}, clientSeq=${this.clientSeq}`;
   }
 }

@@ -29,6 +29,10 @@ export const TicketComparator: Comparator<TimeTicket> = (
   return p1.compare(p2);
 };
 
+/**
+ * `TimeTicketStruct` is a structure represents the meta data of the ticket.
+ * It is used to serialize and deserialize the ticket.
+ */
 export type TimeTicketStruct = {
   lamport: string;
   delimiter: number;
@@ -75,10 +79,21 @@ export class TimeTicket {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of the ticket
+   * `toStructure` returns the structure of this Ticket.
+   */
+  public toStructure(): TimeTicketStruct {
+    return {
+      lamport: this.getLamportAsString(),
+      delimiter: this.getDelimiter(),
+      actorID: this.getActorID(),
+    };
+  }
+
+  /**
+   * `toTestString` returns a string containing the meta data of the ticket
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     if (!this.actorID) {
       return `${this.lamport.toString()}:nil:${this.delimiter}`;
     }

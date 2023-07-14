@@ -7,6 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.4] - 2023-07-05
+
+### Changed
+* Cleanup of test-related terminology by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/562
+* Use TreeRangeStruct to represent tree selection by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/561
+
+## [0.4.3] - 2023-06-29
+
+### Added
+* Apply garbage collection to tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/550
+
+### Changed
+* Cleanup TextChange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/551
+
+### Fixed
+* Fix garbage collection bug by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/555
+
 ## [0.4.2] - 2023-06-19
 
 ### Added

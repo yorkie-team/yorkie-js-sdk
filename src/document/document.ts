@@ -47,7 +47,6 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
-  InternalOpInfo,
   OperationInfo,
   ObjectOperationInfo,
   TextOperationInfo,
@@ -516,15 +515,13 @@ export class Document<T, P extends Indexable> {
     this.localChanges.push(change);
 
     if (change.hasOperations()) {
-      const internalOpInfos = change.execute(this.root);
+      const opInfos = change.execute(this.root);
       this.publish({
         type: DocEventType.LocalChange,
         value: {
           actor: this.myClientID,
           message: change.getMessage() || '',
-          operations: internalOpInfos.map((internalOpInfo) =>
-            this.toOperationInfo(internalOpInfo),
-          ),
+          operations: opInfos,
         },
       });
     }
@@ -957,9 +954,7 @@ export class Document<T, P extends Indexable> {
         changes
           .map(
             (change) =>
-              `${change
-                .getID()
-                .getStructureAsString()}\t${change.getStructureAsString()}`,
+              `${change.getID().toTestString()}\t${change.toTestString()}`,
           )
           .join('\n'),
       );
@@ -977,13 +972,11 @@ export class Document<T, P extends Indexable> {
       } = {};
       const actorID = change.getID().getActorID()!;
       if (change.hasOperations()) {
-        const inernalOpInfos = change.execute(this.root);
+        const opInfos = change.execute(this.root);
         updates.changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
-          operations: inernalOpInfos.map((opInfo) =>
-            this.toOperationInfo(opInfo),
-          ),
+          operations: opInfos,
         };
       }
 
@@ -1037,7 +1030,7 @@ export class Document<T, P extends Indexable> {
    */
   public getValueByPath(path: string): JSONElement | undefined {
     if (!path.startsWith('$')) {
-      throw new Error('The path must start with "$"');
+      throw new YorkieError(Code.InvalidArgument, `path must start with "$"`);
     }
     const pathArr = path.split('.');
     pathArr.shift();
@@ -1047,19 +1040,6 @@ export class Document<T, P extends Indexable> {
       if (value === undefined) return undefined;
     }
     return value;
-  }
-
-  private toOperationInfo(internalOpInfo: InternalOpInfo): OperationInfo {
-    const opInfo = {} as OperationInfo;
-    for (const key of Object.keys(internalOpInfo)) {
-      if (key === 'element') {
-        opInfo.path = this.root.createSubPaths(internalOpInfo[key])!.join('.');
-      } else {
-        const k = key as keyof Omit<InternalOpInfo, 'element'>;
-        opInfo[k] = internalOpInfo[k];
-      }
-    }
-    return opInfo;
   }
 
   /**

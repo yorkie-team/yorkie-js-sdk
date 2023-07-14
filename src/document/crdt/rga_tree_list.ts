@@ -387,10 +387,10 @@ export class RGATreeList {
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node id
+   * `toTestString` returns a String containing the meta data of the node id
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     const json = [];
 
     for (const node of this) {

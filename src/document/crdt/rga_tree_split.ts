@@ -38,6 +38,10 @@ interface RGATreeSplitValue {
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
 
+/**
+ * `RGATreeSplitNodeIDStruct` is a structure represents the meta data of the node id.
+ * It is used to serialize and deserialize the node id.
+ */
 type RGATreeSplitNodeIDStruct = {
   createdAt: TimeTicketStruct;
   offset: number;
@@ -101,11 +105,28 @@ export class RGATreeSplitNodeID {
   }
 
   /**
-   * `getStructureAsString` returns a String containing
+   * `toStructure` returns the structure of this node id.
+   */
+  public toStructure(): RGATreeSplitNodeIDStruct {
+    return {
+      createdAt: this.createdAt.toStructure(),
+      offset: this.offset,
+    };
+  }
+
+  /**
+   * `toTestString` returns a String containing
    * the meta data of the node id for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.createdAt.getStructureAsString()}:${this.offset}`;
+  public toTestString(): string {
+    return `${this.createdAt.toTestString()}:${this.offset}`;
+  }
+
+  /**
+   * `toIDString` returns a string that can be used as an ID for this node id.
+   */
+  public toIDString(): string {
+    return `${this.createdAt.toIDString()}:${this.offset}`;
   }
 
   /**
@@ -172,11 +193,11 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   *`getStructureAsString` returns a String containing
+   *`toTestString` returns a String containing
    * the meta data of the position for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.id.getStructureAsString()}:${this.relativeOffset}`;
+  public toTestString(): string {
+    return `${this.id.toTestString()}:${this.relativeOffset}`;
   }
 
   /**
@@ -439,11 +460,11 @@ export class RGATreeSplitNode<
   }
 
   /**
-   * `getStructureAsString` returns a String containing
+   * `toTestString` returns a String containing
    * the meta data of the node for debugging purpose.
    */
-  public getStructureAsString(): string {
-    return `${this.id.getStructureAsString()} ${this.value ? this.value : ''}`;
+  public toTestString(): string {
+    return `${this.id.toTestString()} ${this.value ? this.value : ''}`;
   }
 
   private splitValue(offset: number): T {
@@ -581,7 +602,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       : this.findFloorNode(absoluteID);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${absoluteID.getStructureAsString()}`,
+        `the node of the given id should be found: ${absoluteID.toTestString()}`,
       );
     }
     const index = this.treeByIndex.indexOf(node!);
@@ -669,18 +690,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `getStructureAsString` returns a String containing the meta data of the node
+   * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     const result = [];
 
     let node: RGATreeSplitNode<T> | undefined = this.head;
     while (node) {
       if (node.isRemoved()) {
-        result.push(`{${node.getStructureAsString()}}`);
+        result.push(`{${node.toTestString()}}`);
       } else {
-        result.push(`[${node.getStructureAsString()}]`);
+        result.push(`[${node.toTestString()}]`);
       }
 
       node = node.getNext();
@@ -734,7 +755,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     let node = this.findFloorNode(id);
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${id.getStructureAsString()}`,
+        `the node of the given id should be found: ${id.toTestString()}`,
       );
     }
 
@@ -844,7 +865,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(node.getID().getStructureAsString(), node);
+      removedNodeMap.set(node.getID().toIDString(), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
@@ -971,7 +992,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         this.treeByIndex.delete(node);
         this.purge(node);
         this.treeByID.remove(node.getID());
-        this.removedNodeMap.delete(node.getID().getStructureAsString());
+        this.removedNodeMap.delete(node.getID().toIDString());
         count++;
       }
     }

@@ -42,7 +42,7 @@
 
       function displayLog(doc) {
         logHolder.innerText = doc.toJSON();
-        textLogHolder.innerText = doc.getRoot().content.getStructureAsString();
+        textLogHolder.innerText = doc.getRoot().content.toTestString();
       }
 
       function displayPeers(peers, myClientID) {

@@ -16,7 +16,7 @@
 
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -55,7 +55,7 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -69,7 +69,7 @@ export class IncreaseOperation extends Operation {
     return [
       {
         type: 'increase',
-        element: this.getEffectedCreatedAt(),
+        path: root.createPath(this.getParentCreatedAt()),
         value: value.getValue() as number,
       },
     ];
@@ -83,10 +83,10 @@ export class IncreaseOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    return `${this.getParentCreatedAt().getStructureAsString()}.INCREASE`;
+  public toTestString(): string {
+    return `${this.getParentCreatedAt().toTestString()}.INCREASE`;
   }
 
   /**

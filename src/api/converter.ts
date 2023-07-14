@@ -70,6 +70,7 @@ import {
   TimeTicket as PbTimeTicket,
   ValueType as PbValueType,
   TreeNode as PbTreeNode,
+  TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
@@ -235,8 +236,8 @@ function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
   const pbTreePos = new PbTreePos();
-  pbTreePos.setCreatedAt(toTimeTicket(pos.createdAt));
-  pbTreePos.setOffset(pos.offset);
+  pbTreePos.setCreatedAt(toTimeTicket(pos.getCreatedAt()));
+  pbTreePos.setOffset(pos.getOffset());
   return pbTreePos;
 }
 
@@ -359,8 +360,8 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbTreeEditOperation.setFrom(toTreePos(treeEditOperation.getFromPos()));
     pbTreeEditOperation.setTo(toTreePos(treeEditOperation.getToPos()));
-    pbTreeEditOperation.setContentList(
-      toTreeNodes(treeEditOperation.getContent()!),
+    pbTreeEditOperation.setContentsList(
+      toTreeNodesWhenEdit(treeEditOperation.getContents()!),
     );
     pbTreeEditOperation.setExecutedAt(
       toTimeTicket(treeEditOperation.getExecutedAt()),
@@ -395,7 +396,7 @@ function toOperation(operation: Operation): PbOperation {
  * `toOperations` converts the given model to Protobuf format.
  */
 function toOperations(operations: Array<Operation>): Array<PbOperation> {
-  const pbOperations = [];
+  const pbOperations: Array<PbOperation> = [];
   for (const operation of operations) {
     pbOperations.push(toOperation(operation));
   }
@@ -422,7 +423,7 @@ function toChange(change: Change<Indexable>): PbChange {
  * `toChanges` converts the given model to Protobuf format.
  */
 function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
-  const pbChanges = [];
+  const pbChanges: Array<PbChange> = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
   }
@@ -433,7 +434,7 @@ function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
  * `toRHTNodes` converts the given model to Protobuf format.
  */
 function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
-  const pbRHTNodes = [];
+  const pbRHTNodes: Array<PbRHTNode> = [];
   for (const rhtNode of rht) {
     const pbRHTNode = new PbRHTNode();
     pbRHTNode.setKey(rhtNode.getStrKey());
@@ -449,7 +450,7 @@ function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
  * `toRGANodes` converts the given model to Protobuf format.
  */
 function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
-  const pbRGANodes = [];
+  const pbRGANodes: Array<PbRGANode> = [];
   for (const rgaTreeListNode of rgaTreeList) {
     const pbRGANode = new PbRGANode();
     // eslint-disable-next-line
@@ -466,7 +467,7 @@ function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
 function toTextNodes(
   rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
 ): Array<PbTextNode> {
-  const pbTextNodes = [];
+  const pbTextNodes: Array<PbTextNode> = [];
 
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
@@ -487,6 +488,25 @@ function toTextNodes(
   }
 
   return pbTextNodes;
+}
+
+/**
+ * `toTreeNodesWhenEdit` converts the given model to Protobuf format.
+ */
+function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
+  const pbTreeNodesList: Array<PbTreeNodes> = [];
+
+  if (!nodes.length) {
+    return pbTreeNodesList;
+  }
+
+  nodes.forEach((node) => {
+    const pbTreeNodes = new PbTreeNodes();
+    pbTreeNodes.setContentList(toTreeNodes(node));
+    pbTreeNodesList.push(pbTreeNodes);
+  });
+
+  return pbTreeNodesList;
 }
 
 /**
@@ -848,10 +868,31 @@ function fromSnapshotPresence<P extends Indexable>(
  * `fromTreePos` converts the given Protobuf format to model format.
  */
 function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
-  return {
-    createdAt: fromTimeTicket(pbTreePos.getCreatedAt())!,
-    offset: pbTreePos.getOffset(),
-  };
+  return CRDTTreePos.of(
+    fromTimeTicket(pbTreePos.getCreatedAt())!,
+    pbTreePos.getOffset(),
+  );
+}
+
+/**
+ * `fromTreeNodesWhenEdit` converts the given Protobuf format to model format.
+ */
+function fromTreeNodesWhenEdit(
+  pbTreeNodes: Array<PbTreeNodes>,
+): Array<CRDTTreeNode> | undefined {
+  if (!pbTreeNodes.length) {
+    return;
+  }
+
+  const treeNodes: Array<CRDTTreeNode> = [];
+
+  pbTreeNodes.forEach((node) => {
+    const treeNode = fromTreeNodes(node.getContentList());
+
+    treeNodes.push(treeNode!);
+  });
+
+  return treeNodes;
 }
 
 /**
@@ -908,7 +949,7 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
  * `fromOperations` converts the given Protobuf format to model format.
  */
 function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
-  const operations = [];
+  const operations: Array<Operation> = [];
 
   for (const pbOperation of pbOperations) {
     let operation: Operation;
@@ -996,7 +1037,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
-        fromTreeNodes(pbTreeEditOperation!.getContentList()),
+        fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasTreeStyle()) {
@@ -1029,7 +1070,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 function fromChanges<P extends Indexable>(
   pbChanges: Array<PbChange>,
 ): Array<Change<P>> {
-  const changes = [];
+  const changes: Array<Change<P>> = [];
 
   for (const pbChange of pbChanges) {
     changes.push(
@@ -1237,24 +1278,6 @@ function treeToBytes(tree: CRDTTree): Uint8Array {
 }
 
 /**
- * `treePosToBytes` converts the given CRDTTreePos to byte array.
- */
-function treePosToBytes(pos: CRDTTreePos): Uint8Array {
-  return toTreePos(pos).serializeBinary();
-}
-
-/**
- * `bytesToTreePos` creates an CRDTTreePos from the given bytes.
- */
-function bytesToTreePos(bytes: Uint8Array): CRDTTreePos {
-  if (!bytes) {
-    throw new Error('bytes is empty');
-  }
-  const pbTreePos = PbTreePos.deserializeBinary(bytes);
-  return fromTreePos(pbTreePos);
-}
-
-/**
  * `bytesToHex` creates an hex string from the given byte array.
  */
 function bytesToHex(bytes?: Uint8Array): string {
@@ -1304,6 +1327,4 @@ export const converter = {
   bytesToObject,
   toHexString,
   toUint8Array,
-  bytesToTreePos,
-  treePosToBytes,
 };
