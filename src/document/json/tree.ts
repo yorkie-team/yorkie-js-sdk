@@ -278,7 +278,7 @@ export class Tree {
   public editByPath(
     fromPath: Array<number>,
     toPath: Array<number>,
-    content?: TreeNode,
+    ...contents: Array<TreeNode>
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -290,18 +290,28 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const crdtNode = content && createCRDTTreeNode(this.context, content);
+    const crdtNodes: Array<CRDTTreeNode> = contents
+      .map((content) => content && createCRDTTreeNode(this.context!, content))
+      .filter((a) => a) as Array<CRDTTreeNode>;
+
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.getLastTimeTicket();
-    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+    // fix here
+    this.tree.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
 
     this.context.push(
       TreeEditOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        crdtNode,
+        crdtNodes.length ? crdtNodes : undefined,
         ticket,
       ),
     );
@@ -319,7 +329,11 @@ export class Tree {
   /**
    * `edit` edits this tree with the given node.
    */
-  public edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean {
+  public edit(
+    fromIdx: number,
+    toIdx: number,
+    ...contents: Array<TreeNode>
+  ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
@@ -327,18 +341,26 @@ export class Tree {
       throw new Error('from should be less than or equal to to');
     }
 
-    const crdtNode = content && createCRDTTreeNode(this.context, content);
+    const crdtNodes: Array<CRDTTreeNode> = contents
+      .map((content) => content && createCRDTTreeNode(this.context!, content))
+      .filter((a) => a) as Array<CRDTTreeNode>;
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.getLastTimeTicket();
-    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+    this.tree.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
 
     this.context.push(
       TreeEditOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        crdtNode,
+        crdtNodes.length ? crdtNodes : undefined,
         ticket,
       ),
     );
