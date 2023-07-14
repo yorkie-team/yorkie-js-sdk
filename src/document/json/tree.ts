@@ -297,7 +297,6 @@ export class Tree {
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.getLastTimeTicket();
-    // fix here
     this.tree.edit(
       [fromPos, toPos],
       crdtNodes.length
