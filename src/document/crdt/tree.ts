@@ -704,31 +704,19 @@ export class CRDTTree extends CRDTGCElement {
    * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
    */
   public purgeRemovedNodesBefore(ticket: TimeTicket) {
-    const nodesToRemoved = new Set<CRDTTreeNode>();
+    const nodesToBeRemoved = new Set<CRDTTreeNode>();
+
     let count = 0;
 
     for (const [, node] of this.removedNodeMap) {
       if (node.removedAt && ticket.compare(node.removedAt!) >= 0) {
-        nodesToRemoved.add(node);
+        nodesToBeRemoved.add(node);
         count++;
       }
     }
 
-    this.indexTree.traverseAll((treeNode) => {
-      if (nodesToRemoved.has(treeNode)) {
-        const parent = treeNode.parent;
-
-        if (!parent) {
-          nodesToRemoved.delete(treeNode);
-          count--;
-          return;
-        }
-
-        parent.removeChild(treeNode);
-      }
-    });
-
-    [...nodesToRemoved].forEach((node) => {
+    [...nodesToBeRemoved].forEach((node) => {
+      node.parent?.removeChild(node);
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
       this.removedNodeMap.delete(node.pos.toIDString());
