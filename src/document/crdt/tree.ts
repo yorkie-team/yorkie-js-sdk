@@ -712,12 +712,12 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    for (const node of nodesToBeRemoved) {
+    [...nodesToBeRemoved].forEach((node) => {
       node.parent?.removeChild(node);
       this.nodeMapByPos.remove(node.pos);
       this.purge(node);
       this.removedNodeMap.delete(node.pos.toIDString());
-    }
+    });
 
     return count;
   }
