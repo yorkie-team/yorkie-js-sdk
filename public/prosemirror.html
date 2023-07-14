@@ -291,6 +291,7 @@
         doc.update((root) => {
           if (!root.tree) {
             root.tree = new yorkie.Tree(docToTreeNode(initialDoc));
+            root.selection = {};
           }
         });
 
@@ -324,7 +325,7 @@
               });
 
               doc.update((root) => {
-                root.selection = root.tree.toPosRange([
+                root.selection[`${client.getID()}`] = root.tree.toPosRange([
                   transaction.curSelection.from,
                   transaction.curSelection.to,
                 ]);
@@ -381,7 +382,7 @@
                 }
               }
 
-              root.selection = root.tree.toPosRange([
+              root.selection[`${client.getID()}`] = root.tree.toPosRange([
                 transaction.curSelection.from,
                 transaction.curSelection.to,
               ]);
@@ -402,12 +403,8 @@
           let toPos = -1;
           for (const op of operations) {
             if (op.type !== 'tree-edit') {
-              if (
-                op.type === 'set' &&
-                op.path === '$' &&
-                op.key === 'selection'
-              ) {
-                const selection = doc.getRoot().selection;
+              if (op.type === 'set' && op.path === '$.selection') {
+                const selection = doc.getRoot().selection[actor];
                 displayRemoteSelection(
                   view,
                   root.tree,
