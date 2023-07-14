@@ -639,26 +639,30 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    // TODO(ehuas): Fix here
     // 03. insert the given node at the given position.
     if (contents?.length) {
       // 03-1. insert the content nodes to the list.
       let previous = fromRight!.prev!;
-      traverse(contents[0], (node) => {
-        this.insertAfter(previous, node);
-        previous = node;
-      });
+      let node = fromPos.node;
+      let offset = fromPos.offset;
+      for (const content of contents!) {
+        traverse(content, (node) => {
+          this.insertAfter(previous, node);
+          previous = node;
+        });
 
-      // 03-2. insert the content nodes to the tree.
-      if (fromPos.node.isText) {
-        if (fromPos.offset === 0) {
-          fromPos.node.parent!.insertBefore(contents[0], fromPos.node);
+        // 03-2. insert the content nodes to the tree.
+        if (node.isText) {
+          if (fromPos.offset === 0) {
+            node.parent!.insertBefore(content, node);
+          } else {
+            node.parent!.insertAfter(content, node);
+          }
         } else {
-          fromPos.node.parent!.insertAfter(contents[0], fromPos.node);
+          const target = node;
+          target.insertAt(content, offset+1);
+          offset++
         }
-      } else {
-        const target = fromPos.node;
-        target.insertAt(contents[0], fromPos.offset);
       }
     }
 
