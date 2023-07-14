@@ -639,7 +639,7 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    //TODO (ehuas) fix here
+    // TODO(ehuas): Fix here
     // 03. insert the given node at the given position.
     if (contents?.length) {
       // 03-1. insert the content nodes to the list.
