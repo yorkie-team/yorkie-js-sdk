@@ -31,6 +31,7 @@ export declare class Tree
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
 |  [getSize()](./yorkie-js-sdk.tree.getsize.md) |  | <code>getSize</code> returns the size of this tree. |
 |  [indexToPath(index)](./yorkie-js-sdk.tree.indextopath.md) |  | <code>indexToPath</code> returns the path of the given index. |
+|  [pathToIndex(path)](./yorkie-js-sdk.tree.pathtoindex.md) |  | <code>pathToIndex</code> returns the index of given path. |
 |  [rangeToPath(range)](./yorkie-js-sdk.tree.rangetopath.md) |  | <code>rangeToPath</code> returns the path of the given range. |
 |  [split(index, depth)](./yorkie-js-sdk.tree.split.md) |  | <code>split</code> splits this tree at the given index. |
 |  [style(fromIdx, toIdx, attributes)](./yorkie-js-sdk.tree.style.md) |  | <code>style</code> sets the attributes to the elements of the given range. |
