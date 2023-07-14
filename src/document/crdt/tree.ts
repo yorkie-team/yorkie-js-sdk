@@ -78,7 +78,7 @@ export interface TreeChange {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value?: TreeNode | { [key: string]: any };
+  value?: Array<TreeNode> | { [key: string]: any };
 }
 
 /**
@@ -571,7 +571,7 @@ export class CRDTTree extends CRDTGCElement {
    */
   public edit(
     range: [CRDTTreePos, CRDTTreePos],
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     // 01. split text nodes at the given range if needed.
@@ -591,7 +591,9 @@ export class CRDTTree extends CRDTGCElement {
       fromPath: this.indexTree.treePosToPath(fromPos),
       toPath: this.indexTree.treePosToPath(toPos),
       actor: editedAt.getActorID()!,
-      value: content ? toJSON(content) : undefined,
+      value: contents?.length
+        ? contents.map((content) => toJSON(content))
+        : undefined,
     });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
@@ -637,11 +639,12 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
+    // TODO(ehuas): Fix here
     // 03. insert the given node at the given position.
-    if (content) {
+    if (contents?.length) {
       // 03-1. insert the content nodes to the list.
       let previous = fromRight!.prev!;
-      traverse(content, (node) => {
+      traverse(contents[0], (node) => {
         this.insertAfter(previous, node);
         previous = node;
       });
@@ -649,13 +652,13 @@ export class CRDTTree extends CRDTGCElement {
       // 03-2. insert the content nodes to the tree.
       if (fromPos.node.isText) {
         if (fromPos.offset === 0) {
-          fromPos.node.parent!.insertBefore(content, fromPos.node);
+          fromPos.node.parent!.insertBefore(contents[0], fromPos.node);
         } else {
-          fromPos.node.parent!.insertAfter(content, fromPos.node);
+          fromPos.node.parent!.insertAfter(contents[0], fromPos.node);
         }
       } else {
         const target = fromPos.node;
-        target.insertAt(content, fromPos.offset);
+        target.insertAt(contents[0], fromPos.offset);
       }
     }
 
@@ -668,12 +671,12 @@ export class CRDTTree extends CRDTGCElement {
    */
   public editByIndex(
     range: [number, number],
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
   ): void {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit([fromPos, toPos], content, editedAt);
+    this.edit([fromPos, toPos], contents, editedAt);
   }
 
   /**

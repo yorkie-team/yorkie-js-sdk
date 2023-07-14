@@ -15,6 +15,7 @@
  */
 
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
@@ -143,6 +144,13 @@ export class ObjectProxy {
     key: string,
     value: unknown,
   ): void {
+    if (key.includes('.')) {
+      throw new YorkieError(
+        Code.InvalidObjectKey,
+        `key must not contain the '.'.`,
+      );
+    }
+
     const ticket = context.issueTimeTicket();
 
     const setAndRegister = function (elem: CRDTElement) {
