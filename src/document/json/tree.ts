@@ -399,6 +399,17 @@ export class Tree {
   }
 
   /**
+   * `pathToIndex` returns the index of given path.
+   */
+  public pathToIndex(path: Array<number>): number {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.pathToIndex(path);
+  }
+
+  /**
    * eslint-disable-next-line jsdoc/require-jsdoc
    * @internal
    */
