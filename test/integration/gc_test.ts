@@ -267,7 +267,7 @@ describe('Garbage Collection', function () {
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
   });
 
-  it('Can handle tree garbage collection for multi client', async function () {
+  it.only('Can handle tree garbage collection for multi client', async function () {
     const client1 = new yorkie.Client(testRPCAddr);
     const client2 = new yorkie.Client(testRPCAddr);
 

@@ -28,6 +28,7 @@ import {
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -38,7 +39,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   private id: ChangeID;
   private root: CRDTRoot;
   private operations: Array<Operation>;
-  private presence: P | undefined;
+  private presenceChange: PresenceChange<P> | undefined;
   private message?: string;
   private delimiter: number;
 
@@ -47,7 +48,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
     this.root = root;
     this.message = message;
     this.operations = [];
-    this.presence = undefined;
+    this.presenceChange = undefined;
     this.delimiter = InitialDelimiter;
   }
 
@@ -98,7 +99,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
     return Change.create({
       id: this.id,
       operations: this.operations,
-      presence: this.presence,
+      presenceChange: this.presenceChange,
       message: this.message,
     });
   }
@@ -107,7 +108,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
    * `hasChange` returns whether there are any changes in this context.
    */
   public hasChange(): boolean {
-    return this.hasOperations() || this.hasPresence();
+    return this.hasOperations() || this.hasPresenceChange();
   }
 
   /**
@@ -118,17 +119,17 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
-   * `hasPresence` returns whether this context has presence or not.
+   * `hasPresenceChange` returns whether this context has presence change or not.
    */
-  public hasPresence(): boolean {
-    return this.presence !== undefined;
+  public hasPresenceChange(): boolean {
+    return this.presenceChange !== undefined;
   }
 
   /**
-   * `setPresence` registers the updated presence to this context.
+   * `setPresenceChange` registers the presence change to this context.
    */
-  public setPresence(presence: P) {
-    this.presence = presence;
+  public setPresenceChange(presenceChange: PresenceChange<P>) {
+    this.presenceChange = presenceChange;
   }
 
   /**

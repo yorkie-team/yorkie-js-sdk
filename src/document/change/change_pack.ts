@@ -47,12 +47,6 @@ export class ChangePack<P extends Indexable> {
   private snapshot?: Uint8Array;
 
   /**
-   * snapshotPresence is a string that encodes the presenceMap,
-   * representing the presence of peers.
-   */
-  private snapshotPresence?: string;
-
-  /**
    * `minSyncedTicket` is the minimum logical time taken by clients who attach
    * to the document. It is used to collect garbage on the replica on the
    * client.
@@ -65,7 +59,6 @@ export class ChangePack<P extends Indexable> {
     isRemoved: boolean,
     changes: Array<Change<P>>,
     snapshot?: Uint8Array,
-    snapshotPresence?: string,
     minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
@@ -73,7 +66,6 @@ export class ChangePack<P extends Indexable> {
     this.isRemoved = isRemoved;
     this.changes = changes;
     this.snapshot = snapshot;
-    this.snapshotPresence = snapshotPresence;
     this.minSyncedTicket = minSyncedTicket;
   }
 
@@ -86,7 +78,6 @@ export class ChangePack<P extends Indexable> {
     isRemoved,
     changes,
     snapshot,
-    snapshotPresence,
     minSyncedTicket,
   }: {
     key: string;
@@ -94,7 +85,6 @@ export class ChangePack<P extends Indexable> {
     isRemoved: boolean;
     changes: Array<Change<P>>;
     snapshot?: Uint8Array;
-    snapshotPresence?: string;
     minSyncedTicket?: TimeTicket;
   }): ChangePack<P> {
     return new ChangePack<P>(
@@ -103,7 +93,6 @@ export class ChangePack<P extends Indexable> {
       isRemoved,
       changes,
       snapshot,
-      snapshotPresence,
       minSyncedTicket,
     );
   }
@@ -162,13 +151,6 @@ export class ChangePack<P extends Indexable> {
    */
   public getSnapshot(): Uint8Array | undefined {
     return this.snapshot;
-  }
-
-  /**
-   * `getSnapshotPresence` returns the presence snapshot of this pack.
-   */
-  public getSnapshotPresence(): string | undefined {
-    return this.snapshotPresence;
   }
 
   /**

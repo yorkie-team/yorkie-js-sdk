@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
+import * as jspb from 'google-protobuf';
 import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import {
+  PresenceChange,
+  PresenceChangeType,
+} from '@yorkie-js-sdk/src/document/presence/presence';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -58,6 +63,8 @@ import {
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
   Presence as PbPresence,
+  PresenceChange as PbPresenceChange,
+  Snapshot as PbSnapshot,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -96,6 +103,24 @@ function toPresence(presence: Indexable): PbPresence {
     pbDataMap.set(key, JSON.stringify(value));
   }
   return pbPresence;
+}
+
+/**
+ * `toPresenceChange` converts the given model to Protobuf format.
+ */
+function toPresenceChange(
+  presenceChange: PresenceChange<Indexable>,
+): PbPresenceChange {
+  const pbPresenceChange = new PbPresenceChange();
+
+  if (presenceChange.type === PresenceChangeType.Put) {
+    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_PUT);
+  } else if (presenceChange.type === PresenceChangeType.Clear) {
+    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR);
+  }
+
+  pbPresenceChange.setPresence(toPresence(presenceChange.presence));
+  return pbPresenceChange;
 }
 
 /**
@@ -413,8 +438,8 @@ function toChange(change: Change<Indexable>): PbChange {
   if (change.hasOperations()) {
     pbChange.setOperationsList(toOperations(change.getOperations()));
   }
-  if (change.hasPresence()) {
-    pbChange.setPresence(toPresence(change.getPresence()!));
+  if (change.hasPresenceChange()) {
+    pbChange.setPresenceChange(toPresenceChange(change.getPresenceChange()!));
   }
   return pbChange;
 }
@@ -668,7 +693,6 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   pbChangePack.setChangesList(toChanges(pack.getChanges()));
   pbChangePack.setSnapshot(pack.getSnapshot()!);
   pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
-  pbChangePack.setSnapshotPresence(pack.getSnapshotPresence()!);
   return pbChangePack;
 }
 
@@ -845,23 +869,40 @@ function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
 }
 
 /**
- * `fromSnapshotPresence` converts the given Protobuf format to model format.
+ * `fromPresenceChange` converts the given Protobuf format to model format.
  */
-function fromSnapshotPresence<P extends Indexable>(
-  pbSnapshotPresence: string,
-): Map<ActorID, P> {
-  const snapshotPresence = JSON.parse(pbSnapshotPresence) as {
-    [actorID: string]: P;
-  };
-  const presenceMap = new Map<ActorID, P>();
-  for (const [actorID, pbPresence] of Object.entries(snapshotPresence)) {
-    const presence = {} as P;
-    for (const [key, value] of Object.entries(pbPresence)) {
-      presence[key as keyof P] = JSON.parse(value as string);
-    }
-    presenceMap.set(actorID, presence);
+function fromPresenceChange<P extends Indexable>(
+  pbPresenceChange: PbPresenceChange,
+): PresenceChange<P> {
+  const type = pbPresenceChange.getType();
+  const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
+
+  if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_PUT) {
+    return {
+      type: PresenceChangeType.Put,
+      presence,
+    };
+  } else if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR) {
+    return {
+      type: PresenceChangeType.Clear,
+      presence,
+    };
+  } else {
+    throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
   }
-  return presenceMap;
+}
+
+/**
+ * `fromPresences` converts the given Protobuf format to model format.
+ */
+function fromPresences<P extends Indexable>(
+  pbPresences: jspb.Map<string, PbPresence>,
+): Map<ActorID, P> {
+  const presences = new Map<ActorID, P>();
+  pbPresences.forEach((pbPresence: PbPresence, actorID: string) => {
+    presences.set(actorID, fromPresence(pbPresence));
+  });
+  return presences;
 }
 
 /**
@@ -1077,8 +1118,8 @@ function fromChanges<P extends Indexable>(
       Change.create<P>({
         id: fromChangeID(pbChange.getId()!),
         operations: fromOperations(pbChange.getOperationsList()),
-        presence: pbChange.hasPresence()
-          ? fromPresence<P>(pbChange.getPresence()!)
+        presenceChange: pbChange.hasPresenceChange()
+          ? fromPresenceChange<P>(pbChange.getPresenceChange()!)
           : undefined,
         message: pbChange.getMessage(),
       }),
@@ -1110,7 +1151,6 @@ function fromChangePack<P extends Indexable>(
     isRemoved: pbPack.getIsRemoved(),
     changes: fromChanges(pbPack.getChangesList()),
     snapshot: pbPack.getSnapshot_asU8(),
-    snapshotPresence: pbPack.getSnapshotPresence(),
     minSyncedTicket: fromTimeTicket(pbPack.getMinSyncedTicket()),
   });
 }
@@ -1240,6 +1280,29 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
 }
 
 /**
+ * `bytesToSnapshot` creates a Snapshot from the given byte array.
+ */
+function bytesToSnapshot<P extends Indexable>(
+  bytes?: Uint8Array,
+): {
+  root: CRDTObject;
+  presences: Map<ActorID, P>;
+} {
+  if (!bytes) {
+    return {
+      root: CRDTObject.create(InitialTimeTicket),
+      presences: new Map(),
+    };
+  }
+
+  const snapshot = PbSnapshot.deserializeBinary(bytes);
+  return {
+    root: fromElement(snapshot.getRoot()!) as CRDTObject,
+    presences: fromPresences(snapshot.getPresencesMap()),
+  };
+}
+
+/**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
@@ -1319,12 +1382,12 @@ function toUint8Array(hex: string): Uint8Array {
  */
 export const converter = {
   fromPresence,
-  fromSnapshotPresence,
   toChangePack,
   fromChangePack,
   fromChanges,
   objectToBytes,
   bytesToObject,
+  bytesToSnapshot,
   toHexString,
   toUint8Array,
 };

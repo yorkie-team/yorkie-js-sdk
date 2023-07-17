@@ -155,6 +155,9 @@ export class DetachDocumentRequest extends jspb.Message {
   hasChangePack(): boolean;
   clearChangePack(): DetachDocumentRequest;
 
+  getRemoveIfNotAttached(): boolean;
+  setRemoveIfNotAttached(value: boolean): DetachDocumentRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentRequest.AsObject;
   static toObject(includeInstance: boolean, msg: DetachDocumentRequest): DetachDocumentRequest.AsObject;
@@ -168,6 +171,7 @@ export namespace DetachDocumentRequest {
     clientId: Uint8Array | string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
+    removeIfNotAttached: boolean,
   }
 }
 
@@ -247,10 +251,10 @@ export namespace WatchDocumentResponse {
   }
 
   export class Initialization extends jspb.Message {
-    getPeersList(): Array<Uint8Array | string>;
-    setPeersList(value: Array<Uint8Array | string>): Initialization;
-    clearPeersList(): Initialization;
-    addPeers(value: Uint8Array | string, index?: number): Initialization;
+    getClientIdsList(): Array<Uint8Array | string>;
+    setClientIdsList(value: Array<Uint8Array | string>): Initialization;
+    clearClientIdsList(): Initialization;
+    addClientIds(value: Uint8Array | string, index?: number): Initialization;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Initialization.AsObject;
@@ -262,7 +266,7 @@ export namespace WatchDocumentResponse {
 
   export namespace Initialization {
     export type AsObject = {
-      peersList: Array<Uint8Array | string>,
+      clientIdsList: Array<Uint8Array | string>,
     }
   }
 

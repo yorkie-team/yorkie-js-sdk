@@ -21,6 +21,7 @@ import {
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -31,8 +32,8 @@ export class Change<P extends Indexable> {
   // `operations` represent a series of user edits.
   private operations: Array<Operation>;
 
-  // `presence` represent the updated presence.
-  private presence: P | undefined;
+  // `presenceChange` represents the presenceChange of the user who made the change.
+  private presenceChange: PresenceChange<P> | undefined;
 
   // `message` is used to save a description of the change.
   private message?: string;
@@ -40,17 +41,17 @@ export class Change<P extends Indexable> {
   constructor({
     id,
     operations,
-    presence,
+    presenceChange,
     message,
   }: {
     id: ChangeID;
     operations?: Array<Operation>;
-    presence?: P;
+    presenceChange?: PresenceChange<P>;
     message?: string;
   }) {
     this.id = id;
     this.operations = operations || [];
-    this.presence = presence;
+    this.presenceChange = presenceChange;
     this.message = message;
   }
 
@@ -60,15 +61,15 @@ export class Change<P extends Indexable> {
   public static create<P extends Indexable>({
     id,
     operations,
-    presence,
+    presenceChange,
     message,
   }: {
     id: ChangeID;
     operations?: Array<Operation>;
-    presence?: P;
+    presenceChange?: PresenceChange<P>;
     message?: string;
   }): Change<P> {
-    return new Change<P>({ id, operations, presence, message });
+    return new Change<P>({ id, operations, presenceChange, message });
   }
 
   /**
@@ -100,17 +101,17 @@ export class Change<P extends Indexable> {
   }
 
   /**
-   * `hasPresence` returns whether this change has presence or not.
+   * `hasPresence` returns whether this change has presence change or not.
    */
-  public hasPresence(): boolean {
-    return this.presence !== undefined;
+  public hasPresenceChange(): boolean {
+    return this.presenceChange !== undefined;
   }
 
   /**
-   * `getPresence` returns the updated presence of this change.
+   * `getPresenceChange` returns the presence change of this change.
    */
-  public getPresence(): P | undefined {
-    return this.presence;
+  public getPresenceChange(): PresenceChange<P> | undefined {
+    return this.presenceChange;
   }
 
   /**

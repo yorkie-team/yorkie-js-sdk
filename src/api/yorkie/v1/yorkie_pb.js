@@ -1444,7 +1444,8 @@ proto.yorkie.v1.DetachDocumentRequest.toObject = function(includeInstance, msg) 
   var f, obj = {
     clientId: msg.getClientId_asB64(),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
+    changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f),
+    removeIfNotAttached: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
   };
 
   if (includeInstance) {
@@ -1493,6 +1494,10 @@ proto.yorkie.v1.DetachDocumentRequest.deserializeBinaryFromReader = function(msg
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
       msg.setChangePack(value);
+      break;
+    case 4:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setRemoveIfNotAttached(value);
       break;
     default:
       reader.skipField();
@@ -1543,6 +1548,13 @@ proto.yorkie.v1.DetachDocumentRequest.serializeBinaryToWriter = function(message
       3,
       f,
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
+    );
+  }
+  f = message.getRemoveIfNotAttached();
+  if (f) {
+    writer.writeBool(
+      4,
+      f
     );
   }
 };
@@ -1642,6 +1654,24 @@ proto.yorkie.v1.DetachDocumentRequest.prototype.clearChangePack = function() {
  */
 proto.yorkie.v1.DetachDocumentRequest.prototype.hasChangePack = function() {
   return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional bool remove_if_not_attached = 4;
+ * @return {boolean}
+ */
+proto.yorkie.v1.DetachDocumentRequest.prototype.getRemoveIfNotAttached = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 4, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.yorkie.v1.DetachDocumentRequest} returns this
+ */
+proto.yorkie.v1.DetachDocumentRequest.prototype.setRemoveIfNotAttached = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 4, value);
 };
 
 
@@ -2203,7 +2233,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.toObject = functi
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.toObject = function(includeInstance, msg) {
   var f, obj = {
-    peersList: msg.getPeersList_asB64()
+    clientIdsList: msg.getClientIdsList_asB64()
   };
 
   if (includeInstance) {
@@ -2242,7 +2272,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.deserializeBinaryFromReader
     switch (field) {
     case 1:
       var value = /** @type {!Uint8Array} */ (reader.readBytes());
-      msg.addPeers(value);
+      msg.addClientIds(value);
       break;
     default:
       reader.skipField();
@@ -2273,7 +2303,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.serializeBinary =
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getPeersList_asU8();
+  f = message.getClientIdsList_asU8();
   if (f.length > 0) {
     writer.writeRepeatedBytes(
       1,
@@ -2284,35 +2314,35 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.serializeBinaryToWriter = f
 
 
 /**
- * repeated bytes peers = 1;
+ * repeated bytes client_ids = 1;
  * @return {!Array<string>}
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getPeersList = function() {
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList = function() {
   return /** @type {!Array<string>} */ (jspb.Message.getRepeatedField(this, 1));
 };
 
 
 /**
- * repeated bytes peers = 1;
- * This is a type-conversion wrapper around `getPeersList()`
+ * repeated bytes client_ids = 1;
+ * This is a type-conversion wrapper around `getClientIdsList()`
  * @return {!Array<string>}
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getPeersList_asB64 = function() {
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList_asB64 = function() {
   return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
-      this.getPeersList()));
+      this.getClientIdsList()));
 };
 
 
 /**
- * repeated bytes peers = 1;
+ * repeated bytes client_ids = 1;
  * Note that Uint8Array is not supported on all browsers.
  * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getPeersList()`
+ * This is a type-conversion wrapper around `getClientIdsList()`
  * @return {!Array<!Uint8Array>}
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getPeersList_asU8 = function() {
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList_asU8 = function() {
   return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
-      this.getPeersList()));
+      this.getClientIdsList()));
 };
 
 
@@ -2320,7 +2350,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getPeersList_asU8
  * @param {!(Array<!Uint8Array>|Array<string>)} value
  * @return {!proto.yorkie.v1.WatchDocumentResponse.Initialization} returns this
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.setPeersList = function(value) {
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.setClientIdsList = function(value) {
   return jspb.Message.setField(this, 1, value || []);
 };
 
@@ -2330,7 +2360,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.setPeersList = fu
  * @param {number=} opt_index
  * @return {!proto.yorkie.v1.WatchDocumentResponse.Initialization} returns this
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.addPeers = function(value, opt_index) {
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.addClientIds = function(value, opt_index) {
   return jspb.Message.addToRepeatedField(this, 1, value, opt_index);
 };
 
@@ -2339,8 +2369,8 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.addPeers = functi
  * Clears the list making it empty but non-null.
  * @return {!proto.yorkie.v1.WatchDocumentResponse.Initialization} returns this
  */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.clearPeersList = function() {
-  return this.setPeersList([]);
+proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.clearClientIdsList = function() {
+  return this.setClientIdsList([]);
 };
 
 

@@ -26,6 +26,14 @@ option java_multiple_files = true;
 option java_package = "dev.yorkie.api.v1";
 
 /////////////////////////////////////////
+// Messages for Snapshot               //
+/////////////////////////////////////////
+message Snapshot {
+  JSONElement root = 1;
+  map<string, Presence> presences = 2;
+}
+
+/////////////////////////////////////////
 // Messages for ChangePack             //
 /////////////////////////////////////////
 
@@ -38,14 +46,13 @@ message ChangePack {
   repeated Change changes = 4;
   TimeTicket min_synced_ticket = 5;
   bool is_removed = 6;
-  string snapshot_presence = 7;
 }
 
 message Change {
   ChangeID id = 1;
   string message = 2;
   repeated Operation operations = 3;
-  Presence presence = 4;
+  PresenceChange presence_change = 4;
 }
 
 message ChangeID {
@@ -236,7 +243,7 @@ message TreeNode {
 }
 
 message TreeNodes {
-    repeated TreeNode content = 1;
+  repeated TreeNode content = 1;
 }
 
 message TreePos {
@@ -286,6 +293,17 @@ message DocumentSummary {
   google.protobuf.Timestamp updated_at = 6;
 }
 
+message PresenceChange {
+  enum ChangeType {
+    CHANGE_TYPE_UNSPECIFIED = 0;
+    CHANGE_TYPE_PUT = 1;
+    CHANGE_TYPE_DELETE = 2;
+    CHANGE_TYPE_CLEAR = 3;
+  }
+  ChangeType type = 1;
+  Presence presence = 2;
+}
+
 message Presence {
   map<string, string> data = 1;
 }
@@ -325,12 +343,13 @@ enum ValueType {
 }
 
 enum DocEventType {
-  DOC_EVENT_TYPE_DOCUMENT_CHANGED = 0;
-  DOC_EVENT_TYPE_DOCUMENT_WATCHED = 1;
-  DOC_EVENT_TYPE_DOCUMENT_UNWATCHED = 2;
+  DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0;
+  DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1;
+  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2;
 }
 
 message DocEvent {
   DocEventType type = 1;
   bytes publisher = 2;
 }
+ 

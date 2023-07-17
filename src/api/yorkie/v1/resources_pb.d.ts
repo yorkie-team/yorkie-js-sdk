@@ -4,6 +4,30 @@ import * as google_protobuf_timestamp_pb from 'google-protobuf/google/protobuf/t
 import * as google_protobuf_wrappers_pb from 'google-protobuf/google/protobuf/wrappers_pb';
 
 
+export class Snapshot extends jspb.Message {
+  getRoot(): JSONElement | undefined;
+  setRoot(value?: JSONElement): Snapshot;
+  hasRoot(): boolean;
+  clearRoot(): Snapshot;
+
+  getPresencesMap(): jspb.Map<string, Presence>;
+  clearPresencesMap(): Snapshot;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Snapshot.AsObject;
+  static toObject(includeInstance: boolean, msg: Snapshot): Snapshot.AsObject;
+  static serializeBinaryToWriter(message: Snapshot, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Snapshot;
+  static deserializeBinaryFromReader(message: Snapshot, reader: jspb.BinaryReader): Snapshot;
+}
+
+export namespace Snapshot {
+  export type AsObject = {
+    root?: JSONElement.AsObject,
+    presencesMap: Array<[string, Presence.AsObject]>,
+  }
+}
+
 export class ChangePack extends jspb.Message {
   getDocumentKey(): string;
   setDocumentKey(value: string): ChangePack;
@@ -31,9 +55,6 @@ export class ChangePack extends jspb.Message {
   getIsRemoved(): boolean;
   setIsRemoved(value: boolean): ChangePack;
 
-  getSnapshotPresence(): string;
-  setSnapshotPresence(value: string): ChangePack;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ChangePack.AsObject;
   static toObject(includeInstance: boolean, msg: ChangePack): ChangePack.AsObject;
@@ -50,7 +71,6 @@ export namespace ChangePack {
     changesList: Array<Change.AsObject>,
     minSyncedTicket?: TimeTicket.AsObject,
     isRemoved: boolean,
-    snapshotPresence: string,
   }
 }
 
@@ -68,10 +88,10 @@ export class Change extends jspb.Message {
   clearOperationsList(): Change;
   addOperations(value?: Operation, index?: number): Operation;
 
-  getPresence(): Presence | undefined;
-  setPresence(value?: Presence): Change;
-  hasPresence(): boolean;
-  clearPresence(): Change;
+  getPresenceChange(): PresenceChange | undefined;
+  setPresenceChange(value?: PresenceChange): Change;
+  hasPresenceChange(): boolean;
+  clearPresenceChange(): Change;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Change.AsObject;
@@ -86,7 +106,7 @@ export namespace Change {
     id?: ChangeID.AsObject,
     message: string,
     operationsList: Array<Operation.AsObject>,
-    presence?: Presence.AsObject,
+    presenceChange?: PresenceChange.AsObject,
   }
 }
 
@@ -1377,6 +1397,37 @@ export namespace DocumentSummary {
   }
 }
 
+export class PresenceChange extends jspb.Message {
+  getType(): PresenceChange.ChangeType;
+  setType(value: PresenceChange.ChangeType): PresenceChange;
+
+  getPresence(): Presence | undefined;
+  setPresence(value?: Presence): PresenceChange;
+  hasPresence(): boolean;
+  clearPresence(): PresenceChange;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PresenceChange.AsObject;
+  static toObject(includeInstance: boolean, msg: PresenceChange): PresenceChange.AsObject;
+  static serializeBinaryToWriter(message: PresenceChange, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PresenceChange;
+  static deserializeBinaryFromReader(message: PresenceChange, reader: jspb.BinaryReader): PresenceChange;
+}
+
+export namespace PresenceChange {
+  export type AsObject = {
+    type: PresenceChange.ChangeType,
+    presence?: Presence.AsObject,
+  }
+
+  export enum ChangeType { 
+    CHANGE_TYPE_UNSPECIFIED = 0,
+    CHANGE_TYPE_PUT = 1,
+    CHANGE_TYPE_DELETE = 2,
+    CHANGE_TYPE_CLEAR = 3,
+  }
+}
+
 export class Presence extends jspb.Message {
   getDataMap(): jspb.Map<string, string>;
   clearDataMap(): Presence;
@@ -1514,7 +1565,7 @@ export enum ValueType {
   VALUE_TYPE_TREE = 13,
 }
 export enum DocEventType { 
-  DOC_EVENT_TYPE_DOCUMENT_CHANGED = 0,
-  DOC_EVENT_TYPE_DOCUMENT_WATCHED = 1,
-  DOC_EVENT_TYPE_DOCUMENT_UNWATCHED = 2,
+  DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,
+  DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1,
+  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2,
 }

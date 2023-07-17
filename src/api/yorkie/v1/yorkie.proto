@@ -69,6 +69,7 @@ message DetachDocumentRequest {
   bytes client_id = 1;
   string document_id = 2;
   ChangePack change_pack = 3;
+  bool remove_if_not_attached = 4;
 }
 
 message DetachDocumentResponse {
@@ -83,7 +84,7 @@ message WatchDocumentRequest {
 
 message WatchDocumentResponse {
   message Initialization {
-    repeated bytes peers = 1;
+    repeated bytes client_ids = 1;
   }
 
   oneof body {
@@ -114,3 +115,4 @@ message PushPullChangesResponse {
   bytes client_id = 1;
   ChangePack change_pack = 2;
 }
+ 
