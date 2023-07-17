@@ -15,11 +15,11 @@
  */
 
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 
-export type PresenceChange = {
+export type PresenceChange<P extends Indexable> = {
   type: PresenceChangeType;
-  // TODO(hackerwins): Use generic type for presence.
-  presence: Indexable;
+  presence: P;
 };
 
 /**
@@ -28,4 +28,28 @@ export type PresenceChange = {
 export enum PresenceChangeType {
   Put = 'put',
   Clear = 'clear',
+}
+
+/**
+ * `Presence` represents a proxy for the Presence to be manipulated from the outside.
+ */
+export class Presence<P extends Indexable> {
+  private changeContext: ChangeContext;
+  private presence: P;
+
+  constructor(changeContext: ChangeContext, presence: P) {
+    this.changeContext = changeContext;
+    this.presence = presence;
+  }
+
+  public set(presence: Partial<P>) {
+    for (const [key, value] of Object.entries(presence)) {
+      this.presence[key as keyof P] = value as any;
+    }
+
+    this.changeContext.setPresenceChange({
+      type: PresenceChangeType.Put,
+      presence: this.presence,
+    });
+  }
 }

@@ -310,7 +310,7 @@ export class Client implements Observable<ClientEvent> {
   private id?: ActorID;
   private key: string;
   private status: ClientStatus;
-  private attachmentMap: Map<DocumentKey, Attachment<unknown, unknown>>;
+  private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
   private syncLoopDuration: number;
@@ -442,13 +442,13 @@ export class Client implements Observable<ClientEvent> {
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
-  public attach(
-    doc: Document<unknown, unknown>,
+  public attach<T, P extends Indexable>(
+    doc: Document<T, P>,
     options: {
       initialPresence?: Indexable;
       isRealtimeSync?: boolean;
     } = {},
-  ): Promise<Document<unknown, unknown>> {
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -477,7 +477,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Attached);
@@ -511,9 +511,9 @@ export class Client implements Observable<ClientEvent> {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach(
-    doc: Document<unknown, unknown>,
-  ): Promise<Document<unknown, unknown>> {
+  public detach<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -541,7 +541,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           if (doc.getStatus() !== DocumentStatus.Removed) {
             doc.setStatus(DocumentStatus.Detached);
@@ -558,9 +558,9 @@ export class Client implements Observable<ClientEvent> {
   /**
    * `pause` changes the synchronization mode of the given document to manual.
    */
-  public pause(
-    doc: Document<unknown, unknown>,
-  ): Promise<Document<unknown, unknown>> {
+  public pause<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -571,9 +571,9 @@ export class Client implements Observable<ClientEvent> {
   /**
    * `resume` changes the synchronization mode of the given document to realtime.
    */
-  public resume(
-    doc: Document<unknown, unknown>,
-  ): Promise<Document<unknown, unknown>> {
+  public resume<T, P extends Indexable>(
+    doc: Document<T, P>,
+  ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -585,7 +585,7 @@ export class Client implements Observable<ClientEvent> {
    * `pauseRemoteChanges` pauses the synchronization of remote changes,
    * allowing only local changes to be applied.
    */
-  public pauseRemoteChanges(doc: Document<unknown, unknown>) {
+  public pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -604,7 +604,7 @@ export class Client implements Observable<ClientEvent> {
    * `resumeRemoteChanges` resumes the synchronization of remote changes,
    * allowing both local and remote changes to be applied.
    */
-  public resumeRemoteChanges(doc: Document<unknown, unknown>) {
+  public resumeRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -623,10 +623,10 @@ export class Client implements Observable<ClientEvent> {
   /**
    * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
-  private async changeRealtimeSync(
-    doc: Document<unknown, unknown>,
+  private async changeRealtimeSync<T, P extends Indexable>(
+    doc: Document<T, P>,
     isRealtimeSync: boolean,
-  ): Promise<Document<unknown, unknown>> {
+  ): Promise<Document<T, P>> {
     // TODO(hackerwins): We need to consider extracting this method to `attachment`
     // with other methods like runWatchLoop, disconnectWatchStream.
     const attachment = this.attachmentMap.get(doc.getKey());
@@ -659,16 +659,17 @@ export class Client implements Observable<ClientEvent> {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync(
-    doc?: Document<unknown, unknown>,
+  public sync<T, P extends Indexable>(
+    doc?: Document<T, P>,
     syncMode = SyncMode.PushPull,
-  ): Promise<Array<Document<unknown, unknown>>> {
+  ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
     const promises = [];
     if (doc) {
-      const attachment = this.attachmentMap.get(doc.getKey());
+      // prettier-ignore
+      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<T, P>;
       if (!attachment) {
         throw new YorkieError(
           Code.DocumentNotAttached,
@@ -694,7 +695,7 @@ export class Client implements Observable<ClientEvent> {
   /**
    * `remove` removes the given document.
    */
-  public remove(doc: Document<unknown, unknown>): Promise<void> {
+  public remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
     }
@@ -727,7 +728,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          const pack = converter.fromChangePack(res.getChangePack()!);
+          const pack = converter.fromChangePack<P>(res.getChangePack()!);
           doc.applyChangePack(pack);
           this.detachInternal(doc.getKey());
 
@@ -864,7 +865,7 @@ export class Client implements Observable<ClientEvent> {
     );
   }
 
-  private handleWatchDocumentsResponse<T, P>(
+  private handleWatchDocumentsResponse<T, P extends Indexable>(
     attachment: Attachment<T, P>,
     resp: WatchDocumentResponse,
   ) {
@@ -952,7 +953,7 @@ export class Client implements Observable<ClientEvent> {
     this.attachmentMap.delete(docKey);
   }
 
-  private syncInternal<T, P>(
+  private syncInternal<T, P extends Indexable>(
     attachment: Attachment<T, P>,
     syncMode: SyncMode,
   ): Promise<Document<T, P>> {
@@ -980,7 +981,7 @@ export class Client implements Observable<ClientEvent> {
               return;
             }
 
-            const respPack = converter.fromChangePack(res.getChangePack()!);
+            const respPack = converter.fromChangePack<P>(res.getChangePack()!);
 
             // NOTE(chacha912, hackerwins): If syncLoop already executed with
             // PushPull, ignore the response when the syncMode is PushOnly.

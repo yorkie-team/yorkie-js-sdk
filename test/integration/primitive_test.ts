@@ -6,8 +6,8 @@ import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/inte
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
-    const doc1 = Document.create<{ k1: string; k2: string }>('test-doc');
-    const doc2 = Document.create('test-doc');
+    const doc1 = new Document<{ k1: string; k2: string }>('test-doc');
+    const doc2 = new Document('test-doc');
 
     assert.isTrue(doc1.getCheckpoint().equals(InitialCheckpoint));
     assert.isFalse(doc1.hasLocalChanges());
@@ -24,7 +24,7 @@ describe('Primitive', function () {
   });
 
   it('can rollback, primitive deepcopy', function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       k1: { ['k1-1']?: number; ['k1-2']?: number };
     }>('test-doc');
 

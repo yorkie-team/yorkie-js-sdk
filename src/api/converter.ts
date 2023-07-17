@@ -108,7 +108,9 @@ function toPresence(presence: Indexable): PbPresence {
 /**
  * `toPresenceChange` converts the given model to Protobuf format.
  */
-function toPresenceChange(presenceChange: PresenceChange): PbPresenceChange {
+function toPresenceChange(
+  presenceChange: PresenceChange<Indexable>,
+): PbPresenceChange {
   const pbPresenceChange = new PbPresenceChange();
 
   if (presenceChange.type === PresenceChangeType.Put) {
@@ -429,7 +431,7 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
 /**
  * `toChange` converts the given model to Protobuf format.
  */
-function toChange(change: Change): PbChange {
+function toChange(change: Change<Indexable>): PbChange {
   const pbChange = new PbChange();
   pbChange.setId(toChangeID(change.getID()));
   pbChange.setMessage(change.getMessage()!);
@@ -445,7 +447,7 @@ function toChange(change: Change): PbChange {
 /**
  * `toChanges` converts the given model to Protobuf format.
  */
-function toChanges(changes: Array<Change>): Array<PbChange> {
+function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
   const pbChanges = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
@@ -683,7 +685,7 @@ function toElement(element: CRDTElement): PbJSONElement {
 /**
  * `toChangePack` converts the given model to Protobuf format.
  */
-function toChangePack(pack: ChangePack): PbChangePack {
+function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
@@ -737,7 +739,7 @@ function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
  */
 function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
-): PresenceChange {
+): PresenceChange<P> {
   const type = pbPresenceChange.getType();
   const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
 
@@ -1106,8 +1108,10 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 /**
  * `fromChanges` converts the given Protobuf format to model format.
  */
-function fromChanges(pbChanges: Array<PbChange>): Array<Change> {
-  const changes = [];
+function fromChanges<P extends Indexable>(
+  pbChanges: Array<PbChange>,
+): Array<Change<P>> {
+  const changes: Array<Change<P>> = [];
 
   for (const pbChange of pbChanges) {
     changes.push(
@@ -1138,8 +1142,10 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
 /**
  * `fromChangePack` converts the given Protobuf format to model format.
  */
-function fromChangePack(pbPack: PbChangePack): ChangePack {
-  return ChangePack.create(
+function fromChangePack<P extends Indexable>(
+  pbPack: PbChangePack,
+): ChangePack<P> {
+  return ChangePack.create<P>(
     pbPack.getDocumentKey()!,
     fromCheckpoint(pbPack.getCheckpoint()!),
     pbPack.getIsRemoved(),

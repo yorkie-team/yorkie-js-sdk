@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
@@ -23,7 +24,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  *
  * @internal
  */
-export class ChangePack {
+export class ChangePack<P extends Indexable> {
   /**
    * `documentKey` is the key of the document.
    */
@@ -38,7 +39,7 @@ export class ChangePack {
    */
   private isRemoved: boolean;
 
-  private changes: Array<Change>;
+  private changes: Array<Change<P>>;
 
   /**
    * `snapshot` is a byte array that encodes the document.
@@ -56,7 +57,7 @@ export class ChangePack {
     key: string,
     checkpoint: Checkpoint,
     isRemoved: boolean,
-    changes: Array<Change>,
+    changes: Array<Change<P>>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ) {
@@ -71,15 +72,15 @@ export class ChangePack {
   /**
    * `create` creates a new instance of ChangePack.
    */
-  public static create(
+  public static create<P extends Indexable>(
     key: string,
     checkpoint: Checkpoint,
     isRemoved: boolean,
-    changes: Array<Change>,
+    changes: Array<Change<P>>,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
-  ): ChangePack {
-    return new ChangePack(
+  ): ChangePack<P> {
+    return new ChangePack<P>(
       key,
       checkpoint,
       isRemoved,
@@ -113,7 +114,7 @@ export class ChangePack {
   /**
    * `getChanges` returns the changes of this pack.
    */
-  public getChanges(): Array<Change> {
+  public getChanges(): Array<Change<P>> {
     return this.changes;
   }
 

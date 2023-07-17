@@ -7,7 +7,7 @@ import Long from 'long';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       k1: { age?: Counter; length?: Counter };
     }>('test-doc');
 
@@ -90,7 +90,7 @@ describe('Counter', function () {
   });
 
   it('can handle overflow', function () {
-    const doc = Document.create<{ age: Counter }>('test-doc');
+    const doc = new Document<{ age: Counter }>('test-doc');
 
     doc.update((root) => {
       root.age = new Counter(CounterType.IntegerCnt, 2147483647);
