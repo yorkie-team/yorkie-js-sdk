@@ -54,7 +54,7 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
-  it.skip('Can watch documents', async function () {
+  it('Can watch documents', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -95,7 +95,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('detects the events from doc.subscribe', async function () {
+  it('detects the events from doc.subscribe', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -249,7 +249,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('specify the topic to subscribe to', async function () {
+  it('specify the topic to subscribe to', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -352,7 +352,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('specify the nested topic to subscribe to', async function () {
+  it('specify the nested topic to subscribe to', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -470,7 +470,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('Can handle tombstone', async function () {
+  it('Can handle tombstone', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
@@ -507,7 +507,7 @@ describe('Document', function () {
     assert.isTrue(prevArray?.isRemoved());
   });
 
-  it.skip('Can remove document', async function () {
+  it('Can remove document', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
@@ -560,7 +560,7 @@ describe('Document', function () {
     await c1.deactivate();
   });
 
-  it.skip('Can create document with the same key as the removed document key', async function () {
+  it('Can create document with the same key as the removed document key', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
 
@@ -591,7 +591,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('Can know that document has been removed when doing client.sync()', async function () {
+  it('Can know that document has been removed when doing client.sync()', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
 
@@ -628,7 +628,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('Can know that document has been removed when doing client.detach()', async function () {
+  it('Can know that document has been removed when doing client.detach()', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
 
@@ -659,7 +659,7 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it.skip('removed document removal test', async function () {
+  it('removed document removal test', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
 
@@ -696,7 +696,7 @@ describe('Document', function () {
   //           ▲           │ │     ▲
   //           └───────────┘ └─────┘
   //              Detach     PushPull
-  it.skip('document state transition test', async function () {
+  it('document state transition test', async function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const c1 = new yorkie.Client(testRPCAddr);

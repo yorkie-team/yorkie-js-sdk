@@ -95,7 +95,12 @@ export class ChangeContext {
    * `getChange` creates a new instance of Change in this context.
    */
   public getChange(): Change {
-    return Change.create(this.id, this.operations, this.message);
+    return Change.create({
+      id: this.id,
+      operations: this.operations,
+      presenceChange: this.presenceChange,
+      message: this.message,
+    });
   }
 
   /**

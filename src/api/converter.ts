@@ -1111,11 +1111,14 @@ function fromChanges(pbChanges: Array<PbChange>): Array<Change> {
 
   for (const pbChange of pbChanges) {
     changes.push(
-      Change.create(
-        fromChangeID(pbChange.getId()!),
-        fromOperations(pbChange.getOperationsList()),
-        pbChange.getMessage(),
-      ),
+      Change.create({
+        id: fromChangeID(pbChange.getId()!),
+        operations: fromOperations(pbChange.getOperationsList()),
+        presenceChange: pbChange.hasPresenceChange()
+          ? fromPresenceChange(pbChange.getPresenceChange()!)
+          : undefined,
+        message: pbChange.getMessage(),
+      }),
     );
   }
 

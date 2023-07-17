@@ -704,7 +704,7 @@ export class Document<T> {
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
-    const { root, presences } = converter.bytesToSnapshot(snapshot);
+    const { root } = converter.bytesToSnapshot(snapshot);
     this.root = new CRDTRoot(root);
     this.changeID = this.changeID.syncLamport(serverSeq);
 

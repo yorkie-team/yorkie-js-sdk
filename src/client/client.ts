@@ -931,10 +931,8 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
   ) {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
-      const pbPeers = resp.getInitialization()!.getClientIdsList();
       // TODO(hackerwins): Implement this.
-      // pbPeers.forEach((pbClient) => {
-      // });
+      // const pbPeers = resp.getInitialization()!.getClientIdsList();
       return;
     }
 
@@ -943,46 +941,46 @@ export class Client<P = Indexable> implements Observable<ClientEvent<P>> {
     const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
     switch (eventType) {
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
-        // attachment.remoteChangeEventReceived = true;
-        // this.eventStreamObserver.next({
-        //   type: ClientEventType.DocumentsChanged,
-        //   value: [docKey],
-        // });
+        attachment.remoteChangeEventReceived = true;
+        this.eventStreamObserver.next({
+          type: ClientEventType.DocumentsChanged,
+          value: [docKey],
+        });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
-        // this.eventStreamObserver.next({
-        //   type: ClientEventType.PeersChanged,
-        //   value: {
-        //     type: 'watched',
-        //     peers: {
-        //       [docKey]: [
-        //         {
-        //           clientID: publisher,
-        //           presence: attachment.getPresence(publisher)!,
-        //         },
-        //       ],
-        //     },
-        //   },
-        // });
+        this.eventStreamObserver.next({
+          type: ClientEventType.PeersChanged,
+          value: {
+            type: 'watched',
+            peers: {
+              [docKey]: [
+                {
+                  clientID: publisher,
+                  presence: attachment.getPresence(publisher)!,
+                },
+              ],
+            },
+          },
+        });
         break;
       case DocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
-        // const presence = attachment.getPresence(publisher);
-        // if (!presence) break;
-        // attachment.removePresence(publisher);
-        // this.eventStreamObserver.next({
-        //   type: ClientEventType.PeersChanged,
-        //   value: {
-        //     type: 'unwatched',
-        //     peers: {
-        //       [docKey]: [
-        //         {
-        //           clientID: publisher,
-        //           presence,
-        //         },
-        //       ],
-        //     },
-        //   },
-        // });
+        const presence = attachment.getPresence(publisher);
+        if (!presence) break;
+        attachment.removePresence(publisher);
+        this.eventStreamObserver.next({
+          type: ClientEventType.PeersChanged,
+          value: {
+            type: 'unwatched',
+            peers: {
+              [docKey]: [
+                {
+                  clientID: publisher,
+                  presence,
+                },
+              ],
+            },
+          },
+        });
         break;
       }
     }

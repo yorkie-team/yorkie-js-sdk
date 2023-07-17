@@ -21,7 +21,6 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
@@ -34,26 +33,43 @@ export class Change {
   private operations: Array<Operation>;
 
   // `presenceChange` represents the presenceChange of the user who made the change.
-  private presenceChange: PresenceChange | undefined;
+  private presenceChange?: PresenceChange;
 
   // `message` is used to save a description of the change.
   private message?: string;
 
-  constructor(id: ChangeID, operations: Array<Operation>, message?: string) {
+  constructor({
+    id,
+    operations,
+    presenceChange,
+    message,
+  }: {
+    id: ChangeID;
+    operations?: Array<Operation>;
+    presenceChange?: PresenceChange;
+    message?: string;
+  }) {
     this.id = id;
-    this.operations = operations;
+    this.operations = operations || [];
+    this.presenceChange = presenceChange;
     this.message = message;
   }
 
   /**
    * `create` creates a new instance of Change.
    */
-  public static create<P extends Indexable>(
-    id: ChangeID,
-    operations: Array<Operation>,
-    message?: string,
-  ): Change {
-    return new Change(id, operations, message);
+  public static create({
+    id,
+    operations,
+    presenceChange,
+    message,
+  }: {
+    id: ChangeID;
+    operations?: Array<Operation>;
+    presenceChange?: PresenceChange;
+    message?: string;
+  }): Change {
+    return new Change({ id, operations, presenceChange, message });
   }
 
   /**
