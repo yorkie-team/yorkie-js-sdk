@@ -21,6 +21,8 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -30,6 +32,9 @@ export class Change {
 
   // `operations` represent a series of user edits.
   private operations: Array<Operation>;
+
+  // `presenceChange` represents the presenceChange of the user who made the change.
+  private presenceChange: PresenceChange | undefined;
 
   // `message` is used to save a description of the change.
   private message?: string;
@@ -43,7 +48,7 @@ export class Change {
   /**
    * `create` creates a new instance of Change.
    */
-  public static create(
+  public static create<P extends Indexable>(
     id: ChangeID,
     operations: Array<Operation>,
     message?: string,
@@ -66,6 +71,13 @@ export class Change {
   }
 
   /**
+   * `hasOperations` returns whether this change has operations or not.
+   */
+  public hasOperations(): boolean {
+    return this.operations.length > 0;
+  }
+
+  /**
    * `getOperations` returns the operations of this change.
    */
   public getOperations(): Array<Operation> {
@@ -81,6 +93,20 @@ export class Change {
     }
 
     this.id = this.id.setActor(actorID);
+  }
+
+  /**
+   * `hasPresenceChange` returns whether this change has presence change or not.
+   */
+  public hasPresenceChange(): boolean {
+    return this.presenceChange !== undefined;
+  }
+
+  /**
+   * `getPresenceChange` returns the presence change of this change.
+   */
+  public getPresenceChange(): PresenceChange | undefined {
+    return this.presenceChange;
   }
 
   /**

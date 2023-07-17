@@ -6,7 +6,6 @@ import { SyncMode } from '@yorkie-js-sdk/src/client/client';
  * `PresenceInfo` is presence information of this client.
  */
 export type PresenceInfo<P> = {
-  clock: number;
   data: P;
 };
 
@@ -118,13 +117,6 @@ export class Attachment<P> {
    * `setPresence` sets the presence information of the client.
    */
   public setPresence(clientID: ActorID, presenceInfo: PresenceInfo<P>): void {
-    if (
-      this.peerPresenceMap.has(clientID) &&
-      this.peerPresenceMap.get(clientID)!.clock > presenceInfo.clock
-    ) {
-      return;
-    }
-
     this.peerPresenceMap.set(clientID, presenceInfo);
   }
 

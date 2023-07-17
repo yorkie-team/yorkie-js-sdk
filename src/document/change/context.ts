@@ -27,6 +27,7 @@ import {
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -37,14 +38,16 @@ export class ChangeContext {
   private id: ChangeID;
   private root: CRDTRoot;
   private operations: Array<Operation>;
+  private presenceChange?: PresenceChange;
   private message?: string;
   private delimiter: number;
 
   constructor(id: ChangeID, root: CRDTRoot, message?: string) {
     this.id = id;
     this.root = root;
-    this.message = message;
     this.operations = [];
+    this.presenceChange = undefined;
+    this.message = message;
     this.delimiter = InitialDelimiter;
   }
 

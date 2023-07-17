@@ -4,6 +4,30 @@ import * as google_protobuf_timestamp_pb from 'google-protobuf/google/protobuf/t
 import * as google_protobuf_wrappers_pb from 'google-protobuf/google/protobuf/wrappers_pb';
 
 
+export class Snapshot extends jspb.Message {
+  getRoot(): JSONElement | undefined;
+  setRoot(value?: JSONElement): Snapshot;
+  hasRoot(): boolean;
+  clearRoot(): Snapshot;
+
+  getPresencesMap(): jspb.Map<string, Presence>;
+  clearPresencesMap(): Snapshot;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Snapshot.AsObject;
+  static toObject(includeInstance: boolean, msg: Snapshot): Snapshot.AsObject;
+  static serializeBinaryToWriter(message: Snapshot, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Snapshot;
+  static deserializeBinaryFromReader(message: Snapshot, reader: jspb.BinaryReader): Snapshot;
+}
+
+export namespace Snapshot {
+  export type AsObject = {
+    root?: JSONElement.AsObject,
+    presencesMap: Array<[string, Presence.AsObject]>,
+  }
+}
+
 export class ChangePack extends jspb.Message {
   getDocumentKey(): string;
   setDocumentKey(value: string): ChangePack;
@@ -64,6 +88,11 @@ export class Change extends jspb.Message {
   clearOperationsList(): Change;
   addOperations(value?: Operation, index?: number): Operation;
 
+  getPresenceChange(): PresenceChange | undefined;
+  setPresenceChange(value?: PresenceChange): Change;
+  hasPresenceChange(): boolean;
+  clearPresenceChange(): Change;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Change.AsObject;
   static toObject(includeInstance: boolean, msg: Change): Change.AsObject;
@@ -77,6 +106,7 @@ export namespace Change {
     id?: ChangeID.AsObject,
     message: string,
     operationsList: Array<Operation.AsObject>,
+    presenceChange?: PresenceChange.AsObject,
   }
 }
 
@@ -1367,10 +1397,38 @@ export namespace DocumentSummary {
   }
 }
 
-export class Presence extends jspb.Message {
-  getClock(): number;
-  setClock(value: number): Presence;
+export class PresenceChange extends jspb.Message {
+  getType(): PresenceChange.ChangeType;
+  setType(value: PresenceChange.ChangeType): PresenceChange;
 
+  getPresence(): Presence | undefined;
+  setPresence(value?: Presence): PresenceChange;
+  hasPresence(): boolean;
+  clearPresence(): PresenceChange;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PresenceChange.AsObject;
+  static toObject(includeInstance: boolean, msg: PresenceChange): PresenceChange.AsObject;
+  static serializeBinaryToWriter(message: PresenceChange, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PresenceChange;
+  static deserializeBinaryFromReader(message: PresenceChange, reader: jspb.BinaryReader): PresenceChange;
+}
+
+export namespace PresenceChange {
+  export type AsObject = {
+    type: PresenceChange.ChangeType,
+    presence?: Presence.AsObject,
+  }
+
+  export enum ChangeType { 
+    CHANGE_TYPE_UNSPECIFIED = 0,
+    CHANGE_TYPE_PUT = 1,
+    CHANGE_TYPE_DELETE = 2,
+    CHANGE_TYPE_CLEAR = 3,
+  }
+}
+
+export class Presence extends jspb.Message {
   getDataMap(): jspb.Map<string, string>;
   clearDataMap(): Presence;
 
@@ -1384,34 +1442,7 @@ export class Presence extends jspb.Message {
 
 export namespace Presence {
   export type AsObject = {
-    clock: number,
     dataMap: Array<[string, string]>,
-  }
-}
-
-export class Client extends jspb.Message {
-  getId(): Uint8Array | string;
-  getId_asU8(): Uint8Array;
-  getId_asB64(): string;
-  setId(value: Uint8Array | string): Client;
-
-  getPresence(): Presence | undefined;
-  setPresence(value?: Presence): Client;
-  hasPresence(): boolean;
-  clearPresence(): Client;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): Client.AsObject;
-  static toObject(includeInstance: boolean, msg: Client): Client.AsObject;
-  static serializeBinaryToWriter(message: Client, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): Client;
-  static deserializeBinaryFromReader(message: Client, reader: jspb.BinaryReader): Client;
-}
-
-export namespace Client {
-  export type AsObject = {
-    id: Uint8Array | string,
-    presence?: Presence.AsObject,
   }
 }
 
@@ -1497,13 +1528,10 @@ export class DocEvent extends jspb.Message {
   getType(): DocEventType;
   setType(value: DocEventType): DocEvent;
 
-  getPublisher(): Client | undefined;
-  setPublisher(value?: Client): DocEvent;
-  hasPublisher(): boolean;
-  clearPublisher(): DocEvent;
-
-  getDocumentId(): string;
-  setDocumentId(value: string): DocEvent;
+  getPublisher(): Uint8Array | string;
+  getPublisher_asU8(): Uint8Array;
+  getPublisher_asB64(): string;
+  setPublisher(value: Uint8Array | string): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1516,8 +1544,7 @@ export class DocEvent extends jspb.Message {
 export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
-    publisher?: Client.AsObject,
-    documentId: string,
+    publisher: Uint8Array | string,
   }
 }
 
@@ -1541,5 +1568,4 @@ export enum DocEventType {
   DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,
   DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1,
   DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2,
-  DOC_EVENT_TYPE_PRESENCE_CHANGED = 3,
 }

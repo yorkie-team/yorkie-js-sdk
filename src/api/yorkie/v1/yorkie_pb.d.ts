@@ -155,6 +155,9 @@ export class DetachDocumentRequest extends jspb.Message {
   hasChangePack(): boolean;
   clearChangePack(): DetachDocumentRequest;
 
+  getRemoveIfNotAttached(): boolean;
+  setRemoveIfNotAttached(value: boolean): DetachDocumentRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DetachDocumentRequest.AsObject;
   static toObject(includeInstance: boolean, msg: DetachDocumentRequest): DetachDocumentRequest.AsObject;
@@ -168,6 +171,7 @@ export namespace DetachDocumentRequest {
     clientId: Uint8Array | string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
+    removeIfNotAttached: boolean,
   }
 }
 
@@ -196,10 +200,10 @@ export namespace DetachDocumentResponse {
 }
 
 export class WatchDocumentRequest extends jspb.Message {
-  getClient(): yorkie_v1_resources_pb.Client | undefined;
-  setClient(value?: yorkie_v1_resources_pb.Client): WatchDocumentRequest;
-  hasClient(): boolean;
-  clearClient(): WatchDocumentRequest;
+  getClientId(): Uint8Array | string;
+  getClientId_asU8(): Uint8Array;
+  getClientId_asB64(): string;
+  setClientId(value: Uint8Array | string): WatchDocumentRequest;
 
   getDocumentId(): string;
   setDocumentId(value: string): WatchDocumentRequest;
@@ -214,7 +218,7 @@ export class WatchDocumentRequest extends jspb.Message {
 
 export namespace WatchDocumentRequest {
   export type AsObject = {
-    client?: yorkie_v1_resources_pb.Client.AsObject,
+    clientId: Uint8Array | string,
     documentId: string,
   }
 }
@@ -247,10 +251,10 @@ export namespace WatchDocumentResponse {
   }
 
   export class Initialization extends jspb.Message {
-    getPeersList(): Array<yorkie_v1_resources_pb.Client>;
-    setPeersList(value: Array<yorkie_v1_resources_pb.Client>): Initialization;
-    clearPeersList(): Initialization;
-    addPeers(value?: yorkie_v1_resources_pb.Client, index?: number): yorkie_v1_resources_pb.Client;
+    getClientIdsList(): Array<Uint8Array | string>;
+    setClientIdsList(value: Array<Uint8Array | string>): Initialization;
+    clearClientIdsList(): Initialization;
+    addClientIds(value: Uint8Array | string, index?: number): Initialization;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Initialization.AsObject;
@@ -262,7 +266,7 @@ export namespace WatchDocumentResponse {
 
   export namespace Initialization {
     export type AsObject = {
-      peersList: Array<yorkie_v1_resources_pb.Client.AsObject>,
+      clientIdsList: Array<Uint8Array | string>,
     }
   }
 
@@ -385,44 +389,6 @@ export namespace PushPullChangesResponse {
   export type AsObject = {
     clientId: Uint8Array | string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
-  }
-}
-
-export class UpdatePresenceRequest extends jspb.Message {
-  getClient(): yorkie_v1_resources_pb.Client | undefined;
-  setClient(value?: yorkie_v1_resources_pb.Client): UpdatePresenceRequest;
-  hasClient(): boolean;
-  clearClient(): UpdatePresenceRequest;
-
-  getDocumentId(): string;
-  setDocumentId(value: string): UpdatePresenceRequest;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): UpdatePresenceRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: UpdatePresenceRequest): UpdatePresenceRequest.AsObject;
-  static serializeBinaryToWriter(message: UpdatePresenceRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): UpdatePresenceRequest;
-  static deserializeBinaryFromReader(message: UpdatePresenceRequest, reader: jspb.BinaryReader): UpdatePresenceRequest;
-}
-
-export namespace UpdatePresenceRequest {
-  export type AsObject = {
-    client?: yorkie_v1_resources_pb.Client.AsObject,
-    documentId: string,
-  }
-}
-
-export class UpdatePresenceResponse extends jspb.Message {
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): UpdatePresenceResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: UpdatePresenceResponse): UpdatePresenceResponse.AsObject;
-  static serializeBinaryToWriter(message: UpdatePresenceResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): UpdatePresenceResponse;
-  static deserializeBinaryFromReader(message: UpdatePresenceResponse, reader: jspb.BinaryReader): UpdatePresenceResponse;
-}
-
-export namespace UpdatePresenceResponse {
-  export type AsObject = {
   }
 }
 

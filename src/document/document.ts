@@ -704,9 +704,11 @@ export class Document<T> {
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
-    const obj = converter.bytesToObject(snapshot);
-    this.root = new CRDTRoot(obj);
+    const { root, presences } = converter.bytesToSnapshot(snapshot);
+    this.root = new CRDTRoot(root);
     this.changeID = this.changeID.syncLamport(serverSeq);
+
+    // TODO(hackerwins): Apply Presences to Document.
 
     // drop clone because it is contaminated.
     this.clone = undefined;
