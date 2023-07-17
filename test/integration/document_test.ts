@@ -30,7 +30,7 @@ describe('Document', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, true);
+    await client1.attach(doc1, { isRealtimeSync: false });
     doc1.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
@@ -38,14 +38,14 @@ describe('Document', function () {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
-    await client2.attach(doc2, true);
+    await client2.attach(doc2, { isRealtimeSync: false });
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
 
     await client1.detach(doc1);
     await client2.detach(doc2);
 
-    await client1.attach(doc1, true);
-    await client2.attach(doc2, true);
+    await client1.attach(doc1, { isRealtimeSync: false });
+    await client2.attach(doc2, { isRealtimeSync: false });
 
     await client1.detach(doc1);
     await client2.detach(doc2);
@@ -94,6 +94,57 @@ describe('Document', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  it('Eventually sync presences with its peers', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type PresenceType = {
+      name: string;
+      cursor: { x: number; y: number };
+    };
+    const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
+    await c1.attach(doc1, {
+      initialPresence: {
+        name: 'a',
+        cursor: { x: 0, y: 0 },
+      },
+    });
+    // const stub1 = sinon.stub();
+    // const unsub1 = doc1.subscribe('peers', stub1);
+
+    // const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
+    // await c2.attach(doc2, {
+    //   initialPresence: {
+    //     name: 'b',
+    //     cursor: { x: 1, y: 1 },
+    //   },
+    // });
+    // const stub2 = sinon.stub();
+    // const unsub2 = doc2.subscribe('peers', stub2);
+
+    // doc1.update((root, persence) => presence.set('name', 'A'));
+    // await c1.sync();
+    // doc2.updatePresence({ name: 'B' });
+    // doc2.updatePresence({ name: 'Z' });
+    // doc1.updatePresence({ cursor: { x: 2, y: 2 } });
+    // doc1.updatePresence({ name: 'Y' });
+
+    // await waitStubCallCount(stub1, 6);
+    // await waitStubCallCount(stub2, 5);
+    // assert.deepEqual(deepSort(doc1.getPeers()), deepSort(doc2.getPeers()));
+
+    // await c1.detach(doc1);
+    // await c2.detach(doc2);
+    // await c1.deactivate();
+    // await c2.deactivate();
+
+    // unsub1();
+    // unsub2();
+  }).timeout(10000);
 
   it('detects the events from doc.subscribe', async function () {
     const c1 = new yorkie.Client(testRPCAddr);

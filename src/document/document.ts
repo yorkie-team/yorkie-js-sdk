@@ -100,6 +100,36 @@ export enum DocEventType {
    * remote document change event type
    */
   RemoteChange = 'remote-change',
+  /**
+   * `PeersChanged` means that the presences of the peer clients has changed.
+   * // TODO(hackerwins): We'll use peers means others. We need to find a better
+   * // name for this event.
+   */
+  PeersChanged = 'peers-changed',
+}
+
+/**
+ * `PeersChangedEventType` is peers changed event types
+ * @public
+ */
+export enum PeersChangedEventType {
+  /**
+   * `Initialized` means that the peer list has been initialized.
+   */
+  Initialized = 'initialized',
+  /**
+   * `Watched` means that the peer has established a connection with the server,
+   * enabling real-time synchronization.
+   */
+  Watched = 'watched',
+  /**
+   * `Unwatched` means that the connection has been disconnected.
+   */
+  Unwatched = 'unwatched',
+  /**
+   * `PeersChanged` means that the presences of the peer has updated.
+   */
+  PresenceChanged = 'presence-changed',
 }
 
 /**
@@ -111,7 +141,8 @@ export enum DocEventType {
 export type DocEvent<T = OperationInfo> =
   | SnapshotEvent
   | LocalChangeEvent<T>
-  | RemoteChangeEvent<T>;
+  | RemoteChangeEvent<T>
+  | PeersChangedEvent;
 
 /**
  * @internal
@@ -179,6 +210,45 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
    * RemoteChangeEvent type
    */
   value: ChangeInfo<T>;
+}
+
+/**
+ * `PeersChangedValue` represents the value of the PeersChanged event.
+ * @public
+ */
+export type PeersChangedValue<P extends Indexable> =
+  | {
+      type: PeersChangedEventType.Initialized;
+      peers: Array<{ clientID: ActorID; presence: P }>;
+    }
+  | {
+      type: PeersChangedEventType.Watched;
+      peer: { clientID: ActorID; presence: P };
+    }
+  | {
+      type: PeersChangedEventType.Unwatched;
+      peer: { clientID: ActorID; presence: P };
+    }
+  | {
+      type: PeersChangedEventType.PresenceChanged;
+      peer: { clientID: ActorID; presence: P };
+    };
+
+/**
+ * `PeersChangedEvent` is an event that occurs when the states of another peers
+ * of the attached documents changes.
+ *
+ * @public
+ */
+export interface PeersChangedEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.PeersChangedEvent
+   */
+  type: DocEventType.PeersChanged;
+  /**
+   * `PeersChangedEvent` value
+   */
+  value: PeersChangedValue<Indexable>;
 }
 
 /**
@@ -332,34 +402,53 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
  *
  * @public
  */
-export class Document<T> {
+export class Document<T, P = Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
-  private root: CRDTRoot;
-  private clone?: CRDTRoot;
+
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change>;
+
+  private root: CRDTRoot;
+  private clone?: CRDTRoot;
+
   private eventStream: Observable<DocEvent>;
   private eventStreamObserver!: Observer<DocEvent>;
+
+  /**
+   * `onlineClients` is a set of client IDs that are currently online.
+   */
+  private onlineClients: Set<ActorID>;
+
+  /**
+   * `presences` is a map of client IDs to their presence information.
+   */
+  private presences: Map<ActorID, P>;
 
   constructor(key: string) {
     this.key = key;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
+
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+
     this.eventStream = createObservable<DocEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
+
+    this.onlineClients = new Set();
+    this.presences = new Map();
   }
 
   /**
    * `create` creates a new instance of Document.
+   * @deprecated
    */
-  public static create<T>(key: string): Document<T> {
-    return new Document<T>(key);
+  public static create<T, P = Indexable>(key: string): Document<T, P> {
+    return new Document<T, P>(key);
   }
 
   /**
@@ -400,16 +489,14 @@ export class Document<T> {
       this.localChanges.push(change);
       this.changeID = change.getID();
 
-      if (this.eventStreamObserver) {
-        this.eventStreamObserver.next({
-          type: DocEventType.LocalChange,
-          value: {
-            message: change.getMessage() || '',
-            operations: opInfos,
-            actor: change.getID().getActorID(),
-          },
-        });
-      }
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: change.getID().getActorID(),
+        },
+      });
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
@@ -459,6 +546,9 @@ export class Document<T> {
       const callback = arg2 as NextFn<DocEvent>;
       return this.eventStream.subscribe(
         (event) => {
+          if (event.type === DocEventType.PeersChanged) {
+            return;
+          }
           if (event.type === DocEventType.Snapshot) {
             target === '$' && callback(event);
             return;
@@ -492,6 +582,16 @@ export class Document<T> {
       return this.eventStream.subscribe(nextFn, error, complete);
     }
     throw new Error(`"${arg1}" is not a valid`);
+  }
+
+  /**
+   * `publish` triggers an event in this document, which can be received by
+   * callback functions from document.subscribe().
+   */
+  public publish(event: DocEvent) {
+    if (this.eventStreamObserver) {
+      this.eventStreamObserver.next(event);
+    }
   }
 
   private isSameElementOrChildOf(elem: string, parent: string): boolean {
@@ -713,12 +813,10 @@ export class Document<T> {
     // drop clone because it is contaminated.
     this.clone = undefined;
 
-    if (this.eventStreamObserver) {
-      this.eventStreamObserver.next({
-        type: DocEventType.Snapshot,
-        value: snapshot,
-      });
-    }
+    this.publish({
+      type: DocEventType.Snapshot,
+      value: snapshot,
+    });
   }
 
   /**
@@ -759,14 +857,14 @@ export class Document<T> {
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
 
-    if (changes.length && this.eventStreamObserver) {
+    if (changes.length) {
       // NOTE: RemoteChange event should be emitted synchronously with
       // applying changes. This is because 3rd party model should be synced
       // with the Document after RemoteChange event is emitted. If the event
       // is emitted asynchronously, the model can be changed and breaking
       // consistency.
       for (const changeInfo of changeInfos) {
-        this.eventStreamObserver.next({
+        this.publish({
           type: DocEventType.RemoteChange,
           value: changeInfo,
         });
@@ -797,5 +895,56 @@ export class Document<T> {
       if (value === undefined) return undefined;
     }
     return value;
+  }
+
+  /**
+   * `setOnlineClients` sets the given online client set.
+   */
+  public setOnlineClients(onlineClients: Set<ActorID>) {
+    this.onlineClients = onlineClients;
+  }
+
+  /**
+   * `addOnlineClient` adds the given clientID into the online client set.
+   */
+  public addOnlineClient(clientID: ActorID) {
+    this.onlineClients.add(clientID);
+  }
+
+  /**
+   * `removeOnlineClient` removes the clientID from the online client set.
+   */
+  public removeOnlineClient(clientID: ActorID) {
+    this.onlineClients.delete(clientID);
+  }
+
+  /**
+   * `hasPresence` returns whether the given clientID has a presence or not.
+   */
+  public hasPresence(clientID: ActorID): boolean {
+    return this.presences.has(clientID);
+  }
+
+  /**
+   * `getPresence` returns the presence of the given clientID.
+   */
+  public getPresence(clientID: ActorID): P | undefined {
+    return this.presences.get(clientID);
+  }
+
+  /**
+   * `getPresences` returns the presences of online clients.
+   */
+  public getPresences(): Array<{ clientID: ActorID; presence: Indexable }> {
+    const presences: Array<{ clientID: ActorID; presence: Indexable }> = [];
+    for (const clientID of this.onlineClients) {
+      if (this.presences.has(clientID)) {
+        presences.push({
+          clientID,
+          presence: this.presences.get(clientID)!,
+        });
+      }
+    }
+    return presences;
   }
 }

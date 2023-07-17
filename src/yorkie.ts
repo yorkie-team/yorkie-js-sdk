@@ -31,12 +31,10 @@ export {
   ClientEventType,
   StatusChangedEvent,
   DocumentsChangedEvent,
-  PeersChangedEvent,
   StreamConnectionStatusChangedEvent,
   DocumentSyncedEvent,
   ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
-export { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
 export {
   DocEventType,
   SnapshotEvent,

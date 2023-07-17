@@ -201,8 +201,9 @@ describe('Client', function () {
       'c2 sync fail',
     );
 
-    c1.sync();
-    await waitStubCallCount(stubC1, 4); // c1 should also fail to sync
+    await c1.sync().catch((err) => {
+      assert.equal(err.message, 'INVALID_STATE_ERR - 0'); // c1 should also fail to sync
+    });
     assert.equal(
       c1Events.pop(),
       DocumentSyncResultType.SyncFailed,
@@ -214,9 +215,9 @@ describe('Client', function () {
     // Back to normal condition
     xhr.restore();
 
-    await waitStubCallCount(stubC2, 4); // wait for c2 to sync
+    await waitStubCallCount(stubC2, 3); // wait for c2 to sync
     assert.equal(c2Events.pop(), DocumentSyncResultType.Synced, 'c2 sync');
-    await waitStubCallCount(stubC1, 6);
+    await waitStubCallCount(stubC1, 5);
     assert.equal(c1Events.pop(), DocumentSyncResultType.Synced, 'c1 sync');
     await waitStubCallCount(stubD1, 2);
     assert.equal(d1Events.pop(), DocEventType.RemoteChange); // d1 should be able to receive d2's update
@@ -234,8 +235,6 @@ describe('Client', function () {
     await c2.deactivate();
   });
 
-  // TODO(hackerwins): Move removed test cases to document_test.ts
-
   it('Can change realtime sync', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
@@ -248,8 +247,8 @@ describe('Client', function () {
 
     // 01. c1 and c2 attach the doc with manual sync mode.
     //     c1 updates the doc, but c2 does't get until call sync manually.
-    await c1.attach(d1, true);
-    await c2.attach(d2, true);
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2, { isRealtimeSync: false });
     d1.update((root) => {
       root.version = 'v1';
     });
@@ -302,9 +301,9 @@ describe('Client', function () {
     const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
 
     // 01. c1, c2, c3 attach to the same document in manual sync.
-    await c1.attach(d1, true);
-    await c2.attach(d2, true);
-    await c3.attach(d3, true);
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2, { isRealtimeSync: false });
+    await c3.attach(d3, { isRealtimeSync: false });
 
     // 02. c1, c2 sync with push-pull mode.
     d1.update((root) => {
@@ -435,7 +434,7 @@ describe('Client', function () {
     // 01. cli attach to the document having counter.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
-    await c1.attach(d1, true);
+    await c1.attach(d1, { isRealtimeSync: false });
 
     // 02. cli update the document with creating a counter
     //     and sync with push-pull mode: CP(0, 0) -> CP(1, 1)
