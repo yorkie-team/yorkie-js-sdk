@@ -115,11 +115,11 @@ function toPresenceChange(
 
   if (presenceChange.type === PresenceChangeType.Put) {
     pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_PUT);
+    pbPresenceChange.setPresence(toPresence(presenceChange.presence));
   } else if (presenceChange.type === PresenceChangeType.Clear) {
     pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR);
   }
 
-  pbPresenceChange.setPresence(toPresence(presenceChange.presence));
   return pbPresenceChange;
 }
 
@@ -751,7 +751,6 @@ function fromPresenceChange<P extends Indexable>(
   } else if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR) {
     return {
       type: PresenceChangeType.Clear,
-      presence,
     };
   } else {
     throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
@@ -1298,7 +1297,7 @@ function bytesToSnapshot<P extends Indexable>(
   const snapshot = PbSnapshot.deserializeBinary(bytes);
   return {
     root: fromElement(snapshot.getRoot()!) as CRDTObject,
-    presences: fromPresences(snapshot.getPresencesMap()),
+    presences: fromPresences<P>(snapshot.getPresencesMap()),
   };
 }
 

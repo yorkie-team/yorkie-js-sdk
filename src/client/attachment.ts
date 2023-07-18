@@ -1,5 +1,4 @@
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js-sdk/src/document/document';
 import { SyncMode } from '@yorkie-js-sdk/src/client/client';
 
 /**
@@ -10,7 +9,7 @@ export type WatchStream = any; // TODO(hackerwins): Define proper type of watchS
 /**
  * `Attachment` is a class that manages the state of the document.
  */
-export class Attachment<T, P> {
+export class Attachment<T, P extends Indexable> {
   // TODO(hackerwins): Consider to changing the modifiers of the following properties to private.
   private reconnectStreamDelay: number;
   doc: Document<T, P>;

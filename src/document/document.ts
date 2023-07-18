@@ -60,7 +60,10 @@ import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
-import { Presence } from '@yorkie-js-sdk/src/document/presence/presence';
+import {
+  Presence,
+  PresenceChangeType,
+} from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -872,11 +875,10 @@ export class Document<T, P extends Indexable = Indexable> {
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
-    const { root } = converter.bytesToSnapshot(snapshot);
+    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
+    this.presences = presences;
     this.changeID = this.changeID.syncLamport(serverSeq);
-
-    // TODO(hackerwins): Apply Presences to Document.
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -922,31 +924,33 @@ export class Document<T, P extends Indexable = Indexable> {
       const actorID = change.getID().getActorID()!;
 
       if (change.hasPresenceChange()) {
-        const { type, presence: newPresence } = change.getPresenceChange()!;
+        const presenceChange = change.getPresenceChange()!;
 
-        if (this.onlineClients.has(actorID)) {
+        if (
+          presenceChange.type === PresenceChangeType.Put &&
+          this.onlineClients.has(actorID)
+        ) {
+          const peer = {
+            clientID: actorID,
+            presence: presenceChange.presence,
+          };
           if (this.presences.has(actorID)) {
             updates.peer = {
               type: PeersChangedEventType.PresenceChanged,
-              peer: {
-                clientID: actorID,
-                presence: newPresence,
-              },
+              peer,
             };
           } else {
             updates.peer = {
               type: PeersChangedEventType.Watched,
-              peer: {
-                clientID: actorID,
-                presence: newPresence,
-              },
+              peer,
             };
           }
         }
       }
 
+      const opInfos = change.execute(this.root, this.presences);
+
       if (change.hasOperations()) {
-        const opInfos = change.execute(this.root, this.presences);
         updates.changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',

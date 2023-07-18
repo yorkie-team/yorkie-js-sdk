@@ -437,22 +437,22 @@ describe('Client', function () {
     await c1.attach(d1, { isRealtimeSync: false });
 
     // 02. cli update the document with creating a counter
-    //     and sync with push-pull mode: CP(0, 0) -> CP(1, 1)
+    //     and sync with push-pull mode: CP(1, 1) -> CP(2, 2)
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
     });
 
     let checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 0);
-    assert.equal(checkpoint.getServerSeq().toInt(), 0);
-
-    await c1.sync();
-    checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 1);
     assert.equal(checkpoint.getServerSeq().toInt(), 1);
 
+    await c1.sync();
+    checkpoint = d1.getCheckpoint();
+    assert.equal(checkpoint.getClientSeq(), 2);
+    assert.equal(checkpoint.getServerSeq().toInt(), 2);
+
     // 03. cli update the document with increasing the counter(0 -> 1)
-    //     and sync with push-only mode: CP(1, 1) -> CP(2, 1)
+    //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
     d1.update((root) => {
       root.counter.increase(1);
     });
@@ -461,11 +461,11 @@ describe('Client', function () {
 
     await c1.sync(d1, SyncMode.PushOnly);
     checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 2);
-    assert.equal(checkpoint.getServerSeq().toInt(), 1);
+    assert.equal(checkpoint.getClientSeq(), 3);
+    assert.equal(checkpoint.getServerSeq().toInt(), 2);
 
     // 04. cli update the document with increasing the counter(1 -> 2)
-    //     and sync with push-pull mode. CP(2, 1) -> CP(3, 3)
+    //     and sync with push-pull mode. CP(3, 2) -> CP(4, 4)
     d1.update((root) => {
       root.counter.increase(1);
     });
@@ -477,8 +477,8 @@ describe('Client', function () {
 
     await c1.sync();
     checkpoint = d1.getCheckpoint();
-    assert.equal(checkpoint.getClientSeq(), 3);
-    assert.equal(checkpoint.getServerSeq().toInt(), 3);
+    assert.equal(checkpoint.getClientSeq(), 4);
+    assert.equal(checkpoint.getServerSeq().toInt(), 4);
     assert.equal(d1.getRoot().counter.getValue(), 2);
 
     await c1.deactivate();

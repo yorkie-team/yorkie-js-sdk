@@ -445,7 +445,7 @@ export class Client implements Observable<ClientEvent> {
   public attach<T, P extends Indexable>(
     doc: Document<T, P>,
     options: {
-      initialPresence?: Indexable;
+      initialPresence?: P;
       isRealtimeSync?: boolean;
     } = {},
   ): Promise<Document<T, P>> {
@@ -459,6 +459,7 @@ export class Client implements Observable<ClientEvent> {
       );
     }
     doc.setActor(this.id!);
+    doc.update((_, p) => p.set(options.initialPresence || {}));
 
     const isRealtimeSync = options.isRealtimeSync ?? true;
 
@@ -524,6 +525,7 @@ export class Client implements Observable<ClientEvent> {
         `${doc.getKey()} is not attached`,
       );
     }
+    doc.update((_, p) => p.clear());
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();

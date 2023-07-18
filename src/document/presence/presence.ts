@@ -17,10 +17,14 @@
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 
-export type PresenceChange<P extends Indexable> = {
-  type: PresenceChangeType;
-  presence: P;
-};
+export type PresenceChange<P extends Indexable> =
+  | {
+      type: PresenceChangeType.Put;
+      presence: P;
+    }
+  | {
+      type: PresenceChangeType.Clear;
+    };
 
 /**
  * `PresenceChangeType` represents the type of presence change.
@@ -42,7 +46,13 @@ export class Presence<P extends Indexable> {
     this.presence = presence;
   }
 
+  /**
+   * `set` updates the presence based on the partial presence.
+   */
   public set(presence: Partial<P>) {
+    if (!this.presence) {
+      throw new Error(`presence is not initialized`);
+    }
     for (const [key, value] of Object.entries(presence)) {
       this.presence[key as keyof P] = value as any;
     }
@@ -50,6 +60,17 @@ export class Presence<P extends Indexable> {
     this.changeContext.setPresenceChange({
       type: PresenceChangeType.Put,
       presence: this.presence,
+    });
+  }
+
+  /**
+   * `clear` clears the presence.
+   */
+  public clear() {
+    this.presence = {} as P;
+
+    this.changeContext.setPresenceChange({
+      type: PresenceChangeType.Clear,
     });
   }
 }

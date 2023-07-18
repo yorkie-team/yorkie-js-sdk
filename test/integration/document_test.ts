@@ -8,7 +8,6 @@ import {
 import {
   waitStubCallCount,
   assertThrowsAsync,
-  deepSort,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
@@ -94,64 +93,6 @@ describe('Document', function () {
     await c2.detach(d2);
     await c1.deactivate();
     await c2.deactivate();
-  });
-
-  it.only('Eventually sync presences with its peers', async function () {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    await c1.activate();
-    await c2.activate();
-
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    type PresenceType = {
-      name: string;
-      cursor: { x: number; y: number };
-    };
-    const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      initialPresence: {
-        name: 'a',
-        cursor: { x: 0, y: 0 },
-      },
-    });
-    const stub1 = sinon.stub().callsFake((event) => {
-      console.log('doc1', event);
-    });
-    const unsub1 = doc1.subscribe('peers', stub1);
-
-    const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      initialPresence: {
-        name: 'b',
-        cursor: { x: 1, y: 1 },
-      },
-    });
-    const stub2 = sinon.stub().callsFake((event) => {
-      console.log('doc2', event);
-    });
-    const unsub2 = doc2.subscribe('peers', stub2);
-
-    doc1.update((root, p) => p.set({ name: 'A' }));
-    doc2.update((root, p) => p.set({ name: 'B' }));
-    doc2.update((root, p) => p.set({ name: 'Z' }));
-    doc1.update((root, p) => p.set({ cursor: { x: 2, y: 2 } }));
-    doc1.update((root, p) => p.set({ name: 'Y' }));
-
-    // TODO(hackerwins): fix this test.
-    // await waitStubCallCount(stub1, 6);
-    // await waitStubCallCount(stub2, 5);
-    // assert.deepEqual(
-    //   deepSort(doc1.getPresences()),
-    //   deepSort(doc2.getPresences()),
-    // );
-
-    await c1.detach(doc1);
-    await c2.detach(doc2);
-    await c1.deactivate();
-    await c2.deactivate();
-
-    unsub1();
-    unsub2();
   });
 
   it('detects the events from doc.subscribe', async function () {
