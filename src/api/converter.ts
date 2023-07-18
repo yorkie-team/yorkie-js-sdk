@@ -741,9 +741,9 @@ function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
 ): PresenceChange<P> {
   const type = pbPresenceChange.getType();
-  const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
 
   if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_PUT) {
+    const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
     return {
       type: PresenceChangeType.Put,
       presence,
