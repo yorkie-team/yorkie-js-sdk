@@ -9,13 +9,13 @@
 <b>Signature:</b>
 
 ```typescript
-export declare interface PeersChangedEvent<P> 
+export declare interface PeersChangedEvent<P extends Indexable> 
 ```
 
 ## Properties
 
 |  Property | Type | Description |
 |  --- | --- | --- |
-|  [type](./yorkie-js-sdk.peerschangedevent.type.md) | [ClientEventType.PeersChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.PeersChangedEvent |
+|  [type](./yorkie-js-sdk.peerschangedevent.type.md) | [DocEventType.PeersChanged](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.PeersChangedEvent |
 |  [value](./yorkie-js-sdk.peerschangedevent.value.md) | PeersChangedValue&lt;P&gt; | <code>PeersChangedEvent</code> value |
 

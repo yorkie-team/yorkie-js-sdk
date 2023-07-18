@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type DocEvent<T = OperationInfo> = SnapshotEvent | LocalChangeEvent<T> | RemoteChangeEvent<T>;
+export declare type DocEvent<P extends Indexable = Indexable, T = OperationInfo> = SnapshotEvent | LocalChangeEvent<T> | RemoteChangeEvent<T> | PeersChangedEvent<P>;
 ```
-<b>References:</b> [OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->, [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md)<!-- -->, [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md)<!-- -->, [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md)
+<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->, [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md)<!-- -->, [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md)<!-- -->, [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md)<!-- -->, [PeersChangedEvent](./yorkie-js-sdk.peerschangedevent.md)
 

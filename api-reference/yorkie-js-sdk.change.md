@@ -9,24 +9,27 @@
 <b>Signature:</b>
 
 ```typescript
-export declare class Change 
+export declare class Change<P extends Indexable> 
 ```
 
 ## Constructors
 
 |  Constructor | Modifiers | Description |
 |  --- | --- | --- |
-|  [(constructor)(id, operations, message)](./yorkie-js-sdk.change._constructor_.md) |  | Constructs a new instance of the <code>Change</code> class |
+|  [(constructor)({ id, operations, presenceChange, message, })](./yorkie-js-sdk.change._constructor_.md) |  | Constructs a new instance of the <code>Change</code> class |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [create(id, operations, message)](./yorkie-js-sdk.change.create.md) | <code>static</code> | <code>create</code> creates a new instance of Change. |
-|  [execute(root)](./yorkie-js-sdk.change.execute.md) |  | <code>execute</code> executes the operations of this change to the given root. |
+|  [create({ id, operations, presenceChange, message, })](./yorkie-js-sdk.change.create.md) | <code>static</code> | <code>create</code> creates a new instance of Change. |
+|  [execute(root, presences)](./yorkie-js-sdk.change.execute.md) |  | <code>execute</code> executes the operations of this change to the given root. |
 |  [getID()](./yorkie-js-sdk.change.getid.md) |  | <code>getID</code> returns the ID of this change. |
 |  [getMessage()](./yorkie-js-sdk.change.getmessage.md) |  | <code>getMessage</code> returns the message of this change. |
 |  [getOperations()](./yorkie-js-sdk.change.getoperations.md) |  | <code>getOperations</code> returns the operations of this change. |
+|  [getPresenceChange()](./yorkie-js-sdk.change.getpresencechange.md) |  | <code>getPresenceChange</code> returns the presence change of this change. |
+|  [hasOperations()](./yorkie-js-sdk.change.hasoperations.md) |  | <code>hasOperations</code> returns whether this change has operations or not. |
+|  [hasPresenceChange()](./yorkie-js-sdk.change.haspresencechange.md) |  | <code>hasPresenceChange</code> returns whether this change has presence change or not. |
 |  [setActor(actorID)](./yorkie-js-sdk.change.setactor.md) |  | <code>setActor</code> sets the given actor. |
 |  [toTestString()](./yorkie-js-sdk.change.toteststring.md) |  | <code>toTestString</code> returns a string containing the meta data of this change. |
 

@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-update(updater: (root: JSONObject<T>) => void, message?: string): void;
+update(updater: (root: JSONObject<T>, presence: Presence<P>) => void, message?: string): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  updater | (root: [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->&lt;T&gt;) =&gt; void |  |
+|  updater | (root: [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->&lt;T&gt;, presence: Presence&lt;P&gt;) =&gt; void |  |
 |  message | string |  |
 
 <b>Returns:</b>

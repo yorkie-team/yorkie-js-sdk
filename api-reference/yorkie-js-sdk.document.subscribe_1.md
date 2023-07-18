@@ -4,20 +4,20 @@
 
 ## Document.subscribe() method
 
-`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change.
+`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the peer eestablishes or terminates a connection, or updates its presence.
 
 <b>Signature:</b>
 
 ```typescript
-subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPath>>(targetPath: TPath, next: NextFn<DocEvent<TOperationInfo>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe(type: 'peers', next: NextFn<PeersChangedValue<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  targetPath | TPath |  |
-|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;TOperationInfo&gt;&gt; |  |
+|  type | 'peers' |  |
+|  next | NextFn&lt;PeersChangedValue&lt;P&gt;&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

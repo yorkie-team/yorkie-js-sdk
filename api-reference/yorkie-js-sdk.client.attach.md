@@ -9,17 +9,20 @@
 <b>Signature:</b>
 
 ```typescript
-attach(doc: Document<unknown>, isManualSync?: boolean): Promise<Document<unknown>>;
+attach<T, P extends Indexable>(doc: Document<T, P>, options?: {
+        initialPresence?: P;
+        isRealtimeSync?: boolean;
+    }): Promise<Document<T, P>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
-|  isManualSync | boolean |  |
+|  doc | Document&lt;T, P&gt; |  |
+|  options | { initialPresence?: P; isRealtimeSync?: boolean; } |  |
 
 <b>Returns:</b>
 
-Promise&lt;Document&lt;unknown&gt;&gt;
+Promise&lt;Document&lt;T, P&gt;&gt;
 

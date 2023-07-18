@@ -9,16 +9,16 @@
 <b>Signature:</b>
 
 ```typescript
-pause(doc: Document<unknown>): Promise<Document<unknown>>;
+pause<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
+|  doc | Document&lt;T, P&gt; |  |
 
 <b>Returns:</b>
 
-Promise&lt;Document&lt;unknown&gt;&gt;
+Promise&lt;Document&lt;T, P&gt;&gt;
 

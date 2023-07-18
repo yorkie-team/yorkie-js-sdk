@@ -9,17 +9,17 @@
 <b>Signature:</b>
 
 ```typescript
-sync(doc?: Document<unknown>, syncMode?: SyncMode): Promise<Array<Document<unknown>>>;
+sync<T, P extends Indexable>(doc?: Document<T, P>, syncMode?: SyncMode): Promise<Array<Document<T, P>>>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
+|  doc | Document&lt;T, P&gt; |  |
 |  syncMode | [SyncMode](./yorkie-js-sdk.syncmode.md) |  |
 
 <b>Returns:</b>
 
-Promise&lt;Array&lt;Document&lt;unknown&gt;&gt;&gt;
+Promise&lt;Array&lt;Document&lt;T, P&gt;&gt;&gt;
 

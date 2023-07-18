@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-remove(doc: Document<unknown>): Promise<void>;
+remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
+|  doc | Document&lt;T, P&gt; |  |
 
 <b>Returns:</b>
 

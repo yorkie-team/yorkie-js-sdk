@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-pauseRemoteChanges(doc: Document<unknown>): void;
+pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;unknown&gt; |  |
+|  doc | Document&lt;T, P&gt; |  |
 
 <b>Returns:</b>
 

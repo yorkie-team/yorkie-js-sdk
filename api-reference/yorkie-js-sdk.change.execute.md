@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-execute(root: CRDTRoot): Array<OperationInfo>;
+execute(root: CRDTRoot, presences: Map<ActorID, P>): Array<OperationInfo>;
 ```
 
 ## Parameters
@@ -17,6 +17,7 @@ execute(root: CRDTRoot): Array<OperationInfo>;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  root | CRDTRoot |  |
+|  presences | Map&lt;[ActorID](./yorkie-js-sdk.actorid.md)<!-- -->, P&gt; |  |
 
 <b>Returns:</b>
 

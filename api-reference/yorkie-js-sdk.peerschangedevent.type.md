@@ -4,10 +4,10 @@
 
 ## PeersChangedEvent.type property
 
-enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.PeersChangedEvent
+enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.PeersChangedEvent
 
 <b>Signature:</b>
 
 ```typescript
-type: ClientEventType.PeersChanged;
+type: DocEventType.PeersChanged;
 ```

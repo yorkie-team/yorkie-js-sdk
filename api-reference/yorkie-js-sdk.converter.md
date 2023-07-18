@@ -11,12 +11,12 @@
 ```typescript
 converter: {
     fromPresence: typeof fromPresence;
-    toClient: typeof toClient;
     toChangePack: typeof toChangePack;
     fromChangePack: typeof fromChangePack;
     fromChanges: typeof fromChanges;
     objectToBytes: typeof objectToBytes;
     bytesToObject: typeof bytesToObject;
+    bytesToSnapshot: typeof bytesToSnapshot;
     toHexString: typeof toHexString;
     toUint8Array: typeof toUint8Array;
 }

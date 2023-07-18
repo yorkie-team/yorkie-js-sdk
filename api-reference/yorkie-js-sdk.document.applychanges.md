@@ -9,14 +9,14 @@
 <b>Signature:</b>
 
 ```typescript
-applyChanges(changes: Array<Change>): void;
+applyChanges(changes: Array<Change<P>>): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  changes | Array&lt;[Change](./yorkie-js-sdk.change.md)<!-- -->&gt; |  |
+|  changes | Array&lt;[Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;&gt; |  |
 
 <b>Returns:</b>
 

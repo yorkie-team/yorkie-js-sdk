@@ -9,14 +9,17 @@ Constructs a new instance of the `Change` class
 <b>Signature:</b>
 
 ```typescript
-constructor(id: ChangeID, operations: Array<Operation>, message?: string);
+constructor({ id, operations, presenceChange, message, }: {
+        id: ChangeID;
+        operations?: Array<Operation>;
+        presenceChange?: PresenceChange<P>;
+        message?: string;
+    });
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  id | ChangeID |  |
-|  operations | Array&lt;Operation&gt; |  |
-|  message | string |  |
+|  { id, operations, presenceChange, message, } | { id: ChangeID; operations?: Array&lt;Operation&gt;; presenceChange?: PresenceChange&lt;P&gt;; message?: string; } |  |
 

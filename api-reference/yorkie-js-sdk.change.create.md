@@ -9,18 +9,21 @@
 <b>Signature:</b>
 
 ```typescript
-static create(id: ChangeID, operations: Array<Operation>, message?: string): Change;
+static create<P extends Indexable>({ id, operations, presenceChange, message, }: {
+        id: ChangeID;
+        operations?: Array<Operation>;
+        presenceChange?: PresenceChange<P>;
+        message?: string;
+    }): Change<P>;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  id | ChangeID |  |
-|  operations | Array&lt;Operation&gt; |  |
-|  message | string |  |
+|  { id, operations, presenceChange, message, } | { id: ChangeID; operations?: Array&lt;Operation&gt;; presenceChange?: PresenceChange&lt;P&gt;; message?: string; } |  |
 
 <b>Returns:</b>
 
-[Change](./yorkie-js-sdk.change.md)
+[Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;
 

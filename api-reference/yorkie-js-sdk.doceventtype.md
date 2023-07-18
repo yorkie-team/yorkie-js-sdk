@@ -17,6 +17,7 @@ export declare enum DocEventType
 |  Member | Value | Description |
 |  --- | --- | --- |
 |  LocalChange | <code>&quot;local-change&quot;</code> | local document change event type |
+|  PeersChanged | <code>&quot;peers-changed&quot;</code> | <code>PeersChanged</code> means that the presences of the peer clients has changed. // TODO(hackerwins): We'll use peers means others. We need to find a better // name for this event. |
 |  RemoteChange | <code>&quot;remote-change&quot;</code> | remote document change event type |
 |  Snapshot | <code>&quot;snapshot&quot;</code> | snapshot event type |
 
