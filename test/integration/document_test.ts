@@ -30,7 +30,7 @@ describe('Document', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, true);
+    await client1.attach(doc1, { isRealtimeSync: false });
     doc1.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
@@ -38,14 +38,14 @@ describe('Document', function () {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
-    await client2.attach(doc2, true);
+    await client2.attach(doc2, { isRealtimeSync: false });
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
 
     await client1.detach(doc1);
     await client2.detach(doc2);
 
-    await client1.attach(doc1, true);
-    await client2.attach(doc2, true);
+    await client1.attach(doc1, { isRealtimeSync: false });
+    await client2.attach(doc2, { isRealtimeSync: false });
 
     await client1.detach(doc1);
     await client2.detach(doc2);

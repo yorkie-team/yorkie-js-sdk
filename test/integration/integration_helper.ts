@@ -31,8 +31,8 @@ export async function withTwoClientsAndDocuments<T>(
   const doc1 = new yorkie.Document<T>(docKey);
   const doc2 = new yorkie.Document<T>(docKey);
 
-  await client1.attach(doc1, true);
-  await client2.attach(doc2, true);
+  await client1.attach(doc1, { isRealtimeSync: false });
+  await client2.attach(doc2, { isRealtimeSync: false });
 
   await callback(client1, doc1, client2, doc2);
 

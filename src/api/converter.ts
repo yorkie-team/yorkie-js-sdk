@@ -15,12 +15,18 @@
  */
 
 import Long from 'long';
+import * as jspb from 'google-protobuf';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { PresenceInfo } from '@yorkie-js-sdk/src/client/attachment';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import {
+  PresenceChange,
+  PresenceChangeType,
+} from '@yorkie-js-sdk/src/document/presence/presence';
 import {
   InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
@@ -55,8 +61,9 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
-  Client as PbClient,
   Presence as PbPresence,
+  PresenceChange as PbPresenceChange,
+  Snapshot as PbSnapshot,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   Operation as PbOperation,
@@ -82,41 +89,38 @@ import {
   CRDTTreeNode,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { Indexable } from '../yorkie';
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 
 /**
- * `fromPresence` converts the given Protobuf format to model format.
+ * `toPresence` converts the given model to Protobuf format.
  */
-function fromPresence<M>(pbPresence: PbPresence): PresenceInfo<M> {
-  const data: Record<string, string> = {};
-  pbPresence.getDataMap().forEach((value: string, key: string) => {
-    data[key] = JSON.parse(value);
-  });
-
-  return {
-    clock: pbPresence.getClock(),
-    data: data as any,
-  };
+function toPresence(presence: Indexable): PbPresence {
+  const pbPresence = new PbPresence();
+  const pbDataMap = pbPresence.getDataMap();
+  for (const [key, value] of Object.entries(presence)) {
+    pbDataMap.set(key, JSON.stringify(value));
+  }
+  return pbPresence;
 }
 
 /**
- * `toClient` converts the given model to Protobuf format.
+ * `toPresenceChange` converts the given model to Protobuf format.
  */
-function toClient<M>(id: string, presence: PresenceInfo<M>): PbClient {
-  const pbPresence = new PbPresence();
-  pbPresence.setClock(presence.clock);
-  const pbDataMap = pbPresence.getDataMap();
-  for (const [key, value] of Object.entries(presence.data!)) {
-    pbDataMap.set(key, JSON.stringify(value));
+function toPresenceChange(
+  presenceChange: PresenceChange<Indexable>,
+): PbPresenceChange {
+  const pbPresenceChange = new PbPresenceChange();
+
+  if (presenceChange.type === PresenceChangeType.Put) {
+    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_PUT);
+    pbPresenceChange.setPresence(toPresence(presenceChange.presence));
+  } else if (presenceChange.type === PresenceChangeType.Clear) {
+    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR);
   }
 
-  const pbClient = new PbClient();
-  pbClient.setId(toUint8Array(id));
-  pbClient.setPresence(pbPresence);
-  return pbClient;
+  return pbPresenceChange;
 }
 
 /**
@@ -427,18 +431,23 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
 /**
  * `toChange` converts the given model to Protobuf format.
  */
-function toChange(change: Change): PbChange {
+function toChange(change: Change<Indexable>): PbChange {
   const pbChange = new PbChange();
   pbChange.setId(toChangeID(change.getID()));
   pbChange.setMessage(change.getMessage()!);
-  pbChange.setOperationsList(toOperations(change.getOperations()));
+  if (change.hasOperations()) {
+    pbChange.setOperationsList(toOperations(change.getOperations()));
+  }
+  if (change.hasPresenceChange()) {
+    pbChange.setPresenceChange(toPresenceChange(change.getPresenceChange()!));
+  }
   return pbChange;
 }
 
 /**
  * `toChanges` converts the given model to Protobuf format.
  */
-function toChanges(changes: Array<Change>): Array<PbChange> {
+function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
   const pbChanges = [];
   for (const change of changes) {
     pbChanges.push(toChange(change));
@@ -676,7 +685,7 @@ function toElement(element: CRDTElement): PbJSONElement {
 /**
  * `toChangePack` converts the given model to Protobuf format.
  */
-function toChangePack(pack: ChangePack): PbChangePack {
+function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
   const pbChangePack = new PbChangePack();
   pbChangePack.setDocumentKey(pack.getDocumentKey());
   pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
@@ -711,6 +720,54 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
     pbTimeTicket.getDelimiter(),
     toHexString(pbTimeTicket.getActorId_asU8()),
   );
+}
+
+/**
+ * `fromPresence` converts the given Protobuf format to model format.
+ */
+function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
+  const data: Record<string, string> = {};
+  pbPresence.getDataMap().forEach((value: string, key: string) => {
+    data[key] = JSON.parse(value);
+  });
+
+  return data as P;
+}
+
+/**
+ * `fromPresenceChange` converts the given Protobuf format to model format.
+ */
+function fromPresenceChange<P extends Indexable>(
+  pbPresenceChange: PbPresenceChange,
+): PresenceChange<P> {
+  const type = pbPresenceChange.getType();
+
+  if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_PUT) {
+    const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
+    return {
+      type: PresenceChangeType.Put,
+      presence,
+    };
+  } else if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR) {
+    return {
+      type: PresenceChangeType.Clear,
+    };
+  } else {
+    throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
+  }
+}
+
+/**
+ * `fromPresences` converts the given Protobuf format to model format.
+ */
+function fromPresences<P extends Indexable>(
+  pbPresences: jspb.Map<string, PbPresence>,
+): Map<ActorID, P> {
+  const presences = new Map<ActorID, P>();
+  pbPresences.forEach((pbPresence: PbPresence, actorID: string) => {
+    presences.set(actorID, fromPresence(pbPresence));
+  });
+  return presences;
 }
 
 /**
@@ -1050,16 +1107,21 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 /**
  * `fromChanges` converts the given Protobuf format to model format.
  */
-function fromChanges(pbChanges: Array<PbChange>): Array<Change> {
-  const changes = [];
+function fromChanges<P extends Indexable>(
+  pbChanges: Array<PbChange>,
+): Array<Change<P>> {
+  const changes: Array<Change<P>> = [];
 
   for (const pbChange of pbChanges) {
     changes.push(
-      Change.create(
-        fromChangeID(pbChange.getId()!),
-        fromOperations(pbChange.getOperationsList()),
-        pbChange.getMessage(),
-      ),
+      Change.create({
+        id: fromChangeID(pbChange.getId()!),
+        operations: fromOperations(pbChange.getOperationsList()),
+        presenceChange: pbChange.hasPresenceChange()
+          ? fromPresenceChange(pbChange.getPresenceChange()!)
+          : undefined,
+        message: pbChange.getMessage(),
+      }),
     );
   }
 
@@ -1079,8 +1141,10 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
 /**
  * `fromChangePack` converts the given Protobuf format to model format.
  */
-function fromChangePack(pbPack: PbChangePack): ChangePack {
-  return ChangePack.create(
+function fromChangePack<P extends Indexable>(
+  pbPack: PbChangePack,
+): ChangePack<P> {
+  return ChangePack.create<P>(
     pbPack.getDocumentKey()!,
     fromCheckpoint(pbPack.getCheckpoint()!),
     pbPack.getIsRemoved(),
@@ -1215,6 +1279,29 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
 }
 
 /**
+ * `bytesToSnapshot` creates a Snapshot from the given byte array.
+ */
+function bytesToSnapshot<P extends Indexable>(
+  bytes?: Uint8Array,
+): {
+  root: CRDTObject;
+  presences: Map<ActorID, P>;
+} {
+  if (!bytes) {
+    return {
+      root: CRDTObject.create(InitialTimeTicket),
+      presences: new Map(),
+    };
+  }
+
+  const snapshot = PbSnapshot.deserializeBinary(bytes);
+  return {
+    root: fromElement(snapshot.getRoot()!) as CRDTObject,
+    presences: fromPresences<P>(snapshot.getPresencesMap()),
+  };
+}
+
+/**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
@@ -1294,12 +1381,12 @@ function toUint8Array(hex: string): Uint8Array {
  */
 export const converter = {
   fromPresence,
-  toClient,
   toChangePack,
   fromChangePack,
   fromChanges,
   objectToBytes,
   bytesToObject,
+  bytesToSnapshot,
   toHexString,
   toUint8Array,
 };

@@ -27,35 +27,39 @@ import {
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
+import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
  * a document. Each time we add an operation, a new time ticket is issued.
  * Finally returns a Change after the modification has been completed.
  */
-export class ChangeContext {
+export class ChangeContext<P extends Indexable = Indexable> {
   private id: ChangeID;
   private root: CRDTRoot;
   private operations: Array<Operation>;
+  private presenceChange?: PresenceChange<P>;
   private message?: string;
   private delimiter: number;
 
   constructor(id: ChangeID, root: CRDTRoot, message?: string) {
     this.id = id;
     this.root = root;
-    this.message = message;
     this.operations = [];
+    this.presenceChange = undefined;
+    this.message = message;
     this.delimiter = InitialDelimiter;
   }
 
   /**
    * `create` creates a new instance of ChangeContext.
    */
-  public static create(
+  public static create<P extends Indexable>(
     id: ChangeID,
     root: CRDTRoot,
     message?: string,
-  ): ChangeContext {
+  ): ChangeContext<P> {
     return new ChangeContext(id, root, message);
   }
 
@@ -91,15 +95,27 @@ export class ChangeContext {
   /**
    * `getChange` creates a new instance of Change in this context.
    */
-  public getChange(): Change {
-    return Change.create(this.id, this.operations, this.message);
+  public getChange(): Change<P> {
+    return Change.create<P>({
+      id: this.id,
+      operations: this.operations,
+      presenceChange: this.presenceChange,
+      message: this.message,
+    });
   }
 
   /**
-   * `hasOperations` returns the whether this context has operations or not.
+   * `hasChange` returns whether this context has change or not.
    */
-  public hasOperations(): boolean {
-    return this.operations.length > 0;
+  public hasChange(): boolean {
+    return this.operations.length > 0 || this.presenceChange !== undefined;
+  }
+
+  /**
+   * `setPresenceChange` registers the presence change to this context.
+   */
+  public setPresenceChange(presenceChange: PresenceChange<P>) {
+    this.presenceChange = presenceChange;
   }
 
   /**

@@ -5,7 +5,7 @@ import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
   it('should handle edit operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = new Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           ------ ins links ----
@@ -46,7 +46,7 @@ describe('Text', function () {
   });
 
   it('should handle edit operations2', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = new Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     //           -- ins links ---
@@ -72,7 +72,7 @@ describe('Text', function () {
   });
 
   it('should handle type 하늘', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = new Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -89,7 +89,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion of nested nodes', function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       text: Text;
     }>('test-doc');
     const view = new TextView();
@@ -115,7 +115,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion of the last nodes', function () {
-    const doc = Document.create<{ text: Text }>('test-doc');
+    const doc = new Document<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -147,7 +147,7 @@ describe('Text', function () {
   });
 
   it('should handle deletion with boundary nodes already removed', function () {
-    const doc = Document.create<{ text: Text }>('test-doc');
+    const doc = new Document<{ text: Text }>('test-doc');
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -176,7 +176,7 @@ describe('Text', function () {
   });
 
   it('should handle select operations', async function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       text: Text;
     }>('test-doc');
 
@@ -222,7 +222,7 @@ describe('Text', function () {
   });
 
   it('should handle text edit operations with attributes', function () {
-    const doc = Document.create<{ k1: Text<{ b: string }> }>('test-doc');
+    const doc = new Document<{ k1: Text<{ b: string }> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -245,7 +245,7 @@ describe('Text', function () {
   });
 
   it('should handle text delete operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = new Document<{ k1: Text }>('test-doc');
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');
@@ -259,7 +259,7 @@ describe('Text', function () {
   });
 
   it('should handle text empty operations', function () {
-    const doc = Document.create<{ k1: Text }>('test-doc');
+    const doc = new Document<{ k1: Text }>('test-doc');
     doc.update((root) => {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'ABCD');

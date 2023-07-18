@@ -12,7 +12,7 @@ import {
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = Document.create<{ k1: JSONArray<string> }>('test-doc');
+    const doc = new Document<{ k1: JSONArray<string> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -28,7 +28,7 @@ describe('Array', function () {
   });
 
   it('can push array element after delete operation', function () {
-    const doc = Document.create<{ k1: JSONArray<string | Array<number>> }>(
+    const doc = new Document<{ k1: JSONArray<string | Array<number>> }>(
       'test-doc',
     );
     assert.equal('{}', doc.toSortedJSON());
@@ -52,7 +52,7 @@ describe('Array', function () {
   });
 
   it('can push object element after delete operation', function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       k1: JSONArray<string | { a: string; b: string }>;
     }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
@@ -76,7 +76,7 @@ describe('Array', function () {
   });
 
   it('can push array', function () {
-    const doc = Document.create<{ arr: Array<number | Array<number>> }>(
+    const doc = new Document<{ arr: Array<number | Array<number>> }>(
       'test-doc',
     );
 
@@ -89,7 +89,7 @@ describe('Array', function () {
   });
 
   it('can push element then delete it by ID in array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let target: WrappedElement;
@@ -116,7 +116,7 @@ describe('Array', function () {
   });
 
   it('can insert an element after the given element in array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     let prev: WrappedElement;
@@ -153,7 +153,7 @@ describe('Array', function () {
   });
 
   it('can move an element before the given element in array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -176,7 +176,7 @@ describe('Array', function () {
   });
 
   it('can move an element after the given element in array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -199,7 +199,7 @@ describe('Array', function () {
   });
 
   it('can insert an element at the first of array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -226,7 +226,7 @@ describe('Array', function () {
   });
 
   it('can move an element at the last of array', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -695,7 +695,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist after GC', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {
@@ -717,7 +717,7 @@ describe('Array', function () {
   });
 
   it('Returns undefined when looking up an element that doesnt exist', function () {
-    const doc = Document.create<{ list: JSONArray<number> }>('test-doc');
+    const doc = new Document<{ list: JSONArray<number> }>('test-doc');
     let targetID: TimeTicket;
 
     doc.update((root) => {

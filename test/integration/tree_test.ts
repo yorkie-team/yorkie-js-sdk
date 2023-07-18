@@ -20,6 +20,7 @@ import yorkie, {
   Tree,
   TreeNode,
   ElementNode,
+  Indexable,
 } from '@yorkie-js-sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
@@ -45,7 +46,9 @@ function listEqual(tree: Tree, expected: Array<TreeNode>) {
  * `createChangePack` is a helper function that creates a change pack from the
  * given document. It is used to to emulate the behavior of the server.
  */
-function createChangePack(doc: Document<unknown>): ChangePack {
+function createChangePack<T>(
+  doc: Document<T, Indexable>,
+): ChangePack<Indexable> {
   // 01. Create a change pack from the given document and emulate the behavior
   // of PushPullChanges API.
   const reqPack = doc.createChangePack();

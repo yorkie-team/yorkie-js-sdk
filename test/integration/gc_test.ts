@@ -85,7 +85,7 @@ describe('Garbage Collection', function () {
     const root = (doc.getRootObject().get('list') as CRDTArray)
       .getElements()
       .toTestString();
-    const clone = (doc.getClone()!.get('list') as CRDTArray)
+    const clone = (doc.getCloneRoot()!.get('list') as CRDTArray)
       .getElements()
       .toTestString();
 

@@ -22,7 +22,7 @@ import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
-    const doc = Document.create<{
+    const doc = new Document<{
       k1: {
         ['k1-1']: boolean;
         ['k1-2']: number;

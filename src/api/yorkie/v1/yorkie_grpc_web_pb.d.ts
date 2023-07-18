@@ -22,13 +22,6 @@ export class YorkieServiceClient {
                response: yorkie_v1_yorkie_pb.DeactivateClientResponse) => void
   ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.DeactivateClientResponse>;
 
-  updatePresence(
-    request: yorkie_v1_yorkie_pb.UpdatePresenceRequest,
-    metadata: grpcWeb.Metadata | undefined,
-    callback: (err: grpcWeb.RpcError,
-               response: yorkie_v1_yorkie_pb.UpdatePresenceResponse) => void
-  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.UpdatePresenceResponse>;
-
   attachDocument(
     request: yorkie_v1_yorkie_pb.AttachDocumentRequest,
     metadata: grpcWeb.Metadata | undefined,
@@ -78,11 +71,6 @@ export class YorkieServicePromiseClient {
     request: yorkie_v1_yorkie_pb.DeactivateClientRequest,
     metadata?: grpcWeb.Metadata
   ): Promise<yorkie_v1_yorkie_pb.DeactivateClientResponse>;
-
-  updatePresence(
-    request: yorkie_v1_yorkie_pb.UpdatePresenceRequest,
-    metadata?: grpcWeb.Metadata
-  ): Promise<yorkie_v1_yorkie_pb.UpdatePresenceResponse>;
 
   attachDocument(
     request: yorkie_v1_yorkie_pb.AttachDocumentRequest,
