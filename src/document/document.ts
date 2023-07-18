@@ -231,7 +231,7 @@ export type PeersChangedValue<P extends Indexable> =
     }
   | {
       type: PeersChangedEventType.Unwatched;
-      peer: { clientID: ActorID; presence: P };
+      peer: { clientID: ActorID };
     }
   | {
       type: PeersChangedEventType.PresenceChanged;

@@ -917,17 +917,12 @@ export class Client implements Observable<ClientEvent> {
         }
         break;
       case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
-        const presence = attachment.doc.getPresence(publisher);
         attachment.doc.removeOnlineClient(publisher);
-        if (!presence) {
-          break;
-        }
-
         attachment.doc.publish({
           type: DocEventType.PeersChanged,
           value: {
             type: PeersChangedEventType.Unwatched,
-            peer: { clientID: publisher, presence },
+            peer: { clientID: publisher },
           },
         });
         break;
