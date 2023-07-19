@@ -619,6 +619,7 @@ describe.only('Tree.edit', function () {
   })
 
   it('Can insert multiple element nodes', function() {
+    debugger;
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -638,7 +639,7 @@ describe.only('Tree.edit', function () {
       );
 
       doc.update((root) => {
-        root.t.edit(3, 3, {type:'p', children: [{ type: 'text', value: 'cd' }]}, {type:'i', children: [{ type: 'text', value: 'fg' }]});
+        root.t.edit(4, 4, {type:'p', children: [{ type: 'text', value: 'cd' }]}, {type:'i', children: [{ type: 'text', value: 'fg' }]});
       });
 
       assert.equal(
@@ -778,7 +779,6 @@ describe.only('Tree.edit', function () {
       }, 'element node and text node cannot be passed together');
   })
 
-  // TODO (ehuas) : re-add test cases
   it('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
