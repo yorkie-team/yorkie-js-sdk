@@ -4,7 +4,7 @@
 
 ## Tree.edit() method
 
-`edit` edits this tree with the given node.
+`edit` edits this tree with the given nodes.
 
 <b>Signature:</b>
 
