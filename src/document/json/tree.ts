@@ -336,40 +336,41 @@ export class Tree {
           validateTreeNodes(children)
         }
       }
-
-      const crdtNodes: Array<CRDTTreeNode> = contents
-        .map((content) => content && createCRDTTreeNode(this.context!, content))
-        .filter((a) => a) as Array<CRDTTreeNode>;
-
-      const fromPos = this.tree.pathToPos(fromPath);
-      const toPos = this.tree.pathToPos(toPath);
-      const ticket = this.context.getLastTimeTicket();
-      
-      this.tree.edit(
-        [fromPos, toPos],
-        crdtNodes.length
-          ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-          : undefined,
-        ticket,
-      );
-
-      this.context.push(
-        TreeEditOperation.create(
-          this.tree.getCreatedAt(),
-          fromPos,
-          toPos,
-          crdtNodes.length ? crdtNodes : undefined,
-          ticket,
-        ),
-      );
-
-      if (
-        !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-        fromPos.getOffset() !== toPos.getOffset()
-      ) {
-        this.context.registerElementHasRemovedNodes(this.tree!);
-      }
     }
+
+    const crdtNodes: Array<CRDTTreeNode> = contents
+      .map((content) => content && createCRDTTreeNode(this.context!, content))
+      .filter((a) => a) as Array<CRDTTreeNode>;
+
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos(toPath);
+    const ticket = this.context.getLastTimeTicket();
+
+    this.tree.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
+
+    this.context.push(
+      TreeEditOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNodes.length ? crdtNodes : undefined,
+        ticket,
+      ),
+    );
+
+    if (
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
+    ) {
+      this.context.registerElementHasRemovedNodes(this.tree!);
+    }
+
     return true;
   }
 
@@ -395,40 +396,41 @@ export class Tree {
           validateTreeNodes(children)
         }
       }
-     
-      const crdtNodes: Array<CRDTTreeNode> = contents
-        .map((content) => content && createCRDTTreeNode(this.context!, content))
-        .filter((a) => a) as Array<CRDTTreeNode>;
-
-      const fromPos = this.tree.findPos(fromIdx);
-      const toPos = this.tree.findPos(toIdx);
-      const ticket = this.context.getLastTimeTicket();
-
-      this.tree.edit(
-        [fromPos, toPos],
-        crdtNodes.length
-          ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-          : undefined,
-        ticket,
-      );
-  
-      this.context.push(
-        TreeEditOperation.create(
-          this.tree.getCreatedAt(),
-          fromPos,
-          toPos,
-          crdtNodes.length ? crdtNodes : undefined,
-          ticket,
-        ),
-      );
-  
-      if (
-        !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-        fromPos.getOffset() !== toPos.getOffset()
-      ) {
-        this.context.registerElementHasRemovedNodes(this.tree!);
-      }
     }
+     
+    const crdtNodes: Array<CRDTTreeNode> = contents
+      .map((content) => content && createCRDTTreeNode(this.context!, content))
+      .filter((a) => a) as Array<CRDTTreeNode>;
+
+    const fromPos = this.tree.findPos(fromIdx);
+    const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.getLastTimeTicket();
+
+    this.tree.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
+
+    this.context.push(
+      TreeEditOperation.create(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNodes.length ? crdtNodes : undefined,
+        ticket,
+      ),
+    );
+  
+    if (
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
+    ) {
+      this.context.registerElementHasRemovedNodes(this.tree!);
+    }
+    
     return true;
   }
 

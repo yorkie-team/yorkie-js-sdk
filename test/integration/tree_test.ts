@@ -465,7 +465,7 @@ describe('Tree', () => {
               {
                 type: 'p',
                 children: [
-                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                  { type: 'tn', children: [] },
                 ],
               },
             ],
@@ -489,7 +489,7 @@ describe('Tree', () => {
 
       root.t.editByPath([0, 1], [0, 1], {
         type: 'p',
-        children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
+        children: [{ type: 'tn', children: [] }],
       });
       assert.equal(
         root.t.toXML(),
@@ -507,7 +507,7 @@ describe('Tree', () => {
 
       root.t.editByPath([0, 2], [0, 2], {
         type: 'p',
-        children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
+        children: [{ type: 'tn', children: [] }],
       });
       assert.equal(
         root.t.toXML(),
@@ -525,7 +525,7 @@ describe('Tree', () => {
 
       root.t.editByPath([0, 3], [0, 3], {
         type: 'p',
-        children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
+        children: [{ type: 'tn', children: [] }],
       });
       assert.equal(
         root.t.toXML(),
@@ -543,7 +543,7 @@ describe('Tree', () => {
 
       root.t.editByPath([0, 3], [0, 3], {
         type: 'p',
-        children: [{ type: 'tn', children: [{ type: 'text', value: '' }] }],
+        children: [{ type: 'tn', children: [] }],
       });
 
       assert.equal(
@@ -864,7 +864,7 @@ describe('Tree.style', function () {
               {
                 type: 'p',
                 children: [
-                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                  { type: 'tn', children: [] },
                 ],
                 attributes: { a: 'b' },
               },
@@ -912,7 +912,7 @@ describe('Tree.style', function () {
               {
                 type: 'p',
                 children: [
-                  { type: 'tn', children: [{ type: 'text', value: '' }] },
+                  { type: 'tn', children: [] },
                 ],
                 attributes: { a: 'b' },
               },
