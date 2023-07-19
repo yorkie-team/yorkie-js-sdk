@@ -338,13 +338,23 @@ export class Tree {
       }
     }
 
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
-
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.getLastTimeTicket();
+    let crdtNodes = new Array<CRDTTreeNode>
+
+    if (contents[0].type === 'text') {
+      let compVal = '';
+      for (const content of contents) {
+        const { value } = content as TextNode;
+        compVal += value;
+      }
+      crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+    } else {
+      crdtNodes = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+    }
 
     this.tree.edit(
       [fromPos, toPos],
@@ -397,14 +407,25 @@ export class Tree {
         }
       }
     }
-     
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
 
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.getLastTimeTicket();
+
+    let crdtNodes = new Array<CRDTTreeNode>
+
+    if (contents[0].type === 'text') {
+      let compVal = '';
+      for (const content of contents) {
+        const { value } = content as TextNode;
+        compVal += value;
+      }
+      crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+    } else {
+      crdtNodes = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+    }
 
     this.tree.edit(
       [fromPos, toPos],
