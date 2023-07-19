@@ -125,11 +125,11 @@ export class CRDTTreePos {
   }
 
   /**
-   * `toStructure` returns the structure of this position.
+   * `toStruct` returns the structure of this position.
    */
-  public toStructure(): CRDTTreePosStruct {
+  public toStruct(): CRDTTreePosStruct {
     return {
-      createdAt: this.createdAt.toStructure(),
+      createdAt: this.createdAt.toStruct(),
       offset: this.offset,
     };
   }
@@ -957,12 +957,12 @@ export class CRDTTree extends CRDTGCElement {
    */
   public toPosRange(range: [number, number]): TreeRangeStruct {
     const [fromIdx, toIdx] = range;
-    const fromPos = this.findPos(fromIdx).toStructure();
+    const fromPos = this.findPos(fromIdx).toStruct();
     if (fromIdx === toIdx) {
       return [fromPos, fromPos];
     }
 
-    return [fromPos, this.findPos(toIdx).toStructure()];
+    return [fromPos, this.findPos(toIdx).toStruct()];
   }
 
   /**

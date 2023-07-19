@@ -69,6 +69,17 @@ export class TimeTicket {
   }
 
   /**
+   * `fromStruct` creates an instance of Ticket from the struct.
+   */
+  public static fromStruct(struct: TimeTicketStruct): TimeTicket {
+    return TimeTicket.of(
+      Long.fromString(struct.lamport, true),
+      struct.delimiter,
+      struct.actorID,
+    );
+  }
+
+  /**
    * `toIDString` returns the lamport string for this Ticket.
    */
   public toIDString(): string {
@@ -79,9 +90,9 @@ export class TimeTicket {
   }
 
   /**
-   * `toStructure` returns the structure of this Ticket.
+   * `toStruct` returns the structure of this Ticket.
    */
-  public toStructure(): TimeTicketStruct {
+  public toStruct(): TimeTicketStruct {
     return {
       lamport: this.getLamportAsString(),
       delimiter: this.getDelimiter(),

@@ -39,10 +39,19 @@ interface RGATreeSplitValue {
 }
 
 /**
+ * `RGATreeSplitNodePosStruct` is a structure represents the meta data of the node pos.
+ * It is used to serialize and deserialize the node pos.
+ */
+export type RGATreeSplitNodePosStruct = {
+  id: RGATreeSplitNodeIDStruct;
+  relativeOffset: number;
+};
+
+/**
  * `RGATreeSplitNodeIDStruct` is a structure represents the meta data of the node id.
  * It is used to serialize and deserialize the node id.
  */
-type RGATreeSplitNodeIDStruct = {
+export type RGATreeSplitNodeIDStruct = {
   createdAt: TimeTicketStruct;
   offset: number;
 };
@@ -64,6 +73,18 @@ export class RGATreeSplitNodeID {
    */
   public static of(createdAt: TimeTicket, offset: number): RGATreeSplitNodeID {
     return new RGATreeSplitNodeID(createdAt, offset);
+  }
+
+  /**
+   * `fromStruct` creates a instance of RGATreeSplitNodeID from the struct.
+   */
+  public static fromStruct(
+    struct: RGATreeSplitNodeIDStruct,
+  ): RGATreeSplitNodeID {
+    return RGATreeSplitNodeID.of(
+      TimeTicket.fromStruct(struct.createdAt),
+      struct.offset,
+    );
   }
 
   /**
@@ -105,11 +126,11 @@ export class RGATreeSplitNodeID {
   }
 
   /**
-   * `toStructure` returns the structure of this node id.
+   * `toStruct` returns the structure of this node id.
    */
-  public toStructure(): RGATreeSplitNodeIDStruct {
+  public toStruct(): RGATreeSplitNodeIDStruct {
     return {
-      createdAt: this.createdAt.toStructure(),
+      createdAt: this.createdAt.toStruct(),
       offset: this.offset,
     };
   }
@@ -155,6 +176,16 @@ export class RGATreeSplitNodePos {
   }
 
   /**
+   * `fromStruct` creates a instance of RGATreeSplitNodePos from the struct.
+   */
+  public static fromStruct(
+    struct: RGATreeSplitNodePosStruct,
+  ): RGATreeSplitNodePos {
+    const id = RGATreeSplitNodeID.fromStruct(struct.id);
+    return RGATreeSplitNodePos.of(id, struct.relativeOffset);
+  }
+
+  /**
    * `getID` returns the ID of this RGATreeSplitNodePos.
    */
   public getID(): RGATreeSplitNodeID {
@@ -184,6 +215,16 @@ export class RGATreeSplitNodePos {
    */
   public toTestString(): string {
     return `${this.id.toTestString()}:${this.relativeOffset}`;
+  }
+
+  /**
+   * `toStruct` returns the structure of this node pos.
+   */
+  public toStruct(): RGATreeSplitNodePosStruct {
+    return {
+      id: this.id.toStruct(),
+      relativeOffset: this.relativeOffset,
+    };
   }
 
   /**

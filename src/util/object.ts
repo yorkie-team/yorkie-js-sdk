@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+export function deepcopy<T>(object: T): T {
+  if (object instanceof Map) {
+    const pairs = Array.from(object);
+    return new Map(JSON.parse(JSON.stringify(pairs))) as unknown as T;
+  }
+
+  return JSON.parse(JSON.stringify(object));
+}
+
 /**
  `isEmpty` returns whether parameter object is empty or not 
  */

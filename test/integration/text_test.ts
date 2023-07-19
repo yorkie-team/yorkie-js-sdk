@@ -23,19 +23,19 @@ describe('Text', function () {
         root['k1'].toTestString(),
       );
 
-      let range = root['k1'].createRange(0, 0);
+      let range = root['k1'].createRangeForTest(0, 0);
       assert.equal('0:00:0:0:0', range[0].toTestString());
 
-      range = root['k1'].createRange(1, 1);
+      range = root['k1'].createRangeForTest(1, 1);
       assert.equal('1:00:2:0:1', range[0].toTestString());
 
-      range = root['k1'].createRange(2, 2);
+      range = root['k1'].createRangeForTest(2, 2);
       assert.equal('1:00:3:0:1', range[0].toTestString());
 
-      range = root['k1'].createRange(3, 3);
+      range = root['k1'].createRangeForTest(3, 3);
       assert.equal('1:00:3:0:2', range[0].toTestString());
 
-      range = root['k1'].createRange(4, 4);
+      range = root['k1'].createRangeForTest(4, 4);
       assert.equal('1:00:2:3:1', range[0].toTestString());
     });
 

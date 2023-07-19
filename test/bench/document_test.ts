@@ -299,15 +299,15 @@ const tests = [
         doc.getRoot().k1.toTestString(),
       );
       doc.update((root) => {
-        const [pos1] = root.k1.createRange(0, 0);
+        const [pos1] = root.k1.createRangeForTest(0, 0);
         assert.equal('0:00:0:0:0', pos1.toTestString());
-        const [pos2] = root.k1.createRange(1, 1);
+        const [pos2] = root.k1.createRangeForTest(1, 1);
         assert.equal('1:00:2:0:1', pos2.toTestString());
-        const [pos3] = root.k1.createRange(2, 2);
+        const [pos3] = root.k1.createRangeForTest(2, 2);
         assert.equal('1:00:3:0:1', pos3.toTestString());
-        const [pos4] = root.k1.createRange(3, 3);
+        const [pos4] = root.k1.createRangeForTest(3, 3);
         assert.equal('1:00:3:0:2', pos4.toTestString());
-        const [pos5] = root.k1.createRange(4, 4);
+        const [pos5] = root.k1.createRangeForTest(4, 4);
         assert.equal('1:00:2:3:1', pos5.toTestString());
       });
     },

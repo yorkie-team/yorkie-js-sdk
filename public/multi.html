@@ -16,8 +16,10 @@
   <body>
     <div>
       <div>status: <span id="network-status"></span></div>
-      <div>peers:</div>
-      <pre style="white-space: pre-wrap"><code id="peers-holder"></code></pre>
+      <div>online clients:</div>
+      <pre
+        style="white-space: pre-wrap"
+      ><code id="online-clients-holder"></code></pre>
       <div class="counter">
         <h2>Counter</h2>
         <button class="increaseButton">
@@ -42,7 +44,9 @@
     <script>
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
-      const peersHolder = document.getElementById('peers-holder');
+      const onlineClientsHolder = document.getElementById(
+        'online-clients-holder',
+      );
       const logHolder = document.getElementById('log-holder');
       const shortUniqueID = new ShortUniqueId();
       const colorHash = new ColorHash();
@@ -65,44 +69,39 @@
         };
       }
 
-      function displayPeers(peers, myClientID) {
+      function displayOnlineClients(presences, myClientID) {
         const usernames = [];
-        for (const { clientID, presence } of peers) {
+        for (const { clientID, presence } of presences) {
           usernames.push(
             myClientID === clientID
               ? `<b>${presence.username}</b>`
               : presence.username,
           );
         }
-        peersHolder.innerHTML = JSON.stringify(usernames);
+        onlineClientsHolder.innerHTML = JSON.stringify(usernames);
       }
 
       async function main() {
         try {
           // 01-1. create client with RPCAddr(envoy).
-          const client = new yorkie.Client('http://localhost:8080', {
-            presence: {
-              username: `user-${shortUniqueID()}`,
-            },
-          });
+          const client = new yorkie.Client('http://localhost:8080');
           // 01-2. subscribe client event.
           client.subscribe(network.statusListener(statusHolder));
-          client.subscribe((event) => {
-            if (event.type !== 'peers-changed') return;
-
-            const { type, peers } = event.value;
-            if (type === 'unwatched') {
-              peers[doc.getKey()].map((peer) => {
-                cursors.removeCursor(peer.presence.username);
-              });
-            }
-            displayPeers(client.getPeersByDocKey(doc.getKey()), client.getID());
-          });
           // 01-3. activate client
           await client.activate();
 
           // 02. create a document then attach it into the client.
           const doc = new yorkie.Document('multi-example');
+          doc.subscribe('my-presence', (event) => {
+            if (event.type === 'initialized') {
+              displayOnlineClients(doc.getPresences(), client.getID());
+            }
+          });
+          doc.subscribe('others', (event) => {
+            if (event.type === 'watched' || event.type === 'unwatched') {
+              displayOnlineClients(doc.getPresences(), client.getID());
+            }
+          });
 
           doc.subscribe((event) => {
             console.log('🟢 doc event', event);
@@ -117,7 +116,9 @@
             logHolder.innerHTML = JSON.stringify(doc.getRoot().toJS(), null, 2);
           }
 
-          await client.attach(doc);
+          await client.attach(doc, {
+            initialPresence: { username: `user-${shortUniqueID()}` },
+          });
 
           doc.update((root) => {
             if (!root.counter) {
@@ -258,6 +259,27 @@
               handleOperations(operations, actor);
             }
           });
+          doc.subscribe('others', (event) => {
+            if (event.type === 'unwatched') {
+              const { clientID } = event.value;
+              cursors.removeCursor(doc.getPresence(clientID).username);
+            } else if (event.type === 'presence-changed') {
+              const { clientID, presence } = event.value;
+              const range = doc
+                .getRoot()
+                .content.toIndexesFromRange(presence.selection);
+
+              cursors.createCursor(
+                presence.username,
+                presence.username,
+                colorHash.hex(presence.username),
+              );
+              cursors.moveCursor(presence.username, {
+                index: range[0],
+                length: range[1] - range[0],
+              });
+            }
+          });
 
           Quill.register('modules/cursors', QuillCursors);
           const quill = new Quill('#editor', {
@@ -309,7 +331,8 @@
                     'color: green',
                   );
 
-                  doc.update((root) => {
+                  doc.update((root, presence) => {
+                    let range;
                     if (
                       op.attributes !== undefined &&
                       op.insert === undefined
@@ -321,14 +344,25 @@
                       }
 
                       if (typeof op.insert === 'object') {
-                        root.content.edit(from, to, ' ', {
+                        range = root.content.edit(from, to, ' ', {
                           embed: JSON.stringify(op.insert),
                           ...op.attributes,
                         });
                       } else {
-                        root.content.edit(from, to, op.insert, op.attributes);
+                        range = root.content.edit(
+                          from,
+                          to,
+                          op.insert,
+                          op.attributes,
+                        );
                       }
                       from = to + op.insert.length;
+                    }
+
+                    if (range) {
+                      presence.set({
+                        selection: root.content.createRange(range),
+                      });
                     }
                   }, `update style by ${client.getID()}`);
                 } else if (op.delete !== undefined) {
@@ -349,8 +383,13 @@
                 return;
               }
 
-              doc.update((root) => {
-                root.content.select(range.index, range.index + range.length);
+              doc.update((root, presence) => {
+                presence.set({
+                  selection: root.content.createRange([
+                    range.index,
+                    range.index + range.length,
+                  ]),
+                });
               }, `update selection by ${client.getID()}`);
             });
 
@@ -359,10 +398,7 @@
             const deltaOperations = [];
             let prevTo = 0;
             for (const op of ops) {
-              const actorName = client.getPeerPresence(
-                doc.getKey(),
-                actor,
-              ).username;
+              const actorName = doc.getPresence(actor).username;
               const from = op.from;
               const to = op.to;
               const retainFrom = from - prevTo;
@@ -406,16 +442,6 @@
 
                   deltaOperations.push(deltaOp);
                 }
-              } else if (op.type === 'select') {
-                cursors.createCursor(
-                  actorName,
-                  actorName,
-                  colorHash.hex(actorName),
-                );
-                cursors.moveCursor(actorName, {
-                  index: from,
-                  length: retainTo,
-                });
               }
 
               prevTo = to;

@@ -40,8 +40,6 @@ export {
   SnapshotEvent,
   LocalChangeEvent,
   RemoteChangeEvent,
-  PeersChangedEvent,
-  PeersChangedEventType,
   Indexable,
   DocEvent,
   Document,

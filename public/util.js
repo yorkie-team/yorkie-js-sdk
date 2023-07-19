@@ -25,7 +25,6 @@ const network = {
           (event.type == 'stream-connection-status-changed' &&
             event.value == 'connected') ||
           (event.type == 'document-sync-result' && event.value == 'synced') ||
-          event.type == 'peers-changed' ||
           event.type == 'documents-changed')
       ) {
         network.showOnline(elem);

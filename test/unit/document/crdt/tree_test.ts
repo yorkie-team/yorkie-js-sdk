@@ -465,10 +465,9 @@ describe('CRDTTree', function () {
       [new CRDTTreeNode(issuePos(), 'text', 'ab')],
       issueTime(),
     );
+
     //     0  1  2   3 4 5    6   7   8
     //<root><p><b><i> a b </i></b></p></root>
-
-    // console.log('-----------------', tree.toXML());
     assert.deepEqual(
       tree.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,

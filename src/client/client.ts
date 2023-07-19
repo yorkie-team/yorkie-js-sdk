@@ -54,11 +54,7 @@ import {
   MetricUnaryInterceptor,
   MetricStreamInterceptor,
 } from '@yorkie-js-sdk/src/client/metric_interceptor';
-import {
-  Indexable,
-  DocEventType,
-  PeersChangedEventType,
-} from '@yorkie-js-sdk/src/document/document';
+import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `SyncMode` is the mode of synchronization. It is used to determine
@@ -141,10 +137,6 @@ export enum ClientEventType {
    * `DocumentsChanged` means that the documents of the client has changed.
    */
   DocumentsChanged = 'documents-changed',
-  /**
-   * `PeersChanged` means that the presences of the peer clients has changed.
-   */
-  PeersChanged = 'peers-changed',
   /**
    * `StreamConnectionStatusChanged` means that the stream connection status of
    * the client has changed.
@@ -881,11 +873,8 @@ export class Client implements Observable<ClientEvent> {
       }
       attachment.doc.setOnlineClients(onlineClients);
       attachment.doc.publish({
-        type: DocEventType.PeersChanged,
-        value: {
-          type: PeersChangedEventType.Initialized,
-          peers: attachment.doc.getPresences(),
-        },
+        type: DocEventType.Initialized,
+        value: attachment.doc.getPresences(),
       });
       return;
     }
@@ -905,13 +894,10 @@ export class Client implements Observable<ClientEvent> {
         attachment.doc.addOnlineClient(publisher);
         if (attachment.doc.hasPresence(publisher)) {
           attachment.doc.publish({
-            type: DocEventType.PeersChanged,
+            type: DocEventType.Watched,
             value: {
-              type: PeersChangedEventType.Watched,
-              peer: {
-                clientID: publisher,
-                presence: attachment.doc.getPresence(publisher)!,
-              },
+              clientID: publisher,
+              presence: attachment.doc.getPresence(publisher)!,
             },
           });
         }
@@ -919,11 +905,8 @@ export class Client implements Observable<ClientEvent> {
       case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
         attachment.doc.removeOnlineClient(publisher);
         attachment.doc.publish({
-          type: DocEventType.PeersChanged,
-          value: {
-            type: PeersChangedEventType.Unwatched,
-            peer: { clientID: publisher },
-          },
+          type: DocEventType.Unwatched,
+          value: { clientID: publisher },
         });
         break;
       }

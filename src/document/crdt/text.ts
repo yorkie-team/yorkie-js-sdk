@@ -194,7 +194,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
+  ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitNodeRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -223,12 +223,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
-    if (selectionChange) {
-      changes.push(selectionChange);
-    }
-
-    return [latestCreatedAtMap, changes];
+    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
   }
 
   /**
@@ -412,6 +407,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     );
     text.remove(this.getRemovedAt());
     return text;
+  }
+
+  /**
+   * `findIndexesFromRange` returns pair of integer offsets of the given range.
+   */
+  public findIndexesFromRange(range: RGATreeSplitNodeRange): [number, number] {
+    return this.rgaTreeSplit.findIndexesFromRange(range);
   }
 
   private selectPriv(
