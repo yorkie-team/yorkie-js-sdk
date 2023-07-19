@@ -56,7 +56,8 @@ function buildDescendants(
   const { type } = treeNode;
   const ticket = context.issueTimeTicket();
 
-  if (type === 'text') {
+  if (type === DefaultTextType) {
+    validateTextNode(treeNode as TextNode);
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
       CRDTTreePos.of(ticket, 0),
@@ -101,7 +102,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   const ticket = context.issueTimeTicket();
 
   let root;
-  if (content.type === 'text') {
+  if (content.type === DefaultTextType) {
     const { value } = content as TextNode;
     root = CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), type, value);
   } else if (content) {
@@ -131,6 +132,47 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   }
 
   return root;
+}
+
+/**
+ * `validateTextNode` ensures that a text node has a non-empty string value.
+ */
+function validateTextNode(textNode: TextNode): boolean {
+  if (!textNode.value.length) {
+    throw new Error('text node cannot have empty value');
+  } else {
+    return true;
+  }
+}
+
+/**
+ * `validateTreeNodes` ensures that treeNodes consists of only one type.
+ */
+function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
+  if (treeNodes.length) {
+    const firstTreeNodeType = treeNodes[0].type;
+    if (firstTreeNodeType === DefaultTextType) {
+      for (const treeNode of treeNodes) {
+        const { type } = treeNode;
+        if (type !== DefaultTextType) {
+          throw new Error(
+            'element node and text node cannot be passed together',
+          );
+        }
+        validateTextNode(treeNode as TextNode);
+      }
+    } else {
+      for (const treeNode of treeNodes) {
+        const { type } = treeNode;
+        if (type === DefaultTextType) {
+          throw new Error(
+            'element node and text node cannot be passed together',
+          );
+        }
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -272,6 +314,71 @@ export class Tree {
     );
   }
 
+  private editInternal(
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
+    contents: Array<TreeNode>,
+  ): boolean {
+    if (contents.length !== 0 && contents[0]) {
+      validateTreeNodes(contents);
+      if (contents[0].type !== DefaultTextType) {
+        for (const content of contents) {
+          const { children = [] } = content as ElementNode;
+          validateTreeNodes(children);
+        }
+      }
+    }
+
+    const ticket = this.context!.getLastTimeTicket();
+    let crdtNodes = new Array<CRDTTreeNode>();
+
+    if (contents[0]?.type === DefaultTextType) {
+      let compVal = '';
+      for (const content of contents) {
+        const { value } = content as TextNode;
+        compVal += value;
+      }
+      crdtNodes.push(
+        CRDTTreeNode.create(
+          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          DefaultTextType,
+          compVal,
+        ),
+      );
+    } else {
+      crdtNodes = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+    }
+
+    this.tree!.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
+
+    this.context!.push(
+      TreeEditOperation.create(
+        this.tree!.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNodes.length ? crdtNodes : undefined,
+        ticket,
+      ),
+    );
+
+    if (
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
+    ) {
+      this.context!.registerElementHasRemovedNodes(this.tree!);
+    }
+
+    return true;
+  }
+
   /**
    * `editByPath` edits this tree with the given node and path.
    */
@@ -290,43 +397,14 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
-
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
-    const ticket = this.context.getLastTimeTicket();
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
 
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        ticket,
-      ),
-    );
-
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
-    }
-
-    return true;
+    return this.editInternal(fromPos, toPos, contents);
   }
 
   /**
-   * `edit` edits this tree with the given node.
+   * `edit` edits this tree with the given nodes.
    */
   public edit(
     fromIdx: number,
@@ -340,38 +418,10 @@ export class Tree {
       throw new Error('from should be less than or equal to to');
     }
 
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
-    const ticket = this.context.getLastTimeTicket();
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
 
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        ticket,
-      ),
-    );
-
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
-    }
-
-    return true;
+    return this.editInternal(fromPos, toPos, contents);
   }
 
   /**
