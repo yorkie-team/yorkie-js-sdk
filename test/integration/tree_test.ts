@@ -588,7 +588,7 @@ describe('Tree', () => {
   });
 });
 
-describe.only('Tree.edit', function () {
+describe('Tree.edit', function () {
   it('Can insert multiple text nodes', function() {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -619,7 +619,6 @@ describe.only('Tree.edit', function () {
   })
 
   it('Can insert multiple element nodes', function() {
-    debugger;
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -701,7 +700,6 @@ describe.only('Tree.edit', function () {
   })
 
   it('Detecting correct error order [1]', function() {
-    debugger;
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
