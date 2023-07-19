@@ -588,9 +588,8 @@ describe('Tree', () => {
   });
 });
 
-describe('Tree.edit', function () {
-  it.only('Can insert text to the same position(left) concurrently', function () {
-    debugger;
+describe.only('Tree.edit', function () {
+  it('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
@@ -606,7 +605,6 @@ describe('Tree.edit', function () {
   });
 
   it('Can insert text to the same position(middle) concurrently', function () {
-    debugger;
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
@@ -636,7 +634,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12BA</p></r>`);
   });
 
-  it.skip('Can delete text content at the same position(left) concurrently', function () {
+  it('Can delete text content at the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -651,7 +649,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>23</p></r>`);
   });
 
-  it.skip('Can delete text content at the same position(middle) concurrently', function () {
+  it('Can delete text content at the same position(middle) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -666,7 +664,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>13</p></r>`);
   });
 
-  it.skip('Can delete text content at the same position(right) concurrently', function () {
+  it('Can delete text content at the same position(right) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -681,7 +679,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12</p></r>`);
   });
 
-  it.skip('Can delete text content anchored to another concurrently', function () {
+  it('Can delete text content anchored to another concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -696,7 +694,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
   });
 
-  it.skip('Can produce complete deletion concurrently', function () {
+  it('Can produce complete deletion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -711,7 +709,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
   });
 
-  it.skip('Can handle block delete concurrently', function () {
+  it('Can handle block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -726,7 +724,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
   });
 
-  it.skip('Can handle insert within block delete concurrently', function () {
+  it('Can handle insert within block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -741,7 +739,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1B5</p></r>`);
   });
 
-  it.skip('Can handle deletion of insertion anchor concurrently', function () {
+  it('Can handle deletion of insertion anchor concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -756,7 +754,7 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A2</p></r>`);
   });
 
-  it.skip('Can handle deletion after insertion concurrently', function () {
+  it('Can handle deletion after insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
@@ -771,7 +769,156 @@ describe('Tree.edit', function () {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A</p></r>`);
   });
 
-  it.skip('Can handle deletion before insertion concurrently', function () {
+  it('Can handle deletion before insertion concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(3, 3, { type: 'text', value: 'A' }));
+    docB.update((r) => r.t.edit(1, 3));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12A</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A</p></r>`);
+  });
+  it('Can delete text content at the same position(left) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+    docA.update((r) => r.t.edit(1, 2));
+    docB.update((r) => r.t.edit(1, 2));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>23</p></r>`);
+  });
+
+  it('Can delete text content at the same position(middle) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+    docA.update((r) => r.t.edit(2, 3));
+    docB.update((r) => r.t.edit(2, 3));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>13</p></r>`);
+  });
+
+  it('Can delete text content at the same position(right) concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+    docA.update((r) => r.t.edit(3, 4));
+    docB.update((r) => r.t.edit(3, 4));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12</p></r>`);
+  });
+
+  it('Can delete text content anchored to another concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+    docA.update((r) => r.t.edit(1, 2));
+    docB.update((r) => r.t.edit(2, 3));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
+  });
+
+  it('Can produce complete deletion concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(1, 2));
+    docB.update((r) => r.t.edit(2, 3));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>2</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>1</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
+  });
+
+  it('Can handle block delete concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+    docA.update((r) => r.t.edit(1, 3));
+    docB.update((r) => r.t.edit(4, 6));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>345</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
+  });
+
+  it('Can handle insert within block delete concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+    docA.update((r) => r.t.edit(2, 5));
+    docB.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>15</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>12B345</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1B5</p></r>`);
+  });
+
+  it('Can handle deletion of insertion anchor concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(2, 2, { type: 'text', value: 'A' }));
+    docB.update((r) => r.t.edit(1, 2));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>2</p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A2</p></r>`);
+  });
+
+  it('Can handle deletion after insertion concurrently', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+    docA.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
+    docB.update((r) => r.t.edit(1, 3));
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A</p></r>`);
+  });
+
+  it('Can handle deletion before insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
