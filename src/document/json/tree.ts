@@ -149,24 +149,26 @@ function validateTextNode(textNode: TextNode): boolean {
  * `validateTreeNodes` ensures that treeNodes consists of only one type.
  */
 function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
-  const firstTreeNodeType = treeNodes[0].type;
-  if (firstTreeNodeType === DefaultTextType) {
-    for (const treeNode of treeNodes) {
-      const { type } = treeNode;
-      if (type !== DefaultTextType) {
-        throw new Error('element node and text node cannot be passed together');
+  if (treeNodes.length) {
+    const firstTreeNodeType = treeNodes[0].type;
+    if (firstTreeNodeType === DefaultTextType) {
+      for (const treeNode of treeNodes) {
+        const { type } = treeNode;
+        if (type !== DefaultTextType) {
+          throw new Error('element node and text node cannot be passed together');
+        }
+        validateTextNode(treeNode as TextNode);
       }
-      validateTextNode(treeNode as TextNode);
-    }
-  } else {
-    for (const treeNode of treeNodes) {
-      const { type } = treeNode;
-      if (type === DefaultTextType) {
-        throw new Error('element node and text node cannot be passed together');
+    } else {
+      for (const treeNode of treeNodes) {
+        const { type } = treeNode;
+        if (type === DefaultTextType) {
+          throw new Error('element node and text node cannot be passed together');
+        }
       }
     }
-  }
-  return true;
+  } 
+  return true; 
 }
 
 /**
@@ -326,38 +328,48 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
+    if (contents.length !== 0 && contents[0]) {
+      validateTreeNodes(contents);
+      if (contents[0].type !== DefaultTextType) {
+        for (const content of contents) {
+          const { children = [] } = content as ElementNode;
+          validateTreeNodes(children)
+        }
+      }
 
-    const fromPos = this.tree.pathToPos(fromPath);
-    const toPos = this.tree.pathToPos(toPath);
-    const ticket = this.context.getLastTimeTicket();
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
+      const crdtNodes: Array<CRDTTreeNode> = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
 
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
+      const fromPos = this.tree.pathToPos(fromPath);
+      const toPos = this.tree.pathToPos(toPath);
+      const ticket = this.context.getLastTimeTicket();
+      
+      this.tree.edit(
+        [fromPos, toPos],
+        crdtNodes.length
+          ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+          : undefined,
         ticket,
-      ),
-    );
+      );
 
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
+      this.context.push(
+        TreeEditOperation.create(
+          this.tree.getCreatedAt(),
+          fromPos,
+          toPos,
+          crdtNodes.length ? crdtNodes : undefined,
+          ticket,
+        ),
+      );
+
+      if (
+        !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+        fromPos.getOffset() !== toPos.getOffset()
+      ) {
+        this.context.registerElementHasRemovedNodes(this.tree!);
+      }
     }
-
     return true;
   }
 
