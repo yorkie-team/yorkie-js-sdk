@@ -102,7 +102,7 @@ describe('Presence', function () {
     assert.deepEqual(doc1.getPresence(c2.getID()!), emptyObject);
   });
 
-  it(`Should be synced eventually`, async function () {
+  it('Should be synced eventually', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();

@@ -39,10 +39,10 @@ interface RGATreeSplitValue {
 }
 
 /**
- * `RGATreeSplitNodePosStruct` is a structure represents the meta data of the node pos.
+ * `RGATreeSplitPosStruct` is a structure represents the meta data of the node pos.
  * It is used to serialize and deserialize the node pos.
  */
-export type RGATreeSplitNodePosStruct = {
+export type RGATreeSplitPosStruct = {
   id: RGATreeSplitNodeIDStruct;
   relativeOffset: number;
 };
@@ -154,9 +154,9 @@ export class RGATreeSplitNodeID {
 const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(InitialTimeTicket, 0);
 
 /**
- * `RGATreeSplitNodePos` is the position of the text inside the node.
+ * `RGATreeSplitPos` is the position of the text inside the node.
  */
-export class RGATreeSplitNodePos {
+export class RGATreeSplitPos {
   private id: RGATreeSplitNodeID;
   private relativeOffset: number;
 
@@ -166,41 +166,39 @@ export class RGATreeSplitNodePos {
   }
 
   /**
-   * `of` creates a instance of RGATreeSplitNodePos.
+   * `of` creates a instance of RGATreeSplitPos.
    */
   public static of(
     id: RGATreeSplitNodeID,
     relativeOffset: number,
-  ): RGATreeSplitNodePos {
-    return new RGATreeSplitNodePos(id, relativeOffset);
+  ): RGATreeSplitPos {
+    return new RGATreeSplitPos(id, relativeOffset);
   }
 
   /**
-   * `fromStruct` creates a instance of RGATreeSplitNodePos from the struct.
+   * `fromStruct` creates a instance of RGATreeSplitPos from the struct.
    */
-  public static fromStruct(
-    struct: RGATreeSplitNodePosStruct,
-  ): RGATreeSplitNodePos {
+  public static fromStruct(struct: RGATreeSplitPosStruct): RGATreeSplitPos {
     const id = RGATreeSplitNodeID.fromStruct(struct.id);
-    return RGATreeSplitNodePos.of(id, struct.relativeOffset);
+    return RGATreeSplitPos.of(id, struct.relativeOffset);
   }
 
   /**
-   * `getID` returns the ID of this RGATreeSplitNodePos.
+   * `getID` returns the ID of this RGATreeSplitPos.
    */
   public getID(): RGATreeSplitNodeID {
     return this.id;
   }
 
   /**
-   * `getRelativeOffset` returns the relative offset of this RGATreeSplitNodePos.
+   * `getRelativeOffset` returns the relative offset of this RGATreeSplitPos.
    */
   public getRelativeOffset(): number {
     return this.relativeOffset;
   }
 
   /**
-   * `getAbsoluteID` returns the absolute id of this RGATreeSplitNodePos.
+   * `getAbsoluteID` returns the absolute id of this RGATreeSplitPos.
    */
   public getAbsoluteID(): RGATreeSplitNodeID {
     return RGATreeSplitNodeID.of(
@@ -220,7 +218,7 @@ export class RGATreeSplitNodePos {
   /**
    * `toStruct` returns the structure of this node pos.
    */
-  public toStruct(): RGATreeSplitNodePosStruct {
+  public toStruct(): RGATreeSplitPosStruct {
     return {
       id: this.id.toStruct(),
       relativeOffset: this.relativeOffset,
@@ -230,7 +228,7 @@ export class RGATreeSplitNodePos {
   /**
    * `equals` returns whether given pos equal to this pos or not.
    */
-  public equals(other: RGATreeSplitNodePos): boolean {
+  public equals(other: RGATreeSplitPos): boolean {
     if (!this.id.equals(other.id)) {
       return false;
     }
@@ -242,7 +240,7 @@ export class RGATreeSplitNodePos {
 /**
  * @internal
  */
-export type RGATreeSplitNodeRange = [RGATreeSplitNodePos, RGATreeSplitNodePos];
+export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -456,12 +454,12 @@ export class RGATreeSplitNode<
   }
 
   /**
-   * `createRange` creates ranges of RGATreeSplitNodePos.
+   * `createRange` creates ranges of RGATreeSplitPos.
    */
-  public createRange(): RGATreeSplitNodeRange {
+  public createPosRange(): RGATreeSplitPosRange {
     return [
-      RGATreeSplitNodePos.of(this.id, 0),
-      RGATreeSplitNodePos.of(this.id, this.getLength()),
+      RGATreeSplitPos.of(this.id, 0),
+      RGATreeSplitPos.of(this.id, this.getLength()),
     ];
   }
 
@@ -528,14 +526,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    * @param editedAt - edited time
    * @param value - value
    * @param latestCreatedAtMapByActor - latestCreatedAtMapByActor
-   * @returns `[RGATreeSplitNodePos, Map<string, TimeTicket>, Array<Change>]`
+   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<Change>]`
    */
   public edit(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitNodePos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
+  ): [RGATreeSplitPos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
@@ -546,11 +544,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
-    let caretPos = RGATreeSplitNodePos.of(caretID, 0);
+    let caretPos = RGATreeSplitPos.of(caretID, 0);
 
     // 03. insert a new node
     if (value) {
-      const idx = this.findIdxFromNodePos(fromLeft.createRange()[1], true);
+      const idx = this.posToIndex(fromLeft.createPosRange()[1], true);
 
       const inserted = this.insertAfter(
         fromLeft,
@@ -568,7 +566,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         });
       }
 
-      caretPos = RGATreeSplitNodePos.of(
+      caretPos = RGATreeSplitPos.of(
         inserted.getID(),
         inserted.getContentLength(),
       );
@@ -583,32 +581,26 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   /**
-   * `findNodePos` finds RGATreeSplitNodePos of given offset.
+   * `indexToPos` finds RGATreeSplitPos of given offset.
    */
-  public findNodePos(idx: number): RGATreeSplitNodePos {
+  public indexToPos(idx: number): RGATreeSplitPos {
     const [node, offset] = this.treeByIndex.find(idx);
     const splitNode = node as RGATreeSplitNode<T>;
-    return RGATreeSplitNodePos.of(splitNode.getID(), offset);
+    return RGATreeSplitPos.of(splitNode.getID(), offset);
   }
 
   /**
    * `findIndexesFromRange` finds indexes based on range.
    */
-  public findIndexesFromRange(range: RGATreeSplitNodeRange): [number, number] {
+  public findIndexesFromRange(range: RGATreeSplitPosRange): [number, number] {
     const [fromPos, toPos] = range;
-    return [
-      this.findIdxFromNodePos(fromPos, false),
-      this.findIdxFromNodePos(toPos, true),
-    ];
+    return [this.posToIndex(fromPos, false), this.posToIndex(toPos, true)];
   }
 
   /**
-   * `findIdxFromNodePos` finds index based on node position.
+   * `posToIndex` converts the given position to index.
    */
-  public findIdxFromNodePos(
-    pos: RGATreeSplitNodePos,
-    preferToLeft: boolean,
-  ): number {
+  public posToIndex(pos: RGATreeSplitPos, preferToLeft: boolean): number {
     const absoluteID = pos.getAbsoluteID();
     const node = preferToLeft
       ? this.findFloorNodePreferToLeft(absoluteID)
@@ -746,7 +738,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    * `findNodeWithSplit` splits and return nodes of the given position.
    */
   public findNodeWithSplit(
-    pos: RGATreeSplitNodePos,
+    pos: RGATreeSplitPos,
     editedAt: TimeTicket,
   ): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
@@ -949,11 +941,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
 
       [fromIdx] = this.findIndexesFromRange(
-        leftBoundary!.getNext()!.createRange(),
+        leftBoundary!.getNext()!.createPosRange(),
       );
       if (rightBoundary) {
         [, toIdx] = this.findIndexesFromRange(
-          rightBoundary.getPrev()!.createRange(),
+          rightBoundary.getPrev()!.createPosRange(),
         );
       } else {
         toIdx = this.treeByIndex.length;
@@ -1049,13 +1041,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
  * `Selection` represents the selection of text range in the editor.
  */
 export class Selection {
-  private from: RGATreeSplitNodePos;
-  private to: RGATreeSplitNodePos;
+  private from: RGATreeSplitPos;
+  private to: RGATreeSplitPos;
   private updatedAt: TimeTicket;
 
   constructor(
-    from: RGATreeSplitNodePos,
-    to: RGATreeSplitNodePos,
+    from: RGATreeSplitPos,
+    to: RGATreeSplitPos,
     updatedAt: TimeTicket,
   ) {
     this.from = from;
@@ -1067,7 +1059,7 @@ export class Selection {
    * `of` creates a new instance of Selection.
    */
   public static of(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     updatedAt: TimeTicket,
   ): Selection {
     return new Selection(range[0], range[1], updatedAt);

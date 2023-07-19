@@ -22,8 +22,8 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
-  RGATreeSplitNodeRange,
-  RGATreeSplitNodePos,
+  RGATreeSplitPosRange,
+  RGATreeSplitPos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
@@ -93,7 +93,7 @@ export class Text<A extends Indexable = Indexable> {
       return;
     }
 
-    const range = this.text.createRange(fromIdx, toIdx);
+    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `EDIT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} c:${content}`,
@@ -101,7 +101,7 @@ export class Text<A extends Indexable = Indexable> {
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor, _, rangeAfterEdit] = this.text.edit(
+    const [maxCreatedAtMapByActor, , rangeAfterEdit] = this.text.edit(
       range,
       content,
       ticket,
@@ -155,7 +155,7 @@ export class Text<A extends Indexable = Indexable> {
       return false;
     }
 
-    const range = this.text.createRange(fromIdx, toIdx);
+    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `STYL: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} a:${JSON.stringify(
@@ -190,7 +190,7 @@ export class Text<A extends Indexable = Indexable> {
       return false;
     }
 
-    const range = this.text.createRange(fromIdx, toIdx);
+    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `SELT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()}`,
@@ -207,23 +207,23 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
-   * `createRange` returns TextRangeStruct of the given indexes.
+   * `indexRangeToPosRange` returns TextRangeStruct of the given index range.
    */
-  createRange(range: [number, number]): TextRangeStruct {
+  indexRangeToPosRange(range: [number, number]): TextRangeStruct {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    const textRange = this.text.createRange(range[0], range[1]);
+    const textRange = this.text.indexRangeToPosRange(range[0], range[1]);
     return [textRange[0].toStruct(), textRange[1].toStruct()];
   }
 
   /**
-   * `toIndexesFromRange` returns indexes of the given TextRangeStruct.
+   * `posRangeToIndexRange` returns indexes of the given TextRangeStruct.
    */
-  toIndexesFromRange(range: TextRangeStruct): [number, number] {
+  posRangeToIndexRange(range: TextRangeStruct): [number, number] {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -231,8 +231,8 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     const textRange = this.text.findIndexesFromRange([
-      RGATreeSplitNodePos.fromStruct(range[0]),
-      RGATreeSplitNodePos.fromStruct(range[1]),
+      RGATreeSplitPos.fromStruct(range[0]),
+      RGATreeSplitPos.fromStruct(range[1]),
     ]);
     return [textRange[0], textRange[1]];
   }
@@ -295,13 +295,13 @@ export class Text<A extends Indexable = Indexable> {
    * `createRangeForTest` returns pair of RGATreeSplitNodePos of the given indexes
    * for testing purpose.
    */
-  createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
+  createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.text.createRange(fromIdx, toIdx);
+    return this.text.indexRangeToPosRange(fromIdx, toIdx);
   }
 }

@@ -176,7 +176,7 @@
               const { clientID, presence } = event.value;
               const range = doc
                 .getRoot()
-                .content.toIndexesFromRange(presence.selection);
+                .content.posRangeToIndexRange(presence.selection);
               displayRemoteSelection(
                 codemirror,
                 {
@@ -228,7 +228,9 @@
 
             doc.update((root, presence) => {
               const range = root.content.edit(from, to, content);
-              presence.set({ selection: root.content.createRange(range) });
+              presence.set({
+                selection: root.content.indexRangeToPosRange(range),
+              });
             }, `update content by ${client.getID()}`);
             console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           });
@@ -260,7 +262,7 @@
 
             doc.update((root, presence) => {
               presence.set({
-                selection: root.content.createRange([from, to]),
+                selection: root.content.indexRangeToPosRange([from, to]),
               });
             }, `update selection by ${client.getID()}`);
           });

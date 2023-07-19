@@ -175,29 +175,6 @@ describe('Text', function () {
     }
   });
 
-  it('should handle select operations', async function () {
-    const doc = new Document<{
-      text: Text;
-    }>('test-doc');
-
-    doc.update((root) => {
-      root.text = new Text();
-      root.text.edit(0, 0, 'ABCD');
-    });
-
-    doc.subscribe('$.text', (event) => {
-      if (event.type === 'local-change') {
-        const { operations } = event.value;
-
-        if (operations[0].type === 'select') {
-          assert.equal(operations[0].from, 2);
-          assert.equal(operations[0].to, 4);
-        }
-      }
-    });
-    doc.update((root) => root.text.select(2, 4));
-  });
-
   it('should handle edit operations', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {

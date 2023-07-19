@@ -1095,19 +1095,6 @@ describe('Document', function () {
         to: 0,
         value: { attributes: {}, content: 'hello world' },
       });
-      expectedOps.push({
-        type: 'select',
-        from: 11,
-        to: 11,
-        path: '$.text',
-      });
-      root.text.select(0, 2);
-      expectedOps.push({
-        type: 'select',
-        path: '$.text',
-        from: 0,
-        to: 2,
-      });
     });
     await waitStubCallCount(stub1, 1);
     assert.deepEqual(
@@ -1144,12 +1131,6 @@ describe('Document', function () {
         from: 0,
         to: 0,
         value: { attributes: {}, content: 'hello world' },
-      });
-      expectedOps.push({
-        type: 'select',
-        from: 11,
-        to: 11,
-        path: '$.textWithAttr',
       });
       root.textWithAttr.setStyle(0, 1, { bold: 'true' });
       expectedOps.push({

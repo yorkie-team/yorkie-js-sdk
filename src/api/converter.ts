@@ -49,7 +49,7 @@ import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
-  RGATreeSplitNodePos,
+  RGATreeSplitPos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
@@ -248,7 +248,7 @@ function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
 /**
  * `toTextNodePos` converts the given model to Protobuf format.
  */
-function toTextNodePos(pos: RGATreeSplitNodePos): PbTextNodePos {
+function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
   const pbTextNodePos = new PbTextNodePos();
   pbTextNodePos.setCreatedAt(toTimeTicket(pos.getID().getCreatedAt()));
   pbTextNodePos.setOffset(pos.getID().getOffset());
@@ -521,7 +521,7 @@ function toTextNodes(
 function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
   const pbTreeNodesList: Array<PbTreeNodes> = [];
 
-  if (!nodes.length) {
+  if (!nodes || !nodes.length) {
     return pbTreeNodesList;
   }
 
@@ -863,8 +863,8 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
 /**
  * `fromTextNodePos` converts the given Protobuf format to model format.
  */
-function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitNodePos {
-  return RGATreeSplitNodePos.of(
+function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
+  return RGATreeSplitPos.of(
     RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodePos.getCreatedAt())!,
       pbTextNodePos.getOffset(),
