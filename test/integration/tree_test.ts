@@ -588,7 +588,7 @@ describe('Tree', () => {
   });
 });
 
-describe.only('Tree.edit', function () {
+describe('Tree.edit', function () {
   it('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
