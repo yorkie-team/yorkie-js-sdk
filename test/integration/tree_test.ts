@@ -137,8 +137,6 @@ describe('Tree', () => {
       );
 
       // 04. Replace ABCD with Yorkie
-
-      debugger;
       root.t.edit(1, 5, {
         type: 'text',
         value: 'Yorkie',
