@@ -588,8 +588,198 @@ describe('Tree', () => {
   });
 });
 
-describe('Tree.edit', function () {
-  it.skip('Can insert text to the same position(left) concurrently', function () {
+describe.only('Tree.edit', function () {
+  it('Can insert multiple text nodes', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      doc.update((root) => {
+        root.t.edit(3, 3, {type:'text', value:'c'}, {type:'text', value:'d'});
+      });
+
+      assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>abcd</p></doc>`,
+      );
+  })
+
+  it('Can insert multiple element nodes', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      doc.update((root) => {
+        root.t.edit(3, 3, {type:'p', children: [{ type: 'text', value: 'cd' }]}, {type:'i', children: [{ type: 'text', value: 'fg' }]});
+      });
+
+      assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p>cd</p><i>fg</i></doc>`,
+      );
+  })
+
+  it('Detecting error for empty text', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.edit(3, 3, {type:'text', value:'c'}, {type:'text', value:''});
+        });
+      }, 'text node cannot have empty value');
+  })
+
+  it('Detecting error for mixed type insertion', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.edit(3, 3, {type:'p', children: []}, {type:'text', value:'d'});
+        });
+      }, 'element node and text node cannot be passed together');
+  })
+
+  it('Detecting correct error order [1]', function() {
+    debugger;
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.edit(3, 3, {type:'p', children: [{type:'text', value:'c'}, {type:'text', value:''}]}, {type:'text', value:'d'});
+        });
+      }, 'element node and text node cannot be passed together');
+  })
+
+  it('Detecting correct error order [2]', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.edit(3, 3, {type:'p', children: [{type:'text', value:'c'}]}, {type:'p', children: [{type:'text', value:''}]});
+        });
+      }, 'text node cannot have empty value');
+  })
+
+  it('Detecting correct error order [3]', function() {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [ { type: 'text', value: 'ab' } ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+        doc.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p></doc>`,
+      );
+
+      assert.Throw(() => {
+        doc.update((root) => {
+          root.t.edit(3, 3, {type:'text', value:'d'}, {type:'p', children: [{type:'text', value:'c'}]});
+        });
+      }, 'element node and text node cannot be passed together');
+  })
+
+  // TODO (ehuas) : re-add test cases
+  it('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],

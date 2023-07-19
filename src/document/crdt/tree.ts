@@ -643,7 +643,7 @@ export class CRDTTree extends CRDTGCElement {
     if (contents?.length) {
       // 03-1. insert the content nodes to the list.
       let previous = fromRight!.prev!;
-      let node = fromPos.node;
+      const node = fromPos.node;
       let offset = fromPos.offset;
       for (const content of contents!) {
         traverse(content, (node) => {
@@ -660,8 +660,8 @@ export class CRDTTree extends CRDTGCElement {
           }
         } else {
           const target = node;
-          target.insertAt(content, offset+1);
-          offset++
+          target.insertAt(content, offset + 1);
+          offset++;
         }
       }
     }

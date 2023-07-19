@@ -2,7 +2,6 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
-
   CRDTTree,
   CRDTTreePos,
   CRDTTreeNode,
@@ -49,7 +48,7 @@ export type TextNode = {
 /**
  * `buildDescendants` builds descendants of the given tree node.
  */
-function buildDescendants(this: any, 
+function buildDescendants(
   treeNode: TreeNode,
   parent: CRDTTreeNode,
   context: ChangeContext,
@@ -58,9 +57,7 @@ function buildDescendants(this: any,
   const ticket = context.issueTimeTicket();
 
   if (type === 'text') {
-    if (!this.validateTextNode(treeNode as TextNode)) {
-      throw new Error('error here');
-    } 
+    validateTextNode(treeNode as TextNode)
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
       CRDTTreePos.of(ticket, 0),
@@ -135,6 +132,41 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   }
 
   return root;
+}
+
+/**
+ * `validateTextNode` ensures that a text node has a non-empty string value.
+ */
+function validateTextNode(textNode: TextNode): boolean {
+  if (!textNode.value.length) {
+    throw new Error('text node cannot have empty value');
+  } else {
+    return true;
+  }
+}
+
+/**
+ * `validateTreeNodes` ensures that treeNodes consists of only one type.
+ */
+function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
+  const firstTreeNodeType = treeNodes[0].type;
+  if (firstTreeNodeType === 'text') {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type !== 'text') {
+        throw new Error('element node and text node cannot be passed together');
+      }
+      validateTextNode(treeNode as TextNode);
+    }
+  } else {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type === 'text') {
+        throw new Error('element node and text node cannot be passed together');
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -277,45 +309,6 @@ export class Tree {
   }
 
   /**
-   * 'validateTextNode' ensures that a text node has a non-empty string value
-   */
-  public validateTextNode(textNode: TextNode): boolean {
-    if (!textNode.value.length) {
-      throw new Error('text node cannot have empty value')
-    } else {
-      return true;
-    }
-  }
-
-  /**
-   * 'validateTreeNodes' ensures that treeNodes consists of only one type
-   */
-  public validateTreeNodes(
-    treeNodes: Array<TreeNode>
-    ): boolean {
-      const firstTreeNodeType = treeNodes[0].type;
-      if (firstTreeNodeType === "text") {
-        for (const treeNode of treeNodes) {
-          const { type } = treeNode;
-          if (type !== "text") {
-            throw new Error ('element node and text node cannot be passed together')
-          }
-          if (!this.validateTextNode(treeNode as TextNode)) {
-            throw new Error('text node cannot have empty value')
-          }
-        }
-      } else {
-        for (const treeNode of treeNodes) {
-          const { type } = treeNode;
-          if (type === "text") {
-            throw new Error ('element node and text node cannot be passed together')
-          }
-        }
-      }
-      return true;
-    }
-
-  /**
    * `editByPath` edits this tree with the given node and path.
    */
   public editByPath(
@@ -382,94 +375,121 @@ export class Tree {
     if (fromIdx > toIdx) {
       throw new Error('from should be less than or equal to to');
     }
-
-    const crdtNodes: Array<CRDTTreeNode> = contents
-      .map((content) => content && createCRDTTreeNode(this.context!, content))
-      .filter((a) => a) as Array<CRDTTreeNode>;
-    const fromPos = this.tree.findPos(fromIdx);
-    const toPos = this.tree.findPos(toIdx);
-    const ticket = this.context.getLastTimeTicket();
-    
     if (contents.length !== 0 && contents[0] !== null) {
-      if (!this.validateTreeNodes(contents)) {
-        throw new Error('text node cannot have empty value');
-      }
+      validateTreeNodes(contents);
+      const crdtNodes = new Array<CRDTTreeNode>
+     
+      /**
+       * const crdtNodes: Array<CRDTTreeNode> = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+      */
 
-      // TODO (ehuas): simplify syntax
-      if (contents[0].type === "text") {
+      const fromPos = this.tree.findPos(fromIdx);
+      const toPos = this.tree.findPos(toIdx);
+      const ticket = this.context.getLastTimeTicket();
+
+      if (contents[0].type === 'text') {
         let compVal = '';
         for (const content of contents) {
           const { value } = content as TextNode;
           compVal += value;
         }
-        
-        crdtNodes.push(
-          CRDTTreeNode.create(
-            CRDTTreePos.of(ticket, 0), 
-            "text", 
-            compVal,
-          ),
-        );
-
+        crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
       } else {
         for (const content of contents) {
-          let { attributes } = content as ElementNode 
-          var attrs = new RHT();
+          let { attributes } = content as ElementNode;
+          const attrs = new RHT();
 
           if (typeof attributes === 'object' && !isEmpty(attributes)) {
             attributes = stringifyObjectValues(attributes);
             for (const [key, val] of Object.entries(attributes)) {
-              attrs.set(key, val, ticket)
+              attrs.set(key, val, ticket);
             }
           }
 
           const newNode = CRDTTreeNode.create(
-            CRDTTreePos.of(ticket, 0), 
-            content.type, 
-            undefined, 
+            CRDTTreePos.of(ticket, 0),
+            content.type,
+            undefined,
             attrs,
           );
 
           const { children = [] } = content as ElementNode;
           for (const child of children) {
-            try {
-              buildDescendants(child, newNode, this.context)
-            } catch {
-              throw new Error('error here')
-            }
+            buildDescendants(child, newNode, this.context);
           }
-          crdtNodes.push(newNode)
+          crdtNodes.push(newNode);
         }
+      } 
+
+      this.tree.edit(
+        [fromPos, toPos],
+        crdtNodes.length
+          ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+          : undefined,
+        ticket,
+      );
+  
+      this.context.push(
+        TreeEditOperation.create(
+          this.tree.getCreatedAt(),
+          fromPos,
+          toPos,
+          crdtNodes.length ? crdtNodes : undefined,
+          ticket,
+        ),
+      );
+  
+      if (
+        !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+        fromPos.getOffset() !== toPos.getOffset()
+      ) {
+        this.context.registerElementHasRemovedNodes(this.tree!);
       }
     }
-  
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
-
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        ticket,
-      ),
-    );
-
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
-    }
-
     return true;
   }
+    
+
+    
+    /**
+      if (contents[0].type === 'text') {
+        let compVal = '';
+        for (const content of contents) {
+          const { value } = content as TextNode;
+          compVal += value;
+        }
+        // bug here
+        crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+      } else {
+        for (const content of contents) {
+          let { attributes } = content as ElementNode;
+          const attrs = new RHT();
+
+          if (typeof attributes === 'object' && !isEmpty(attributes)) {
+            attributes = stringifyObjectValues(attributes);
+            for (const [key, val] of Object.entries(attributes)) {
+              attrs.set(key, val, ticket);
+            }
+          }
+
+          const newNode = CRDTTreeNode.create(
+            CRDTTreePos.of(ticket, 0),
+            content.type,
+            undefined,
+            attrs,
+          );
+
+          const { children = [] } = content as ElementNode;
+          for (const child of children) {
+            buildDescendants(child, newNode, this.context);
+          }
+          crdtNodes.push(newNode);
+        }
+      }
+    } */
+  
 
   /**
    * `split` splits this tree at the given index.
