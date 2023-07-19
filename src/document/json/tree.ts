@@ -5,8 +5,7 @@ import {
   CRDTTree,
   CRDTTreePos,
   CRDTTreeNode,
-  TreeRange,
-  TreeRangeStruct,
+  TreePosStructRange,
   TreeChange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -508,69 +507,73 @@ export class Tree {
   }
 
   /**
-   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
+   * `pathRangeToPosRange` converts the path range into the position range.
    */
-  createRange(fromIdx: number, toIdx: number): TreeRange {
+  pathRangeToPosRange(
+    range: [Array<number>, Array<number>],
+  ): TreePosStructRange {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.tree.createRange(fromIdx, toIdx);
+    const indexRange: [number, number] = [
+      this.tree.pathToIndex(range[0]),
+      this.tree.pathToIndex(range[1]),
+    ];
+    const posRange = this.tree.indexRangeToPosRange(indexRange);
+    return [posRange[0].toStruct(), posRange[1].toStruct()];
   }
 
   /**
-   * `createRangeByPath` returns pair of CRDTTreePos of the given path.
+   * `indexRangeToPosRange` converts the index range into the position range.
    */
-  createRangeByPath(fromPath: Array<number>, toPath: Array<number>): TreeRange {
+  indexRangeToPosRange(range: [number, number]): TreePosStructRange {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
-    const fromIdx = this.tree.pathToIndex(fromPath);
-    const toIdx = this.tree.pathToIndex(toPath);
 
-    return this.tree.createRange(fromIdx, toIdx);
+    return this.tree.indexRangeToPosStructRange(range);
   }
 
   /**
-   * `toPosRange` converts the integer index range into the Tree position range structure.
+   * `posRangeToIndexRange` converts the position range into the index range.
    */
-  toPosRange(range: [number, number]): TreeRangeStruct {
+  posRangeToIndexRange(range: TreePosStructRange): [number, number] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.tree.toPosRange(range);
+    const posRange: [CRDTTreePos, CRDTTreePos] = [
+      CRDTTreePos.fromStruct(range[0]),
+      CRDTTreePos.fromStruct(range[1]),
+    ];
+
+    return [this.tree.toIndex(posRange[0]), this.tree.toIndex(posRange[1])];
   }
 
   /**
-   * `toIndexRange` converts the Tree position range into the integer index range.
+   * `posRangeToPathRange` converts the position range into the path range.
    */
-  toIndexRange(range: TreeRangeStruct): [number, number] {
+  posRangeToPathRange(
+    range: TreePosStructRange,
+  ): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.tree.toIndexRange(range);
-  }
+    const posRange: [CRDTTreePos, CRDTTreePos] = [
+      CRDTTreePos.fromStruct(range[0]),
+      CRDTTreePos.fromStruct(range[1]),
+    ];
 
-  /**
-   * `rangeToPath` returns the path of the given range.
-   */
-  rangeToPath(range: TreeRange): [Array<number>, Array<number>] {
-    if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
-    }
-
-    return this.tree.rangeToPath(range);
+    return this.tree.posRangeToPathRange(posRange);
   }
 }

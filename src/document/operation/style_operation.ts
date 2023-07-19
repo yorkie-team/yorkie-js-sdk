@@ -17,7 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
@@ -29,14 +29,14 @@ import { Indexable } from '../document';
  *  `StyleOperation` is an operation applies the style of the given range to Text.
  */
 export class StyleOperation extends Operation {
-  private fromPos: RGATreeSplitNodePos;
-  private toPos: RGATreeSplitNodePos;
+  private fromPos: RGATreeSplitPos;
+  private toPos: RGATreeSplitPos;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitNodePos,
-    toPos: RGATreeSplitNodePos,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
@@ -51,8 +51,8 @@ export class StyleOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitNodePos,
-    toPos: RGATreeSplitNodePos,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
@@ -114,14 +114,14 @@ export class StyleOperation extends Operation {
   /**
    * `getFromPos` returns the start point of the editing range.
    */
-  public getFromPos(): RGATreeSplitNodePos {
+  public getFromPos(): RGATreeSplitPos {
     return this.fromPos;
   }
 
   /**
    * `getToPos` returns the end point of the editing range.
    */
-  public getToPos(): RGATreeSplitNodePos {
+  public getToPos(): RGATreeSplitPos {
     return this.toPos;
   }
 

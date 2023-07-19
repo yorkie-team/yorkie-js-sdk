@@ -167,12 +167,6 @@ describe('Document', function () {
           },
           path: '$.content',
         },
-        {
-          type: 'select',
-          from: 11,
-          to: 11,
-          path: '$.content',
-        },
         { type: 'set', path: '$', key: 'obj' },
         { type: 'set', path: '$.obj', key: 'name' },
         { type: 'set', path: '$.obj', key: 'age' },
@@ -197,7 +191,6 @@ describe('Document', function () {
       const prevItem = root.todos.getElementByIndex!(1);
       const currItem = root.todos.getElementByIndex!(0);
       root.todos.moveAfter!(prevItem.getID!(), currItem.getID!());
-      root.content.select(0, 5);
       root.content.setStyle(0, 5, { bold: true });
       expectedEvents1 = [
         { type: 'increase', path: '$.counter', value: 1 },
@@ -207,12 +200,6 @@ describe('Document', function () {
           path: '$.todos',
           index: 1,
           previousIndex: 0,
-        },
-        {
-          type: 'select',
-          from: 0,
-          to: 5,
-          path: '$.content',
         },
         {
           type: 'style',

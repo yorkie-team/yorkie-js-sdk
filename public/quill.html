@@ -116,7 +116,7 @@
               const { clientID, presence } = event.value;
               const range = doc
                 .getRoot()
-                .content.toIndexesFromRange(presence.selection);
+                .content.posRangeToIndexRange(presence.selection);
 
               cursors.createCursor(
                 presence.username,
@@ -214,7 +214,7 @@
 
                     if (range) {
                       presence.set({
-                        selection: root.content.createRange(range),
+                        selection: root.content.indexRangeToPosRange(range),
                       });
                     }
                   }, `update style by ${client.getID()}`);
@@ -238,7 +238,7 @@
 
               doc.update((root, presence) => {
                 presence.set({
-                  selection: root.content.createRange([
+                  selection: root.content.indexRangeToPosRange([
                     range.index,
                     range.index + range.length,
                   ]),

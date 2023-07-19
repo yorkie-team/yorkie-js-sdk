@@ -111,6 +111,16 @@ export class CRDTTreePos {
   }
 
   /**
+   * `fromStruct` creates a new instance of CRDTTreePos from the given struct.
+   */
+  public static fromStruct(struct: CRDTTreePosStruct): CRDTTreePos {
+    return CRDTTreePos.of(
+      TimeTicket.fromStruct(struct.createdAt),
+      struct.offset,
+    );
+  }
+
+  /**
    * `getCreatedAt` returns the creation time of the node.
    */
   public getCreatedAt(): TimeTicket {
@@ -171,15 +181,15 @@ function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
 }
 
 /**
- * `TreeRange` represents a pair of CRDTTreePos.
+ * `TreePosRange` represents a pair of CRDTTreePos.
  */
-export type TreeRange = [CRDTTreePos, CRDTTreePos];
+export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 
 /**
- * `TreeRangeStruct` represents the structure of TreeRange.
+ * `TreePosStructRange` represents the structure of TreeRange.
  * It is used to serialize and deserialize the TreeRange.
  */
-export type TreeRangeStruct = [CRDTTreePosStruct, CRDTTreePosStruct];
+export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
@@ -787,7 +797,7 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `pathToPosRange` finds the range of pos from given path.
+   * `pathToPosRange` converts the given path of the node to the range of the position.
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
     const index = this.pathToIndex(path);
@@ -938,28 +948,29 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `indexToPath` converts the given path to index.
+   * `pathToIndex` converts the given path to index.
    */
   public pathToIndex(path: Array<number>): number {
     return this.indexTree.pathToIndex(path);
   }
 
   /**
-   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   * `indexRangeToPosRange` returns the position range from the given index range.
    */
-  public createRange(fromIdx: number, toIdx: number): TreeRange {
-    const fromPos = this.findPos(fromIdx);
-    if (fromIdx === toIdx) {
+  public indexRangeToPosRange(range: [number, number]): TreePosRange {
+    const fromPos = this.findPos(range[0]);
+    if (range[0] === range[1]) {
       return [fromPos, fromPos];
     }
-
-    return [fromPos, this.findPos(toIdx)];
+    return [fromPos, this.findPos(range[1])];
   }
 
   /**
-   * `toPosRange` converts the integer index range into the Tree position range structure.
+   * `indexRangeToPosStructRange` converts the integer index range into the Tree position range structure.
    */
-  public toPosRange(range: [number, number]): TreeRangeStruct {
+  public indexRangeToPosStructRange(
+    range: [number, number],
+  ): TreePosStructRange {
     const [fromIdx, toIdx] = range;
     const fromPos = this.findPos(fromIdx).toStruct();
     if (fromIdx === toIdx) {
@@ -970,33 +981,11 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toIndexRange` converts the Tree position range into the integer index range.
+   * `posRangeToPathRange` converts the given position range to the path range.
    */
-  public toIndexRange(range: TreeRangeStruct): [number, number] {
-    const [fromPosStruct, toPosStruct] = range;
-    const fromPos = CRDTTreePos.of(
-      TimeTicket.of(
-        Long.fromString(fromPosStruct.createdAt.lamport, true),
-        fromPosStruct.createdAt.delimiter,
-        fromPosStruct.createdAt.actorID,
-      ),
-      fromPosStruct.offset,
-    );
-    const toPos = CRDTTreePos.of(
-      TimeTicket.of(
-        Long.fromString(toPosStruct.createdAt.lamport, true),
-        toPosStruct.createdAt.delimiter,
-        toPosStruct.createdAt.actorID,
-      ),
-      toPosStruct.offset,
-    );
-    return [this.toIndex(fromPos), this.toIndex(toPos)];
-  }
-
-  /**
-   * `rangeToPath` returns pair of integer offsets of the given Tree.
-   */
-  public rangeToPath(range: TreeRange): [Array<number>, Array<number>] {
+  public posRangeToPathRange(
+    range: TreePosRange,
+  ): [Array<number>, Array<number>] {
     const fromPath = this.indexTree.indexToPath(this.toIndex(range[0]));
     const toPath = this.indexTree.indexToPath(this.toIndex(range[1]));
 

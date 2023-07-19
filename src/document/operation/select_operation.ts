@@ -17,7 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { RGATreeSplitNodePos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
@@ -29,13 +29,13 @@ import { Indexable } from '../document';
  *  `SelectOperation` represents an operation that selects an area in the text.
  */
 export class SelectOperation extends Operation {
-  private fromPos: RGATreeSplitNodePos;
-  private toPos: RGATreeSplitNodePos;
+  private fromPos: RGATreeSplitPos;
+  private toPos: RGATreeSplitPos;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitNodePos,
-    toPos: RGATreeSplitNodePos,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -48,8 +48,8 @@ export class SelectOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitNodePos,
-    toPos: RGATreeSplitNodePos,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
     executedAt: TimeTicket,
   ): SelectOperation {
     return new SelectOperation(parentCreatedAt, fromPos, toPos, executedAt);
@@ -104,14 +104,14 @@ export class SelectOperation extends Operation {
   /**
    * `getFromPos` returns the start point of the editing range.
    */
-  public getFromPos(): RGATreeSplitNodePos {
+  public getFromPos(): RGATreeSplitPos {
     return this.fromPos;
   }
 
   /**
    * `getToPos` returns the end point of the editing range.
    */
-  public getToPos(): RGATreeSplitNodePos {
+  public getToPos(): RGATreeSplitPos {
     return this.toPos;
   }
 }

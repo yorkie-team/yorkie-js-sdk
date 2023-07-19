@@ -488,12 +488,6 @@ describe('CRDTTree', function () {
     toIdx = tree.toIndex(to);
     assert.deepEqual([fromIdx, toIdx], [5, 6]);
     assert.equal(tree.getSize(), 8);
-
-    let range = tree.toPosRange([0, 5]);
-    assert.deepEqual(tree.toIndexRange(range), [0, 5]);
-
-    range = tree.toPosRange([5, 7]);
-    assert.deepEqual(tree.toIndexRange(range), [5, 7]);
   });
 });
 

@@ -972,8 +972,8 @@ export class Document<T, P extends Indexable = Indexable> {
     for (const change of changes) {
       change.execute(this.clone!.root, this.clone!.presences);
 
-      let changeInfo: ChangeInfo | null = null;
-      let docEvent: DocEvent<P> | null = null;
+      let changeInfo: ChangeInfo | undefined;
+      let docEvent: DocEvent<P> | undefined;
       const actorID = change.getID().getActorID()!;
       if (change.hasPresenceChange()) {
         const presenceChange = change.getPresenceChange()!;

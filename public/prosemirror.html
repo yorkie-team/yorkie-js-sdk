@@ -107,7 +107,10 @@
        */
       function updateSelectionLayer(view, tree, actor) {
         const { layer, fromPos, toPos } = selectionMap.get(actor);
-        const [fromIndex, toIndex] = tree.toIndexRange([fromPos, toPos]);
+        const [fromIndex, toIndex] = tree.posRangeToIndexRange([
+          fromPos,
+          toPos,
+        ]);
         const coords = view.coordsAtPos(Math.min(fromIndex, toIndex));
 
         layer.style.left = `${coords.left - 10}px`;
@@ -323,11 +326,13 @@
                 selection: transaction.curSelection,
               });
 
-              doc.update((root) => {
-                root.selection = root.tree.toPosRange([
-                  transaction.curSelection.from,
-                  transaction.curSelection.to,
-                ]);
+              doc.update((root, presence) => {
+                presence.set({
+                  selection: root.tree.indexRangeToPosRange([
+                    transaction.curSelection.from,
+                    transaction.curSelection.to,
+                  ]),
+                });
               });
               printLog();
               return;
@@ -338,7 +343,7 @@
               transaction: transaction,
             });
 
-            doc.update((root) => {
+            doc.update((root, presence) => {
               for (const step of transaction.steps) {
                 const {
                   jsonID: stepType,
@@ -354,7 +359,7 @@
                 // TODO(hackerwins): replaceAround replaces the given range with given gap.
                 if (stepType === 'replaceAround') {
                   root.tree.move(from, to, gapFrom, gapTo);
-                  return;
+                  continue;
                 }
 
                 // 02-2. Enter Key: Insert Paragraph
@@ -366,13 +371,13 @@
                 ) {
                   // TODO(hackerwins): Figure out how many depth to split.
                   root.tree.split(from, 2);
-                  return;
+                  continue;
                 }
 
                 // 02-1. Delete the given range.
                 if (!content.content.length) {
                   root.tree.edit(from, to);
-                  return;
+                  continue;
                 }
 
                 // 03-4. Edit: Insert the given content.
@@ -381,13 +386,28 @@
                 }
               }
 
-              root.selection = root.tree.toPosRange([
-                transaction.curSelection.from,
-                transaction.curSelection.to,
-              ]);
+              presence.set({
+                selection: root.tree.indexRangeToPosRange([
+                  transaction.curSelection.from,
+                  transaction.curSelection.to,
+                ]),
+              });
             });
             printLog();
           },
+        });
+
+        doc.subscribe('others', (event) => {
+          if (event.type === 'presence-changed') {
+            const { clientID, presence } = event.value;
+            displayRemoteSelection(
+              view,
+              doc.getRoot().tree,
+              presence.selection[0],
+              presence.selection[1],
+              clientID,
+            );
+          }
         });
 
         // 03. Downstream: yorkie.Tree to ProseMirror.
@@ -402,32 +422,20 @@
           let toPos = -1;
           for (const op of operations) {
             if (op.type !== 'tree-edit') {
-              if (
-                op.type === 'set' &&
-                op.path === '$' &&
-                op.key === 'selection'
-              ) {
-                const selection = doc.getRoot().selection;
-                displayRemoteSelection(
-                  view,
-                  root.tree,
-                  selection[0],
-                  selection[1],
-                  actor,
-                );
-              }
               continue;
             }
-            const { from, to, value: content } = op;
+            const { from, to, value: contents } = op;
             const transform = view.state.tr;
-            if (content) {
+            if (contents) {
               transform.replaceWith(
                 from,
                 to,
-                Node.fromJSON(mySchema, {
-                  type: content.type,
-                  text: content.value,
-                }),
+                ...contents.map((content) =>
+                  Node.fromJSON(mySchema, {
+                    type: content.type,
+                    text: content.value,
+                  }),
+                ),
               );
             } else {
               transform.replace(from, to);
