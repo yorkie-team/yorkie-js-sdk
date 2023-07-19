@@ -20,7 +20,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -67,7 +67,7 @@ export class TreeStyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -93,9 +93,9 @@ export class TreeStyleOperation extends Operation {
         to,
         value,
         fromPath,
-        element: this.getParentCreatedAt(),
+        path: root.createPath(this.getParentCreatedAt()),
       };
-    }) as Array<InternalOpInfo>;
+    }) as Array<OperationInfo>;
   }
 
   /**
@@ -106,16 +106,16 @@ export class TreeStyleOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    const parent = this.getParentCreatedAt().getStructureAsString();
-    const fromPos = `${this.fromPos.createdAt.getStructureAsString()}:${
-      this.fromPos.offset
-    }`;
-    const toPos = `${this.toPos.createdAt.getStructureAsString()}:${
-      this.toPos.offset
-    }`;
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
+    const fromPos = `${this.fromPos
+      .getCreatedAt()
+      .toTestString()}:${this.fromPos.getOffset()}`;
+    const toPos = `${this.toPos
+      .getCreatedAt()
+      .toTestString()}:${this.toPos.getOffset()}`;
 
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},

@@ -84,10 +84,10 @@ describe('Garbage Collection', function () {
 
     const root = (doc.getRootObject().get('list') as CRDTArray)
       .getElements()
-      .getStructureAsString();
+      .toTestString();
     const clone = (doc.getClone()!.get('list') as CRDTArray)
       .getElements()
-      .getStructureAsString();
+      .toTestString();
 
     assert.equal(root, clone);
   });
@@ -100,7 +100,7 @@ describe('Garbage Collection', function () {
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 AB}[2:00:1:2 CD]',
-      doc.getRoot().text.getStructureAsString(),
+      doc.getRoot().text.toTestString(),
     );
 
     assert.equal(1, doc.getGarbageLen());
@@ -109,14 +109,14 @@ describe('Garbage Collection', function () {
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12][2:00:1:2 CD]',
-      doc.getRoot().text.getStructureAsString(),
+      doc.getRoot().text.toTestString(),
     );
 
     doc.update((root) => root.text.edit(2, 4, ''));
 
     assert.equal(
       '[0:00:0:0 ][3:00:1:0 12]{2:00:1:2 CD}',
-      doc.getRoot().text.getStructureAsString(),
+      doc.getRoot().text.toTestString(),
     );
   });
 
@@ -230,7 +230,7 @@ describe('Garbage Collection', function () {
     let nodeLengthAfterGC = getNodeLength(
       doc.getRoot().t.getIndexTree().getRoot(),
     );
-    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 1);
+    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 2);
 
     doc.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'cv' });
@@ -263,7 +263,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc.garbageCollect(MaxTimeTicket), 5);
     assert.equal(doc.getGarbageLen(), 0);
     nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
-    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 6);
+    assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
   });
 
   it('Can handle tree garbage collection for multi client', async function () {

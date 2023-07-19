@@ -113,9 +113,9 @@ export class ChangeID {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data of this ID.
+   * `toTestString` returns a string containing the meta data of this ID.
    */
-  public getStructureAsString(): string {
+  public toTestString(): string {
     if (!this.actor) {
       return `${this.lamport.toString()}:nil:${this.clientSeq}`;
     }

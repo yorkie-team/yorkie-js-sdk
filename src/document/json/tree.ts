@@ -3,8 +3,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
+  CRDTTreePos,
   CRDTTreeNode,
   TreeRange,
+  TreeRangeStruct,
   TreeChange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -55,9 +57,10 @@ function buildDescendants(
   const ticket = context.issueTimeTicket();
 
   if (type === 'text') {
+    validateTextNode(treeNode as TextNode)
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
-      { createdAt: ticket, offset: 0 },
+      CRDTTreePos.of(ticket, 0),
       type,
       value,
     );
@@ -77,7 +80,7 @@ function buildDescendants(
       }
     }
     const elementNode = CRDTTreeNode.create(
-      { createdAt: ticket, offset: 0 },
+      CRDTTreePos.of(ticket, 0),
       type,
       undefined,
       attrs,
@@ -101,7 +104,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === 'text') {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create({ createdAt: ticket, offset: 0 }, type, value);
+    root = CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
     let { attributes } = content as ElementNode;
@@ -117,7 +120,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     }
 
     root = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      CRDTTreePos.of(context.issueTimeTicket(), 0),
       type,
       undefined,
       attrs,
@@ -129,6 +132,41 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   }
 
   return root;
+}
+
+/**
+ * `validateTextNode` ensures that a text node has a non-empty string value.
+ */
+function validateTextNode(textNode: TextNode): boolean {
+  if (!textNode.value.length) {
+    throw new Error('text node cannot have empty value');
+  } else {
+    return true;
+  }
+}
+
+/**
+ * `validateTreeNodes` ensures that treeNodes consists of only one type.
+ */
+function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
+  const firstTreeNodeType = treeNodes[0].type;
+  if (firstTreeNodeType === 'text') {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type !== 'text') {
+        throw new Error('element node and text node cannot be passed together');
+      }
+      validateTextNode(treeNode as TextNode);
+    }
+  } else {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type === 'text') {
+        throw new Error('element node and text node cannot be passed together');
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -161,19 +199,20 @@ export class Tree {
   }
 
   /**
-   * `getInitialRoot` returns the root node of this tree.
+   * `buildRoot` builds the root of this tree with the given initial root
+   * which set by the user.
    */
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
       return CRDTTreeNode.create(
-        { createdAt: context.issueTimeTicket(), offset: 0 },
+        CRDTTreePos.of(context.issueTimeTicket(), 0),
         DefaultRootType,
       );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      { createdAt: context.issueTimeTicket(), offset: 0 },
+      CRDTTreePos.of(context.issueTimeTicket(), 0),
       this.initialRoot.type,
     );
 
@@ -275,7 +314,7 @@ export class Tree {
   public editByPath(
     fromPath: Array<number>,
     toPath: Array<number>,
-    content?: TreeNode,
+    ...contents: Array<TreeNode>
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -287,25 +326,34 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    const crdtNode = content && createCRDTTreeNode(this.context, content);
+    const crdtNodes: Array<CRDTTreeNode> = contents
+      .map((content) => content && createCRDTTreeNode(this.context!, content))
+      .filter((a) => a) as Array<CRDTTreeNode>;
+
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.getLastTimeTicket();
-    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+    this.tree.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
 
     this.context.push(
       TreeEditOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        crdtNode,
+        crdtNodes.length ? crdtNodes : undefined,
         ticket,
       ),
     );
 
     if (
-      !fromPos.createdAt.equals(toPos.createdAt) ||
-      fromPos.offset !== toPos.offset
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
     ) {
       this.context.registerElementHasRemovedNodes(this.tree!);
     }
@@ -314,41 +362,134 @@ export class Tree {
   }
 
   /**
-   * `edit` edits this tree with the given node.
+   * `edit` edits this tree with the given nodes.
    */
-  public edit(fromIdx: number, toIdx: number, content?: TreeNode): boolean {
+  public edit(
+    fromIdx: number,
+    toIdx: number,
+    ...contents: Array<TreeNode>
+  ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
     if (fromIdx > toIdx) {
       throw new Error('from should be less than or equal to to');
     }
+    if (contents.length !== 0 && contents[0] !== null) {
+      validateTreeNodes(contents);
+      const crdtNodes = new Array<CRDTTreeNode>
+     
+      /**
+       * const crdtNodes: Array<CRDTTreeNode> = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+      */
 
-    const crdtNode = content && createCRDTTreeNode(this.context, content);
-    const fromPos = this.tree.findPos(fromIdx);
-    const toPos = this.tree.findPos(toIdx);
-    const ticket = this.context.getLastTimeTicket();
-    this.tree.edit([fromPos, toPos], crdtNode?.deepcopy(), ticket);
+      const fromPos = this.tree.findPos(fromIdx);
+      const toPos = this.tree.findPos(toIdx);
+      const ticket = this.context.getLastTimeTicket();
 
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNode,
+      if (contents[0].type === 'text') {
+        let compVal = '';
+        for (const content of contents) {
+          const { value } = content as TextNode;
+          compVal += value;
+        }
+        crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+      } else {
+        for (const content of contents) {
+          let { attributes } = content as ElementNode;
+          const attrs = new RHT();
+
+          if (typeof attributes === 'object' && !isEmpty(attributes)) {
+            attributes = stringifyObjectValues(attributes);
+            for (const [key, val] of Object.entries(attributes)) {
+              attrs.set(key, val, ticket);
+            }
+          }
+
+          const newNode = CRDTTreeNode.create(
+            CRDTTreePos.of(ticket, 0),
+            content.type,
+            undefined,
+            attrs,
+          );
+
+          const { children = [] } = content as ElementNode;
+          for (const child of children) {
+            buildDescendants(child, newNode, this.context);
+          }
+          crdtNodes.push(newNode);
+        }
+      } 
+
+      this.tree.edit(
+        [fromPos, toPos],
+        crdtNodes.length
+          ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+          : undefined,
         ticket,
-      ),
-    );
-
-    if (
-      !fromPos.createdAt.equals(toPos.createdAt) ||
-      fromPos.offset !== toPos.offset
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
+      );
+  
+      this.context.push(
+        TreeEditOperation.create(
+          this.tree.getCreatedAt(),
+          fromPos,
+          toPos,
+          crdtNodes.length ? crdtNodes : undefined,
+          ticket,
+        ),
+      );
+  
+      if (
+        !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+        fromPos.getOffset() !== toPos.getOffset()
+      ) {
+        this.context.registerElementHasRemovedNodes(this.tree!);
+      }
     }
-
     return true;
   }
+    
+
+    
+    /**
+      if (contents[0].type === 'text') {
+        let compVal = '';
+        for (const content of contents) {
+          const { value } = content as TextNode;
+          compVal += value;
+        }
+        // bug here
+        crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+      } else {
+        for (const content of contents) {
+          let { attributes } = content as ElementNode;
+          const attrs = new RHT();
+
+          if (typeof attributes === 'object' && !isEmpty(attributes)) {
+            attributes = stringifyObjectValues(attributes);
+            for (const [key, val] of Object.entries(attributes)) {
+              attrs.set(key, val, ticket);
+            }
+          }
+
+          const newNode = CRDTTreeNode.create(
+            CRDTTreePos.of(ticket, 0),
+            content.type,
+            undefined,
+            attrs,
+          );
+
+          const { children = [] } = content as ElementNode;
+          for (const child of children) {
+            buildDescendants(child, newNode, this.context);
+          }
+          crdtNodes.push(newNode);
+        }
+      }
+    } */
+  
 
   /**
    * `split` splits this tree at the given index.
@@ -396,6 +537,17 @@ export class Tree {
   }
 
   /**
+   * `pathToIndex` returns the index of given path.
+   */
+  public pathToIndex(path: Array<number>): number {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.pathToIndex(path);
+  }
+
+  /**
    * eslint-disable-next-line jsdoc/require-jsdoc
    * @internal
    */
@@ -436,7 +588,7 @@ export class Tree {
   }
 
   /**
-   * `createRange` returns pair of CRDTTreePos of the given integer offsets.
+   * `createRangeByPath` returns pair of CRDTTreePos of the given path.
    */
   createRangeByPath(fromPath: Array<number>, toPath: Array<number>): TreeRange {
     if (!this.context || !this.tree) {
@@ -451,16 +603,29 @@ export class Tree {
   }
 
   /**
-   * `rangeToIndex` returns the integer offsets of the given range.
+   * `toPosRange` converts the integer index range into the Tree position range structure.
    */
-  rangeToIndex(range: TreeRange): [number, number] {
+  toPosRange(range: [number, number]): TreeRangeStruct {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
       return;
     }
 
-    return this.tree.rangeToIndex(range);
+    return this.tree.toPosRange(range);
+  }
+
+  /**
+   * `toIndexRange` converts the Tree position range into the integer index range.
+   */
+  toIndexRange(range: TreeRangeStruct): [number, number] {
+    if (!this.context || !this.tree) {
+      logger.fatal('it is not initialized yet');
+      // @ts-ignore
+      return;
+    }
+
+    return this.tree.toIndexRange(range);
   }
 
   /**

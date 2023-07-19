@@ -107,7 +107,7 @@
        */
       function updateSelectionLayer(view, tree, actor) {
         const { layer, fromPos, toPos } = selectionMap.get(actor);
-        const [fromIndex, toIndex] = tree.rangeToIndex([fromPos, toPos]);
+        const [fromIndex, toIndex] = tree.toIndexRange([fromPos, toPos]);
         const coords = view.coordsAtPos(Math.min(fromIndex, toIndex));
 
         layer.style.left = `${coords.left - 10}px`;
@@ -277,19 +277,6 @@
         return true;
       }
 
-      function encodeRange(tree, from, to) {
-        const range = tree.createRange(from, to);
-        const fromBytes = yorkie.converter.treePosToBytes(range[0]);
-        const toBytes = yorkie.converter.treePosToBytes(range[1]);
-        return [fromBytes, toBytes];
-      }
-
-      function decodeRange(fromBytes, toBytes) {
-        const from = yorkie.converter.bytesToTreePos(fromBytes);
-        const to = yorkie.converter.bytesToTreePos(toBytes);
-        return [from, to];
-      }
-
       /**
        * main is the entry point of the example.
        */
@@ -337,11 +324,10 @@
               });
 
               doc.update((root) => {
-                root.selection = encodeRange(
-                  root.tree,
+                root.selection = root.tree.toPosRange([
                   transaction.curSelection.from,
                   transaction.curSelection.to,
-                );
+                ]);
               });
               printLog();
               return;
@@ -395,11 +381,10 @@
                 }
               }
 
-              root.selection = encodeRange(
-                root.tree,
+              root.selection = root.tree.toPosRange([
                 transaction.curSelection.from,
                 transaction.curSelection.to,
-              );
+              ]);
             });
             printLog();
           },
@@ -423,12 +408,11 @@
                 op.key === 'selection'
               ) {
                 const selection = doc.getRoot().selection;
-                const range = decodeRange(selection[0], selection[1]);
                 displayRemoteSelection(
                   view,
                   root.tree,
-                  range[0],
-                  range[1],
+                  selection[0],
+                  selection[1],
                   actor,
                 );
               }
@@ -541,9 +525,7 @@
         let node = head;
         while (node) {
           const nodeType = node.type;
-          const pos = `${node.pos.createdAt.getStructureAsString()}-${
-            node.pos.offset
-          }`;
+          const pos = `${node.pos.createdAt.toTestString()}-${node.pos.offset}`;
           if (nodeType === 'text') {
             arr.push({
               type: nodeType,

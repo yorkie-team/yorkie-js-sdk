@@ -24,9 +24,9 @@ describe('Converter', function () {
   it('should encode/decode bytes', function () {
     const doc = Document.create<{
       k1: {
-        ['k1.1']: boolean;
-        ['k1.2']: number;
-        ['k1.5']: string;
+        ['k1-1']: boolean;
+        ['k1-2']: number;
+        ['k1-5']: string;
       };
       k2: Array<boolean | number | string>;
       k3: Text<{
@@ -40,11 +40,11 @@ describe('Converter', function () {
 
     doc.update((root) => {
       root.k1 = {
-        'k1.1': true,
-        'k1.2': 2147483647,
-        // 'k1.3': yorkie.Long.fromString('9223372036854775807'),
-        // 'k1.4': 1.79,
-        'k1.5': '4',
+        'k1-1': true,
+        'k1-2': 2147483647,
+        // 'k1-3': yorkie.Long.fromString('9223372036854775807'),
+        // 'k1-4': 1.79,
+        'k1-5': '4',
         // 'k6': new Uint8Array([65,66]),
         // 'k7': new Date(),
       };

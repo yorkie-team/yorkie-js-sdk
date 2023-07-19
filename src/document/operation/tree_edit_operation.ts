@@ -24,7 +24,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -33,19 +33,19 @@ import {
 export class TreeEditOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
-  private content: CRDTTreeNode | undefined;
+  private contents: Array<CRDTTreeNode> | undefined;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.content = content;
+    this.contents = contents;
   }
 
   /**
@@ -55,14 +55,14 @@ export class TreeEditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    content: CRDTTreeNode | undefined,
+    contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ): TreeEditOperation {
     return new TreeEditOperation(
       parentCreatedAt,
       fromPos,
       toPos,
-      content,
+      contents,
       executedAt,
     );
   }
@@ -70,7 +70,7 @@ export class TreeEditOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -81,13 +81,13 @@ export class TreeEditOperation extends Operation {
     const tree = parentObject as CRDTTree;
     const changes = tree.edit(
       [this.fromPos, this.toPos],
-      this.content?.deepcopy(),
+      this.contents?.map((content) => content.deepcopy()),
       this.getExecutedAt(),
     );
 
     if (
-      !this.fromPos.createdAt.equals(this.toPos.createdAt) ||
-      this.fromPos.offset !== this.toPos.offset
+      !this.fromPos.getCreatedAt().equals(this.toPos.getCreatedAt()) ||
+      this.fromPos.getOffset() !== this.toPos.getOffset()
     ) {
       root.registerElementHasRemovedNodes(tree);
     }
@@ -99,9 +99,9 @@ export class TreeEditOperation extends Operation {
         value,
         fromPath,
         toPath,
-        element: this.getParentCreatedAt(),
+        path: root.createPath(this.getParentCreatedAt()),
       };
-    }) as Array<InternalOpInfo>;
+    }) as Array<OperationInfo>;
   }
 
   /**
@@ -112,18 +112,18 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    const parent = this.getParentCreatedAt().getStructureAsString();
-    const fromPos = `${this.fromPos.createdAt.getStructureAsString()}:${
-      this.fromPos.offset
-    }`;
-    const toPos = `${this.toPos.createdAt.getStructureAsString()}:${
-      this.toPos.offset
-    }`;
-    const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
+    const fromPos = `${this.fromPos
+      .getCreatedAt()
+      .toTestString()}:${this.fromPos.getOffset()}`;
+    const toPos = `${this.toPos
+      .getCreatedAt()
+      .toTestString()}:${this.toPos.getOffset()}`;
+    const contents = this.contents;
+    return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
   }
 
   /**
@@ -143,7 +143,7 @@ export class TreeEditOperation extends Operation {
   /**
    * `getContent` returns the content of Edit.
    */
-  public getContent(): CRDTTreeNode | undefined {
-    return this.content;
+  public getContents(): Array<CRDTTreeNode> | undefined {
+    return this.contents;
   }
 }

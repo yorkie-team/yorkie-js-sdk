@@ -21,7 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
   Operation,
-  InternalOpInfo,
+  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -57,7 +57,7 @@ export class AddOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<InternalOpInfo> {
+  public execute(root: CRDTRoot): Array<OperationInfo> {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -72,7 +72,7 @@ export class AddOperation extends Operation {
     return [
       {
         type: 'add',
-        element: this.getParentCreatedAt(),
+        path: root.createPath(this.getParentCreatedAt()),
         index: Number(array.subPathOf(this.getEffectedCreatedAt())),
       },
     ];
@@ -86,10 +86,10 @@ export class AddOperation extends Operation {
   }
 
   /**
-   * `getStructureAsString` returns a string containing the meta data.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getStructureAsString(): string {
-    return `${this.getParentCreatedAt().getStructureAsString()}.ADD`;
+  public toTestString(): string {
+    return `${this.getParentCreatedAt().toTestString()}.ADD`;
   }
 
   /**
