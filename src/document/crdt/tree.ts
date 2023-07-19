@@ -645,6 +645,7 @@ export class CRDTTree extends CRDTGCElement {
       let previous = fromRight!.prev!;
       const node = fromPos.node;
       let offset = fromPos.offset;
+
       for (const content of contents!) {
         traverse(content, (node) => {
           this.insertAfter(previous, node);
@@ -659,8 +660,7 @@ export class CRDTTree extends CRDTGCElement {
             node.parent!.insertAfter(content, node);
           }
         } else {
-          const target = node;
-          target.insertAt(content, offset + 1);
+          node.insertAt(content, offset);
           offset++;
         }
       }

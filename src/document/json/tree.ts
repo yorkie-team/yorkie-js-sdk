@@ -57,7 +57,7 @@ function buildDescendants(
   const ticket = context.issueTimeTicket();
 
   if (type === DefaultTextType) {
-    validateTextNode(treeNode as TextNode)
+    validateTextNode(treeNode as TextNode);
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
       CRDTTreePos.of(ticket, 0),
@@ -155,7 +155,9 @@ function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
       for (const treeNode of treeNodes) {
         const { type } = treeNode;
         if (type !== DefaultTextType) {
-          throw new Error('element node and text node cannot be passed together');
+          throw new Error(
+            'element node and text node cannot be passed together',
+          );
         }
         validateTextNode(treeNode as TextNode);
       }
@@ -163,12 +165,14 @@ function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
       for (const treeNode of treeNodes) {
         const { type } = treeNode;
         if (type === DefaultTextType) {
-          throw new Error('element node and text node cannot be passed together');
+          throw new Error(
+            'element node and text node cannot be passed together',
+          );
         }
       }
     }
-  } 
-  return true; 
+  }
+  return true;
 }
 
 /**
@@ -333,7 +337,7 @@ export class Tree {
       if (contents[0].type !== DefaultTextType) {
         for (const content of contents) {
           const { children = [] } = content as ElementNode;
-          validateTreeNodes(children)
+          validateTreeNodes(children);
         }
       }
     }
@@ -341,15 +345,21 @@ export class Tree {
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.getLastTimeTicket();
-    let crdtNodes = new Array<CRDTTreeNode>
+    let crdtNodes = new Array<CRDTTreeNode>();
 
-    if (contents[0].type === 'text') {
+    if (contents[0]?.type === DefaultTextType) {
       let compVal = '';
       for (const content of contents) {
         const { value } = content as TextNode;
         compVal += value;
       }
-      crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+      crdtNodes.push(
+        CRDTTreeNode.create(
+          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          DefaultTextType,
+          compVal,
+        ),
+      );
     } else {
       crdtNodes = contents
         .map((content) => content && createCRDTTreeNode(this.context!, content))
@@ -403,7 +413,7 @@ export class Tree {
       if (contents[0].type !== DefaultTextType) {
         for (const content of contents) {
           const { children = [] } = content as ElementNode;
-          validateTreeNodes(children)
+          validateTreeNodes(children);
         }
       }
     }
@@ -412,15 +422,21 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.getLastTimeTicket();
 
-    let crdtNodes = new Array<CRDTTreeNode>
+    let crdtNodes = new Array<CRDTTreeNode>();
 
-    if (contents[0].type === 'text') {
+    if (contents[0]?.type === DefaultTextType) {
       let compVal = '';
       for (const content of contents) {
         const { value } = content as TextNode;
         compVal += value;
       }
-      crdtNodes.push(CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), 'text', compVal));
+      crdtNodes.push(
+        CRDTTreeNode.create(
+          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          DefaultTextType,
+          compVal,
+        ),
+      );
     } else {
       crdtNodes = contents
         .map((content) => content && createCRDTTreeNode(this.context!, content))
@@ -444,14 +460,14 @@ export class Tree {
         ticket,
       ),
     );
-  
+
     if (
       !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
       fromPos.getOffset() !== toPos.getOffset()
     ) {
       this.context.registerElementHasRemovedNodes(this.tree!);
     }
-    
+
     return true;
   }
 
