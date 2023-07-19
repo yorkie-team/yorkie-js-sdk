@@ -20,7 +20,7 @@ import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
-  RGATreeSplitNodeRange,
+  RGATreeSplitPosRange,
   Selection,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -189,12 +189,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public edit(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     content: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
+  ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitPosRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -223,12 +223,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    const selectionChange = this.selectPriv([caretPos, caretPos], editedAt);
-    if (selectionChange) {
-      changes.push(selectionChange);
-    }
-
-    return [latestCreatedAtMap, changes];
+    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
   }
 
   /**
@@ -242,7 +237,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public setStyle(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
   ): Array<TextChange<A>> {
@@ -262,7 +257,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
 
       const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
-        node.createRange(),
+        node.createPosRange(),
       );
       changes.push({
         type: TextChangeType.Style,
@@ -288,22 +283,25 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public select(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     updatedAt: TimeTicket,
   ): TextChange<A> | undefined {
     return this.selectPriv(range, updatedAt);
   }
 
   /**
-   * `createRange` returns pair of RGATreeSplitNodePos of the given integer offsets.
+   * `indexRangeToPosRange` returns the position range of the given index range.
    */
-  public createRange(fromIdx: number, toIdx: number): RGATreeSplitNodeRange {
-    const fromPos = this.rgaTreeSplit.findNodePos(fromIdx);
+  public indexRangeToPosRange(
+    fromIdx: number,
+    toIdx: number,
+  ): RGATreeSplitPosRange {
+    const fromPos = this.rgaTreeSplit.indexToPos(fromIdx);
     if (fromIdx === toIdx) {
       return [fromPos, fromPos];
     }
 
-    return [fromPos, this.rgaTreeSplit.findNodePos(toIdx)];
+    return [fromPos, this.rgaTreeSplit.indexToPos(toIdx)];
   }
 
   /**
@@ -414,8 +412,15 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     return text;
   }
 
+  /**
+   * `findIndexesFromRange` returns pair of integer offsets of the given range.
+   */
+  public findIndexesFromRange(range: RGATreeSplitPosRange): [number, number] {
+    return this.rgaTreeSplit.findIndexesFromRange(range);
+  }
+
   private selectPriv(
-    range: RGATreeSplitNodeRange,
+    range: RGATreeSplitPosRange,
     updatedAt: TimeTicket,
   ): TextChange<A> | undefined {
     const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);

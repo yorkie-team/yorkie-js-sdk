@@ -16,6 +16,7 @@
 import Long from 'long';
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 import {
   Observer,
   Observable,
@@ -88,7 +89,7 @@ export enum DocumentStatus {
 }
 
 /**
- * `DocEventType` is document event types
+ * `DocEventType` represents the type of the event that occurs in `Document`.
  * @public
  */
 export enum DocEventType {
@@ -96,42 +97,35 @@ export enum DocEventType {
    * snapshot event type
    */
   Snapshot = 'snapshot',
+
   /**
    * local document change event type
    */
   LocalChange = 'local-change',
+
   /**
    * remote document change event type
    */
   RemoteChange = 'remote-change',
-  /**
-   * `PeersChanged` means that the presences of the peer clients has changed.
-   * // TODO(hackerwins): We'll use peers means others. We need to find a better
-   * // name for this event.
-   */
-  PeersChanged = 'peers-changed',
-}
 
-/**
- * `PeersChangedEventType` is peers changed event types
- * @public
- */
-export enum PeersChangedEventType {
   /**
-   * `Initialized` means that the peer list has been initialized.
+   * `Initialized` means that online clients have been loaded from the server.
    */
   Initialized = 'initialized',
+
   /**
-   * `Watched` means that the peer has established a connection with the server,
+   * `Watched` means that the client has established a connection with the server,
    * enabling real-time synchronization.
    */
   Watched = 'watched',
+
   /**
    * `Unwatched` means that the connection has been disconnected.
    */
   Unwatched = 'unwatched',
+
   /**
-   * `PeersChanged` means that the presences of the peer has updated.
+   * `PresenceChanged` means that the presences of the client has updated.
    */
   PresenceChanged = 'presence-changed',
 }
@@ -146,7 +140,10 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | SnapshotEvent
   | LocalChangeEvent<T>
   | RemoteChangeEvent<T>
-  | PeersChangedEvent<P>;
+  | InitializedEvent<P>
+  | WatchedEvent<P>
+  | UnwatchedEvent
+  | PresenceChangedEvent<P>;
 
 /**
  * @internal
@@ -216,43 +213,25 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
   value: ChangeInfo<T>;
 }
 
-/**
- * `PeersChangedValue` represents the value of the PeersChanged event.
- * @public
- */
-export type PeersChangedValue<P extends Indexable> =
-  | {
-      type: PeersChangedEventType.Initialized;
-      peers: Array<{ clientID: ActorID; presence: P }>;
-    }
-  | {
-      type: PeersChangedEventType.Watched;
-      peer: { clientID: ActorID; presence: P };
-    }
-  | {
-      type: PeersChangedEventType.Unwatched;
-      peer: { clientID: ActorID };
-    }
-  | {
-      type: PeersChangedEventType.PresenceChanged;
-      peer: { clientID: ActorID; presence: P };
-    };
+export interface InitializedEvent<P extends Indexable> extends BaseDocEvent {
+  type: DocEventType.Initialized;
+  value: Array<{ clientID: ActorID; presence: P }>;
+}
 
-/**
- * `PeersChangedEvent` is an event that occurs when the states of another peers
- * of the attached documents changes.
- *
- * @public
- */
-export interface PeersChangedEvent<P extends Indexable> extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.PeersChangedEvent
-   */
-  type: DocEventType.PeersChanged;
-  /**
-   * `PeersChangedEvent` value
-   */
-  value: PeersChangedValue<P>;
+export interface WatchedEvent<P extends Indexable> extends BaseDocEvent {
+  type: DocEventType.Watched;
+  value: { clientID: ActorID; presence: P };
+}
+
+export interface UnwatchedEvent extends BaseDocEvent {
+  type: DocEventType.Unwatched;
+  value: { clientID: ActorID };
+}
+
+export interface PresenceChangedEvent<P extends Indexable>
+  extends BaseDocEvent {
+  type: DocEventType.PresenceChanged;
+  value: { clientID: ActorID; presence: P };
 }
 
 /**
@@ -515,13 +494,10 @@ export class Document<T, P extends Indexable = Indexable> {
 
       if (change.hasPresenceChange()) {
         this.publish({
-          type: DocEventType.PeersChanged,
+          type: DocEventType.PresenceChanged,
           value: {
-            type: PeersChangedEventType.PresenceChanged,
-            peer: {
-              clientID: change.getID().getActorID()!,
-              presence: this.getPresence(change.getID().getActorID()!)!,
-            },
+            clientID: change.getID().getActorID()!,
+            presence: this.getPresence(change.getID().getActorID()!)!,
           },
         });
       }
@@ -543,12 +519,33 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the peer eestablishes or terminates a connection,
+   * The callback will be called when the clients watching the document
+   * establishe or update its presence.
+   */
+  public subscribe(
+    type: 'presence',
+    next: NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the current client establishes or updates its presence.
+   */
+  public subscribe(
+    type: 'my-presence',
+    next: NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the client establishes or terminates a connection,
    * or updates its presence.
    */
   public subscribe(
-    type: 'peers',
-    next: NextFn<PeersChangedValue<P>>,
+    type: 'others',
+    next: NextFn<DocEvent<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -561,7 +558,7 @@ export class Document<T, P extends Indexable = Indexable> {
     TOperationInfo extends OperationInfoOf<T, TPath>,
   >(
     targetPath: TPath,
-    next: NextFn<DocEvent<TOperationInfo>>,
+    next: NextFn<DocEvent<P, TOperationInfo>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -573,10 +570,7 @@ export class Document<T, P extends Indexable = Indexable> {
     TOperationInfo extends OperationInfoOf<T, TPath>,
   >(
     arg1: TPath | string | Observer<DocEvent<P>> | NextFn<DocEvent<P>>,
-    arg2?:
-      | NextFn<DocEvent<TOperationInfo>>
-      | NextFn<PeersChangedValue<P>>
-      | ErrorFn,
+    arg2?: NextFn<DocEvent<P, TOperationInfo>> | NextFn<DocEvent<P>> | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
   ): Unsubscribe {
@@ -584,12 +578,65 @@ export class Document<T, P extends Indexable = Indexable> {
       if (typeof arg2 !== 'function') {
         throw new Error('Second argument must be a callback function');
       }
-      if (arg1 === 'peers') {
-        const callback = arg2 as NextFn<PeersChangedValue<P>>;
+      if (arg1 === 'presence') {
+        const callback = arg2 as NextFn<DocEvent<P>>;
         return this.eventStream.subscribe(
           (event) => {
-            if (event.type === DocEventType.PeersChanged) {
-              callback(event.value);
+            if (
+              event.type !== DocEventType.Initialized &&
+              event.type !== DocEventType.Watched &&
+              event.type !== DocEventType.Unwatched &&
+              event.type !== DocEventType.PresenceChanged
+            ) {
+              return;
+            }
+
+            callback(event);
+          },
+          arg3,
+          arg4,
+        );
+      }
+      if (arg1 === 'my-presence') {
+        const callback = arg2 as NextFn<DocEvent<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            if (
+              event.type !== DocEventType.Initialized &&
+              event.type !== DocEventType.Watched &&
+              event.type !== DocEventType.Unwatched &&
+              event.type !== DocEventType.PresenceChanged
+            ) {
+              return;
+            }
+
+            if (
+              event.type !== DocEventType.Initialized &&
+              event.value.clientID !== this.changeID.getActorID()
+            ) {
+              return;
+            }
+
+            callback(event);
+          },
+          arg3,
+          arg4,
+        );
+      }
+      if (arg1 === 'others') {
+        const callback = arg2 as NextFn<DocEvent<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            if (
+              event.type !== DocEventType.Watched &&
+              event.type !== DocEventType.Unwatched &&
+              event.type !== DocEventType.PresenceChanged
+            ) {
+              return;
+            }
+
+            if (event.value.clientID !== this.changeID.getActorID()) {
+              callback(event);
             }
           },
           arg3,
@@ -600,9 +647,15 @@ export class Document<T, P extends Indexable = Indexable> {
       const callback = arg2 as NextFn<DocEvent<P>>;
       return this.eventStream.subscribe(
         (event) => {
-          if (event.type === DocEventType.PeersChanged) {
+          if (
+            event.type === DocEventType.Initialized ||
+            event.type === DocEventType.Watched ||
+            event.type === DocEventType.Unwatched ||
+            event.type === DocEventType.PresenceChanged
+          ) {
             return;
           }
+
           if (event.type === DocEventType.Snapshot) {
             target === '$' && callback(event);
             return;
@@ -635,7 +688,12 @@ export class Document<T, P extends Indexable = Indexable> {
       const complete = arg3 as CompleteFn;
       return this.eventStream.subscribe(
         (event) => {
-          if (event.type === DocEventType.PeersChanged) {
+          if (
+            event.type === DocEventType.Initialized ||
+            event.type === DocEventType.Watched ||
+            event.type === DocEventType.Unwatched ||
+            event.type === DocEventType.PresenceChanged
+          ) {
             return;
           }
 
@@ -740,10 +798,9 @@ export class Document<T, P extends Indexable = Indexable> {
       return;
     }
 
-    const copiedPresence = Array.from(this.presences);
     this.clone = {
       root: this.root.deepcopy(),
-      presences: new Map(JSON.parse(JSON.stringify(copiedPresence))),
+      presences: deepcopy(this.presences),
     };
   }
 
@@ -914,65 +971,50 @@ export class Document<T, P extends Indexable = Indexable> {
     this.ensureClone();
     for (const change of changes) {
       change.execute(this.clone!.root, this.clone!.presences);
-    }
 
-    for (const change of changes) {
-      const updates: {
-        changeInfo?: ChangeInfo;
-        peer?: PeersChangedValue<P>;
-      } = {};
+      let changeInfo: ChangeInfo | undefined;
+      let docEvent: DocEvent<P> | undefined;
       const actorID = change.getID().getActorID()!;
-
       if (change.hasPresenceChange()) {
         const presenceChange = change.getPresenceChange()!;
-
         if (
           presenceChange.type === PresenceChangeType.Put &&
           this.onlineClients.has(actorID)
         ) {
-          const peer = {
-            clientID: actorID,
-            presence: presenceChange.presence,
+          docEvent = {
+            type: this.presences.has(actorID)
+              ? DocEventType.PresenceChanged
+              : DocEventType.Watched,
+            value: {
+              clientID: actorID,
+              presence: presenceChange.presence,
+            },
           };
-          if (this.presences.has(actorID)) {
-            updates.peer = {
-              type: PeersChangedEventType.PresenceChanged,
-              peer,
-            };
-          } else {
-            updates.peer = {
-              type: PeersChangedEventType.Watched,
-              peer,
-            };
-          }
         }
       }
 
       const opInfos = change.execute(this.root, this.presences);
-
       if (change.hasOperations()) {
-        updates.changeInfo = {
+        changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
           operations: opInfos,
         };
       }
 
-      // NOTE: RemoteChange event should be emitted synchronously with
-      // applying changes. This is because 3rd party model should be synced
-      // with the Document after RemoteChange event is emitted. If the event
-      // is emitted asynchronously, the model can be changed and breaking
-      // consistency.
-      updates.changeInfo &&
+      // DocEvent should be emitted synchronously with applying changes.
+      // This is because 3rd party model should be synced with the Document
+      // after RemoteChange event is emitted. If the event is emitted
+      // asynchronously, the model can be changed and breaking consistency.
+      if (changeInfo) {
         this.publish({
           type: DocEventType.RemoteChange,
-          value: updates.changeInfo,
+          value: changeInfo,
         });
-      updates.peer &&
-        this.publish({
-          type: DocEventType.PeersChanged,
-          value: updates.peer,
-        });
+      }
+      if (docEvent) {
+        this.publish(docEvent);
+      }
 
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     }
@@ -1029,6 +1071,17 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
+  }
+
+  /**
+   * `getMyPresence` returns the presence of the current client.
+   */
+  public getMyPresence(): P {
+    if (this.status !== DocumentStatus.Attached) {
+      return {} as P;
+    }
+
+    return this.presences.get(this.changeID.getActorID()!)!;
   }
 
   /**

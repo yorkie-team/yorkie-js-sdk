@@ -40,8 +40,6 @@ export {
   SnapshotEvent,
   LocalChangeEvent,
   RemoteChangeEvent,
-  PeersChangedEvent,
-  PeersChangedEventType,
   Indexable,
   DocEvent,
   Document,
@@ -76,7 +74,7 @@ export {
   TreeChange,
   TreeChangeType,
   CRDTTreePosStruct,
-  TreeRangeStruct,
+  TreePosStructRange as TreeRangeStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {

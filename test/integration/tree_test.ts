@@ -587,6 +587,44 @@ describe('Tree', () => {
       );
     }, this.test!.title);
   });
+
+  it('Get correct range from index', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'root',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'b',
+                children: [
+                  { type: 'i', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    const tree = doc.getRoot().t;
+    //     0  1  2   3 4 5    6   7   8
+    //<root><p><b><i> a b </i></b></p></root>
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+
+    let range = tree.indexRangeToPosRange([0, 5]);
+    assert.deepEqual(tree.posRangeToIndexRange(range), [0, 5]);
+
+    range = tree.indexRangeToPosRange([5, 7]);
+    assert.deepEqual(tree.posRangeToIndexRange(range), [5, 7]);
+  });
 });
 
 describe('Tree.edit', function () {

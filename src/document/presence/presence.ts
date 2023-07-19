@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 
@@ -59,7 +60,7 @@ export class Presence<P extends Indexable> {
 
     this.changeContext.setPresenceChange({
       type: PresenceChangeType.Put,
-      presence: this.presence,
+      presence: deepcopy(this.presence),
     });
   }
 

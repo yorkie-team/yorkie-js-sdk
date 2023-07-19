@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
-import yorkie, { PeersChangedEventType } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { DocEventType } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -102,7 +102,7 @@ describe('Presence', function () {
     assert.deepEqual(doc1.getPresence(c2.getID()!), emptyObject);
   });
 
-  it(`Should be synced eventually`, async function () {
+  it('Should be synced eventually', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -119,7 +119,7 @@ describe('Presence', function () {
       },
     });
     const stub1 = sinon.stub();
-    const unsub1 = doc1.subscribe('peers', stub1);
+    const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
@@ -128,7 +128,7 @@ describe('Presence', function () {
       },
     });
     const stub2 = sinon.stub();
-    const unsub2 = doc2.subscribe('peers', stub2);
+    const unsub2 = doc2.subscribe('presence', stub2);
 
     doc1.update((root, p) => p.set({ name: 'A' }));
     doc2.update((root, p) => p.set({ name: 'B' }));
@@ -138,34 +138,34 @@ describe('Presence', function () {
     assert.deepEqual(stub1.args, [
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: { clientID: c1ID, presence: { name: 'A' } },
+          type: DocEventType.PresenceChanged,
+          value: { clientID: c1ID, presence: { name: 'A' } },
         },
       ],
       [
         {
-          type: PeersChangedEventType.Watched,
-          peer: { clientID: c2ID, presence: { name: 'b' } },
+          type: DocEventType.Watched,
+          value: { clientID: c2ID, presence: { name: 'b' } },
         },
       ],
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: { clientID: c2ID, presence: { name: 'B' } },
+          type: DocEventType.PresenceChanged,
+          value: { clientID: c2ID, presence: { name: 'B' } },
         },
       ],
     ]);
     assert.deepEqual(stub2.args, [
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: { clientID: c2ID, presence: { name: 'B' } },
+          type: DocEventType.PresenceChanged,
+          value: { clientID: c2ID, presence: { name: 'B' } },
         },
       ],
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: { clientID: c1ID, presence: { name: 'A' } },
+          type: DocEventType.PresenceChanged,
+          value: { clientID: c1ID, presence: { name: 'A' } },
         },
       ],
     ]);
@@ -223,8 +223,8 @@ describe('Presence', function () {
   });
 });
 
-describe(`Document.Subscribe('peers')`, function () {
-  it(`Should receive PeersChangedEventType.PresenceChanged event for final presence if there are multiple presence changes within doc.update`, async function () {
+describe(`Document.Subscribe('presence')`, function () {
+  it(`Should receive presence-changed event for final presence if there are multiple presence changes within doc.update`, async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -239,14 +239,14 @@ describe(`Document.Subscribe('peers')`, function () {
       initialPresence: { name: 'a', cursor: { x: 0, y: 0 } },
     });
     const stub1 = sinon.stub();
-    const unsub1 = doc1.subscribe('peers', stub1);
+    const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { name: 'b', cursor: { x: 0, y: 0 } },
     });
     const stub2 = sinon.stub();
-    const unsub2 = doc2.subscribe('peers', stub2);
+    const unsub2 = doc2.subscribe('presence', stub2);
 
     doc1.update((root, p) => {
       p.set({ name: 'A' });
@@ -259,8 +259,8 @@ describe(`Document.Subscribe('peers')`, function () {
     assert.deepEqual(stub1.args, [
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: {
+          type: DocEventType.PresenceChanged,
+          value: {
             clientID: c1ID,
             presence: { name: 'X', cursor: { x: 1, y: 1 } },
           },
@@ -268,8 +268,8 @@ describe(`Document.Subscribe('peers')`, function () {
       ],
       [
         {
-          type: PeersChangedEventType.Watched,
-          peer: {
+          type: DocEventType.Watched,
+          value: {
             clientID: c2ID,
             presence: { name: 'b', cursor: { x: 0, y: 0 } },
           },
@@ -279,8 +279,8 @@ describe(`Document.Subscribe('peers')`, function () {
     assert.deepEqual(stub2.args, [
       [
         {
-          type: PeersChangedEventType.PresenceChanged,
-          peer: {
+          type: DocEventType.PresenceChanged,
+          value: {
             clientID: c1ID,
             presence: { name: 'X', cursor: { x: 1, y: 1 } },
           },
@@ -312,7 +312,7 @@ describe(`Document.Subscribe('peers')`, function () {
       },
     });
     const stub1 = sinon.stub();
-    const unsub1 = doc1.subscribe('peers', stub1);
+    const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
@@ -328,14 +328,14 @@ describe(`Document.Subscribe('peers')`, function () {
     assert.deepEqual(stub1.args, [
       [
         {
-          type: PeersChangedEventType.Watched,
-          peer: { clientID: c2ID, presence: { name: 'b' } },
+          type: DocEventType.Watched,
+          value: { clientID: c2ID, presence: { name: 'b' } },
         },
       ],
       [
         {
-          type: PeersChangedEventType.Unwatched,
-          peer: { clientID: c2ID },
+          type: DocEventType.Unwatched,
+          value: { clientID: c2ID },
         },
       ],
     ]);
