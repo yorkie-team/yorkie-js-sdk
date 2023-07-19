@@ -314,6 +314,71 @@ export class Tree {
     );
   }
 
+  private editInternal(
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
+    contents: Array<TreeNode>,
+  ): boolean {
+    if (contents.length !== 0 && contents[0]) {
+      validateTreeNodes(contents);
+      if (contents[0].type !== DefaultTextType) {
+        for (const content of contents) {
+          const { children = [] } = content as ElementNode;
+          validateTreeNodes(children);
+        }
+      }
+    }
+
+    const ticket = this.context!.getLastTimeTicket();
+    let crdtNodes = new Array<CRDTTreeNode>();
+
+    if (contents[0]?.type === DefaultTextType) {
+      let compVal = '';
+      for (const content of contents) {
+        const { value } = content as TextNode;
+        compVal += value;
+      }
+      crdtNodes.push(
+        CRDTTreeNode.create(
+          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          DefaultTextType,
+          compVal,
+        ),
+      );
+    } else {
+      crdtNodes = contents
+        .map((content) => content && createCRDTTreeNode(this.context!, content))
+        .filter((a) => a) as Array<CRDTTreeNode>;
+    }
+
+    this.tree!.edit(
+      [fromPos, toPos],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      ticket,
+    );
+
+    this.context!.push(
+      TreeEditOperation.create(
+        this.tree!.getCreatedAt(),
+        fromPos,
+        toPos,
+        crdtNodes.length ? crdtNodes : undefined,
+        ticket,
+      ),
+    );
+
+    if (
+      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
+      fromPos.getOffset() !== toPos.getOffset()
+    ) {
+      this.context!.registerElementHasRemovedNodes(this.tree!);
+    }
+
+    return true;
+  }
+
   /**
    * `editByPath` edits this tree with the given node and path.
    */
@@ -332,66 +397,10 @@ export class Tree {
       throw new Error('path should not be empty');
     }
 
-    if (contents.length !== 0 && contents[0]) {
-      validateTreeNodes(contents);
-      if (contents[0].type !== DefaultTextType) {
-        for (const content of contents) {
-          const { children = [] } = content as ElementNode;
-          validateTreeNodes(children);
-        }
-      }
-    }
-
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
-    const ticket = this.context.getLastTimeTicket();
-    let crdtNodes = new Array<CRDTTreeNode>();
 
-    if (contents[0]?.type === DefaultTextType) {
-      let compVal = '';
-      for (const content of contents) {
-        const { value } = content as TextNode;
-        compVal += value;
-      }
-      crdtNodes.push(
-        CRDTTreeNode.create(
-          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
-          DefaultTextType,
-          compVal,
-        ),
-      );
-    } else {
-      crdtNodes = contents
-        .map((content) => content && createCRDTTreeNode(this.context!, content))
-        .filter((a) => a) as Array<CRDTTreeNode>;
-    }
-
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
-
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        ticket,
-      ),
-    );
-
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
-    }
-
-    return true;
+    return this.editInternal(fromPos, toPos, contents);
   }
 
   /**
@@ -408,67 +417,11 @@ export class Tree {
     if (fromIdx > toIdx) {
       throw new Error('from should be less than or equal to to');
     }
-    if (contents.length !== 0 && contents[0]) {
-      validateTreeNodes(contents);
-      if (contents[0].type !== DefaultTextType) {
-        for (const content of contents) {
-          const { children = [] } = content as ElementNode;
-          validateTreeNodes(children);
-        }
-      }
-    }
 
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
-    const ticket = this.context.getLastTimeTicket();
 
-    let crdtNodes = new Array<CRDTTreeNode>();
-
-    if (contents[0]?.type === DefaultTextType) {
-      let compVal = '';
-      for (const content of contents) {
-        const { value } = content as TextNode;
-        compVal += value;
-      }
-      crdtNodes.push(
-        CRDTTreeNode.create(
-          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
-          DefaultTextType,
-          compVal,
-        ),
-      );
-    } else {
-      crdtNodes = contents
-        .map((content) => content && createCRDTTreeNode(this.context!, content))
-        .filter((a) => a) as Array<CRDTTreeNode>;
-    }
-
-    this.tree.edit(
-      [fromPos, toPos],
-      crdtNodes.length
-        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
-        : undefined,
-      ticket,
-    );
-
-    this.context.push(
-      TreeEditOperation.create(
-        this.tree.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        ticket,
-      ),
-    );
-
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
-      this.context.registerElementHasRemovedNodes(this.tree!);
-    }
-
-    return true;
+    return this.editInternal(fromPos, toPos, contents);
   }
 
   /**
