@@ -4,7 +4,7 @@
 
 ## DocEventType enum
 
-`DocEventType` is document event types
+`DocEventType` represents the type of the event that occurs in `Document`<!-- -->.
 
 <b>Signature:</b>
 
@@ -16,8 +16,11 @@ export declare enum DocEventType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
+|  Initialized | <code>&quot;initialized&quot;</code> | <code>Initialized</code> means that online clients have been loaded from the server. |
 |  LocalChange | <code>&quot;local-change&quot;</code> | local document change event type |
-|  PeersChanged | <code>&quot;peers-changed&quot;</code> | <code>PeersChanged</code> means that the presences of the peer clients has changed. // TODO(hackerwins): We'll use peers means others. We need to find a better // name for this event. |
+|  PresenceChanged | <code>&quot;presence-changed&quot;</code> | <code>PresenceChanged</code> means that the presences of the client has updated. |
 |  RemoteChange | <code>&quot;remote-change&quot;</code> | remote document change event type |
 |  Snapshot | <code>&quot;snapshot&quot;</code> | snapshot event type |
+|  Unwatched | <code>&quot;unwatched&quot;</code> | <code>Unwatched</code> means that the connection has been disconnected. |
+|  Watched | <code>&quot;watched&quot;</code> | <code>Watched</code> means that the client has established a connection with the server, enabling real-time synchronization. |
 

@@ -9,9 +9,12 @@
 <b>Signature:</b>
 
 ```typescript
-empty(): boolean;
+empty(): [
+        number,
+        number
+    ] | undefined;
 ```
 <b>Returns:</b>
 
-boolean
+\[ number, number \] \| undefined
 

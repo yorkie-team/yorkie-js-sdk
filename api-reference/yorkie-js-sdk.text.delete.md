@@ -9,7 +9,10 @@
 <b>Signature:</b>
 
 ```typescript
-delete(fromIdx: number, toIdx: number): boolean;
+delete(fromIdx: number, toIdx: number): [
+        number,
+        number
+    ] | undefined;
 ```
 
 ## Parameters
@@ -21,5 +24,5 @@ delete(fromIdx: number, toIdx: number): boolean;
 
 <b>Returns:</b>
 
-boolean
+\[ number, number \] \| undefined
 

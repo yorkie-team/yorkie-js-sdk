@@ -23,9 +23,8 @@
 |  --- | --- |
 |  [ClientEventType](./yorkie-js-sdk.clienteventtype.md) | <code>ClientEventType</code> represents the type of the event that the client can emit. |
 |  [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>ClientStatus</code> represents the status of the client. |
-|  [DocEventType](./yorkie-js-sdk.doceventtype.md) | <code>DocEventType</code> is document event types |
+|  [DocEventType](./yorkie-js-sdk.doceventtype.md) | <code>DocEventType</code> represents the type of the event that occurs in <code>Document</code>. |
 |  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> represents the result of synchronizing the document with the server. |
-|  [PeersChangedEventType](./yorkie-js-sdk.peerschangedeventtype.md) | <code>PeersChangedEventType</code> is peers changed event types |
 |  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> represents whether the stream connection between the client and the server is connected or not. |
 |  [SyncMode](./yorkie-js-sdk.syncmode.md) | <code>SyncMode</code> is the mode of synchronization. It is used to determine whether to push and pull changes in PushPullChanges API. |
 |  [TreeChangeType](./yorkie-js-sdk.treechangetype.md) | <code>TreeChangeType</code> represents the type of change in the tree. |
@@ -39,7 +38,6 @@
 |  [DocumentsChangedEvent](./yorkie-js-sdk.documentschangedevent.md) | <code>DocumentsChangedEvent</code> is an event that occurs when documents attached to the client changes. |
 |  [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md) | <code>DocumentSyncedEvent</code> is an event that occurs when documents attached to the client are synced. |
 |  [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md) | <code>LocalChangeEvent</code> is an event that occurs when the document is changed by local changes. |
-|  [PeersChangedEvent](./yorkie-js-sdk.peerschangedevent.md) | <code>PeersChangedEvent</code> is an event that occurs when the states of another peers of the attached documents changes. |
 |  [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md) | <code>RemoteChangeEvent</code> is an event that occurs when the document is changed by remote changes. |
 |  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from the server. |
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
@@ -79,6 +77,6 @@
 |  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> is a node that has a value. |
 |  [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md) | <code>TimeTicketStruct</code> is a structure represents the meta data of the ticket. It is used to serialize and deserialize the ticket. |
 |  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
-|  [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) | <code>TreeRangeStruct</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
+|  [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

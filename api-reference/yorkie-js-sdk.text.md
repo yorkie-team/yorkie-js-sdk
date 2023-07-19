@@ -29,11 +29,13 @@ declare class Text<A extends Indexable = Indexable>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [checkWeight()](./yorkie-js-sdk.text.checkweight.md) |  | <code>checkWeight</code> returns false when there is an incorrect weight node. for debugging purpose. |
-|  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.text.createrange.md) |  | <code>createRange</code> returns pair of RGATreeSplitNodePos of the given integer offsets. |
+|  [createRangeForTest(fromIdx, toIdx)](./yorkie-js-sdk.text.createrangefortest.md) |  | <code>createRangeForTest</code> returns pair of RGATreeSplitNodePos of the given indexes for testing purpose. |
 |  [delete(fromIdx, toIdx)](./yorkie-js-sdk.text.delete.md) |  | <code>delete</code> deletes the text in the given range. |
 |  [edit(fromIdx, toIdx, content, attributes)](./yorkie-js-sdk.text.edit.md) |  | <code>edit</code> edits this text with the given content. |
 |  [empty()](./yorkie-js-sdk.text.empty.md) |  | <code>empty</code> makes the text empty. |
 |  [getID()](./yorkie-js-sdk.text.getid.md) |  | <code>getID</code> returns the ID of this text. |
+|  [indexRangeToPosRange(range)](./yorkie-js-sdk.text.indexrangetoposrange.md) |  | <code>indexRangeToPosRange</code> returns TextRangeStruct of the given index range. |
+|  [posRangeToIndexRange(range)](./yorkie-js-sdk.text.posrangetoindexrange.md) |  | <code>posRangeToIndexRange</code> returns indexes of the given TextRangeStruct. |
 |  [select(fromIdx, toIdx)](./yorkie-js-sdk.text.select.md) |  | <code>select</code> selects the given range. |
 |  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.text.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
 |  [toString()](./yorkie-js-sdk.text.tostring.md) |  | <code>toString</code> returns the string representation of this text. |

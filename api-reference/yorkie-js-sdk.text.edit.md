@@ -9,7 +9,10 @@
 <b>Signature:</b>
 
 ```typescript
-edit(fromIdx: number, toIdx: number, content: string, attributes?: A): boolean;
+edit(fromIdx: number, toIdx: number, content: string, attributes?: A): [
+        number,
+        number
+    ] | undefined;
 ```
 
 ## Parameters
@@ -23,5 +26,5 @@ edit(fromIdx: number, toIdx: number, content: string, attributes?: A): boolean;
 
 <b>Returns:</b>
 
-boolean
+\[ number, number \] \| undefined
 

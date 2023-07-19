@@ -4,20 +4,20 @@
 
 ## Document.subscribe() method
 
-`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the peer eestablishes or terminates a connection, or updates its presence.
+`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the clients watching the document establishe or update its presence.
 
 <b>Signature:</b>
 
 ```typescript
-subscribe(type: 'peers', next: NextFn<PeersChangedValue<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe(type: 'presence', next: NextFn<DocEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  type | 'peers' |  |
-|  next | NextFn&lt;PeersChangedValue&lt;P&gt;&gt; |  |
+|  type | 'presence' |  |
+|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
 |  error | ErrorFn |  |
 |  complete | CompleteFn |  |
 

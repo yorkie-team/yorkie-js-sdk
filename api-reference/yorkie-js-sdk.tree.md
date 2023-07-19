@@ -23,21 +23,20 @@ export declare class Tree
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [buildRoot(context)](./yorkie-js-sdk.tree.buildroot.md) |  | <code>buildRoot</code> builds the root of this tree with the given initial root which set by the user. |
-|  [createRange(fromIdx, toIdx)](./yorkie-js-sdk.tree.createrange.md) |  | <code>createRange</code> returns pair of CRDTTreePos of the given integer offsets. |
-|  [createRangeByPath(fromPath, toPath)](./yorkie-js-sdk.tree.createrangebypath.md) |  | <code>createRangeByPath</code> returns pair of CRDTTreePos of the given path. |
 |  [edit(fromIdx, toIdx, contents)](./yorkie-js-sdk.tree.edit.md) |  | <code>edit</code> edits this tree with the given nodes. |
 |  [editByPath(fromPath, toPath, contents)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
 |  [getSize()](./yorkie-js-sdk.tree.getsize.md) |  | <code>getSize</code> returns the size of this tree. |
+|  [indexRangeToPosRange(range)](./yorkie-js-sdk.tree.indexrangetoposrange.md) |  | <code>indexRangeToPosRange</code> converts the index range into the position range. |
 |  [indexToPath(index)](./yorkie-js-sdk.tree.indextopath.md) |  | <code>indexToPath</code> returns the path of the given index. |
+|  [pathRangeToPosRange(range)](./yorkie-js-sdk.tree.pathrangetoposrange.md) |  | <code>pathRangeToPosRange</code> converts the path range into the position range. |
 |  [pathToIndex(path)](./yorkie-js-sdk.tree.pathtoindex.md) |  | <code>pathToIndex</code> returns the index of given path. |
-|  [rangeToPath(range)](./yorkie-js-sdk.tree.rangetopath.md) |  | <code>rangeToPath</code> returns the path of the given range. |
+|  [posRangeToIndexRange(range)](./yorkie-js-sdk.tree.posrangetoindexrange.md) |  | <code>posRangeToIndexRange</code> converts the position range into the index range. |
+|  [posRangeToPathRange(range)](./yorkie-js-sdk.tree.posrangetopathrange.md) |  | <code>posRangeToPathRange</code> converts the position range into the path range. |
 |  [split(index, depth)](./yorkie-js-sdk.tree.split.md) |  | <code>split</code> splits this tree at the given index. |
 |  [style(fromIdx, toIdx, attributes)](./yorkie-js-sdk.tree.style.md) |  | <code>style</code> sets the attributes to the elements of the given range. |
 |  [styleByPath(path, attributes)](./yorkie-js-sdk.tree.stylebypath.md) |  | <code>styleByPath</code> sets the attributes to the elements of the given path. |
-|  [toIndexRange(range)](./yorkie-js-sdk.tree.toindexrange.md) |  | <code>toIndexRange</code> converts the Tree position range into the integer index range. |
 |  [toJSON()](./yorkie-js-sdk.tree.tojson.md) |  | <code>toJSON</code> returns the JSON string of this tree. |
-|  [toPosRange(range)](./yorkie-js-sdk.tree.toposrange.md) |  | <code>toPosRange</code> converts the integer index range into the Tree position range structure. |
 |  [toXML()](./yorkie-js-sdk.tree.toxml.md) |  | <code>toXML</code> returns the XML string of this tree. |
 

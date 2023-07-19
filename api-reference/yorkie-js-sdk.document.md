@@ -25,6 +25,7 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [addOnlineClient(clientID)](./yorkie-js-sdk.document.addonlineclient.md) |  | <code>addOnlineClient</code> adds the given clientID into the online client set. |
 |  [applyChanges(changes)](./yorkie-js-sdk.document.applychanges.md) |  | <code>applyChanges</code> applies the given changes into this document. |
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
+|  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
 |  [getPresence(clientID)](./yorkie-js-sdk.document.getpresence.md) |  | <code>getPresence</code> returns the presence of the given clientID. |
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
@@ -34,8 +35,10 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [removeOnlineClient(clientID)](./yorkie-js-sdk.document.removeonlineclient.md) |  | <code>removeOnlineClient</code> removes the clientID from the online client set. |
 |  [setOnlineClients(onlineClients)](./yorkie-js-sdk.document.setonlineclients.md) |  | <code>setOnlineClients</code> sets the given online client set. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the document is changed. |
-|  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_1.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the peer eestablishes or terminates a connection, or updates its presence. |
-|  [subscribe(targetPath, next, error, complete)](./yorkie-js-sdk.document.subscribe_2.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change. |
+|  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_1.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the clients watching the document establishe or update its presence. |
+|  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_2.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the current client establishes or updates its presence. |
+|  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_3.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the client establishes or terminates a connection, or updates its presence. |
+|  [subscribe(targetPath, next, error, complete)](./yorkie-js-sdk.document.subscribe_4.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change. |
 |  [toJSON()](./yorkie-js-sdk.document.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this document. |
 |  [toSortedJSON()](./yorkie-js-sdk.document.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of this document. |
 |  [update(updater, message)](./yorkie-js-sdk.document.update.md) |  | <code>update</code> executes the given updater to update this document. |

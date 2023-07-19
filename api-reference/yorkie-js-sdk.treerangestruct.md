@@ -4,7 +4,7 @@
 
 ## TreeRangeStruct type
 
-`TreeRangeStruct` represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange.
+`TreePosStructRange` represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange.
 
 <b>Signature:</b>
 
