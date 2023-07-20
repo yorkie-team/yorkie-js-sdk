@@ -7,16 +7,8 @@ async function main() {
   });
   await client.activate();
   const doc = new yorkie.Document('profile-stack');
-  doc.subscribe('my-presence', (event) => {
-    if (event.type === DocEventType.Initialized) {
-      displayPeerList(doc.getPresences(), client.getID());
-    }
-  });
-  doc.subscribe('others', (event) => {
-    if (
-      event.type === DocEventType.Watched ||
-      event.type === DocEventType.Unwatched
-    ) {
+  doc.subscribe('presence', (event) => {
+    if (event.type !== DocEventType.PresenceChanged) {
       displayPeerList(doc.getPresences(), client.getID());
     }
   });
