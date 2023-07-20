@@ -7,6 +7,27 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.5] - 2023-07-20
+
+### Added
+* Move Presence from Client to Document by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/574
+* Tree edit update by @ehuas in https://github.com/yorkie-team/yorkie-js-sdk/pull/576
+
+### Changed
+* Replace selection with presence by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/578
+* Bump word-wrap from 1.2.3 to 1.2.4 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/575
+* Bump up protobuf by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/570
+* Prevent usage of `.` in JSONObject key by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/569
+
+### Removed
+* Remove duplicated test by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/564
+* Remove InternalOpInfo by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/566
+
+### Fixed
+* Fix `pathToTreePos` TC by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/571
+* Fix GC to remove all removed nodes by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/568
+* Expose pathToIndex API by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/567
+
 ## [0.4.4] - 2023-07-05
 
 ### Changed
