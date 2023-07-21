@@ -451,7 +451,11 @@ export class CRDTTree extends CRDTGCElement {
       }
 
       callback(current);
-      current = current.insNext!;
+      if (current.insNext) {
+        current = current.insNext!;
+      } else {
+        current = current.next!;
+      }
     }
   }
 
