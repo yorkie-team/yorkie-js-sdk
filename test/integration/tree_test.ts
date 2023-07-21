@@ -1161,7 +1161,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion of insertion anchor concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1176,7 +1176,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion after insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1191,7 +1191,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion before insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1265,7 +1265,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can produce complete deletion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1280,7 +1280,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
 
@@ -1295,7 +1295,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle insert within block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
 
@@ -1310,7 +1310,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion of insertion anchor concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1325,7 +1325,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion after insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
@@ -1340,7 +1340,7 @@ describe.only('tree insertion and deletion', () => {
   it('Can handle deletion before insertion concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
 
