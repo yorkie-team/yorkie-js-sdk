@@ -214,6 +214,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    */
   insPrev?: CRDTTreeNode;
 
+  /**
+   * `insNext` is the previous node of this node after the node is split.
+   */
+  insNext?: CRDTTreeNode;
+
   _value = '';
 
   constructor(
@@ -496,9 +501,9 @@ export class CRDTTree extends CRDTGCElement {
     if (!treePos) {
       throw new Error(`cannot find node at ${pos}`);
     }
-
     // Find the appropriate position. This logic is similar to the logical to
     // handle the same position insertion of RGA.
+
     let current = treePos;
     while (
       current.node.next?.pos.getCreatedAt().after(editedAt) &&
@@ -515,6 +520,13 @@ export class CRDTTree extends CRDTGCElement {
       if (split) {
         this.insertAfter(current.node, split);
         split.insPrev = current.node;
+
+        if (current.node.insNext) {
+          current.node.insNext.insPrev = split;
+          split.insNext = current.node.insNext;
+        }
+
+        current.node.insNext = split;
       }
     }
 
@@ -744,6 +756,8 @@ export class CRDTTree extends CRDTGCElement {
   public purge(node: CRDTTreeNode): void {
     const prev = node.prev;
     const next = node.next;
+    const insPrev = node.insPrev;
+    const insNext = node.insNext;
 
     if (prev) {
       prev.next = next;
@@ -752,9 +766,18 @@ export class CRDTTree extends CRDTGCElement {
       next.prev = prev;
     }
 
+    if (insPrev) {
+      insPrev.insNext = insNext;
+    }
+
+    if (insNext) {
+      insNext.insPrev = insPrev;
+    }
+
     node.prev = undefined;
     node.next = undefined;
     node.insPrev = undefined;
+    node.insNext = undefined;
   }
 
   /**
@@ -925,6 +948,7 @@ export class CRDTTree extends CRDTGCElement {
 
     // Choose the left node if the position is on the boundary of the split nodes.
     let node = entry.value;
+
     if (
       pos.getOffset() > 0 &&
       pos.getOffset() === node.pos.getOffset() &&
