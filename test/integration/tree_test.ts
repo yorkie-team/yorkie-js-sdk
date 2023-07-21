@@ -203,7 +203,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content', function () {
+  it.only('Can edit its content', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -227,6 +227,21 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      root.t.edit(2, 2, { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>aXb</p></doc>`);
+
+      root.t.edit(1, 4);
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p></p></doc>`);
+    });
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p></p></doc>`);
 
     doc.update((root) => {
       root.t = new Tree({
@@ -1008,7 +1023,7 @@ describe('Tree.style', function () {
   });
 });
 
-describe.only('tree insertion and deletion', () => {
+describe('tree insertion and deletion', () => {
   it.skip('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',

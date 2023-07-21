@@ -626,6 +626,7 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
+    debugger; 
     // 01. split text nodes at the given range if needed.
     const [toPos, toRight] = this.findTreePosWithSplitText(range[1], editedAt);
     const [fromPos, fromRight] = this.findTreePosWithSplitText(
@@ -651,7 +652,7 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
-      this.nodesBetweenByBlock(fromRight!, toRight!, (node) => {
+      this.nodesBetween(fromRight!, toRight!, (node) => {
         if (!node.isRemoved) {
           toBeRemoveds.push(node);
         }
