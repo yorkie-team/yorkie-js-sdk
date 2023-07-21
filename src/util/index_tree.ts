@@ -193,9 +193,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `split` splits the node at the given offset.
    */
-  split(offset: number): T | undefined {
+  split(offset: number, absOffset: number): T | undefined {
     if (this.isText) {
-      return this.splitText(offset);
+      return this.splitText(offset, absOffset);
     }
 
     return this.splitElement(offset);
@@ -224,7 +224,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `splitText` splits the given node at the given offset.
    */
-  splitText(offset: number): T | undefined {
+  splitText(offset: number, absOffset: number): T | undefined {
     if (offset === 0 || offset === this.size) {
       return;
     }
@@ -234,7 +234,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.value = leftValue;
 
-    const rightNode = this.clone(offset);
+    debugger;
+    const rightNode = this.clone(offset + absOffset);
     rightNode.value = rightValue;
 
     this.parent!.insertAfterInternal(rightNode, this as any);
@@ -721,6 +722,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     traverseAll(this.root, callback, 0);
   }
 
+  // TODO (ehuas): modify function?
   /**
    * `split` splits the node at the given index.
    */
@@ -730,7 +732,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     let node: T | undefined = treePos.node;
     let offset: number = treePos.offset;
     for (let i = 0; i < depth && node && node !== this.root; i++) {
-      node.split(offset);
+      node.split(offset, 0);
 
       const nextOffset = node.parent!.findOffset(node);
       offset = offset === 0 ? nextOffset : nextOffset + 1;

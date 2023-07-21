@@ -118,7 +118,7 @@ describe('CRDTTreeNode', function () {
     assert.equal(para.isText, false);
 
     const left = para.children[0];
-    const right = left.split(5);
+    const right = left.split(5, 0);
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
     assert.equal(para.size, 11);
 

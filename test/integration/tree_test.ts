@@ -203,7 +203,7 @@ describe('Tree', () => {
     });
   });
 
-  it.only('Can edit its content', function () {
+  it('Can edit its content', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 

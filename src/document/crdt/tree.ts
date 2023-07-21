@@ -233,9 +233,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
+    removedAt?: TimeTicket,
   ) {
     super(type);
     this.pos = pos;
+    this.removedAt = removedAt;
     attributes && (this.attrs = attributes);
 
     if (typeof opts === 'string') {
@@ -326,6 +328,9 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     return new CRDTTreeNode(
       CRDTTreePos.of(this.pos.getCreatedAt(), offset),
       this.type,
+      undefined,
+      undefined,
+      this.removedAt,
     );
   }
 
@@ -334,6 +339,13 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    */
   public getCreatedAt(): TimeTicket {
     return this.pos.getCreatedAt();
+  }
+
+  /**
+   * `getOffset` returns the creation time of this element.
+   */
+  public getOffset(): number {
+    return this.pos.getOffset();
   }
 }
 
@@ -536,9 +548,10 @@ export class CRDTTree extends CRDTGCElement {
     // handle the same position insertion of RGA.
 
     let current = treePos;
+    const absOffset = current.node.pos.getOffset();
 
     if (current.node.isText) {
-      const split = current.node.split(current.offset);
+      const split = current.node.split(current.offset, absOffset);
       if (split) {
         this.insertAfter(current.node, split);
         split.insPrev = current.node;
@@ -626,7 +639,7 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
-    debugger; 
+    debugger;
     // 01. split text nodes at the given range if needed.
     const [toPos, toRight] = this.findTreePosWithSplitText(range[1], editedAt);
     const [fromPos, fromRight] = this.findTreePosWithSplitText(
