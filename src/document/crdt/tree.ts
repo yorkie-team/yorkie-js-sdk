@@ -134,6 +134,13 @@ export class CRDTTreePos {
   }
 
   /**
+   * `setOffset` sets the offset of the node.
+   */
+  public setOffset(offset: number): void {
+    this.offset = offset;
+  }
+
+  /**
    * `toStruct` returns the structure of this position.
    */
   public toStruct(): CRDTTreePosStruct {
@@ -429,6 +436,26 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
+   * `nodesBetweenByBlock` returns the nodes between the given range of the same block.
+   * This method includes the given left node but excludes the given right node.
+   */
+  public nodesBetweenByBlock(
+    left: CRDTTreeNode,
+    right: CRDTTreeNode,
+    callback: (node: CRDTTreeNode) => void,
+  ): void {
+    let current = left;
+    while (current !== right) {
+      if (!current) {
+        throw new Error('left and right are not in the same list');
+      }
+
+      callback(current);
+      current = current.insNext!;
+    }
+  }
+
+  /**
    * `nodesBetween` returns the nodes between the given range.
    * This method includes the given left node but excludes the given right node.
    */
@@ -505,15 +532,6 @@ export class CRDTTree extends CRDTGCElement {
     // handle the same position insertion of RGA.
 
     let current = treePos;
-    while (
-      current.node.next?.pos.getCreatedAt().after(editedAt) &&
-      current.node.parent === current.node.next.parent
-    ) {
-      current = {
-        node: current.node.next,
-        offset: current.node.next.size,
-      };
-    }
 
     if (current.node.isText) {
       const split = current.node.split(current.offset);
@@ -525,9 +543,18 @@ export class CRDTTree extends CRDTGCElement {
           current.node.insNext.insPrev = split;
           split.insNext = current.node.insNext;
         }
-
         current.node.insNext = split;
       }
+    }
+
+    while (
+      current.node.next?.pos.getCreatedAt().after(editedAt) &&
+      current.node.parent === current.node.next.parent
+    ) {
+      current = {
+        node: current.node.next,
+        offset: current.node.next.size,
+      };
     }
 
     const right = this.indexTree.findPostorderRight(treePos)!;
@@ -620,7 +647,7 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
-      this.nodesBetween(fromRight!, toRight!, (node) => {
+      this.nodesBetweenByBlock(fromRight!, toRight!, (node) => {
         if (!node.isRemoved) {
           toBeRemoveds.push(node);
         }

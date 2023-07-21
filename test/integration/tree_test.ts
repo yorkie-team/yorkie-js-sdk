@@ -1007,7 +1007,7 @@ describe('Tree.style', function () {
   });
 });
 
-describe.only('tree insertion and deletion', () => {
+describe('tree insertion and deletion', () => {
   it.skip('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
@@ -1149,8 +1149,6 @@ describe.only('tree insertion and deletion', () => {
       children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
-
-    debugger;
 
     docA.update((r) => r.t.edit(2, 5));
     docB.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
