@@ -1052,7 +1052,7 @@ describe.only('tree insertion and deletion', () => {
 
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12BA</p></r>`);
   });
-  
+
   it('Can delete text content at the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
