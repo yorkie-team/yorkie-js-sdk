@@ -1143,12 +1143,14 @@ describe.only('tree insertion and deletion', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
   });
 
-  it('Can handle insert within block delete concurrently', function () {
+  it.only('Can handle insert within block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+    debugger;
 
     docA.update((r) => r.t.edit(2, 5));
     docB.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
