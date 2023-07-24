@@ -234,7 +234,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.value = leftValue;
 
-    debugger;
     const rightNode = this.clone(offset + absOffset);
     rightNode.value = rightValue;
 

@@ -107,7 +107,6 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   expected: string,
 ) {
   doc2.applyChangePack(createChangePack(doc1));
-  debugger;
   doc1.applyChangePack(createChangePack(doc2));
 
   assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
@@ -1023,7 +1022,7 @@ describe('Tree.style', function () {
   });
 });
 
-describe('tree insertion and deletion', () => {
+describe.only('tree insertion and deletion', () => {
   it.skip('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',

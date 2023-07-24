@@ -448,30 +448,6 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `nodesBetweenByBlock` returns the nodes between the given range of the same block.
-   * This method includes the given left node but excludes the given right node.
-   */
-  public nodesBetweenByBlock(
-    left: CRDTTreeNode,
-    right: CRDTTreeNode,
-    callback: (node: CRDTTreeNode) => void,
-  ): void {
-    let current = left;
-    while (current !== right) {
-      if (!current) {
-        throw new Error('left and right are not in the same list');
-      }
-
-      callback(current);
-      if (current.insNext) {
-        current = current.insNext!;
-      } else {
-        current = current.next!;
-      }
-    }
-  }
-
-  /**
    * `nodesBetween` returns the nodes between the given range.
    * This method includes the given left node but excludes the given right node.
    */
@@ -479,6 +455,7 @@ export class CRDTTree extends CRDTGCElement {
     left: CRDTTreeNode,
     right: CRDTTreeNode,
     callback: (node: CRDTTreeNode) => void,
+    editedAt?: TimeTicket,
   ): void {
     let current = left;
     while (current !== right) {
@@ -486,8 +463,18 @@ export class CRDTTree extends CRDTGCElement {
         throw new Error('left and right are not in the same list');
       }
 
-      callback(current);
-      current = current.next!;
+      if (
+        current.pos.getCreatedAt().getLamportAsString() ===
+        editedAt?.getLamportAsString()
+      ) {
+        callback(current);
+        current = current.next!;
+      } else {
+        callback(current);
+        if (current.insNext) {
+          current = current.insNext;
+        }
+      }
     }
   }
 
@@ -639,7 +626,6 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
-    debugger;
     // 01. split text nodes at the given range if needed.
     const [toPos, toRight] = this.findTreePosWithSplitText(range[1], editedAt);
     const [fromPos, fromRight] = this.findTreePosWithSplitText(
