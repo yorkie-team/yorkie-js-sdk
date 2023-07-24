@@ -1022,7 +1022,7 @@ describe('Tree.style', function () {
   });
 });
 
-describe.only('tree insertion and deletion', () => {
+describe('tree insertion and deletion', () => {
   it.skip('Can insert text to the same position(left) concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',

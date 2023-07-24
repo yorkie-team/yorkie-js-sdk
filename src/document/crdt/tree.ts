@@ -342,7 +342,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
-   * `getOffset` returns the creation time of this element.
+   * `getOffset` returns the offset of a pos.
    */
   public getOffset(): number {
     return this.pos.getOffset();
@@ -448,10 +448,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `nodesBetween` returns the nodes between the given range.
+   * `nodesBetweenConcurrent` returns the nodes between the given range ignoring concurrent edits.
    * This method includes the given left node but excludes the given right node.
    */
-  public nodesBetween(
+  public nodesBetweenConcurrent(
     left: CRDTTreeNode,
     right: CRDTTreeNode,
     callback: (node: CRDTTreeNode) => void,
@@ -463,18 +463,37 @@ export class CRDTTree extends CRDTGCElement {
         throw new Error('left and right are not in the same list');
       }
 
+      callback(current);
       if (
         current.pos.getCreatedAt().getLamportAsString() ===
         editedAt?.getLamportAsString()
       ) {
-        callback(current);
         current = current.next!;
       } else {
-        callback(current);
         if (current.insNext) {
           current = current.insNext;
         }
       }
+    }
+  }
+
+  /**
+   * `nodesBetween` returns the nodes between the given range.
+   * This method includes the given left node but excludes the given right node.
+   */
+  public nodesBetween(
+    left: CRDTTreeNode,
+    right: CRDTTreeNode,
+    callback: (node: CRDTTreeNode) => void,
+  ): void {
+    let current = left;
+    while (current !== right) {
+      if (!current) {
+        throw new Error('left and right are not in the same list');
+      }
+
+      callback(current);
+      current = current.next!;
     }
   }
 
@@ -651,7 +670,7 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
-      this.nodesBetween(fromRight!, toRight!, (node) => {
+      this.nodesBetweenConcurrent(fromRight!, toRight!, (node) => {
         if (!node.isRemoved) {
           toBeRemoveds.push(node);
         }
