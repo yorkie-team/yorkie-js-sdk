@@ -5,11 +5,14 @@ import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 
-const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
-  apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-});
+// const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+//   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+// });
+// const client = new yorkie.Client('https://api.yorkie.dev', {
+//   apiKey: 'cinr4o2bjhd62lidlji0',
+// });
 
-const doc = new yorkie.Document('simult-cursors');
+// const doc = new yorkie.Document('test');
 
 function App() {
   const cursorRef = useRef(null);
@@ -38,89 +41,79 @@ function App() {
     });
   };
 
+
+
+
+
+
   useEffect(() => {
-    
     const setup = async () => {
-      await client.activate();
+      try {
+        const client = new yorkie.Client('https://api.yorkie.dev', {
+          apiKey: 'cinr4o2bjhd62lidlji0',
+        });
 
-      doc.subscribe('my-presence', (event) => {
-        console.log('my-presence ---------- ', event.type);
-        if (event.type === DocEventType.Initialized) {
-          console.log('doc.getPresences() -------- ', doc.getPresences());
-          console.log(client.getID());
+        const doc = new yorkie.Document('test');
+        await client.activate();
+
+        doc.subscribe('presence', (event) => {
+          if (event.type !== DocEventType.PresenceChanged) {
+            setClients(doc.getPresences());
+            setOtherClients(doc.getPresences());
+            // console.log('doc.getPresences() -------- ', );
+            // console.log(client.getID());
+          }
+        });
+        doc.subscribe('my-presence', (event) => {
+          console.log('my-presence ---------- ', event.type);
+          if (event.type === DocEventType.Initialized) {
+            console.log('doc.getPresences() -------- ', doc.getPresences());
+            console.log(client.getID());
+          }
+        });
+
+        doc.subscribe('others', (event) => {
+          console.log('others ---------- ', event.type);
+          if (
+            event.type === DocEventType.Watched ||
+            event.type === DocEventType.Unwatched
+          ) {
+            setOtherClients(doc.getPresences());
+            setClients(doc.getPresences());
+            console.log(doc.getPresences());
+            console.log(client.getID());
+          }
+        });
+
+        try {
+          await client.attach(doc, {
+            initialPresence: {
+              name: '',
+              color: '',
+            },
+          });
+        } catch (err) {
+          console.log(' ---------err', err)
         }
-      });
-      doc.subscribe('others', (event) => {
-        console.log('others ---------- ', event.type);
-        if (
-          event.type === DocEventType.Watched ||
-          event.type === DocEventType.Unwatched
-        ) {
-          setOtherClients(doc.getPresences());
-          setClients(doc.getPresences());
-          console.log(doc.getPresences());
-          console.log(client.getID());
-        }
-      });
 
-      await client.attach(doc, {
-        initialPresence: {
-          name: '',
-          color: '',
-        },
-      });
+        await client.attach(doc, {
+          initialPresence: {
+            name: '',
+            color: '',
+          },
+        });
 
+        console.log(' ------- print marker 1');
 
-      window.addEventListener('beforeunload', () => {
-        // client.detach(doc);
-        client.deactivate();
-      });
-
-      // await client.activate();
-
-      // client.subscribe((event) => {
-      //   console.log(event.type, ' ------------- ');
-
-      //   if (event.type === 'peers-changed') {
-      //     setClients(client.getPeersByDocKey(doc.getKey()));
-
-      //     const getCommonValuesByProperty = (array1, array2, property) => {
-      //       return array1.filter((item1) =>
-      //         array2.some((item2) => item2[property] === item1[property]),
-      //       );
-      //     };
-
-      //     doc.update((root) => {
-      //       root.users = getCommonValuesByProperty(
-      //         root.users,
-      //         client.getPeersByDocKey(doc.getKey()),
-      //         'clientID',
-      //       );
-      //     });
-      //   }
-
-      //   if (event.type === 'documents-changed') {
-      //     doc.update((root) => {
-      //       setOtherClients(root.users);
-      //     });
-      //   }
-      // });
-
-      // setCurrClient(client.getID());
-
-      // await client.attach(doc);
-
-      // doc.subscribe((event) => {
-      //   if (event.type === 'remote-change') {
-      //     doc.update((root) => {
-      //       setOtherClients(root.users);
-      //     });
-      //   }
-      // });
-
-      // window.addEventListener('beforeunload', () => {
-      //   client.deactivate();
-      // });
+        window.addEventListener('beforeunload', () => {
+          // client.detach(doc);
+          client.deactivate();
+        });
+        console.log(' ------- print marker 2');
+      } catch (err) {
+        console.log(' ---------err', err);
+        console.log(' ---------err', err.message);
+      }
     };
 
     setup();
@@ -149,7 +142,7 @@ function App() {
       });
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
+    // window.addEventListener('mousemove', handleMouseMove);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
@@ -158,7 +151,7 @@ function App() {
 
   return (
     <div>
-      {otherClients.map((user) => {
+      {/* {otherClients.map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor cursorShape={user.cursorShape} x={user.x} y={user.y} />
         ) : (
@@ -177,9 +170,9 @@ function App() {
         ({mousePos.x}, {mousePos.y})
       </b>
       <b> ------ clients.length {clients.length}</b>
-      <b> ------ clients.length {currClient}</b>
+      <b> ------ clients.length {currClient}</b> */}
       {/* <CursorSelections handleCursorShapeSelect={handleCursorShapeSelect} clients={client} /> */}
-      <div className="cursor-selector-container">
+      {/* <div className="cursor-selector-container">
         <div className="cursor-selections-container">
           <img
             onClick={() => handleCursorShapeSelect('heart')}
@@ -226,7 +219,7 @@ function App() {
             <p> 1 user here </p>
           )}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
