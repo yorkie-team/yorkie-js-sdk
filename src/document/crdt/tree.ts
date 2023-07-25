@@ -457,20 +457,22 @@ export class CRDTTree extends CRDTGCElement {
     callback: (node: CRDTTreeNode) => void,
     editedAt?: TimeTicket,
   ): void {
+    debugger;
     let current = left;
     while (current !== right) {
       if (!current) {
         throw new Error('left and right are not in the same list');
       }
-
-      debugger;
       callback(current);
       if (
-        current.pos.getCreatedAt().getLamportAsString() ===
+        current.next?.pos.getCreatedAt().getLamportAsString() ===
           editedAt?.getLamportAsString() &&
-        current.pos.getCreatedAt().getActorID() !== editedAt?.getActorID()
+        current.next?.pos.getCreatedAt().getActorID() !== editedAt?.getActorID()
       ) {
-        current = current.insNext!;
+        if (current.next! === right) {
+          break;
+        }
+        current = current.next!.next!;
       } else {
         current = current.next!;
       }
@@ -670,11 +672,16 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     // 02. remove the nodes and update linked list and index tree.
     if (fromRight !== toRight) {
-      this.nodesBetweenConcurrent(fromRight!, toRight!, (node) => {
-        if (!node.isRemoved) {
-          toBeRemoveds.push(node);
-        }
-      });
+      this.nodesBetweenConcurrent(
+        fromRight!,
+        toRight!,
+        (node) => {
+          if (!node.isRemoved) {
+            toBeRemoveds.push(node);
+          }
+        },
+        editedAt,
+      );
 
       const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
       for (const node of toBeRemoveds) {
