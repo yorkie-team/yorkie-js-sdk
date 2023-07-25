@@ -1195,7 +1195,7 @@ describe('tree insertion and deletion', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1abc</p></r>`);
   });
 
-  it.skip('Can handle block element insertion within delete [2]', function () {
+  it('Can handle block element insertion within delete [2]', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1207,7 +1207,6 @@ describe('tree insertion and deletion', () => {
       docA.getRoot().t.toXML(),
       /*html*/ `<r><p>1234</p><p>5678</p></r>`,
     );
-    debugger;
 
     docA.update((r) => r.t.edit(0, 12));
     docB.update((r) =>
@@ -1222,6 +1221,37 @@ describe('tree insertion and deletion', () => {
     assert.equal(
       docB.getRoot().t.toXML(),
       /*html*/ `<r><p>1234</p><p>cd</p><i>fg</i><p>5678</p></r>`,
+    );
+
+    debugger;
+    syncTwoTreeDocsAndAssertEqual(
+      docA,
+      docB,
+      /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+    );
+  });
+
+  it.only('Can handle concurrent element insert/ deletion', function () {
+    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
+      type: 'r',
+      children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
+    });
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+    debugger;
+    docA.update((r) => r.t.edit(0, 7));
+    docB.update((r) =>
+      r.t.edit(
+        0,
+        0,
+        { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+        { type: 'i', children: [{ type: 'text', value: 'fg' }] },
+      ),
+    );
+    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    assert.equal(
+      docB.getRoot().t.toXML(),
+      /*html*/ `<r><p>cd</p><i>fg</i><p>12345</p></r>`,
     );
 
     syncTwoTreeDocsAndAssertEqual(
