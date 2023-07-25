@@ -457,7 +457,6 @@ export class CRDTTree extends CRDTGCElement {
     callback: (node: CRDTTreeNode) => void,
     editedAt?: TimeTicket,
   ): void {
-    debugger;
     let current = left;
     while (current !== right) {
       if (!current) {

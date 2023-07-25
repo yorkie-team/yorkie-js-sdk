@@ -1170,7 +1170,6 @@ describe('tree insertion and deletion', () => {
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>15</p></r>`);
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>12B345</p></r>`);
 
-    debugger;
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1B5</p></r>`);
   });
 
@@ -1186,7 +1185,6 @@ describe('tree insertion and deletion', () => {
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>2</p></r>`);
 
-    debugger;
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>A2</p></r>`);
   });
 
