@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
-import yorkie from 'yorkie-js-sdk';
+import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 
-const client = new yorkie.Client('https://api.yorkie.dev', {
-  apiKey: 'cinr4o2bjhd62lidlji0',
-  presence: {
-    name: '',
-    color: '',
-  },
+const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+  apiKey: import.meta.env.VITE_YORKIE_API_KEY,
 });
 
-const doc = new yorkie.Document('simult-cursors'); // some work some don't
+const doc = new yorkie.Document('simult-cursors');
 
 function App() {
   const cursorRef = useRef(null);
@@ -43,52 +39,88 @@ function App() {
   };
 
   useEffect(() => {
+    
     const setup = async () => {
       await client.activate();
 
-      client.subscribe((event) => {
-        console.log(event.type, ' ------------- ');
-
-        if (event.type === 'peers-changed') {
-          setClients(client.getPeersByDocKey(doc.getKey()));
-
-          const getCommonValuesByProperty = (array1, array2, property) => {
-            return array1.filter((item1) =>
-              array2.some((item2) => item2[property] === item1[property]),
-            );
-          };
-
-          doc.update((root) => {
-            root.users = getCommonValuesByProperty(
-              root.users,
-              client.getPeersByDocKey(doc.getKey()),
-              'clientID',
-            );
-          });
+      doc.subscribe('my-presence', (event) => {
+        console.log('my-presence ---------- ', event.type);
+        if (event.type === DocEventType.Initialized) {
+          console.log('doc.getPresences() -------- ', doc.getPresences());
+          console.log(client.getID());
         }
-
-        if (event.type === 'documents-changed') {
-          doc.update((root) => {
-            setOtherClients(root.users);
-          });
+      });
+      doc.subscribe('others', (event) => {
+        console.log('others ---------- ', event.type);
+        if (
+          event.type === DocEventType.Watched ||
+          event.type === DocEventType.Unwatched
+        ) {
+          setOtherClients(doc.getPresences());
+          setClients(doc.getPresences());
+          console.log(doc.getPresences());
+          console.log(client.getID());
         }
       });
 
-      setCurrClient(client.getID());
-
-      await client.attach(doc);
-
-      doc.subscribe((event) => {
-        if (event.type === 'remote-change') {
-          doc.update((root) => {
-            setOtherClients(root.users);
-          });
-        }
+      await client.attach(doc, {
+        initialPresence: {
+          name: '',
+          color: '',
+        },
       });
+
 
       window.addEventListener('beforeunload', () => {
+        // client.detach(doc);
         client.deactivate();
       });
+
+      // await client.activate();
+
+      // client.subscribe((event) => {
+      //   console.log(event.type, ' ------------- ');
+
+      //   if (event.type === 'peers-changed') {
+      //     setClients(client.getPeersByDocKey(doc.getKey()));
+
+      //     const getCommonValuesByProperty = (array1, array2, property) => {
+      //       return array1.filter((item1) =>
+      //         array2.some((item2) => item2[property] === item1[property]),
+      //       );
+      //     };
+
+      //     doc.update((root) => {
+      //       root.users = getCommonValuesByProperty(
+      //         root.users,
+      //         client.getPeersByDocKey(doc.getKey()),
+      //         'clientID',
+      //       );
+      //     });
+      //   }
+
+      //   if (event.type === 'documents-changed') {
+      //     doc.update((root) => {
+      //       setOtherClients(root.users);
+      //     });
+      //   }
+      // });
+
+      // setCurrClient(client.getID());
+
+      // await client.attach(doc);
+
+      // doc.subscribe((event) => {
+      //   if (event.type === 'remote-change') {
+      //     doc.update((root) => {
+      //       setOtherClients(root.users);
+      //     });
+      //   }
+      // });
+
+      // window.addEventListener('beforeunload', () => {
+      //   client.deactivate();
+      // });
     };
 
     setup();
@@ -98,7 +130,7 @@ function App() {
 
       doc.update((root) => {
         root.users = [];
-        console.log(root.users, ' ------------- root.users');
+        // console.log(root.users, ' ------------- root.users');
 
         const clientIdx = root.users.findIndex((obj) => {
           return obj.clientID === client.getID();

@@ -1,86 +1,67 @@
 .cursor-selector-container {
-    /* z-index: 10; */
+  /* z-index: 10; */
 
-    height: 92px;
-    width: 192px;
-    
+  height: 92px;
+  width: 192px;
 
-    /* border: solid; */
+  /* border: solid; */
 
-    position: fixed;
-    bottom: 0;
-    right: 0;
+  position: fixed;
+  bottom: 0;
+  right: 0;
 
-    padding: 20px;
+  padding: 20px;
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-
-    
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .cursor-selections-container {
-    /* border: solid; */
+  /* border: solid; */
 
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .num-users-container {
-    /* border: solid; */
+  /* border: solid; */
 
-    border-radius: 8px;
-    background-color: rgba(27, 26, 26, 0.8);
+  border-radius: 8px;
+  background-color: rgba(27, 26, 26, 0.8);
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 
-    color: white;
+  color: white;
 
-
-    height: 40px;
-    width: 192px;
-
-
-
-
-    
-
+  height: 40px;
+  width: 192px;
 }
 
-
-
 .cursor-shape-selected {
-    /* cursor: none; */
+  /* cursor: none; */
 }
 
 .cursor-shape-not-selected {
-    /* cursor: none; */
-    opacity: 0.5;
-
+  /* cursor: none; */
+  opacity: 0.5;
 }
 .cursor-shape-not-selected:hover {
-    opacity: 0.7;
+  opacity: 0.7;
 }
 
-
-
-
 .cursor {
-    position: fixed;
-    left: 0;
-    top: 0;
-    /* background-color: none; */
-    /* cursor: none;   we don't have it here since when selecting options, cursor pops out */ 
+  position: fixed;
+  left: 0;
+  top: 0;
+  /* background-color: none; */
+  /* cursor: none;   we don't have it here since when selecting options, cursor pops out */
 }
 
 * {
-    /* cursor: none; */
-    /* pointer-events: none; */
+  /* cursor: none; */
+  /* pointer-events: none; */
 }
-
-
