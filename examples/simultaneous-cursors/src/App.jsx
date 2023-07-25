@@ -27,24 +27,19 @@ function App() {
 
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
 
-  const handleCursorShapeSelect = async (cursorShape) => {
-    setSelectedCursorShape(cursorShape);
+  // const handleCursorShapeSelect = async (cursorShape) => {
+  //   setSelectedCursorShape(cursorShape);
 
-    doc.update((root) => {
-      const clientIdx = root.users.findIndex((obj) => {
-        return obj.clientID === client.getID();
-      });
+  //   doc.update((root) => {
+  //     const clientIdx = root.users.findIndex((obj) => {
+  //       return obj.clientID === client.getID();
+  //     });
 
-      if (clientIdx !== -1) {
-        root.users[clientIdx].cursorShape = cursorShape;
-      }
-    });
-  };
-
-
-
-
-
+  //     if (clientIdx !== -1) {
+  //       root.users[clientIdx].cursorShape = cursorShape;
+  //     }
+  //   });
+  // };
 
   useEffect(() => {
     const setup = async () => {
@@ -53,48 +48,38 @@ function App() {
           apiKey: 'cinr4o2bjhd62lidlji0',
         });
 
-        const doc = new yorkie.Document('test');
         await client.activate();
 
-        doc.subscribe('presence', (event) => {
-          if (event.type !== DocEventType.PresenceChanged) {
-            setClients(doc.getPresences());
-            setOtherClients(doc.getPresences());
-            // console.log('doc.getPresences() -------- ', );
-            // console.log(client.getID());
-          }
-        });
-        doc.subscribe('my-presence', (event) => {
-          console.log('my-presence ---------- ', event.type);
-          if (event.type === DocEventType.Initialized) {
-            console.log('doc.getPresences() -------- ', doc.getPresences());
-            console.log(client.getID());
-          }
-        });
+        const doc = new yorkie.Document('test');
 
-        doc.subscribe('others', (event) => {
-          console.log('others ---------- ', event.type);
-          if (
-            event.type === DocEventType.Watched ||
-            event.type === DocEventType.Unwatched
-          ) {
-            setOtherClients(doc.getPresences());
-            setClients(doc.getPresences());
-            console.log(doc.getPresences());
-            console.log(client.getID());
-          }
-        });
+        // doc.subscribe('presence', (event) => {
+        //   if (event.type !== DocEventType.PresenceChanged) {
+        //     setClients(doc.getPresences());
+        //     setOtherClients(doc.getPresences());
+        //     // console.log('doc.getPresences() -------- ', );
+        //     // console.log(client.getID());
+        //   }
+        // });
+        // doc.subscribe('my-presence', (event) => {
+        //   console.log('my-presence ---------- ', event.type);
+        //   if (event.type === DocEventType.Initialized) {
+        //     console.log('doc.getPresences() -------- ', doc.getPresences());
+        //     console.log(client.getID());
+        //   }
+        // });
 
-        try {
-          await client.attach(doc, {
-            initialPresence: {
-              name: '',
-              color: '',
-            },
-          });
-        } catch (err) {
-          console.log(' ---------err', err)
-        }
+        // doc.subscribe('others', (event) => {
+        //   console.log('others ---------- ', event.type);
+        //   if (
+        //     event.type === DocEventType.Watched ||
+        //     event.type === DocEventType.Unwatched
+        //   ) {
+        //     setOtherClients(doc.getPresences());
+        //     setClients(doc.getPresences());
+        //     console.log(doc.getPresences());
+        //     console.log(client.getID());
+        //   }
+        // });
 
         await client.attach(doc, {
           initialPresence: {
@@ -110,43 +95,43 @@ function App() {
           client.deactivate();
         });
         console.log(' ------- print marker 2');
-      } catch (err) {
-        console.log(' ---------err', err);
-        console.log(' ---------err', err.message);
+      } catch (error) {
+        console.log(' --------- error', error);
+        console.log(' --------- error', error.message);
       }
     };
 
     setup();
 
-    const handleMouseMove = (event) => {
-      setMousePos({ x: event.clientX, y: event.clientY });
+    // const handleMouseMove = (event) => {
+    //   setMousePos({ x: event.clientX, y: event.clientY });
 
-      doc.update((root) => {
-        root.users = [];
-        // console.log(root.users, ' ------------- root.users');
+    //   doc.update((root) => {
+    //     root.users = [];
+    //     // console.log(root.users, ' ------------- root.users');
 
-        const clientIdx = root.users.findIndex((obj) => {
-          return obj.clientID === client.getID();
-        });
+    //     const clientIdx = root.users.findIndex((obj) => {
+    //       return obj.clientID === client.getID();
+    //     });
 
-        if (clientIdx !== -1) {
-          root.users[clientIdx].xPos = event.clientX;
-          root.users[clientIdx].yPos = event.clientY;
-        } else {
-          root.users.push({
-            clientID: client.getID(),
-            xPos: event.clientX,
-            yPos: event.clientY,
-          });
-        }
-      });
-    };
+    //     if (clientIdx !== -1) {
+    //       root.users[clientIdx].xPos = event.clientX;
+    //       root.users[clientIdx].yPos = event.clientY;
+    //     } else {
+    //       root.users.push({
+    //         clientID: client.getID(),
+    //         xPos: event.clientX,
+    //         yPos: event.clientY,
+    //       });
+    //     }
+    //   });
+    // };
 
     // window.addEventListener('mousemove', handleMouseMove);
 
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
+    // return () => {
+    //   window.removeEventListener('mousemove', handleMouseMove);
+    // };
   }, []);
 
   return (
