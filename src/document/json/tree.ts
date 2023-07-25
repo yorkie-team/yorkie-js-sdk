@@ -5,7 +5,7 @@ import {
   CRDTTree,
   CRDTTreePos,
   CRDTTreeNode,
-  TreePosStructRange,
+  TreeRangeStruct,
   TreeChange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -509,9 +509,7 @@ export class Tree {
   /**
    * `pathRangeToPosRange` converts the path range into the position range.
    */
-  pathRangeToPosRange(
-    range: [Array<number>, Array<number>],
-  ): TreePosStructRange {
+  pathRangeToPosRange(range: [Array<number>, Array<number>]): TreeRangeStruct {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -529,7 +527,7 @@ export class Tree {
   /**
    * `indexRangeToPosRange` converts the index range into the position range.
    */
-  indexRangeToPosRange(range: [number, number]): TreePosStructRange {
+  indexRangeToPosRange(range: [number, number]): TreeRangeStruct {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -542,7 +540,7 @@ export class Tree {
   /**
    * `posRangeToIndexRange` converts the position range into the index range.
    */
-  posRangeToIndexRange(range: TreePosStructRange): [number, number] {
+  posRangeToIndexRange(range: TreeRangeStruct): [number, number] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -560,9 +558,7 @@ export class Tree {
   /**
    * `posRangeToPathRange` converts the position range into the path range.
    */
-  posRangeToPathRange(
-    range: TreePosStructRange,
-  ): [Array<number>, Array<number>] {
+  posRangeToPathRange(range: TreeRangeStruct): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore

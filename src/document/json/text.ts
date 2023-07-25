@@ -32,8 +32,8 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
- * `TextPosStruct` represents the structure of RGATreeSplitNodePos.
- * It is used to serialize and deserialize the RGATreeSplitNodePos.
+ * `TextPosStruct` represents the structure of RGATreeSplitPos.
+ * It is used to serialize and deserialize the RGATreeSplitPos.
  */
 export type TextPosStruct = {
   id: { createdAt: TimeTicketStruct; offset: number };
@@ -41,8 +41,8 @@ export type TextPosStruct = {
 };
 
 /**
- * `TextRangeStruct` represents the structure of RGATreeSplitNodeRange.
- * It is used to serialize and deserialize the RGATreeSplitNodeRange.
+ * `TextRangeStruct` represents the structure of RGATreeSplitPosRange.
+ * It is used to serialize and deserialize the RGATreeSplitPosRange.
  */
 export type TextRangeStruct = [TextPosStruct, TextPosStruct];
 
