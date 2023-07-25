@@ -331,6 +331,8 @@ export class Tree {
     const ticket = this.context!.getLastTimeTicket();
     let crdtNodes = new Array<CRDTTreeNode>();
 
+    debugger;
+
     if (contents[0]?.type === DefaultTextType) {
       let compVal = '';
       for (const content of contents) {

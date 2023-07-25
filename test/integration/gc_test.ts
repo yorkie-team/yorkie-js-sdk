@@ -310,6 +310,8 @@ describe('Garbage Collection', function () {
     // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
 
+    debugger;
+
     doc2.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'gh' });
     }, 'removes 2');

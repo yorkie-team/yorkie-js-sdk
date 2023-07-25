@@ -463,16 +463,16 @@ export class CRDTTree extends CRDTGCElement {
         throw new Error('left and right are not in the same list');
       }
 
+      debugger;
       callback(current);
       if (
         current.pos.getCreatedAt().getLamportAsString() ===
-        editedAt?.getLamportAsString()
+          editedAt?.getLamportAsString() &&
+        current.pos.getCreatedAt().getActorID() !== editedAt?.getActorID()
       ) {
-        current = current.next!;
+        current = current.insNext!;
       } else {
-        if (current.insNext) {
-          current = current.insNext;
-        }
+        current = current.next!;
       }
     }
   }
