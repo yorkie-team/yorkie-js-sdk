@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-posRangeToPathRange(range: TreeRangeStruct): [
+posRangeToPathRange(range: TreePosStructRange): [
         Array<number>,
         Array<number>
     ];
@@ -19,7 +19,7 @@ posRangeToPathRange(range: TreeRangeStruct): [
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  range | [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) |  |
+|  range | [TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md) |  |
 
 <b>Returns:</b>
 

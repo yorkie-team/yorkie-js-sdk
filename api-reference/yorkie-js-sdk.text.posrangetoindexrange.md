@@ -9,7 +9,7 @@
 <b>Signature:</b>
 
 ```typescript
-posRangeToIndexRange(range: TextRangeStruct): [
+posRangeToIndexRange(range: TextPosStructRange): [
         number,
         number
     ];
@@ -19,7 +19,7 @@ posRangeToIndexRange(range: TextRangeStruct): [
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  range | TextRangeStruct |  |
+|  range | [TextPosStructRange](./yorkie-js-sdk.textposstructrange.md) |  |
 
 <b>Returns:</b>
 

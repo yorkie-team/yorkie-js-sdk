@@ -12,7 +12,7 @@
 indexRangeToPosRange(range: [
         number,
         number
-    ]): TextRangeStruct;
+    ]): TextPosStructRange;
 ```
 
 ## Parameters
@@ -23,5 +23,5 @@ indexRangeToPosRange(range: [
 
 <b>Returns:</b>
 
-TextRangeStruct
+[TextPosStructRange](./yorkie-js-sdk.textposstructrange.md)
 
