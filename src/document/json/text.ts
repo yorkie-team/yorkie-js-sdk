@@ -41,10 +41,10 @@ export type TextPosStruct = {
 };
 
 /**
- * `TextRangeStruct` represents the structure of RGATreeSplitPosRange.
+ * `TextPosStructRange` represents the structure of RGATreeSplitPosRange.
  * It is used to serialize and deserialize the RGATreeSplitPosRange.
  */
-export type TextRangeStruct = [TextPosStruct, TextPosStruct];
+export type TextPosStructRange = [TextPosStruct, TextPosStruct];
 
 /**
  * `Text` is an extended data type for the contents of a text editor.
@@ -209,7 +209,7 @@ export class Text<A extends Indexable = Indexable> {
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.
    */
-  indexRangeToPosRange(range: [number, number]): TextRangeStruct {
+  indexRangeToPosRange(range: [number, number]): TextPosStructRange {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -223,7 +223,7 @@ export class Text<A extends Indexable = Indexable> {
   /**
    * `posRangeToIndexRange` returns indexes of the given TextRangeStruct.
    */
-  posRangeToIndexRange(range: TextRangeStruct): [number, number] {
+  posRangeToIndexRange(range: TextPosStructRange): [number, number] {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore

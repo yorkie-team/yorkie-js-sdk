@@ -74,7 +74,7 @@ export {
   TreeChange,
   TreeChangeType,
   CRDTTreePosStruct,
-  TreeRangeStruct,
+  TreePosStructRange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {
@@ -93,7 +93,7 @@ export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 export {
   Text,
   TextPosStruct,
-  TextRangeStruct,
+  TextPosStructRange,
 } from '@yorkie-js-sdk/src/document/json/text';
 export {
   Tree,

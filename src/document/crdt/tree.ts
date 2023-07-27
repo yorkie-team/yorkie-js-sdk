@@ -185,10 +185,10 @@ function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
 export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 
 /**
- * `TreeRangeStruct` represents the structure of TreeRange.
+ * `TreePosStructRange` represents the structure of TreeRange.
  * It is used to serialize and deserialize the TreeRange.
  */
-export type TreeRangeStruct = [CRDTTreePosStruct, CRDTTreePosStruct];
+export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
@@ -967,7 +967,9 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `indexRangeToPosStructRange` converts the integer index range into the Tree position range structure.
    */
-  public indexRangeToPosStructRange(range: [number, number]): TreeRangeStruct {
+  public indexRangeToPosStructRange(
+    range: [number, number],
+  ): TreePosStructRange {
     const [fromIdx, toIdx] = range;
     const fromPos = this.findPos(fromIdx).toStruct();
     if (fromIdx === toIdx) {
