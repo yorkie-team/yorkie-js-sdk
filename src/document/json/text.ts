@@ -32,8 +32,8 @@ import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_op
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
- * `TextPosStruct` represents the structure of RGATreeSplitNodePos.
- * It is used to serialize and deserialize the RGATreeSplitNodePos.
+ * `TextPosStruct` represents the structure of RGATreeSplitPos.
+ * It is used to serialize and deserialize the RGATreeSplitPos.
  */
 export type TextPosStruct = {
   id: { createdAt: TimeTicketStruct; offset: number };
@@ -41,10 +41,10 @@ export type TextPosStruct = {
 };
 
 /**
- * `TextRangeStruct` represents the structure of RGATreeSplitNodeRange.
- * It is used to serialize and deserialize the RGATreeSplitNodeRange.
+ * `TextPosStructRange` represents the structure of RGATreeSplitPosRange.
+ * It is used to serialize and deserialize the RGATreeSplitPosRange.
  */
-export type TextRangeStruct = [TextPosStruct, TextPosStruct];
+export type TextPosStructRange = [TextPosStruct, TextPosStruct];
 
 /**
  * `Text` is an extended data type for the contents of a text editor.
@@ -209,7 +209,7 @@ export class Text<A extends Indexable = Indexable> {
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.
    */
-  indexRangeToPosRange(range: [number, number]): TextRangeStruct {
+  indexRangeToPosRange(range: [number, number]): TextPosStructRange {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
@@ -223,7 +223,7 @@ export class Text<A extends Indexable = Indexable> {
   /**
    * `posRangeToIndexRange` returns indexes of the given TextRangeStruct.
    */
-  posRangeToIndexRange(range: TextRangeStruct): [number, number] {
+  posRangeToIndexRange(range: TextPosStructRange): [number, number] {
     if (!this.context || !this.text) {
       logger.fatal('it is not initialized yet');
       // @ts-ignore
