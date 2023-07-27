@@ -5,14 +5,14 @@ import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 
-// const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
-//   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-// });
+const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+  apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+});
 // const client = new yorkie.Client('https://api.yorkie.dev', {
 //   apiKey: 'cinr4o2bjhd62lidlji0',
 // });
 
-// const doc = new yorkie.Document('test');
+const doc = new yorkie.Document('test');
 
 function App() {
   const cursorRef = useRef(null);
@@ -44,42 +44,42 @@ function App() {
   useEffect(() => {
     const setup = async () => {
       try {
-        const client = new yorkie.Client('https://api.yorkie.dev', {
-          apiKey: 'cinr4o2bjhd62lidlji0',
-        });
+        // const client = new yorkie.Client('https://api.yorkie.dev', {
+        //   apiKey: 'cinr4o2bjhd62lidlji0',
+        // });
 
         await client.activate();
 
-        const doc = new yorkie.Document('test');
+        // const doc = new yorkie.Document('test');
 
-        // doc.subscribe('presence', (event) => {
-        //   if (event.type !== DocEventType.PresenceChanged) {
-        //     setClients(doc.getPresences());
-        //     setOtherClients(doc.getPresences());
-        //     // console.log('doc.getPresences() -------- ', );
-        //     // console.log(client.getID());
-        //   }
-        // });
-        // doc.subscribe('my-presence', (event) => {
-        //   console.log('my-presence ---------- ', event.type);
-        //   if (event.type === DocEventType.Initialized) {
-        //     console.log('doc.getPresences() -------- ', doc.getPresences());
-        //     console.log(client.getID());
-        //   }
-        // });
+        doc.subscribe('presence', (event) => {
+          if (event.type !== DocEventType.PresenceChanged) {
+            setClients(doc.getPresences());
+            setOtherClients(doc.getPresences());
+            // console.log('doc.getPresences() -------- ', );
+            // console.log(client.getID());
+          }
+        });
+        doc.subscribe('my-presence', (event) => {
+          console.log('my-presence ---------- ', event.type);
+          if (event.type === DocEventType.Initialized) {
+            console.log('doc.getPresences() -------- ', doc.getPresences());
+            console.log(client.getID());
+          }
+        });
 
-        // doc.subscribe('others', (event) => {
-        //   console.log('others ---------- ', event.type);
-        //   if (
-        //     event.type === DocEventType.Watched ||
-        //     event.type === DocEventType.Unwatched
-        //   ) {
-        //     setOtherClients(doc.getPresences());
-        //     setClients(doc.getPresences());
-        //     console.log(doc.getPresences());
-        //     console.log(client.getID());
-        //   }
-        // });
+        doc.subscribe('others', (event) => {
+          console.log('others ---------- ', event.type);
+          if (
+            event.type === DocEventType.Watched ||
+            event.type === DocEventType.Unwatched
+          ) {
+            setOtherClients(doc.getPresences());
+            setClients(doc.getPresences());
+            console.log(doc.getPresences());
+            console.log(client.getID());
+          }
+        });
 
         await client.attach(doc, {
           initialPresence: {
