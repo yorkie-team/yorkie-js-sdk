@@ -25,7 +25,7 @@ const PenCursor = ({ xPos, yPos }) => {
 
     const animatePoints = () => {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      const duration = (0.7 * (1 * 4000)) / 60; // Last 80% of a frame per point
+      const duration = (0.7 * (1 * 4000)) / 60;
 
       for (let i = 0; i < points.length; ++i) {
         const point = points[i];
@@ -41,8 +41,7 @@ const PenCursor = ({ xPos, yPos }) => {
           points.shift();
         } else {
           const lifePercent = point.lifetime / duration;
-          const spreadRate = 5;
-          // const spreadRate = 7 * (1 - lifePercent);
+          const spreadRate = 5; // i.e. line width
 
           ctx.lineJoin = 'round';
           ctx.lineWidth = spreadRate;
