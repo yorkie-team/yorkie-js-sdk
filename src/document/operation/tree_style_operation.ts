@@ -17,7 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTTree, CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { CRDTTree, CRDTTreeID } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,
@@ -28,14 +28,14 @@ import {
  * node in the Tree.
  */
 export class TreeStyleOperation extends Operation {
-  private fromPos: CRDTTreePos;
-  private toPos: CRDTTreePos;
+  private fromPos: CRDTTreeID;
+  private toPos: CRDTTreeID;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: CRDTTreePos,
-    toPos: CRDTTreePos,
+    fromPos: CRDTTreeID,
+    toPos: CRDTTreeID,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
@@ -50,8 +50,8 @@ export class TreeStyleOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: CRDTTreePos,
-    toPos: CRDTTreePos,
+    fromPos: CRDTTreeID,
+    toPos: CRDTTreeID,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
@@ -127,14 +127,14 @@ export class TreeStyleOperation extends Operation {
   /**
    * `getFromPos` returns the start point of the editing range.
    */
-  public getFromPos(): CRDTTreePos {
+  public getFromPos(): CRDTTreeID {
     return this.fromPos;
   }
 
   /**
    * `getToPos` returns the end point of the editing range.
    */
-  public getToPos(): CRDTTreePos {
+  public getToPos(): CRDTTreeID {
     return this.toPos;
   }
 

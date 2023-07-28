@@ -27,8 +27,8 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreePos,
-  InitialCRDTTreePos as ITP,
+  CRDTTreeID,
+  InitialCRDTTreeID as ITP,
   toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -86,10 +86,10 @@ const dummyContext = ChangeContext.create(
 );
 
 /**
- * `issuePos` is a helper function that issues a new CRDTTreePos.
+ * `issuePos` is a helper function that issues a new CRDTTreeID.
  */
-function issuePos(offset = 0): CRDTTreePos {
-  return CRDTTreePos.of(dummyContext.issueTimeTicket(), offset);
+function issuePos(offset = 0): CRDTTreeID {
+  return CRDTTreeID.of(dummyContext.issueTimeTicket(), offset);
 }
 
 /**
@@ -124,8 +124,8 @@ describe('CRDTTreeNode', function () {
 
     assert.equal(left.value, 'hello');
     assert.equal(right!.value, 'yorkie');
-    assert.deepEqual(left.pos, CRDTTreePos.of(ITT, 0));
-    assert.deepEqual(right!.pos, CRDTTreePos.of(ITT, 5));
+    assert.deepEqual(left.pos, CRDTTreeID.of(ITT, 0));
+    assert.deepEqual(right!.pos, CRDTTreeID.of(ITT, 5));
   });
 });
 

@@ -1,3 +1,4 @@
+import { posEquals } from './../crdt/tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -20,6 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
+  CRDTTreeID,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
@@ -85,10 +87,7 @@ export class TreeEditOperation extends Operation {
       this.getExecutedAt(),
     );
 
-    if (
-      !this.fromPos.getCreatedAt().equals(this.toPos.getCreatedAt()) ||
-      this.fromPos.getOffset() !== this.toPos.getOffset()
-    ) {
+    if (!posEquals(this.fromPos, this.toPos)) {
       root.registerElementHasRemovedNodes(tree);
     }
     return changes.map(({ from, to, value, fromPath, toPath }) => {
@@ -115,15 +114,17 @@ export class TreeEditOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    const parent = this.getParentCreatedAt().toTestString();
-    const fromPos = `${this.fromPos
-      .getCreatedAt()
-      .toTestString()}:${this.fromPos.getOffset()}`;
-    const toPos = `${this.toPos
-      .getCreatedAt()
-      .toTestString()}:${this.toPos.getOffset()}`;
-    const contents = this.contents;
-    return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
+    // TODO [ehuas]
+    // const parent = this.getParentCreatedAt().toTestString();
+    // const fromPos = `${this.fromPos
+    //   .getCreatedAt()
+    //   .toTestString()}:${this.fromPos.getOffset()}`;
+    // const toPos = `${this.toPos
+    //   .getCreatedAt()
+    //   .toTestString()}:${this.toPos.getOffset()}`;
+    // const contents = this.contents;
+    // return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
+    return '';
   }
 
   /**

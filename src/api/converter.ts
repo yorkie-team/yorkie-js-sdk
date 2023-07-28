@@ -87,7 +87,7 @@ import {
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreePos,
+  CRDTTreeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
@@ -259,7 +259,7 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
 /**
  * `toTreePos` converts the given model to Protobuf format.
  */
-function toTreePos(pos: CRDTTreePos): PbTreePos {
+function toTreePos(pos: CRDTTreeID): PbTreePos {
   const pbTreePos = new PbTreePos();
   pbTreePos.setCreatedAt(toTimeTicket(pos.getCreatedAt()));
   pbTreePos.setOffset(pos.getOffset());
@@ -907,8 +907,8 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
 /**
  * `fromTreePos` converts the given Protobuf format to model format.
  */
-function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
-  return CRDTTreePos.of(
+function fromTreePos(pbTreePos: PbTreePos): CRDTTreeID {
+  return CRDTTreeID.of(
     fromTimeTicket(pbTreePos.getCreatedAt())!,
     pbTreePos.getOffset(),
   );
