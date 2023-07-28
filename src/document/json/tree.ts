@@ -3,10 +3,11 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
-  CRDTTreePos,
+  CRDTTreeID,
   CRDTTreeNode,
   TreePosStructRange,
   TreeChange,
+  CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
@@ -58,11 +59,7 @@ function buildDescendants(
   if (type === DefaultTextType) {
     validateTextNode(treeNode as TextNode);
     const { value } = treeNode as TextNode;
-    const textNode = CRDTTreeNode.create(
-      CRDTTreePos.of(ticket, 0),
-      type,
-      value,
-    );
+    const textNode = CRDTTreeNode.create(CRDTTreeID.of(ticket, 0), type, value);
 
     parent.append(textNode);
   } else {
@@ -79,7 +76,7 @@ function buildDescendants(
       }
     }
     const elementNode = CRDTTreeNode.create(
-      CRDTTreePos.of(ticket, 0),
+      CRDTTreeID.of(ticket, 0),
       type,
       undefined,
       attrs,
@@ -103,7 +100,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === DefaultTextType) {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), type, value);
+    root = CRDTTreeNode.create(CRDTTreeID.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
     let { attributes } = content as ElementNode;
@@ -119,7 +116,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     }
 
     root = CRDTTreeNode.create(
-      CRDTTreePos.of(context.issueTimeTicket(), 0),
+      CRDTTreeID.of(context.issueTimeTicket(), 0),
       type,
       undefined,
       attrs,
@@ -210,14 +207,14 @@ export class Tree {
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
       return CRDTTreeNode.create(
-        CRDTTreePos.of(context.issueTimeTicket(), 0),
+        CRDTTreeID.of(context.issueTimeTicket(), 0),
         DefaultRootType,
       );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      CRDTTreePos.of(context.issueTimeTicket(), 0),
+      CRDTTreeID.of(context.issueTimeTicket(), 0),
       this.initialRoot.type,
     );
 
@@ -339,7 +336,7 @@ export class Tree {
       }
       crdtNodes.push(
         CRDTTreeNode.create(
-          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          CRDTTreeID.of(this.context!.issueTimeTicket(), 0),
           DefaultTextType,
           compVal,
         ),
@@ -549,9 +546,9 @@ export class Tree {
       return;
     }
 
-    const posRange: [CRDTTreePos, CRDTTreePos] = [
-      CRDTTreePos.fromStruct(range[0]),
-      CRDTTreePos.fromStruct(range[1]),
+    const posRange: [CRDTTreeID, CRDTTreeID] = [
+      CRDTTreeID.fromStruct(range[0]),
+      CRDTTreeID.fromStruct(range[1]),
     ];
 
     return [this.tree.toIndex(posRange[0]), this.tree.toIndex(posRange[1])];
@@ -569,9 +566,9 @@ export class Tree {
       return;
     }
 
-    const posRange: [CRDTTreePos, CRDTTreePos] = [
-      CRDTTreePos.fromStruct(range[0]),
-      CRDTTreePos.fromStruct(range[1]),
+    const posRange: [CRDTTreeID, CRDTTreeID] = [
+      CRDTTreeID.fromStruct(range[0]),
+      CRDTTreeID.fromStruct(range[1]),
     ];
 
     return this.tree.posRangeToPathRange(posRange);

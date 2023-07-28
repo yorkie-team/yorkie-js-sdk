@@ -253,6 +253,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `allChildren` returns the children of the node includes tombstones.
+   */
+  get allChildren(): Array<T> {
+    return [...this._children];
+  }
+
+  /**
    * `hasTextChild` returns true if the node has an text child.
    */
   hasTextChild(): boolean {

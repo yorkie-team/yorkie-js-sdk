@@ -107,12 +107,12 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   expected: string,
 ) {
   doc2.applyChangePack(createChangePack(doc1));
+  debugger;
   doc1.applyChangePack(createChangePack(doc2));
 
   assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
-
 describe('Tree', () => {
   it('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
@@ -1136,11 +1136,11 @@ describe('tree insertion and deletion', () => {
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
 
     docA.update((r) => r.t.edit(1, 2));
-    docB.update((r) => r.t.edit(2, 3));
+    docB.update((r) => r.t.edit(2, 4));
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
-    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>1</p></r>`);
 
-    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
   });
 
   it('Can handle block delete concurrently', function () {
@@ -1157,6 +1157,8 @@ describe('tree insertion and deletion', () => {
 
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>3</p></r>`);
   });
+
+  // overlapping deletion?
 
   it('Can handle insert within block delete concurrently', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
@@ -1238,7 +1240,6 @@ describe('tree insertion and deletion', () => {
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
 
-    debugger;
     docA.update((r) => r.t.edit(0, 7));
     docB.update((r) =>
       r.t.edit(
@@ -1261,14 +1262,13 @@ describe('tree insertion and deletion', () => {
     );
   });
 
-  it.skip('Can handle concurrent element insert/ deletion', function () {
+  it('Can handle concurrent element insert/ deletion', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: '12345' }] }],
     });
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
 
-    debugger;
     docA.update((r) => r.t.edit(0, 7));
     docB.update((r) =>
       r.t.edit(
@@ -1278,6 +1278,7 @@ describe('tree insertion and deletion', () => {
         { type: 'i', children: [{ type: 'text', value: 'fg' }] },
       ),
     );
+
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r></r>`);
     assert.equal(
       docB.getRoot().t.toXML(),
