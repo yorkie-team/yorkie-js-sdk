@@ -124,9 +124,17 @@ const App = () => {
       {/* {console.log('doc.getMyPresence() ------- ', doc.getMyPresence())} */}
       {/* {console.log('doc.getPresences() -------- ', doc.getPresences())} */}
       {/* {console.log(clients)} */}
-      {doc.getPresences().map(user => 
-        {return user.clientID !== client.getID() ?  <Cursor selectedCursorShape={user.presence.cursorShape} x={user.presence.cursor.xPos} y={user.presence.cursor.yPos} /> : <></> }
-      )}
+      {doc.getPresences().map((user) => {
+        return user.clientID !== client.getID() ? (
+          <Cursor
+            selectedCursorShape={user.presence.cursorShape}
+            x={user.presence.cursor.xPos}
+            y={user.presence.cursor.yPos}
+          />
+        ) : (
+          <></>
+        );
+      })}
       {/* {doc.getPresences().map(user => 
         {console.log(user.clientID === client.getID(), user.presence.cursor.xPos, user.presence.cursor.yPos, user.presence.cursorShape)}
         // , user.presence.cursor.yPos, user.presence.cursorShape

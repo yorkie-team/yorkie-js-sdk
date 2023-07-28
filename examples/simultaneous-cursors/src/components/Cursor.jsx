@@ -1,14 +1,14 @@
-import PenCursor from "./PenCursor";
+import PenCursor from './PenCursor';
 
-import "./Cursor.css";
+import './Cursor.css';
 
 const Cursor = ({ selectedCursorShape, x, y }) => {
   return (
     <>
-      {selectedCursorShape === "heart" ? (
+      {selectedCursorShape === 'heart' ? (
         <>
           <img
-            src={"src/assets/icons/icon_heart.svg"}
+            src={'src/assets/icons/icon_heart.svg'}
             className="heart-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />
@@ -16,10 +16,10 @@ const Cursor = ({ selectedCursorShape, x, y }) => {
       ) : (
         <></>
       )}
-      {selectedCursorShape === "thumbs" ? (
+      {selectedCursorShape === 'thumbs' ? (
         <>
           <img
-            src={"src/assets/icons/icon_thumbs.svg"}
+            src={'src/assets/icons/icon_thumbs.svg'}
             className="thumbs-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />
@@ -27,10 +27,10 @@ const Cursor = ({ selectedCursorShape, x, y }) => {
       ) : (
         <></>
       )}
-      {selectedCursorShape === "pen" ? (
+      {selectedCursorShape === 'pen' ? (
         <>
           <img
-            src={"src/assets/icons/icon_pen.svg"}
+            src={'src/assets/icons/icon_pen.svg'}
             className="pen-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />
@@ -39,10 +39,10 @@ const Cursor = ({ selectedCursorShape, x, y }) => {
       ) : (
         <></>
       )}
-      {selectedCursorShape === "cursor" ? (
+      {selectedCursorShape === 'cursor' ? (
         <>
           <img
-            src={"src/assets/icons/icon_cursor.svg"}
+            src={'src/assets/icons/icon_cursor.svg'}
             className="cursor-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />

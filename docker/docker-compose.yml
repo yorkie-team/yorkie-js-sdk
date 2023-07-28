@@ -17,17 +17,14 @@ services:
     # If you're using Mac or Windows, this special domain name("host.docker.internal" which makes containers able to connect to the host)
     # is supported by default.
     # But if you're using Linux and want an envoy container to communicate with the host,
-    # it may help to define "host.docker.internal" in extra_hosts. 
+    # it may help to define "host.docker.internal" in extra_hosts.
     # (Actually, other hostnames are available, but in that case you should update clusters[].host configurations of envoy.yaml)
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
   yorkie:
     image: 'yorkieteam/yorkie:0.4.5'
     container_name: 'yorkie'
-    command: [
-      'server',
-      '--enable-pprof',
-    ]
+    command: ['server', '--enable-pprof']
     restart: always
     ports:
       - '11101:11101'
