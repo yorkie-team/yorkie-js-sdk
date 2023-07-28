@@ -12,52 +12,38 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
 //   apiKey: 'cinr4o2bjhd62lidlji0',
 // });
 
-const doc = new yorkie.Document('test');
+const doc = new yorkie.Document('vitecursortask');
 
-function App() {
+const App = () => {
   const cursorRef = useRef(null);
-
   const [mousePos, setMousePos] = useState({});
 
   const [clients, setClients] = useState([]);
-
   const [currClient, setCurrClient] = useState('');
-
   const [otherClients, setOtherClients] = useState([]);
-
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
 
-  // const handleCursorShapeSelect = async (cursorShape) => {
-  //   setSelectedCursorShape(cursorShape);
+  const handleCursorShapeSelect = (cursorShape) => {
+    setSelectedCursorShape(cursorShape);
 
-  //   doc.update((root) => {
-  //     const clientIdx = root.users.findIndex((obj) => {
-  //       return obj.clientID === client.getID();
-  //     });
-
-  //     if (clientIdx !== -1) {
-  //       root.users[clientIdx].cursorShape = cursorShape;
-  //     }
-  //   });
-  // };
+    doc.update((root, presence) => {
+      presence.set({
+        cursorShape: cursorShape,
+      });
+    });
+  };
 
   useEffect(() => {
     const setup = async () => {
       try {
-        // const client = new yorkie.Client('https://api.yorkie.dev', {
-        //   apiKey: 'cinr4o2bjhd62lidlji0',
-        // });
-
         await client.activate();
-
-        // const doc = new yorkie.Document('test');
 
         doc.subscribe('presence', (event) => {
           if (event.type !== DocEventType.PresenceChanged) {
             setClients(doc.getPresences());
             setOtherClients(doc.getPresences());
-            // console.log('doc.getPresences() -------- ', );
-            // console.log(client.getID());
+            console.log('doc.getPresences() -------- ');
+            console.log(client.getID());
           }
         });
         doc.subscribe('my-presence', (event) => {
@@ -67,7 +53,6 @@ function App() {
             console.log(client.getID());
           }
         });
-
         doc.subscribe('others', (event) => {
           console.log('others ---------- ', event.type);
           if (
@@ -83,8 +68,7 @@ function App() {
 
         await client.attach(doc, {
           initialPresence: {
-            name: '',
-            color: '',
+            cursorShape: 'cursor',
           },
         });
 
@@ -96,54 +80,51 @@ function App() {
         });
         console.log(' ------- print marker 2');
       } catch (error) {
-        console.log(' --------- error', error);
-        console.log(' --------- error', error.message);
+        console.log(
+          ' ------------------------------------------------------ error',
+          error,
+        );
+        console.log(
+          ' ------------------------------------------------------ error',
+          error.message,
+        );
       }
     };
 
     setup();
 
-    // const handleMouseMove = (event) => {
-    //   setMousePos({ x: event.clientX, y: event.clientY });
+    const handleMouseMove = (event) => {
+      setMousePos({ x: event.clientX, y: event.clientY });
 
-    //   doc.update((root) => {
-    //     root.users = [];
-    //     // console.log(root.users, ' ------------- root.users');
+      doc.update((root, presence) => {
+        presence.set({
+          cursor: {
+            xPos: event.clientX,
+            yPos: event.clientY,
+          },
+        });
+      });
+    };
 
-    //     const clientIdx = root.users.findIndex((obj) => {
-    //       return obj.clientID === client.getID();
-    //     });
+    window.addEventListener('mousemove', handleMouseMove);
 
-    //     if (clientIdx !== -1) {
-    //       root.users[clientIdx].xPos = event.clientX;
-    //       root.users[clientIdx].yPos = event.clientY;
-    //     } else {
-    //       root.users.push({
-    //         clientID: client.getID(),
-    //         xPos: event.clientX,
-    //         yPos: event.clientY,
-    //       });
-    //     }
-    //   });
-    // };
-
-    // window.addEventListener('mousemove', handleMouseMove);
-
-    // return () => {
-    //   window.removeEventListener('mousemove', handleMouseMove);
-    // };
+    // what was this code here again? - ask GPT
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
-
+  
   return (
-    <div>
-      {/* {otherClients.map((user) => {
-        return user.clientID !== client.getID() ? (
-          <Cursor cursorShape={user.cursorShape} x={user.x} y={user.y} />
-        ) : (
-          <></>
-        );
-      })}
-      <Cursor cursorShape={selectedCursorShape} x={mousePos.x} y={mousePos.y} />
+    <div className="general-container">
+      {console.log('doc.getMyPresence() ------- ', doc.getMyPresence())}
+      {/* {otherClients.map(user => 
+        {return user.clientID !== client.getID() ?  <Cursor cursorShape={user.cursorShape} x={user.x} y={user.y} /> : <></> }
+      )} */}
+      <Cursor
+        selectedCursorShape={selectedCursorShape}
+        x={mousePos.x}
+        y={mousePos.y}
+      />
       {otherClients.map((user) => (
         <p>
           {user.xPos} {user.yPos}
@@ -155,58 +136,14 @@ function App() {
         ({mousePos.x}, {mousePos.y})
       </b>
       <b> ------ clients.length {clients.length}</b>
-      <b> ------ clients.length {currClient}</b> */}
-      {/* <CursorSelections handleCursorShapeSelect={handleCursorShapeSelect} clients={client} /> */}
-      {/* <div className="cursor-selector-container">
-        <div className="cursor-selections-container">
-          <img
-            onClick={() => handleCursorShapeSelect('heart')}
-            className={
-              selectedCursorShape === 'heart'
-                ? 'cursor-shape-selected'
-                : 'cursor-shape-not-selected'
-            }
-            src="src/assets/icons/icon_heart.svg"
-          />
-          <img
-            onClick={() => handleCursorShapeSelect('thumbs')}
-            className={
-              selectedCursorShape === 'thumbs'
-                ? 'cursor-shape-selected'
-                : 'cursor-shape-not-selected'
-            }
-            src="src/assets/icons/icon_thumbs.svg"
-          />
-          <img
-            onClick={() => handleCursorShapeSelect('pen')}
-            className={
-              selectedCursorShape === 'pen'
-                ? 'cursor-shape-selected'
-                : 'cursor-shape-not-selected'
-            }
-            src="src/assets/icons/icon_pen.svg"
-          />
-          <img
-            onClick={() => handleCursorShapeSelect('cursor')}
-            className={
-              selectedCursorShape === 'cursor'
-                ? 'cursor-shape-selected'
-                : 'cursor-shape-not-selected'
-            }
-            src="src/assets/icons/icon_cursor.svg"
-          />
-        </div>
-
-        <div className="num-users-container">
-          {clients.length !== 1 ? (
-            <p>{clients.length} users are here</p>
-          ) : (
-            <p> 1 user here </p>
-          )}
-        </div>
-      </div> */}
+      <b> ------ clients.length {currClient}</b>
+      <CursorSelections
+        handleCursorShapeSelect={handleCursorShapeSelect}
+        selectedCursorShape={selectedCursorShape}
+        clients={clients}
+      />
     </div>
   );
-}
+};
 
 export default App;

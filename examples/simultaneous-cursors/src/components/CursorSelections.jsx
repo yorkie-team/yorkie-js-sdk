@@ -1,40 +1,44 @@
-const CursorSelections = ({ handleCursorShapeSelect, clients }) => {
+const CursorSelections = ({
+  handleCursorShapeSelect,
+  selectedCursorShape,
+  clients,
+}) => {
   return (
     <div className="cursor-selector-container">
       <div className="cursor-selections-container">
         <img
-          onClick={() => handleCursorShapeSelect('heart')}
+          onClick={() => handleCursorShapeSelect("heart")}
           className={
-            selectedCursorShape === 'heart'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
+            selectedCursorShape === "heart"
+              ? "cursor-shape-selected"
+              : "cursor-shape-not-selected"
           }
           src="src/assets/icons/icon_heart.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('thumbs')}
+          onClick={() => handleCursorShapeSelect("thumbs")}
           className={
-            selectedCursorShape === 'thumbs'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
+            selectedCursorShape === "thumbs"
+              ? "cursor-shape-selected"
+              : "cursor-shape-not-selected"
           }
           src="src/assets/icons/icon_thumbs.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('pen')}
+          onClick={() => handleCursorShapeSelect("pen")}
           className={
-            selectedCursorShape === 'pen'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
+            selectedCursorShape === "pen"
+              ? "cursor-shape-selected"
+              : "cursor-shape-not-selected"
           }
           src="src/assets/icons/icon_pen.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('cursor')}
+          onClick={() => handleCursorShapeSelect("cursor")}
           className={
-            selectedCursorShape === 'cursor'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
+            selectedCursorShape === "cursor"
+              ? "cursor-shape-selected"
+              : "cursor-shape-not-selected"
           }
           src="src/assets/icons/icon_cursor.svg"
         />
