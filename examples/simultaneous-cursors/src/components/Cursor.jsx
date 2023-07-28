@@ -34,7 +34,7 @@ const Cursor = ({ selectedCursorShape, x, y }) => {
             className="pen-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />
-          <PenCursor />
+          <PenCursor xPos={x} yPos={y} />
         </>
       ) : (
         <></>
