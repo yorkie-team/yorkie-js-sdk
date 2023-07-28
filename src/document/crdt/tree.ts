@@ -80,12 +80,50 @@ export interface TreeChange {
   value?: Array<TreeNode> | { [key: string]: any };
 }
 
+export const posEquals(posA: CRDTTreePos, posB: CRDTTreePos) {
+    return posA.getParentId().getCreatedAt().equals(posB.getParentId().getCreatedAt())
+     && posA.getParentId().getOffset() === posB.getParentId().getOffset() 
+     && posA.getLeftSiblingId().getCreatedAt().equals(posB.getLeftSiblingId().getCreatedAt())
+     && posA.getLeftSiblingId().getOffset() === posB.getLeftSiblingId().getOffset() 
+}
+
+export class CRDTTreePos {
+  private parentId: CRDTTreeID;
+  private leftSiblingId: CRDTTreeID;
+
+  constructor(parentId: CRDTTreeID, leftSiblingId: CRDTTreeID) {
+    this.parentId = parentId;
+    this.leftSiblingId = leftSiblingId;
+  }
+
+  /**
+   *
+   */
+  public static of(parentId: CRDTTreeID, leftSiblingId: CRDTTreeID) {
+    return new CRDTTreePos(parentId, leftSiblingId);
+  }
+
+  /**
+   *
+   */
+  public getParentId() {
+    return this.parentId;
+  }
+
+  /**
+   *
+   */
+  public getLeftSiblingId() {
+    return this.leftSiblingId;
+  }
+}
+
 /**
- * `CRDTTreePos` represent a position in the tree. It indicates the virtual
+ * `CRDTTreeID` represent a position in the tree. It indicates the virtual
  * location in the tree, so whether the node is splitted or not, we can find
  * the adjacent node to pos by calling `map.floorEntry()`.
  */
-export class CRDTTreePos {
+export class CRDTTreeID {
   /**
    * `createdAt` is the creation time of the node.
    */
@@ -103,17 +141,17 @@ export class CRDTTreePos {
   }
 
   /**
-   * `of` creates a new instance of CRDTTreePos.
+   * `of` creates a new instance of CRDTTreeID.
    */
-  public static of(createdAt: TimeTicket, offset: number): CRDTTreePos {
-    return new CRDTTreePos(createdAt, offset);
+  public static of(createdAt: TimeTicket, offset: number): CRDTTreeID {
+    return new CRDTTreeID(createdAt, offset);
   }
 
   /**
-   * `fromStruct` creates a new instance of CRDTTreePos from the given struct.
+   * `fromStruct` creates a new instance of CRDTTreeID from the given struct.
    */
-  public static fromStruct(struct: CRDTTreePosStruct): CRDTTreePos {
-    return CRDTTreePos.of(
+  public static fromStruct(struct: CRDTTreeIDStruct): CRDTTreeID {
+    return CRDTTreeID.of(
       TimeTicket.fromStruct(struct.createdAt),
       struct.offset,
     );
@@ -143,7 +181,7 @@ export class CRDTTreePos {
   /**
    * `toStruct` returns the structure of this position.
    */
-  public toStruct(): CRDTTreePosStruct {
+  public toStruct(): CRDTTreeIDStruct {
     return {
       createdAt: this.createdAt.toStruct(),
       offset: this.offset,
@@ -159,20 +197,20 @@ export class CRDTTreePos {
 }
 
 /**
- * `CRDTTreePosStruct` represents the structure of CRDTTreePos.
- * It is used to serialize and deserialize the CRDTTreePos.
+ * `CRDTTreeIDStruct` represents the structure of CRDTTreeID.
+ * It is used to serialize and deserialize the CRDTTreeID.
  */
-export type CRDTTreePosStruct = { createdAt: TimeTicketStruct; offset: number };
+export type CRDTTreeIDStruct = { createdAt: TimeTicketStruct; offset: number };
 
 /**
- * `InitialCRDTTreePos` is the initial position of the tree.
+ * `InitialCRDTTreeID` is the initial position of the tree.
  */
-export const InitialCRDTTreePos = CRDTTreePos.of(InitialTimeTicket, 0);
+export const InitialCRDTTreeID = CRDTTreeID.of(InitialTimeTicket, 0);
 
 /**
- * `compareCRDTTreePos` compares the given two CRDTTreePos.
+ * `compareCRDTTreeID` compares the given two CRDTTreeID.
  */
-function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
+function compareCRDTTreeID(posA: CRDTTreeID, posB: CRDTTreeID): number {
   const compare = posA.getCreatedAt().compare(posB.getCreatedAt());
   if (compare !== 0) {
     return compare;
@@ -187,22 +225,22 @@ function compareCRDTTreePos(posA: CRDTTreePos, posB: CRDTTreePos): number {
 }
 
 /**
- * `TreePosRange` represents a pair of CRDTTreePos.
+ * `TreePosRange` represents a pair of CRDTTreeID.
  */
-export type TreePosRange = [CRDTTreePos, CRDTTreePos];
+export type TreePosRange = [CRDTTreeID, CRDTTreeID];
 
 /**
  * `TreePosStructRange` represents the structure of TreeRange.
  * It is used to serialize and deserialize the TreeRange.
  */
-export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
+export type TreePosStructRange = [CRDTTreeIDStruct, CRDTTreeIDStruct];
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
  * links to other nodes to resolve conflicts.
  */
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
-  pos: CRDTTreePos;
+  pos: CRDTTreeID;
   removedAt?: TimeTicket;
   attrs?: RHT;
 
@@ -229,7 +267,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   _value = '';
 
   constructor(
-    pos: CRDTTreePos,
+    pos: CRDTTreeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
@@ -251,7 +289,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `create` creates a new instance of CRDTTreeNode.
    */
   static create(
-    pos: CRDTTreePos,
+    pos: CRDTTreeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
@@ -326,7 +364,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    */
   clone(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
-      CRDTTreePos.of(this.pos.getCreatedAt(), offset),
+      CRDTTreeID.of(this.pos.getCreatedAt(), offset),
       this.type,
       undefined,
       undefined,
@@ -412,14 +450,14 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
 export class CRDTTree extends CRDTGCElement {
   private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
-  private nodeMapByPos: LLRBTree<CRDTTreePos, CRDTTreeNode>;
+  private nodeMapByPos: LLRBTree<CRDTTreeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.dummyHead = new CRDTTreeNode(InitialCRDTTreePos, DummyHeadType);
+    this.dummyHead = new CRDTTreeNode(InitialCRDTTreeID, DummyHeadType);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
-    this.nodeMapByPos = new LLRBTree(compareCRDTTreePos);
+    this.nodeMapByPos = new LLRBTree(compareCRDTTreeID);
     this.removedNodeMap = new Map();
 
     let previous = this.dummyHead;
@@ -504,10 +542,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `findTreePos` finds `TreePos` of the given `CRDTTreePos`
+   * `findTreePos` finds `TreePos` of the given `CRDTTreeID`
    */
   public findTreePos(
-    pos: CRDTTreePos,
+    pos: CRDTTreeID,
     editedAt: TimeTicket,
   ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
     const treePos = this.toTreePos(pos);
@@ -533,53 +571,60 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `findTreePosWithSplitText` finds `TreePos` of the given `CRDTTreePos` and
+   * `findTreePosWithSplitText` finds `TreePos` of the given `CRDTTreeID` and
    * splits the text node if necessary.
    *
-   * `CRDTTreePos` is a position in the CRDT perspective. This is
+   * `CRDTTreeID` is a position in the CRDT perspective. This is
    * different from `TreePos` which is a position of the tree in the local
    * perspective.
    */
-  public findTreePosWithSplitText(
+
+  // Id {createdAt, offset}
+  // indexTreePos, CRDTTreeID {parentId, prevId}
+
+  // if there's no prev, then where will be no prev
+  public findNodesAndSplitText(
     pos: CRDTTreePos,
     editedAt: TimeTicket,
-  ): [TreePos<CRDTTreeNode>, CRDTTreeNode] {
-    const treePos = this.toTreePos(pos);
-    if (!treePos) {
+  ): [CRDTTreeNode, CRDTTreeNode, CRDTTreeNode] {
+    const treeNodes = this.toTreeNodes(pos);
+    // parentnode, prevnode, rightnode 
+    if (!treeNodes) {
       throw new Error(`cannot find node at ${pos}`);
     }
+    let [parentNode, leftSiblingNode] = treeNodes;
     // Find the appropriate position. This logic is similar to the logical to
     // handle the same position insertion of RGA.
 
-    let current = treePos;
-    const absOffset = current.node.pos.getOffset();
+    if (leftSiblingNode.isText) {
+      const absOffset = leftSiblingNode.pos.getOffset();
+      const split = leftSiblingNode.split(pos.getLeftSiblingId().getOffset(), absOffset);
 
-    if (current.node.isText) {
-      const split = current.node.split(current.offset, absOffset);
       if (split) {
-        this.insertAfter(current.node, split);
-        split.insPrev = current.node;
+        this.insertAfter(leftSiblingNode, split);
+        split.insPrev = leftSiblingNode;
 
-        if (current.node.insNext) {
-          current.node.insNext.insPrev = split;
-          split.insNext = current.node.insNext;
+        if (leftSiblingNode.insNext) {
+            leftSiblingNode.insNext.insPrev = split;
+          split.insNext = leftSiblingNode.insNext;
         }
-        current.node.insNext = split;
+        leftSiblingNode.insNext = split;
       }
-    }
+     }
 
-    while (
-      current.node.next?.pos.getCreatedAt().after(editedAt) &&
-      current.node.parent === current.node.next.parent
-    ) {
-      current = {
-        node: current.node.next,
-        offset: current.node.next.size,
-      };
-    }
+    const index = parentNode.allChildren.indexOf(leftSiblingNode);
 
-    const right = this.indexTree.findPostorderRight(treePos)!;
-    return [current, right];
+      for (let i = index + 1; i < parentNode.allChildren.length ; i++) {
+        const next = parentNode.allChildren[index];
+
+        if (next.pos.getCreatedAt().after(editedAt)) {
+            leftSiblingNode = next;
+        } else {
+            break;
+        }
+      }
+
+    return [parentNode, leftSiblingNode, leftSiblingNode.next!];
   }
 
   /**
@@ -601,7 +646,7 @@ export class CRDTTree extends CRDTGCElement {
    * `style` applies the given attributes of the given range.
    */
   public style(
-    range: [CRDTTreePos, CRDTTreePos],
+    range: [CRDTTreeID, CRDTTreeID],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
   ) {
@@ -644,8 +689,8 @@ export class CRDTTree extends CRDTGCElement {
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     // 01. split text nodes at the given range if needed.
-    const [toPos, toRight] = this.findTreePosWithSplitText(range[1], editedAt);
-    const [fromPos, fromRight] = this.findTreePosWithSplitText(
+    const [toParent, toLeft, toRight] = this.findNodesAndSplitText(range[1], editedAt);
+    const [fromParent, fromLeft, fromRight] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
@@ -655,10 +700,10 @@ export class CRDTTree extends CRDTGCElement {
     const changes: Array<TreeChange> = [];
     changes.push({
       type: TreeChangeType.Content,
-      from: this.toIndex(range[0]),
-      to: this.toIndex(range[1]),
-      fromPath: this.indexTree.treePosToPath(fromPos),
-      toPath: this.indexTree.treePosToPath(toPos),
+      from: this.toIndex(range[0].getLeftSiblingId()),
+      to: this.toIndex(range[1].getLeftSiblingId()),
+      fromPath: this.indexTree.treePosToPath(this.toTreePos(range[0].getLeftSiblingId())!),
+      toPath: this.indexTree.treePosToPath(this.toTreePos(range[1].getLeftSiblingId())!),
       actor: editedAt.getActorID()!,
       value: contents?.length
         ? contents.map((content) => toJSON(content))
@@ -679,7 +724,7 @@ export class CRDTTree extends CRDTGCElement {
         editedAt,
       );
 
-      const isRangeOnSameBranch = toPos.node.isAncestorOf(fromPos.node);
+      const isRangeOnSameBranch = toLeft.isAncestorOf(fromLeft);
       for (const node of toBeRemoveds) {
         node.remove(editedAt);
 
@@ -691,24 +736,24 @@ export class CRDTTree extends CRDTGCElement {
       // move the alive children of the removed element node
       if (isRangeOnSameBranch) {
         let removedElementNode: CRDTTreeNode | undefined;
-        if (fromPos.node.parent?.isRemoved) {
-          removedElementNode = fromPos.node.parent;
-        } else if (!fromPos.node.isText && fromPos.node.isRemoved) {
-          removedElementNode = fromPos.node;
+        if (fromParent?.isRemoved) {
+          removedElementNode = fromParent;
+        } else if (!fromLeft.isText && fromLeft.isRemoved) {
+          removedElementNode = fromLeft;
         }
 
         // If the nearest removed element node of the fromNode is found,
         // insert the alive children of the removed element node to the toNode.
         if (removedElementNode) {
-          const elementNode = toPos.node;
-          const offset = elementNode.findBranchOffset(removedElementNode);
+          const elementNode = toLeft;
+          const offset = elementNode!.findBranchOffset(removedElementNode);
           for (const node of removedElementNode.children.reverse()) {
             elementNode.insertAt(node, offset);
           }
         }
       } else {
-        if (fromPos.node.parent?.isRemoved) {
-          toPos.node.parent?.prepend(...fromPos.node.parent.children);
+        if (fromParent?.isRemoved) {
+          toParent?.prepend(...fromParent.children);
         }
       }
     }
@@ -716,9 +761,9 @@ export class CRDTTree extends CRDTGCElement {
     // 03. insert the given node at the given position.
     if (contents?.length) {
       // 03-1. insert the content nodes to the list.
-      let previous = fromRight!.prev!;
-      const node = fromPos.node;
-      let offset = fromPos.offset;
+      let previous = fromRight!.prev!; // linked list
+      const parentNode = fromPos.parent; // parent -> node from treepos
+      let leftSibling = fromPos.leftSibling; // tree
 
       for (const content of contents!) {
         traverse(content, (node) => {
@@ -727,15 +772,17 @@ export class CRDTTree extends CRDTGCElement {
         });
 
         // 03-2. insert the content nodes to the tree.
-        if (node.isText) {
-          if (fromPos.offset === 0) {
-            node.parent!.insertBefore(content, node);
-          } else {
-            node.parent!.insertAfter(content, node);
-          }
+        if (parentNode.isText) {
+
+            // if parent and left are same, then we insert into very front of parent's children
+            // we can get rid of insertbefore
+          (parentNode as unknown as IndexTreeNode<CRDTTreeNode>).insertAfter(
+            content,
+            leftSibling,
+          );
         } else {
-          node.insertAt(content, offset);
-          offset++;
+          parentNode.insertAt(content, leftSibling);
+          leftSibling = content;
         }
       }
     }
@@ -839,10 +886,34 @@ export class CRDTTree extends CRDTGCElement {
   public findPos(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
 
-    return CRDTTreePos.of(
-      treePos.node.pos.getCreatedAt(),
-      treePos.node.pos.getOffset() + treePos.offset,
-    );
+    let {node, offset} = treePos;
+    let leftSibling;
+
+    if (node.isText) {
+        const split = node.split(offset, node.pos.getOffset());
+        
+        if (split) {
+            this.insertAfter(node, split);
+            split.insPrev = node;
+    
+            if (node.insNext) {
+                node.insNext.insPrev = split;
+              split.insNext = node.insNext;
+            }
+            node.insNext = split;
+        }
+
+        leftSibling = node;
+        node = node.parent!;
+    } else {
+        if (offset === 0) {
+            leftSibling = node;
+        } else {
+            leftSibling = node.children[offset-1];    
+        }
+    }
+
+    return CRDTTreePos.of(node.pos, CRDTTreeID.of(leftSibling.getCreatedAt(), leftSibling.getOffset() + offset));
   }
 
   /**
@@ -859,7 +930,7 @@ export class CRDTTree extends CRDTGCElement {
    *  if tree is just like above, and the pos is pointing index of 7
    * this returns 0 (start index of tag)
    */
-  public posToStartIndex(pos: CRDTTreePos): number {
+  public posToStartIndex(pos: CRDTTreeID): number {
     const treePos = this.toTreePos(pos);
     const index = this.toIndex(pos);
     let size = treePos?.node.size;
@@ -874,7 +945,7 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `pathToPosRange` converts the given path of the node to the range of the position.
    */
-  public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
+  public pathToPosRange(path: Array<number>): [CRDTTreeID, CRDTTreeID] {
     const index = this.pathToIndex(path);
     const { node: parentNode, offset } = this.pathToTreePos(path);
 
@@ -897,10 +968,10 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `pathToPos` finds the position of the given index in the tree by path.
    */
-  public pathToPos(path: Array<number>): CRDTTreePos {
+  public pathToPos(path: Array<number>): CRDTTreeID {
     const treePos = this.indexTree.pathToTreePos(path);
 
-    return CRDTTreePos.of(
+    return CRDTTreeID.of(
       treePos.node.pos.getCreatedAt(),
       treePos.node.pos.getOffset() + treePos.offset,
     );
@@ -979,9 +1050,9 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toIndex` converts the given CRDTTreePos to the index of the tree.
+   * `toIndex` converts the given CRDTTreeID to the index of the tree.
    */
-  public toIndex(pos: CRDTTreePos): number {
+  public toIndex(pos: CRDTTreeID): number {
     const treePos = this.toTreePos(pos);
     if (!treePos) {
       return -1;
@@ -990,10 +1061,33 @@ export class CRDTTree extends CRDTGCElement {
     return this.indexTree.indexOf(treePos);
   }
 
+  private toTreeNodes(pos: CRDTTreePos) {
+    const parentId = pos.getParentId();
+    const leftSiblingId = pos.getLeftSiblingId();
+    const parentEntry = this.nodeMapByPos.floorEntry(parentId)
+    const leftSiblingEntry = this.nodeMapByPos.floorEntry(leftSiblingId)
+
+    if (!parentEntry || !leftSiblingEntry || !parentEntry.key.getCreatedAt().equals(parentId.getCreatedAt()) || !leftSiblingEntry.key.getCreatedAt().equals(leftSiblingId.getCreatedAt())) {
+        return;
+    }
+
+    let leftSiblingNode = leftSiblingEntry.value
+
+    if (
+        leftSiblingId.getOffset() > 0 &&
+        leftSiblingId.getOffset() === leftSiblingNode.pos.getOffset() &&
+        leftSiblingNode.insPrev
+      ) {
+        leftSiblingNode = leftSiblingNode.insPrev;
+      }
+
+      return [parentEntry.value, leftSiblingNode]
+  }
+
   /**
-   * `toTreePos` converts the given CRDTTreePos to TreePos<CRDTTreeNode>.
+   * `toTreePos` converts the given CRDTTreeID to TreePos<CRDTTreeNode>.
    */
-  private toTreePos(pos: CRDTTreePos): TreePos<CRDTTreeNode> | undefined {
+  private toTreePos(pos: CRDTTreeID): TreePos<CRDTTreeNode> | undefined {
     const entry = this.nodeMapByPos.floorEntry(pos);
     if (!entry || !entry.key.getCreatedAt().equals(pos.getCreatedAt())) {
       return;
@@ -1001,6 +1095,7 @@ export class CRDTTree extends CRDTGCElement {
 
     // Choose the left node if the position is on the boundary of the split nodes.
     let node = entry.value;
+    // textnode
 
     if (
       pos.getOffset() > 0 &&
