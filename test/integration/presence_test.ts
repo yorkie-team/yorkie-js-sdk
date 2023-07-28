@@ -30,13 +30,13 @@ describe('Presence', function () {
     for (let i = 0; i < snapshotThreshold; i++) {
       doc1.update((root, p) => p.set({ key: `${i}` }));
     }
-    assert.deepEqual(doc1.getPresence(c1.getID()!), {
+    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), {
       key: `${snapshotThreshold - 1}`,
     });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresence(c1.getID()!), {
+    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), {
       key: `${snapshotThreshold - 1}`,
     });
   });
@@ -61,13 +61,13 @@ describe('Presence', function () {
       isRealtimeSync: false,
     });
 
-    assert.deepEqual(doc1.getPresence(c1.getID()!), { key: 'key1' });
-    assert.deepEqual(doc1.getPresence(c2.getID()!), undefined);
-    assert.deepEqual(doc2.getPresence(c2.getID()!), { key: 'key2' });
-    assert.deepEqual(doc2.getPresence(c1.getID()!), { key: 'key1' });
+    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), { key: 'key1' });
+    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), undefined);
+    assert.deepEqual(doc2.getPresenceForTest(c2.getID()!), { key: 'key2' });
+    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), { key: 'key1' });
 
     await c1.sync();
-    assert.deepEqual(doc1.getPresence(c2.getID()!), { key: 'key2' });
+    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), { key: 'key2' });
 
     await c2.detach(doc2);
     await c1.sync();
@@ -93,13 +93,13 @@ describe('Presence', function () {
     });
 
     const emptyObject = {} as PresenceType;
-    assert.deepEqual(doc1.getPresence(c1.getID()!), emptyObject);
-    assert.deepEqual(doc1.getPresence(c2.getID()!), undefined);
-    assert.deepEqual(doc2.getPresence(c2.getID()!), emptyObject);
-    assert.deepEqual(doc2.getPresence(c1.getID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), undefined);
+    assert.deepEqual(doc2.getPresenceForTest(c2.getID()!), emptyObject);
+    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), emptyObject);
 
     await c1.sync();
-    assert.deepEqual(doc1.getPresence(c2.getID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), emptyObject);
   });
 
   it('Should be synced eventually', async function () {
@@ -209,14 +209,14 @@ describe('Presence', function () {
     });
 
     doc1.update((root, p) => p.set({ cursor: { x: 1, y: 1 } }));
-    assert.deepEqual(doc1.getPresence(c1.getID()!), {
+    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), {
       key: 'key1',
       cursor: { x: 1, y: 1 },
     });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresence(c1.getID()!), {
+    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), {
       key: 'key1',
       cursor: { x: 1, y: 1 },
     });
@@ -335,7 +335,7 @@ describe(`Document.Subscribe('presence')`, function () {
       [
         {
           type: DocEventType.Unwatched,
-          value: { clientID: c2ID },
+          value: { clientID: c2ID, presence: { name: 'b' } },
         },
       ],
     ]);
