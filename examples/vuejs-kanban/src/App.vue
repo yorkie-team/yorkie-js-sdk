@@ -52,6 +52,9 @@ export default {
   created() {
     this.fetchDoc();
   },
+  beforeUnmount(){
+    this.disconnect();
+  },
   watch: {
     opened(index) {
       this.$nextTick(function () {
@@ -83,6 +86,10 @@ export default {
       await client.sync();
 
       this.lists = doc.getRoot().lists;
+    },
+
+    async disconnect(){
+      await client.deactivate();
     },
 
     isOpened(index) {
