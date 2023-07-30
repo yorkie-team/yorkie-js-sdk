@@ -58,10 +58,11 @@ export default {
         if (index === 0) {
           // Open add list form
           this.$refs['addListForm'].querySelector('input').focus();
-        } else {
+        } else if (index) {
           // Or open add card form
           this.$refs['addCardForm'][index - 1].querySelector('input').focus();
         }
+        this.title = ''
       });
     },
   },
