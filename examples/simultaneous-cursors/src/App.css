@@ -1,3 +1,9 @@
+.general-container {
+  border: solid;
+  min-width: 100vw;
+  min-height: 100vh;
+}
+
 .cursor-selector-container {
   /* z-index: 10; */
 
@@ -43,30 +49,24 @@
 
 .cursor-shape-selected {
   /* cursor: none; */
+  background-color: rgb(81, 76, 73);
+  border-radius: 9px;
 }
 
 .cursor-shape-not-selected {
   /* cursor: none; */
+  background-color: rgb(81, 76, 73);
   opacity: 0.5;
+  border-radius: 9px;
 }
 .cursor-shape-not-selected:hover {
+  background-color: rgb(81, 76, 73);
   opacity: 0.7;
+  border-radius: 9px;
 }
 
 * {
   /* cursor: none; */
   /* pointer-events: none; */
   /* z-index: 100; */
-}
-
-.circle {
-  height: 24px;
-  width: 24px;
-  border-radius: 24px;
-  background-color: black;
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 99999999; /* so that it stays on top of all other elements */
 }

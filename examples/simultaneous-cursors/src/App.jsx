@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import './App.css';
 
 import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
+
+import FlyingReaction from './components/FlyingReaction';
+import ReactionSelector from './components/ReactionSelector';
+import useInterval from './hooks/useInterval';
+import './index.css';
 
 const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
@@ -14,8 +19,17 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
 
 const doc = new yorkie.Document('vitecursortask');
 
+var CursorMode;
+(function (CursorMode) {
+  CursorMode[(CursorMode['Hidden'] = 0)] = 'Hidden';
+  CursorMode[(CursorMode['Chat'] = 1)] = 'Chat';
+  CursorMode[(CursorMode['ReactionSelector'] = 2)] = 'ReactionSelector';
+  CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
+})(CursorMode || (CursorMode = {}));
+
 const App = () => {
-  const cursorRef = useRef(null);
+  // ----------------------------------------------------------------------------- prescence & base cursor functionalities code
+
   const [mousePos, setMousePos] = useState({});
 
   const [clients, setClients] = useState([]);
@@ -38,32 +52,24 @@ const App = () => {
         await client.activate();
 
         doc.subscribe('presence', (event) => {
-          // console.log('prescence ---------- ', event.type);
-          // console.log(doc.getPresences())
           setClients(doc.getPresences());
           if (event.type !== DocEventType.PresenceChanged) {
             setClients(doc.getPresences());
-            // console.log(doc.getPresences())
           }
         });
         doc.subscribe('my-presence', (event) => {
           setClients(doc.getPresences());
-          // console.log('my-presence ---------- ', event.type);
           if (event.type === DocEventType.Initialized) {
             setClients(doc.getPresences());
-            // console.log('doc.getPresences() -------- ', doc.getPresences());
           }
         });
         doc.subscribe('others', (event) => {
           setClients(doc.getPresences());
-          // console.log('others ---------- ', event.type);
-          // console.log(doc.getPresences())
           if (
             event.type === DocEventType.Watched ||
             event.type === DocEventType.Unwatched
           ) {
             setClients(doc.getPresences());
-            // console.log(doc.getPresences())
           }
         });
 
@@ -77,13 +83,10 @@ const App = () => {
           },
         });
 
-        // console.log(' ------- print marker 1');
-
         window.addEventListener('beforeunload', () => {
           // client.detach(doc);
           client.deactivate();
         });
-        // console.log(' ------- print marker 2');
       } catch (error) {
         console.log(
           ' ------------------------------------------------------ error',
@@ -119,11 +122,96 @@ const App = () => {
     };
   }, []);
 
+  // ----------------------------------------------------------------------------- heart & thumbs animation code
+
+  const [state, setState] = useState({ mode: CursorMode.Reaction });
+  const [reactions, setReactions] = useState([]);
+
+  const bubbleRate = 100;
+
+  // Remove reactions that are not visible anymore (every 1 sec)
+  useInterval(() => {
+    setReactions((reactions) =>
+      reactions.filter((reaction) => reaction.timestamp > Date.now() - 4000),
+    );
+  }, 1000);
+
+  useInterval(() => {
+    console.log('working');
+    console.log('state.isPressed ----  ', state.isPressed);
+    if (state.mode === CursorMode.Reaction && state.isPressed) {
+      setReactions((reactions) =>
+        reactions.concat([
+          {
+            point: { x: cursor.x, y: cursor.y },
+            value: state.reaction,
+            timestamp: Date.now(),
+          },
+        ]),
+      );
+    }
+  }, bubbleRate);
+
+  const [cursor, setCursor] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function onKeyUp(e) {
+      if (e.key === '/') {
+        setState({ mode: CursorMode.Chat, previousMessage: null, message: '' });
+      } else if (e.key === 'Escape') {
+        // updateMyPresence({ message: "" });
+        setState({ mode: CursorMode.Hidden });
+      } else if (e.key === 'e') {
+        setState({ mode: CursorMode.ReactionSelector });
+      }
+    }
+
+    window.addEventListener('keyup', onKeyUp);
+
+    function onKeyDown(e) {
+      if (e.key === '/') {
+        e.preventDefault();
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+
+    const handleMouseMove = (event) => {
+      const { clientX, clientY } = event;
+      const newCursor = { ...cursor, x: clientX, y: clientY };
+      setCursor(newCursor);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove, false);
+
+    return () => {
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
   return (
-    <div className="general-container">
-      {/* {console.log('doc.getMyPresence() ------- ', doc.getMyPresence())} */}
-      {/* {console.log('doc.getPresences() -------- ', doc.getPresences())} */}
-      {/* {console.log(clients)} */}
+    <div
+      className="general-container"
+      onPointerDown={() => {
+        console.log('downnnn');
+        setState((state) =>
+          state.mode === CursorMode.Reaction
+            ? { ...state, isPressed: true }
+            : state,
+        );
+      }}
+      onPointerUp={() => {
+        console.log('uppppp');
+        setState((state) =>
+          state.mode === CursorMode.Reaction
+            ? { ...state, isPressed: false }
+            : state,
+        );
+      }}
+    >
+      {/* simultaneous cursors display code & pen cursor display code  */}
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
@@ -155,12 +243,33 @@ const App = () => {
         ({mousePos.x}, {mousePos.y})
       </b>
       <b> ------ clients.length {clients.length}</b>
-      <b> ------ clients.length {currClient}</b>
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
         selectedCursorShape={selectedCursorShape}
         clients={clients}
       />
+      {/* bubbling animation code */}
+      {cursor && (
+        <div
+          className="c76"
+          id="reaction-container"
+          style={{
+            transform: `translateX(${cursor.x}px) translateY(${cursor.y}px)`,
+          }}
+        >
+          {reactions.map((reaction) => {
+            return (
+              <FlyingReaction
+                key={reaction.timestamp.toString()}
+                x={reaction.point.x}
+                y={reaction.point.y}
+                timestamp={reaction.timestamp}
+                selectedCursorShape={selectedCursorShape}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
