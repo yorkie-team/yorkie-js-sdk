@@ -24,7 +24,6 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 import {
   ActivateClientRequest,
   DeactivateClientRequest,
@@ -909,7 +908,7 @@ export class Client implements Observable<ClientEvent> {
         if (presence) {
           attachment.doc.publish({
             type: DocEventType.Unwatched,
-            value: { clientID: publisher, presence: deepcopy(presence) },
+            value: { clientID: publisher, presence },
           });
         }
         break;

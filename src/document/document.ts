@@ -1056,6 +1056,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `setOnlineClients` sets the given online client set.
+   *
+   * @internal
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
@@ -1063,6 +1065,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `addOnlineClient` adds the given clientID into the online client set.
+   *
+   * @internal
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
@@ -1070,6 +1074,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `removeOnlineClient` removes the clientID from the online client set.
+   *
+   * @internal
    */
   public removeOnlineClient(clientID: ActorID) {
     this.onlineClients.delete(clientID);
@@ -1077,6 +1083,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `hasPresence` returns whether the given clientID has a presence or not.
+   *
+   * @internal
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
@@ -1090,7 +1098,8 @@ export class Document<T, P extends Indexable = Indexable> {
       return {} as P;
     }
 
-    return this.presences.get(this.changeID.getActorID()!)!;
+    const p = this.presences.get(this.changeID.getActorID()!)!;
+    return deepcopy(p);
   }
 
   /**
@@ -1098,15 +1107,19 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getPresence(clientID: ActorID): P | undefined {
     if (!this.onlineClients.has(clientID)) return;
-    return this.presences.get(clientID);
+    const p = this.presences.get(clientID);
+    return p ? deepcopy(p) : undefined;
   }
 
   /**
    * `getPresenceForTest` returns the presence of the given clientID
    * regardless of whether the client is online or not.
+   *
+   * @internal
    */
   public getPresenceForTest(clientID: ActorID): P | undefined {
-    return this.presences.get(clientID);
+    const p = this.presences.get(clientID);
+    return p ? deepcopy(p) : undefined;
   }
 
   /**
@@ -1118,7 +1131,7 @@ export class Document<T, P extends Indexable = Indexable> {
       if (this.presences.has(clientID)) {
         presences.push({
           clientID,
-          presence: this.presences.get(clientID)!,
+          presence: deepcopy(this.presences.get(clientID)!),
         });
       }
     }
