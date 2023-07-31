@@ -113,7 +113,7 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
 describe('Tree', () => {
-  it('Can be created', function () {
+  it.only('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 

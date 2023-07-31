@@ -17,7 +17,11 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTTree, CRDTTreeID } from '@yorkie-js-sdk/src/document/crdt/tree';
+import {
+  CRDTTree,
+  CRDTTreeID,
+  CRDTTreePos,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,
@@ -28,14 +32,14 @@ import {
  * node in the Tree.
  */
 export class TreeStyleOperation extends Operation {
-  private fromPos: CRDTTreeID;
-  private toPos: CRDTTreeID;
+  private fromPos: CRDTTreePos;
+  private toPos: CRDTTreePos;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: CRDTTreeID,
-    toPos: CRDTTreeID,
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
@@ -50,8 +54,8 @@ export class TreeStyleOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: CRDTTreeID,
-    toPos: CRDTTreeID,
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
@@ -111,11 +115,13 @@ export class TreeStyleOperation extends Operation {
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
+      .getLeftSiblingId()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getOffset()}`;
+      .toTestString()}:${this.fromPos.getLeftSiblingId().getOffset()}`;
     const toPos = `${this.toPos
+      .getLeftSiblingId()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getOffset()}`;
+      .toTestString()}:${this.toPos.getLeftSiblingId().getOffset()}`;
 
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},
@@ -127,14 +133,14 @@ export class TreeStyleOperation extends Operation {
   /**
    * `getFromPos` returns the start point of the editing range.
    */
-  public getFromPos(): CRDTTreeID {
+  public getFromPos(): CRDTTreePos {
     return this.fromPos;
   }
 
   /**
    * `getToPos` returns the end point of the editing range.
    */
-  public getToPos(): CRDTTreeID {
+  public getToPos(): CRDTTreePos {
     return this.toPos;
   }
 

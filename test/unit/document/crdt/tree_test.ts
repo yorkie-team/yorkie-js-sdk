@@ -474,18 +474,18 @@ describe('CRDTTree', function () {
     );
 
     let [from, to] = tree.pathToPosRange([0]);
-    let fromIdx = tree.toIndex(from);
-    let toIdx = tree.toIndex(to);
+    let fromIdx = tree.toIndex(from.getLeftSiblingId());
+    let toIdx = tree.toIndex(to.getLeftSiblingId());
     assert.deepEqual([fromIdx, toIdx], [7, 8]);
 
     [from, to] = tree.pathToPosRange([0, 0]);
-    fromIdx = tree.toIndex(from);
-    toIdx = tree.toIndex(to);
+    fromIdx = tree.toIndex(from.getLeftSiblingId());
+    toIdx = tree.toIndex(to.getLeftSiblingId());
     assert.deepEqual([fromIdx, toIdx], [6, 7]);
 
     [from, to] = tree.pathToPosRange([0, 0, 0]);
-    fromIdx = tree.toIndex(from);
-    toIdx = tree.toIndex(to);
+    fromIdx = tree.toIndex(from.getLeftSiblingId());
+    toIdx = tree.toIndex(to.getLeftSiblingId());
     assert.deepEqual([fromIdx, toIdx], [5, 6]);
     assert.equal(tree.getSize(), 8);
   });

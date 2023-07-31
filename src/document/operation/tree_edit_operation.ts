@@ -115,16 +115,17 @@ export class TreeEditOperation extends Operation {
    */
   public toTestString(): string {
     // TODO [ehuas]
-    // const parent = this.getParentCreatedAt().toTestString();
-    // const fromPos = `${this.fromPos
-    //   .getCreatedAt()
-    //   .toTestString()}:${this.fromPos.getOffset()}`;
-    // const toPos = `${this.toPos
-    //   .getCreatedAt()
-    //   .toTestString()}:${this.toPos.getOffset()}`;
-    // const contents = this.contents;
-    // return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
-    return '';
+    const parent = this.getParentCreatedAt().toTestString();
+    const fromPos = `${this.fromPos
+      .getLeftSiblingId()
+      .getCreatedAt()
+      .toTestString()}:${this.fromPos.getLeftSiblingId().getOffset()}`;
+    const toPos = `${this.toPos
+      .getLeftSiblingId()
+      .getCreatedAt()
+      .toTestString()}:${this.toPos.getLeftSiblingId().getOffset()}`;
+    const contents = this.contents;
+    return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
   }
 
   /**
