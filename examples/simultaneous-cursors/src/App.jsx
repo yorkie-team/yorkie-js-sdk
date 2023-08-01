@@ -9,6 +9,7 @@ import FlyingReaction from './components/FlyingReaction';
 import ReactionSelector from './components/ReactionSelector';
 import useInterval from './hooks/useInterval';
 import './index.css';
+import Animations from './components/Animations';
 
 const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
@@ -35,6 +36,9 @@ const App = () => {
   const [clients, setClients] = useState([]);
   const [currClient, setCurrClient] = useState('');
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
+  
+  const [pointerDown, setPointerDown] = useState(false);
+  const [pointerUp, setPointerUp] = useState(true);
 
   const handleCursorShapeSelect = (cursorShape) => {
     setSelectedCursorShape(cursorShape);
@@ -79,6 +83,8 @@ const App = () => {
             cursor: {
               xPos: 0,
               yPos: 0,
+              pointerDown: false,
+              pointerUp: true
             },
           },
         });
@@ -101,156 +107,225 @@ const App = () => {
 
     setup();
 
+
+    
     const handleMouseMove = (event) => {
       setMousePos({ x: event.clientX, y: event.clientY });
-
       doc.update((root, presence) => {
         presence.set({
           cursor: {
             xPos: event.clientX,
             yPos: event.clientY,
+            // pointerDown: pointerDown,
+            // pointerUp: pointerUp
           },
         });
       });
     };
-
     window.addEventListener('mousemove', handleMouseMove);
 
-    // what was this code here again? - ask GPT
+    const handlePointerDown = () => {
+      setPointerDown(true)
+      setPointerUp(false)
+
+      doc.update((root, presence) => {
+        presence.set({
+          cursor: {
+            pointerDown: true,
+            pointerUp: false
+          },
+        });
+      });
+    }
+    window.addEventListener('mousedown', handlePointerDown);
+
+    const handlePointerUp = () => {
+      setPointerDown(false)
+      setPointerUp(true)
+
+      doc.update((root, presence) => {
+        presence.set({
+          cursor: {
+            pointerDown: false,
+            pointerUp: true
+          },
+        });
+      });
+    }
+    window.addEventListener('mouseup', handlePointerUp);
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('mouseup', handlePointerDown);
     };
   }, []);
 
   // ----------------------------------------------------------------------------- heart & thumbs animation code
 
-  const [state, setState] = useState({ mode: CursorMode.Reaction });
-  const [reactions, setReactions] = useState([]);
+  // const [state, setState] = useState({ mode: CursorMode.Reaction });
+  // const [reactions, setReactions] = useState([]);
 
-  const bubbleRate = 100;
+  // const bubbleRate = 100;
 
-  // Remove reactions that are not visible anymore (every 1 sec)
-  useInterval(() => {
-    setReactions((reactions) =>
-      reactions.filter((reaction) => reaction.timestamp > Date.now() - 4000),
-    );
-  }, 1000);
+  // // Remove reactions that are not visible anymore (every 1 sec)
+  // useInterval(() => {
+  //   setReactions((reactions) =>
+  //     reactions.filter((reaction) => reaction.timestamp > Date.now() - 4000),
+  //   );
+  // }, 1000);
 
-  useInterval(() => {
-    console.log('working');
-    console.log('state.isPressed ----  ', state.isPressed);
-    if (state.mode === CursorMode.Reaction && state.isPressed) {
-      setReactions((reactions) =>
-        reactions.concat([
-          {
-            point: { x: cursor.x, y: cursor.y },
-            value: state.reaction,
-            timestamp: Date.now(),
-          },
-        ]),
-      );
-    }
-  }, bubbleRate);
+  // useInterval(() => {
+  //   if (state.mode === CursorMode.Reaction && state.isPressed) {
+  //     setReactions((reactions) =>
+  //       reactions.concat([
+  //         {
+  //           point: { x: cursor.x, y: cursor.y },
+  //           value: state.reaction,
+  //           timestamp: Date.now(),
+  //         },
+  //       ]),
+  //     );
+  //   }
+  // }, bubbleRate);
 
-  const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  // const [cursor, setCursor] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    function onKeyUp(e) {
-      if (e.key === '/') {
-        setState({ mode: CursorMode.Chat, previousMessage: null, message: '' });
-      } else if (e.key === 'Escape') {
-        // updateMyPresence({ message: "" });
-        setState({ mode: CursorMode.Hidden });
-      } else if (e.key === 'e') {
-        setState({ mode: CursorMode.ReactionSelector });
-      }
-    }
+  // useEffect(() => {
+  //   // function onKeyUp(e) {
+  //   //   if (e.key === '/') {
+  //   //     setState({ mode: CursorMode.Chat, previousMessage: null, message: '' });
+  //   //   } else if (e.key === 'Escape') {
+  //   //     // updateMyPresence({ message: "" });
+  //   //     setState({ mode: CursorMode.Hidden });
+  //   //   } else if (e.key === 'e') {
+  //   //     setState({ mode: CursorMode.ReactionSelector });
+  //   //   }
+  //   // }
 
-    window.addEventListener('keyup', onKeyUp);
+  //   // window.addEventListener('keyup', onKeyUp);
 
-    function onKeyDown(e) {
-      if (e.key === '/') {
-        e.preventDefault();
-      }
-    }
+  //   // function onKeyDown(e) {
+  //   //   if (e.key === '/') {
+  //   //     e.preventDefault();
+  //   //   }
+  //   // }
 
-    window.addEventListener('keydown', onKeyDown);
+  //   // window.addEventListener('keydown', onKeyDown);
 
-    const handleMouseMove = (event) => {
-      const { clientX, clientY } = event;
-      const newCursor = { ...cursor, x: clientX, y: clientY };
-      setCursor(newCursor);
-    };
+  //   const handleMouseMove = (event) => {
+  //     const { clientX, clientY } = event;
+  //     const newCursor = { ...cursor, x: clientX, y: clientY };
+  //     setCursor(newCursor);
+  //   };
 
-    document.addEventListener('mousemove', handleMouseMove, false);
+  //   document.addEventListener('mousemove', handleMouseMove, false);
 
-    return () => {
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
+  //   return () => {
+  //     // window.removeEventListener('keyup', onKeyUp);
+  //     // window.removeEventListener('keydown', onKeyDown);
+  //     window.removeEventListener('mousemove', handleMouseMove);
+  //   };
+  // }, []);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   return (
     <div
       className="general-container"
       onPointerDown={() => {
-        console.log('downnnn');
-        setState((state) =>
-          state.mode === CursorMode.Reaction
-            ? { ...state, isPressed: true }
-            : state,
-        );
+        // setState((state) =>
+        //   state.mode === CursorMode.Reaction
+        //     ? { ...state, isPressed: true }
+        //     : state,
+        // );
+
+
+
+        // setPointerDown(true)
+        // setPointerUp(false)
+
+        // doc.update((root, presence) => {
+        //   presence.set({
+        //     cursor: {
+        //       pointerDown: true,
+        //       pointerUp: false
+        //     },
+        //   });
+        // });
+
       }}
       onPointerUp={() => {
-        console.log('uppppp');
-        setState((state) =>
-          state.mode === CursorMode.Reaction
-            ? { ...state, isPressed: false }
-            : state,
-        );
+        // setState((state) =>
+        //   state.mode === CursorMode.Reaction
+        //     ? { ...state, isPressed: false }
+        //     : state,
+        // );
+
+
+
+        // setPointerDown(false)
+        // setPointerUp(true)
+        // doc.update((root, presence) => {
+        //   presence.set({
+        //     cursor: {
+        //       pointerDown: false,
+        //       pointerUp: true
+        //     },
+        //   });
+        // });
+
+
+
       }}
     >
-      {/* simultaneous cursors display code & pen cursor display code  */}
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
             selectedCursorShape={user.presence.cursorShape}
             x={user.presence.cursor.xPos}
             y={user.presence.cursor.yPos}
+            pointerDown={user.presence.cursor.pointerDown}
+            pointerUp={user.presence.cursor.pointerUp}
           />
         ) : (
           <></>
         );
       })}
-      {/* {doc.getPresences().map(user => 
-        {console.log(user.clientID === client.getID(), user.presence.cursor.xPos, user.presence.cursor.yPos, user.presence.cursorShape)}
-        // , user.presence.cursor.yPos, user.presence.cursorShape
-      )} */}
+
       <Cursor
         selectedCursorShape={selectedCursorShape}
         x={mousePos.x}
         y={mousePos.y}
+        pointerDown={pointerDown}
+        pointerUp={pointerUp}
       />
       {clients.map((user) => (
         <p>
           {user.xPos} {user.yPos}
         </p>
       ))}
-      <div>{clients.length}</div>
-      The mouse is at position{' '}
-      <b>
-        ({mousePos.x}, {mousePos.y})
-      </b>
-      <b> ------ clients.length {clients.length}</b>
+
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
         selectedCursorShape={selectedCursorShape}
         clients={clients}
       />
-      {/* bubbling animation code */}
-      {cursor && (
-        <div
+
+      {/* <div
           className="c76"
           id="reaction-container"
           style={{
@@ -258,6 +333,7 @@ const App = () => {
           }}
         >
           {reactions.map((reaction) => {
+            {console.log('reactions.length ------------- ', reactions.length)}
             return (
               <FlyingReaction
                 key={reaction.timestamp.toString()}
@@ -268,8 +344,10 @@ const App = () => {
               />
             );
           })}
-        </div>
-      )}
+        </div> */}
+
+      {/* <Animations pointerDown={true} pointerUp={false} xPos={mousePos.x} yPos={mousePos.y} selectedCursorShape={selectedCursorShape} /> */}
+
     </div>
   );
 };

@@ -1,10 +1,14 @@
 import PenCursor from './PenCursor';
 
 import './Cursor.css';
+import Animations from './Animations';
 
-const Cursor = ({ selectedCursorShape, x, y }) => {
+const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
   return (
     <>
+
+      <Animations pointerDown={pointerDown} pointerUp={pointerUp} xPos={x} yPos={y} selectedCursorShape={selectedCursorShape} />
+
       {selectedCursorShape === 'heart' ? (
         <>
           <img
@@ -50,19 +54,6 @@ const Cursor = ({ selectedCursorShape, x, y }) => {
       ) : (
         <></>
       )}
-
-      {/* default 어케 set 할건데  like before */}
-      {/* 
-            <img src={
-                cursorShape === 'heart' ? "src/assets/icons/icon_heart.svg" : 
-                cursorShape === 'thumbs' ? "src/assets/icons/icon_thumbs.svg" : 
-                cursorShape === "pen" ? "src/assets/icons/icon_pen.svg" : 
-                cursorShape === "cursor" ? "src/assets/icons/icon_cursor.svg" : 
-                "src/assets/icons/icon_cursor.svg"
-            }
-            className="cursor" style={{ transform: `translate3d(${x}px, ${y}px, 0)` }} />        */}
-
-      {/* <PenCursor></PenCursor>  */}
     </>
   );
 };

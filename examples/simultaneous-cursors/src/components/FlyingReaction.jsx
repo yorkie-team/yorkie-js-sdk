@@ -7,8 +7,6 @@ export default function FlyingReaction({
   timestamp,
   selectedCursorShape,
 }) {
-  console.log('selectedCursorShape ppppppppppppp ', selectedCursorShape);
-
   return (
     <div className="reactions-container">
       <div
@@ -19,19 +17,16 @@ export default function FlyingReaction({
       >
         <div className={styles['leftRight' + (timestamp % 3)]}>
           <div className="transform -translate-x-1/2 -translate-y-1/2">
-            <img
-              src={
-                selectedCursorShape === 'heart'
-                  ? 'src/assets/icons/icon_heart.svg'
-                  : selectedCursorShape === 'thumbs'
-                  ? 'src/assets/icons/icon_thumbs.svg'
-                  : selectedCursorShape === 'pen'
-                  ? 'src/assets/icons/icon_pen.svg'
-                  : selectedCursorShape === 'cursor'
-                  ? 'src/assets/icons/icon_cursor.svg'
-                  : 'src/assets/icons/icon_cursor.svg'
-              }
-            />
+            {selectedCursorShape === 'heart' ? (
+              <img src={'src/assets/icons/icon_heart.svg'} />
+            ) : (
+              <></>
+            )}
+            {selectedCursorShape === 'thumbs' ? (
+              <img src={'src/assets/icons/icon_thumbs.svg'} />
+            ) : (
+              <></>
+            )}
           </div>
         </div>
       </div>
