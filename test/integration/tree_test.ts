@@ -112,7 +112,7 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
-describe('Tree', () => {
+describe.only('Tree', () => {
   it.only('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -136,6 +136,7 @@ describe('Tree', () => {
       );
 
       // 03. Insert a text into the paragraph.
+
       root.t.edit(3, 3, { type: 'text', value: 'CD' });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>ABCD</p></root>`);
       assert.equal(
@@ -201,7 +202,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content', function () {
+  it.only('Can edit its content', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -260,7 +261,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can be subscribed by handler', function () {
+  it.only('Can be subscribed by handler', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -310,7 +311,7 @@ describe('Tree', () => {
     );
   });
 
-  it('Can be subscribed by handler(path)', function () {
+  it.only('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -382,7 +383,7 @@ describe('Tree', () => {
     );
   });
 
-  it('Can edit its content with path', function () {
+  it.only('Can edit its content with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -473,7 +474,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content with path 2', function () {
+  it.only('Can edit its content with path 2', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -524,6 +525,8 @@ describe('Tree', () => {
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p></tc></doc>`,
       );
+
+      debugger;
 
       root.t.editByPath([0, 2], [0, 2], {
         type: 'p',

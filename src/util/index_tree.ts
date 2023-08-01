@@ -558,12 +558,12 @@ export function traverse<T extends IndexTreeNode<T>>(
 /**
  * `traverseAll` traverses the whole tree (include tombstones) with postorder traversal.
  */
-function traverseAll<T extends IndexTreeNode<T>>(
+export function traverseAll<T extends IndexTreeNode<T>>(
   node: T,
   callback: (node: T, depth: number) => void,
   depth = 0,
 ) {
-  for (const child of node._children) {
+  for (const child of node.allChildren) {
     traverseAll(child, callback, depth + 1);
   }
   callback(node, depth);
