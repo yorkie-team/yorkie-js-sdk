@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import FlyingReaction from './FlyingReaction';
+import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 import '../index.css';
 import '../App.css';
@@ -72,7 +72,7 @@ const Animations = ({
     >
       {reactions.map((reaction) => {
         return (
-          <FlyingReaction
+          <SingleAnimation
             key={reaction.timestamp.toString()}
             x={reaction.point.x}
             y={reaction.point.y}

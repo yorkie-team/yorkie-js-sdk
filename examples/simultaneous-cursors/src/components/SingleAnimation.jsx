@@ -1,7 +1,7 @@
-import styles from './FlyingReaction.module.css';
+import styles from './SingleAnimation.module.css';
 import '../index.css';
 
-export default function FlyingReaction({
+export default function SingleAnimation({
   x,
   y,
   timestamp,
