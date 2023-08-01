@@ -1,7 +1,5 @@
 import PenCursor from './PenCursor';
 import FullAnimation from './FullAnimation';
-import './Cursor.css';
-import '../App.css';
 
 const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
   return (
