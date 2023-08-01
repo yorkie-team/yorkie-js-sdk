@@ -173,8 +173,8 @@ const App = () => {
 
   return (
     <div className="general-container">
-      {console.log(doc.getPresences())}
-      {console.log('pointerDown --------------------------- ', pointerDown)}
+      {/* {console.log(doc.getPresences())} */}
+      {/* {console.log('pointerDown --------------------------- ', pointerDown)} */}
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
