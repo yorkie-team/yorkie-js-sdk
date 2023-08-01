@@ -65,8 +65,7 @@ const Animations = ({
 
   return (
     <div
-      className="c76"
-      id="reaction-container"
+    //   id="reaction-container"
       style={{
         transform: `translateX(${xPos}px) translateY(${yPos}px)`,
       }}

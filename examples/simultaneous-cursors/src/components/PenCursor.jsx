@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState } from 'react';
-import './PenCursor.css';
 
 class Point {
   constructor(x, y) {

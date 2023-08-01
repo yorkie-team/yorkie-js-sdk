@@ -1,58 +1,7 @@
-body {
-  /* margin: 0; */
-  /* display: flex; */
-  /* place-items: center; */
-  /* min-width: 320px;
-  min-height: 100vh; */
-}
-
-.c1 {
-  /* border: solid;
-  border-color: red; */
-
-  /* pointer-events: none; */
-
-  left: -20px;
-  top: -5px;
-  position: absolute;
-}
-
 .reactions-container {
+  user-select: none;
+  pointer-events: none;
   position: absolute;
   left: -20px;
   top: -10px;
-  /* pointer-events: none; */
-
-  /* border: solid;
-  border-color: blue; */
-}
-
-/* * {
-  cursor: none;    
-} */
-
-.c2 {
-  border: solid;
-  border-color: black;
-}
-.c3 {
-  border: solid;
-  border-color: blue;
-}
-.c4 {
-  /* border: solid;
-  border-color: purple; */
-}
-.c5 {
-  border: solid;
-  border-color: red;
-  min-height: 100vh;
-
-  /* z-index: 100000; */
-}
-.c8 {
-}
-.c76 {
-  /* border: solid; */
-  /* border-color: rebeccapurple; */
 }

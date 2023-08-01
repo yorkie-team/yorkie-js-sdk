@@ -5,12 +5,10 @@
 }
 
 .cursor-selector-container {
-  /* z-index: 10; */
+  user-select: none;
 
   height: 92px;
   width: 192px;
-
-  /* border: solid; */
 
   position: fixed;
   bottom: 0;
@@ -24,16 +22,12 @@
 }
 
 .cursor-selections-container {
-  /* border: solid; */
-
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .num-users-container {
-  /* border: solid; */
-
   border-radius: 8px;
   background-color: rgba(27, 26, 26, 0.8);
 
@@ -48,13 +42,11 @@
 }
 
 .cursor-shape-selected {
-  /* cursor: none; */
   background-color: rgb(81, 76, 73);
   border-radius: 9px;
 }
 
 .cursor-shape-not-selected {
-  /* cursor: none; */
   background-color: rgb(81, 76, 73);
   opacity: 0.5;
   border-radius: 9px;
@@ -63,10 +55,4 @@
   background-color: rgb(81, 76, 73);
   opacity: 0.7;
   border-radius: 9px;
-}
-
-* {
-  /* cursor: none; */
-  /* pointer-events: none; */
-  /* z-index: 100; */
 }
