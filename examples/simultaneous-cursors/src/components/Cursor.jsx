@@ -6,8 +6,13 @@ import Animations from './Animations';
 const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
   return (
     <>
-
-      <Animations pointerDown={pointerDown} pointerUp={pointerUp} xPos={x} yPos={y} selectedCursorShape={selectedCursorShape} />
+      <Animations
+        pointerDown={pointerDown}
+        pointerUp={pointerUp}
+        xPos={x}
+        yPos={y}
+        selectedCursorShape={selectedCursorShape}
+      />
 
       {selectedCursorShape === 'heart' ? (
         <>

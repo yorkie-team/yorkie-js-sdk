@@ -29,14 +29,12 @@ var CursorMode;
 })(CursorMode || (CursorMode = {}));
 
 const App = () => {
-  // ----------------------------------------------------------------------------- prescence & base cursor functionalities code
-
   const [mousePos, setMousePos] = useState({});
 
   const [clients, setClients] = useState([]);
   const [currClient, setCurrClient] = useState('');
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
-  
+
   const [pointerDown, setPointerDown] = useState(false);
   const [pointerUp, setPointerUp] = useState(true);
 
@@ -84,7 +82,7 @@ const App = () => {
               xPos: 0,
               yPos: 0,
               pointerDown: false,
-              pointerUp: true
+              pointerUp: true,
             },
           },
         });
@@ -107,8 +105,6 @@ const App = () => {
 
     setup();
 
-
-    
     const handleMouseMove = (event) => {
       setMousePos({ x: event.clientX, y: event.clientY });
       doc.update((root, presence) => {
@@ -116,8 +112,6 @@ const App = () => {
           cursor: {
             xPos: event.clientX,
             yPos: event.clientY,
-            // pointerDown: pointerDown,
-            // pointerUp: pointerUp
           },
         });
       });
@@ -125,33 +119,33 @@ const App = () => {
     window.addEventListener('mousemove', handleMouseMove);
 
     const handlePointerDown = () => {
-      setPointerDown(true)
-      setPointerUp(false)
+      setPointerDown(true);
+      setPointerUp(false);
 
       doc.update((root, presence) => {
         presence.set({
           cursor: {
             pointerDown: true,
-            pointerUp: false
+            pointerUp: false,
           },
         });
       });
-    }
+    };
     window.addEventListener('mousedown', handlePointerDown);
 
     const handlePointerUp = () => {
-      setPointerDown(false)
-      setPointerUp(true)
+      setPointerDown(false);
+      setPointerUp(true);
 
       doc.update((root, presence) => {
         presence.set({
           cursor: {
             pointerDown: false,
-            pointerUp: true
+            pointerUp: true,
           },
         });
       });
-    }
+    };
     window.addEventListener('mouseup', handlePointerUp);
 
     return () => {
@@ -161,137 +155,8 @@ const App = () => {
     };
   }, []);
 
-  // ----------------------------------------------------------------------------- heart & thumbs animation code
-
-  // const [state, setState] = useState({ mode: CursorMode.Reaction });
-  // const [reactions, setReactions] = useState([]);
-
-  // const bubbleRate = 100;
-
-  // // Remove reactions that are not visible anymore (every 1 sec)
-  // useInterval(() => {
-  //   setReactions((reactions) =>
-  //     reactions.filter((reaction) => reaction.timestamp > Date.now() - 4000),
-  //   );
-  // }, 1000);
-
-  // useInterval(() => {
-  //   if (state.mode === CursorMode.Reaction && state.isPressed) {
-  //     setReactions((reactions) =>
-  //       reactions.concat([
-  //         {
-  //           point: { x: cursor.x, y: cursor.y },
-  //           value: state.reaction,
-  //           timestamp: Date.now(),
-  //         },
-  //       ]),
-  //     );
-  //   }
-  // }, bubbleRate);
-
-  // const [cursor, setCursor] = useState({ x: 0, y: 0 });
-
-  // useEffect(() => {
-  //   // function onKeyUp(e) {
-  //   //   if (e.key === '/') {
-  //   //     setState({ mode: CursorMode.Chat, previousMessage: null, message: '' });
-  //   //   } else if (e.key === 'Escape') {
-  //   //     // updateMyPresence({ message: "" });
-  //   //     setState({ mode: CursorMode.Hidden });
-  //   //   } else if (e.key === 'e') {
-  //   //     setState({ mode: CursorMode.ReactionSelector });
-  //   //   }
-  //   // }
-
-  //   // window.addEventListener('keyup', onKeyUp);
-
-  //   // function onKeyDown(e) {
-  //   //   if (e.key === '/') {
-  //   //     e.preventDefault();
-  //   //   }
-  //   // }
-
-  //   // window.addEventListener('keydown', onKeyDown);
-
-  //   const handleMouseMove = (event) => {
-  //     const { clientX, clientY } = event;
-  //     const newCursor = { ...cursor, x: clientX, y: clientY };
-  //     setCursor(newCursor);
-  //   };
-
-  //   document.addEventListener('mousemove', handleMouseMove, false);
-
-  //   return () => {
-  //     // window.removeEventListener('keyup', onKeyUp);
-  //     // window.removeEventListener('keydown', onKeyDown);
-  //     window.removeEventListener('mousemove', handleMouseMove);
-  //   };
-  // }, []);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   return (
-    <div
-      className="general-container"
-      onPointerDown={() => {
-        // setState((state) =>
-        //   state.mode === CursorMode.Reaction
-        //     ? { ...state, isPressed: true }
-        //     : state,
-        // );
-
-
-
-        // setPointerDown(true)
-        // setPointerUp(false)
-
-        // doc.update((root, presence) => {
-        //   presence.set({
-        //     cursor: {
-        //       pointerDown: true,
-        //       pointerUp: false
-        //     },
-        //   });
-        // });
-
-      }}
-      onPointerUp={() => {
-        // setState((state) =>
-        //   state.mode === CursorMode.Reaction
-        //     ? { ...state, isPressed: false }
-        //     : state,
-        // );
-
-
-
-        // setPointerDown(false)
-        // setPointerUp(true)
-        // doc.update((root, presence) => {
-        //   presence.set({
-        //     cursor: {
-        //       pointerDown: false,
-        //       pointerUp: true
-        //     },
-        //   });
-        // });
-
-
-
-      }}
-    >
+    <div className="general-container">
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
@@ -324,30 +189,6 @@ const App = () => {
         selectedCursorShape={selectedCursorShape}
         clients={clients}
       />
-
-      {/* <div
-          className="c76"
-          id="reaction-container"
-          style={{
-            transform: `translateX(${cursor.x}px) translateY(${cursor.y}px)`,
-          }}
-        >
-          {reactions.map((reaction) => {
-            {console.log('reactions.length ------------- ', reactions.length)}
-            return (
-              <FlyingReaction
-                key={reaction.timestamp.toString()}
-                x={reaction.point.x}
-                y={reaction.point.y}
-                timestamp={reaction.timestamp}
-                selectedCursorShape={selectedCursorShape}
-              />
-            );
-          })}
-        </div> */}
-
-      {/* <Animations pointerDown={true} pointerUp={false} xPos={mousePos.x} yPos={mousePos.y} selectedCursorShape={selectedCursorShape} /> */}
-
     </div>
   );
 };

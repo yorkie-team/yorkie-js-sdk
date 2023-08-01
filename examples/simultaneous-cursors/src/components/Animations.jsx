@@ -12,7 +12,13 @@ var CursorMode;
   CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
 })(CursorMode || (CursorMode = {}));
 
-const Animations = ({ pointerDown, pointerUp, xPos, yPos, selectedCursorShape }) => {
+const Animations = ({
+  pointerDown,
+  pointerUp,
+  xPos,
+  yPos,
+  selectedCursorShape,
+}) => {
   const [state, setState] = useState({ mode: CursorMode.Reaction });
   const [reactions, setReactions] = useState([]);
 
