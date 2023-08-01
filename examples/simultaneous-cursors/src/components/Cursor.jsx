@@ -1,12 +1,12 @@
 import PenCursor from './PenCursor';
-
+import FullAnimation from './FullAnimation';
 import './Cursor.css';
-import Animations from './Animations';
+import '../App.css';
 
 const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
   return (
     <>
-      <Animations
+      <FullAnimation
         pointerDown={pointerDown}
         pointerUp={pointerUp}
         xPos={x}

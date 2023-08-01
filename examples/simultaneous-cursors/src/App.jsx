@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import './App.css';
 import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
+import './App.css';
 
 const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
@@ -12,14 +12,6 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
 // });
 
 const doc = new yorkie.Document('vitecursortask');
-
-var CursorMode;
-(function (CursorMode) {
-  CursorMode[(CursorMode['Hidden'] = 0)] = 'Hidden';
-  CursorMode[(CursorMode['Chat'] = 1)] = 'Chat';
-  CursorMode[(CursorMode['ReactionSelector'] = 2)] = 'ReactionSelector';
-  CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
-})(CursorMode || (CursorMode = {}));
 
 const App = () => {
   const [mousePos, setMousePos] = useState({});

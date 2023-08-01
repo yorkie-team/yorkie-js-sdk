@@ -56,3 +56,11 @@
   opacity: 0.7;
   border-radius: 9px;
 }
+
+.single-animation-container {
+  user-select: none;
+  pointer-events: none;
+  position: absolute;
+  left: -20px;
+  top: -10px;
+}

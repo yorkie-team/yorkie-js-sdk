@@ -1,5 +1,3 @@
-import './CursorSelections.css';
-
 const CursorSelections = ({
   handleCursorShapeSelect,
   selectedCursorShape,

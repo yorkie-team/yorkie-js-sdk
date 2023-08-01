@@ -1,5 +1,4 @@
 import styles from './SingleAnimation.module.css';
-import '../index.css';
 
 export default function SingleAnimation({
   x,
@@ -8,7 +7,7 @@ export default function SingleAnimation({
   selectedCursorShape,
 }) {
   return (
-    <div className="reactions-container">
+    <div className="single-animation-container">
       <div
         className={`absolute select-none pointer-events-none ${
           styles.disappear

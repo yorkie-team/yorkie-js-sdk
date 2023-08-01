@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
-import '../index.css';
-import '../App.css';
 
 var CursorMode;
 (function (CursorMode) {
@@ -12,7 +10,7 @@ var CursorMode;
   CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
 })(CursorMode || (CursorMode = {}));
 
-const Animations = ({
+const FullAnimation = ({
   pointerDown,
   pointerUp,
   xPos,
@@ -20,21 +18,23 @@ const Animations = ({
   selectedCursorShape,
 }) => {
   const [state, setState] = useState({ mode: CursorMode.Reaction });
-  const [reactions, setReactions] = useState([]);
+  const [singleAnimation, setSingleAnimation] = useState([]);
 
   const bubbleRate = 100;
 
-  // Remove reactions that are not visible anymore (every 1 sec)
+  // Remove singleAnimation not visible anymore (every 1 sec)
   useInterval(() => {
-    setReactions((reactions) =>
-      reactions.filter((reaction) => reaction.timestamp > Date.now() - 4000),
+    setSingleAnimation((singleAnimation) =>
+      singleAnimation.filter(
+        (animation) => animation.timestamp > Date.now() - 4000,
+      ),
     );
   }, 1000);
 
   useInterval(() => {
     if (state.mode === CursorMode.Reaction && state.isPressed) {
-      setReactions((reactions) =>
-        reactions.concat([
+      setSingleAnimation((singleAnimation) =>
+        singleAnimation.concat([
           {
             point: { x: xPos, y: yPos },
             value: state.reaction,
@@ -65,18 +65,17 @@ const Animations = ({
 
   return (
     <div
-    //   id="reaction-container"
       style={{
         transform: `translateX(${xPos}px) translateY(${yPos}px)`,
       }}
     >
-      {reactions.map((reaction) => {
+      {singleAnimation.map((animation) => {
         return (
           <SingleAnimation
-            key={reaction.timestamp.toString()}
-            x={reaction.point.x}
-            y={reaction.point.y}
-            timestamp={reaction.timestamp}
+            key={animation.timestamp.toString()}
+            x={animation.point.x}
+            y={animation.point.y}
+            timestamp={animation.timestamp}
             selectedCursorShape={selectedCursorShape}
           />
         );
@@ -85,4 +84,4 @@ const Animations = ({
   );
 };
 
-export default Animations;
+export default FullAnimation;
