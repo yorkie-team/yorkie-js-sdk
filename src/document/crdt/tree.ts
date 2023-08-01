@@ -604,6 +604,7 @@ export class CRDTTree extends CRDTGCElement {
     }
     const [parentNode] = treeNodes;
     let [, leftSiblingNode] = treeNodes;
+
     // Find the appropriate position. This logic is similar to the logical to
     // handle the same position insertion of RGA.
 
@@ -626,9 +627,12 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    const index = parentNode.allChildren.indexOf(leftSiblingNode);
+    const index =
+      parentNode === leftSiblingNode
+        ? 0
+        : parentNode.allChildren.indexOf(leftSiblingNode);
 
-    for (let i = index + 1; i < parentNode.allChildren.length; i++) {
+    for (let i = index; i < parentNode.allChildren.length; i++) {
       const next = parentNode.allChildren[index];
 
       if (next.pos.getCreatedAt().after(editedAt)) {
