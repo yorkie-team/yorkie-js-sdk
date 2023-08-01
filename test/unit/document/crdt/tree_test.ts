@@ -100,7 +100,7 @@ function issueTime(): TimeTicket {
 }
 
 describe('CRDTTreeNode', function () {
-  it('Can be created', function () {
+  it.only('Can be created', function () {
     const node = new CRDTTreeNode(ITP, 'text', 'hello');
     assert.equal(node.pos, ITP);
     assert.equal(node.type, 'text');
@@ -110,7 +110,7 @@ describe('CRDTTreeNode', function () {
     assert.equal(node.isRemoved, false);
   });
 
-  it('Can be split', function () {
+  it.only('Can be split', function () {
     const para = new CRDTTreeNode(ITP, 'p', []);
     para.append(new CRDTTreeNode(ITP, 'text', 'helloyorkie'));
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
@@ -131,19 +131,21 @@ describe('CRDTTreeNode', function () {
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
 describe('CRDTTree', function () {
-  it('Can inserts nodes with edit', function () {
+  it.only('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
     const tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'r'), issueTime());
     assert.equal(tree.getRoot().size, 0);
     assert.equal(tree.toXML(), /*html*/ `<r></r>`);
-    listEqual(tree, ['r']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['r']);
 
     //           1
     // <root> <p> </p> </root>
     tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
     assert.equal(tree.toXML(), /*html*/ `<r><p></p></r>`);
-    listEqual(tree, ['p', 'r']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['p', 'r']);
     assert.equal(tree.getRoot().size, 2);
 
     //           1
@@ -154,7 +156,8 @@ describe('CRDTTree', function () {
       issueTime(),
     );
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p></r>`);
-    listEqual(tree, ['text.hello', 'p', 'r']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['text.hello', 'p', 'r']);
     assert.equal(tree.getRoot().size, 7);
 
     //       0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
@@ -163,7 +166,8 @@ describe('CRDTTree', function () {
     p.insertAt(new CRDTTreeNode(issuePos(), 'text', 'world'), 0);
     tree.editByIndex([7, 7], [p], issueTime());
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
-    listEqual(tree, ['text.hello', 'p', 'text.world', 'p', 'r']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['text.hello', 'p', 'text.world', 'p', 'r']);
     assert.equal(tree.getRoot().size, 14);
 
     //       0   1 2 3 4 5 6 7    8   9 10 11 12 13 14    15
@@ -174,7 +178,8 @@ describe('CRDTTree', function () {
       issueTime(),
     );
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
-    listEqual(tree, ['text.hello', 'text.!', 'p', 'text.world', 'p', 'r']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['text.hello', 'text.!', 'p', 'text.world', 'p', 'r']);
 
     assert.deepEqual(
       JSON.stringify(tree.toTestTreeNode()),
@@ -212,18 +217,19 @@ describe('CRDTTree', function () {
       issueTime(),
     );
     assert.equal(tree.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
-    listEqual(tree, [
-      'text.hello',
-      'text.~',
-      'text.!',
-      'p',
-      'text.world',
-      'p',
-      'r',
-    ]);
+    // note: no need to use linked list anymore
+    // listEqual(tree, [
+    //   'text.hello',
+    //   'text.~',
+    //   'text.!',
+    //   'p',
+    //   'text.world',
+    //   'p',
+    //   'r',
+    // ]);
   });
 
-  it('Can delete text nodes with edit', function () {
+  it.only('Can delete text nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
@@ -244,7 +250,8 @@ describe('CRDTTree', function () {
       issueTime(),
     );
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
-    listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
+    // note: no need to use linked list anymore
+    // listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
     let treeNode = tree.toTestTreeNode();
     assert.equal(treeNode.size, 8);
@@ -256,7 +263,8 @@ describe('CRDTTree', function () {
     // <root> <p> a </p> <p> c d </p> </root>
     tree.editByIndex([2, 3], undefined, issueTime());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
-    listEqual(tree, ['text.a', 'p', 'text.cd', 'p', 'root']);
+    // note: no need to use linked list anymore
+    // listEqual(tree, ['text.a', 'p', 'text.cd', 'p', 'root']);
 
     treeNode = tree.toTestTreeNode();
     assert.equal(treeNode.size, 7);
@@ -264,7 +272,7 @@ describe('CRDTTree', function () {
     assert.equal(treeNode.children![0].children![0].size, 1);
   });
 
-  it('Can delete nodes between element nodes with edit', function () {
+  it.only('Can delete nodes between element nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
@@ -285,11 +293,13 @@ describe('CRDTTree', function () {
       issueTime(),
     );
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
-    listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
+    // note: no need to use linked list anymore
+    //listEqual(tree, ['text.ab', 'p', 'text.cd', 'p', 'root']);
 
     // 02. delete b, c and first paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
+    debugger;
     tree.editByIndex([2, 6], undefined, issueTime());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
 

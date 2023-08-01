@@ -259,7 +259,6 @@ export class Tree {
     if (!path.length) {
       throw new Error('path should not be empty');
     }
-
     const [fromPos, toPos] = this.tree.pathToPosRange(path);
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;

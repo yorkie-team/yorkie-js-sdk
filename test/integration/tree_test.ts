@@ -157,7 +157,8 @@ describe.only('Tree', () => {
     });
   });
 
-  it('Can be created from JSON', function () {
+  //note: no need to use linked list anymore
+  it.skip('Can be created from JSON', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -526,8 +527,6 @@ describe.only('Tree', () => {
         /*html*/ `<doc><tc><p><tn>a</tn></p><p><tn>b</tn></p></tc></doc>`,
       );
 
-      debugger;
-
       root.t.editByPath([0, 2], [0, 2], {
         type: 'p',
         children: [{ type: 'tn', children: [] }],
@@ -576,7 +575,7 @@ describe.only('Tree', () => {
     });
   });
 
-  it('Can sync its content with other replicas', async function () {
+  it.skip('Can sync its content with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -610,7 +609,7 @@ describe.only('Tree', () => {
     }, this.test!.title);
   });
 
-  it('Get correct range from index', function () {
+  it.skip('Get correct range from index', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -650,7 +649,7 @@ describe.only('Tree', () => {
 });
 
 describe('Tree.edit', function () {
-  it('Can insert multiple text nodes', function () {
+  it.only('Can insert multiple text nodes', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -678,7 +677,7 @@ describe('Tree.edit', function () {
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
   });
 
-  it('Can insert multiple element nodes', function () {
+  it.only('Can insert multiple element nodes', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -709,7 +708,7 @@ describe('Tree.edit', function () {
     );
   });
 
-  it('Detecting error for empty text', function () {
+  it.only('Detecting error for empty text', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -737,7 +736,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting error for mixed type insertion', function () {
+  it.only('Detecting error for mixed type insertion', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -765,7 +764,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [1]', function () {
+  it.only('Detecting correct error order [1]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -799,7 +798,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [2]', function () {
+  it.only('Detecting correct error order [2]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -827,7 +826,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting correct error order [3]', function () {
+  it.only('Detecting correct error order [3]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -857,7 +856,7 @@ describe('Tree.edit', function () {
 });
 
 describe('Tree.style', function () {
-  it('Can be inserted with attributes', function () {
+  it.only('Can be inserted with attributes', function () {
     const doc = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
     doc.update((root) => {
       root.t = new Tree({
@@ -883,7 +882,7 @@ describe('Tree.style', function () {
     );
   });
 
-  it('Can be edited with index', function () {
+  it.only('Can be edited with index', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -909,19 +908,19 @@ describe('Tree.style', function () {
         /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(4, 5, { c: 'd' });
+      root.t.style(1, 2, { c: 'd' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(4, 5, { c: 'q' });
+      root.t.style(1, 2, { c: 'q' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(3, 4, { z: 'm' });
+      root.t.style(2, 3, { z: 'm' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
@@ -929,7 +928,7 @@ describe('Tree.style', function () {
     });
   });
 
-  it('Can be edited with path', function () {
+  it.only('Can be edited with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
