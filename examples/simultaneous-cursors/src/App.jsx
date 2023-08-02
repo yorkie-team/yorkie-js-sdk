@@ -45,7 +45,6 @@ const App = () => {
 
       await client.attach(doc, {
         initialPresence: {
-          clientName: '',
           cursorShape: 'cursor',
           cursor: {
             xPos: 0,
@@ -119,38 +118,11 @@ const App = () => {
     };
   }, []);
 
-  const handleFormSubmit = (event) => {
-    console.log('dddddddd')
-    event.preventDefault();
-    setClientName('');
-    doc.update((root, presence) => {
-      presence.set({
-        clientName: clientName,
-      });
-    });
-  };
-
-  const [clientName, setClientName] = useState('');
-
   return (
     <div className="general-container">
-      <form className="client-name-input-form" onSubmit={handleFormSubmit}>
-        <label>Name:</label>
-        <input
-          className="client-name-input"
-          type="text"
-          onChange={(event) => setClientName(event.target.value)}
-          value={clientName}
-          placeholder='Hit Enter to Submit'
-        />
-        {/* <button className="form-submit-button">Submit</button> */}
-      </form>
-
-
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
-            clientName={user.presence.clientName}
             selectedCursorShape={user.presence.cursorShape}
             x={user.presence.cursor.xPos}
             y={user.presence.cursor.yPos}
@@ -161,14 +133,15 @@ const App = () => {
         );
       })}
 
-      {console.log(doc.getMyPresence().cursor)}
-      <Cursor
-        clientName={doc.getMyPresence().clientName}
-        selectedCursorShape={selectedCursorShape}
-        x={mousePos.x}
-        y={mousePos.y}
-        pointerDown={pointerDown}
-      />
+      {console.log(doc.getMyPresence())}
+      {doc && (
+        <Cursor
+          selectedCursorShape={selectedCursorShape}
+          x={mousePos.x}
+          y={mousePos.y}
+          pointerDown={pointerDown}
+        />
+      )}
 
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
