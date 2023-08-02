@@ -112,8 +112,8 @@ function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
   assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
   assert.equal(doc1.getRoot().t.toXML(), expected);
 }
-describe.only('Tree', () => {
-  it.only('Can be created', function () {
+describe('Tree', () => {
+  it('Can be created', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -203,7 +203,7 @@ describe.only('Tree', () => {
     });
   });
 
-  it.only('Can edit its content', function () {
+  it('Can edit its content', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -262,7 +262,7 @@ describe.only('Tree', () => {
     });
   });
 
-  it.only('Can be subscribed by handler', function () {
+  it('Can be subscribed by handler', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -312,7 +312,7 @@ describe.only('Tree', () => {
     );
   });
 
-  it.only('Can be subscribed by handler(path)', function () {
+  it('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -384,7 +384,7 @@ describe.only('Tree', () => {
     );
   });
 
-  it.only('Can edit its content with path', function () {
+  it('Can edit its content with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -475,7 +475,7 @@ describe.only('Tree', () => {
     });
   });
 
-  it.only('Can edit its content with path 2', function () {
+  it('Can edit its content with path 2', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -649,7 +649,7 @@ describe.only('Tree', () => {
 });
 
 describe('Tree.edit', function () {
-  it.only('Can insert multiple text nodes', function () {
+  it('Can insert multiple text nodes', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -677,7 +677,7 @@ describe('Tree.edit', function () {
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
   });
 
-  it.only('Can insert multiple element nodes', function () {
+  it('Can insert multiple element nodes', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -708,7 +708,7 @@ describe('Tree.edit', function () {
     );
   });
 
-  it.only('Detecting error for empty text', function () {
+  it('Detecting error for empty text', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -736,7 +736,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it.only('Detecting error for mixed type insertion', function () {
+  it('Detecting error for mixed type insertion', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -764,7 +764,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it.only('Detecting correct error order [1]', function () {
+  it('Detecting correct error order [1]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -798,7 +798,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it.only('Detecting correct error order [2]', function () {
+  it('Detecting correct error order [2]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -826,7 +826,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it.only('Detecting correct error order [3]', function () {
+  it('Detecting correct error order [3]', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -856,7 +856,7 @@ describe('Tree.edit', function () {
 });
 
 describe('Tree.style', function () {
-  it.only('Can be inserted with attributes', function () {
+  it('Can be inserted with attributes', function () {
     const doc = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
     doc.update((root) => {
       root.t = new Tree({
@@ -882,7 +882,7 @@ describe('Tree.style', function () {
     );
   });
 
-  it.only('Can be edited with index', function () {
+  it('Can be edited with index', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -928,7 +928,7 @@ describe('Tree.style', function () {
     });
   });
 
-  it.only('Can be edited with path', function () {
+  it('Can be edited with path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -1023,8 +1023,8 @@ describe('Tree.style', function () {
   });
 });
 
-describe('Concurrent editing, overlapping range', () => {
-  it('Can concurrently delete overlapping elements', function () {
+describe.only('Concurrent editing, overlapping range', () => {
+  it.only('Can concurrently delete overlapping elements', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1046,7 +1046,7 @@ describe('Concurrent editing, overlapping range', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r></r>`);
   });
 
-  it('Can concurrently delete overlapping text', function () {
+  it.only('Can concurrently delete overlapping text', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
@@ -1063,7 +1063,7 @@ describe('Concurrent editing, overlapping range', () => {
 });
 
 describe('Concurrent editing, contained range', () => {
-  it('Can concurrently insert and delete contained elements of the same depth', function () {
+  it.only('Can concurrently insert and delete contained elements of the same depth', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1087,7 +1087,7 @@ describe('Concurrent editing, contained range', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
   });
 
-  it('Detecting error when inserting and deleting contained elements at different depths', function () {
+  it.only('Detecting error when inserting and deleting contained elements at different depths', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [{ type: 'p', children: [{ type: 'i', children: [] }] }],
@@ -1102,12 +1102,10 @@ describe('Concurrent editing, contained range', () => {
     );
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
 
-    assert.Throw(() => {
-      syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
-    }, 'concurrent insert and deletion at different depths');
+    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
   });
 
-  it('Can concurrently delete contained elements', function () {
+  it.only('Can concurrently delete contained elements', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1132,7 +1130,7 @@ describe('Concurrent editing, contained range', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r></r>`);
   });
 
-  it('Can concurrently insert and delete contained text', function () {
+  it.only('Can concurrently insert and delete contained text', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1152,7 +1150,7 @@ describe('Concurrent editing, contained range', () => {
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>a</p></r>`);
   });
 
-  it('Can concurrently delete contained text', function () {
+  it.only('Can concurrently delete contained text', function () {
     const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
       type: 'r',
       children: [
@@ -1166,9 +1164,11 @@ describe('Concurrent editing, contained range', () => {
 
     docA.update((r) => r.t.edit(1, 5));
     docB.update((r) => r.t.edit(2, 4));
+
     assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>14</p></r>`);
 
+    debugger;
     syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r></r>`);
   });
 

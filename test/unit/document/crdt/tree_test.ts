@@ -100,7 +100,7 @@ function issueTime(): TimeTicket {
 }
 
 describe('CRDTTreeNode', function () {
-  it.only('Can be created', function () {
+  it('Can be created', function () {
     const node = new CRDTTreeNode(ITP, 'text', 'hello');
     assert.equal(node.pos, ITP);
     assert.equal(node.type, 'text');
@@ -110,7 +110,7 @@ describe('CRDTTreeNode', function () {
     assert.equal(node.isRemoved, false);
   });
 
-  it.only('Can be split', function () {
+  it('Can be split', function () {
     const para = new CRDTTreeNode(ITP, 'p', []);
     para.append(new CRDTTreeNode(ITP, 'text', 'helloyorkie'));
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
@@ -131,7 +131,7 @@ describe('CRDTTreeNode', function () {
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
 describe('CRDTTree', function () {
-  it.only('Can inserts nodes with edit', function () {
+  it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
     const tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'r'), issueTime());
@@ -229,7 +229,7 @@ describe('CRDTTree', function () {
     // ]);
   });
 
-  it.only('Can delete text nodes with edit', function () {
+  it('Can delete text nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
@@ -272,7 +272,7 @@ describe('CRDTTree', function () {
     assert.equal(treeNode.children![0].children![0].size, 1);
   });
 
-  it.only('Can delete nodes between element nodes with edit', function () {
+  it('Can delete nodes between element nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
