@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 
 const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
-  const [singleAnimation, setSingleAnimation] = useState([]);
+  const [singleAnimationsArray, setSingleAnimationsArray] = useState([]);
 
   const bubbleRate = 100;
 
-  // Remove singleAnimation not visible anymore (every 1 sec)
+  // Remove singleAnimationsArray not visible anymore (every 1 sec)
   useInterval(() => {
-    setSingleAnimation((singleAnimation) =>
-      singleAnimation.filter(
+    setSingleAnimationsArray((singleAnimationsArray) =>
+      singleAnimationsArray.filter(
         (animation) => animation.timestamp > Date.now() - 4000,
       ),
     );
@@ -18,8 +18,8 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
 
   useInterval(() => {
     if (pointerDown) {
-      setSingleAnimation((singleAnimation) =>
-        singleAnimation.concat([
+      setSingleAnimationsArray((singleAnimationsArray) =>
+        singleAnimationsArray.concat([
           {
             point: { x: xPos, y: yPos },
             timestamp: Date.now(),
@@ -35,7 +35,7 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
         transform: `translateX(${xPos}px) translateY(${yPos}px)`,
       }}
     >
-      {singleAnimation.map((animation) => {
+      {singleAnimationsArray.map((animation) => {
         return (
           <SingleAnimation
             key={animation.timestamp.toString()}

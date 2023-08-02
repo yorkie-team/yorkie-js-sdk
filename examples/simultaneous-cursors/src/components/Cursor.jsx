@@ -4,12 +4,15 @@ import FullAnimation from './FullAnimation';
 const Cursor = ({ selectedCursorShape, x, y, pointerDown }) => {
   return (
     <>
-      <FullAnimation
-        pointerDown={pointerDown}
-        xPos={x}
-        yPos={y}
-        selectedCursorShape={selectedCursorShape}
-      />
+      {(selectedCursorShape === 'heart' ||
+        selectedCursorShape === 'thumbs') && (
+        <FullAnimation
+          pointerDown={pointerDown}
+          xPos={x}
+          yPos={y}
+          selectedCursorShape={selectedCursorShape}
+        />
+      )}
       {selectedCursorShape === 'heart' && (
         <img
           src={'src/assets/icons/icon_heart.svg'}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import yorkie, { DocEventType } from 'yorkie-js-sdk';
+import yorkie from 'yorkie-js-sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 import './App.css';
@@ -85,17 +85,19 @@ const App = () => {
 
   return (
     <div className="general-container">
-      {clients.map(({ presence: { cursorShape, cursor, pointerDown } }, index) => {
-        return (
-          <Cursor
-            selectedCursorShape={cursorShape}
-            x={cursor.xPos}
-            y={cursor.yPos}
-            pointerDown={pointerDown}
-            key={index}
-          />
-        );
-      })}
+      {clients.map(
+        ({ presence: { cursorShape, cursor, pointerDown } }, index) => {
+          return (
+            <Cursor
+              selectedCursorShape={cursorShape}
+              x={cursor.xPos}
+              y={cursor.yPos}
+              pointerDown={pointerDown}
+              key={index}
+            />
+          );
+        },
+      )}
 
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
