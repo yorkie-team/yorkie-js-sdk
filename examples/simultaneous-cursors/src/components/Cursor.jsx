@@ -1,12 +1,13 @@
 import PenCursor from './PenCursor';
 import FullAnimation from './FullAnimation';
 
-const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
+const Cursor = ({ clientName, selectedCursorShape, x, y, pointerDown }) => {
   return (
     <>
+      <p className='cursor-name' style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}>{clientName}</p>
+      
       <FullAnimation
         pointerDown={pointerDown}
-        pointerUp={pointerUp}
         xPos={x}
         yPos={y}
         selectedCursorShape={selectedCursorShape}
@@ -41,7 +42,7 @@ const Cursor = ({ selectedCursorShape, x, y, pointerDown, pointerUp }) => {
             className="pen-cursor"
             style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
           />
-          <PenCursor xPos={x} yPos={y} />
+          {pointerDown && <PenCursor xPos={x} yPos={y} />}
         </>
       ) : (
         <></>

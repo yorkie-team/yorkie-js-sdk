@@ -19,8 +19,7 @@ const App = () => {
   const [clients, setClients] = useState([]);
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
 
-  const [pointerDown, setPointerDown] = useState(false);
-  const [pointerUp, setPointerUp] = useState(true);
+  const [pointerDown, setPointerDown] = useState(false); // try to make into a single variable
 
   const handleCursorShapeSelect = (cursorShape) => {
     setSelectedCursorShape(cursorShape);
@@ -38,34 +37,20 @@ const App = () => {
 
       doc.subscribe('presence', (event) => {
         setClients(doc.getPresences());
-        if (event.type !== DocEventType.PresenceChanged) {
-          setClients(doc.getPresences());
-        }
-      });
-      doc.subscribe('my-presence', (event) => {
-        setClients(doc.getPresences());
-        if (event.type === DocEventType.Initialized) {
-          setClients(doc.getPresences());
-        }
-      });
-      doc.subscribe('others', (event) => {
-        setClients(doc.getPresences());
-        if (
-          event.type === DocEventType.Watched ||
-          event.type === DocEventType.Unwatched
-        ) {
-          setClients(doc.getPresences());
-        }
+        // console.log(
+        //   'prescence event --- ',
+        //   event.value.presence.cursor.pointerDown,
+        // ); // .type 을 안해도, 무슨 value 가 같이 오는지 보는것도 중요
       });
 
       await client.attach(doc, {
         initialPresence: {
+          clientName: '',
           cursorShape: 'cursor',
           cursor: {
             xPos: 0,
             yPos: 0,
             pointerDown: false,
-            pointerUp: true,
           },
         },
       });
@@ -78,36 +63,42 @@ const App = () => {
     setup();
 
     const handlePointerUp = () => {
+      console.log('handlePointerUp called 😁');
       setPointerDown(false);
-      setPointerUp(true);
 
       doc.update((root, presence) => {
+        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
           cursor: {
+            ...prevCursor,
             pointerDown: false,
-            pointerUp: true,
           },
         });
       });
     };
     const handlePointerDown = () => {
+      // console.log('handlePointerDown called 🤢'); // ctrl cmd space
       setPointerDown(true);
-      setPointerUp(false);
 
       doc.update((root, presence) => {
+        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
           cursor: {
+            ...prevCursor,
             pointerDown: true,
-            pointerUp: false,
           },
         });
       });
     };
     const handleMouseMove = (event) => {
+      // console.log('pointerDown ----- 😈 ', pointerDown);
       setMousePos({ x: event.clientX, y: event.clientY });
       doc.update((root, presence) => {
+        // presence.get('cursor')
+        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
           cursor: {
+            ...prevCursor, // 위에 있는 as well      like here,    use spread operator, not copying in local state variables also try to think, why is the Yorkie state and local state different,    as well as then which one to use     maybe, only update Yorkie, then use that yorkie data to update local? so putting priority on Yorkie data over local data, i.e. local data Follows Yorkie data
             xPos: event.clientX,
             yPos: event.clientY,
           },
@@ -128,71 +119,56 @@ const App = () => {
     };
   }, []);
 
-  // useEffect(() => {
+  const handleFormSubmit = (event) => {
+    console.log('dddddddd')
+    event.preventDefault();
+    setClientName('');
+    doc.update((root, presence) => {
+      presence.set({
+        clientName: clientName,
+      });
+    });
+  };
 
-  //   const interval = setInterval(() => {
-  // console.log(doc.getPresences())
-  // console.log(pointerDown)
-
-  //     // doc.update((root, presence) => {
-  //     //   presence.set({
-  //     //     cursor: {
-  //     //       pointerDown: pointerDown,
-  //     //       pointerUp: pointerUp,
-  //     //     },
-  //     //   });
-  //     // });
-
-  //     if (pointerDown === false) { // pointerUp
-  //       doc.update((root, presence) => {
-  //         console.log(pointerDown)
-  //         presence.set({
-  //           cursor: {
-  //             pointerDown: pointerDown,
-  //             pointerUp: pointerUp,
-  //           },
-  //         });
-  //       });
-  //     }
-
-  //   }, 2000); // 3000 milliseconds = 3 seconds
-
-  //   // Cleanup function to remove the interval when the component unmounts
-  //   return () => {
-  //     clearInterval(interval);
-  //   };
-  // }, []);
+  const [clientName, setClientName] = useState('');
 
   return (
     <div className="general-container">
-      {/* {console.log(doc.getPresences())} */}
-      {/* {console.log('pointerDown --------------------------- ', pointerDown)} */}
+      <form className="client-name-input-form" onSubmit={handleFormSubmit}>
+        <label>Name:</label>
+        <input
+          className="client-name-input"
+          type="text"
+          onChange={(event) => setClientName(event.target.value)}
+          value={clientName}
+          placeholder='Hit Enter to Submit'
+        />
+        {/* <button className="form-submit-button">Submit</button> */}
+      </form>
+
+
       {doc.getPresences().map((user) => {
         return user.clientID !== client.getID() ? (
           <Cursor
+            clientName={user.presence.clientName}
             selectedCursorShape={user.presence.cursorShape}
             x={user.presence.cursor.xPos}
             y={user.presence.cursor.yPos}
             pointerDown={user.presence.cursor.pointerDown}
-            pointerUp={user.presence.cursor.pointerUp}
           />
         ) : (
           <></>
         );
       })}
 
+      {console.log(doc.getMyPresence().cursor)}
       <Cursor
+        clientName={doc.getMyPresence().clientName}
         selectedCursorShape={selectedCursorShape}
         x={mousePos.x}
         y={mousePos.y}
         pointerDown={pointerDown}
-        pointerUp={pointerUp}
       />
-      {clients.map((user) => (
-        <p>
-          {user.xPos} {user.yPos}
-        </p>
-      ))}
 
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}

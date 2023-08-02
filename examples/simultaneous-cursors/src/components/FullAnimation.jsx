@@ -10,13 +10,7 @@ var CursorMode;
   CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
 })(CursorMode || (CursorMode = {}));
 
-const FullAnimation = ({
-  pointerDown,
-  pointerUp,
-  xPos,
-  yPos,
-  selectedCursorShape,
-}) => {
+const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   const [state, setState] = useState({ mode: CursorMode.Reaction });
   const [singleAnimation, setSingleAnimation] = useState([]);
 
@@ -54,14 +48,14 @@ const FullAnimation = ({
       );
     }
 
-    if (pointerUp) {
+    if (!pointerDown) {
       setState((state) =>
         state.mode === CursorMode.Reaction
           ? { ...state, isPressed: false }
           : state,
       );
     }
-  }, [pointerDown, pointerUp]);
+  }, [pointerDown]);
 
   return (
     <div
