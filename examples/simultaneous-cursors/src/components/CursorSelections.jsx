@@ -1,13 +1,15 @@
-const CursorSelections = ({
-  handleCursorShapeSelect,
-  selectedCursorShape,
-  clients,
-}) => {
+import { useState } from 'react';
+
+const CursorSelections = ({ handleCursorShapeSelect, clients }) => {
+  const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
   return (
     <div className="cursor-selector-container">
       <div className="cursor-selections-container">
         <img
-          onClick={() => handleCursorShapeSelect('heart')}
+          onClick={() => {
+            handleCursorShapeSelect('heart');
+            setSelectedCursorShape('heart');
+          }}
           className={
             selectedCursorShape === 'heart'
               ? 'cursor-shape-selected'
@@ -16,7 +18,10 @@ const CursorSelections = ({
           src="src/assets/icons/icon_heart.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('thumbs')}
+          onClick={() => {
+            handleCursorShapeSelect('thumbs');
+            setSelectedCursorShape('thumbs');
+          }}
           className={
             selectedCursorShape === 'thumbs'
               ? 'cursor-shape-selected'
@@ -25,7 +30,10 @@ const CursorSelections = ({
           src="src/assets/icons/icon_thumbs.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('pen')}
+          onClick={() => {
+            handleCursorShapeSelect('pen');
+            setSelectedCursorShape('pen');
+          }}
           className={
             selectedCursorShape === 'pen'
               ? 'cursor-shape-selected'
@@ -34,7 +42,10 @@ const CursorSelections = ({
           src="src/assets/icons/icon_pen.svg"
         />
         <img
-          onClick={() => handleCursorShapeSelect('cursor')}
+          onClick={() => {
+            handleCursorShapeSelect('cursor');
+            selectedCursorShape('cursor');
+          }}
           className={
             selectedCursorShape === 'cursor'
               ? 'cursor-shape-selected'
