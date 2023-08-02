@@ -3,37 +3,28 @@ import FullAnimation from './FullAnimation';
 
 const Cursor = ({ selectedCursorShape, x, y, pointerDown }) => {
   return (
-    <>      
+    <>
       <FullAnimation
         pointerDown={pointerDown}
         xPos={x}
         yPos={y}
         selectedCursorShape={selectedCursorShape}
       />
-
-      {selectedCursorShape === 'heart' ? (
-        <>
-          <img
-            src={'src/assets/icons/icon_heart.svg'}
-            className="heart-cursor"
-            style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
-          />
-        </>
-      ) : (
-        <></>
+      {selectedCursorShape === 'heart' && (
+        <img
+          src={'src/assets/icons/icon_heart.svg'}
+          className="heart-cursor"
+          style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
+        />
       )}
-      {selectedCursorShape === 'thumbs' ? (
-        <>
-          <img
-            src={'src/assets/icons/icon_thumbs.svg'}
-            className="thumbs-cursor"
-            style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
-          />
-        </>
-      ) : (
-        <></>
+      {selectedCursorShape === 'thumbs' && (
+        <img
+          src={'src/assets/icons/icon_thumbs.svg'}
+          className="thumbs-cursor"
+          style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
+        />
       )}
-      {selectedCursorShape === 'pen' ? (
+      {selectedCursorShape === 'pen' && (
         <>
           <img
             src={'src/assets/icons/icon_pen.svg'}
@@ -42,19 +33,13 @@ const Cursor = ({ selectedCursorShape, x, y, pointerDown }) => {
           />
           {pointerDown && <PenCursor xPos={x} yPos={y} />}
         </>
-      ) : (
-        <></>
       )}
-      {selectedCursorShape === 'cursor' ? (
-        <>
-          <img
-            src={'src/assets/icons/icon_cursor.svg'}
-            className="cursor-cursor"
-            style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
-          />
-        </>
-      ) : (
-        <></>
+      {selectedCursorShape === 'cursor' && (
+        <img
+          src={'src/assets/icons/icon_cursor.svg'}
+          className="cursor-cursor"
+          style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
+        />
       )}
     </>
   );

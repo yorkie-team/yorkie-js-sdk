@@ -16,15 +16,11 @@ export default function SingleAnimation({
       >
         <div className={styles['leftRight' + (timestamp % 3)]}>
           <div className="transform -translate-x-1/2 -translate-y-1/2">
-            {selectedCursorShape === 'heart' ? (
+            {selectedCursorShape === 'heart' && (
               <img src={'src/assets/icons/icon_heart.svg'} />
-            ) : (
-              <></>
             )}
-            {selectedCursorShape === 'thumbs' ? (
+            {selectedCursorShape === 'thumbs' && (
               <img src={'src/assets/icons/icon_thumbs.svg'} />
-            ) : (
-              <></>
             )}
           </div>
         </div>

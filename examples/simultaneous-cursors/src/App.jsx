@@ -16,7 +16,7 @@ const App = () => {
   const handleCursorShapeSelect = (cursorShape) => {
     doc.update((root, presence) => {
       presence.set({
-        cursorShape: cursorShape,
+        cursorShape,
       });
     });
   };
@@ -35,8 +35,8 @@ const App = () => {
           cursor: {
             xPos: 0,
             yPos: 0,
-            pointerDown: false,
           },
+          pointerDown: false,
         },
       });
 
@@ -48,34 +48,23 @@ const App = () => {
     setup();
 
     const handlePointerUp = () => {
-      console.log('handlePointerUp called 😁');
       doc.update((root, presence) => {
-        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
-          cursor: {
-            ...prevCursor,
-            pointerDown: false,
-          },
+          pointerDown: false,
         });
       });
     };
     const handlePointerDown = () => {
       doc.update((root, presence) => {
-        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
-          cursor: {
-            ...prevCursor,
-            pointerDown: true,
-          },
+          pointerDown: true,
         });
       });
     };
     const handleMouseMove = (event) => {
       doc.update((root, presence) => {
-        const prevCursor = doc.getMyPresence().cursor;
         presence.set({
           cursor: {
-            ...prevCursor, // 위에 있는 as well      like here,    use spread operator, not copying in local state variables also try to think, why is the Yorkie state and local state different,    as well as then which one to use     maybe, only update Yorkie, then use that yorkie data to update local? so putting priority on Yorkie data over local data, i.e. local data Follows Yorkie data
             xPos: event.clientX,
             yPos: event.clientY,
           },
@@ -98,20 +87,20 @@ const App = () => {
 
   return (
     <div className="general-container">
-      {clients.map(({ presence }) => {
+      {clients.map(({ presence: { cursorShape, cursor, pointerDown } }) => {
         return (
           <Cursor
-            selectedCursorShape={presence.cursorShape}
-            x={presence.cursor.xPos}
-            y={presence.cursor.yPos}
-            pointerDown={presence.cursor.pointerDown}
+            selectedCursorShape={cursorShape}
+            x={cursor.xPos}
+            y={cursor.yPos}
+            pointerDown={pointerDown}
           />
         );
       })}
 
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
-        clients={clients}
+        clientsLength={clients.length}
       />
     </div>
   );

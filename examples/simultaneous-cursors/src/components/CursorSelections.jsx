@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const CursorSelections = ({ handleCursorShapeSelect, clients }) => {
+const CursorSelections = ({ handleCursorShapeSelect, clientsLength }) => {
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
   return (
     <div className="cursor-selector-container">
@@ -56,8 +56,8 @@ const CursorSelections = ({ handleCursorShapeSelect, clients }) => {
       </div>
 
       <div className="num-users-container">
-        {clients.length !== 1 ? (
-          <p>{clients.length} users are here</p>
+        {clientsLength !== 1 ? (
+          <p>{clientsLength} users are here</p>
         ) : (
           <p> 1 user here </p>
         )}
