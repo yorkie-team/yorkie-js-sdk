@@ -583,7 +583,7 @@ export class CRDTTree extends CRDTGCElement {
     if (leftSiblingNode.isText) {
       const absOffset = leftSiblingNode.pos.getOffset();
       const split = leftSiblingNode.split(
-        pos.getLeftSiblingId().getOffset(),
+        pos.getLeftSiblingId().getOffset() - absOffset,
         absOffset,
       );
 
@@ -603,7 +603,7 @@ export class CRDTTree extends CRDTGCElement {
     const index =
       parentNode === leftSiblingNode
         ? 0
-        : parentNode.allChildren.indexOf(leftSiblingNode);
+        : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
 
     for (let i = index; i < parentNode.allChildren.length; i++) {
       const next = parentNode.allChildren[index];
@@ -613,13 +613,6 @@ export class CRDTTree extends CRDTGCElement {
       } else {
         break;
       }
-    }
-
-    if (
-      parentNode.allChildren[0] === leftSiblingNode &&
-      pos.getLeftSiblingId().getOffset() === 0
-    ) {
-      leftSiblingNode = parentNode;
     }
 
     return [parentNode, leftSiblingNode];
@@ -692,18 +685,6 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    // this.nodesBetween(fromRight, toRight, (node) => {
-    //   if (!node.isRemoved && attributes) {
-    //     if (!node.attrs) {
-    //       node.attrs = new RHT();
-    //     }
-
-    //     for (const [key, value] of Object.entries(attributes)) {
-    //       node.attrs.set(key, value, editedAt);
-    //     }
-    //   }
-    // });
-
     return changes;
   }
 
@@ -717,11 +698,11 @@ export class CRDTTree extends CRDTGCElement {
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     // 01. split text nodes at the given range if needed.
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
     // range(from, to) into multiple ranges.
@@ -780,52 +761,6 @@ export class CRDTTree extends CRDTGCElement {
         }
       }
     }
-    // 02. remove the nodes and update linked list and index tree.
-    // if (fromRight !== toRight) {
-    //   this.nodesBetweenConcurrent(
-    //     fromRight!,
-    //     toRight!,
-    //     (node) => {
-    //       if (!node.isRemoved) {
-    //         toBeRemoveds.push(node);
-    //       }
-    //     },
-    //     editedAt,
-    //   );
-
-    //   const isRangeOnSameBranch = toLeft.isAncestorOf(fromLeft);
-    //   for (const node of toBeRemoveds) {
-    //     node.remove(editedAt);
-
-    //     if (node.isRemoved) {
-    //       this.removedNodeMap.set(node.pos.toIDString(), node);
-    //     }
-    //   }
-
-    //   // move the alive children of the removed element node
-    //   if (isRangeOnSameBranch) {
-    //     let removedElementNode: CRDTTreeNode | undefined;
-    //     if (fromParent?.isRemoved) {
-    //       removedElementNode = fromParent;
-    //     } else if (!fromLeft.isText && fromLeft.isRemoved) {
-    //       removedElementNode = fromLeft;
-    //     }
-
-    //     // If the nearest removed element node of the fromNode is found,
-    //     // insert the alive children of the removed element node to the toNode.
-    //     if (removedElementNode) {
-    //       const elementNode = toLeft;
-    //       const offset = elementNode!.findBranchOffset(removedElementNode);
-    //       for (const node of removedElementNode.children.reverse()) {
-    //         elementNode.insertAt(node, offset);
-    //       }
-    //     }
-    //   } else {
-    //     if (fromParent?.isRemoved) {
-    //       toParent?.prepend(...fromParent.children);
-    //     }
-    //   }
-    // }
 
     // 03. insert the given node at the given position.
     if (contents?.length) {

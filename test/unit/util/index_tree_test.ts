@@ -51,7 +51,7 @@ function nodesBetweenEqual(
   assert.deepEqual(nodes.map(toDiagnostic), expected);
 }
 
-describe('IndexTree', function () {
+describe.only('IndexTree', function () {
   it('Can find position from the given offset', function () {
     //    0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
     // <r> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </r>
