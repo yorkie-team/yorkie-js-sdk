@@ -2,17 +2,7 @@ import { useEffect, useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 
-var CursorMode;
-(function (CursorMode) {
-  CursorMode[(CursorMode['Hidden'] = 0)] = 'Hidden';
-  CursorMode[(CursorMode['Chat'] = 1)] = 'Chat';
-  CursorMode[(CursorMode['ReactionSelector'] = 2)] = 'ReactionSelector';
-  CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
-})(CursorMode || (CursorMode = {}));
-// rewrite this code above to be more readable, currently unnecessary code is mixed in, and too difficult to use
-
 const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
-  const [state, setState] = useState({ mode: CursorMode.Reaction });
   const [singleAnimation, setSingleAnimation] = useState([]);
 
   const bubbleRate = 100;
@@ -27,26 +17,17 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   }, 1000);
 
   useInterval(() => {
-    if (state.mode === CursorMode.Reaction && state.isPressed) {
+    if (pointerDown) {
       setSingleAnimation((singleAnimation) =>
         singleAnimation.concat([
           {
             point: { x: xPos, y: yPos },
-            value: state.reaction,
             timestamp: Date.now(),
           },
         ]),
       );
     }
   }, bubbleRate);
-
-  useEffect(() => {
-    setState((state) =>
-      state.mode === CursorMode.Reaction
-        ? { ...state, isPressed: pointerDown }
-        : state,
-    );
-  }, [pointerDown]);
 
   return (
     <div

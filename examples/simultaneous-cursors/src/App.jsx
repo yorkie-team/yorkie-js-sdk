@@ -92,7 +92,7 @@ const App = () => {
             x={cursor.xPos}
             y={cursor.yPos}
             pointerDown={pointerDown}
-            // key={index}
+            key={index}
           />
         );
       })}
