@@ -44,7 +44,7 @@ const CursorSelections = ({ handleCursorShapeSelect, clientsLength }) => {
         <img
           onClick={() => {
             handleCursorShapeSelect('cursor');
-            selectedCursorShape('cursor');
+            setSelectedCursorShape('cursor');
           }}
           className={
             selectedCursorShape === 'cursor'

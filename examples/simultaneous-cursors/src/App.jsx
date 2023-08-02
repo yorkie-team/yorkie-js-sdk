@@ -73,9 +73,7 @@ const App = () => {
     };
 
     window.addEventListener('mousedown', handlePointerDown);
-
     window.addEventListener('mouseup', handlePointerUp);
-
     window.addEventListener('mousemove', handleMouseMove);
 
     return () => {

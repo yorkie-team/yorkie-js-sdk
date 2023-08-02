@@ -9,6 +9,7 @@ var CursorMode;
   CursorMode[(CursorMode['ReactionSelector'] = 2)] = 'ReactionSelector';
   CursorMode[(CursorMode['Reaction'] = 3)] = 'Reaction';
 })(CursorMode || (CursorMode = {}));
+// rewrite this code above to be more readable, currently unnecessary code is mixed in, and too difficult to use
 
 const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   const [state, setState] = useState({ mode: CursorMode.Reaction });
@@ -40,21 +41,11 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   }, bubbleRate);
 
   useEffect(() => {
-    if (pointerDown) {
-      setState((state) =>
-        state.mode === CursorMode.Reaction
-          ? { ...state, isPressed: true }
-          : state,
-      );
-    }
-
-    if (!pointerDown) {
-      setState((state) =>
-        state.mode === CursorMode.Reaction
-          ? { ...state, isPressed: false }
-          : state,
-      );
-    }
+    setState((state) =>
+      state.mode === CursorMode.Reaction
+        ? { ...state, isPressed: pointerDown }
+        : state,
+    );
   }, [pointerDown]);
 
   return (
