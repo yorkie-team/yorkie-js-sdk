@@ -100,6 +100,11 @@ function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
 
   for (let i = 0; i < offset; i++) {
     const leftSibling = parent.children[i];
+
+    if (!leftSibling || leftSibling.isRemoved) {
+      continue;
+    }
+
     acc += leftSibling.paddedSize;
   }
 
@@ -431,10 +436,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     if (node.isRemoved) {
       const index = this._children.indexOf(node);
+      const refined =
+        [...this._children].splice(0, index).filter((node) => !node.isRemoved)
+          .length - 1;
 
-      return [...this._children]
-        .splice(0, index)
-        .filter((node) => !node.isRemoved).length;
+      return refined < 0 ? 0 : refined;
     }
 
     return this.children.indexOf(node);
