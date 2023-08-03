@@ -1,3 +1,4 @@
+import { CRDTTreePos } from './../document/crdt/tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -78,6 +79,7 @@ import {
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
+  TreeNodeId as PbTreeNodeId,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -259,11 +261,21 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
 /**
  * `toTreePos` converts the given model to Protobuf format.
  */
-function toTreePos(pos: CRDTTreeID): PbTreePos {
+function toTreePos(pos: CRDTTreePos): PbTreePos {
   const pbTreePos = new PbTreePos();
-  pbTreePos.setCreatedAt(toTimeTicket(pos.getCreatedAt()));
-  pbTreePos.setOffset(pos.getOffset());
+  pbTreePos.setParentId(toTreeNodeId(pos.getParentId()));
+  pbTreePos.setLeftSiblingId(toTreeNodeId(pos.getLeftSiblingId()));
   return pbTreePos;
+}
+
+/**
+ * `toTreePos` converts the given model to Protobuf format.
+ */
+function toTreeNodeId(treeNodeId: CRDTTreeID): PbTreeNodeId {
+  const pbTreeNodeId = new PbTreeNodeId();
+  pbTreeNodeId.setCreatedAt(toTimeTicket(treeNodeId.getCreatedAt()));
+  pbTreeNodeId.setOffset(treeNodeId.getOffset());
+  return pbTreeNodeId;
 }
 
 /**
@@ -545,7 +557,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode();
-    pbTreeNode.setPos(toTreePos(n.pos));
+    pbTreeNode.setPos(toTreeNodeId(n.pos));
     pbTreeNode.setType(n.type);
     if (n.isText) {
       pbTreeNode.setValue(n.value);
@@ -856,8 +868,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
   }
-
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
@@ -905,12 +915,22 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
 }
 
 /**
- * `fromTreePos` converts the given Protobuf format to model format.
+ * `fromTreePos` converts the given Protobuf format to CRDTTreePos model format.
  */
-function fromTreePos(pbTreePos: PbTreePos): CRDTTreeID {
+function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
+  return CRDTTreePos.of(
+    fromTreeNodeId(pbTreePos.getParentId()!),
+    fromTreeNodeId(pbTreePos.getLeftSiblingId()!),
+  );
+}
+
+/**
+ * `fromTreeNodeId` converts the given Protobuf format to CRDTTreeId model format.
+ */
+function fromTreeNodeId(pbTreeNodeId: PbTreeNodeId): CRDTTreeID {
   return CRDTTreeID.of(
-    fromTimeTicket(pbTreePos.getCreatedAt())!,
-    pbTreePos.getOffset(),
+    fromTimeTicket(pbTreeNodeId.getCreatedAt())!,
+    pbTreeNodeId.getOffset(),
   );
 }
 
@@ -971,7 +991,7 @@ function fromTreeNodes(
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
-  const pos = fromTreePos(pbTreeNode.getPos()!);
+  const pos = fromTreeNodeId(pbTreeNode.getPos()!);
   const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();

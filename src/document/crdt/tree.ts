@@ -25,7 +25,6 @@ import {
   TreePos,
   IndexTreeNode,
   TreeNodeType,
-  traverse,
   traverseAll,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { ActorID } from './../time/actor_id';
