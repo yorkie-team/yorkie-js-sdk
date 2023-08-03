@@ -9,13 +9,18 @@ class Point {
 }
 
 const PenCursor = ({ xPos, yPos }) => {
+  const [allPoints, setAllPoints] = useState([]);
   const canvasRef = useRef(null);
   const [points, setPoints] = useState([]);
 
   const addPoint = (x, y) => {
     const point = new Point(x, y);
+
     points.push(point);
     setPoints(points);
+
+    allPoints.push(point);
+    setAllPoints(allPoints);
   };
 
   useEffect(() => {
@@ -73,7 +78,9 @@ const PenCursor = ({ xPos, yPos }) => {
       ref={canvasRef}
       width={document.body.clientWidth}
       height={document.body.clientHeight}
-    />
+    >
+      {console.log(xPos, yPos, allPoints.length)}
+    </canvas>
   );
 };
 
