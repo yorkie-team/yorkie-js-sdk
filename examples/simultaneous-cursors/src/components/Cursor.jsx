@@ -4,28 +4,35 @@ import FullAnimation from './FullAnimation';
 const Cursor = ({ selectedCursorShape, x, y, pointerDown }) => {
   return (
     <>
-      {(selectedCursorShape === 'heart' ||
-        selectedCursorShape === 'thumbs') && (
-        <FullAnimation
-          pointerDown={pointerDown}
-          xPos={x}
-          yPos={y}
-          selectedCursorShape={selectedCursorShape}
-        />
-      )}
       {selectedCursorShape === 'heart' && (
-        <img
-          src={'src/assets/icons/icon_heart.svg'}
-          className="heart-cursor"
-          style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
-        />
+        <>
+          <img
+            src={'src/assets/icons/icon_heart.svg'}
+            className="heart-cursor"
+            style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
+          />
+          <FullAnimation
+            pointerDown={pointerDown}
+            xPos={x}
+            yPos={y}
+            selectedCursorShape={selectedCursorShape}
+          />
+        </>
       )}
       {selectedCursorShape === 'thumbs' && (
-        <img
-          src={'src/assets/icons/icon_thumbs.svg'}
-          className="thumbs-cursor"
-          style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
-        />
+        <>
+          <img
+            src={'src/assets/icons/icon_thumbs.svg'}
+            className="thumbs-cursor"
+            style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
+          />
+          <FullAnimation
+            pointerDown={pointerDown}
+            xPos={x}
+            yPos={y}
+            selectedCursorShape={selectedCursorShape}
+          />
+        </>
       )}
       {selectedCursorShape === 'pen' && (
         <>
