@@ -1134,14 +1134,10 @@ export class CRDTTree extends CRDTGCElement {
         offset: 0,
       };
     } else {
-      let offset;
+      let offset = parentNode.findOffset(leftSiblingNode) + 1;
+
       if (leftSiblingNode.isText) {
-        offset = addSizeOfLeftSiblings(
-          parentNode,
-          parentNode.findOffset(leftSiblingNode) + 1,
-        );
-      } else {
-        offset = parentNode.findOffset(leftSiblingNode) + 1;
+        offset = addSizeOfLeftSiblings(parentNode, offset);
       }
 
       treePos = {

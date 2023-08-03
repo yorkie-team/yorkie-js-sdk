@@ -623,7 +623,7 @@ describe('Tree', () => {
     assert.deepEqual(tree.posRangeToIndexRange(range), [5, 7]);
   });
 
-  it.only('Get correct range from path', function () {
+  it('Get correct range from path', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -654,8 +654,11 @@ describe('Tree', () => {
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
 
-    const range = tree.pathRangeToPosRange([[0], [0, 0, 0, 2]]);
+    let range = tree.pathRangeToPosRange([[0], [0, 0, 0, 2]]);
     assert.deepEqual(tree.posRangeToPathRange(range), [[0], [0, 0, 0, 2]]);
+
+    range = tree.pathRangeToPosRange([[0], [1]]);
+    assert.deepEqual(tree.posRangeToPathRange(range), [[0], [1]]);
   });
 });
 
