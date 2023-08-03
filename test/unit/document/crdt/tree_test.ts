@@ -27,8 +27,8 @@ import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreeID,
-  InitialCRDTTreeID as ITP,
+  CRDTTreeNodeID,
+  InitialCRDTTreeNodeID as ITP,
   toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -66,10 +66,10 @@ const dummyContext = ChangeContext.create(
 );
 
 /**
- * `issuePos` is a helper function that issues a new CRDTTreeID.
+ * `issuePos` is a helper function that issues a new CRDTTreeNodeID.
  */
-function issuePos(offset = 0): CRDTTreeID {
-  return CRDTTreeID.of(dummyContext.issueTimeTicket(), offset);
+function issuePos(offset = 0): CRDTTreeNodeID {
+  return CRDTTreeNodeID.of(dummyContext.issueTimeTicket(), offset);
 }
 
 /**
@@ -79,7 +79,7 @@ function issueTime(): TimeTicket {
   return dummyContext.issueTimeTicket();
 }
 
-describe.only('CRDTTreeNode', function () {
+describe('CRDTTreeNode', function () {
   it('Can be created', function () {
     const node = new CRDTTreeNode(ITP, 'text', 'hello');
     assert.equal(node.pos, ITP);
@@ -104,13 +104,13 @@ describe.only('CRDTTreeNode', function () {
 
     assert.equal(left.value, 'hello');
     assert.equal(right!.value, 'yorkie');
-    assert.deepEqual(left.pos, CRDTTreeID.of(ITT, 0));
-    assert.deepEqual(right!.pos, CRDTTreeID.of(ITT, 5));
+    assert.deepEqual(left.pos, CRDTTreeNodeID.of(ITT, 0));
+    assert.deepEqual(right!.pos, CRDTTreeNodeID.of(ITT, 5));
   });
 });
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
-describe.only('CRDTTree', function () {
+describe('CRDTTree', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
