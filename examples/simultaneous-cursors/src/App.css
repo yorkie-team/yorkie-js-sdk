@@ -1,15 +1,10 @@
 body {
-  border: solid;
-  border-color: blue;
-
   max-width: 100vw;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
 .general-container {
-  border: solid;
-  border-color: red;
   max-width: 100%;
 }
 
