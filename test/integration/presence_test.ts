@@ -302,11 +302,11 @@ describe('Presence', function () {
       const counter = p.get('counter');
       p.set({ counter: counter + 1 });
     });
-    assert.deepEqual(doc1.getPresence(c1.getID()!), { counter: 1 });
+    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), { counter: 1 });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresence(c1.getID()!), { counter: 1 });
+    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), { counter: 1 });
   });
 });
 
