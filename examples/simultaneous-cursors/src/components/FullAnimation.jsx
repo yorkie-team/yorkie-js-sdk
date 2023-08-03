@@ -5,7 +5,7 @@ import useInterval from '../hooks/useInterval';
 const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   const [singleAnimationsArray, setSingleAnimationsArray] = useState([]);
 
-  const bubbleRate = 100;
+  const animationBubbleRate = 100;
 
   // Remove singleAnimationsArray not visible anymore (every 1 sec)
   useInterval(() => {
@@ -27,7 +27,7 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
         ]),
       );
     }
-  }, bubbleRate);
+  }, animationBubbleRate);
 
   return (
     <div

@@ -39,10 +39,9 @@ const PenCursor = ({ xPos, yPos }) => {
         if (point.lifetime > duration) {
           points.shift();
         } else {
-          const spreadRate = 5; // i.e. line width
+          ctx.lineWidth = 5;
 
           ctx.lineJoin = 'round';
-          ctx.lineWidth = spreadRate;
 
           const red = 0;
           const green = 0;
