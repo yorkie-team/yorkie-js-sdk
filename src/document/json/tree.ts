@@ -474,33 +474,6 @@ export class Tree {
   }
 
   /**
-   * eslint-disable-next-line jsdoc/require-jsdoc
-   * @internal
-   */
-  public *[Symbol.iterator](): IterableIterator<TreeNode> {
-    if (!this.tree) {
-      return;
-    }
-
-    // TODO(hackerwins): Fill children of element node later.
-    for (const node of this.tree) {
-      if (node.isText) {
-        const textNode = node as TextNode;
-        yield {
-          type: textNode.type,
-          value: textNode.value,
-        };
-      } else {
-        const elementNode = node as ElementNode;
-        yield {
-          type: elementNode.type,
-          children: [],
-        };
-      }
-    }
-  }
-
-  /**
    * `pathRangeToPosRange` converts the path range into the position range.
    */
   pathRangeToPosRange(
@@ -543,12 +516,15 @@ export class Tree {
       return;
     }
 
-    const posRange: [CRDTTreeID, CRDTTreeID] = [
-      CRDTTreeID.fromStruct(range[0]),
-      CRDTTreeID.fromStruct(range[1]),
+    const posRange: [CRDTTreePos, CRDTTreePos] = [
+      CRDTTreePos.fromStruct(range[0]),
+      CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return [this.tree.toIndex(posRange[0]), this.tree.toIndex(posRange[1])];
+    return this.tree.posRangeToIndexRange(
+      posRange,
+      this.context.getLastTimeTicket(),
+    );
   }
 
   /**
@@ -563,11 +539,14 @@ export class Tree {
       return;
     }
 
-    const posRange: [CRDTTreeID, CRDTTreeID] = [
-      CRDTTreeID.fromStruct(range[0]),
-      CRDTTreeID.fromStruct(range[1]),
+    const posRange: [CRDTTreePos, CRDTTreePos] = [
+      CRDTTreePos.fromStruct(range[0]),
+      CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToPathRange(posRange);
+    return this.tree.posRangeToPathRange(
+      posRange,
+      this.context.getLastTimeTicket(),
+    );
   }
 }

@@ -34,12 +34,6 @@ import { RHT } from './rht';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
- * DummyHeadType is a type of dummy head. It is used to represent the head node
- * of RGA.
- */
-const DummyHeadType = 'dummy';
-
-/**
  * `TreeNode` represents the JSON representation of a node in the tree.
  * It is used to serialize and deserialize the tree.
  */
@@ -101,7 +95,7 @@ export const posEquals = (posA: CRDTTreePos, posB: CRDTTreePos): boolean => {
  * location in the tree, so whether the node is splitted or not, we can find
  * the adjacent node to pos by calling `map.floorEntry()`.
  *
- * If there's no left sibling in children array, then left sibling is parent.
+ * If there's no left sibling in parent's children, then left sibling is parent.
  */
 export class CRDTTreePos {
   private parentId: CRDTTreeID;
@@ -113,21 +107,53 @@ export class CRDTTreePos {
   }
 
   /**
-   *
+   * `of` creates a new instance of CRDTTreePos.
    */
   public static of(parentId: CRDTTreeID, leftSiblingId: CRDTTreeID) {
     return new CRDTTreePos(parentId, leftSiblingId);
   }
 
   /**
-   *
+   * `getParentId` returns parentId.
    */
   public getParentId() {
     return this.parentId;
   }
 
   /**
-   *
+   * `fromStruct` creates a new instance of CRDTTreeID from the given struct.
+   */
+  public static fromStruct(struct: CRDTTreePosStruct): CRDTTreePos {
+    return CRDTTreePos.of(
+      CRDTTreeID.of(
+        TimeTicket.fromStruct(struct.parentId.createdAt),
+        struct.parentId.offset,
+      ),
+      CRDTTreeID.of(
+        TimeTicket.fromStruct(struct.leftSiblingId.createdAt),
+        struct.leftSiblingId.offset,
+      ),
+    );
+  }
+
+  /**
+   * `toStruct` returns the structure of this position.
+   */
+  public toStruct(): CRDTTreePosStruct {
+    return {
+      parentId: {
+        createdAt: this.getParentId().getCreatedAt().toStruct(),
+        offset: this.getParentId().getOffset(),
+      },
+      leftSiblingId: {
+        createdAt: this.getLeftSiblingId().getCreatedAt().toStruct(),
+        offset: this.getLeftSiblingId().getOffset(),
+      },
+    };
+  }
+
+  /**
+   * `getLeftSiblingId` returns leftSiblingId.
    */
   public getLeftSiblingId() {
     return this.leftSiblingId;
@@ -212,6 +238,11 @@ export class CRDTTreeID {
   }
 }
 
+export type CRDTTreePosStruct = {
+  parentId: CRDTTreeIDStruct;
+  leftSiblingId: CRDTTreeIDStruct;
+};
+
 /**
  * `CRDTTreeIDStruct` represents the structure of CRDTTreeID.
  * It is used to serialize and deserialize the CRDTTreeID.
@@ -243,13 +274,13 @@ function compareCRDTTreeID(posA: CRDTTreeID, posB: CRDTTreeID): number {
 /**
  * `TreePosRange` represents a pair of CRDTTreeID.
  */
-export type TreePosRange = [CRDTTreeID, CRDTTreeID];
+export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 
 /**
  * `TreePosStructRange` represents the structure of TreeRange.
  * It is used to serialize and deserialize the TreeRange.
  */
-export type TreePosStructRange = [CRDTTreeIDStruct, CRDTTreeIDStruct];
+export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
@@ -464,22 +495,18 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTGCElement {
-  private dummyHead: CRDTTreeNode;
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByPos: LLRBTree<CRDTTreeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
-    this.dummyHead = new CRDTTreeNode(InitialCRDTTreeID, DummyHeadType);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByPos = new LLRBTree(compareCRDTTreeID);
     this.removedNodeMap = new Map();
 
-    //const previous = this.dummyHead;
     this.indexTree.traverse((node) => {
       this.nodeMapByPos.put(node.pos, node);
-      //this.insertAfter(previous, node);
     });
   }
 
@@ -767,18 +794,25 @@ export class CRDTTree extends CRDTGCElement {
       let leftInChildren = fromLeft; // tree
 
       for (const content of contents!) {
-        // 03-1. insert the content nodes to the list.
-
-        // 03-2. insert the content nodes to the tree.
+        // 03-1. insert the content nodes to the tree.
         if (leftInChildren === fromParent) {
-          // 03-2-1. when there's no leftSibling, then insert content into very front of parent's children List
+          // 03-1-1. when there's no leftSibling, then insert content into very front of parent's children List
           fromParent.insertAt(content, 0);
         } else {
-          // 03-2-2. insert after leftSibling
+          // 03-1-2. insert after leftSibling
           fromParent.insertAfter(content, leftInChildren);
         }
+
         leftInChildren = content;
         traverseAll(content, (node) => {
+          // if insertion happens during concurrent editing and parent node has been removed,
+          // make new nodes as tombstone immediately
+          if (fromParent.isRemoved) {
+            node.remove(editedAt);
+
+            this.removedNodeMap.set(node.pos.toIDString(), node);
+          }
+
           this.nodeMapByPos.put(node.pos, node);
         });
       }
@@ -1016,20 +1050,6 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `Symbol.iterator` returns the iterator of the tree.
-   */
-  public *[Symbol.iterator](): IterableIterator<CRDTTreeNode> {
-    let node = this.dummyHead.next;
-    while (node) {
-      if (!node.isRemoved) {
-        yield node;
-      }
-
-      node = node.next;
-    }
-  }
-
-  /**
    * `toPath` converts the given CRDTTreeID to the path of the tree.
    */
   public toPath(
@@ -1110,7 +1130,7 @@ export class CRDTTree extends CRDTGCElement {
     } else {
       treePos = {
         node: parentNode,
-        offset: parentNode.findOffset(leftSiblingNode),
+        offset: parentNode.findOffset(leftSiblingNode) + 1,
       };
     }
 
@@ -1137,12 +1157,9 @@ export class CRDTTree extends CRDTGCElement {
   public indexRangeToPosRange(range: [number, number]): TreePosRange {
     const fromPos = this.findPos(range[0]);
     if (range[0] === range[1]) {
-      return [fromPos.getLeftSiblingId(), fromPos.getLeftSiblingId()];
+      return [fromPos, fromPos];
     }
-    return [
-      fromPos.getLeftSiblingId(),
-      this.findPos(range[1]).getLeftSiblingId(),
-    ];
+    return [fromPos, this.findPos(range[1])];
   }
 
   /**
@@ -1152,12 +1169,12 @@ export class CRDTTree extends CRDTGCElement {
     range: [number, number],
   ): TreePosStructRange {
     const [fromIdx, toIdx] = range;
-    const fromPos = this.findPos(fromIdx).getLeftSiblingId().toStruct();
+    const fromPos = this.findPos(fromIdx);
     if (fromIdx === toIdx) {
-      return [fromPos, fromPos];
+      return [fromPos.toStruct(), fromPos.toStruct()];
     }
 
-    return [fromPos, this.findPos(toIdx).getLeftSiblingId().toStruct()];
+    return [fromPos.toStruct(), this.findPos(toIdx).toStruct()];
   }
 
   /**
@@ -1165,10 +1182,30 @@ export class CRDTTree extends CRDTGCElement {
    */
   public posRangeToPathRange(
     range: TreePosRange,
+    timeTicket: TimeTicket,
   ): [Array<number>, Array<number>] {
-    const fromPath = this.indexTree.indexToPath(this.toIndex(range[0]));
-    const toPath = this.indexTree.indexToPath(this.toIndex(range[1]));
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+      range[0],
+      timeTicket,
+    );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
 
-    return [fromPath, toPath];
+    return [this.toPath(fromParent, fromLeft), this.toPath(toParent, toLeft)];
+  }
+
+  /**
+   * `posRangeToIndexRange` converts the given position range to the path range.
+   */
+  public posRangeToIndexRange(
+    range: TreePosRange,
+    timeTicket: TimeTicket,
+  ): [number, number] {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+      range[0],
+      timeTicket,
+    );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
+
+    return [this.toIndex(fromParent, fromLeft), this.toIndex(toParent, toLeft)];
   }
 }
