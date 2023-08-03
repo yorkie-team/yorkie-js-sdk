@@ -86,14 +86,14 @@ const App = () => {
   return (
     <div className="general-container">
       {clients.map(
-        ({ presence: { cursorShape, cursor, pointerDown } }, index) => {
+        ({ clientID, presence: { cursorShape, cursor, pointerDown } }) => {
           return (
             <Cursor
               selectedCursorShape={cursorShape}
               x={cursor.xPos}
               y={cursor.yPos}
               pointerDown={pointerDown}
-              key={index}
+              key={clientID}
             />
           );
         },
