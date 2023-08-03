@@ -19,7 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
-  CRDTTreeID,
+  CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {

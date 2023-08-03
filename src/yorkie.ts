@@ -73,7 +73,7 @@ export type {
 export {
   TreeChange,
   TreeChangeType,
-  CRDTTreeIDStruct,
+  CRDTTreeNodeIDStruct,
   TreePosStructRange as TreeRangeStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 

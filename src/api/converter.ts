@@ -89,7 +89,7 @@ import {
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreeID,
+  CRDTTreeNodeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
@@ -271,7 +271,7 @@ function toTreePos(pos: CRDTTreePos): PbTreePos {
 /**
  * `toTreePos` converts the given model to Protobuf format.
  */
-function toTreeNodeId(treeNodeId: CRDTTreeID): PbTreeNodeId {
+function toTreeNodeId(treeNodeId: CRDTTreeNodeID): PbTreeNodeId {
   const pbTreeNodeId = new PbTreeNodeId();
   pbTreeNodeId.setCreatedAt(toTimeTicket(treeNodeId.getCreatedAt()));
   pbTreeNodeId.setOffset(treeNodeId.getOffset());
@@ -925,10 +925,10 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
 }
 
 /**
- * `fromTreeNodeId` converts the given Protobuf format to CRDTTreeId model format.
+ * `fromTreeNodeId` converts the given Protobuf format to CRDTTreeNodeID model format.
  */
-function fromTreeNodeId(pbTreeNodeId: PbTreeNodeId): CRDTTreeID {
-  return CRDTTreeID.of(
+function fromTreeNodeId(pbTreeNodeId: PbTreeNodeId): CRDTTreeNodeID {
+  return CRDTTreeNodeID.of(
     fromTimeTicket(pbTreeNodeId.getCreatedAt())!,
     pbTreeNodeId.getOffset(),
   );

@@ -21,7 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreeID,
+  CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {

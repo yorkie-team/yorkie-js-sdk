@@ -3,7 +3,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
-  CRDTTreeID,
+  CRDTTreeNodeID,
   CRDTTreeNode,
   TreePosStructRange,
   TreeChange,
@@ -60,7 +60,11 @@ function buildDescendants(
   if (type === DefaultTextType) {
     validateTextNode(treeNode as TextNode);
     const { value } = treeNode as TextNode;
-    const textNode = CRDTTreeNode.create(CRDTTreeID.of(ticket, 0), type, value);
+    const textNode = CRDTTreeNode.create(
+      CRDTTreeNodeID.of(ticket, 0),
+      type,
+      value,
+    );
 
     parent.append(textNode);
   } else {
@@ -77,7 +81,7 @@ function buildDescendants(
       }
     }
     const elementNode = CRDTTreeNode.create(
-      CRDTTreeID.of(ticket, 0),
+      CRDTTreeNodeID.of(ticket, 0),
       type,
       undefined,
       attrs,
@@ -101,7 +105,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === DefaultTextType) {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create(CRDTTreeID.of(ticket, 0), type, value);
+    root = CRDTTreeNode.create(CRDTTreeNodeID.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
     let { attributes } = content as ElementNode;
@@ -117,7 +121,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     }
 
     root = CRDTTreeNode.create(
-      CRDTTreeID.of(context.issueTimeTicket(), 0),
+      CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
       type,
       undefined,
       attrs,
@@ -208,14 +212,14 @@ export class Tree {
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
       return CRDTTreeNode.create(
-        CRDTTreeID.of(context.issueTimeTicket(), 0),
+        CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
         DefaultRootType,
       );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      CRDTTreeID.of(context.issueTimeTicket(), 0),
+      CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
       this.initialRoot.type,
     );
 
@@ -336,7 +340,7 @@ export class Tree {
       }
       crdtNodes.push(
         CRDTTreeNode.create(
-          CRDTTreeID.of(this.context!.issueTimeTicket(), 0),
+          CRDTTreeNodeID.of(this.context!.issueTimeTicket(), 0),
           DefaultTextType,
           compVal,
         ),

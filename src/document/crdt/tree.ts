@@ -97,10 +97,10 @@ export const posEquals = (posA: CRDTTreePos, posB: CRDTTreePos): boolean => {
  * If there's no left sibling in parent's children, then left sibling is parent.
  */
 export class CRDTTreePos {
-  private parentId: CRDTTreeID;
-  private leftSiblingId: CRDTTreeID;
+  private parentId: CRDTTreeNodeID;
+  private leftSiblingId: CRDTTreeNodeID;
 
-  constructor(parentId: CRDTTreeID, leftSiblingId: CRDTTreeID) {
+  constructor(parentId: CRDTTreeNodeID, leftSiblingId: CRDTTreeNodeID) {
     this.parentId = parentId;
     this.leftSiblingId = leftSiblingId;
   }
@@ -108,7 +108,7 @@ export class CRDTTreePos {
   /**
    * `of` creates a new instance of CRDTTreePos.
    */
-  public static of(parentId: CRDTTreeID, leftSiblingId: CRDTTreeID) {
+  public static of(parentId: CRDTTreeNodeID, leftSiblingId: CRDTTreeNodeID) {
     return new CRDTTreePos(parentId, leftSiblingId);
   }
 
@@ -120,15 +120,15 @@ export class CRDTTreePos {
   }
 
   /**
-   * `fromStruct` creates a new instance of CRDTTreeID from the given struct.
+   * `fromStruct` creates a new instance of CRDTTreeNodeID from the given struct.
    */
   public static fromStruct(struct: CRDTTreePosStruct): CRDTTreePos {
     return CRDTTreePos.of(
-      CRDTTreeID.of(
+      CRDTTreeNodeID.of(
         TimeTicket.fromStruct(struct.parentId.createdAt),
         struct.parentId.offset,
       ),
-      CRDTTreeID.of(
+      CRDTTreeNodeID.of(
         TimeTicket.fromStruct(struct.leftSiblingId.createdAt),
         struct.leftSiblingId.offset,
       ),
@@ -160,11 +160,11 @@ export class CRDTTreePos {
 }
 
 /**
- * `CRDTTreeID` represent a position in the tree. It indicates the virtual
+ * `CRDTTreeNodeID` represent a position in the tree. It indicates the virtual
  * location in the tree, so whether the node is splitted or not, we can find
  * the adjacent node to pos by calling `map.floorEntry()`.
  */
-export class CRDTTreeID {
+export class CRDTTreeNodeID {
   /**
    * `createdAt` is the creation time of the node.
    */
@@ -182,17 +182,17 @@ export class CRDTTreeID {
   }
 
   /**
-   * `of` creates a new instance of CRDTTreeID.
+   * `of` creates a new instance of CRDTTreeNodeID.
    */
-  public static of(createdAt: TimeTicket, offset: number): CRDTTreeID {
-    return new CRDTTreeID(createdAt, offset);
+  public static of(createdAt: TimeTicket, offset: number): CRDTTreeNodeID {
+    return new CRDTTreeNodeID(createdAt, offset);
   }
 
   /**
-   * `fromStruct` creates a new instance of CRDTTreeID from the given struct.
+   * `fromStruct` creates a new instance of CRDTTreeNodeID from the given struct.
    */
-  public static fromStruct(struct: CRDTTreeIDStruct): CRDTTreeID {
-    return CRDTTreeID.of(
+  public static fromStruct(struct: CRDTTreeNodeIDStruct): CRDTTreeNodeID {
+    return CRDTTreeNodeID.of(
       TimeTicket.fromStruct(struct.createdAt),
       struct.offset,
     );
@@ -222,7 +222,7 @@ export class CRDTTreeID {
   /**
    * `toStruct` returns the structure of this position.
    */
-  public toStruct(): CRDTTreeIDStruct {
+  public toStruct(): CRDTTreeNodeIDStruct {
     return {
       createdAt: this.createdAt.toStruct(),
       offset: this.offset,
@@ -238,25 +238,31 @@ export class CRDTTreeID {
 }
 
 export type CRDTTreePosStruct = {
-  parentId: CRDTTreeIDStruct;
-  leftSiblingId: CRDTTreeIDStruct;
+  parentId: CRDTTreeNodeIDStruct;
+  leftSiblingId: CRDTTreeNodeIDStruct;
 };
 
 /**
- * `CRDTTreeIDStruct` represents the structure of CRDTTreeID.
- * It is used to serialize and deserialize the CRDTTreeID.
+ * `CRDTTreeNodeIDStruct` represents the structure of CRDTTreeNodeID.
+ * It is used to serialize and deserialize the CRDTTreeNodeID.
  */
-export type CRDTTreeIDStruct = { createdAt: TimeTicketStruct; offset: number };
+export type CRDTTreeNodeIDStruct = {
+  createdAt: TimeTicketStruct;
+  offset: number;
+};
 
 /**
- * `InitialCRDTTreeID` is the initial position of the tree.
+ * `InitialCRDTTreeNodeID` is the initial position of the tree.
  */
-export const InitialCRDTTreeID = CRDTTreeID.of(InitialTimeTicket, 0);
+export const InitialCRDTTreeNodeID = CRDTTreeNodeID.of(InitialTimeTicket, 0);
 
 /**
- * `compareCRDTTreeID` compares the given two CRDTTreeID.
+ * `compareCRDTTreeNodeID` compares the given two CRDTTreeNodeID.
  */
-function compareCRDTTreeID(posA: CRDTTreeID, posB: CRDTTreeID): number {
+function compareCRDTTreeNodeID(
+  posA: CRDTTreeNodeID,
+  posB: CRDTTreeNodeID,
+): number {
   const compare = posA.getCreatedAt().compare(posB.getCreatedAt());
   if (compare !== 0) {
     return compare;
@@ -271,7 +277,7 @@ function compareCRDTTreeID(posA: CRDTTreeID, posB: CRDTTreeID): number {
 }
 
 /**
- * `TreePosRange` represents a pair of CRDTTreeID.
+ * `TreePosRange` represents a pair of CRDTTreeNodeID.
  */
 export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 
@@ -286,7 +292,7 @@ export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
  * links to other nodes to resolve conflicts.
  */
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
-  pos: CRDTTreeID;
+  pos: CRDTTreeNodeID;
   removedAt?: TimeTicket;
   attrs?: RHT;
 
@@ -313,7 +319,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   _value = '';
 
   constructor(
-    pos: CRDTTreeID,
+    pos: CRDTTreeNodeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
@@ -335,7 +341,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `create` creates a new instance of CRDTTreeNode.
    */
   static create(
-    pos: CRDTTreeID,
+    pos: CRDTTreeNodeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
@@ -410,7 +416,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    */
   clone(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
-      CRDTTreeID.of(this.pos.getCreatedAt(), offset),
+      CRDTTreeNodeID.of(this.pos.getCreatedAt(), offset),
       this.type,
       undefined,
       undefined,
@@ -495,13 +501,13 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
  */
 export class CRDTTree extends CRDTGCElement {
   private indexTree: IndexTree<CRDTTreeNode>;
-  private nodeMapByPos: LLRBTree<CRDTTreeID, CRDTTreeNode>;
+  private nodeMapByPos: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
-    this.nodeMapByPos = new LLRBTree(compareCRDTTreeID);
+    this.nodeMapByPos = new LLRBTree(compareCRDTTreeNodeID);
     this.removedNodeMap = new Map();
 
     this.indexTree.traverse((node) => {
@@ -584,10 +590,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `findNodesAndSplitText` finds `TreePos` of the given `CRDTTreeID` and
+   * `findNodesAndSplitText` finds `TreePos` of the given `CRDTTreeNodeID` and
    * splits the text node if necessary.
    *
-   * `CRDTTreeID` is a position in the CRDT perspective. This is
+   * `CRDTTreeNodeID` is a position in the CRDT perspective. This is
    * different from `TreePos` which is a position of the tree in the local
    * perspective.
    */
@@ -951,7 +957,7 @@ export class CRDTTree extends CRDTGCElement {
 
     return CRDTTreePos.of(
       node.pos,
-      CRDTTreeID.of(
+      CRDTTreeNodeID.of(
         leftSibling.getCreatedAt(),
         leftSibling.getOffset() + offset,
       ),
@@ -1049,7 +1055,7 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toPath` converts the given CRDTTreeID to the path of the tree.
+   * `toPath` converts the given CRDTTreeNodeID to the path of the tree.
    */
   public toPath(
     parentNode: CRDTTreeNode,
@@ -1065,7 +1071,7 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `toIndex` converts the given CRDTTreeID to the index of the tree.
+   * `toIndex` converts the given CRDTTreeNodeID to the index of the tree.
    */
   public toIndex(
     parentNode: CRDTTreeNode,
