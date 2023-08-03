@@ -977,6 +977,9 @@ export class Document<T, P extends Indexable = Indexable> {
         const presenceChange = change.getPresenceChange()!;
         switch (presenceChange.type) {
           case PresenceChangeType.Put:
+            // NOTE(chacha912): When the user exists in onlineClients, but
+            // their presence was initially absent, we can consider that we have
+            // received their initial presence, so trigger the 'watched' event.
             docEvent = {
               type: this.presences.has(actorID)
                 ? DocEventType.PresenceChanged
@@ -988,6 +991,11 @@ export class Document<T, P extends Indexable = Indexable> {
             };
             break;
           case PresenceChangeType.Clear:
+            // NOTE(chacha912): When the user exists in onlineClients, but
+            // PresenceChange(clear) is received, we can consider it as detachment
+            // occurring before unwatching.
+            // Detached user is no longer participating in the document, we remove
+            // them from the online clients and trigger the 'unwatched' event.
             docEvent = {
               type: DocEventType.Unwatched,
               value: {
