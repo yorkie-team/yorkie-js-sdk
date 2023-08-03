@@ -92,7 +92,7 @@ export type TreeNodeType = string;
 /**
  * `addSizeOfLeftSiblings` returns the size of left siblings of the given offset.
  */
-function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
+export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
   parent: T,
   offset: number,
 ): number {

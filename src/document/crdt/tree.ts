@@ -26,6 +26,7 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverseAll,
+  addSizeOfLeftSiblings,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
@@ -1133,9 +1134,19 @@ export class CRDTTree extends CRDTGCElement {
         offset: 0,
       };
     } else {
+      let offset;
+      if (leftSiblingNode.isText) {
+        offset = addSizeOfLeftSiblings(
+          parentNode,
+          parentNode.findOffset(leftSiblingNode) + 1,
+        );
+      } else {
+        offset = parentNode.findOffset(leftSiblingNode) + 1;
+      }
+
       treePos = {
         node: parentNode,
-        offset: parentNode.findOffset(leftSiblingNode) + 1,
+        offset,
       };
     }
 
