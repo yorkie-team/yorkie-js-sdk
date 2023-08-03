@@ -32,18 +32,6 @@ import {
 import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
- * `listEqual` is a helper function that the given tree is equal to the
- * expected list of nodes.
- */
-function listEqual(tree: Tree, expected: Array<TreeNode>) {
-  const nodes: Array<TreeNode> = [];
-  for (const node of tree) {
-    nodes.push(node);
-  }
-  assert.deepEqual(nodes, expected);
-}
-
-/**
  * `createChangePack` is a helper function that creates a change pack from the
  * given document. It is used to to emulate the behavior of the server.
  */
@@ -300,7 +288,7 @@ describe('Tree', () => {
   });
 
   // check here
-  it.skip('Can be subscribed by handler(path)', function () {
+  it.only('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -597,8 +585,7 @@ describe('Tree', () => {
     }, this.test!.title);
   });
 
-  // check here ehuas
-  it.skip('Get correct range from index', function () {
+  it.only('Get correct range from index', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
