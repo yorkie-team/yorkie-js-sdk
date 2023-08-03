@@ -277,6 +277,37 @@ describe('Presence', function () {
     await c2.deactivate();
     await c3.deactivate();
   });
+
+  it('Can get presence value using p.get() within doc.update function', async function () {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    type PresenceType = { counter: number };
+    const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
+    await c1.attach(doc1, {
+      initialPresence: { counter: 0 },
+      isRealtimeSync: false,
+    });
+
+    const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
+    await c2.attach(doc2, {
+      initialPresence: { counter: 0 },
+      isRealtimeSync: false,
+    });
+
+    doc1.update((root, p) => {
+      const counter = p.get('counter');
+      p.set({ counter: counter + 1 });
+    });
+    assert.deepEqual(doc1.getPresence(c1.getID()!), { counter: 1 });
+
+    await c1.sync();
+    await c2.sync();
+    assert.deepEqual(doc2.getPresence(c1.getID()!), { counter: 1 });
+  });
 });
 
 describe(`Document.Subscribe('presence')`, function () {

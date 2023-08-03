@@ -13,7 +13,7 @@
 At project root, run below command to start Yorkie server and Envoy proxy.
 
 ```bash
-$ docker-compose up -f docker/docker-compose.yml up --build -d
+$ docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
 Then install dependencies and run the demo.
