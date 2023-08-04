@@ -589,13 +589,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1);
+    await c1.attach(d1, { isRealtimeSync: false });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2);
+    await c2.attach(d2, { isRealtimeSync: false });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 updates d1 and removes it.
@@ -603,12 +603,12 @@ describe('Document', function () {
       root['k1'].push(3);
     });
     await c1.remove(d1);
-    assert.equal(d1.toSortedJSON(), '{"k1":[1,2,3]}');
+    assert.equal(d1.toSortedJSON(), '{"k1":[1,2,3]}', 'd1');
     assert.equal(d1.getStatus(), DocumentStatus.Removed);
 
     // 03. c2 syncs and checks that d2 is removed.
     await c2.sync();
-    assert.equal(d2.toSortedJSON(), '{"k1":[1,2,3]}');
+    assert.equal(d2.toSortedJSON(), '{"k1":[1,2,3]}', 'd2');
     assert.equal(d2.getStatus(), DocumentStatus.Removed);
 
     await c1.deactivate();

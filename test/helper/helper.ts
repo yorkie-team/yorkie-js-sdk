@@ -23,6 +23,14 @@ import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export type Indexable = Record<string, any>;
 
+export async function sleep(interval = 1000): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, interval);
+  });
+}
+
 export async function waitStubCallCount(
   stub: sinon.SinonStub,
   callCount: number,
@@ -31,12 +39,13 @@ export async function waitStubCallCount(
     const doLoop = () => {
       if (stub.callCount >= callCount) {
         resolve();
+        return;
       }
-      return false;
+
+      setTimeout(doLoop, 0);
     };
-    if (!doLoop()) {
-      setTimeout(doLoop, 1000);
-    }
+
+    doLoop();
   });
 }
 
