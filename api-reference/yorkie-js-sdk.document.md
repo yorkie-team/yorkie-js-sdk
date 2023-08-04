@@ -22,7 +22,6 @@ declare class Document<T, P extends Indexable = Indexable>
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
-|  [addOnlineClient(clientID)](./yorkie-js-sdk.document.addonlineclient.md) |  | <code>addOnlineClient</code> adds the given clientID into the online client set. |
 |  [applyChanges(changes)](./yorkie-js-sdk.document.applychanges.md) |  | <code>applyChanges</code> applies the given changes into this document. |
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
 |  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
@@ -30,10 +29,7 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
 |  [getValueByPath(path)](./yorkie-js-sdk.document.getvaluebypath.md) |  | <code>getValueByPath</code> returns the JSONElement corresponding to the given path. |
-|  [hasPresence(clientID)](./yorkie-js-sdk.document.haspresence.md) |  | <code>hasPresence</code> returns whether the given clientID has a presence or not. |
 |  [publish(event)](./yorkie-js-sdk.document.publish.md) |  | <code>publish</code> triggers an event in this document, which can be received by callback functions from document.subscribe(). |
-|  [removeOnlineClient(clientID)](./yorkie-js-sdk.document.removeonlineclient.md) |  | <code>removeOnlineClient</code> removes the clientID from the online client set. |
-|  [setOnlineClients(onlineClients)](./yorkie-js-sdk.document.setonlineclients.md) |  | <code>setOnlineClients</code> sets the given online client set. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the document is changed. |
 |  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_1.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the clients watching the document establishe or update its presence. |
 |  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_2.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the current client establishes or updates its presence. |
