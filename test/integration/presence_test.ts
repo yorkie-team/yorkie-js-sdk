@@ -589,5 +589,5 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.deactivate();
     await c2.deactivate();
     await c3.deactivate();
-  }).timeout(10000);
+  });
 });
