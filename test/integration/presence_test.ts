@@ -334,8 +334,8 @@ describe(`Document.Subscribe('presence')`, function () {
       p.set({ name: 'X' });
     });
 
-    await waitStubCallCount(stub1, 2);
-    await waitStubCallCount(stub2, 1);
+    await waitStubCallCount(stub1, 2); // c1 presence-changed, c2 watched
+    await waitStubCallCount(stub2, 1); // c1 presence-changed
     assert.deepEqual(stub1.args, [
       [
         {
@@ -400,10 +400,10 @@ describe(`Document.Subscribe('presence')`, function () {
         name: 'b',
       },
     });
-    await waitStubCallCount(stub1, 1);
+    await waitStubCallCount(stub1, 1); // c2 watched
 
     await c2.detach(doc2);
-    await waitStubCallCount(stub1, 2);
+    await waitStubCallCount(stub1, 2); // c2 unwatched
 
     assert.deepEqual(stub1.args, [
       [

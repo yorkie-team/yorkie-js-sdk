@@ -80,10 +80,10 @@ describe('Document', function () {
       root['k1'] = 'v1';
     });
 
-    await waitStubCallCount(stub2, 1);
-    assert.equal(d2Events.pop(), DocEventType.LocalChange);
-    await waitStubCallCount(stub1, 1);
-    assert.equal(d1Events.pop(), DocEventType.RemoteChange);
+    await waitStubCallCount(stub2, 1); // c2 local-change
+    assert.equal(d2Events[0], DocEventType.LocalChange);
+    await waitStubCallCount(stub1, 1); // c2 remote-change
+    assert.equal(d1Events[0], DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     unsub1();
@@ -182,8 +182,8 @@ describe('Document', function () {
       ];
     });
 
-    await waitStubCallCount(stub1, 1);
-    await waitStubCallCount(stub2, 1);
+    await waitStubCallCount(stub1, 1); // c1 local-change
+    await waitStubCallCount(stub2, 1); // c1 remote-change
 
     d2.update((root) => {
       root.counter.increase(1);
@@ -210,8 +210,8 @@ describe('Document', function () {
         },
       ];
     });
-    await waitStubCallCount(stub1, 2);
-    await waitStubCallCount(stub2, 2);
+    await waitStubCallCount(stub1, 2); // c2 remote-change
+    await waitStubCallCount(stub2, 2); // c2 local-change
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     assert.deepEqual(
       events1,
