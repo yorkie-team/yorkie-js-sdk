@@ -375,18 +375,9 @@ describe('Client', function () {
     await c2.attach(d2);
     await c3.attach(d3);
 
-    const d1Events: Array<string> = [];
-    const d2Events: Array<string> = [];
-    const d3Events: Array<string> = [];
-    const stub1 = sinon.stub().callsFake((event) => {
-      d1Events.push(event.type);
-    });
-    const stub2 = sinon.stub().callsFake((event) => {
-      d2Events.push(event.type);
-    });
-    const stub3 = sinon.stub().callsFake((event) => {
-      d3Events.push(event.type);
-    });
+    const stub1 = sinon.stub();
+    const stub2 = sinon.stub();
+    const stub3 = sinon.stub();
     const unsub1 = d1.subscribe(stub1);
     const unsub2 = d2.subscribe(stub2);
     const unsub3 = d3.subscribe(stub3);
@@ -398,10 +389,12 @@ describe('Client', function () {
     d2.update((root) => {
       root.c2 = 0;
     });
-    await waitStubCallCount(stub1, 2); // local-change, remote-change
-    await waitStubCallCount(stub2, 2); // local-change, remote-change
-    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}');
+    await waitStubCallCount(stub1, 2); // c1 local-change, c2 remote-change
+    await waitStubCallCount(stub2, 2); // c2 local-change, c1 remote-change
+    await waitStubCallCount(stub3, 2); // c1 remote-change, c2 remote-change
+    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}', 'd1');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}', 'd2');
+    assert.equal(d3.toSortedJSON(), '{"c1":0,"c2":0}', 'd3');
 
     // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
     // are not reflected to each other.
@@ -415,20 +408,20 @@ describe('Client', function () {
       root.c2 = 1;
     });
 
-    await waitStubCallCount(stub1, 3); // local-change
-    await waitStubCallCount(stub2, 3); // local-change
-    await waitStubCallCount(stub3, 3);
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
-    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');
+    await waitStubCallCount(stub1, 3); // c1 local-change
+    await waitStubCallCount(stub2, 3); // c2 local-change
+    await waitStubCallCount(stub3, 4); // c1 remote-change, c2 remote-change
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}', 'd1');
+    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}', 'd2');
+    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}', 'd3');
 
     // 04. c1 and c2 sync with push-pull mode.
     c1.resumeRemoteChanges(d1);
     c2.resumeRemoteChanges(d2);
-    await waitStubCallCount(stub1, 4);
-    await waitStubCallCount(stub2, 4);
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}');
-    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}');
+    await waitStubCallCount(stub1, 4); // c2 remote-change
+    await waitStubCallCount(stub2, 4); // c1 remote-change
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}', 'd1');
+    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}', 'd2');
 
     unsub1();
     unsub2();
