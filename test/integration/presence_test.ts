@@ -5,11 +5,7 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import {
-  waitStubCallCount,
-  sleep,
-  deepSort,
-} from '@yorkie-js-sdk/test/helper/helper';
+import { waitStubCallCount, deepSort } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Presence', function () {
   it('Can be built from a snapshot', async function () {
@@ -504,15 +500,9 @@ describe(`Document.Subscribe('presence')`, function () {
     await waitStubCallCount(stub1, 7); // c3 unwatched
 
     // 06. c2 performs manual sync and then resumes(switches to realtime sync).
-    //     After applying all changes, only the watched event is triggered.
-
-    // TODO(hackerwins): This is workaround for some non-deterministic behavior.
-    // We need to fix this issue.
-    await sleep();
     await c2.sync();
-    await sleep();
+    await c1.sync(); // After c1 applied c2's changes, only the watched event will be triggered.
     await c2.resume(doc2);
-    await sleep();
     await waitStubCallCount(stub1, 8); // c2 watched
 
     assert.deepEqual(stub1.args, [
