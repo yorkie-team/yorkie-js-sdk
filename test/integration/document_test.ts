@@ -54,6 +54,44 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
+  for (let i = 0; i < 3; i++) {
+    it.only('Should work correctly even when "sync" is called multiple times', async function () {
+      type TestDoc = { k1: Array<number> };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+
+      // 01. c1 attaches d1 and c2 watches same doc.
+      const c1 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      const d1 = new yorkie.Document<TestDoc>(docKey);
+      d1.update((root) => {
+        root['k1'] = [1, 2];
+      }, 'set array');
+      await c1.attach(d1);
+      assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
+
+      const c2 = new yorkie.Client(testRPCAddr);
+      await c2.activate();
+      const d2 = new yorkie.Document<TestDoc>(docKey);
+      await c2.attach(d2);
+      assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
+
+      // 02. c1 updates d1 and removes it.
+      d1.update((root) => {
+        root['k1'].push(3);
+      });
+      assert.equal(d1.toSortedJSON(), '{"k1":[1,2,3]}', 'd1');
+      await c1.sync();
+
+      // 03. c2 syncs and checks that d2 is removed.
+      c2.sync();
+      await c2.sync();
+      assert.equal(d2.toSortedJSON(), '{"k1":[1,2,3]}', 'd2');
+
+      await c1.deactivate();
+      await c2.deactivate();
+    });
+  }
+
   it('Can watch documents', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
