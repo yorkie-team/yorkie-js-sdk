@@ -41,6 +41,42 @@ export async function waitStubCallCount(
   });
 }
 
+/**
+ * EventCollector provides a utility to collect and manage events.
+ * It can be used in tests to wait for events to be collected.
+ */
+export class EventCollector {
+  private events: Array<string>;
+
+  constructor() {
+    this.events = [];
+  }
+
+  public add(event: string) {
+    this.events.push(event);
+  }
+
+  /**
+   * `waitFor` waits for the specified event to be collected.
+   */
+  public waitFor(event: string) {
+    return new Promise((resolve) => {
+      const doLoop = () => {
+        if (this.events.includes(event)) {
+          resolve(event);
+          return;
+        }
+        setTimeout(doLoop, 0);
+      };
+      doLoop();
+    });
+  }
+
+  public reset() {
+    this.events = [];
+  }
+}
+
 export function deepSort(target: any): any {
   if (Array.isArray(target)) {
     return target.map(deepSort).sort(compareFunction);

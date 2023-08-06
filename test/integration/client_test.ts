@@ -7,7 +7,10 @@ import yorkie, {
   DocEventType,
   ClientEventType,
 } from '@yorkie-js-sdk/src/yorkie';
-import { waitStubCallCount } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  waitStubCallCount,
+  EventCollector,
+} from '@yorkie-js-sdk/test/helper/helper';
 import {
   toDocKey,
   testRPCAddr,
@@ -130,24 +133,20 @@ describe('Client', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    const c1Events: Array<string> = [];
-    const c2Events: Array<string> = [];
     const d1Events: Array<string> = [];
     const d2Events: Array<string> = [];
+    const eventCollector1 = new EventCollector();
+    const eventCollector2 = new EventCollector();
 
     const stubC1 = sinon.stub().callsFake((event) => {
-      c1Events.push(
-        event.type === ClientEventType.DocumentSynced
-          ? event.value
-          : event.type,
-      );
+      if (event.type === ClientEventType.DocumentSynced) {
+        eventCollector1.add(event.value);
+      }
     });
     const stubC2 = sinon.stub().callsFake((event) => {
-      c2Events.push(
-        event.type === ClientEventType.DocumentSynced
-          ? event.value
-          : event.type,
-      );
+      if (event.type === ClientEventType.DocumentSynced) {
+        eventCollector2.add(event.value);
+      }
     });
     const stubD1 = sinon.stub().callsFake((event) => {
       d1Events.push(event.type);
@@ -170,14 +169,15 @@ describe('Client', function () {
       root['k1'] = 'undefined';
     });
 
-    await waitStubCallCount(stubD2, 1); // d2 should be able to update
-
+    await waitStubCallCount(stubD2, 1); // c2 local-change
     assert.equal(d2Events.at(-1), DocEventType.LocalChange);
-    await waitStubCallCount(stubD1, 1); // d1 should be able to receive d2's update
+    await waitStubCallCount(stubD1, 1); // c2 remote-change
     assert.equal(d1Events.at(-1), DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
     // Simulate network error
+    eventCollector1.reset();
+    eventCollector2.reset();
     const xhr = sinon.useFakeXMLHttpRequest();
     xhr.onCreate = (req) => {
       req.respond(
@@ -193,42 +193,27 @@ describe('Client', function () {
       root['k1'] = 'v1';
     });
 
-    await waitStubCallCount(stubD2, 2); // d2 should be able to update
+    await waitStubCallCount(stubD2, 2); // c2 local-change
     assert.equal(d2Events.at(-1), DocEventType.LocalChange);
-    await waitStubCallCount(stubC2, 2); // c2 should fail to sync
-
-    assert.equal(
-      c2Events.at(-1),
-      DocumentSyncResultType.SyncFailed,
-      'c2 sync fail',
-    );
+    await eventCollector2.waitFor(DocumentSyncResultType.SyncFailed); // c2 should fail to sync
 
     await c1.sync().catch((err) => {
       assert.equal(err.message, 'INVALID_STATE_ERR - 0'); // c1 should also fail to sync
     });
-    assert.equal(
-      c1Events.at(-1),
-      DocumentSyncResultType.SyncFailed,
-      'c1 sync fail',
-    );
+    await eventCollector1.waitFor(DocumentSyncResultType.SyncFailed);
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
     // Back to normal condition
+    eventCollector1.reset();
+    eventCollector2.reset();
     xhr.restore();
 
-    await waitStubCallCount(stubC2, 3); // wait for c2 to sync
-    assert.equal(c2Events.at(-1), DocumentSyncResultType.Synced, 'c2 sync');
-    await waitStubCallCount(stubC1, 6);
-    assert.isTrue(
-      [c1Events.at(-1), c1Events.at(-2)].includes(
-        DocumentSyncResultType.Synced,
-      ),
-      'c1 sync',
-    );
-    await waitStubCallCount(stubD1, 2);
-    assert.equal(d1Events.at(-1), DocEventType.RemoteChange); // d1 should be able to receive d2's update
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    await eventCollector1.waitFor(DocumentSyncResultType.Synced); // wait for c1 to sync
+    await eventCollector2.waitFor(DocumentSyncResultType.Synced);
+    await waitStubCallCount(stubD1, 2); // c2 remote-change
+    assert.equal(d1Events.at(-1), DocEventType.RemoteChange);
+    assert.equal(d1.toSortedJSON(), '{"k1":"v1"}'); // d1 should be able to receive d2's update
 
     unsub1.client();
     unsub2.client();
