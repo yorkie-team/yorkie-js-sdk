@@ -102,9 +102,7 @@ describe('Presence', function () {
     assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), emptyObject);
   });
 
-  // TODO(hackerwins): This test case is not stable. It should be fixed.
-  // To occur the problem, we need to run this test case in for loop with 50 or 100 iteration.
-  it.skip('Should be synced eventually', async function () {
+  it('Should be synced eventually', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -123,23 +121,24 @@ describe('Presence', function () {
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
     const stub2 = sinon.stub();
     const unsub2 = doc2.subscribe('presence', stub2);
+    await waitStubCallCount(stub1, 1); // c2 watched
 
     doc1.update((root, p) => p.set({ name: 'A' }));
     doc2.update((root, p) => p.set({ name: 'B' }));
 
-    await waitStubCallCount(stub1, 3);
-    await waitStubCallCount(stub2, 2);
+    await waitStubCallCount(stub1, 3); // c1 prsence-changed, c2 presence-changed
+    await waitStubCallCount(stub2, 2); // c1 prsence-changed, c2 presence-changed
     assert.deepEqual(stub1.args, [
-      [
-        {
-          type: DocEventType.PresenceChanged,
-          value: { clientID: c1ID, presence: { name: 'A' } },
-        },
-      ],
       [
         {
           type: DocEventType.Watched,
           value: { clientID: c2ID, presence: { name: 'b' } },
+        },
+      ],
+      [
+        {
+          type: DocEventType.PresenceChanged,
+          value: { clientID: c1ID, presence: { name: 'A' } },
         },
       ],
       [
