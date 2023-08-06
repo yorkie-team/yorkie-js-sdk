@@ -244,29 +244,29 @@ describe('Client', function () {
     d1.update((root) => {
       root.version = 'v1';
     });
-    assert.notEqual(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.equal(d1.toSortedJSON(), `{"version":"v1"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{}`, 'd2');
     await c1.sync();
     await c2.sync();
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
 
     // 02. c2 changes the sync mode to realtime sync mode.
-    const c2Events: Array<string> = [];
-    const stubC2 = sinon.stub().callsFake((event) => {
-      c2Events.push(event.type);
+    const eventCollector = new EventCollector();
+    const stub = sinon.stub().callsFake((event) => {
+      eventCollector.add(event.type);
     });
-    const unsub1 = c2.subscribe(stubC2);
+    const unsub1 = c2.subscribe(stub);
     await c2.resume(d2);
+
+    eventCollector.reset();
     d1.update((root) => {
       root.version = 'v2';
     });
     await c1.sync();
-    await waitStubCallCount(stubC2, 3);
-    assert.isTrue(
-      [c2Events.at(-1), c2Events.at(-1)].includes(
-        ClientEventType.DocumentSynced,
-      ),
-    );
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    await eventCollector.waitFor(ClientEventType.DocumentSynced); // c2 should sync automatically
+    assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
     unsub1();
 
     // 03. c2 changes the sync mode to manual sync mode again.
@@ -274,10 +274,11 @@ describe('Client', function () {
     d1.update((root) => {
       root.version = 'v3';
     });
-    assert.notEqual(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.equal(d1.toSortedJSON(), `{"version":"v3"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
     await c1.sync();
     await c2.sync();
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.equal(d2.toSortedJSON(), `{"version":"v3"}`, 'd2');
 
     await c1.deactivate();
     await c2.deactivate();
