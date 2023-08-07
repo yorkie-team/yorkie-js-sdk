@@ -23,30 +23,72 @@ import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export type Indexable = Record<string, any>;
 
-export async function sleep(interval = 1000): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve();
-    }, interval);
-  });
-}
+/**
+ * EventCollector provides a utility to collect and manage events.
+ * It can be used in tests to wait for events to be collected.
+ */
+export class EventCollector<E = string> {
+  private events: Array<E>;
 
-export async function waitStubCallCount(
-  stub: sinon.SinonStub,
-  callCount: number,
-) {
-  return new Promise<void>((resolve) => {
-    const doLoop = () => {
-      if (stub.callCount >= callCount) {
-        resolve();
-        return;
-      }
+  constructor() {
+    this.events = [];
+  }
 
-      setTimeout(doLoop, 0);
-    };
+  public add(event: E) {
+    this.events.push(event);
+  }
 
-    doLoop();
-  });
+  /**
+   * `waitAndVerifyNthEvent` waits for the nth event to occur and then
+   * verifies whether the event matches the expected event.
+   */
+  public waitAndVerifyNthEvent(count: number, event: E) {
+    return new Promise<void>((resolve, reject) => {
+      const doLoop = () => {
+        if (this.events.length >= count) {
+          if (deepEqual(this.events[count - 1], event)) {
+            resolve();
+          } else {
+            reject(
+              new Error(`event is not equal -
+                expected: ${JSON.stringify(event)},
+                actual: ${JSON.stringify(this.events[count - 1])}`),
+            );
+          }
+          return;
+        }
+        setTimeout(doLoop, 0);
+      };
+      doLoop();
+    });
+  }
+
+  /**
+   * `waitFor` waits for the specified event to be collected.
+   *
+   * Note(chacha912): Before calling `waitFor`, it's recommended to use `reset` to clear the events array.
+   * If the event was previously present in the events array, it may not be accurately detected.
+   */
+  public waitFor(event: E) {
+    return new Promise<void>((resolve) => {
+      const doLoop = () => {
+        if (this.events.some((e) => deepEqual(e, event))) {
+          resolve();
+          return;
+        }
+        setTimeout(doLoop, 0);
+      };
+      doLoop();
+    });
+  }
+
+  public reset() {
+    this.events = [];
+  }
+
+  public getLength() {
+    return this.events.length;
+  }
 }
 
 export function deepSort(target: any): any {
@@ -62,6 +104,36 @@ export function deepSort(target: any): any {
       }, {} as Record<string, any>);
   }
   return target;
+}
+
+function deepEqual(actual: any, expected: any) {
+  if (actual === expected) {
+    return true;
+  }
+
+  if (
+    typeof actual !== 'object' ||
+    actual === null ||
+    typeof expected !== 'object' ||
+    expected === null
+  ) {
+    return false;
+  }
+
+  const keysA = Object.keys(actual);
+  const keysB = Object.keys(expected);
+
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
+
+  for (const key of keysA) {
+    if (!keysB.includes(key) || !deepEqual(actual[key], expected[key])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function compareFunction(a: any, b: any): number {
