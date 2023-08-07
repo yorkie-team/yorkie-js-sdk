@@ -60,6 +60,11 @@ export {
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
+  TextOperationInfo,
+  CounterOperationInfo,
+  ArrayOperationInfo,
+  ObjectOperationInfo,
+  TreeOperationInfo,
   AddOpInfo,
   IncreaseOpInfo,
   RemoveOpInfo,
