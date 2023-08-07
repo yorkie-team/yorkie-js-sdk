@@ -11,3 +11,5 @@
 ```typescript
 export declare type OperationInfo = TextOperationInfo | CounterOperationInfo | ArrayOperationInfo | ObjectOperationInfo | TreeOperationInfo;
 ```
+<b>References:</b> [TextOperationInfo](./yorkie-js-sdk.textoperationinfo.md)<!-- -->, [CounterOperationInfo](./yorkie-js-sdk.counteroperationinfo.md)<!-- -->, [ArrayOperationInfo](./yorkie-js-sdk.arrayoperationinfo.md)<!-- -->, [ObjectOperationInfo](./yorkie-js-sdk.objectoperationinfo.md)<!-- -->, [TreeOperationInfo](./yorkie-js-sdk.treeoperationinfo.md)
+
