@@ -4,6 +4,8 @@
 
 ## CounterOperationInfo type
 
+`CounterOperationInfo` represents the OperationInfo for the yorkie.Counter.
+
 <b>Signature:</b>
 
 ```typescript

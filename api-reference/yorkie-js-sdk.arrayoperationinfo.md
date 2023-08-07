@@ -4,6 +4,8 @@
 
 ## ArrayOperationInfo type
 
+`ArrayOperationInfo` represents the OperationInfo for the JSONArray.
+
 <b>Signature:</b>
 
 ```typescript

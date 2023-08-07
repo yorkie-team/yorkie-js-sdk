@@ -4,6 +4,8 @@
 
 ## TreeOperationInfo type
 
+`TreeOperationInfo` represents the OperationInfo for the yorkie.Tree.
+
 <b>Signature:</b>
 
 ```typescript

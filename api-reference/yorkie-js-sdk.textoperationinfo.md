@@ -4,6 +4,8 @@
 
 ## TextOperationInfo type
 
+`TextOperationInfo` represents the OperationInfo for the yorkie.Text.
+
 <b>Signature:</b>
 
 ```typescript

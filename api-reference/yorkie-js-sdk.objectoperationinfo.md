@@ -4,6 +4,8 @@
 
 ## ObjectOperationInfo type
 
+`ObjectOperationInfo` represents the OperationInfo for the JSONObject.
+
 <b>Signature:</b>
 
 ```typescript
