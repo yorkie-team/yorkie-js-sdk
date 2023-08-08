@@ -374,3 +374,407 @@ describe('Text', function () {
     }, this.test!.title);
   });
 });
+
+describe('peri-text example: text concurrent edit', function () {
+  it('ex1. concurrent insertions on plain text', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.edit(4, 4, 'quick ');
+      }, `add 'quick' by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"val":"quick "},{"val":"fox jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.edit(14, 14, ' over the dog');
+      }, `add 'over the dog' by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The fox jumped"},{"val":" over the dog"},{"val":"."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"val":"The "},{"val":"quick "},{"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+    }, this.test!.title);
+  });
+
+  it.skip('ex2. concurrent formatting and insertion', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 15, { bold: true });
+      }, `bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.edit(4, 4, 'brown ');
+      }, `add 'brown' by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"val":"brown "},{"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      // NOTE(chacha912): d1 and d2 should have the same content
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
+        'd1',
+      );
+      assert.equal(
+        d2.toSortedJSON(),
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
+        'd2',
+      );
+    }, this.test!.title);
+  });
+
+  it('ex3. overlapping formatting(bold)', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 7, { bold: true });
+      }, `bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The fox"},{"val":" jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.setStyle(4, 15, { bold: true });
+      }, `bolds text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"bold":true},"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"fox"},{"attrs":{"bold":true},"val":" jumped."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex4. overlapping different formatting(bold and italic)', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 7, { bold: true });
+      }, `bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The fox"},{"val":" jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.setStyle(4, 15, { italic: true });
+      }, `italicize text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"italic":true},"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true,"italic":true},"val":"fox"},{"attrs":{"italic":true},"val":" jumped."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex5. conflicting overlaps(highlighting)', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 7, { highlight: 'red' });
+      }, `highlight text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"highlight":"red"},"val":"The fox"},{"val":" jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.setStyle(4, 15, { highlight: 'blue' });
+      }, `highlight text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"highlight":"blue"},"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"attrs":{"highlight":"red"},"val":"The "},{"attrs":{"highlight":"blue"},"val":"fox"},{"attrs":{"highlight":"blue"},"val":" jumped."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex6. conflicting overlaps(bold) - 1', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 15, { bold: true });
+      }, `bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
+      );
+      d1.update((root) => {
+        root.k1.setStyle(4, 15, { bold: false });
+      }, `non-bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.setStyle(8, 15, { bold: true });
+      }, `bolds text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The fox "},{"attrs":{"bold":true},"val":"jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox "},{"attrs":{"bold":false},"val":"jumped."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex6. conflicting overlaps(bold) - 2', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 15, { bold: true });
+      }, `bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
+      );
+      d1.update((root) => {
+        root.k1.setStyle(4, 15, { bold: false });
+      }, `non-bolds text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      d2.update((root) => {
+        root.k1.setStyle(8, 15, { bold: true });
+      }, `bolds text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox "},{"attrs":{"bold":true},"val":"jumped."}]}`,
+        'd2',
+      );
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'd1');
+    }, this.test!.title);
+  });
+
+  it('ex7. multiple instances of the same mark', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"The fox jumped."}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.setStyle(0, 7, { comment: `Alice's comment` });
+      }, `add comment by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"comment":"Alice\\'s comment"},"val":"The fox"},{"val":" jumped."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.setStyle(4, 15, { comment: `Bob's comment` });
+      }, `add comment by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"comment":"Bob\\'s comment"},"val":"fox jumped."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      // NOTE(chacha912): multiple comments can be associated with a single character in the text.
+      // so it would be better we can keep both comments.
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"attrs":{"comment":"Alice\\'s comment"},"val":"The "},{"attrs":{"comment":"Bob\\'s comment"},"val":"fox"},{"attrs":{"comment":"Bob\\'s comment"},"val":" jumped."}]}`,
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex8. text insertion at span boundaries(bold)', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+        root.k1.setStyle(4, 14, { bold: true });
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"bold":true},"val":"fox jumped"},{"val":"."}]}`,
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.edit(4, 4, 'quick ');
+      }, `add text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"bold":true},"val":"fox jumped"},{"val":"."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.edit(14, 14, ' over the dog');
+      }, `add text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"bold":true},"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      // NOTE(chacha912): The general rule is that an inserted character inherits the bold/non-bold status
+      // of the preceding character.(Microsoft Word, Google Docs, Apple Pages)
+      // That is, the text inserted before the bold span becomes non-bold, and the text inserted after the bold span becomes bold.
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"bold":true},"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+
+  it('ex9. text insertion at span boundaries(link)', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'The fox jumped.');
+        root.k1.setStyle(4, 14, {
+          link: 'https://www.google.com/search?q=jumping+fox',
+        });
+      }, 'set text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"link":"https://www.google.com/search?q=jumping+fox"},"val":"fox jumped"},{"val":"."}]}`,
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.edit(4, 4, 'quick ');
+      }, `add text by c1`);
+      assert.equal(
+        d1.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"link":"https://www.google.com/search?q=jumping+fox"},"val":"fox jumped"},{"val":"."}]}`,
+      );
+      d2.update((root) => {
+        root.k1.edit(14, 14, ' over the dog');
+      }, `add text by c2`);
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"The "},{"attrs":{"link":"https://www.google.com/search?q=jumping+fox"},"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}`,
+      );
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        '{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"link":"https://www.google.com/search?q=jumping+fox"},"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}',
+        'd1',
+      );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
+    }, this.test!.title);
+  });
+});
