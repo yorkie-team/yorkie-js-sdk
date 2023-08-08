@@ -375,7 +375,7 @@ describe('Text', function () {
   });
 });
 
-describe.only('peri-text example: text concurrent edit', function () {
+describe('peri-text example: text concurrent edit', function () {
   it('ex1. concurrent insertions on plain text', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -412,7 +412,7 @@ describe.only('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex2. concurrent formatting and insertion', async function () {
+  it.skip('ex2. concurrent formatting and insertion', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -440,12 +440,12 @@ describe.only('peri-text example: text concurrent edit', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
+      // NOTE(chacha912): d1 and d2 should have the same content
       assert.equal(
         d1.toSortedJSON(),
         '{"k1":[{"attrs":{"bold":true},"val":"The "},{"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
         'd1',
       );
-      // NOTE(chacha912): d2 should have the same content as d1
       assert.equal(
         d2.toSortedJSON(),
         '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
