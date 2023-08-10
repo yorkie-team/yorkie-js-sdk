@@ -28,9 +28,6 @@ const App = () => {
       doc.subscribe('presence', (event) => {
         setClients(doc.getPresences());
       });
-      doc.subscribe('others', (event) => {
-        if (event.type !== 'presence-changed') return;
-      });
 
       await client.attach(doc, {
         initialPresence: {
@@ -40,7 +37,6 @@ const App = () => {
             yPos: 0,
           },
           pointerDown: false,
-          points: [],
         },
       });
 
@@ -67,14 +63,11 @@ const App = () => {
     };
     const handleMouseMove = (event) => {
       doc.update((root, presence) => {
-        const points = doc.getMyPresence().points;
-        points.push([event.clientX, event.clientY]);
         presence.set({
           cursor: {
             xPos: event.clientX,
             yPos: event.clientY,
           },
-          points,
         });
       });
     };
