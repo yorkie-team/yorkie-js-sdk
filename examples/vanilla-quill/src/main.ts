@@ -1,17 +1,14 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { Text, Indexable, OperationInfo } from 'yorkie-js-sdk';
+import yorkie, { DocEventType, Indexable, OperationInfo } from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
 import ShortUniqueId from 'short-unique-id';
 import ColorHash from 'color-hash';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
+import { YorkieDoc, YorkiePresence } from './type';
 import 'quill/dist/quill.snow.css';
 import './style.css';
-
-type YorkieDoc = {
-  content: Text;
-};
 
 type TextValueType = {
   attributes?: Indexable;
@@ -47,33 +44,28 @@ async function main() {
   // 01-1. create client with RPCAddr(envoy) then activate it.
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-    presence: {
-      username: `username-${shortUniqueID()}`,
-    },
   });
   await client.activate();
 
   // 01-2. subscribe client event.
   client.subscribe((event) => {
     network.statusListener(networkStatusElem)(event);
-    if (event.type !== 'peers-changed') return;
-
-    const { type, peers } = event.value;
-    if (type === 'unwatched') {
-      peers[doc.getKey()].map((peer) => {
-        cursors.removeCursor(peer.presence.username);
-      });
-    }
-    displayPeers(
-      peersElem,
-      client.getPeersByDocKey(doc.getKey()),
-      client.getID()!,
-    );
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>(documentKey);
-  await client.attach(doc);
+  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey);
+  doc.subscribe('presence', (event) => {
+    if (event.type !== DocEventType.PresenceChanged) {
+      displayPeers(peersElem, doc.getPresences(), client.getID()!);
+    }
+  });
+
+  await client.attach(doc, {
+    initialPresence: {
+      username: `username-${shortUniqueID()}`,
+      selection: null,
+    },
+  });
 
   doc.update((root) => {
     if (!root.content) {
@@ -93,10 +85,37 @@ async function main() {
 
   doc.subscribe('$.content', (event) => {
     if (event.type === 'remote-change') {
-      const { actor, operations } = event.value;
-      handleOperations(operations, actor);
+      handleOperations(event.value.operations);
     }
   });
+  doc.subscribe('others', (event) => {
+    if (event.type === DocEventType.Unwatched) {
+      // TODO(chacha912): We don't know presence of unwatched client now.
+      // cursors.removeCursor(event.value.presence.username);
+    } else if (event.type === DocEventType.PresenceChanged) {
+      displayRemoteCursors([event.value]);
+    }
+  });
+
+  function displayRemoteCursors(
+    peers: Array<{ clientID: string; presence: YorkiePresence }>,
+  ) {
+    for (const peer of peers) {
+      const {
+        presence: { username, selection },
+      } = peer;
+      if (!selection) continue;
+      const [fromIdx, toIdx] = doc
+        .getRoot()
+        .content.posRangeToIndexRange(selection);
+
+      cursors.createCursor(username, username, colorHash.hex(username));
+      cursors.moveCursor(username, {
+        index: fromIdx,
+        length: toIdx - fromIdx,
+      });
+    }
+  }
 
   await client.sync();
 
@@ -149,7 +168,8 @@ async function main() {
             'color: green',
           );
 
-          doc.update((root) => {
+          doc.update((root, presence) => {
+            let range;
             if (op.attributes !== undefined && op.insert === undefined) {
               root.content.setStyle(from, to, op.attributes);
             } else if (op.insert !== undefined) {
@@ -158,22 +178,31 @@ async function main() {
               }
 
               if (typeof op.insert === 'object') {
-                root.content.edit(from, to, ' ', {
+                range = root.content.edit(from, to, ' ', {
                   embed: JSON.stringify(op.insert),
                   ...op.attributes,
                 });
               } else {
-                root.content.edit(from, to, op.insert, op.attributes);
+                range = root.content.edit(from, to, op.insert, op.attributes);
               }
               from = to + op.insert.length;
             }
+
+            range &&
+              presence.set({
+                selection: root.content.indexRangeToPosRange(range),
+              });
           }, `update style by ${client.getID()}`);
         } else if (op.delete !== undefined) {
           to = from + op.delete;
           console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
-          doc.update((root) => {
-            root.content.edit(from, to, '');
+          doc.update((root, presence) => {
+            const range = root.content.edit(from, to, '');
+            range &&
+              presence.set({
+                selection: root.content.indexRangeToPosRange(range),
+              });
           }, `update content by ${client.getID()}`);
         } else if (op.retain !== undefined) {
           from = to + op.retain;
@@ -186,24 +215,21 @@ async function main() {
         return;
       }
 
-      doc.update((root) => {
-        root.content.select(range.index, range.index + range.length);
+      doc.update((root, presence) => {
+        presence.set({
+          selection: root.content.indexRangeToPosRange([
+            range.index,
+            range.index + range.length,
+          ]),
+        });
       }, `update selection by ${client.getID()}`);
     });
 
   // 04-2. document to Quill(remote).
-  function handleOperations(
-    ops: Array<OperationInfo>,
-    actor: string | undefined,
-  ) {
+  function handleOperations(ops: Array<OperationInfo>) {
     const deltaOperations = [];
     let prevTo = 0;
     for (const op of ops) {
-      const actorName = client.getPeerPresence(
-        doc.getKey(),
-        `${actor}`,
-      )?.username;
-
       if (op.type === 'edit') {
         const from = op.from;
         const to = op.to;
@@ -250,17 +276,6 @@ async function main() {
           deltaOperations.push(op);
         }
         prevTo = to;
-      } else if (actorName && op.type === 'select') {
-        const from = op.from;
-        const to = op.to;
-        const retainTo = to - from;
-        cursors.createCursor(actorName, actorName, colorHash.hex(actorName));
-        cursors.moveCursor(actorName, {
-          index: from,
-          length: retainTo,
-        });
-
-        prevTo = to;
       }
     }
 
@@ -287,6 +302,7 @@ async function main() {
   }
 
   syncText();
+  displayRemoteCursors(doc.getPresences());
   displayLog(documentElem, documentTextElem, doc);
 }
 
