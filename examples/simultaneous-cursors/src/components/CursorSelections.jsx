@@ -2,65 +2,35 @@ import { useState } from 'react';
 
 const CursorSelections = ({ handleCursorShapeSelect, clientsLength }) => {
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
+
+  const cursorShapes = ['heart', 'thumbs', 'pen', 'cursor'];
+
   return (
     <div className="cursor-selector-container">
       <div className="cursor-selections-container">
-        <img
-          onClick={() => {
-            handleCursorShapeSelect('heart');
-            setSelectedCursorShape('heart');
-          }}
-          className={
-            selectedCursorShape === 'heart'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
-          }
-          src="src/assets/icons/icon_heart.svg"
-        />
-        <img
-          onClick={() => {
-            handleCursorShapeSelect('thumbs');
-            setSelectedCursorShape('thumbs');
-          }}
-          className={
-            selectedCursorShape === 'thumbs'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
-          }
-          src="src/assets/icons/icon_thumbs.svg"
-        />
-        <img
-          onClick={() => {
-            handleCursorShapeSelect('pen');
-            setSelectedCursorShape('pen');
-          }}
-          className={
-            selectedCursorShape === 'pen'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
-          }
-          src="src/assets/icons/icon_pen.svg"
-        />
-        <img
-          onClick={() => {
-            handleCursorShapeSelect('cursor');
-            setSelectedCursorShape('cursor');
-          }}
-          className={
-            selectedCursorShape === 'cursor'
-              ? 'cursor-shape-selected'
-              : 'cursor-shape-not-selected'
-          }
-          src="src/assets/icons/icon_cursor.svg"
-        />
+        {cursorShapes.map((shape) => (
+          <img
+            key={shape}
+            onClick={() => {
+              handleCursorShapeSelect(shape);
+              setSelectedCursorShape(shape);
+            }}
+            className={`${
+              selectedCursorShape === shape
+                ? 'cursor-shape-selected'
+                : 'cursor-shape-not-selected'
+            }`}
+            src={`src/assets/icons/icon_${shape}.svg`}
+          />
+        ))}
       </div>
 
       <div className="num-users-container">
-        {clientsLength !== 1 ? (
-          <p>{clientsLength} users are here</p>
-        ) : (
-          <p> 1 user here </p>
-        )}
+        <p>
+          {clientsLength !== 1
+            ? `${clientsLength} users are here`
+            : '1 user here'}
+        </p>
       </div>
     </div>
   );

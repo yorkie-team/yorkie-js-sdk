@@ -28,7 +28,6 @@ const PenCursor = ({ xPos, yPos }) => {
     const ctx = canvas.getContext('2d');
 
     const animatePoints = () => {
-      // console.log('requestAnimationFrame', xPos);
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       const duration = (0.7 * (1 * 4000)) / 60;
 
@@ -72,8 +71,6 @@ const PenCursor = ({ xPos, yPos }) => {
   useEffect(() => {
     addPoint(xPos, yPos);
   }, [xPos, yPos]);
-
-  console.log('pen render 🖍', xPos, yPos);
 
   return (
     <canvas

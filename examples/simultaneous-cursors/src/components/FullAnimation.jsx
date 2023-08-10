@@ -7,7 +7,6 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
 
   const animationBubbleRate = 100;
 
-  // Remove singleAnimationsArray not visible anymore (every 1 sec)
   useInterval(() => {
     setSingleAnimationsArray((singleAnimationsArray) =>
       singleAnimationsArray.filter(
