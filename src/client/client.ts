@@ -892,6 +892,8 @@ export class Client implements Observable<ClientEvent> {
         break;
       case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
         attachment.doc.addOnlineClient(publisher);
+        // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+        // unless we also know their initial presence data at this point.
         if (attachment.doc.hasPresence(publisher)) {
           attachment.doc.publish({
             type: DocEventType.Watched,
@@ -903,11 +905,16 @@ export class Client implements Observable<ClientEvent> {
         }
         break;
       case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+        const presence = attachment.doc.getPresence(publisher);
         attachment.doc.removeOnlineClient(publisher);
-        attachment.doc.publish({
-          type: DocEventType.Unwatched,
-          value: { clientID: publisher },
-        });
+        // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+        // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+        if (presence) {
+          attachment.doc.publish({
+            type: DocEventType.Unwatched,
+            value: { clientID: publisher, presence },
+          });
+        }
         break;
       }
     }

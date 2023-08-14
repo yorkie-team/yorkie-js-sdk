@@ -52,16 +52,20 @@ export default {
   created() {
     this.fetchDoc();
   },
+  beforeUnmount(){
+    this.disconnect();
+  },
   watch: {
     opened(index) {
       this.$nextTick(function () {
         if (index === 0) {
           // Open add list form
           this.$refs['addListForm'].querySelector('input').focus();
-        } else {
+        } else if (index) {
           // Or open add card form
           this.$refs['addCardForm'][index - 1].querySelector('input').focus();
         }
+        this.title = ''
       });
     },
   },
@@ -83,6 +87,10 @@ export default {
       await client.sync();
 
       this.lists = doc.getRoot().lists;
+    },
+
+    async disconnect(){
+      await client.deactivate();
     },
 
     isOpened(index) {

@@ -110,8 +110,8 @@
           });
           doc.subscribe('others', (event) => {
             if (event.type === 'unwatched') {
-              const { clientID } = event.value;
-              cursors.removeCursor(doc.getPresence(clientID).username);
+              const { clientID, presence } = event.value;
+              cursors.removeCursor(presence.username);
             } else if (event.type === 'presence-changed') {
               const { clientID, presence } = event.value;
               const range = doc
@@ -222,8 +222,13 @@
                   to = from + op.delete;
                   console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
-                  doc.update((root) => {
-                    root.content.edit(from, to, '');
+                  doc.update((root, presence) => {
+                    const range = root.content.edit(from, to, '');
+                    if (range) {
+                      presence.set({
+                        selection: root.content.indexRangeToPosRange(range),
+                      });
+                    }
                   }, `update content by ${client.getID()}`);
                 } else if (op.retain !== undefined) {
                   from = to + op.retain;
