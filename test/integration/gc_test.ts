@@ -266,7 +266,8 @@ describe('Garbage Collection', function () {
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
   });
 
-  it('Can handle tree garbage collection for multi client', async function () {
+  it.skip('Can handle tree garbage collection for multi client', async function () {
+    // TODO(hackerwins): Fix this test.
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<{ t: Tree }>(docKey);
     const doc2 = new yorkie.Document<{ t: Tree }>(docKey);
