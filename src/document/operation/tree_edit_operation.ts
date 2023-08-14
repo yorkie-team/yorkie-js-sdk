@@ -20,7 +20,6 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
@@ -113,7 +112,6 @@ export class TreeEditOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    // TODO [ehuas]
     const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
       .getLeftSiblingID()

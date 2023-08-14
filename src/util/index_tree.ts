@@ -246,7 +246,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `allChildren` returns the children of the node includes tombstones.
+   * `allChildren` returns all the children of the node including tombstone nodes.
+   * It returns the shallow copy of the children.
    */
   get allChildren(): Array<T> {
     return [...this._children];
@@ -420,8 +421,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     if (node.isRemoved) {
       const index = this._children.indexOf(node);
+
+      // If nodes are removed, the offset of the removed node is the number of
+      // nodes before the node excluding the removed nodes.
       const refined =
-        [...this._children].splice(0, index).filter((node) => !node.isRemoved)
+        this.allChildren.splice(0, index).filter((node) => !node.isRemoved)
           .length - 1;
 
       return refined < 0 ? 0 : refined;
@@ -557,7 +561,7 @@ export function traverseAll<T extends IndexTreeNode<T>>(
   callback: (node: T, depth: number) => void,
   depth = 0,
 ) {
-  for (const child of node.allChildren) {
+  for (const child of node._children) {
     traverseAll(child, callback, depth + 1);
   }
   callback(node, depth);
@@ -722,7 +726,6 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     traverseAll(this.root, callback, 0);
   }
 
-  // TODO (ehuas): modify function?
   /**
    * `split` splits the node at the given index.
    */

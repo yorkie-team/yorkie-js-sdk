@@ -17,11 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import {
-  CRDTTree,
-  CRDTTreeNodeID,
-  CRDTTreePos,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+import { CRDTTree, CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,

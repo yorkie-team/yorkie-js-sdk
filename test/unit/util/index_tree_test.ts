@@ -81,8 +81,7 @@ describe('IndexTree', function () {
     assert.deepEqual([toDiagnostic(pos.node), pos.offset], ['r', 2]);
   });
 
-  //note: no need to use linked list anymore
-  it.skip('Can find right node from the given offset in postorder traversal', function () {
+  it('Can find right node from the given offset in postorder traversal', function () {
     //       0   1 2 3    4   6 7     8
     // <root> <p> a b </p> <p> c d</p> </root>
     const tree = buildIndexTree({
@@ -125,7 +124,6 @@ describe('IndexTree', function () {
     assert.equal(findCommonAncestor(nodeAB, nodeCD)!.type, 'p');
   });
 
-  // note: no need to use linked list anymore
   it('Can traverse nodes between two given positions', function () {
     //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
