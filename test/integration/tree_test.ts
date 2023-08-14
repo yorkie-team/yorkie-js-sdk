@@ -19,7 +19,6 @@ import { assert } from 'chai';
 import yorkie, {
   Document,
   Tree,
-  TreeNode,
   ElementNode,
   Indexable,
 } from '@yorkie-js-sdk/src/yorkie';
@@ -287,7 +286,6 @@ describe('Tree', () => {
     );
   });
 
-  // check here
   it('Can be subscribed by handler(path)', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -995,6 +993,7 @@ describe('Tree.style', function () {
   });
 
   it.skip('Can sync its content containing attributes with other replicas', async function () {
+    // TODO(hackerwins): Fix this test case after porting the logic to Go Server.
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
