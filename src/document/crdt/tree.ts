@@ -75,21 +75,6 @@ export interface TreeChange {
   value?: Array<TreeNode> | { [key: string]: any };
 }
 
-export const posEquals = (posA: CRDTTreePos, posB: CRDTTreePos): boolean => {
-  return (
-    posA
-      .getParentID()
-      .getCreatedAt()
-      .equals(posB.getParentID().getCreatedAt()) &&
-    posA.getParentID().getOffset() === posB.getParentID().getOffset() &&
-    posA
-      .getLeftSiblingID()
-      .getCreatedAt()
-      .equals(posB.getLeftSiblingID().getCreatedAt()) &&
-    posA.getLeftSiblingID().getOffset() === posB.getLeftSiblingID().getOffset()
-  );
-};
-
 /**
  * `CRDTTreePos` represent a position in the tree. It indicates the virtual
  * location in the tree, so whether the node is splitted or not, we can find
@@ -157,6 +142,23 @@ export class CRDTTreePos {
    */
   public getLeftSiblingID() {
     return this.leftSiblingId;
+  }
+
+  /**
+   * `equals` returns whether the given pos equals to this or not.
+   */
+  public equals(other: CRDTTreePos): boolean {
+    return (
+      this.getParentID()
+        .getCreatedAt()
+        .equals(other.getParentID().getCreatedAt()) &&
+      this.getParentID().getOffset() === other.getParentID().getOffset() &&
+      this.getLeftSiblingID()
+        .getCreatedAt()
+        .equals(other.getLeftSiblingID().getCreatedAt()) &&
+      this.getLeftSiblingID().getOffset() ===
+        other.getLeftSiblingID().getOffset()
+    );
   }
 }
 

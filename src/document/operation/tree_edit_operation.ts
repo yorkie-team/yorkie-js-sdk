@@ -1,4 +1,3 @@
-import { posEquals } from './../crdt/tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -87,7 +86,7 @@ export class TreeEditOperation extends Operation {
       this.getExecutedAt(),
     );
 
-    if (!posEquals(this.fromPos, this.toPos)) {
+    if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(tree);
     }
     return changes.map(({ from, to, value, fromPath, toPath }) => {

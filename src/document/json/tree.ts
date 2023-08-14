@@ -8,7 +8,6 @@ import {
   TreePosStructRange,
   TreeChange,
   CRDTTreePos,
-  posEquals,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
@@ -369,7 +368,7 @@ export class Tree {
       ),
     );
 
-    if (!posEquals(fromPos, toPos)) {
+    if (!fromPos.equals(toPos)) {
       this.context!.registerElementHasRemovedNodes(this.tree!);
     }
 
