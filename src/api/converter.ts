@@ -1,4 +1,3 @@
-import { CRDTTreePos } from './../document/crdt/tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -46,6 +45,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
@@ -79,7 +79,7 @@ import {
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
-  TreeNodeId as PbTreeNodeId,
+  TreeNodeID as PbTreeNodeID,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -263,19 +263,19 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
   const pbTreePos = new PbTreePos();
-  pbTreePos.setParentId(toTreeNodeId(pos.getParentId()));
-  pbTreePos.setLeftSiblingId(toTreeNodeId(pos.getLeftSiblingId()));
+  pbTreePos.setParentId(toTreeNodeID(pos.getParentID()));
+  pbTreePos.setLeftSiblingId(toTreeNodeID(pos.getLeftSiblingID()));
   return pbTreePos;
 }
 
 /**
- * `toTreePos` converts the given model to Protobuf format.
+ * `toTreeNodeID` converts the given model to Protobuf format.
  */
-function toTreeNodeId(treeNodeId: CRDTTreeNodeID): PbTreeNodeId {
-  const pbTreeNodeId = new PbTreeNodeId();
-  pbTreeNodeId.setCreatedAt(toTimeTicket(treeNodeId.getCreatedAt()));
-  pbTreeNodeId.setOffset(treeNodeId.getOffset());
-  return pbTreeNodeId;
+function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
+  const pbTreeNodeID = new PbTreeNodeID();
+  pbTreeNodeID.setCreatedAt(toTimeTicket(treeNodeID.getCreatedAt()));
+  pbTreeNodeID.setOffset(treeNodeID.getOffset());
+  return pbTreeNodeID;
 }
 
 /**
@@ -557,7 +557,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode();
-    pbTreeNode.setPos(toTreeNodeId(n.pos));
+    pbTreeNode.setPos(toTreeNodeID(n.pos));
     pbTreeNode.setType(n.type);
     if (n.isText) {
       pbTreeNode.setValue(n.value);
@@ -915,22 +915,22 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
 }
 
 /**
- * `fromTreePos` converts the given Protobuf format to CRDTTreePos model format.
+ * `fromTreePos` converts the given Protobuf format to model format.
  */
 function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
   return CRDTTreePos.of(
-    fromTreeNodeId(pbTreePos.getParentId()!),
-    fromTreeNodeId(pbTreePos.getLeftSiblingId()!),
+    fromTreeNodeID(pbTreePos.getParentId()!),
+    fromTreeNodeID(pbTreePos.getLeftSiblingId()!),
   );
 }
 
 /**
- * `fromTreeNodeId` converts the given Protobuf format to CRDTTreeNodeID model format.
+ * `fromTreeNodeID` converts the given Protobuf format to model format.
  */
-function fromTreeNodeId(pbTreeNodeId: PbTreeNodeId): CRDTTreeNodeID {
+function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
   return CRDTTreeNodeID.of(
-    fromTimeTicket(pbTreeNodeId.getCreatedAt())!,
-    pbTreeNodeId.getOffset(),
+    fromTimeTicket(pbTreeNodeID.getCreatedAt())!,
+    pbTreeNodeID.getOffset(),
   );
 }
 
@@ -945,10 +945,8 @@ function fromTreeNodesWhenEdit(
   }
 
   const treeNodes: Array<CRDTTreeNode> = [];
-
   pbTreeNodes.forEach((node) => {
     const treeNode = fromTreeNodes(node.getContentList());
-
     treeNodes.push(treeNode!);
   });
 
@@ -991,7 +989,7 @@ function fromTreeNodes(
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
-  const pos = fromTreeNodeId(pbTreeNode.getPos()!);
+  const pos = fromTreeNodeID(pbTreeNode.getPos()!);
   const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();

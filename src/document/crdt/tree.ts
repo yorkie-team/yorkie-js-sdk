@@ -78,15 +78,15 @@ export interface TreeChange {
 export const posEquals = (posA: CRDTTreePos, posB: CRDTTreePos): boolean => {
   return (
     posA
-      .getParentId()
+      .getParentID()
       .getCreatedAt()
-      .equals(posB.getParentId().getCreatedAt()) &&
-    posA.getParentId().getOffset() === posB.getParentId().getOffset() &&
+      .equals(posB.getParentID().getCreatedAt()) &&
+    posA.getParentID().getOffset() === posB.getParentID().getOffset() &&
     posA
-      .getLeftSiblingId()
+      .getLeftSiblingID()
       .getCreatedAt()
-      .equals(posB.getLeftSiblingId().getCreatedAt()) &&
-    posA.getLeftSiblingId().getOffset() === posB.getLeftSiblingId().getOffset()
+      .equals(posB.getLeftSiblingID().getCreatedAt()) &&
+    posA.getLeftSiblingID().getOffset() === posB.getLeftSiblingID().getOffset()
   );
 };
 
@@ -116,7 +116,7 @@ export class CRDTTreePos {
   /**
    * `getParentId` returns parentId.
    */
-  public getParentId() {
+  public getParentID() {
     return this.parentId;
   }
 
@@ -142,12 +142,12 @@ export class CRDTTreePos {
   public toStruct(): CRDTTreePosStruct {
     return {
       parentId: {
-        createdAt: this.getParentId().getCreatedAt().toStruct(),
-        offset: this.getParentId().getOffset(),
+        createdAt: this.getParentID().getCreatedAt().toStruct(),
+        offset: this.getParentID().getOffset(),
       },
       leftSiblingId: {
-        createdAt: this.getLeftSiblingId().getCreatedAt().toStruct(),
-        offset: this.getLeftSiblingId().getOffset(),
+        createdAt: this.getLeftSiblingID().getCreatedAt().toStruct(),
+        offset: this.getLeftSiblingID().getOffset(),
       },
     };
   }
@@ -155,7 +155,7 @@ export class CRDTTreePos {
   /**
    * `getLeftSiblingId` returns leftSiblingId.
    */
-  public getLeftSiblingId() {
+  public getLeftSiblingID() {
     return this.leftSiblingId;
   }
 }
@@ -616,7 +616,7 @@ export class CRDTTree extends CRDTGCElement {
     if (leftSiblingNode.isText) {
       const absOffset = leftSiblingNode.pos.getOffset();
       const split = leftSiblingNode.split(
-        pos.getLeftSiblingId().getOffset() - absOffset,
+        pos.getLeftSiblingID().getOffset() - absOffset,
         absOffset,
       );
 
@@ -1088,8 +1088,8 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   private toTreeNodes(pos: CRDTTreePos) {
-    const parentId = pos.getParentId();
-    const leftSiblingId = pos.getLeftSiblingId();
+    const parentId = pos.getParentID();
+    const leftSiblingId = pos.getLeftSiblingID();
     const parentEntry = this.nodeMapByPos.floorEntry(parentId);
     const leftSiblingEntry = this.nodeMapByPos.floorEntry(leftSiblingId);
 

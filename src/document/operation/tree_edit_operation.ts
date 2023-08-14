@@ -117,13 +117,13 @@ export class TreeEditOperation extends Operation {
     // TODO [ehuas]
     const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
-      .getLeftSiblingId()
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getLeftSiblingId().getOffset()}`;
+      .toTestString()}:${this.fromPos.getLeftSiblingID().getOffset()}`;
     const toPos = `${this.toPos
-      .getLeftSiblingId()
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getLeftSiblingId().getOffset()}`;
+      .toTestString()}:${this.toPos.getLeftSiblingID().getOffset()}`;
     const contents = this.contents;
     return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
   }

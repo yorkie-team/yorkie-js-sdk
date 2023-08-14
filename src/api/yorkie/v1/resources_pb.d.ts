@@ -1119,8 +1119,8 @@ export namespace TextNodeID {
 }
 
 export class TreeNode extends jspb.Message {
-  getPos(): TreeNodeId | undefined;
-  setPos(value?: TreeNodeId): TreeNode;
+  getPos(): TreeNodeID | undefined;
+  setPos(value?: TreeNodeID): TreeNode;
   hasPos(): boolean;
   clearPos(): TreeNode;
 
@@ -1135,8 +1135,8 @@ export class TreeNode extends jspb.Message {
   hasRemovedAt(): boolean;
   clearRemovedAt(): TreeNode;
 
-  getInsPrevPos(): TreeNodeId | undefined;
-  setInsPrevPos(value?: TreeNodeId): TreeNode;
+  getInsPrevPos(): TreeNodeID | undefined;
+  setInsPrevPos(value?: TreeNodeID): TreeNode;
   hasInsPrevPos(): boolean;
   clearInsPrevPos(): TreeNode;
 
@@ -1156,11 +1156,11 @@ export class TreeNode extends jspb.Message {
 
 export namespace TreeNode {
   export type AsObject = {
-    pos?: TreeNodeId.AsObject,
+    pos?: TreeNodeID.AsObject,
     type: string,
     value: string,
     removedAt?: TimeTicket.AsObject,
-    insPrevPos?: TreeNodeId.AsObject,
+    insPrevPos?: TreeNodeID.AsObject,
     depth: number,
     attributesMap: Array<[string, NodeAttr.AsObject]>,
   }
@@ -1186,24 +1186,24 @@ export namespace TreeNodes {
   }
 }
 
-export class TreeNodeId extends jspb.Message {
+export class TreeNodeID extends jspb.Message {
   getCreatedAt(): TimeTicket | undefined;
-  setCreatedAt(value?: TimeTicket): TreeNodeId;
+  setCreatedAt(value?: TimeTicket): TreeNodeID;
   hasCreatedAt(): boolean;
-  clearCreatedAt(): TreeNodeId;
+  clearCreatedAt(): TreeNodeID;
 
   getOffset(): number;
-  setOffset(value: number): TreeNodeId;
+  setOffset(value: number): TreeNodeID;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): TreeNodeId.AsObject;
-  static toObject(includeInstance: boolean, msg: TreeNodeId): TreeNodeId.AsObject;
-  static serializeBinaryToWriter(message: TreeNodeId, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): TreeNodeId;
-  static deserializeBinaryFromReader(message: TreeNodeId, reader: jspb.BinaryReader): TreeNodeId;
+  toObject(includeInstance?: boolean): TreeNodeID.AsObject;
+  static toObject(includeInstance: boolean, msg: TreeNodeID): TreeNodeID.AsObject;
+  static serializeBinaryToWriter(message: TreeNodeID, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TreeNodeID;
+  static deserializeBinaryFromReader(message: TreeNodeID, reader: jspb.BinaryReader): TreeNodeID;
 }
 
-export namespace TreeNodeId {
+export namespace TreeNodeID {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     offset: number,
@@ -1211,13 +1211,13 @@ export namespace TreeNodeId {
 }
 
 export class TreePos extends jspb.Message {
-  getParentId(): TreeNodeId | undefined;
-  setParentId(value?: TreeNodeId): TreePos;
+  getParentId(): TreeNodeID | undefined;
+  setParentId(value?: TreeNodeID): TreePos;
   hasParentId(): boolean;
   clearParentId(): TreePos;
 
-  getLeftSiblingId(): TreeNodeId | undefined;
-  setLeftSiblingId(value?: TreeNodeId): TreePos;
+  getLeftSiblingId(): TreeNodeID | undefined;
+  setLeftSiblingId(value?: TreeNodeID): TreePos;
   hasLeftSiblingId(): boolean;
   clearLeftSiblingId(): TreePos;
 
@@ -1231,8 +1231,8 @@ export class TreePos extends jspb.Message {
 
 export namespace TreePos {
   export type AsObject = {
-    parentId?: TreeNodeId.AsObject,
-    leftSiblingId?: TreeNodeId.AsObject,
+    parentId?: TreeNodeID.AsObject,
+    leftSiblingId?: TreeNodeID.AsObject,
   }
 }
 
