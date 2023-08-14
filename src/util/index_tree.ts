@@ -1,4 +1,3 @@
-import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -171,22 +170,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `nextSibling` returns the next sibling of the node.
    */
   get nextSibling(): T | undefined {
-    if (this.isRemoved && this.isText) {
-      let node = this as unknown as CRDTTreeNode;
-
-      while (node.parent === node.next!.parent) {
-        node = node.next!;
-
-        if (!node.isRemoved) {
-          return node as unknown as T;
-        }
-      }
-
-      return undefined;
-    }
-
     const offset = this.parent!.findOffset(this as any);
-
     const sibling = this.parent!.children[offset + 1];
     if (sibling) {
       return sibling;
