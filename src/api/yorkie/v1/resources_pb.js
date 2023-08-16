@@ -13,7 +13,13 @@
 
 var jspb = require('google-protobuf');
 var goog = jspb;
-var global = (function() { return this || window || global || self || Function('return this')(); }).call(null);
+var global =
+    (typeof globalThis !== 'undefined' && globalThis) ||
+    (typeof window !== 'undefined' && window) ||
+    (typeof global !== 'undefined' && global) ||
+    (typeof self !== 'undefined' && self) ||
+    (function () { return this; }).call(null) ||
+    Function('return this')();
 
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
@@ -1151,7 +1157,8 @@ proto.yorkie.v1.Snapshot.prototype.getPresencesMap = function(opt_noLazyCreate) 
  */
 proto.yorkie.v1.Snapshot.prototype.clearPresencesMap = function() {
   this.getPresencesMap().clear();
-  return this;};
+  return this;
+};
 
 
 
@@ -3804,7 +3811,8 @@ proto.yorkie.v1.Operation.Edit.prototype.getCreatedAtMapByActorMap = function(op
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearCreatedAtMapByActorMap = function() {
   this.getCreatedAtMapByActorMap().clear();
-  return this;};
+  return this;
+};
 
 
 /**
@@ -3881,7 +3889,8 @@ proto.yorkie.v1.Operation.Edit.prototype.getAttributesMap = function(opt_noLazyC
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;};
+  return this;
+};
 
 
 
@@ -4485,7 +4494,8 @@ proto.yorkie.v1.Operation.Style.prototype.getAttributesMap = function(opt_noLazy
  */
 proto.yorkie.v1.Operation.Style.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;};
+  return this;
+};
 
 
 /**
@@ -5097,7 +5107,8 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.getCreatedAtMapByActorMap = functio
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.clearCreatedAtMapByActorMap = function() {
   this.getCreatedAtMapByActorMap().clear();
-  return this;};
+  return this;
+};
 
 
 /**
@@ -5472,7 +5483,8 @@ proto.yorkie.v1.Operation.TreeStyle.prototype.getAttributesMap = function(opt_no
  */
 proto.yorkie.v1.Operation.TreeStyle.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;};
+  return this;
+};
 
 
 /**
@@ -9458,7 +9470,8 @@ proto.yorkie.v1.TextNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TextNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;};
+  return this;
+};
 
 
 
@@ -9674,11 +9687,11 @@ proto.yorkie.v1.TreeNode.prototype.toObject = function(opt_includeInstance) {
  */
 proto.yorkie.v1.TreeNode.toObject = function(includeInstance, msg) {
   var f, obj = {
-    pos: (f = msg.getPos()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
+    id: (f = msg.getId()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
     type: jspb.Message.getFieldWithDefault(msg, 2, ""),
     value: jspb.Message.getFieldWithDefault(msg, 3, ""),
     removedAt: (f = msg.getRemovedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
-    insPrevPos: (f = msg.getInsPrevPos()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
+    insPrevId: (f = msg.getInsPrevId()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
     depth: jspb.Message.getFieldWithDefault(msg, 6, 0),
     attributesMap: (f = msg.getAttributesMap()) ? f.toObject(includeInstance, proto.yorkie.v1.NodeAttr.toObject) : []
   };
@@ -9720,7 +9733,7 @@ proto.yorkie.v1.TreeNode.deserializeBinaryFromReader = function(msg, reader) {
     case 1:
       var value = new proto.yorkie.v1.TreeNodeID;
       reader.readMessage(value,proto.yorkie.v1.TreeNodeID.deserializeBinaryFromReader);
-      msg.setPos(value);
+      msg.setId(value);
       break;
     case 2:
       var value = /** @type {string} */ (reader.readString());
@@ -9738,7 +9751,7 @@ proto.yorkie.v1.TreeNode.deserializeBinaryFromReader = function(msg, reader) {
     case 5:
       var value = new proto.yorkie.v1.TreeNodeID;
       reader.readMessage(value,proto.yorkie.v1.TreeNodeID.deserializeBinaryFromReader);
-      msg.setInsPrevPos(value);
+      msg.setInsPrevId(value);
       break;
     case 6:
       var value = /** @type {number} */ (reader.readInt32());
@@ -9779,7 +9792,7 @@ proto.yorkie.v1.TreeNode.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.TreeNode.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getPos();
+  f = message.getId();
   if (f != null) {
     writer.writeMessage(
       1,
@@ -9809,7 +9822,7 @@ proto.yorkie.v1.TreeNode.serializeBinaryToWriter = function(message, writer) {
       proto.yorkie.v1.TimeTicket.serializeBinaryToWriter
     );
   }
-  f = message.getInsPrevPos();
+  f = message.getInsPrevId();
   if (f != null) {
     writer.writeMessage(
       5,
@@ -9832,10 +9845,10 @@ proto.yorkie.v1.TreeNode.serializeBinaryToWriter = function(message, writer) {
 
 
 /**
- * optional TreeNodeID pos = 1;
+ * optional TreeNodeID id = 1;
  * @return {?proto.yorkie.v1.TreeNodeID}
  */
-proto.yorkie.v1.TreeNode.prototype.getPos = function() {
+proto.yorkie.v1.TreeNode.prototype.getId = function() {
   return /** @type{?proto.yorkie.v1.TreeNodeID} */ (
     jspb.Message.getWrapperField(this, proto.yorkie.v1.TreeNodeID, 1));
 };
@@ -9845,7 +9858,7 @@ proto.yorkie.v1.TreeNode.prototype.getPos = function() {
  * @param {?proto.yorkie.v1.TreeNodeID|undefined} value
  * @return {!proto.yorkie.v1.TreeNode} returns this
 */
-proto.yorkie.v1.TreeNode.prototype.setPos = function(value) {
+proto.yorkie.v1.TreeNode.prototype.setId = function(value) {
   return jspb.Message.setWrapperField(this, 1, value);
 };
 
@@ -9854,8 +9867,8 @@ proto.yorkie.v1.TreeNode.prototype.setPos = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.yorkie.v1.TreeNode} returns this
  */
-proto.yorkie.v1.TreeNode.prototype.clearPos = function() {
-  return this.setPos(undefined);
+proto.yorkie.v1.TreeNode.prototype.clearId = function() {
+  return this.setId(undefined);
 };
 
 
@@ -9863,7 +9876,7 @@ proto.yorkie.v1.TreeNode.prototype.clearPos = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.yorkie.v1.TreeNode.prototype.hasPos = function() {
+proto.yorkie.v1.TreeNode.prototype.hasId = function() {
   return jspb.Message.getField(this, 1) != null;
 };
 
@@ -9942,10 +9955,10 @@ proto.yorkie.v1.TreeNode.prototype.hasRemovedAt = function() {
 
 
 /**
- * optional TreeNodeID ins_prev_pos = 5;
+ * optional TreeNodeID ins_prev_id = 5;
  * @return {?proto.yorkie.v1.TreeNodeID}
  */
-proto.yorkie.v1.TreeNode.prototype.getInsPrevPos = function() {
+proto.yorkie.v1.TreeNode.prototype.getInsPrevId = function() {
   return /** @type{?proto.yorkie.v1.TreeNodeID} */ (
     jspb.Message.getWrapperField(this, proto.yorkie.v1.TreeNodeID, 5));
 };
@@ -9955,7 +9968,7 @@ proto.yorkie.v1.TreeNode.prototype.getInsPrevPos = function() {
  * @param {?proto.yorkie.v1.TreeNodeID|undefined} value
  * @return {!proto.yorkie.v1.TreeNode} returns this
 */
-proto.yorkie.v1.TreeNode.prototype.setInsPrevPos = function(value) {
+proto.yorkie.v1.TreeNode.prototype.setInsPrevId = function(value) {
   return jspb.Message.setWrapperField(this, 5, value);
 };
 
@@ -9964,8 +9977,8 @@ proto.yorkie.v1.TreeNode.prototype.setInsPrevPos = function(value) {
  * Clears the message field making it undefined.
  * @return {!proto.yorkie.v1.TreeNode} returns this
  */
-proto.yorkie.v1.TreeNode.prototype.clearInsPrevPos = function() {
-  return this.setInsPrevPos(undefined);
+proto.yorkie.v1.TreeNode.prototype.clearInsPrevId = function() {
+  return this.setInsPrevId(undefined);
 };
 
 
@@ -9973,7 +9986,7 @@ proto.yorkie.v1.TreeNode.prototype.clearInsPrevPos = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.yorkie.v1.TreeNode.prototype.hasInsPrevPos = function() {
+proto.yorkie.v1.TreeNode.prototype.hasInsPrevId = function() {
   return jspb.Message.getField(this, 5) != null;
 };
 
@@ -10015,7 +10028,8 @@ proto.yorkie.v1.TreeNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TreeNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;};
+  return this;
+};
 
 
 
@@ -12334,7 +12348,8 @@ proto.yorkie.v1.Presence.prototype.getDataMap = function(opt_noLazyCreate) {
  */
 proto.yorkie.v1.Presence.prototype.clearDataMap = function() {
   this.getDataMap().clear();
-  return this;};
+  return this;
+};
 
 
 

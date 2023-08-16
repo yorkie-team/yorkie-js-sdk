@@ -57,7 +57,7 @@ function issueTime(): TimeTicket {
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {
     const node = new CRDTTreeNode(ITP, 'text', 'hello');
-    assert.equal(node.pos, ITP);
+    assert.equal(node.id, ITP);
     assert.equal(node.type, 'text');
     assert.equal(node.value, 'hello');
     assert.equal(node.size, 5);
@@ -79,8 +79,8 @@ describe('CRDTTreeNode', function () {
 
     assert.equal(left.value, 'hello');
     assert.equal(right!.value, 'yorkie');
-    assert.deepEqual(left.pos, CRDTTreeNodeID.of(ITT, 0));
-    assert.deepEqual(right!.pos, CRDTTreeNodeID.of(ITT, 5));
+    assert.deepEqual(left.id, CRDTTreeNodeID.of(ITT, 0));
+    assert.deepEqual(right!.id, CRDTTreeNodeID.of(ITT, 5));
   });
 });
 

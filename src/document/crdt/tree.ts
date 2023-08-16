@@ -300,7 +300,7 @@ export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
  * links to other nodes to resolve conflicts.
  */
 export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
-  pos: CRDTTreeNodeID;
+  id: CRDTTreeNodeID;
   removedAt?: TimeTicket;
   attrs?: RHT;
 
@@ -317,14 +317,14 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   _value = '';
 
   constructor(
-    pos: CRDTTreeNodeID,
+    id: CRDTTreeNodeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
     removedAt?: TimeTicket,
   ) {
     super(type);
-    this.pos = pos;
+    this.id = id;
     this.removedAt = removedAt;
     attributes && (this.attrs = attributes);
 
@@ -339,19 +339,19 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `create` creates a new instance of CRDTTreeNode.
    */
   static create(
-    pos: CRDTTreeNodeID,
+    id: CRDTTreeNodeID,
     type: string,
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
   ) {
-    return new CRDTTreeNode(pos, type, opts, attributes);
+    return new CRDTTreeNode(id, type, opts, attributes);
   }
 
   /**
    * `deepcopy` copies itself deeply.
    */
   deepcopy(): CRDTTreeNode {
-    const clone = new CRDTTreeNode(this.pos, this.type);
+    const clone = new CRDTTreeNode(this.id, this.type);
     clone.removedAt = this.removedAt;
     clone._value = this._value;
     clone.size = this.size;
@@ -414,7 +414,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    */
   clone(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
-      CRDTTreeNodeID.of(this.pos.getCreatedAt(), offset),
+      CRDTTreeNodeID.of(this.id.getCreatedAt(), offset),
       this.type,
       undefined,
       undefined,
@@ -426,14 +426,14 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `getCreatedAt` returns the creation time of this element.
    */
   public getCreatedAt(): TimeTicket {
-    return this.pos.getCreatedAt();
+    return this.id.getCreatedAt();
   }
 
   /**
    * `getOffset` returns the offset of a pos.
    */
   public getOffset(): number {
-    return this.pos.getOffset();
+    return this.id.getOffset();
   }
 
   /**
@@ -509,17 +509,17 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
  */
 export class CRDTTree extends CRDTGCElement {
   private indexTree: IndexTree<CRDTTreeNode>;
-  private nodeMapByPos: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
+  private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
-    this.nodeMapByPos = new LLRBTree(CRDTTreeNodeID.createComparator());
+    this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
     this.removedNodeMap = new Map();
 
     this.indexTree.traverse((node) => {
-      this.nodeMapByPos.put(node.pos, node);
+      this.nodeMapByID.put(node.id, node);
     });
   }
 
@@ -554,7 +554,7 @@ export class CRDTTree extends CRDTGCElement {
     // handle the same position insertion of RGA.
 
     if (leftSiblingNode.isText) {
-      const absOffset = leftSiblingNode.pos.getOffset();
+      const absOffset = leftSiblingNode.id.getOffset();
       const split = leftSiblingNode.split(
         pos.getLeftSiblingID().getOffset() - absOffset,
         absOffset,
@@ -562,7 +562,7 @@ export class CRDTTree extends CRDTGCElement {
 
       if (split) {
         split.insPrev = leftSiblingNode;
-        this.nodeMapByPos.put(split.pos, split);
+        this.nodeMapByID.put(split.id, split);
 
         if (leftSiblingNode.insNext) {
           leftSiblingNode.insNext.insPrev = split;
@@ -580,7 +580,7 @@ export class CRDTTree extends CRDTGCElement {
     for (let i = index; i < parentNode.allChildren.length; i++) {
       const next = parentNode.allChildren[i];
 
-      if (next.pos.getCreatedAt().after(editedAt)) {
+      if (next.id.getCreatedAt().after(editedAt)) {
         leftSiblingNode = next;
       } else {
         break;
@@ -734,7 +734,7 @@ export class CRDTTree extends CRDTGCElement {
         node.remove(editedAt);
 
         if (node.isRemoved) {
-          this.removedNodeMap.set(node.pos.toIDString(), node);
+          this.removedNodeMap.set(node.id.toIDString(), node);
         }
       }
     }
@@ -760,10 +760,10 @@ export class CRDTTree extends CRDTGCElement {
           if (fromParent.isRemoved) {
             node.remove(editedAt);
 
-            this.removedNodeMap.set(node.pos.toIDString(), node);
+            this.removedNodeMap.set(node.id.toIDString(), node);
           }
 
-          this.nodeMapByPos.put(node.pos, node);
+          this.nodeMapByID.put(node.id, node);
         });
       }
     }
@@ -823,9 +823,9 @@ export class CRDTTree extends CRDTGCElement {
 
     [...nodesToBeRemoved].forEach((node) => {
       node.parent?.removeChild(node);
-      this.nodeMapByPos.remove(node.pos);
+      this.nodeMapByID.remove(node.id);
       this.purge(node);
-      this.removedNodeMap.delete(node.pos.toIDString());
+      this.removedNodeMap.delete(node.id.toIDString());
     });
 
     return count;
@@ -877,7 +877,7 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     return CRDTTreePos.of(
-      node.pos,
+      node.id,
       CRDTTreeNodeID.of(
         leftSibling.getCreatedAt(),
         leftSibling.getOffset() + offset,
@@ -1010,8 +1010,8 @@ export class CRDTTree extends CRDTGCElement {
   private toTreeNodes(pos: CRDTTreePos) {
     const parentID = pos.getParentID();
     const leftSiblingID = pos.getLeftSiblingID();
-    const parentEntry = this.nodeMapByPos.floorEntry(parentID);
-    const leftSiblingEntry = this.nodeMapByPos.floorEntry(leftSiblingID);
+    const parentEntry = this.nodeMapByID.floorEntry(parentID);
+    const leftSiblingEntry = this.nodeMapByID.floorEntry(leftSiblingID);
 
     if (
       !parentEntry ||
@@ -1026,7 +1026,7 @@ export class CRDTTree extends CRDTGCElement {
 
     if (
       leftSiblingID.getOffset() > 0 &&
-      leftSiblingID.getOffset() === leftSiblingNode.pos.getOffset() &&
+      leftSiblingID.getOffset() === leftSiblingNode.id.getOffset() &&
       leftSiblingNode.insPrev
     ) {
       leftSiblingNode = leftSiblingNode.insPrev;

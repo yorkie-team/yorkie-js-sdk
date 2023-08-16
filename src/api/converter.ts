@@ -562,7 +562,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode();
-    pbTreeNode.setPos(toTreeNodeID(n.pos));
+    pbTreeNode.setId(toTreeNodeID(n.id));
     pbTreeNode.setType(n.type);
     if (n.isText) {
       pbTreeNode.setValue(n.value);
@@ -994,8 +994,8 @@ function fromTreeNodes(
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
-  const pos = fromTreeNodeID(pbTreeNode.getPos()!);
-  const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
+  const id = fromTreeNodeID(pbTreeNode.getId()!);
+  const node = CRDTTreeNode.create(id, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();
   } else {
