@@ -644,7 +644,7 @@ export class CRDTTree extends CRDTGCElement {
         : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
 
     for (let i = index; i < parentNode.allChildren.length; i++) {
-      const next = parentNode.allChildren[index];
+      const next = parentNode.allChildren[i];
 
       if (next.pos.getCreatedAt().after(editedAt)) {
         leftSiblingNode = next;
