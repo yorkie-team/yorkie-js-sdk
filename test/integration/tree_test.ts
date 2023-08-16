@@ -1,4 +1,3 @@
-import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -29,6 +28,7 @@ import {
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 /**
  * `createChangePack` is a helper function that creates a change pack from the
