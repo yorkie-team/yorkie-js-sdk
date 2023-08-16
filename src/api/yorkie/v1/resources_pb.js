@@ -13,13 +13,7 @@
 
 var jspb = require('google-protobuf');
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var global = (function() { return this || window || global || self || Function('return this')(); }).call(null);
 
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
@@ -1157,8 +1151,7 @@ proto.yorkie.v1.Snapshot.prototype.getPresencesMap = function(opt_noLazyCreate) 
  */
 proto.yorkie.v1.Snapshot.prototype.clearPresencesMap = function() {
   this.getPresencesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -3811,8 +3804,7 @@ proto.yorkie.v1.Operation.Edit.prototype.getCreatedAtMapByActorMap = function(op
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearCreatedAtMapByActorMap = function() {
   this.getCreatedAtMapByActorMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -3889,8 +3881,7 @@ proto.yorkie.v1.Operation.Edit.prototype.getAttributesMap = function(opt_noLazyC
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -4494,8 +4485,7 @@ proto.yorkie.v1.Operation.Style.prototype.getAttributesMap = function(opt_noLazy
  */
 proto.yorkie.v1.Operation.Style.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -4794,7 +4784,7 @@ proto.yorkie.v1.Operation.Increase.prototype.hasExecutedAt = function() {
  * @private {!Array<number>}
  * @const
  */
-proto.yorkie.v1.Operation.TreeEdit.repeatedFields_ = [4];
+proto.yorkie.v1.Operation.TreeEdit.repeatedFields_ = [5];
 
 
 
@@ -4830,6 +4820,7 @@ proto.yorkie.v1.Operation.TreeEdit.toObject = function(includeInstance, msg) {
     parentCreatedAt: (f = msg.getParentCreatedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
     from: (f = msg.getFrom()) && proto.yorkie.v1.TreePos.toObject(includeInstance, f),
     to: (f = msg.getTo()) && proto.yorkie.v1.TreePos.toObject(includeInstance, f),
+    createdAtMapByActorMap: (f = msg.getCreatedAtMapByActorMap()) ? f.toObject(includeInstance, proto.yorkie.v1.TimeTicket.toObject) : [],
     contentsList: jspb.Message.toObjectList(msg.getContentsList(),
     proto.yorkie.v1.TreeNodes.toObject, includeInstance),
     executedAt: (f = msg.getExecutedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f)
@@ -4885,11 +4876,17 @@ proto.yorkie.v1.Operation.TreeEdit.deserializeBinaryFromReader = function(msg, r
       msg.setTo(value);
       break;
     case 4:
+      var value = msg.getCreatedAtMapByActorMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader, "", new proto.yorkie.v1.TimeTicket());
+         });
+      break;
+    case 5:
       var value = new proto.yorkie.v1.TreeNodes;
       reader.readMessage(value,proto.yorkie.v1.TreeNodes.deserializeBinaryFromReader);
       msg.addContents(value);
       break;
-    case 5:
+    case 6:
       var value = new proto.yorkie.v1.TimeTicket;
       reader.readMessage(value,proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader);
       msg.setExecutedAt(value);
@@ -4947,10 +4944,14 @@ proto.yorkie.v1.Operation.TreeEdit.serializeBinaryToWriter = function(message, w
       proto.yorkie.v1.TreePos.serializeBinaryToWriter
     );
   }
+  f = message.getCreatedAtMapByActorMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(4, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.yorkie.v1.TimeTicket.serializeBinaryToWriter);
+  }
   f = message.getContentsList();
   if (f.length > 0) {
     writer.writeRepeatedMessage(
-      4,
+      5,
       f,
       proto.yorkie.v1.TreeNodes.serializeBinaryToWriter
     );
@@ -4958,7 +4959,7 @@ proto.yorkie.v1.Operation.TreeEdit.serializeBinaryToWriter = function(message, w
   f = message.getExecutedAt();
   if (f != null) {
     writer.writeMessage(
-      5,
+      6,
       f,
       proto.yorkie.v1.TimeTicket.serializeBinaryToWriter
     );
@@ -5078,12 +5079,34 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.hasTo = function() {
 
 
 /**
- * repeated TreeNodes contents = 4;
+ * map<string, TimeTicket> created_at_map_by_actor = 4;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>}
+ */
+proto.yorkie.v1.Operation.TreeEdit.prototype.getCreatedAtMapByActorMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>} */ (
+      jspb.Message.getMapField(this, 4, opt_noLazyCreate,
+      proto.yorkie.v1.TimeTicket));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.yorkie.v1.Operation.TreeEdit} returns this
+ */
+proto.yorkie.v1.Operation.TreeEdit.prototype.clearCreatedAtMapByActorMap = function() {
+  this.getCreatedAtMapByActorMap().clear();
+  return this;};
+
+
+/**
+ * repeated TreeNodes contents = 5;
  * @return {!Array<!proto.yorkie.v1.TreeNodes>}
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.getContentsList = function() {
   return /** @type{!Array<!proto.yorkie.v1.TreeNodes>} */ (
-    jspb.Message.getRepeatedWrapperField(this, proto.yorkie.v1.TreeNodes, 4));
+    jspb.Message.getRepeatedWrapperField(this, proto.yorkie.v1.TreeNodes, 5));
 };
 
 
@@ -5092,7 +5115,7 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.getContentsList = function() {
  * @return {!proto.yorkie.v1.Operation.TreeEdit} returns this
 */
 proto.yorkie.v1.Operation.TreeEdit.prototype.setContentsList = function(value) {
-  return jspb.Message.setRepeatedWrapperField(this, 4, value);
+  return jspb.Message.setRepeatedWrapperField(this, 5, value);
 };
 
 
@@ -5102,7 +5125,7 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.setContentsList = function(value) {
  * @return {!proto.yorkie.v1.TreeNodes}
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.addContents = function(opt_value, opt_index) {
-  return jspb.Message.addToRepeatedWrapperField(this, 4, opt_value, proto.yorkie.v1.TreeNodes, opt_index);
+  return jspb.Message.addToRepeatedWrapperField(this, 5, opt_value, proto.yorkie.v1.TreeNodes, opt_index);
 };
 
 
@@ -5116,12 +5139,12 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.clearContentsList = function() {
 
 
 /**
- * optional TimeTicket executed_at = 5;
+ * optional TimeTicket executed_at = 6;
  * @return {?proto.yorkie.v1.TimeTicket}
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.getExecutedAt = function() {
   return /** @type{?proto.yorkie.v1.TimeTicket} */ (
-    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 5));
+    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 6));
 };
 
 
@@ -5130,7 +5153,7 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.getExecutedAt = function() {
  * @return {!proto.yorkie.v1.Operation.TreeEdit} returns this
 */
 proto.yorkie.v1.Operation.TreeEdit.prototype.setExecutedAt = function(value) {
-  return jspb.Message.setWrapperField(this, 5, value);
+  return jspb.Message.setWrapperField(this, 6, value);
 };
 
 
@@ -5148,7 +5171,7 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.clearExecutedAt = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.hasExecutedAt = function() {
-  return jspb.Message.getField(this, 5) != null;
+  return jspb.Message.getField(this, 6) != null;
 };
 
 
@@ -5449,8 +5472,7 @@ proto.yorkie.v1.Operation.TreeStyle.prototype.getAttributesMap = function(opt_no
  */
 proto.yorkie.v1.Operation.TreeStyle.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -9436,8 +9458,7 @@ proto.yorkie.v1.TextNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TextNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -9994,8 +10015,7 @@ proto.yorkie.v1.TreeNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TreeNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -12314,8 +12334,7 @@ proto.yorkie.v1.Presence.prototype.getDataMap = function(opt_noLazyCreate) {
  */
 proto.yorkie.v1.Presence.prototype.clearDataMap = function() {
   this.getDataMap().clear();
-  return this;
-};
+  return this;};
 
 
 

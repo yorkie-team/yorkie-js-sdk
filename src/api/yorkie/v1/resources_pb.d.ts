@@ -547,6 +547,9 @@ export namespace Operation {
     hasTo(): boolean;
     clearTo(): TreeEdit;
 
+    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
+    clearCreatedAtMapByActorMap(): TreeEdit;
+
     getContentsList(): Array<TreeNodes>;
     setContentsList(value: Array<TreeNodes>): TreeEdit;
     clearContentsList(): TreeEdit;
@@ -570,6 +573,7 @@ export namespace Operation {
       parentCreatedAt?: TimeTicket.AsObject,
       from?: TreePos.AsObject,
       to?: TreePos.AsObject,
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       contentsList: Array<TreeNodes.AsObject>,
       executedAt?: TimeTicket.AsObject,
     }
