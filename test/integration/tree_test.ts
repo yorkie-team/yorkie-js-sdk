@@ -1091,14 +1091,21 @@ describe('Concurrent editing, contained range', () => {
     );
 
     docA.update((r) => r.t.edit(6, 6, { type: 'p', children: [] }));
+    docA.update((r) => r.t.edit(8, 8, { type: 'p', children: [] }));
+    docA.update((r) => r.t.edit(10, 10, { type: 'p', children: [] }));
+    docA.update((r) => r.t.edit(12, 12, { type: 'p', children: [] }));
     docB.update((r) => r.t.edit(0, 12));
     assert.equal(
       docA.getRoot().t.toXML(),
-      /*html*/ `<r><p>1234</p><p></p><p>abcd</p></r>`,
+      /*html*/ `<r><p>1234</p><p></p><p></p><p></p><p></p><p>abcd</p></r>`,
     );
     assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r></r>`);
 
-    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p></p></r>`);
+    syncTwoTreeDocsAndAssertEqual(
+      docA,
+      docB,
+      /*html*/ `<r><p></p><p></p><p></p><p></p></r>`,
+    );
   });
 
   it('Detecting error when inserting and deleting contained elements at different depths', function () {
