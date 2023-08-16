@@ -18,6 +18,7 @@ import {
   TimeTicket,
   InitialTimeTicket,
   TimeTicketStruct,
+  MaxTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
@@ -434,6 +435,16 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   public getOffset(): number {
     return this.pos.getOffset();
   }
+
+  /**
+   * `canDelete` checks if node is able to delete.
+   */
+  public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+    return (
+      !this.getCreatedAt().after(latestCreatedAt) &&
+      (!this.removedAt || editedAt.after(this.removedAt))
+    );
+  }
 }
 
 /**
@@ -644,6 +655,7 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): Array<TreeChange> {
     // 01. split text nodes at the given range if needed.
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
@@ -668,6 +680,7 @@ export class CRDTTree extends CRDTGCElement {
     });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
+    const latestCreatedAtMap = new Map<string, TimeTicket>();
 
     if (fromLeft !== toLeft) {
       let fromChildIndex;
@@ -685,20 +698,36 @@ export class CRDTTree extends CRDTGCElement {
 
       for (let i = fromChildIndex; i <= toChildIndex; i++) {
         const node = parent.allChildren[i];
+        const actorID = node.getCreatedAt().getActorID()!;
+        const latestCreatedAt = latestCreatedAtMapByActor
+          ? latestCreatedAtMapByActor!.has(actorID!)
+            ? latestCreatedAtMapByActor!.get(actorID!)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
 
-        if (
-          node.getCreatedAt().getLamportAsString() ===
-            editedAt.getLamportAsString() &&
-          node.getCreatedAt().getActorID() !== editedAt.getActorID()
-        ) {
-          continue;
-        }
+        if (node.canDelete(editedAt, latestCreatedAt)) {
+          const latestCreatedAt = latestCreatedAtMap.get(actorID);
+          const createdAt = node.getCreatedAt();
 
-        traverseAll(node, (node) => {
-          if (!node.isRemoved) {
-            toBeRemoveds.push(node);
+          if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+            latestCreatedAtMap.set(actorID, createdAt);
           }
-        });
+
+          traverseAll(node, (node) => {
+            if (node.canDelete(editedAt, MaxTimeTicket)) {
+              const latestCreatedAt = latestCreatedAtMapByActor?.get(actorID);
+              const createdAt = node.getCreatedAt();
+
+              if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+                latestCreatedAtMap.set(actorID, createdAt);
+              }
+            }
+
+            if (!node.isRemoved) {
+              toBeRemoveds.push(node);
+            }
+          });
+        }
       }
 
       for (const node of toBeRemoveds) {
