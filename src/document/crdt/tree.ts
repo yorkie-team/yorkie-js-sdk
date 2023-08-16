@@ -937,19 +937,6 @@ export class CRDTTree extends CRDTGCElement {
         leftSibling = node.parent!;
       } else {
         leftSibling = node;
-        const absOffset = node.pos.getOffset();
-        const split = node.split(offset, absOffset);
-
-        if (split) {
-          split.insPrev = node;
-          this.nodeMapByPos.put(split.pos, split);
-
-          if (node.insNext) {
-            node.insNext.insPrev = split;
-            split.insNext = node.insNext;
-          }
-          node.insNext = split;
-        }
       }
 
       node = node.parent!;
