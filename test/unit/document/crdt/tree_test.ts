@@ -33,31 +33,6 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 /**
- * `betweenEqual` is a helper function that checks the nodes between the given
- * indexes.
- */
-function betweenEqual(
-  tree: CRDTTree,
-  from: number,
-  to: number,
-  expected: Array<string>,
-) {
-  const nodes: Array<CRDTTreeNode> = [];
-  tree.nodesBetweenByTree(from, to, (node) => {
-    nodes.push(node);
-    return true;
-  });
-  assert.deepEqual(
-    nodes.map((node) => {
-      if (node.isText) {
-        return `${node.type}.${node.value}`;
-      }
-      return node.type;
-    }),
-    expected,
-  );
-}
-/**
  * `dummyContext` is a helper context that is used for testing.
  */
 const dummyContext = ChangeContext.create(
@@ -247,15 +222,18 @@ describe.skip('Tree.split', function () {
 
     // 01. Split left side of 'helloworld'.
     tree.split(1, 1);
-    betweenEqual(tree, 1, 11, ['text.helloworld']);
+    // TODO(JOOHOJANG): make new helper function when implement Tree.split
+    //betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 02. Split right side of 'helloworld'.
     tree.split(11, 1);
-    betweenEqual(tree, 1, 11, ['text.helloworld']);
+    // TODO(JOOHOJANG): make new helper function when implement Tree.split
+    //betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 03. Split 'helloworld' into 'hello' and 'world'.
     tree.split(6, 1);
-    betweenEqual(tree, 1, 11, ['text.hello', 'text.world']);
+    // TODO(JOOHOJANG): make new helper function when implement Tree.split
+    //betweenEqual(tree, 1, 11, ['text.hello', 'text.world']);
   });
 
   it('Can split element nodes', function () {

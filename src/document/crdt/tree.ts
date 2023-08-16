@@ -304,16 +304,6 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   attrs?: RHT;
 
   /**
-   * `next` is the next node of this node in the list.
-   */
-  next?: CRDTTreeNode;
-
-  /**
-   * `prev` is the previous node of this node in the list.
-   */
-  prev?: CRDTTreeNode;
-
-  /**
    * `insPrev` is the previous node of this node after the node is split.
    */
   insPrev?: CRDTTreeNode;
@@ -530,73 +520,6 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `nodesBetweenByTree` returns the nodes between the given range.
-   */
-  public nodesBetweenByTree(
-    from: number,
-    to: number,
-    callback: (node: CRDTTreeNode) => void,
-  ): void {
-    this.indexTree.nodesBetween(from, to, callback);
-  }
-
-  /**
-   * `nodesBetweenConcurrent` returns the nodes between the given range ignoring concurrent edits.
-   * This method includes the given left node but excludes the given right node.
-   */
-  public nodesBetweenConcurrent(
-    left: CRDTTreeNode,
-    right: CRDTTreeNode,
-    callback: (node: CRDTTreeNode) => void,
-    editedAt?: TimeTicket,
-  ): void {
-    let current = left;
-    while (current !== right) {
-      if (!current) {
-        throw new Error('left and right are not in the same list');
-      }
-      if (
-        current.pos.getCreatedAt().getLamportAsString() ===
-          editedAt?.getLamportAsString() &&
-        current.pos.getCreatedAt().getActorID() !== editedAt?.getActorID()
-      ) {
-        current = current.next!;
-      } else {
-        callback(current);
-        current = current.next!;
-      }
-    }
-  }
-
-  /**
-   * `nodesBetween` returns the nodes between the given range.
-   * This method includes the given left node but excludes the given right node.
-   */
-  public nodesBetween(
-    left: CRDTTreeNode,
-    right: CRDTTreeNode,
-    callback: (node: CRDTTreeNode) => void,
-  ): void {
-    let current = left;
-    while (current !== right) {
-      if (!current) {
-        throw new Error('left and right are not in the same list');
-      }
-
-      callback(current);
-      current = current.next!;
-    }
-  }
-
-  /**
-   * `findPostorderRight` finds the right node of the given index in postorder.
-   */
-  public findPostorderRight(index: number): CRDTTreeNode | undefined {
-    const pos = this.indexTree.findTreePos(index, true);
-    return this.indexTree.findPostorderRight(pos);
-  }
-
-  /**
    * `findNodesAndSplitText` finds `TreePos` of the given `CRDTTreeNodeID` and
    * splits the text node if necessary.
    *
@@ -654,19 +577,6 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     return [parentNode, leftSiblingNode];
-  }
-
-  /**
-   * `insertAfter` inserts the given node after the given previous node.
-   */
-  public insertAfter(prevNode: CRDTTreeNode, newNode: CRDTTreeNode): void {
-    const next = prevNode.next;
-    prevNode.next = newNode;
-    newNode.prev = prevNode;
-    if (next) {
-      newNode.next = next;
-      next.prev = newNode;
-    }
   }
 
   /**
@@ -896,17 +806,8 @@ export class CRDTTree extends CRDTGCElement {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: CRDTTreeNode): void {
-    const prev = node.prev;
-    const next = node.next;
     const insPrev = node.insPrev;
     const insNext = node.insNext;
-
-    if (prev) {
-      prev.next = next;
-    }
-    if (next) {
-      next.prev = prev;
-    }
 
     if (insPrev) {
       insPrev.insNext = insNext;
@@ -916,8 +817,6 @@ export class CRDTTree extends CRDTGCElement {
       insNext.insPrev = insPrev;
     }
 
-    node.prev = undefined;
-    node.next = undefined;
     node.insPrev = undefined;
     node.insNext = undefined;
   }
