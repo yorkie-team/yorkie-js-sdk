@@ -350,7 +350,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    this.tree!.edit(
+    const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -363,6 +363,7 @@ export class Tree {
         this.tree!.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreatedAtMapByActor,
         crdtNodes.length ? crdtNodes : undefined,
         ticket,
       ),

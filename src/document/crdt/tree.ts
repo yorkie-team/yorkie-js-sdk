@@ -656,7 +656,7 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): Array<TreeChange> {
+  ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. split text nodes at the given range if needed.
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -768,7 +768,7 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    return changes;
+    return [changes, latestCreatedAtMap];
   }
 
   /**

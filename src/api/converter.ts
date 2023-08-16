@@ -392,6 +392,11 @@ function toOperation(operation: Operation): PbOperation {
   } else if (operation instanceof TreeEditOperation) {
     const treeEditOperation = operation as TreeEditOperation;
     const pbTreeEditOperation = new PbOperation.TreeEdit();
+    const pbCreatedAtMapByActor =
+      pbTreeEditOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of treeEditOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+    }
     pbTreeEditOperation.setParentCreatedAt(
       toTimeTicket(treeEditOperation.getParentCreatedAt()),
     );
@@ -1091,10 +1096,15 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       );
     } else if (pbOperation.hasTreeEdit()) {
       const pbTreeEditOperation = pbOperation.getTreeEdit();
+      const createdAtMapByActor = new Map();
+      pbTreeEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
       operation = TreeEditOperation.create(
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
+        createdAtMapByActor,
         fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
