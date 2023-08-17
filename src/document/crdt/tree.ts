@@ -100,7 +100,7 @@ export class CRDTTreePos {
   }
 
   /**
-   * `getParentId` returns parentId.
+   * `getParentID` returns the parent ID.
    */
   public getParentID() {
     return this.parentID;
@@ -139,7 +139,7 @@ export class CRDTTreePos {
   }
 
   /**
-   * `getLeftSiblingId` returns leftSiblingId.
+   * `getLeftSiblingID` returns the left sibling ID.
    */
   public getLeftSiblingID() {
     return this.leftSiblingID;
@@ -280,12 +280,7 @@ export type CRDTTreeNodeIDStruct = {
 };
 
 /**
- * `InitialCRDTTreeNodeID` is the initial position of the tree.
- */
-export const InitialCRDTTreeNodeID = CRDTTreeNodeID.of(InitialTimeTicket, 0);
-
-/**
- * `TreePosRange` represents a pair of CRDTTreeNodeID.
+ * `TreePosRange` represents a pair of CRDTTreePos.
  */
 export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 

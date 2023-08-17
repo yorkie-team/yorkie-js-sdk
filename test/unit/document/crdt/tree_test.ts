@@ -28,9 +28,13 @@ import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
-  InitialCRDTTreeNodeID as ITP,
   toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
+
+/**
+ * `DTP` is a dummy CRDTTreeNodeID for testing.
+ */
+const DTP = CRDTTreeNodeID.of(ITT, 0);
 
 /**
  * `dummyContext` is a helper context that is used for testing.
@@ -56,8 +60,8 @@ function issueTime(): TimeTicket {
 
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {
-    const node = new CRDTTreeNode(ITP, 'text', 'hello');
-    assert.equal(node.id, ITP);
+    const node = new CRDTTreeNode(DTP, 'text', 'hello');
+    assert.equal(node.id, DTP);
     assert.equal(node.type, 'text');
     assert.equal(node.value, 'hello');
     assert.equal(node.size, 5);
@@ -66,8 +70,8 @@ describe('CRDTTreeNode', function () {
   });
 
   it('Can be split', function () {
-    const para = new CRDTTreeNode(ITP, 'p', []);
-    para.append(new CRDTTreeNode(ITP, 'text', 'helloyorkie'));
+    const para = new CRDTTreeNode(DTP, 'p', []);
+    para.append(new CRDTTreeNode(DTP, 'text', 'helloyorkie'));
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
     assert.equal(para.size, 11);
     assert.equal(para.isText, false);
