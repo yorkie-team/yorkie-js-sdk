@@ -549,8 +549,7 @@ describe('Tree', () => {
     });
   });
 
-  it.skip('Can sync its content with other replicas', async function () {
-    // TODO(hackerwins): Fix this test.
+  it('Can sync its content with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -992,8 +991,7 @@ describe('Tree.style', function () {
     });
   });
 
-  it.skip('Can sync its content containing attributes with other replicas', async function () {
-    // TODO(hackerwins): Fix this test case after porting the logic to Go Server.
+  it('Can sync its content containing attributes with other replicas', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1019,7 +1017,7 @@ describe('Tree.style', function () {
       );
 
       d1.update((root) => {
-        root.t.style(6, 7, { bold: 'true' });
+        root.t.style(0, 1, { bold: 'true' });
       });
       await c1.sync();
       await c2.sync();
