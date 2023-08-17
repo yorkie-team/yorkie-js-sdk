@@ -100,6 +100,33 @@ describe('Tree', () => {
     });
   });
 
+  it('Can be created from JSON with attrebutes test', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p><span bold="true">hello</span></p></doc>`,
+      );
+    });
+  });
+
   it('Can edit its content', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -1026,6 +1053,44 @@ describe('Concurrent editing, overlapping range', () => {
 
 describe('Concurrent editing, contained range', () => {
   it('Can concurrently insert and delete contained elements of the same depth', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+            { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(6, 6, { type: 'p', children: [] }));
+      d2.update((r) => r.t.edit(0, 12));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p></p><p>abcd</p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently multiple insert and delete contained elements of the same depth', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
