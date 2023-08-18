@@ -1,28 +1,29 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import "./styles/calendar.css";
-import styles from "./styles/page.module.css";
+import React, { useState } from 'react';
+import './styles/calendar.css';
+import styles from './styles/page.module.css';
 
-import { EditorPropsTypes, CalendarValue } from "./utils/types";
-import { parseDate } from "./utils/parseDate";
-import Calendar from "react-calendar";
+import { EditorPropsTypes, CalendarValue } from './utils/types';
+import { parseDate } from './utils/parseDate';
+import Calendar from 'react-calendar';
 
 /**
-* handle calendar component
+ * handle calendar component
  */
 export default function Sceduler(props: EditorPropsTypes) {
   const { content, actions } = props;
   const [date, onChange] = useState<CalendarValue>(new Date());
-  const [text, setText] = useState<string>("Enter text here!");
+  const [text, setText] = useState<string>('Enter text here!');
 
-  const currentDate = date ? parseDate(new Date(date.toString())) : "";
+  const currentDate = date ? parseDate(new Date(date.toString())) : '';
 
   const eventHandler = (event: string) => {
+    let flag = false;
     switch (event) {
-      case "PUSH":
-        let flag = false;
-        content.forEach(item => {
+      case 'PUSH':
+        flag = false;
+        content.forEach((item) => {
           if (item.date === currentDate) {
             flag = !flag;
             return 0;
@@ -33,9 +34,9 @@ export default function Sceduler(props: EditorPropsTypes) {
           ? actions.updateContent(currentDate, text)
           : actions.addContent(currentDate, text);
 
-        setText("Enter text here!");
+        setText('Enter text here!');
         break;
-      case "DELETE":
+      case 'DELETE':
         actions.deleteContent(currentDate);
         break;
     }
@@ -50,12 +51,12 @@ export default function Sceduler(props: EditorPropsTypes) {
           locale="en-EN"
           showNeighboringMonth={false}
           formatDay={(locale, date) =>
-            date.toLocaleString("en", { day: "numeric" })
+            date.toLocaleString('en', { day: 'numeric' })
           }
           tileClassName={({ date }) =>
-            content.find(item => item.date === parseDate(date))
-              ? "highlight"
-              : ""
+            content.find((item) => item.date === parseDate(date))
+              ? 'highlight'
+              : ''
           }
         />
         <p>selected day : {currentDate}</p>
@@ -76,10 +77,10 @@ export default function Sceduler(props: EditorPropsTypes) {
             }
           />
         </div>
-        <button className="button" onClick={() => eventHandler("PUSH")}>
+        <button className="button" onClick={() => eventHandler('PUSH')}>
           push
         </button>
-        <button className="button" onClick={() => eventHandler("DELETE")}>
+        <button className="button" onClick={() => eventHandler('DELETE')}>
           pop
         </button>
       </div>
