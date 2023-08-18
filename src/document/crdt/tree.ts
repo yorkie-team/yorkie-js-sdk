@@ -856,7 +856,7 @@ export class CRDTTree extends CRDTGCElement {
     let leftSibling;
 
     if (node.isText) {
-      if (node.parent!.allChildren[0] === node && offset === 0) {
+      if (node.parent!.children[0] === node && offset === 0) {
         leftSibling = node.parent!;
       } else {
         leftSibling = node;
