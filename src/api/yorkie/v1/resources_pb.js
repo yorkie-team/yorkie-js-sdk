@@ -13,13 +13,7 @@
 
 var jspb = require('google-protobuf');
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var global = (function() { return this || window || global || self || Function('return this')(); }).call(null);
 
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 goog.object.extend(proto, google_protobuf_timestamp_pb);
@@ -1157,8 +1151,7 @@ proto.yorkie.v1.Snapshot.prototype.getPresencesMap = function(opt_noLazyCreate) 
  */
 proto.yorkie.v1.Snapshot.prototype.clearPresencesMap = function() {
   this.getPresencesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -3811,8 +3804,7 @@ proto.yorkie.v1.Operation.Edit.prototype.getCreatedAtMapByActorMap = function(op
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearCreatedAtMapByActorMap = function() {
   this.getCreatedAtMapByActorMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -3889,8 +3881,7 @@ proto.yorkie.v1.Operation.Edit.prototype.getAttributesMap = function(opt_noLazyC
  */
 proto.yorkie.v1.Operation.Edit.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -4494,8 +4485,7 @@ proto.yorkie.v1.Operation.Style.prototype.getAttributesMap = function(opt_noLazy
  */
 proto.yorkie.v1.Operation.Style.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -5107,8 +5097,7 @@ proto.yorkie.v1.Operation.TreeEdit.prototype.getCreatedAtMapByActorMap = functio
  */
 proto.yorkie.v1.Operation.TreeEdit.prototype.clearCreatedAtMapByActorMap = function() {
   this.getCreatedAtMapByActorMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -5483,8 +5472,7 @@ proto.yorkie.v1.Operation.TreeStyle.prototype.getAttributesMap = function(opt_no
  */
 proto.yorkie.v1.Operation.TreeStyle.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 /**
@@ -9470,8 +9458,7 @@ proto.yorkie.v1.TextNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TextNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -10028,8 +10015,7 @@ proto.yorkie.v1.TreeNode.prototype.getAttributesMap = function(opt_noLazyCreate)
  */
 proto.yorkie.v1.TreeNode.prototype.clearAttributesMap = function() {
   this.getAttributesMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -12348,8 +12334,7 @@ proto.yorkie.v1.Presence.prototype.getDataMap = function(opt_noLazyCreate) {
  */
 proto.yorkie.v1.Presence.prototype.clearDataMap = function() {
   this.getDataMap().clear();
-  return this;
-};
+  return this;};
 
 
 
@@ -13145,9 +13130,9 @@ proto.yorkie.v1.ValueType = {
  * @enum {number}
  */
 proto.yorkie.v1.DocEventType = {
-  DOC_EVENT_TYPE_DOCUMENTS_CHANGED: 0,
-  DOC_EVENT_TYPE_DOCUMENTS_WATCHED: 1,
-  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: 2
+  DOC_EVENT_TYPE_DOCUMENT_CHANGED: 0,
+  DOC_EVENT_TYPE_DOCUMENT_WATCHED: 1,
+  DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: 2
 };
 
 goog.object.extend(exports, proto.yorkie.v1);
