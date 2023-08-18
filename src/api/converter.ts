@@ -1005,6 +1005,9 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
     });
     node.attrs = attrs;
   }
+
+  node.removedAt = fromTimeTicket(pbTreeNode.getRemovedAt());
+
   return node;
 }
 
