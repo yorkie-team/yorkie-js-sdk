@@ -2194,4 +2194,46 @@ describe('testing edge cases', () => {
       assert.equal(root.t.toXML(), `<root><p></p></root>`);
     });
   });
+
+  it('Can delete node when there is more than one text node in front which has size bigger than 1', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      // 01. Create a tree and insert a paragraph.
+      root.t = new Tree();
+      root.t.edit(0, 0, {
+        type: 'p',
+        children: [{ type: 'text', value: 'abcde' }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcde</p></root>`);
+
+      root.t.edit(6, 6, {
+        type: 'text',
+        value: 'f',
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdef</p></root>`);
+
+      root.t.edit(7, 7, {
+        type: 'text',
+        value: 'g',
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdefg</p></root>`);
+
+      root.t.edit(7, 8);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdef</p></root>`);
+      root.t.edit(6, 7);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcde</p></root>`);
+      root.t.edit(5, 6);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+      root.t.edit(4, 5);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abc</p></root>`);
+      root.t.edit(3, 4);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>ab</p></root>`);
+      root.t.edit(2, 3);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>a</p></root>`);
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
+    });
+  });
 });
