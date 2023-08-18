@@ -377,7 +377,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          this.id = converter.toHexString(res.getClientId_asU8());
+          this.id = res.getClientId();
           this.status = ClientStatus.Activated;
           this.runSyncLoop();
 
@@ -405,7 +405,7 @@ export class Client implements Observable<ClientEvent> {
     });
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
 
       this.rpcClient.deactivateClient(
         req,
@@ -457,7 +457,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.rpcClient.attachDocument(
@@ -521,7 +521,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(attachment.docID);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
@@ -703,7 +703,7 @@ export class Client implements Observable<ClientEvent> {
     doc.setActor(this.id!);
     return new Promise((resolve, reject) => {
       const req = new RemoveDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(attachment.docID);
       const pbChangePack = converter.toChangePack(doc.createChangePack());
       pbChangePack.setIsRemoved(true);
@@ -826,7 +826,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         const req = new WatchDocumentRequest();
-        req.setClientId(converter.toUint8Array(this.id!));
+        req.setClientId(this.id!);
         req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {
           'x-shard-key': `${this.apiKey}/${docKey}`,
@@ -865,10 +865,9 @@ export class Client implements Observable<ClientEvent> {
   ) {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
-      const pbClientIDs = resp.getInitialization()!.getClientIdsList();
+      const clientIDs = resp.getInitialization()!.getClientIdsList();
       const onlineClients: Set<ActorID> = new Set();
-      for (const pbClientID of pbClientIDs) {
-        const clientID = converter.toHexString(pbClientID as Uint8Array);
+      for (const clientID of clientIDs) {
         onlineClients.add(clientID);
       }
       attachment.doc.setOnlineClients(onlineClients);
@@ -881,7 +880,7 @@ export class Client implements Observable<ClientEvent> {
 
     const pbWatchEvent = resp.getEvent()!;
     const eventType = pbWatchEvent.getType();
-    const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
+    const publisher = pbWatchEvent.getPublisher();
     switch (eventType) {
       case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_CHANGED:
         attachment.remoteChangeEventReceived = true;
@@ -947,7 +946,7 @@ export class Client implements Observable<ClientEvent> {
     const { doc, docID } = attachment;
     return new Promise((resolve, reject) => {
       const req = new PushPullChangesRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(docID);
       const reqPack = doc.createChangePack();
       const localSize = reqPack.getChangeSize();
