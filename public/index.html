@@ -49,9 +49,9 @@
         textLogHolder.innerText = doc.getRoot().content.toTestString();
       }
 
-      function displayOnlineClients(presences, myClientID) {
+      function displayOnlineUsers(users, myClientID) {
         const usernames = [];
-        for (const { clientID, presence } of presences) {
+        for (const { clientID, presence } of users) {
           usernames.push(
             clientID === myClientID ? `<b>${clientID}</b>` : clientID,
           );
@@ -150,7 +150,7 @@
           const doc = new yorkie.Document('codemirror');
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;
-            displayOnlineClients(doc.getPresences(), client.getID());
+            displayOnlineUsers(doc.getUsers(), client.getID());
           });
 
           await client.attach(doc, {
@@ -284,7 +284,7 @@
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
           displayLog(doc, codemirror);
-          for (const user of doc.getPresences()) {
+          for (const user of doc.getUsers()) {
             if (user.clientID === client.getID()) continue;
             displayRemoteSelection(codemirror, doc, user);
           }

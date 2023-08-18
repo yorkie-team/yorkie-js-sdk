@@ -50,9 +50,9 @@
         };
       }
 
-      function displayOnlineClients(presences, myClientID) {
+      function displayOnlineUsers(users, myClientID) {
         const usernames = [];
-        for (const { clientID, presence } of presences) {
+        for (const { clientID, presence } of users) {
           usernames.push(
             myClientID === clientID
               ? `<b>${presence.username}</b>`
@@ -73,7 +73,7 @@
           const doc = new yorkie.Document(documentKey);
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;
-            displayOnlineClients(doc.getPresences(), client.getID());
+            displayOnlineUsers(doc.getUsers(), client.getID());
           });
 
           await client.attach(doc, {
@@ -319,7 +319,7 @@
 
           syncText();
           displayLog(documentElem, documentTextElem, doc);
-          for (const user of doc.getPresences()) {
+          for (const user of doc.getUsers()) {
             displayRemoteCursor(user);
           }
         } catch (e) {

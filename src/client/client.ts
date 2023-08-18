@@ -874,7 +874,7 @@ export class Client implements Observable<ClientEvent> {
       attachment.doc.setOnlineClients(onlineClients);
       attachment.doc.publish({
         type: DocEventType.Initialized,
-        value: attachment.doc.getPresences(),
+        value: attachment.doc.getUsers(),
       });
       return;
     }

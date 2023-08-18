@@ -152,14 +152,14 @@ describe('Presence', function () {
       value: { clientID: c1ID, presence: { name: 'A' } },
     });
     assert.deepEqual(
-      deepSort(doc2.getPresences()),
+      deepSort(doc2.getUsers()),
       deepSort([
         { clientID: c2ID, presence: { name: 'B' } },
         { clientID: c1ID, presence: { name: 'A' } },
       ]),
     );
     assert.deepEqual(
-      deepSort(doc1.getPresences()),
+      deepSort(doc1.getUsers()),
       deepSort([
         { clientID: c2ID, presence: { name: 'B' } },
         { clientID: c1ID, presence: { name: 'A' } },
@@ -245,7 +245,7 @@ describe('Presence', function () {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: doc2.getMyPresence() },
     });
-    assert.deepEqual(doc1.getPresences(), [
+    assert.deepEqual(doc1.getUsers(), [
       { clientID: c1ID, presence: doc1.getMyPresence() },
       { clientID: c2ID, presence: doc2.getMyPresence() },
     ]);
@@ -262,7 +262,7 @@ describe('Presence', function () {
       type: DocEventType.Watched,
       value: { clientID: c3ID, presence: doc3.getMyPresence() },
     });
-    assert.deepEqual(doc1.getPresences(), [
+    assert.deepEqual(doc1.getUsers(), [
       { clientID: c1ID, presence: doc1.getMyPresence() },
       { clientID: c3ID, presence: doc3.getMyPresence() },
     ]);
@@ -399,13 +399,10 @@ describe(`Document.Subscribe('presence')`, function () {
     });
 
     assert.deepEqual(
-      deepSort(doc1.getPresences()),
+      deepSort(doc1.getUsers()),
       deepSort([{ clientID: c1ID, presence: { name: 'a' } }]),
     );
-    assert.deepEqual(
-      deepSort(doc1.getPresences()),
-      deepSort(doc2.getPresences()),
-    );
+    assert.deepEqual(deepSort(doc1.getUsers()), deepSort(doc2.getUsers()));
 
     await c1.deactivate();
     await c2.deactivate();

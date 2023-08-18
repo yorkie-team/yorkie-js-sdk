@@ -1131,9 +1131,9 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getPresences` returns the presences of online clients.
+   * `getUsers` returns the online users who are watching the document.
    */
-  public getPresences(): Array<{ clientID: ActorID; presence: P }> {
+  public getUsers(): Array<{ clientID: ActorID; presence: P }> {
     const presences: Array<{ clientID: ActorID; presence: P }> = [];
     for (const clientID of this.onlineClients) {
       if (this.presences.has(clientID)) {

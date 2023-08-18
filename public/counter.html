@@ -29,9 +29,9 @@
       const counterIncreaseButton = document.getElementById('increaseButton');
       const counterDecreaseButton = document.getElementById('decreaseButton');
 
-      function displayOnlineClients(presences, myClientID) {
+      function displayOnlineUsers(users, myClientID) {
         const usernames = [];
-        for (const { clientID, presence } of presences) {
+        for (const { clientID, presence } of users) {
           usernames.push(
             clientID === myClientID ? `<b>${clientID}</b>` : clientID,
           );
@@ -50,7 +50,7 @@
           const doc = new yorkie.Document('counter');
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;
-            displayOnlineClients(doc.getPresences(), client.getID());
+            displayOnlineUsers(doc.getUsers(), client.getID());
           });
 
           await client.attach(doc);
