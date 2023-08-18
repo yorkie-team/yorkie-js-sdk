@@ -142,7 +142,7 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | RemoteChangeEvent<T>
   | InitializedEvent<P>
   | WatchedEvent<P>
-  | UnwatchedEvent
+  | UnwatchedEvent<P>
   | PresenceChangedEvent<P>;
 
 /**
@@ -223,9 +223,9 @@ export interface WatchedEvent<P extends Indexable> extends BaseDocEvent {
   value: { clientID: ActorID; presence: P };
 }
 
-export interface UnwatchedEvent extends BaseDocEvent {
+export interface UnwatchedEvent<P extends Indexable> extends BaseDocEvent {
   type: DocEventType.Unwatched;
-  value: { clientID: ActorID };
+  value: { clientID: ActorID; presence: P };
 }
 
 export interface PresenceChangedEvent<P extends Indexable>
@@ -446,6 +446,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.clone!.root,
       message,
     );
+    const actorID = this.changeID.getActorID()!;
 
     try {
       const proxy = createJSON<JSONObject<T>>(
@@ -453,16 +454,13 @@ export class Document<T, P extends Indexable = Indexable> {
         this.clone!.root.getObject(),
       );
 
-      if (!this.presences.has(this.changeID.getActorID()!)) {
-        this.clone!.presences.set(this.changeID.getActorID()!, {} as P);
+      if (!this.presences.has(actorID)) {
+        this.clone!.presences.set(actorID, {} as P);
       }
 
       updater(
         proxy,
-        new Presence(
-          context,
-          this.clone!.presences.get(this.changeID.getActorID()!)!,
-        ),
+        new Presence(context, this.clone!.presences.get(actorID)!),
       );
     } catch (err) {
       // drop clone because it is contaminated.
@@ -487,7 +485,7 @@ export class Document<T, P extends Indexable = Indexable> {
           value: {
             message: change.getMessage() || '',
             operations: opInfos,
-            actor: change.getID().getActorID(),
+            actor: actorID,
           },
         });
       }
@@ -496,8 +494,8 @@ export class Document<T, P extends Indexable = Indexable> {
         this.publish({
           type: DocEventType.PresenceChanged,
           value: {
-            clientID: change.getID().getActorID()!,
-            presence: this.getPresence(change.getID().getActorID()!)!,
+            clientID: actorID,
+            presence: this.getPresence(actorID)!,
           },
         });
       }
@@ -975,21 +973,40 @@ export class Document<T, P extends Indexable = Indexable> {
       let changeInfo: ChangeInfo | undefined;
       let docEvent: DocEvent<P> | undefined;
       const actorID = change.getID().getActorID()!;
-      if (change.hasPresenceChange()) {
+      if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
         const presenceChange = change.getPresenceChange()!;
-        if (
-          presenceChange.type === PresenceChangeType.Put &&
-          this.onlineClients.has(actorID)
-        ) {
-          docEvent = {
-            type: this.presences.has(actorID)
-              ? DocEventType.PresenceChanged
-              : DocEventType.Watched,
-            value: {
-              clientID: actorID,
-              presence: presenceChange.presence,
-            },
-          };
+        switch (presenceChange.type) {
+          case PresenceChangeType.Put:
+            // NOTE(chacha912): When the user exists in onlineClients, but
+            // their presence was initially absent, we can consider that we have
+            // received their initial presence, so trigger the 'watched' event.
+            docEvent = {
+              type: this.presences.has(actorID)
+                ? DocEventType.PresenceChanged
+                : DocEventType.Watched,
+              value: {
+                clientID: actorID,
+                presence: presenceChange.presence,
+              },
+            };
+            break;
+          case PresenceChangeType.Clear:
+            // NOTE(chacha912): When the user exists in onlineClients, but
+            // PresenceChange(clear) is received, we can consider it as detachment
+            // occurring before unwatching.
+            // Detached user is no longer participating in the document, we remove
+            // them from the online clients and trigger the 'unwatched' event.
+            docEvent = {
+              type: DocEventType.Unwatched,
+              value: {
+                clientID: actorID,
+                presence: this.getPresence(actorID)!,
+              },
+            };
+            this.removeOnlineClient(actorID);
+            break;
+          default:
+            break;
         }
       }
 
@@ -1047,6 +1064,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `setOnlineClients` sets the given online client set.
+   *
+   * @internal
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
@@ -1054,6 +1073,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `addOnlineClient` adds the given clientID into the online client set.
+   *
+   * @internal
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
@@ -1061,6 +1082,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `removeOnlineClient` removes the clientID from the online client set.
+   *
+   * @internal
    */
   public removeOnlineClient(clientID: ActorID) {
     this.onlineClients.delete(clientID);
@@ -1068,6 +1091,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `hasPresence` returns whether the given clientID has a presence or not.
+   *
+   * @internal
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
@@ -1081,14 +1106,28 @@ export class Document<T, P extends Indexable = Indexable> {
       return {} as P;
     }
 
-    return this.presences.get(this.changeID.getActorID()!)!;
+    const p = this.presences.get(this.changeID.getActorID()!)!;
+    return deepcopy(p);
   }
 
   /**
    * `getPresence` returns the presence of the given clientID.
    */
   public getPresence(clientID: ActorID): P | undefined {
-    return this.presences.get(clientID);
+    if (!this.onlineClients.has(clientID)) return;
+    const p = this.presences.get(clientID);
+    return p ? deepcopy(p) : undefined;
+  }
+
+  /**
+   * `getPresenceForTest` returns the presence of the given clientID
+   * regardless of whether the client is online or not.
+   *
+   * @internal
+   */
+  public getPresenceForTest(clientID: ActorID): P | undefined {
+    const p = this.presences.get(clientID);
+    return p ? deepcopy(p) : undefined;
   }
 
   /**
@@ -1100,7 +1139,7 @@ export class Document<T, P extends Indexable = Indexable> {
       if (this.presences.has(clientID)) {
         presences.push({
           clientID,
-          presence: this.presences.get(clientID)!,
+          presence: deepcopy(this.presences.get(clientID)!),
         });
       }
     }

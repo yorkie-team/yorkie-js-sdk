@@ -60,6 +60,11 @@ export {
 export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
+  TextOperationInfo,
+  CounterOperationInfo,
+  ArrayOperationInfo,
+  ObjectOperationInfo,
+  TreeOperationInfo,
   AddOpInfo,
   IncreaseOpInfo,
   RemoveOpInfo,
@@ -74,7 +79,7 @@ export {
   TreeChange,
   TreeChangeType,
   CRDTTreePosStruct,
-  TreePosStructRange as TreeRangeStruct,
+  TreePosStructRange,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {
@@ -90,7 +95,11 @@ export {
 export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { Text } from '@yorkie-js-sdk/src/document/json/text';
+export {
+  Text,
+  TextPosStruct,
+  TextPosStructRange,
+} from '@yorkie-js-sdk/src/document/json/text';
 export {
   Tree,
   TreeNode,

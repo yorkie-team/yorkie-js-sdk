@@ -28,9 +28,6 @@
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
-      const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
-      let nextColorIdx = 0;
-
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
       const onlineClientsHolder = document.getElementById(
@@ -39,6 +36,12 @@
       const logHolder = document.getElementById('log-holder');
       const textLogHolder = document.getElementById('text-log-holder');
       const selectionMap = new Map();
+
+      function getRandomColor() {
+        const colors = ['#FECEEA', '#FEF1D2', '#A9FDD8', '#D7F8FF', '#CEC5FA'];
+        const randomIndex = Math.floor(Math.random() * colors.length);
+        return colors[randomIndex];
+      }
 
       function displayLog(doc, codemirror) {
         logHolder.innerText = doc.toJSON();
@@ -83,46 +86,50 @@
         });
       }
 
-      function displayRemoteSelection(cm, change, actor) {
-        let color;
-        if (selectionMap.has(actor)) {
-          const selection = selectionMap.get(actor);
-          color = selection.color;
+      function displayRemoteSelection(cm, doc, user) {
+        const { clientID, presence } = user;
+        if (!presence.selection) return;
+        if (selectionMap.has(clientID)) {
+          const selection = selectionMap.get(clientID);
           selection.marker.clear();
-        } else {
-          color = colors[nextColorIdx];
-          nextColorIdx = (nextColorIdx + 1) % colors.length;
         }
 
-        if (change.from === change.to) {
-          const pos = cm.posFromIndex(change.from);
+        const [from, to] = doc
+          .getRoot()
+          .content.posRangeToIndexRange(presence.selection);
+
+        console.log(
+          `%c remote selection from:${from} to:${to}`,
+          'color: skyblue',
+        );
+
+        if (from === to) {
+          const pos = cm.posFromIndex(from);
           const cursorCoords = cm.cursorCoords(pos);
           const cursorElement = document.createElement('span');
           cursorElement.style.borderLeftWidth = '2px';
           cursorElement.style.borderLeftStyle = 'solid';
-          cursorElement.style.borderLeftColor = color;
+          cursorElement.style.borderLeftColor = presence.color;
           cursorElement.style.marginLeft = cursorElement.style.marginRight =
             '-1px';
           cursorElement.style.height =
             (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
-          cursorElement.setAttribute('data-actor-id', actor);
+          cursorElement.setAttribute('data-actor-id', clientID);
           cursorElement.style.zIndex = 0;
 
-          selectionMap.set(actor, {
-            color: color,
+          selectionMap.set(clientID, {
             marker: cm.setBookmark(pos, {
               widget: cursorElement,
               insertLeft: true,
             }),
           });
         } else {
-          const fromPos = cm.posFromIndex(Math.min(change.from, change.to));
-          const toPos = cm.posFromIndex(Math.max(change.from, change.to));
+          const fromPos = cm.posFromIndex(Math.min(from, to));
+          const toPos = cm.posFromIndex(Math.max(from, to));
 
-          selectionMap.set(actor, {
-            color: color,
+          selectionMap.set(clientID, {
             marker: cm.markText(fromPos, toPos, {
-              css: `background: ${color}`,
+              css: `background: ${presence.color}`,
               insertLeft: true,
             }),
           });
@@ -141,12 +148,14 @@
 
           // 02. create a document then attach it into the client.
           const doc = new yorkie.Document('codemirror');
-          doc.subscribe('my-presence', (event) => {
-            if (event.type === 'initialized') {
-              displayOnlineClients(doc.getPresences(), client.getID());
-            }
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') return;
+            displayOnlineClients(doc.getPresences(), client.getID());
           });
-          await client.attach(doc);
+
+          await client.attach(doc, {
+            initialPresence: { color: getRandomColor() },
+          });
 
           doc.update((root) => {
             if (!root.content) {
@@ -163,28 +172,14 @@
           });
 
           doc.subscribe('others', (event) => {
-            if (event.type === 'watched') {
-              displayOnlineClients(doc.getPresences(), client.getID());
-            } else if (event.type === 'unwatched') {
-              displayOnlineClients(doc.getPresences(), client.getID());
+            if (event.type === 'unwatched') {
               const { clientID } = event.value;
               if (selectionMap.has(clientID)) {
                 const selection = selectionMap.get(clientID);
                 selection.marker.clear();
               }
             } else if (event.type === 'presence-changed') {
-              const { clientID, presence } = event.value;
-              const range = doc
-                .getRoot()
-                .content.posRangeToIndexRange(presence.selection);
-              displayRemoteSelection(
-                codemirror,
-                {
-                  from: range[0],
-                  to: range[1],
-                },
-                clientID,
-              );
+              displayRemoteSelection(codemirror, doc, event.value);
             }
           });
 
@@ -253,7 +248,7 @@
             // NOTE: The following conditional statement ignores cursor changes
             //       that occur while applying remote changes to CodeMirror
             //       and handles only movement by keyboard and mouse.
-            if (!change.origin) {
+            if (change.origin === undefined) {
               return;
             }
 
@@ -289,6 +284,10 @@
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
           displayLog(doc, codemirror);
+          for (const user of doc.getPresences()) {
+            if (user.clientID === client.getID()) continue;
+            displayRemoteSelection(codemirror, doc, user);
+          }
         } catch (e) {
           console.error(e);
         }
