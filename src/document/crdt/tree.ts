@@ -1045,20 +1045,23 @@ export class CRDTTree extends CRDTGCElement {
 
     if (parentNode === leftSiblingNode) {
       treePos = {
-        node: leftSiblingNode,
+        node: parentNode,
         offset: 0,
       };
     } else {
-      let offset = parentNode.findOffset(leftSiblingNode) + 1;
-
       if (leftSiblingNode.isText) {
-        offset = addSizeOfLeftSiblings(parentNode, offset);
-      }
+        treePos = {
+          node: leftSiblingNode,
+          offset: leftSiblingNode.paddedSize,
+        };
+      } else {
+        const offset = parentNode.findOffset(leftSiblingNode) + 1;
 
-      treePos = {
-        node: parentNode,
-        offset,
-      };
+        treePos = {
+          node: parentNode,
+          offset,
+        };
+      }
     }
 
     return treePos;
