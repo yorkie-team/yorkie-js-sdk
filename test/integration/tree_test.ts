@@ -2154,3 +2154,44 @@ describe('Concurrent editing, complex cases', () => {
     }, this.test!.title);
   });
 });
+
+describe('testing edge cases', () => {
+  it('Can delete very first text when there is tombstone in front of target text', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      // 01. Create a tree and insert a paragraph.
+      root.t = new Tree();
+      root.t.edit(0, 0, {
+        type: 'p',
+        children: [{ type: 'text', value: 'abcdefghi' }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdefghi</p></root>`);
+
+      root.t.edit(1, 1, { type: 'text', value: '12345' });
+      assert.equal(root.t.toXML(), `<root><p>12345abcdefghi</p></root>`);
+
+      root.t.edit(2, 5);
+      assert.equal(root.t.toXML(), `<root><p>15abcdefghi</p></root>`);
+
+      root.t.edit(3, 5);
+      assert.equal(root.t.toXML(), `<root><p>15cdefghi</p></root>`);
+
+      root.t.edit(2, 4);
+      assert.equal(root.t.toXML(), `<root><p>1defghi</p></root>`);
+
+      root.t.edit(1, 3);
+      assert.equal(root.t.toXML(), `<root><p>efghi</p></root>`);
+
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), `<root><p>fghi</p></root>`);
+
+      root.t.edit(2, 5);
+      assert.equal(root.t.toXML(), `<root><p>f</p></root>`);
+
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), `<root><p></p></root>`);
+    });
+  });
+});
