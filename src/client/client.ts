@@ -134,9 +134,9 @@ export enum ClientEventType {
    */
   StatusChanged = 'status-changed',
   /**
-   * `DocumentsChanged` means that the documents of the client has changed.
+   * `DocumentChanged` means that the document has changed.
    */
-  DocumentsChanged = 'documents-changed',
+  DocumentChanged = 'document-changed',
   /**
    * `StreamConnectionStatusChanged` means that the stream connection status of
    * the client has changed.
@@ -156,7 +156,7 @@ export enum ClientEventType {
  */
 export type ClientEvent =
   | StatusChangedEvent
-  | DocumentsChangedEvent
+  | DocumentChangedEvent
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -178,24 +178,24 @@ export interface StatusChangedEvent extends BaseClientEvent {
    */
   type: ClientEventType.StatusChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `StatusChangedEvent` value
    */
   value: ClientStatus;
 }
 
 /**
- * `DocumentsChangedEvent` is an event that occurs when documents attached to
+ * `DocumentChangedEvent` is an event that occurs when document attached to
  * the client changes.
  *
  * @public
  */
-export interface DocumentsChangedEvent extends BaseClientEvent {
+export interface DocumentChangedEvent extends BaseClientEvent {
   /**
-   * enum {@link ClientEventType}.DocumentsChangedEvent
+   * enum {@link ClientEventType}.DocumentChangedEvent
    */
-  type: ClientEventType.DocumentsChanged;
+  type: ClientEventType.DocumentChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `DocumentChangedEvent` value
    */
   value: Array<string>;
 }
@@ -219,7 +219,7 @@ export interface StreamConnectionStatusChangedEvent extends BaseClientEvent {
 }
 
 /**
- * `DocumentSyncedEvent` is an event that occurs when documents
+ * `DocumentSyncedEvent` is an event that occurs when document
  * attached to the client are synced.
  *
  * @public
@@ -883,14 +883,14 @@ export class Client implements Observable<ClientEvent> {
     const eventType = pbWatchEvent.getType();
     const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
     switch (eventType) {
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_CHANGED:
         attachment.remoteChangeEventReceived = true;
         this.eventStreamObserver.next({
-          type: ClientEventType.DocumentsChanged,
+          type: ClientEventType.DocumentChanged,
           value: [docKey],
         });
         break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_WATCHED:
         attachment.doc.addOnlineClient(publisher);
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
         // unless we also know their initial presence data at this point.
@@ -904,7 +904,7 @@ export class Client implements Observable<ClientEvent> {
           });
         }
         break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: {
         const presence = attachment.doc.getPresence(publisher);
         attachment.doc.removeOnlineClient(publisher);
         // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
