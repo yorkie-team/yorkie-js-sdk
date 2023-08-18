@@ -27,7 +27,6 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverseAll,
-  addSizeOfLeftSiblings,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
