@@ -22,10 +22,8 @@ export namespace ActivateClientRequest {
 }
 
 export class ActivateClientResponse extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): ActivateClientResponse;
+  getClientId(): string;
+  setClientId(value: string): ActivateClientResponse;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ActivateClientResponse.AsObject;
@@ -37,15 +35,13 @@ export class ActivateClientResponse extends jspb.Message {
 
 export namespace ActivateClientResponse {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
   }
 }
 
 export class DeactivateClientRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): DeactivateClientRequest;
+  getClientId(): string;
+  setClientId(value: string): DeactivateClientRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DeactivateClientRequest.AsObject;
@@ -57,7 +53,7 @@ export class DeactivateClientRequest extends jspb.Message {
 
 export namespace DeactivateClientRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
   }
 }
 
@@ -76,10 +72,8 @@ export namespace DeactivateClientResponse {
 }
 
 export class AttachDocumentRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): AttachDocumentRequest;
+  getClientId(): string;
+  setClientId(value: string): AttachDocumentRequest;
 
   getChangePack(): yorkie_v1_resources_pb.ChangePack | undefined;
   setChangePack(value?: yorkie_v1_resources_pb.ChangePack): AttachDocumentRequest;
@@ -96,7 +90,7 @@ export class AttachDocumentRequest extends jspb.Message {
 
 export namespace AttachDocumentRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
   }
 }
@@ -126,10 +120,8 @@ export namespace AttachDocumentResponse {
 }
 
 export class DetachDocumentRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): DetachDocumentRequest;
+  getClientId(): string;
+  setClientId(value: string): DetachDocumentRequest;
 
   getDocumentId(): string;
   setDocumentId(value: string): DetachDocumentRequest;
@@ -152,7 +144,7 @@ export class DetachDocumentRequest extends jspb.Message {
 
 export namespace DetachDocumentRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
     removeIfNotAttached: boolean,
@@ -180,10 +172,8 @@ export namespace DetachDocumentResponse {
 }
 
 export class WatchDocumentRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): WatchDocumentRequest;
+  getClientId(): string;
+  setClientId(value: string): WatchDocumentRequest;
 
   getDocumentId(): string;
   setDocumentId(value: string): WatchDocumentRequest;
@@ -198,7 +188,7 @@ export class WatchDocumentRequest extends jspb.Message {
 
 export namespace WatchDocumentRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
     documentId: string,
   }
 }
@@ -231,10 +221,10 @@ export namespace WatchDocumentResponse {
   }
 
   export class Initialization extends jspb.Message {
-    getClientIdsList(): Array<Uint8Array | string>;
-    setClientIdsList(value: Array<Uint8Array | string>): Initialization;
+    getClientIdsList(): Array<string>;
+    setClientIdsList(value: Array<string>): Initialization;
     clearClientIdsList(): Initialization;
-    addClientIds(value: Uint8Array | string, index?: number): Initialization;
+    addClientIds(value: string, index?: number): Initialization;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Initialization.AsObject;
@@ -246,7 +236,7 @@ export namespace WatchDocumentResponse {
 
   export namespace Initialization {
     export type AsObject = {
-      clientIdsList: Array<Uint8Array | string>,
+      clientIdsList: Array<string>,
     }
   }
 
@@ -259,10 +249,8 @@ export namespace WatchDocumentResponse {
 }
 
 export class RemoveDocumentRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): RemoveDocumentRequest;
+  getClientId(): string;
+  setClientId(value: string): RemoveDocumentRequest;
 
   getDocumentId(): string;
   setDocumentId(value: string): RemoveDocumentRequest;
@@ -282,7 +270,7 @@ export class RemoveDocumentRequest extends jspb.Message {
 
 export namespace RemoveDocumentRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
   }
@@ -309,10 +297,8 @@ export namespace RemoveDocumentResponse {
 }
 
 export class PushPullChangesRequest extends jspb.Message {
-  getClientId(): Uint8Array | string;
-  getClientId_asU8(): Uint8Array;
-  getClientId_asB64(): string;
-  setClientId(value: Uint8Array | string): PushPullChangesRequest;
+  getClientId(): string;
+  setClientId(value: string): PushPullChangesRequest;
 
   getDocumentId(): string;
   setDocumentId(value: string): PushPullChangesRequest;
@@ -335,7 +321,7 @@ export class PushPullChangesRequest extends jspb.Message {
 
 export namespace PushPullChangesRequest {
   export type AsObject = {
-    clientId: Uint8Array | string,
+    clientId: string,
     documentId: string,
     changePack?: yorkie_v1_resources_pb.ChangePack.AsObject,
     pushOnly: boolean,

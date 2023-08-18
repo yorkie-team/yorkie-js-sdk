@@ -12955,7 +12955,7 @@ proto.yorkie.v1.DocEvent.prototype.toObject = function(opt_includeInstance) {
 proto.yorkie.v1.DocEvent.toObject = function(includeInstance, msg) {
   var f, obj = {
     type: jspb.Message.getFieldWithDefault(msg, 1, 0),
-    publisher: msg.getPublisher_asB64()
+    publisher: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -12997,7 +12997,7 @@ proto.yorkie.v1.DocEvent.deserializeBinaryFromReader = function(msg, reader) {
       msg.setType(value);
       break;
     case 2:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setPublisher(value);
       break;
     default:
@@ -13036,9 +13036,9 @@ proto.yorkie.v1.DocEvent.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
-  f = message.getPublisher_asU8();
+  f = message.getPublisher();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       2,
       f
     );
@@ -13065,7 +13065,7 @@ proto.yorkie.v1.DocEvent.prototype.setType = function(value) {
 
 
 /**
- * optional bytes publisher = 2;
+ * optional string publisher = 2;
  * @return {string}
  */
 proto.yorkie.v1.DocEvent.prototype.getPublisher = function() {
@@ -13074,35 +13074,11 @@ proto.yorkie.v1.DocEvent.prototype.getPublisher = function() {
 
 
 /**
- * optional bytes publisher = 2;
- * This is a type-conversion wrapper around `getPublisher()`
- * @return {string}
- */
-proto.yorkie.v1.DocEvent.prototype.getPublisher_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getPublisher()));
-};
-
-
-/**
- * optional bytes publisher = 2;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getPublisher()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.DocEvent.prototype.getPublisher_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getPublisher()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.DocEvent} returns this
  */
 proto.yorkie.v1.DocEvent.prototype.setPublisher = function(value) {
-  return jspb.Message.setProto3BytesField(this, 2, value);
+  return jspb.Message.setProto3StringField(this, 2, value);
 };
 
 
