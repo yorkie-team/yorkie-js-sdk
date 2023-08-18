@@ -30,7 +30,7 @@ export {
   DocumentSyncResultType,
   ClientEventType,
   StatusChangedEvent,
-  DocumentsChangedEvent,
+  DocumentChangedEvent,
   StreamConnectionStatusChangedEvent,
   DocumentSyncedEvent,
   ClientOptions,
