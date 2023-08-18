@@ -1558,10 +1558,8 @@ export class DocEvent extends jspb.Message {
   getType(): DocEventType;
   setType(value: DocEventType): DocEvent;
 
-  getPublisher(): Uint8Array | string;
-  getPublisher_asU8(): Uint8Array;
-  getPublisher_asB64(): string;
-  setPublisher(value: Uint8Array | string): DocEvent;
+  getPublisher(): string;
+  setPublisher(value: string): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1574,7 +1572,7 @@ export class DocEvent extends jspb.Message {
 export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
-    publisher: Uint8Array | string,
+    publisher: string,
   }
 }
 
