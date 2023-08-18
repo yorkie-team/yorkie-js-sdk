@@ -709,7 +709,7 @@ export class CRDTTree extends CRDTGCElement {
 
           traverseAll(node, (node) => {
             if (node.canDelete(editedAt, MaxTimeTicket)) {
-              const latestCreatedAt = latestCreatedAtMapByActor?.get(actorID);
+              const latestCreatedAt = latestCreatedAtMap.get(actorID);
               const createdAt = node.getCreatedAt();
 
               if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
