@@ -33,7 +33,6 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
-import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
@@ -62,24 +61,24 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
-  Presence as PbPresence,
-  PresenceChange as PbPresenceChange,
-  Snapshot as PbSnapshot,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
+  NodeAttr as PbNodeAttr,
   Operation as PbOperation,
+  Presence as PbPresence,
+  PresenceChange as PbPresenceChange,
   RGANode as PbRGANode,
   RHTNode as PbRHTNode,
+  Snapshot as PbSnapshot,
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
-  NodeAttr as PbNodeAttr,
   TimeTicket as PbTimeTicket,
-  ValueType as PbValueType,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
+  ValueType as PbValueType,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -350,18 +349,6 @@ function toOperation(operation: Operation): PbOperation {
     }
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
-  } else if (operation instanceof SelectOperation) {
-    const selectOperation = operation as SelectOperation;
-    const pbSelectOperation = new PbOperation.Select();
-    pbSelectOperation.setParentCreatedAt(
-      toTimeTicket(selectOperation.getParentCreatedAt()),
-    );
-    pbSelectOperation.setFrom(toTextNodePos(selectOperation.getFromPos()));
-    pbSelectOperation.setTo(toTextNodePos(selectOperation.getToPos()));
-    pbSelectOperation.setExecutedAt(
-      toTimeTicket(selectOperation.getExecutedAt()),
-    );
-    pbOperation.setSelect(pbSelectOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
@@ -1049,14 +1036,6 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbRemoveOperation!.getParentCreatedAt())!,
         fromTimeTicket(pbRemoveOperation!.getCreatedAt())!,
         fromTimeTicket(pbRemoveOperation!.getExecutedAt())!,
-      );
-    } else if (pbOperation.hasSelect()) {
-      const pbSelectOperation = pbOperation.getSelect();
-      operation = SelectOperation.create(
-        fromTimeTicket(pbSelectOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbSelectOperation!.getFrom()!),
-        fromTextNodePos(pbSelectOperation!.getTo()!),
-        fromTimeTicket(pbSelectOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasEdit()) {
       const pbEditOperation = pbOperation.getEdit();
