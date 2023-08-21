@@ -214,13 +214,13 @@ describe('CRDTTree', function () {
       issueTime(),
     );
 
-    const p_node = new CRDTTreeNode(issuePos(), 'p');
-    const text_node = new CRDTTreeNode(issuePos(), 'text', 'ab')
+    const pNode = new CRDTTreeNode(issuePos(), 'p');
+    const textNode = new CRDTTreeNode(issuePos(), 'text', 'ab');
 
     //       0   1 2 3    4
     // <root> <p> a b </p> </root>
-    tree.editByIndex([0, 0], [p_node], issueTime());
-    tree.editByIndex([1, 1], [text_node], issueTime(),);
+    tree.editByIndex([0, 0], [pNode], issueTime());
+    tree.editByIndex([1, 1], [textNode], issueTime());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // Find the closest index.TreePos when leftSiblingNode in crdt.TreePos is removed.
@@ -228,9 +228,11 @@ describe('CRDTTree', function () {
     // <root> <p> </p> </root>
     tree.editByIndex([1, 3], undefined, issueTime());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
-    
+
     let [parent, left] = tree.findNodesAndSplitText(
-      new CRDTTreePos(p_node.id, text_node.id), issueTime());
+      new CRDTTreePos(pNode.id, textNode.id),
+      issueTime(),
+    );
     assert.equal(tree.toIndex(parent, left), 1);
 
     // Find the closest index.TreePos when parentNode in crdt.TreePos is removed.
@@ -240,7 +242,9 @@ describe('CRDTTree', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root></root>`);
 
     [parent, left] = tree.findNodesAndSplitText(
-      new CRDTTreePos(p_node.id, text_node.id), issueTime());
+      new CRDTTreePos(pNode.id, textNode.id),
+      issueTime(),
+    );
     assert.equal(tree.toIndex(parent, left), 0);
   });
 });
