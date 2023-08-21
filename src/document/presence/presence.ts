@@ -51,9 +51,6 @@ export class Presence<P extends Indexable> {
    * `set` updates the presence based on the partial presence.
    */
   public set(presence: Partial<P>) {
-    if (!this.presence) {
-      throw new Error(`presence is not initialized`);
-    }
     for (const [key, value] of Object.entries(presence)) {
       this.presence[key as keyof P] = value as any;
     }
@@ -62,6 +59,13 @@ export class Presence<P extends Indexable> {
       type: PresenceChangeType.Put,
       presence: deepcopy(this.presence),
     });
+  }
+
+  /**
+   * `get` returns the presence value of the given key.
+   */
+  public get<K extends keyof P>(key: K): P[K] {
+    return this.presence[key];
   }
 
   /**

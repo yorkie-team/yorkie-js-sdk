@@ -134,9 +134,9 @@ export enum ClientEventType {
    */
   StatusChanged = 'status-changed',
   /**
-   * `DocumentsChanged` means that the documents of the client has changed.
+   * `DocumentChanged` means that the document has changed.
    */
-  DocumentsChanged = 'documents-changed',
+  DocumentChanged = 'document-changed',
   /**
    * `StreamConnectionStatusChanged` means that the stream connection status of
    * the client has changed.
@@ -156,7 +156,7 @@ export enum ClientEventType {
  */
 export type ClientEvent =
   | StatusChangedEvent
-  | DocumentsChangedEvent
+  | DocumentChangedEvent
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
@@ -178,24 +178,24 @@ export interface StatusChangedEvent extends BaseClientEvent {
    */
   type: ClientEventType.StatusChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `StatusChangedEvent` value
    */
   value: ClientStatus;
 }
 
 /**
- * `DocumentsChangedEvent` is an event that occurs when documents attached to
+ * `DocumentChangedEvent` is an event that occurs when document attached to
  * the client changes.
  *
  * @public
  */
-export interface DocumentsChangedEvent extends BaseClientEvent {
+export interface DocumentChangedEvent extends BaseClientEvent {
   /**
-   * enum {@link ClientEventType}.DocumentsChangedEvent
+   * enum {@link ClientEventType}.DocumentChangedEvent
    */
-  type: ClientEventType.DocumentsChanged;
+  type: ClientEventType.DocumentChanged;
   /**
-   * `DocumentsChangedEvent` value
+   * `DocumentChangedEvent` value
    */
   value: Array<string>;
 }
@@ -219,7 +219,7 @@ export interface StreamConnectionStatusChangedEvent extends BaseClientEvent {
 }
 
 /**
- * `DocumentSyncedEvent` is an event that occurs when documents
+ * `DocumentSyncedEvent` is an event that occurs when document
  * attached to the client are synced.
  *
  * @public
@@ -377,7 +377,7 @@ export class Client implements Observable<ClientEvent> {
             return;
           }
 
-          this.id = converter.toHexString(res.getClientId_asU8());
+          this.id = res.getClientId();
           this.status = ClientStatus.Activated;
           this.runSyncLoop();
 
@@ -405,7 +405,7 @@ export class Client implements Observable<ClientEvent> {
     });
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
 
       this.rpcClient.deactivateClient(
         req,
@@ -457,7 +457,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
       this.rpcClient.attachDocument(
@@ -521,7 +521,7 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(attachment.docID);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
 
@@ -703,7 +703,7 @@ export class Client implements Observable<ClientEvent> {
     doc.setActor(this.id!);
     return new Promise((resolve, reject) => {
       const req = new RemoveDocumentRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(attachment.docID);
       const pbChangePack = converter.toChangePack(doc.createChangePack());
       pbChangePack.setIsRemoved(true);
@@ -826,7 +826,7 @@ export class Client implements Observable<ClientEvent> {
         }
 
         const req = new WatchDocumentRequest();
-        req.setClientId(converter.toUint8Array(this.id!));
+        req.setClientId(this.id!);
         req.setDocumentId(attachment.docID);
         const stream = this.rpcClient.watchDocument(req, {
           'x-shard-key': `${this.apiKey}/${docKey}`,
@@ -865,10 +865,9 @@ export class Client implements Observable<ClientEvent> {
   ) {
     const docKey = attachment.doc.getKey();
     if (resp.hasInitialization()) {
-      const pbClientIDs = resp.getInitialization()!.getClientIdsList();
+      const clientIDs = resp.getInitialization()!.getClientIdsList();
       const onlineClients: Set<ActorID> = new Set();
-      for (const pbClientID of pbClientIDs) {
-        const clientID = converter.toHexString(pbClientID as Uint8Array);
+      for (const clientID of clientIDs) {
         onlineClients.add(clientID);
       }
       attachment.doc.setOnlineClients(onlineClients);
@@ -881,17 +880,19 @@ export class Client implements Observable<ClientEvent> {
 
     const pbWatchEvent = resp.getEvent()!;
     const eventType = pbWatchEvent.getType();
-    const publisher = converter.toHexString(pbWatchEvent.getPublisher_asU8());
+    const publisher = pbWatchEvent.getPublisher();
     switch (eventType) {
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_CHANGED:
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_CHANGED:
         attachment.remoteChangeEventReceived = true;
         this.eventStreamObserver.next({
-          type: ClientEventType.DocumentsChanged,
+          type: ClientEventType.DocumentChanged,
           value: [docKey],
         });
         break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_WATCHED:
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_WATCHED:
         attachment.doc.addOnlineClient(publisher);
+        // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+        // unless we also know their initial presence data at this point.
         if (attachment.doc.hasPresence(publisher)) {
           attachment.doc.publish({
             type: DocEventType.Watched,
@@ -902,12 +903,17 @@ export class Client implements Observable<ClientEvent> {
           });
         }
         break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED: {
+      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: {
+        const presence = attachment.doc.getPresence(publisher);
         attachment.doc.removeOnlineClient(publisher);
-        attachment.doc.publish({
-          type: DocEventType.Unwatched,
-          value: { clientID: publisher },
-        });
+        // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+        // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+        if (presence) {
+          attachment.doc.publish({
+            type: DocEventType.Unwatched,
+            value: { clientID: publisher, presence },
+          });
+        }
         break;
       }
     }
@@ -940,7 +946,7 @@ export class Client implements Observable<ClientEvent> {
     const { doc, docID } = attachment;
     return new Promise((resolve, reject) => {
       const req = new PushPullChangesRequest();
-      req.setClientId(converter.toUint8Array(this.id!));
+      req.setClientId(this.id!);
       req.setDocumentId(docID);
       const reqPack = doc.createChangePack();
       const localSize = reqPack.getChangeSize();
