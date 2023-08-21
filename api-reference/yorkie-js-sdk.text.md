@@ -36,7 +36,6 @@ declare class Text<A extends Indexable = Indexable>
 |  [getID()](./yorkie-js-sdk.text.getid.md) |  | <code>getID</code> returns the ID of this text. |
 |  [indexRangeToPosRange(range)](./yorkie-js-sdk.text.indexrangetoposrange.md) |  | <code>indexRangeToPosRange</code> returns TextRangeStruct of the given index range. |
 |  [posRangeToIndexRange(range)](./yorkie-js-sdk.text.posrangetoindexrange.md) |  | <code>posRangeToIndexRange</code> returns indexes of the given TextRangeStruct. |
-|  [select(fromIdx, toIdx)](./yorkie-js-sdk.text.select.md) |  | <code>select</code> selects the given range. |
 |  [setStyle(fromIdx, toIdx, attributes)](./yorkie-js-sdk.text.setstyle.md) |  | <code>setStyle</code> styles this text with the given attributes. |
 |  [toString()](./yorkie-js-sdk.text.tostring.md) |  | <code>toString</code> returns the string representation of this text. |
 |  [toTestString()](./yorkie-js-sdk.text.toteststring.md) |  | <code>toTestString</code> returns a String containing the meta data of the node for debugging purpose. |
