@@ -2342,4 +2342,84 @@ describe('testing edge cases', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
     });
   });
+
+  it('split link can transmitted through rpc', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '1' });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>a1b</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a1b</p></doc>`);
+
+      d2.update((root) => {
+        root.t.edit(3, 3, { type: 'text', value: '1' });
+      });
+
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a11b</p></doc>`);
+
+      d2.update((root) => {
+        root.t.edit(2, 3, { type: 'text', value: '12' });
+      });
+
+      d2.update((root) => {
+        root.t.edit(4, 5, { type: 'text', value: '21' });
+      });
+
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a1221b</p></doc>`);
+
+      // if split link is not transmitted, then left sibling in from index below, is "b" not "a"
+      d2.update((root) => {
+        root.t.edit(2, 4, { type: 'text', value: '123' });
+      });
+
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a12321b</p></doc>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('can calculate size of index tree correctly', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '123' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '456' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '789' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '0123' });
+      });
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a0123789456123b</p></doc>`,
+      );
+      await c1.sync();
+      await c2.sync();
+
+      const size = d1.getRoot().t.getIndexTree().getRoot().size;
+
+      assert.equal(d2.getRoot().t.getIndexTree().getRoot().size, size);
+    }, this.test!.title);
+  });
 });
