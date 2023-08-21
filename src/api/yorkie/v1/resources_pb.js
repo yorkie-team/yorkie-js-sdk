@@ -9679,7 +9679,8 @@ proto.yorkie.v1.TreeNode.toObject = function(includeInstance, msg) {
     value: jspb.Message.getFieldWithDefault(msg, 3, ""),
     removedAt: (f = msg.getRemovedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
     insPrevId: (f = msg.getInsPrevId()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
-    depth: jspb.Message.getFieldWithDefault(msg, 6, 0),
+    insNextId: (f = msg.getInsNextId()) && proto.yorkie.v1.TreeNodeID.toObject(includeInstance, f),
+    depth: jspb.Message.getFieldWithDefault(msg, 7, 0),
     attributesMap: (f = msg.getAttributesMap()) ? f.toObject(includeInstance, proto.yorkie.v1.NodeAttr.toObject) : []
   };
 
@@ -9741,10 +9742,15 @@ proto.yorkie.v1.TreeNode.deserializeBinaryFromReader = function(msg, reader) {
       msg.setInsPrevId(value);
       break;
     case 6:
+      var value = new proto.yorkie.v1.TreeNodeID;
+      reader.readMessage(value,proto.yorkie.v1.TreeNodeID.deserializeBinaryFromReader);
+      msg.setInsNextId(value);
+      break;
+    case 7:
       var value = /** @type {number} */ (reader.readInt32());
       msg.setDepth(value);
       break;
-    case 7:
+    case 8:
       var value = msg.getAttributesMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.yorkie.v1.NodeAttr.deserializeBinaryFromReader, "", new proto.yorkie.v1.NodeAttr());
@@ -9817,16 +9823,24 @@ proto.yorkie.v1.TreeNode.serializeBinaryToWriter = function(message, writer) {
       proto.yorkie.v1.TreeNodeID.serializeBinaryToWriter
     );
   }
+  f = message.getInsNextId();
+  if (f != null) {
+    writer.writeMessage(
+      6,
+      f,
+      proto.yorkie.v1.TreeNodeID.serializeBinaryToWriter
+    );
+  }
   f = message.getDepth();
   if (f !== 0) {
     writer.writeInt32(
-      6,
+      7,
       f
     );
   }
   f = message.getAttributesMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(7, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.yorkie.v1.NodeAttr.serializeBinaryToWriter);
+    f.serializeBinary(8, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.yorkie.v1.NodeAttr.serializeBinaryToWriter);
   }
 };
 
@@ -9979,11 +9993,48 @@ proto.yorkie.v1.TreeNode.prototype.hasInsPrevId = function() {
 
 
 /**
- * optional int32 depth = 6;
+ * optional TreeNodeID ins_next_id = 6;
+ * @return {?proto.yorkie.v1.TreeNodeID}
+ */
+proto.yorkie.v1.TreeNode.prototype.getInsNextId = function() {
+  return /** @type{?proto.yorkie.v1.TreeNodeID} */ (
+    jspb.Message.getWrapperField(this, proto.yorkie.v1.TreeNodeID, 6));
+};
+
+
+/**
+ * @param {?proto.yorkie.v1.TreeNodeID|undefined} value
+ * @return {!proto.yorkie.v1.TreeNode} returns this
+*/
+proto.yorkie.v1.TreeNode.prototype.setInsNextId = function(value) {
+  return jspb.Message.setWrapperField(this, 6, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.yorkie.v1.TreeNode} returns this
+ */
+proto.yorkie.v1.TreeNode.prototype.clearInsNextId = function() {
+  return this.setInsNextId(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.yorkie.v1.TreeNode.prototype.hasInsNextId = function() {
+  return jspb.Message.getField(this, 6) != null;
+};
+
+
+/**
+ * optional int32 depth = 7;
  * @return {number}
  */
 proto.yorkie.v1.TreeNode.prototype.getDepth = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 6, 0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
 };
 
 
@@ -9992,19 +10043,19 @@ proto.yorkie.v1.TreeNode.prototype.getDepth = function() {
  * @return {!proto.yorkie.v1.TreeNode} returns this
  */
 proto.yorkie.v1.TreeNode.prototype.setDepth = function(value) {
-  return jspb.Message.setProto3IntField(this, 6, value);
+  return jspb.Message.setProto3IntField(this, 7, value);
 };
 
 
 /**
- * map<string, NodeAttr> attributes = 7;
+ * map<string, NodeAttr> attributes = 8;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,!proto.yorkie.v1.NodeAttr>}
  */
 proto.yorkie.v1.TreeNode.prototype.getAttributesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,!proto.yorkie.v1.NodeAttr>} */ (
-      jspb.Message.getMapField(this, 7, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 8, opt_noLazyCreate,
       proto.yorkie.v1.NodeAttr));
 };
 

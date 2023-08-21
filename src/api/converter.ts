@@ -567,6 +567,13 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     if (n.isText) {
       pbTreeNode.setValue(n.value);
     }
+    if (n.insPrevID) {
+      pbTreeNode.setInsPrevId(toTreeNodeID(n.insPrevID));
+    }
+    if (n.insNextID) {
+      pbTreeNode.setInsNextId(toTreeNodeID(n.insNextID));
+    }
+
     pbTreeNode.setRemovedAt(toTimeTicket(n.removedAt));
     pbTreeNode.setDepth(depth);
 
@@ -1004,6 +1011,14 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
       attrs.set(key, value.getValue(), fromTimeTicket(value.getUpdatedAt())!);
     });
     node.attrs = attrs;
+  }
+
+  if (pbTreeNode.hasInsPrevId()) {
+    node.insPrevID = fromTreeNodeID(pbTreeNode.getInsPrevId()!);
+  }
+
+  if (pbTreeNode.hasInsNextId()) {
+    node.insNextID = fromTreeNodeID(pbTreeNode.getInsNextId()!);
   }
 
   node.removedAt = fromTimeTicket(pbTreeNode.getRemovedAt());
