@@ -1144,6 +1144,11 @@ export class TreeNode extends jspb.Message {
   hasInsPrevId(): boolean;
   clearInsPrevId(): TreeNode;
 
+  getInsNextId(): TreeNodeID | undefined;
+  setInsNextId(value?: TreeNodeID): TreeNode;
+  hasInsNextId(): boolean;
+  clearInsNextId(): TreeNode;
+
   getDepth(): number;
   setDepth(value: number): TreeNode;
 
@@ -1165,6 +1170,7 @@ export namespace TreeNode {
     value: string,
     removedAt?: TimeTicket.AsObject,
     insPrevId?: TreeNodeID.AsObject,
+    insNextId?: TreeNodeID.AsObject,
     depth: number,
     attributesMap: Array<[string, NodeAttr.AsObject]>,
   }
