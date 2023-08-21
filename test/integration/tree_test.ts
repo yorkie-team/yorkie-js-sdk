@@ -100,7 +100,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can be created from JSON with attrebutes test', function () {
+  it('Can be created from JSON with attrebutes', function () {
     const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -499,7 +499,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can sync its content with other replicas', async function () {
+  it('Can sync its content with other clients', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -668,6 +668,112 @@ describe('Tree.edit', function () {
       doc.getRoot().t.toXML(),
       /*html*/ `<doc><p>ab</p><p>cd</p><i>fg</i></doc>`,
     );
+  });
+
+  it('Can edit its content with path when multi tree nodes passed', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>ab</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 0, 0, 1],
+        [0, 0, 0, 1],
+        {
+          type: 'text',
+          value: 'X',
+        },
+        {
+          type: 'text',
+          value: 'X',
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 1],
+        [0, 1],
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'st' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'xt' },
+              ],
+            },
+          ],
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p><p><tn>test</tn></p><p><tn>text</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 3],
+        [0, 3],
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'st' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'tn',
+          children: [
+            { type: 'text', value: 'te' },
+            { type: 'text', value: 'xt' },
+          ],
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p><p><tn>test</tn></p><p><tn>text</tn></p><p><tn>test</tn></p><tn>text</tn></tc></doc>`,
+      );
+    });
   });
 
   it('Detecting error for empty text', function () {
