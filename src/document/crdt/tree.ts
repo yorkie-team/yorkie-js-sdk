@@ -309,14 +309,14 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   attrs?: RHT;
 
   /**
-   * `insPrev` is the previous node of this node after the node is split.
+   * `insPrevID` is the previous node id of this node after the node is split.
    */
-  insPrev?: CRDTTreeNode;
+  insPrevID?: CRDTTreeNodeID;
 
   /**
-   * `insNext` is the previous node of this node after the node is split.
+   * `insNextID` is the previous node id of this node after the node is split.
    */
-  insNext?: CRDTTreeNode;
+  insNextID?: CRDTTreeNodeID;
 
   _value = '';
 
@@ -578,14 +578,16 @@ export class CRDTTree extends CRDTGCElement {
       );
 
       if (split) {
-        split.insPrev = leftSiblingNode;
+        split.insPrevID = leftSiblingNode.id;
         this.nodeMapByID.put(split.id, split);
 
-        if (leftSiblingNode.insNext) {
-          leftSiblingNode.insNext.insPrev = split;
-          split.insNext = leftSiblingNode.insNext;
+        if (leftSiblingNode.insNextID) {
+          const insNext = this.findFloorNode(leftSiblingNode.insNextID)!;
+
+          insNext.insPrevID = split.id;
+          split.insNextID = leftSiblingNode.insNextID;
         }
-        leftSiblingNode.insNext = split;
+        leftSiblingNode.insNextID = split.id;
       }
     }
 
@@ -852,19 +854,21 @@ export class CRDTTree extends CRDTGCElement {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: CRDTTreeNode): void {
-    const insPrev = node.insPrev;
-    const insNext = node.insNext;
+    const insPrevID = node.insPrevID;
+    const insNextID = node.insNextID;
 
-    if (insPrev) {
-      insPrev.insNext = insNext;
+    if (insPrevID) {
+      const insPrev = this.findFloorNode(insPrevID)!;
+      insPrev.insNextID = insNextID;
     }
 
-    if (insNext) {
-      insNext.insPrev = insPrev;
+    if (insNextID) {
+      const insNext = this.findFloorNode(insNextID)!;
+      insNext.insPrevID = insPrevID;
     }
 
-    node.insPrev = undefined;
-    node.insNext = undefined;
+    node.insPrevID = undefined;
+    node.insNextID = undefined;
   }
 
   /**
