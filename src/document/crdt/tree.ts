@@ -1042,19 +1042,39 @@ export class CRDTTree extends CRDTGCElement {
 
     let treePos;
 
-    if (parentNode === leftSiblingNode) {
+    if (parentNode.isRemoved){
+      let childNode: CRDTTreeNode;
+      while (parentNode.isRemoved) {
+        childNode = parentNode
+        parentNode = childNode.parent!
+      }
+
+      const childOffset = parentNode.findOffset(childNode!)
+
       treePos = {
         node: parentNode,
-        offset: 0,
-      };
+        offset: childOffset
+      }
+
     } else {
-      if (leftSiblingNode.isText) {
+      if (parentNode === leftSiblingNode) {
         treePos = {
-          node: leftSiblingNode,
-          offset: leftSiblingNode.paddedSize,
+          node: parentNode,
+          offset: 0,
         };
       } else {
-        const offset = parentNode.findOffset(leftSiblingNode) + 1;
+        let offset = parentNode.findOffset(leftSiblingNode);
+
+        if (!leftSiblingNode.isRemoved) {
+          if (leftSiblingNode.isText) {
+            return {
+              node: leftSiblingNode,
+              offset: leftSiblingNode.paddedSize,
+            }
+          } else {
+            offset++;
+          }
+        }
 
         treePos = {
           node: parentNode,

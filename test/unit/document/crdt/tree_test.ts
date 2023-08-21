@@ -28,6 +28,7 @@ import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
+  CRDTTreePos,
   toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -205,6 +206,42 @@ describe('CRDTTree', function () {
     assert.equal(treeNode.size, 7);
     assert.equal(treeNode.children![0].size, 1);
     assert.equal(treeNode.children![0].children![0].size, 1);
+  });
+
+  it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
+    const tree = new CRDTTree(
+      new CRDTTreeNode(issuePos(), 'root'),
+      issueTime(),
+    );
+
+    const p_node = new CRDTTreeNode(issuePos(), 'p');
+    const text_node = new CRDTTreeNode(issuePos(), 'text', 'ab')
+
+    //       0   1 2 3    4
+    // <root> <p> a b </p> </root>
+    tree.editByIndex([0, 0], [p_node], issueTime());
+    tree.editByIndex([1, 1], [text_node], issueTime(),);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
+
+    // Find the closest index.TreePos when leftSiblingNode in crdt.TreePos is removed.
+    //       0   1    2
+    // <root> <p> </p> </root>
+    tree.editByIndex([1, 3], undefined, issueTime());
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
+    
+    let [parent, left] = tree.findNodesAndSplitText(
+      new CRDTTreePos(p_node.id, text_node.id), issueTime());
+    assert.equal(tree.toIndex(parent, left), 1);
+
+    // Find the closest index.TreePos when parentNode in crdt.TreePos is removed.
+    //       0
+    // <root> </root>
+    tree.editByIndex([0, 2], undefined, issueTime());
+    assert.deepEqual(tree.toXML(), /*html*/ `<root></root>`);
+
+    [parent, left] = tree.findNodesAndSplitText(
+      new CRDTTreePos(p_node.id, text_node.id), issueTime());
+    assert.equal(tree.toIndex(parent, left), 0);
   });
 });
 
