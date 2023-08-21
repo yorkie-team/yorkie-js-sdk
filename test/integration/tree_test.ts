@@ -15,98 +15,12 @@
  */
 
 import { assert } from 'chai';
-import yorkie, {
-  Document,
-  Tree,
-  TreeNode,
-  ElementNode,
-  Indexable,
-} from '@yorkie-js-sdk/src/yorkie';
-import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
-import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
+import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import {
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
-
-/**
- * `listEqual` is a helper function that the given tree is equal to the
- * expected list of nodes.
- */
-function listEqual(tree: Tree, expected: Array<TreeNode>) {
-  const nodes: Array<TreeNode> = [];
-  for (const node of tree) {
-    nodes.push(node);
-  }
-  assert.deepEqual(nodes, expected);
-}
-
-/**
- * `createChangePack` is a helper function that creates a change pack from the
- * given document. It is used to to emulate the behavior of the server.
- */
-function createChangePack<T>(
-  doc: Document<T, Indexable>,
-): ChangePack<Indexable> {
-  // 01. Create a change pack from the given document and emulate the behavior
-  // of PushPullChanges API.
-  const reqPack = doc.createChangePack();
-  const reqCP = reqPack.getCheckpoint();
-  const resPack = ChangePack.create(
-    reqPack.getDocumentKey(),
-    Checkpoint.of(
-      reqCP.getServerSeq().add(reqPack.getChangeSize()),
-      reqCP.getClientSeq() + reqPack.getChangeSize(),
-    ),
-    false,
-    [],
-  );
-  doc.applyChangePack(resPack);
-
-  // 02. Create a pack to apply the changes to other replicas.
-  return ChangePack.create(
-    reqPack.getDocumentKey(),
-    Checkpoint.of(reqCP.getServerSeq().add(reqPack.getChangeSize()), 0),
-    false,
-    reqPack.getChanges(),
-  );
-}
-
-/**
- * `createTwoDocuments` is a helper function that creates two documents with
- * the given initial tree.
- */
-function createTwoTreeDocs<T extends { t: Tree }>(
-  key: string,
-  initial: ElementNode,
-): [Document<T>, Document<T>] {
-  const doc1 = new yorkie.Document<T>(key);
-  const doc2 = new yorkie.Document<T>(key);
-  doc1.setActor('A');
-  doc2.setActor('B');
-
-  doc1.update((root) => (root.t = new Tree(initial)));
-  doc2.applyChangePack(createChangePack(doc1));
-
-  return [doc1, doc2];
-}
-
-/**
- * `syncTwoTreeDocsAndAssertEqual` is a helper function that syncs two documents
- * and asserts that the given expected tree is equal to the two documents.
- */
-function syncTwoTreeDocsAndAssertEqual<T extends { t: Tree }>(
-  doc1: Document<T>,
-  doc2: Document<T>,
-  expected: string,
-) {
-  doc2.applyChangePack(createChangePack(doc1));
-  doc1.applyChangePack(createChangePack(doc2));
-
-  assert.equal(doc1.getRoot().t.toXML(), doc2.getRoot().t.toXML());
-  assert.equal(doc1.getRoot().t.toXML(), expected);
-}
 
 describe('Tree', () => {
   it('Can be created', function () {
@@ -132,6 +46,7 @@ describe('Tree', () => {
       );
 
       // 03. Insert a text into the paragraph.
+
       root.t.edit(3, 3, { type: 'text', value: 'CD' });
       assert.equal(root.t.toXML(), /*html*/ `<root><p>ABCD</p></root>`);
       assert.equal(
@@ -182,18 +97,33 @@ describe('Tree', () => {
         /*html*/ `<doc><p>ab</p><ng><note>cd</note><note>ef</note></ng><bp>gh</bp></doc>`,
       );
       assert.equal(root.t.getSize(), 18);
-      listEqual(root.t, [
-        { type: 'text', value: 'ab' },
-        { type: 'p', children: [] },
-        { type: 'text', value: 'cd' },
-        { type: 'note', children: [] },
-        { type: 'text', value: 'ef' },
-        { type: 'note', children: [] },
-        { type: 'ng', children: [] },
-        { type: 'text', value: 'gh' },
-        { type: 'bp', children: [] },
-        { type: 'doc', children: [] },
-      ]);
+    });
+  });
+
+  it('Can be created from JSON with attrebutes', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p><span bold="true">hello</span></p></doc>`,
+      );
     });
   });
 
@@ -221,6 +151,21 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
     });
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      root.t.edit(2, 2, { type: 'text', value: 'X' });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>aXb</p></doc>`);
+
+      root.t.edit(1, 4);
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p></p></doc>`);
+    });
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p></p></doc>`);
 
     doc.update((root) => {
       root.t = new Tree({
@@ -554,7 +499,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can sync its content with other replicas', async function () {
+  it('Can sync its content with other clients', async function () {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -625,6 +570,44 @@ describe('Tree', () => {
     range = tree.indexRangeToPosRange([5, 7]);
     assert.deepEqual(tree.posRangeToIndexRange(range), [5, 7]);
   });
+
+  it('Get correct range from path', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'root',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'b',
+                children: [
+                  { type: 'i', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    const tree = doc.getRoot().t;
+    //     0  1  2   3 4 5    6   7   8
+    //<root><p><b><i> a b </i></b></p></root>
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
+    );
+
+    let range = tree.pathRangeToPosRange([[0], [0, 0, 0, 2]]);
+    assert.deepEqual(tree.posRangeToPathRange(range), [[0], [0, 0, 0, 2]]);
+
+    range = tree.pathRangeToPosRange([[0], [1]]);
+    assert.deepEqual(tree.posRangeToPathRange(range), [[0], [1]]);
+  });
 });
 
 describe('Tree.edit', function () {
@@ -685,6 +668,112 @@ describe('Tree.edit', function () {
       doc.getRoot().t.toXML(),
       /*html*/ `<doc><p>ab</p><p>cd</p><i>fg</i></doc>`,
     );
+  });
+
+  it('Can edit its content with path when multi tree nodes passed', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  { type: 'tn', children: [{ type: 'text', value: 'ab' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>ab</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 0, 0, 1],
+        [0, 0, 0, 1],
+        {
+          type: 'text',
+          value: 'X',
+        },
+        {
+          type: 'text',
+          value: 'X',
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 1],
+        [0, 1],
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'st' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'xt' },
+              ],
+            },
+          ],
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p><p><tn>test</tn></p><p><tn>text</tn></p></tc></doc>`,
+      );
+
+      root.t.editByPath(
+        [0, 3],
+        [0, 3],
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'tn',
+              children: [
+                { type: 'text', value: 'te' },
+                { type: 'text', value: 'st' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'tn',
+          children: [
+            { type: 'text', value: 'te' },
+            { type: 'text', value: 'xt' },
+          ],
+        },
+      );
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>aXXb</tn></p><p><tn>test</tn></p><p><tn>text</tn></p><p><tn>test</tn></p><tn>text</tn></tc></doc>`,
+      );
+    });
   });
 
   it('Detecting error for empty text', function () {
@@ -832,51 +921,6 @@ describe('Tree.edit', function () {
       });
     }, 'element node and text node cannot be passed together');
   });
-
-  it.skip('Can insert text to the same position(left) concurrently', function () {
-    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
-      type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
-    });
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
-
-    docA.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
-    docB.update((r) => r.t.edit(1, 1, { type: 'text', value: 'B' }));
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
-    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>B12</p></r>`);
-
-    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>BA12</p></r>`);
-  });
-
-  it('Can insert text to the same position(middle) concurrently', function () {
-    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
-      type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
-    });
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
-
-    docA.update((r) => r.t.edit(2, 2, { type: 'text', value: 'A' }));
-    docB.update((r) => r.t.edit(2, 2, { type: 'text', value: 'B' }));
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
-    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>1B2</p></r>`);
-
-    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>1BA2</p></r>`);
-  });
-
-  it('Can insert text content to the same position(right) concurrently', function () {
-    const [docA, docB] = createTwoTreeDocs(toDocKey(this.test!.title), {
-      type: 'r',
-      children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
-    });
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
-
-    docA.update((r) => r.t.edit(3, 3, { type: 'text', value: 'A' }));
-    docB.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
-    assert.equal(docA.getRoot().t.toXML(), /*html*/ `<r><p>12A</p></r>`);
-    assert.equal(docB.getRoot().t.toXML(), /*html*/ `<r><p>12B</p></r>`);
-
-    syncTwoTreeDocsAndAssertEqual(docA, docB, /*html*/ `<r><p>12BA</p></r>`);
-  });
 });
 
 describe('Tree.style', function () {
@@ -932,19 +976,19 @@ describe('Tree.style', function () {
         /*html*/ `<doc><tc><p a="b"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(4, 5, { c: 'd' });
+      root.t.style(1, 2, { c: 'd' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="d"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(4, 5, { c: 'q' });
+      root.t.style(1, 2, { c: 'q' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="q"><tn></tn></p></tc></doc>`,
       );
 
-      root.t.style(3, 4, { z: 'm' });
+      root.t.style(2, 3, { z: 'm' });
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p a="b" c="q"><tn z="m"></tn></p></tc></doc>`,
@@ -1029,7 +1073,7 @@ describe('Tree.style', function () {
       );
 
       d1.update((root) => {
-        root.t.style(6, 7, { bold: 'true' });
+        root.t.style(0, 1, { bold: 'true' });
       });
       await c1.sync();
       await c2.sync();
@@ -1044,5 +1088,1258 @@ describe('Tree.style', function () {
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
     }, this.test!.title);
+  });
+});
+
+describe('Concurrent editing, overlapping range', () => {
+  it('Can concurrently delete overlapping elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [] },
+            { type: 'i', children: [] },
+            { type: 'b', children: [] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><i></i><b></b></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><i></i><b></b></r>`,
+      );
+
+      d1.update((r) => r.t.edit(0, 4));
+      d2.update((r) => r.t.edit(2, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><b></b></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete overlapping text', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 4));
+      d2.update((r) => r.t.edit(2, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>d</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+});
+
+describe('Concurrent editing, contained range', () => {
+  it('Can concurrently insert and delete contained elements of the same depth', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+            { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(6, 6, { type: 'p', children: [] }));
+      d2.update((r) => r.t.edit(0, 12));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p></p><p>abcd</p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently multiple insert and delete contained elements of the same depth', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+            { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>abcd</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(6, 6, { type: 'p', children: [] }));
+      d1.update((r) => r.t.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((r) => r.t.edit(10, 10, { type: 'p', children: [] }));
+      d1.update((r) => r.t.edit(12, 12, { type: 'p', children: [] }));
+      d2.update((r) => r.t.edit(0, 12));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p></p><p></p><p></p><p></p><p>abcd</p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><p></p><p></p><p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><p></p><p></p><p></p></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Detecting error when inserting and deleting contained elements at different depths', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'i', children: [] }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, { type: 'i', children: [] }));
+      d2.update((r) => r.t.edit(1, 3));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><i><i></i></i></p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete contained elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'i', children: [{ type: 'text', value: '1234' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><i>1234</i></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><i>1234</i></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(0, 8));
+      d2.update((r) => r.t.edit(1, 7));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert and delete contained text', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: '1234' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 5));
+      d2.update((r) => r.t.edit(3, 3, { type: 'text', value: 'a' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12a34</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete contained text', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: '1234' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 5));
+      d2.update((r) => r.t.edit(2, 4));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>14</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert and delete contained text and elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: '1234' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(0, 6));
+      d2.update((r) => r.t.edit(3, 3, { type: 'text', value: 'a' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12a34</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete contained text and elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: '1234' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(0, 6));
+      d2.update((r) => r.t.edit(1, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, this.test!.title);
+  });
+});
+
+describe('Concurrent editing, side by side range', () => {
+  it('Can concurrently insert side by side elements (left)', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      d1.update((r) => r.t.edit(0, 0, { type: 'b', children: [] }));
+      d2.update((r) => r.t.edit(0, 0, { type: 'i', children: [] }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><b></b><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><i></i><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><i></i><b></b><p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><i></i><b></b><p></p></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert side by side elements (middle)', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      d1.update((r) => r.t.edit(1, 1, { type: 'b', children: [] }));
+      d2.update((r) => r.t.edit(1, 1, { type: 'i', children: [] }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><i></i><b></b></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><i></i><b></b></p></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert side by side elements (right)', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, { type: 'b', children: [] }));
+      d2.update((r) => r.t.edit(2, 2, { type: 'i', children: [] }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p><b></b></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p><i></i></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><i></i><b></b></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p></p><i></i><b></b></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert and delete side by side elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'b', children: [] }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+
+      d1.update((r) => r.t.edit(1, 3));
+      d2.update((r) => r.t.edit(1, 1, { type: 'i', children: [] }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><i></i><b></b></p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete and insert side by side elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'b', children: [] }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+
+      d1.update((r) => r.t.edit(1, 3));
+      d2.update((r) => r.t.edit(3, 3, { type: 'i', children: [] }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><b></b><i></i></p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete side by side elements', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [] },
+                { type: 'i', children: [] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><b></b><i></i></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><b></b><i></i></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(1, 3));
+      d2.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><b></b></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can insert text to the same position(left) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(1, 1, { type: 'text', value: 'B' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>B12</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can insert text to the same position(middle) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(2, 2, { type: 'text', value: 'B' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1B2</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can insert text content to the same position(right) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 3, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12A</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12B</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently insert and delete side by side text', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 3, { type: 'text', value: 'a' }));
+      d2.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12a34</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12a</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12a</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete and insert side by side text', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 3, { type: 'text', value: 'a' }));
+      d2.update((r) => r.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12a34</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>34</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a34</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a34</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can concurrently delete side by side text blocks', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1234</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 5));
+      d2.update((r) => r.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>34</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can delete text content at the same position(left) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 2));
+      d2.update((r) => r.t.edit(1, 2));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can delete text content at the same position(middle) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 3));
+      d2.update((r) => r.t.edit(2, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can delete text content at the same position(right) concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 4));
+      d2.update((r) => r.t.edit(3, 4));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+    }, this.test!.title);
+  });
+});
+
+describe('Concurrent editing, complex cases', () => {
+  it('Can delete text content anchored to another concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 2));
+      d2.update((r) => r.t.edit(2, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can produce complete deletion concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '123' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 2));
+      d2.update((r) => r.t.edit(2, 4));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle block delete concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '12345' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 3));
+      d2.update((r) => r.t.edit(4, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>123</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle insert within block delete concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '12345' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 5));
+      d2.update((r) => r.t.edit(3, 3, { type: 'text', value: 'B' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>15</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12B345</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1B5</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1B5</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle insert within block delete concurrently [2]', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '12345' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 6));
+      d2.update((r) =>
+        r.t.edit(
+          3,
+          3,
+          { type: 'text', value: 'a' },
+          { type: 'text', value: 'bc' },
+        ),
+      );
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12abc345</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1abc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1abc</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle block element insertion within delete [2]', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '1234' }] },
+            { type: 'p', children: [{ type: 'text', value: '5678' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>5678</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>5678</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(0, 12));
+      d2.update((r) =>
+        r.t.edit(
+          6,
+          6,
+          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'i', children: [{ type: 'text', value: 'fg' }] },
+        ),
+      );
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>1234</p><p>cd</p><i>fg</i><p>5678</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent element insert/ deletion (left)', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '12345' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+      d1.update((r) => r.t.edit(0, 7));
+      d2.update((r) =>
+        r.t.edit(
+          0,
+          0,
+          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'i', children: [{ type: 'text', value: 'fg' }] },
+        ),
+      );
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i><p>12345</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can handle concurrent element insert/ deletion (right)', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '12345' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12345</p></r>`);
+
+      d1.update((r) => r.t.edit(0, 7));
+      d2.update((r) =>
+        r.t.edit(
+          7,
+          7,
+          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'i', children: [{ type: 'text', value: 'fg' }] },
+        ),
+      );
+
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>12345</p><p>cd</p><i>fg</i></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>cd</p><i>fg</i></r>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('Can handle deletion of insertion anchor concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(1, 2));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1A2</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>2</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A2</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A2</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle deletion after insertion concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(1, 1, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
+    }, this.test!.title);
+  });
+
+  it('Can handle deletion before insertion concurrently', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: '12' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+
+      d1.update((r) => r.t.edit(3, 3, { type: 'text', value: 'A' }));
+      d2.update((r) => r.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12A</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
+    }, this.test!.title);
+  });
+});
+
+describe('testing edge cases', () => {
+  it('Can delete very first text when there is tombstone in front of target text', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      // 01. Create a tree and insert a paragraph.
+      root.t = new Tree();
+      root.t.edit(0, 0, {
+        type: 'p',
+        children: [{ type: 'text', value: 'abcdefghi' }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdefghi</p></root>`);
+
+      root.t.edit(1, 1, { type: 'text', value: '12345' });
+      assert.equal(root.t.toXML(), `<root><p>12345abcdefghi</p></root>`);
+
+      root.t.edit(2, 5);
+      assert.equal(root.t.toXML(), `<root><p>15abcdefghi</p></root>`);
+
+      root.t.edit(3, 5);
+      assert.equal(root.t.toXML(), `<root><p>15cdefghi</p></root>`);
+
+      root.t.edit(2, 4);
+      assert.equal(root.t.toXML(), `<root><p>1defghi</p></root>`);
+
+      root.t.edit(1, 3);
+      assert.equal(root.t.toXML(), `<root><p>efghi</p></root>`);
+
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), `<root><p>fghi</p></root>`);
+
+      root.t.edit(2, 5);
+      assert.equal(root.t.toXML(), `<root><p>f</p></root>`);
+
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), `<root><p></p></root>`);
+    });
+  });
+
+  it('Can delete node when there is more than one text node in front which has size bigger than 1', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      // 01. Create a tree and insert a paragraph.
+      root.t = new Tree();
+      root.t.edit(0, 0, {
+        type: 'p',
+        children: [{ type: 'text', value: 'abcde' }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcde</p></root>`);
+
+      root.t.edit(6, 6, {
+        type: 'text',
+        value: 'f',
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdef</p></root>`);
+
+      root.t.edit(7, 7, {
+        type: 'text',
+        value: 'g',
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdefg</p></root>`);
+
+      root.t.edit(7, 8);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcdef</p></root>`);
+      root.t.edit(6, 7);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcde</p></root>`);
+      root.t.edit(5, 6);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+      root.t.edit(4, 5);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>abc</p></root>`);
+      root.t.edit(3, 4);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>ab</p></root>`);
+      root.t.edit(2, 3);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p>a</p></root>`);
+      root.t.edit(1, 2);
+      assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
+    });
   });
 });

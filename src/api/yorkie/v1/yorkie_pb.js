@@ -13,13 +13,7 @@
 
 var jspb = require('google-protobuf');
 var goog = jspb;
-var global =
-    (typeof globalThis !== 'undefined' && globalThis) ||
-    (typeof window !== 'undefined' && window) ||
-    (typeof global !== 'undefined' && global) ||
-    (typeof self !== 'undefined' && self) ||
-    (function () { return this; }).call(null) ||
-    Function('return this')();
+var global = (function() { return this || window || global || self || Function('return this')(); }).call(null);
 
 var yorkie_v1_resources_pb = require('../../yorkie/v1/resources_pb.js');
 goog.object.extend(proto, yorkie_v1_resources_pb);
@@ -516,8 +510,7 @@ proto.yorkie.v1.ActivateClientResponse.prototype.toObject = function(opt_include
  */
 proto.yorkie.v1.ActivateClientResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientKey: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    clientId: msg.getClientId_asB64()
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -556,10 +549,6 @@ proto.yorkie.v1.ActivateClientResponse.deserializeBinaryFromReader = function(ms
     switch (field) {
     case 1:
       var value = /** @type {string} */ (reader.readString());
-      msg.setClientKey(value);
-      break;
-    case 2:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setClientId(value);
       break;
     default:
@@ -591,17 +580,10 @@ proto.yorkie.v1.ActivateClientResponse.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.ActivateClientResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientKey();
+  f = message.getClientId();
   if (f.length > 0) {
     writer.writeString(
       1,
-      f
-    );
-  }
-  f = message.getClientId_asU8();
-  if (f.length > 0) {
-    writer.writeBytes(
-      2,
       f
     );
   }
@@ -609,10 +591,10 @@ proto.yorkie.v1.ActivateClientResponse.serializeBinaryToWriter = function(messag
 
 
 /**
- * optional string client_key = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
-proto.yorkie.v1.ActivateClientResponse.prototype.getClientKey = function() {
+proto.yorkie.v1.ActivateClientResponse.prototype.getClientId = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
@@ -621,50 +603,8 @@ proto.yorkie.v1.ActivateClientResponse.prototype.getClientKey = function() {
  * @param {string} value
  * @return {!proto.yorkie.v1.ActivateClientResponse} returns this
  */
-proto.yorkie.v1.ActivateClientResponse.prototype.setClientKey = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional bytes client_id = 2;
- * @return {string}
- */
-proto.yorkie.v1.ActivateClientResponse.prototype.getClientId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * optional bytes client_id = 2;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.ActivateClientResponse.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 2;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.ActivateClientResponse.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
- * @return {!proto.yorkie.v1.ActivateClientResponse} returns this
- */
 proto.yorkie.v1.ActivateClientResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 2, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -700,7 +640,7 @@ proto.yorkie.v1.DeactivateClientRequest.prototype.toObject = function(opt_includ
  */
 proto.yorkie.v1.DeactivateClientRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64()
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, "")
   };
 
   if (includeInstance) {
@@ -738,7 +678,7 @@ proto.yorkie.v1.DeactivateClientRequest.deserializeBinaryFromReader = function(m
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     default:
@@ -770,9 +710,9 @@ proto.yorkie.v1.DeactivateClientRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.DeactivateClientRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -781,7 +721,7 @@ proto.yorkie.v1.DeactivateClientRequest.serializeBinaryToWriter = function(messa
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.DeactivateClientRequest.prototype.getClientId = function() {
@@ -790,35 +730,11 @@ proto.yorkie.v1.DeactivateClientRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.DeactivateClientRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.DeactivateClientRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.DeactivateClientRequest} returns this
  */
 proto.yorkie.v1.DeactivateClientRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -854,7 +770,7 @@ proto.yorkie.v1.DeactivateClientResponse.prototype.toObject = function(opt_inclu
  */
 proto.yorkie.v1.DeactivateClientResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64()
+
   };
 
   if (includeInstance) {
@@ -891,10 +807,6 @@ proto.yorkie.v1.DeactivateClientResponse.deserializeBinaryFromReader = function(
     }
     var field = reader.getFieldNumber();
     switch (field) {
-    case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
-      msg.setClientId(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -924,55 +836,6 @@ proto.yorkie.v1.DeactivateClientResponse.prototype.serializeBinary = function() 
  */
 proto.yorkie.v1.DeactivateClientResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
-  if (f.length > 0) {
-    writer.writeBytes(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional bytes client_id = 1;
- * @return {string}
- */
-proto.yorkie.v1.DeactivateClientResponse.prototype.getClientId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.DeactivateClientResponse.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.DeactivateClientResponse.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
- * @return {!proto.yorkie.v1.DeactivateClientResponse} returns this
- */
-proto.yorkie.v1.DeactivateClientResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
 };
 
 
@@ -1008,7 +871,7 @@ proto.yorkie.v1.AttachDocumentRequest.prototype.toObject = function(opt_includeI
  */
 proto.yorkie.v1.AttachDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
 
@@ -1047,7 +910,7 @@ proto.yorkie.v1.AttachDocumentRequest.deserializeBinaryFromReader = function(msg
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     case 2:
@@ -1084,9 +947,9 @@ proto.yorkie.v1.AttachDocumentRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.AttachDocumentRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -1103,7 +966,7 @@ proto.yorkie.v1.AttachDocumentRequest.serializeBinaryToWriter = function(message
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.AttachDocumentRequest.prototype.getClientId = function() {
@@ -1112,35 +975,11 @@ proto.yorkie.v1.AttachDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.AttachDocumentRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.AttachDocumentRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.AttachDocumentRequest} returns this
  */
 proto.yorkie.v1.AttachDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -1213,8 +1052,7 @@ proto.yorkie.v1.AttachDocumentResponse.prototype.toObject = function(opt_include
  */
 proto.yorkie.v1.AttachDocumentResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
-    documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    documentId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
 
@@ -1253,14 +1091,10 @@ proto.yorkie.v1.AttachDocumentResponse.deserializeBinaryFromReader = function(ms
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
-      msg.setClientId(value);
-      break;
-    case 2:
       var value = /** @type {string} */ (reader.readString());
       msg.setDocumentId(value);
       break;
-    case 3:
+    case 2:
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
       msg.setChangePack(value);
@@ -1294,24 +1128,17 @@ proto.yorkie.v1.AttachDocumentResponse.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.AttachDocumentResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
-  if (f.length > 0) {
-    writer.writeBytes(
-      1,
-      f
-    );
-  }
   f = message.getDocumentId();
   if (f.length > 0) {
     writer.writeString(
-      2,
+      1,
       f
     );
   }
   f = message.getChangePack();
   if (f != null) {
     writer.writeMessage(
-      3,
+      2,
       f,
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
     );
@@ -1320,53 +1147,11 @@ proto.yorkie.v1.AttachDocumentResponse.serializeBinaryToWriter = function(messag
 
 
 /**
- * optional bytes client_id = 1;
- * @return {string}
- */
-proto.yorkie.v1.AttachDocumentResponse.prototype.getClientId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.AttachDocumentResponse.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.AttachDocumentResponse.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
- * @return {!proto.yorkie.v1.AttachDocumentResponse} returns this
- */
-proto.yorkie.v1.AttachDocumentResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
-};
-
-
-/**
- * optional string document_id = 2;
+ * optional string document_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.AttachDocumentResponse.prototype.getDocumentId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
@@ -1375,17 +1160,17 @@ proto.yorkie.v1.AttachDocumentResponse.prototype.getDocumentId = function() {
  * @return {!proto.yorkie.v1.AttachDocumentResponse} returns this
  */
 proto.yorkie.v1.AttachDocumentResponse.prototype.setDocumentId = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
- * optional ChangePack change_pack = 3;
+ * optional ChangePack change_pack = 2;
  * @return {?proto.yorkie.v1.ChangePack}
  */
 proto.yorkie.v1.AttachDocumentResponse.prototype.getChangePack = function() {
   return /** @type{?proto.yorkie.v1.ChangePack} */ (
-    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 3));
+    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 2));
 };
 
 
@@ -1394,7 +1179,7 @@ proto.yorkie.v1.AttachDocumentResponse.prototype.getChangePack = function() {
  * @return {!proto.yorkie.v1.AttachDocumentResponse} returns this
 */
 proto.yorkie.v1.AttachDocumentResponse.prototype.setChangePack = function(value) {
-  return jspb.Message.setWrapperField(this, 3, value);
+  return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
@@ -1412,7 +1197,7 @@ proto.yorkie.v1.AttachDocumentResponse.prototype.clearChangePack = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.AttachDocumentResponse.prototype.hasChangePack = function() {
-  return jspb.Message.getField(this, 3) != null;
+  return jspb.Message.getField(this, 2) != null;
 };
 
 
@@ -1448,7 +1233,7 @@ proto.yorkie.v1.DetachDocumentRequest.prototype.toObject = function(opt_includeI
  */
 proto.yorkie.v1.DetachDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f),
     removeIfNotAttached: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
@@ -1489,7 +1274,7 @@ proto.yorkie.v1.DetachDocumentRequest.deserializeBinaryFromReader = function(msg
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     case 2:
@@ -1534,9 +1319,9 @@ proto.yorkie.v1.DetachDocumentRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.DetachDocumentRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -1567,7 +1352,7 @@ proto.yorkie.v1.DetachDocumentRequest.serializeBinaryToWriter = function(message
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.DetachDocumentRequest.prototype.getClientId = function() {
@@ -1576,35 +1361,11 @@ proto.yorkie.v1.DetachDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.DetachDocumentRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.DetachDocumentRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.DetachDocumentRequest} returns this
  */
 proto.yorkie.v1.DetachDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -1713,7 +1474,6 @@ proto.yorkie.v1.DetachDocumentResponse.prototype.toObject = function(opt_include
  */
 proto.yorkie.v1.DetachDocumentResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientKey: jspb.Message.getFieldWithDefault(msg, 1, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
 
@@ -1751,10 +1511,6 @@ proto.yorkie.v1.DetachDocumentResponse.deserializeBinaryFromReader = function(ms
     }
     var field = reader.getFieldNumber();
     switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setClientKey(value);
-      break;
     case 2:
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
@@ -1789,13 +1545,6 @@ proto.yorkie.v1.DetachDocumentResponse.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.DetachDocumentResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientKey();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
   f = message.getChangePack();
   if (f != null) {
     writer.writeMessage(
@@ -1804,24 +1553,6 @@ proto.yorkie.v1.DetachDocumentResponse.serializeBinaryToWriter = function(messag
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
     );
   }
-};
-
-
-/**
- * optional string client_key = 1;
- * @return {string}
- */
-proto.yorkie.v1.DetachDocumentResponse.prototype.getClientKey = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.yorkie.v1.DetachDocumentResponse} returns this
- */
-proto.yorkie.v1.DetachDocumentResponse.prototype.setClientKey = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -1894,7 +1625,7 @@ proto.yorkie.v1.WatchDocumentRequest.prototype.toObject = function(opt_includeIn
  */
 proto.yorkie.v1.WatchDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
@@ -1933,7 +1664,7 @@ proto.yorkie.v1.WatchDocumentRequest.deserializeBinaryFromReader = function(msg,
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     case 2:
@@ -1969,9 +1700,9 @@ proto.yorkie.v1.WatchDocumentRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.WatchDocumentRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -1987,7 +1718,7 @@ proto.yorkie.v1.WatchDocumentRequest.serializeBinaryToWriter = function(message,
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.WatchDocumentRequest.prototype.getClientId = function() {
@@ -1996,35 +1727,11 @@ proto.yorkie.v1.WatchDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.WatchDocumentRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.WatchDocumentRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.WatchDocumentRequest} returns this
  */
 proto.yorkie.v1.WatchDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -2239,7 +1946,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.toObject = functi
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientIdsList: msg.getClientIdsList_asB64()
+    clientIdsList: (f = jspb.Message.getRepeatedField(msg, 1)) == null ? undefined : f
   };
 
   if (includeInstance) {
@@ -2277,7 +1984,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.deserializeBinaryFromReader
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.addClientIds(value);
       break;
     default:
@@ -2309,9 +2016,9 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.serializeBinary =
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientIdsList_asU8();
+  f = message.getClientIdsList();
   if (f.length > 0) {
-    writer.writeRepeatedBytes(
+    writer.writeRepeatedString(
       1,
       f
     );
@@ -2320,7 +2027,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.serializeBinaryToWriter = f
 
 
 /**
- * repeated bytes client_ids = 1;
+ * repeated string client_ids = 1;
  * @return {!Array<string>}
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList = function() {
@@ -2329,31 +2036,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList 
 
 
 /**
- * repeated bytes client_ids = 1;
- * This is a type-conversion wrapper around `getClientIdsList()`
- * @return {!Array<string>}
- */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList_asB64 = function() {
-  return /** @type {!Array<string>} */ (jspb.Message.bytesListAsB64(
-      this.getClientIdsList()));
-};
-
-
-/**
- * repeated bytes client_ids = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientIdsList()`
- * @return {!Array<!Uint8Array>}
- */
-proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.getClientIdsList_asU8 = function() {
-  return /** @type {!Array<!Uint8Array>} */ (jspb.Message.bytesListAsU8(
-      this.getClientIdsList()));
-};
-
-
-/**
- * @param {!(Array<!Uint8Array>|Array<string>)} value
+ * @param {!Array<string>} value
  * @return {!proto.yorkie.v1.WatchDocumentResponse.Initialization} returns this
  */
 proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.setClientIdsList = function(value) {
@@ -2362,7 +2045,7 @@ proto.yorkie.v1.WatchDocumentResponse.Initialization.prototype.setClientIdsList 
 
 
 /**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @param {number=} opt_index
  * @return {!proto.yorkie.v1.WatchDocumentResponse.Initialization} returns this
  */
@@ -2486,7 +2169,7 @@ proto.yorkie.v1.RemoveDocumentRequest.prototype.toObject = function(opt_includeI
  */
 proto.yorkie.v1.RemoveDocumentRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
@@ -2526,7 +2209,7 @@ proto.yorkie.v1.RemoveDocumentRequest.deserializeBinaryFromReader = function(msg
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     case 2:
@@ -2567,9 +2250,9 @@ proto.yorkie.v1.RemoveDocumentRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.RemoveDocumentRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -2593,7 +2276,7 @@ proto.yorkie.v1.RemoveDocumentRequest.serializeBinaryToWriter = function(message
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.RemoveDocumentRequest.prototype.getClientId = function() {
@@ -2602,35 +2285,11 @@ proto.yorkie.v1.RemoveDocumentRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.RemoveDocumentRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.RemoveDocumentRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.RemoveDocumentRequest} returns this
  */
 proto.yorkie.v1.RemoveDocumentRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -2721,7 +2380,6 @@ proto.yorkie.v1.RemoveDocumentResponse.prototype.toObject = function(opt_include
  */
 proto.yorkie.v1.RemoveDocumentResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientKey: jspb.Message.getFieldWithDefault(msg, 1, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
 
@@ -2760,10 +2418,6 @@ proto.yorkie.v1.RemoveDocumentResponse.deserializeBinaryFromReader = function(ms
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setClientKey(value);
-      break;
-    case 2:
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
       msg.setChangePack(value);
@@ -2797,17 +2451,10 @@ proto.yorkie.v1.RemoveDocumentResponse.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.RemoveDocumentResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientKey();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
   f = message.getChangePack();
   if (f != null) {
     writer.writeMessage(
-      2,
+      1,
       f,
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
     );
@@ -2816,30 +2463,12 @@ proto.yorkie.v1.RemoveDocumentResponse.serializeBinaryToWriter = function(messag
 
 
 /**
- * optional string client_key = 1;
- * @return {string}
- */
-proto.yorkie.v1.RemoveDocumentResponse.prototype.getClientKey = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.yorkie.v1.RemoveDocumentResponse} returns this
- */
-proto.yorkie.v1.RemoveDocumentResponse.prototype.setClientKey = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional ChangePack change_pack = 2;
+ * optional ChangePack change_pack = 1;
  * @return {?proto.yorkie.v1.ChangePack}
  */
 proto.yorkie.v1.RemoveDocumentResponse.prototype.getChangePack = function() {
   return /** @type{?proto.yorkie.v1.ChangePack} */ (
-    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 2));
+    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 1));
 };
 
 
@@ -2848,7 +2477,7 @@ proto.yorkie.v1.RemoveDocumentResponse.prototype.getChangePack = function() {
  * @return {!proto.yorkie.v1.RemoveDocumentResponse} returns this
 */
 proto.yorkie.v1.RemoveDocumentResponse.prototype.setChangePack = function(value) {
-  return jspb.Message.setWrapperField(this, 2, value);
+  return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
@@ -2866,7 +2495,7 @@ proto.yorkie.v1.RemoveDocumentResponse.prototype.clearChangePack = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.RemoveDocumentResponse.prototype.hasChangePack = function() {
-  return jspb.Message.getField(this, 2) != null;
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -2902,7 +2531,7 @@ proto.yorkie.v1.PushPullChangesRequest.prototype.toObject = function(opt_include
  */
 proto.yorkie.v1.PushPullChangesRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
+    clientId: jspb.Message.getFieldWithDefault(msg, 1, ""),
     documentId: jspb.Message.getFieldWithDefault(msg, 2, ""),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f),
     pushOnly: jspb.Message.getBooleanFieldWithDefault(msg, 4, false)
@@ -2943,7 +2572,7 @@ proto.yorkie.v1.PushPullChangesRequest.deserializeBinaryFromReader = function(ms
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      var value = /** @type {string} */ (reader.readString());
       msg.setClientId(value);
       break;
     case 2:
@@ -2988,9 +2617,9 @@ proto.yorkie.v1.PushPullChangesRequest.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.PushPullChangesRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
+  f = message.getClientId();
   if (f.length > 0) {
-    writer.writeBytes(
+    writer.writeString(
       1,
       f
     );
@@ -3021,7 +2650,7 @@ proto.yorkie.v1.PushPullChangesRequest.serializeBinaryToWriter = function(messag
 
 
 /**
- * optional bytes client_id = 1;
+ * optional string client_id = 1;
  * @return {string}
  */
 proto.yorkie.v1.PushPullChangesRequest.prototype.getClientId = function() {
@@ -3030,35 +2659,11 @@ proto.yorkie.v1.PushPullChangesRequest.prototype.getClientId = function() {
 
 
 /**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.PushPullChangesRequest.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.PushPullChangesRequest.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
+ * @param {string} value
  * @return {!proto.yorkie.v1.PushPullChangesRequest} returns this
  */
 proto.yorkie.v1.PushPullChangesRequest.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
+  return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
@@ -3167,7 +2772,6 @@ proto.yorkie.v1.PushPullChangesResponse.prototype.toObject = function(opt_includ
  */
 proto.yorkie.v1.PushPullChangesResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    clientId: msg.getClientId_asB64(),
     changePack: (f = msg.getChangePack()) && yorkie_v1_resources_pb.ChangePack.toObject(includeInstance, f)
   };
 
@@ -3206,10 +2810,6 @@ proto.yorkie.v1.PushPullChangesResponse.deserializeBinaryFromReader = function(m
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
-      msg.setClientId(value);
-      break;
-    case 2:
       var value = new yorkie_v1_resources_pb.ChangePack;
       reader.readMessage(value,yorkie_v1_resources_pb.ChangePack.deserializeBinaryFromReader);
       msg.setChangePack(value);
@@ -3243,17 +2843,10 @@ proto.yorkie.v1.PushPullChangesResponse.prototype.serializeBinary = function() {
  */
 proto.yorkie.v1.PushPullChangesResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
-  f = message.getClientId_asU8();
-  if (f.length > 0) {
-    writer.writeBytes(
-      1,
-      f
-    );
-  }
   f = message.getChangePack();
   if (f != null) {
     writer.writeMessage(
-      2,
+      1,
       f,
       yorkie_v1_resources_pb.ChangePack.serializeBinaryToWriter
     );
@@ -3262,54 +2855,12 @@ proto.yorkie.v1.PushPullChangesResponse.serializeBinaryToWriter = function(messa
 
 
 /**
- * optional bytes client_id = 1;
- * @return {string}
- */
-proto.yorkie.v1.PushPullChangesResponse.prototype.getClientId = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * This is a type-conversion wrapper around `getClientId()`
- * @return {string}
- */
-proto.yorkie.v1.PushPullChangesResponse.prototype.getClientId_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getClientId()));
-};
-
-
-/**
- * optional bytes client_id = 1;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getClientId()`
- * @return {!Uint8Array}
- */
-proto.yorkie.v1.PushPullChangesResponse.prototype.getClientId_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getClientId()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
- * @return {!proto.yorkie.v1.PushPullChangesResponse} returns this
- */
-proto.yorkie.v1.PushPullChangesResponse.prototype.setClientId = function(value) {
-  return jspb.Message.setProto3BytesField(this, 1, value);
-};
-
-
-/**
- * optional ChangePack change_pack = 2;
+ * optional ChangePack change_pack = 1;
  * @return {?proto.yorkie.v1.ChangePack}
  */
 proto.yorkie.v1.PushPullChangesResponse.prototype.getChangePack = function() {
   return /** @type{?proto.yorkie.v1.ChangePack} */ (
-    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 2));
+    jspb.Message.getWrapperField(this, yorkie_v1_resources_pb.ChangePack, 1));
 };
 
 
@@ -3318,7 +2869,7 @@ proto.yorkie.v1.PushPullChangesResponse.prototype.getChangePack = function() {
  * @return {!proto.yorkie.v1.PushPullChangesResponse} returns this
 */
 proto.yorkie.v1.PushPullChangesResponse.prototype.setChangePack = function(value) {
-  return jspb.Message.setWrapperField(this, 2, value);
+  return jspb.Message.setWrapperField(this, 1, value);
 };
 
 
@@ -3336,7 +2887,7 @@ proto.yorkie.v1.PushPullChangesResponse.prototype.clearChangePack = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.PushPullChangesResponse.prototype.hasChangePack = function() {
-  return jspb.Message.getField(this, 2) != null;
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
