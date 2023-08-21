@@ -971,7 +971,11 @@ export class Document<T, P extends Indexable = Indexable> {
       change.execute(this.clone!.root, this.clone!.presences);
 
       let changeInfo: ChangeInfo | undefined;
-      let docEvent: DocEvent<P> | undefined;
+      let presenceEvent:
+        | WatchedEvent<P>
+        | UnwatchedEvent<P>
+        | PresenceChangedEvent<P>
+        | undefined;
       const actorID = change.getID().getActorID()!;
       if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
         const presenceChange = change.getPresenceChange()!;
@@ -980,7 +984,7 @@ export class Document<T, P extends Indexable = Indexable> {
             // NOTE(chacha912): When the user exists in onlineClients, but
             // their presence was initially absent, we can consider that we have
             // received their initial presence, so trigger the 'watched' event.
-            docEvent = {
+            presenceEvent = {
               type: this.presences.has(actorID)
                 ? DocEventType.PresenceChanged
                 : DocEventType.Watched,
@@ -996,7 +1000,7 @@ export class Document<T, P extends Indexable = Indexable> {
             // occurring before unwatching.
             // Detached user is no longer participating in the document, we remove
             // them from the online clients and trigger the 'unwatched' event.
-            docEvent = {
+            presenceEvent = {
               type: DocEventType.Unwatched,
               value: {
                 clientID: actorID,
@@ -1029,8 +1033,8 @@ export class Document<T, P extends Indexable = Indexable> {
           value: changeInfo,
         });
       }
-      if (docEvent) {
-        this.publish(docEvent);
+      if (presenceEvent) {
+        this.publish(presenceEvent);
       }
 
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());

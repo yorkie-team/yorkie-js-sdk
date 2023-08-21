@@ -45,6 +45,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
@@ -78,6 +79,7 @@ import {
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
+  TreeNodeID as PbTreeNodeID,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -87,7 +89,7 @@ import {
 import {
   CRDTTree,
   CRDTTreeNode,
-  CRDTTreePos,
+  CRDTTreeNodeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
@@ -261,9 +263,19 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
   const pbTreePos = new PbTreePos();
-  pbTreePos.setCreatedAt(toTimeTicket(pos.getCreatedAt()));
-  pbTreePos.setOffset(pos.getOffset());
+  pbTreePos.setParentId(toTreeNodeID(pos.getParentID()));
+  pbTreePos.setLeftSiblingId(toTreeNodeID(pos.getLeftSiblingID()));
   return pbTreePos;
+}
+
+/**
+ * `toTreeNodeID` converts the given model to Protobuf format.
+ */
+function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
+  const pbTreeNodeID = new PbTreeNodeID();
+  pbTreeNodeID.setCreatedAt(toTimeTicket(treeNodeID.getCreatedAt()));
+  pbTreeNodeID.setOffset(treeNodeID.getOffset());
+  return pbTreeNodeID;
 }
 
 /**
@@ -380,6 +392,11 @@ function toOperation(operation: Operation): PbOperation {
   } else if (operation instanceof TreeEditOperation) {
     const treeEditOperation = operation as TreeEditOperation;
     const pbTreeEditOperation = new PbOperation.TreeEdit();
+    const pbCreatedAtMapByActor =
+      pbTreeEditOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of treeEditOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+    }
     pbTreeEditOperation.setParentCreatedAt(
       toTimeTicket(treeEditOperation.getParentCreatedAt()),
     );
@@ -545,7 +562,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode();
-    pbTreeNode.setPos(toTreePos(n.pos));
+    pbTreeNode.setId(toTreeNodeID(n.id));
     pbTreeNode.setType(n.type);
     if (n.isText) {
       pbTreeNode.setValue(n.value);
@@ -856,8 +873,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
         fromTimeTicket(pbElementSimple.getCreatedAt())!,
       );
   }
-
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
@@ -909,8 +924,18 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
  */
 function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
   return CRDTTreePos.of(
-    fromTimeTicket(pbTreePos.getCreatedAt())!,
-    pbTreePos.getOffset(),
+    fromTreeNodeID(pbTreePos.getParentId()!),
+    fromTreeNodeID(pbTreePos.getLeftSiblingId()!),
+  );
+}
+
+/**
+ * `fromTreeNodeID` converts the given Protobuf format to model format.
+ */
+function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
+  return CRDTTreeNodeID.of(
+    fromTimeTicket(pbTreeNodeID.getCreatedAt())!,
+    pbTreeNodeID.getOffset(),
   );
 }
 
@@ -925,10 +950,8 @@ function fromTreeNodesWhenEdit(
   }
 
   const treeNodes: Array<CRDTTreeNode> = [];
-
   pbTreeNodes.forEach((node) => {
     const treeNode = fromTreeNodes(node.getContentList());
-
     treeNodes.push(treeNode!);
   });
 
@@ -971,8 +994,8 @@ function fromTreeNodes(
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
-  const pos = fromTreePos(pbTreeNode.getPos()!);
-  const node = CRDTTreeNode.create(pos, pbTreeNode.getType());
+  const id = fromTreeNodeID(pbTreeNode.getId()!);
+  const node = CRDTTreeNode.create(id, pbTreeNode.getType());
   if (node.isText) {
     node.value = pbTreeNode.getValue();
   } else {
@@ -982,6 +1005,9 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
     });
     node.attrs = attrs;
   }
+
+  node.removedAt = fromTimeTicket(pbTreeNode.getRemovedAt());
+
   return node;
 }
 
@@ -1073,10 +1099,15 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       );
     } else if (pbOperation.hasTreeEdit()) {
       const pbTreeEditOperation = pbOperation.getTreeEdit();
+      const createdAtMapByActor = new Map();
+      pbTreeEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
       operation = TreeEditOperation.create(
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
+        createdAtMapByActor,
         fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );

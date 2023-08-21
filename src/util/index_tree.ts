@@ -91,7 +91,7 @@ export type TreeNodeType = string;
 /**
  * `addSizeOfLeftSiblings` returns the size of left siblings of the given offset.
  */
-function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
+export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
   parent: T,
   offset: number,
 ): number {
@@ -99,6 +99,11 @@ function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
 
   for (let i = 0; i < offset; i++) {
     const leftSibling = parent.children[i];
+
+    if (!leftSibling || leftSibling.isRemoved) {
+      continue;
+    }
+
     acc += leftSibling.paddedSize;
   }
 
@@ -177,9 +182,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `split` splits the node at the given offset.
    */
-  split(offset: number): T | undefined {
+  split(offset: number, absOffset: number): T | undefined {
     if (this.isText) {
-      return this.splitText(offset);
+      return this.splitText(offset, absOffset);
     }
 
     return this.splitElement(offset);
@@ -208,7 +213,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `splitText` splits the given node at the given offset.
    */
-  splitText(offset: number): T | undefined {
+  splitText(offset: number, absOffset: number): T | undefined {
     if (offset === 0 || offset === this.size) {
       return;
     }
@@ -216,10 +221,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     const leftValue = this.value.slice(0, offset);
     const rightValue = this.value.slice(offset);
 
+    if (!rightValue.length) {
+      return;
+    }
+
     this.value = leftValue;
 
-    const rightNode = this.clone(offset);
+    const rightNode = this.clone(offset + absOffset);
     rightNode.value = rightValue;
+
     this.parent!.insertAfterInternal(rightNode, this as any);
 
     return rightNode;
@@ -233,6 +243,14 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     // They will be removed after the editing is done.
     // So, we need to filter out the tombstone nodes to get the real children.
     return this._children.filter((child) => !child.isRemoved);
+  }
+
+  /**
+   * `allChildren` returns all the children of the node including tombstone nodes.
+   * It returns the shallow copy of the children.
+   */
+  get allChildren(): Array<T> {
+    return [...this._children];
   }
 
   /**
@@ -268,7 +286,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.unshift(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-      node.updateAncestorsSize();
+
+      if (!node.isRemoved) {
+        node.updateAncestorsSize();
+      }
     }
   }
 
@@ -401,6 +422,18 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       throw new Error('Text node cannot have children');
     }
 
+    if (node.isRemoved) {
+      const index = this._children.indexOf(node);
+
+      // If nodes are removed, the offset of the removed node is the number of
+      // nodes before the node excluding the removed nodes.
+      const refined =
+        this.allChildren.splice(0, index).filter((node) => !node.isRemoved)
+          .length - 1;
+
+      return refined < 0 ? 0 : refined;
+    }
+
     return this.children.indexOf(node);
   }
 
@@ -526,7 +559,7 @@ export function traverse<T extends IndexTreeNode<T>>(
 /**
  * `traverseAll` traverses the whole tree (include tombstones) with postorder traversal.
  */
-function traverseAll<T extends IndexTreeNode<T>>(
+export function traverseAll<T extends IndexTreeNode<T>>(
   node: T,
   callback: (node: T, depth: number) => void,
   depth = 0,
@@ -705,7 +738,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     let node: T | undefined = treePos.node;
     let offset: number = treePos.offset;
     for (let i = 0; i < depth && node && node !== this.root; i++) {
-      node.split(offset);
+      node.split(offset, 0);
 
       const nextOffset = node.parent!.findOffset(node);
       offset = offset === 0 ? nextOffset : nextOffset + 1;
