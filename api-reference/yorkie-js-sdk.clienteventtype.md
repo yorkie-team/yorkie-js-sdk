@@ -16,7 +16,7 @@ export declare enum ClientEventType
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  DocumentsChanged | <code>&quot;documents-changed&quot;</code> | <code>DocumentsChanged</code> means that the documents of the client has changed. |
+|  DocumentChanged | <code>&quot;document-changed&quot;</code> | <code>DocumentChanged</code> means that the document has changed. |
 |  DocumentSynced | <code>&quot;document-synced&quot;</code> | <code>DocumentSynced</code> means that the document has been synced with the server. |
 |  StatusChanged | <code>&quot;status-changed&quot;</code> | <code>StatusChanged</code> means that the status of the client has changed. |
 |  StreamConnectionStatusChanged | <code>&quot;stream-connection-status-changed&quot;</code> | <code>StreamConnectionStatusChanged</code> means that the stream connection status of the client has changed. |

@@ -35,8 +35,8 @@
 |  --- | --- |
 |  [ChangeInfo](./yorkie-js-sdk.changeinfo.md) | <code>ChangeInfo</code> represents the modifications made during a document update and the message passed. |
 |  [ClientOptions](./yorkie-js-sdk.clientoptions.md) | <code>ClientOptions</code> are user-settable options used when defining clients. |
-|  [DocumentsChangedEvent](./yorkie-js-sdk.documentschangedevent.md) | <code>DocumentsChangedEvent</code> is an event that occurs when documents attached to the client changes. |
-|  [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md) | <code>DocumentSyncedEvent</code> is an event that occurs when documents attached to the client are synced. |
+|  [DocumentChangedEvent](./yorkie-js-sdk.documentchangedevent.md) | <code>DocumentChangedEvent</code> is an event that occurs when document attached to the client changes. |
+|  [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md) | <code>DocumentSyncedEvent</code> is an event that occurs when document attached to the client are synced. |
 |  [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md) | <code>LocalChangeEvent</code> is an event that occurs when the document is changed by local changes. |
 |  [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md) | <code>RemoteChangeEvent</code> is an event that occurs when the document is changed by remote changes. |
 |  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from the server. |
@@ -60,7 +60,7 @@
 |  [ArrayOperationInfo](./yorkie-js-sdk.arrayoperationinfo.md) | <code>ArrayOperationInfo</code> represents the OperationInfo for the JSONArray. |
 |  [ClientEvent](./yorkie-js-sdk.clientevent.md) | <code>ClientEvent</code> is an event that occurs in <code>Client</code>. It can be delivered using <code>Client.subscribe()</code>. |
 |  [CounterOperationInfo](./yorkie-js-sdk.counteroperationinfo.md) | <code>CounterOperationInfo</code> represents the OperationInfo for the yorkie.Counter. |
-|  [CRDTTreePosStruct](./yorkie-js-sdk.crdttreeposstruct.md) | <code>CRDTTreePosStruct</code> represents the structure of CRDTTreePos. It is used to serialize and deserialize the CRDTTreePos. |
+|  [CRDTTreeNodeIDStruct](./yorkie-js-sdk.crdttreenodeidstruct.md) | <code>CRDTTreeNodeIDStruct</code> represents the structure of CRDTTreeNodeID. It is used to serialize and deserialize the CRDTTreeNodeID. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>Document</code>. It can be delivered using <code>Document.subscribe()</code>. |
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) | <code>EditOpInfo</code> represents the information of the edit operation. |
 |  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> is a node that has children. |
@@ -84,6 +84,6 @@
 |  [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md) | <code>TimeTicketStruct</code> is a structure represents the meta data of the ticket. It is used to serialize and deserialize the ticket. |
 |  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
 |  [TreeOperationInfo](./yorkie-js-sdk.treeoperationinfo.md) | <code>TreeOperationInfo</code> represents the OperationInfo for the yorkie.Tree. |
-|  [TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
+|  [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

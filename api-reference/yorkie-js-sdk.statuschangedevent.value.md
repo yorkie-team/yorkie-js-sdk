@@ -4,7 +4,7 @@
 
 ## StatusChangedEvent.value property
 
-`DocumentsChangedEvent` value
+`StatusChangedEvent` value
 
 <b>Signature:</b>
 

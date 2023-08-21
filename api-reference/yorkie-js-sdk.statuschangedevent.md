@@ -17,5 +17,5 @@ export declare interface StatusChangedEvent
 |  Property | Type | Description |
 |  --- | --- | --- |
 |  [type](./yorkie-js-sdk.statuschangedevent.type.md) | [ClientEventType.StatusChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StatusChanged |
-|  [value](./yorkie-js-sdk.statuschangedevent.value.md) | [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>DocumentsChangedEvent</code> value |
+|  [value](./yorkie-js-sdk.statuschangedevent.value.md) | [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>StatusChangedEvent</code> value |
 

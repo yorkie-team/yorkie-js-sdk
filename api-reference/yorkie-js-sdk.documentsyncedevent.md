@@ -4,7 +4,7 @@
 
 ## DocumentSyncedEvent interface
 
-`DocumentSyncedEvent` is an event that occurs when documents attached to the client are synced.
+`DocumentSyncedEvent` is an event that occurs when document attached to the client are synced.
 
 <b>Signature:</b>
 
