@@ -19,7 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
  *
- * @internal
+ * 
  */
 export abstract class CRDTElement {
   private createdAt: TimeTicket;
@@ -108,7 +108,7 @@ export abstract class CRDTElement {
 /**
  *
  * `CRDTContainer` represents CRDTArray or CRDtObject.
- * @internal
+ *
  */
 export abstract class CRDTContainer extends CRDTElement {
   constructor(createdAt: TimeTicket) {

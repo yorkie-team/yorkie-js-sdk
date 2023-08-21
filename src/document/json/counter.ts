@@ -41,7 +41,7 @@ export class Counter {
 
   /**
    * `initialize` initialize this text with context and internal text.
-   * @internal
+   * 
    */
   public initialize(context: ChangeContext, counter: CRDTCounter): void {
     this.valueType = counter.getValueType();
@@ -59,7 +59,7 @@ export class Counter {
 
   /**
    * `getValue` returns the value of this counter;
-   * @internal
+   * 
    */
   public getValue(): number | Long {
     return this.value;

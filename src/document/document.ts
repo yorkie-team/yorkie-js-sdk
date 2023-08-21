@@ -145,9 +145,7 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | UnwatchedEvent<P>
   | PresenceChangedEvent<P>;
 
-/**
- * @internal
- */
+
 export interface BaseDocEvent {
   type: DocEventType;
 }
@@ -731,7 +729,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * 3. Do Garbage collection.
    *
    * @param pack - change pack
-   * @internal
+   * 
    */
   public applyChangePack(pack: ChangePack<P>): void {
     if (pack.hasSnapshot()) {
@@ -771,7 +769,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getCheckpoint` returns the checkpoint of this document.
    *
-   * @internal
+   * 
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
@@ -780,7 +778,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `hasLocalChanges` returns whether this document has local changes or not.
    *
-   * @internal
+   * 
    */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
@@ -789,7 +787,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `ensureClone` make a clone of root.
    *
-   * @internal
+   * 
    */
   public ensureClone(): void {
     if (this.clone) {
@@ -806,7 +804,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `createChangePack` create change pack of the local changes to send to the
    * remote server.
    *
-   * @internal
+   * 
    */
   public createChangePack(): ChangePack<P> {
     const changes = Array.from(this.localChanges);
@@ -818,7 +816,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
    *
-   * @internal
+   * 
    */
   public setActor(actorID: ActorID): void {
     for (const change of this.localChanges) {
@@ -832,7 +830,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getKey` returns the key of this document.
    *
-   * @internal
+   * 
    */
   public getKey(): string {
     return this.key;
@@ -841,7 +839,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `setStatus` updates the status of this document.
    *
-   * @internal
+   * 
    */
   public setStatus(status: DocumentStatus) {
     this.status = status;
@@ -850,7 +848,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getStatus` returns the status of this document.
    *
-   * @internal
+   * 
    */
   public getStatus(): DocumentStatus {
     return this.status;
@@ -859,7 +857,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getClone` return clone object.
    *
-   * @internal
+   * 
    */
   public getCloneRoot(): CRDTObject | undefined {
     if (!this.clone) {
@@ -885,7 +883,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `garbageCollect` purges elements that were removed before the given time.
    *
-   * @internal
+   * 
    */
   public garbageCollect(ticket: TimeTicket): number {
     if (this.clone) {
@@ -897,7 +895,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getRootObject` returns root object.
    *
-   * @internal
+   * 
    */
   public getRootObject(): CRDTObject {
     return this.root.getObject();
@@ -906,7 +904,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getGarbageLen` returns the length of elements should be purged.
    *
-   * @internal
+   * 
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
@@ -1069,7 +1067,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `setOnlineClients` sets the given online client set.
    *
-   * @internal
+   * 
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
@@ -1078,7 +1076,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `addOnlineClient` adds the given clientID into the online client set.
    *
-   * @internal
+   * 
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
@@ -1087,7 +1085,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `removeOnlineClient` removes the clientID from the online client set.
    *
-   * @internal
+   * 
    */
   public removeOnlineClient(clientID: ActorID) {
     this.onlineClients.delete(clientID);
@@ -1096,7 +1094,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `hasPresence` returns whether the given clientID has a presence or not.
    *
-   * @internal
+   * 
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
@@ -1127,7 +1125,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getPresenceForTest` returns the presence of the given clientID
    * regardless of whether the client is online or not.
    *
-   * @internal
+   * 
    */
   public getPresenceForTest(clientID: ActorID): P | undefined {
     const p = this.presences.get(clientID);
