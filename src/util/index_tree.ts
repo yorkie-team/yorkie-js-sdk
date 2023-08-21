@@ -286,7 +286,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.unshift(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-      node.updateAncestorsSize();
+
+      if (!node.isRemoved) {
+        node.updateAncestorsSize();
+      }
     }
   }
 
