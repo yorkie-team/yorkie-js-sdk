@@ -1,12 +1,29 @@
+/*
+ * Copyright 2023 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
-  CRDTTreePos,
+  CRDTTreeNodeID,
   CRDTTreeNode,
   TreePosStructRange,
   TreeChange,
+  CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 import {
@@ -59,7 +76,7 @@ function buildDescendants(
     validateTextNode(treeNode as TextNode);
     const { value } = treeNode as TextNode;
     const textNode = CRDTTreeNode.create(
-      CRDTTreePos.of(ticket, 0),
+      CRDTTreeNodeID.of(ticket, 0),
       type,
       value,
     );
@@ -79,7 +96,7 @@ function buildDescendants(
       }
     }
     const elementNode = CRDTTreeNode.create(
-      CRDTTreePos.of(ticket, 0),
+      CRDTTreeNodeID.of(ticket, 0),
       type,
       undefined,
       attrs,
@@ -103,7 +120,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
   let root;
   if (content.type === DefaultTextType) {
     const { value } = content as TextNode;
-    root = CRDTTreeNode.create(CRDTTreePos.of(ticket, 0), type, value);
+    root = CRDTTreeNode.create(CRDTTreeNodeID.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
     let { attributes } = content as ElementNode;
@@ -119,7 +136,7 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     }
 
     root = CRDTTreeNode.create(
-      CRDTTreePos.of(context.issueTimeTicket(), 0),
+      CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
       type,
       undefined,
       attrs,
@@ -210,14 +227,14 @@ export class Tree {
   public buildRoot(context: ChangeContext): CRDTTreeNode {
     if (!this.initialRoot) {
       return CRDTTreeNode.create(
-        CRDTTreePos.of(context.issueTimeTicket(), 0),
+        CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
         DefaultRootType,
       );
     }
 
     // TODO(hackerwins): Need to use the ticket of operation of creating tree.
     const root = CRDTTreeNode.create(
-      CRDTTreePos.of(context.issueTimeTicket(), 0),
+      CRDTTreeNodeID.of(context.issueTimeTicket(), 0),
       this.initialRoot.type,
     );
 
@@ -261,7 +278,6 @@ export class Tree {
     if (!path.length) {
       throw new Error('path should not be empty');
     }
-
     const [fromPos, toPos] = this.tree.pathToPosRange(path);
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
@@ -339,7 +355,7 @@ export class Tree {
       }
       crdtNodes.push(
         CRDTTreeNode.create(
-          CRDTTreePos.of(this.context!.issueTimeTicket(), 0),
+          CRDTTreeNodeID.of(this.context!.issueTimeTicket(), 0),
           DefaultTextType,
           compVal,
         ),
@@ -350,7 +366,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    this.tree!.edit(
+    const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -363,15 +379,13 @@ export class Tree {
         this.tree!.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreatedAtMapByActor,
         crdtNodes.length ? crdtNodes : undefined,
         ticket,
       ),
     );
 
-    if (
-      !fromPos.getCreatedAt().equals(toPos.getCreatedAt()) ||
-      fromPos.getOffset() !== toPos.getOffset()
-    ) {
+    if (!fromPos.equals(toPos)) {
       this.context!.registerElementHasRemovedNodes(this.tree!);
     }
 
@@ -480,33 +494,6 @@ export class Tree {
   }
 
   /**
-   * eslint-disable-next-line jsdoc/require-jsdoc
-   * @internal
-   */
-  public *[Symbol.iterator](): IterableIterator<TreeNode> {
-    if (!this.tree) {
-      return;
-    }
-
-    // TODO(hackerwins): Fill children of element node later.
-    for (const node of this.tree) {
-      if (node.isText) {
-        const textNode = node as TextNode;
-        yield {
-          type: textNode.type,
-          value: textNode.value,
-        };
-      } else {
-        const elementNode = node as ElementNode;
-        yield {
-          type: elementNode.type,
-          children: [],
-        };
-      }
-    }
-  }
-
-  /**
    * `pathRangeToPosRange` converts the path range into the position range.
    */
   pathRangeToPosRange(
@@ -554,7 +541,10 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return [this.tree.toIndex(posRange[0]), this.tree.toIndex(posRange[1])];
+    return this.tree.posRangeToIndexRange(
+      posRange,
+      this.context.getLastTimeTicket(),
+    );
   }
 
   /**
@@ -574,6 +564,9 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToPathRange(posRange);
+    return this.tree.posRangeToPathRange(
+      posRange,
+      this.context.getLastTimeTicket(),
+    );
   }
 }

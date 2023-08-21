@@ -34,11 +34,13 @@ export class TreeEditOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
   private contents: Array<CRDTTreeNode> | undefined;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ) {
@@ -46,6 +48,7 @@ export class TreeEditOperation extends Operation {
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.contents = contents;
+    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
@@ -55,6 +58,7 @@ export class TreeEditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     contents: Array<CRDTTreeNode> | undefined,
     executedAt: TimeTicket,
   ): TreeEditOperation {
@@ -62,6 +66,7 @@ export class TreeEditOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
+      maxCreatedAtMapByActor,
       contents,
       executedAt,
     );
@@ -79,16 +84,14 @@ export class TreeEditOperation extends Operation {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
     const tree = parentObject as CRDTTree;
-    const changes = tree.edit(
+    const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.getExecutedAt(),
+      this.maxCreatedAtMapByActor,
     );
 
-    if (
-      !this.fromPos.getCreatedAt().equals(this.toPos.getCreatedAt()) ||
-      this.fromPos.getOffset() !== this.toPos.getOffset()
-    ) {
+    if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(tree);
     }
     return changes.map(({ from, to, value, fromPath, toPath }) => {
@@ -117,11 +120,13 @@ export class TreeEditOperation extends Operation {
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getOffset()}`;
+      .toTestString()}:${this.fromPos.getLeftSiblingID().getOffset()}`;
     const toPos = `${this.toPos
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getOffset()}`;
+      .toTestString()}:${this.toPos.getLeftSiblingID().getOffset()}`;
     const contents = this.contents;
     return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
   }
@@ -145,5 +150,13 @@ export class TreeEditOperation extends Operation {
    */
   public getContents(): Array<CRDTTreeNode> | undefined {
     return this.contents;
+  }
+
+  /**
+   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
+   * by actor for the nodes included in the editing range.
+   */
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+    return this.maxCreatedAtMapByActor;
   }
 }

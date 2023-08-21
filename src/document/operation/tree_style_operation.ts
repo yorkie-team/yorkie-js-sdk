@@ -111,11 +111,13 @@ export class TreeStyleOperation extends Operation {
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
     const fromPos = `${this.fromPos
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getOffset()}`;
+      .toTestString()}:${this.fromPos.getLeftSiblingID().getOffset()}`;
     const toPos = `${this.toPos
+      .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getOffset()}`;
+      .toTestString()}:${this.toPos.getLeftSiblingID().getOffset()}`;
 
     return `${parent}.STYLE(${fromPos},${toPos},${Object.entries(
       this.attributes || {},
