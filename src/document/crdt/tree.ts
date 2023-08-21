@@ -230,6 +230,16 @@ export class CRDTTreeNodeID {
   }
 
   /**
+   * `equals` returns whether given ID equals to this ID or not.
+   */
+  public equals(other: CRDTTreeNodeID): boolean {
+    return (
+      this.createdAt.compare(other.createdAt) === 0 &&
+      this.offset === other.offset
+    );
+  }
+
+  /**
    * `getOffset` returns returns the offset of the node.
    */
   public getOffset(): number {
@@ -522,6 +532,19 @@ export class CRDTTree extends CRDTGCElement {
    */
   public static create(root: CRDTTreeNode, ticket: TimeTicket): CRDTTree {
     return new CRDTTree(root, ticket);
+  }
+
+  /**
+   * `findFloorNode` finds node of given id.
+   */
+  private findFloorNode(id: CRDTTreeNodeID) {
+    const entry = this.nodeMapByID.floorEntry(id);
+
+    if (!entry || !entry.key.getCreatedAt().equals(id.getCreatedAt())) {
+      return;
+    }
+
+    return entry.value;
   }
 
   /**
@@ -1004,29 +1027,23 @@ export class CRDTTree extends CRDTGCElement {
   private toTreeNodes(pos: CRDTTreePos) {
     const parentID = pos.getParentID();
     const leftSiblingID = pos.getLeftSiblingID();
-    const parentEntry = this.nodeMapByID.floorEntry(parentID);
-    const leftSiblingEntry = this.nodeMapByID.floorEntry(leftSiblingID);
+    const parentNode = this.findFloorNode(parentID);
+    let leftSiblingNode = this.findFloorNode(leftSiblingID);
 
-    if (
-      !parentEntry ||
-      !leftSiblingEntry ||
-      !parentEntry.key.getCreatedAt().equals(parentID.getCreatedAt()) ||
-      !leftSiblingEntry.key.getCreatedAt().equals(leftSiblingID.getCreatedAt())
-    ) {
+    if (!parentNode || !leftSiblingNode) {
       return [];
     }
-
-    let leftSiblingNode = leftSiblingEntry.value;
 
     if (
       leftSiblingID.getOffset() > 0 &&
       leftSiblingID.getOffset() === leftSiblingNode.id.getOffset() &&
-      leftSiblingNode.insPrev
+      leftSiblingNode.insPrevID
     ) {
-      leftSiblingNode = leftSiblingNode.insPrev;
+      leftSiblingNode =
+        this.findFloorNode(leftSiblingNode.insPrevID) || leftSiblingNode;
     }
 
-    return [parentEntry.value, leftSiblingNode];
+    return [parentNode, leftSiblingNode!];
   }
 
   /**
