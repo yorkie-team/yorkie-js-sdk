@@ -6,7 +6,7 @@
 
 enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StatusChanged
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 type: ClientEventType.StatusChanged;

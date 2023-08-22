@@ -6,7 +6,7 @@
 
 `TextPosStructRange` represents the structure of RGATreeSplitPosRange. It is used to serialize and deserialize the RGATreeSplitPosRange.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TextPosStructRange = [
@@ -14,5 +14,5 @@ export declare type TextPosStructRange = [
     TextPosStruct
 ];
 ```
-<b>References:</b> [TextPosStruct](./yorkie-js-sdk.textposstruct.md)
+**References:** [TextPosStruct](./yorkie-js-sdk.textposstruct.md)
 

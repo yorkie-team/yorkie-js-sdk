@@ -6,7 +6,7 @@
 
 `Tree` is a CRDT-based tree structure that is used to represent the document tree of text-based editor such as ProseMirror.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare class Tree 

@@ -6,7 +6,7 @@
 
 `increase` increases numeric data.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 increase(v: number | Long): Counter;
@@ -18,7 +18,7 @@ increase(v: number | Long): Counter;
 |  --- | --- | --- |
 |  v | number \| Long |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [Counter](./yorkie-js-sdk.counter.md)
 

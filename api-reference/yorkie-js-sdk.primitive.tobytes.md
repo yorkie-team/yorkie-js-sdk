@@ -6,12 +6,12 @@
 
 `toBytes` creates an array representing the value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toBytes(): Uint8Array;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Uint8Array
 

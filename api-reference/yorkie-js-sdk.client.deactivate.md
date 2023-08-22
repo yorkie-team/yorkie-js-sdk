@@ -6,12 +6,12 @@
 
 `deactivate` deactivates this client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 deactivate(): Promise<void>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Promise&lt;void&gt;
 

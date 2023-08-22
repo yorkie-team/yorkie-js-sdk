@@ -6,7 +6,7 @@
 
 `isSupport` check if the given value is supported type.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static isSupport(value: unknown): boolean;
@@ -18,7 +18,7 @@ static isSupport(value: unknown): boolean;
 |  --- | --- | --- |
 |  value | unknown |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

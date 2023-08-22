@@ -6,12 +6,12 @@
 
 `getRoot` returns a new proxy of cloned root.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getRoot(): JSONObject<T>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->&lt;T&gt;
 

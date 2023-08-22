@@ -6,7 +6,7 @@
 
 `StyleOpInfo` represents the information of the style operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type StyleOpInfo = {
@@ -19,5 +19,5 @@ export declare type StyleOpInfo = {
     };
 };
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)
+**References:** [Indexable](./yorkie-js-sdk.indexable.md)
 

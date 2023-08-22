@@ -4,7 +4,7 @@
 
 ## TreeChange.actor property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 actor: ActorID;

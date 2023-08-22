@@ -6,7 +6,7 @@
 
 `sync` pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 sync<T, P extends Indexable>(doc?: Document<T, P>, syncMode?: SyncMode): Promise<Array<Document<T, P>>>;
@@ -16,10 +16,10 @@ sync<T, P extends Indexable>(doc?: Document<T, P>, syncMode?: SyncMode): Promise
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
-|  syncMode | [SyncMode](./yorkie-js-sdk.syncmode.md) |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; | _(Optional)_ |
+|  syncMode | [SyncMode](./yorkie-js-sdk.syncmode.md) | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
-Promise&lt;Array&lt;Document&lt;T, P&gt;&gt;&gt;
+Promise&lt;Array&lt;[Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt;&gt;&gt;
 

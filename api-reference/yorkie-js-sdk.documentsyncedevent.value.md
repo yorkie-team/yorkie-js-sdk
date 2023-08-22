@@ -6,7 +6,7 @@
 
 `DocumentSyncedEvent` value
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: DocumentSyncResultType;

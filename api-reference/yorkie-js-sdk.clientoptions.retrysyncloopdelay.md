@@ -6,7 +6,7 @@
 
 `retrySyncLoopDelay` is the delay of the retry sync loop. If the sync loop fails, the client waits for the delay to retry the sync loop. The default value is `1000`<!-- -->(ms).
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 retrySyncLoopDelay?: number;

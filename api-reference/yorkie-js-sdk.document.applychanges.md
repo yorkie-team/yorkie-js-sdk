@@ -6,7 +6,7 @@
 
 `applyChanges` applies the given changes into this document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 applyChanges(changes: Array<Change<P>>): void;
@@ -18,7 +18,7 @@ applyChanges(changes: Array<Change<P>>): void;
 |  --- | --- | --- |
 |  changes | Array&lt;[Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

@@ -6,7 +6,7 @@
 
 `pauseRemoteChanges` pauses the synchronization of remote changes, allowing only local changes to be applied.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>): void;
@@ -16,9 +16,9 @@ pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>): void;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

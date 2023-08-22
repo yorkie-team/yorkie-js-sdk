@@ -6,7 +6,7 @@
 
 `of` creates an instance of Ticket.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static of(lamport: Long, delimiter: number, actorID?: string): TimeTicket;
@@ -18,9 +18,9 @@ static of(lamport: Long, delimiter: number, actorID?: string): TimeTicket;
 |  --- | --- | --- |
 |  lamport | Long |  |
 |  delimiter | number |  |
-|  actorID | string |  |
+|  actorID | string | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

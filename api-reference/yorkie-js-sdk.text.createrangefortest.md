@@ -6,7 +6,7 @@
 
 `createRangeForTest` returns pair of RGATreeSplitNodePos of the given indexes for testing purpose.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange;
@@ -19,7 +19,7 @@ createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange;
 |  fromIdx | number |  |
 |  toIdx | number |  |
 
-<b>Returns:</b>
+**Returns:**
 
 RGATreeSplitPosRange
 

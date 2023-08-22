@@ -6,7 +6,7 @@
 
 `style` sets the attributes to the elements of the given range.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 style(fromIdx: number, toIdx: number, attributes: {
@@ -22,7 +22,7 @@ style(fromIdx: number, toIdx: number, attributes: {
 |  toIdx | number |  |
 |  attributes | { \[key: string\]: any; } |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

@@ -6,7 +6,7 @@
 
 `after` returns whether the given ticket was created later.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 after(other: TimeTicket): boolean;
@@ -18,7 +18,7 @@ after(other: TimeTicket): boolean;
 |  --- | --- | --- |
 |  other | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

@@ -6,7 +6,7 @@
 
 `SnapshotEvent` is an event that occurs when a snapshot is received from the server.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface SnapshotEvent 
@@ -14,8 +14,8 @@ export declare interface SnapshotEvent
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.snapshotevent.type.md) | [DocEventType.Snapshot](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot |
-|  [value](./yorkie-js-sdk.snapshotevent.value.md) | Uint8Array \| undefined | SnapshotEvent type |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.snapshotevent.type.md) |  | [DocEventType.Snapshot](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot |
+|  [value](./yorkie-js-sdk.snapshotevent.value.md) |  | Uint8Array \| undefined | SnapshotEvent type |
 

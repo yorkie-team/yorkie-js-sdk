@@ -6,7 +6,7 @@
 
 `getValueByPath` returns the JSONElement corresponding to the given path.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getValueByPath(path: string): JSONElement | undefined;
@@ -18,7 +18,7 @@ getValueByPath(path: string): JSONElement | undefined;
 |  --- | --- | --- |
 |  path | string |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [JSONElement](./yorkie-js-sdk.jsonelement.md) \| undefined
 

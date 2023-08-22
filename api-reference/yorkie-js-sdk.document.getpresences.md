@@ -6,7 +6,7 @@
 
 `getPresences` returns the presences of online clients.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getPresences(): Array<{
@@ -14,7 +14,7 @@ getPresences(): Array<{
         presence: P;
     }>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Array&lt;{ clientID: [ActorID](./yorkie-js-sdk.actorid.md)<!-- -->; presence: P; }&gt;
 

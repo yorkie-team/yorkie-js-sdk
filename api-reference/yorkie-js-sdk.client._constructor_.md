@@ -6,7 +6,7 @@
 
 Constructs a new instance of the `Client` class
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 constructor(rpcAddr: string, opts?: ClientOptions);
@@ -17,5 +17,5 @@ constructor(rpcAddr: string, opts?: ClientOptions);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  rpcAddr | string | the address of the RPC server. |
-|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md) | the options of the client. |
+|  opts | [ClientOptions](./yorkie-js-sdk.clientoptions.md) | _(Optional)_ the options of the client. |
 

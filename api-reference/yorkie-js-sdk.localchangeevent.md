@@ -6,7 +6,7 @@
 
 `LocalChangeEvent` is an event that occurs when the document is changed by local changes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface LocalChangeEvent<T = OperationInfo> 
@@ -14,8 +14,8 @@ export declare interface LocalChangeEvent<T = OperationInfo>
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.localchangeevent.type.md) | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
-|  [value](./yorkie-js-sdk.localchangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | LocalChangeEvent type |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.localchangeevent.type.md) |  | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
+|  [value](./yorkie-js-sdk.localchangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | LocalChangeEvent type |
 

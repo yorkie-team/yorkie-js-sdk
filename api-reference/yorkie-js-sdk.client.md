@@ -6,12 +6,12 @@
 
 `Client` is a normal client that can communicate with the server. It has documents and sends changes of the documents in local to the server to synchronize with other replicas in remote.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare class Client implements Observable<ClientEvent> 
 ```
-<b>Implements:</b> Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt;
+**Implements:** Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt;
 
 ## Constructors
 
@@ -26,7 +26,7 @@ export declare class Client implements Observable<ClientEvent>
 |  [activate()](./yorkie-js-sdk.client.activate.md) |  | <code>activate</code> activates this client. That is, it registers itself to the server and receives a unique ID from the server. The given ID is used to distinguish different clients. |
 |  [attach(doc, options)](./yorkie-js-sdk.client.attach.md) |  | <code>attach</code> attaches the given document to this client. It tells the server that this client will synchronize the given document. |
 |  [deactivate()](./yorkie-js-sdk.client.deactivate.md) |  | <code>deactivate</code> deactivates this client. |
-|  [detach(doc)](./yorkie-js-sdk.client.detach.md) |  | <code>detach</code> detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.<!-- -->To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached. |
+|  [detach(doc)](./yorkie-js-sdk.client.detach.md) |  | <p><code>detach</code> detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.</p><p>To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached.</p> |
 |  [getID()](./yorkie-js-sdk.client.getid.md) |  | <code>getID</code> returns a ActorID of client. |
 |  [getKey()](./yorkie-js-sdk.client.getkey.md) |  | <code>getKey</code> returns a key of client. |
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |

@@ -6,7 +6,7 @@
 
 `of` creates a new instance of Primitive.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive;
@@ -19,7 +19,7 @@ static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive;
 |  value | [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) |  |
 |  createdAt | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [Primitive](./yorkie-js-sdk.primitive.md)
 

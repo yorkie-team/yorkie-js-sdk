@@ -6,7 +6,7 @@
 
 enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 type: DocEventType.Snapshot;

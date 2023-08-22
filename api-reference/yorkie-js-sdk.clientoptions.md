@@ -6,7 +6,7 @@
 
 `ClientOptions` are user-settable options used when defining clients.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface ClientOptions 
@@ -14,12 +14,12 @@ export declare interface ClientOptions
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [apiKey?](./yorkie-js-sdk.clientoptions.apikey.md) | string | <i>(Optional)</i> <code>apiKey</code> is the API key of the project. It is used to identify the project. If not set, API key of the default project is used. |
-|  [key?](./yorkie-js-sdk.clientoptions.key.md) | string | <i>(Optional)</i> <code>key</code> is the client key. It is used to identify the client. If not set, a random key is generated. |
-|  [reconnectStreamDelay?](./yorkie-js-sdk.clientoptions.reconnectstreamdelay.md) | number | <i>(Optional)</i> <code>reconnectStreamDelay</code> is the delay of the reconnect stream. If the stream is disconnected, the client waits for the delay to reconnect the stream. The default value is <code>1000</code>(ms). |
-|  [retrySyncLoopDelay?](./yorkie-js-sdk.clientoptions.retrysyncloopdelay.md) | number | <i>(Optional)</i> <code>retrySyncLoopDelay</code> is the delay of the retry sync loop. If the sync loop fails, the client waits for the delay to retry the sync loop. The default value is <code>1000</code>(ms). |
-|  [syncLoopDuration?](./yorkie-js-sdk.clientoptions.syncloopduration.md) | number | <i>(Optional)</i> <code>syncLoopDuration</code> is the duration of the sync loop. After each sync loop, the client waits for the duration to next sync. The default value is <code>50</code>(ms). |
-|  [token?](./yorkie-js-sdk.clientoptions.token.md) | string | <i>(Optional)</i> <code>token</code> is the authentication token of this client. It is used to identify the user of the client. |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [apiKey?](./yorkie-js-sdk.clientoptions.apikey.md) |  | string | _(Optional)_ <code>apiKey</code> is the API key of the project. It is used to identify the project. If not set, API key of the default project is used. |
+|  [key?](./yorkie-js-sdk.clientoptions.key.md) |  | string | _(Optional)_ <code>key</code> is the client key. It is used to identify the client. If not set, a random key is generated. |
+|  [reconnectStreamDelay?](./yorkie-js-sdk.clientoptions.reconnectstreamdelay.md) |  | number | _(Optional)_ <code>reconnectStreamDelay</code> is the delay of the reconnect stream. If the stream is disconnected, the client waits for the delay to reconnect the stream. The default value is <code>1000</code>(ms). |
+|  [retrySyncLoopDelay?](./yorkie-js-sdk.clientoptions.retrysyncloopdelay.md) |  | number | _(Optional)_ <code>retrySyncLoopDelay</code> is the delay of the retry sync loop. If the sync loop fails, the client waits for the delay to retry the sync loop. The default value is <code>1000</code>(ms). |
+|  [syncLoopDuration?](./yorkie-js-sdk.clientoptions.syncloopduration.md) |  | number | _(Optional)_ <code>syncLoopDuration</code> is the duration of the sync loop. After each sync loop, the client waits for the duration to next sync. The default value is <code>50</code>(ms). |
+|  [token?](./yorkie-js-sdk.clientoptions.token.md) |  | string | _(Optional)_ <code>token</code> is the authentication token of this client. It is used to identify the user of the client. |
 

@@ -6,12 +6,12 @@
 
 `getOperations` returns the operations of this change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getOperations(): Array<Operation>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Array&lt;Operation&gt;
 

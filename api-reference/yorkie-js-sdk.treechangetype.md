@@ -6,7 +6,7 @@
 
 `TreeChangeType` represents the type of change in the tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum TreeChangeType 

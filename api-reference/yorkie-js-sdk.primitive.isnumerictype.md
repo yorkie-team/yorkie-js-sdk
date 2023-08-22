@@ -6,12 +6,12 @@
 
 `isNumericType` checks numeric type by JSONPrimitive
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 isNumericType(): boolean;
 ```
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

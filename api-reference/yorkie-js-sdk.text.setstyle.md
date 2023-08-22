@@ -6,7 +6,7 @@
 
 `setStyle` styles this text with the given attributes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 setStyle(fromIdx: number, toIdx: number, attributes: A): boolean;
@@ -20,7 +20,7 @@ setStyle(fromIdx: number, toIdx: number, attributes: A): boolean;
 |  toIdx | number |  |
 |  attributes | A |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

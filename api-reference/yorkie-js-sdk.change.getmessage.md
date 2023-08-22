@@ -6,12 +6,12 @@
 
 `getMessage` returns the message of this change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getMessage(): string | undefined;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string \| undefined
 

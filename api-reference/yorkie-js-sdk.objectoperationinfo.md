@@ -6,10 +6,10 @@
 
 `ObjectOperationInfo` represents the OperationInfo for the JSONObject.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
 ```
-<b>References:</b> [SetOpInfo](./yorkie-js-sdk.setopinfo.md)<!-- -->, [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md)
+**References:** [SetOpInfo](./yorkie-js-sdk.setopinfo.md)<!-- -->, [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md)
 

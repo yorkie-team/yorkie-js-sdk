@@ -6,10 +6,10 @@
 
 `TextOperationInfo` represents the OperationInfo for the yorkie.Text.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
 ```
-<b>References:</b> [EditOpInfo](./yorkie-js-sdk.editopinfo.md)<!-- -->, [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md)<!-- -->, [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md)
+**References:** [EditOpInfo](./yorkie-js-sdk.editopinfo.md)<!-- -->, [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md)<!-- -->, [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md)
 

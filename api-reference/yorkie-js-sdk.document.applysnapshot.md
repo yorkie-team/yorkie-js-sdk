@@ -6,7 +6,7 @@
 
 `applySnapshot` applies the given snapshot into this document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void;
@@ -17,9 +17,9 @@ applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  serverSeq | Long |  |
-|  snapshot | Uint8Array |  |
+|  snapshot | Uint8Array | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

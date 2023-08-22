@@ -6,12 +6,12 @@
 
 `toStruct` returns the structure of this Ticket.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toStruct(): TimeTicketStruct;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md)
 

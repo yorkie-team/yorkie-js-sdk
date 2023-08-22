@@ -6,7 +6,7 @@
 
 `DocumentChangedEvent` is an event that occurs when document attached to the client changes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface DocumentChangedEvent 
@@ -14,8 +14,8 @@ export declare interface DocumentChangedEvent
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.documentchangedevent.type.md) | [ClientEventType.DocumentChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentChangedEvent |
-|  [value](./yorkie-js-sdk.documentchangedevent.value.md) | Array&lt;string&gt; | <code>DocumentChangedEvent</code> value |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.documentchangedevent.type.md) |  | [ClientEventType.DocumentChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentChangedEvent |
+|  [value](./yorkie-js-sdk.documentchangedevent.value.md) |  | Array&lt;string&gt; | <code>DocumentChangedEvent</code> value |
 

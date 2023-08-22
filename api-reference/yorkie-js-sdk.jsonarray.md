@@ -6,7 +6,7 @@
 
 `JSONArray` represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type JSONArray<T> = {
@@ -24,5 +24,5 @@ export declare type JSONArray<T> = {
     toTestString?(): string;
 } & Array<T>;
 ```
-<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [WrappedElement](./yorkie-js-sdk.wrappedelement.md)
+**References:** [TimeTicket](./yorkie-js-sdk.timeticket.md)<!-- -->, [WrappedElement](./yorkie-js-sdk.wrappedelement.md)
 

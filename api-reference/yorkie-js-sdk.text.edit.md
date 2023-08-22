@@ -6,7 +6,7 @@
 
 `edit` edits this text with the given content.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 edit(fromIdx: number, toIdx: number, content: string, attributes?: A): [
@@ -22,9 +22,9 @@ edit(fromIdx: number, toIdx: number, content: string, attributes?: A): [
 |  fromIdx | number |  |
 |  toIdx | number |  |
 |  content | string |  |
-|  attributes | A |  |
+|  attributes | A | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 \[ number, number \] \| undefined
 

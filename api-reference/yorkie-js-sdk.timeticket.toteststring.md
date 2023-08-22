@@ -6,12 +6,12 @@
 
 `toTestString` returns a string containing the meta data of the ticket for debugging purpose.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toTestString(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

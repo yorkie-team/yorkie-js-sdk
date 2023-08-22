@@ -6,7 +6,7 @@
 
 `subscribe` registers a callback to subscribe to events on the document. The callback will be called when the clients watching the document establishe or update its presence.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 subscribe(type: 'presence', next: NextFn<DocEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
@@ -18,10 +18,10 @@ subscribe(type: 'presence', next: NextFn<DocEvent<P>>, error?: ErrorFn, complete
 |  --- | --- | --- |
 |  type | 'presence' |  |
 |  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
-|  error | ErrorFn |  |
-|  complete | CompleteFn |  |
+|  error | ErrorFn | _(Optional)_ |
+|  complete | CompleteFn | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 Unsubscribe
 

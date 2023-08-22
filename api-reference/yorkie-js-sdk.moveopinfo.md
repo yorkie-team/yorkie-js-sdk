@@ -6,7 +6,7 @@
 
 `MoveOpInfo` represents the information of the move operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type MoveOpInfo = {

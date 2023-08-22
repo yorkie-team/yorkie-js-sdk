@@ -6,7 +6,7 @@
 
 Constructs a new instance of the `Text` class
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 constructor(context?: ChangeContext, text?: CRDTText<A>);
@@ -16,6 +16,6 @@ constructor(context?: ChangeContext, text?: CRDTText<A>);
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  context | ChangeContext |  |
-|  text | CRDTText&lt;A&gt; |  |
+|  context | ChangeContext | _(Optional)_ |
+|  text | CRDTText&lt;A&gt; | _(Optional)_ |
 

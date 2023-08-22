@@ -6,7 +6,7 @@
 
 `getPresence` returns the presence of the given clientID.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getPresence(clientID: ActorID): P | undefined;
@@ -18,7 +18,7 @@ getPresence(clientID: ActorID): P | undefined;
 |  --- | --- | --- |
 |  clientID | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 P \| undefined
 

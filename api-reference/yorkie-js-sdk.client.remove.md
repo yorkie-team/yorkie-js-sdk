@@ -6,7 +6,7 @@
 
 `remove` removes the given document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void>;
@@ -16,9 +16,9 @@ remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void>;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 Promise&lt;void&gt;
 

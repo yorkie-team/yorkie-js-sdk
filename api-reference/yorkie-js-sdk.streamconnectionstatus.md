@@ -6,7 +6,7 @@
 
 `StreamConnectionStatus` represents whether the stream connection between the client and the server is connected or not.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum StreamConnectionStatus 

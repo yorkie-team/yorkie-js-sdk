@@ -6,7 +6,7 @@
 
 `pathToIndex` returns the index of given path.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 pathToIndex(path: Array<number>): number;
@@ -18,7 +18,7 @@ pathToIndex(path: Array<number>): number;
 |  --- | --- | --- |
 |  path | Array&lt;number&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 number
 

@@ -6,7 +6,7 @@
 
 `StreamConnectionStatusChangedEvent` type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StreamConnectionStatusChangedEvent
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 type: ClientEventType.StreamConnectionStatusChanged;

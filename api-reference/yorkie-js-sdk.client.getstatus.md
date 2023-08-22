@@ -6,12 +6,12 @@
 
 `getStatus` returns the status of this client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getStatus(): ClientStatus;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [ClientStatus](./yorkie-js-sdk.clientstatus.md)
 

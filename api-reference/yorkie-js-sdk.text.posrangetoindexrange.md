@@ -6,7 +6,7 @@
 
 `posRangeToIndexRange` returns indexes of the given TextRangeStruct.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 posRangeToIndexRange(range: TextPosStructRange): [
@@ -21,7 +21,7 @@ posRangeToIndexRange(range: TextPosStructRange): [
 |  --- | --- | --- |
 |  range | [TextPosStructRange](./yorkie-js-sdk.textposstructrange.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 \[ number, number \]
 

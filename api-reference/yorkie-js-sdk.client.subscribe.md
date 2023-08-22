@@ -6,7 +6,7 @@
 
 `subscribe` subscribes to the given topics.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 subscribe(nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
@@ -17,10 +17,10 @@ subscribe(nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>, error?: E
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  nextOrObserver | Observer&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; \| NextFn&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt; |  |
-|  error | ErrorFn |  |
-|  complete | CompleteFn |  |
+|  error | ErrorFn | _(Optional)_ |
+|  complete | CompleteFn | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 Unsubscribe
 

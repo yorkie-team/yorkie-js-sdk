@@ -6,7 +6,7 @@
 
 `editByPath` edits this tree with the given node and path.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 editByPath(fromPath: Array<number>, toPath: Array<number>, ...contents: Array<TreeNode>): boolean;
@@ -20,7 +20,7 @@ editByPath(fromPath: Array<number>, toPath: Array<number>, ...contents: Array<Tr
 |  toPath | Array&lt;number&gt; |  |
 |  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

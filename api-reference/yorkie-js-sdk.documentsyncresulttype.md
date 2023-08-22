@@ -6,7 +6,7 @@
 
 `DocumentSyncResultType` represents the result of synchronizing the document with the server.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum DocumentSyncResultType 

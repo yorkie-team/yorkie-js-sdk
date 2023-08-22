@@ -6,12 +6,12 @@
 
 `getMyPresence` returns the presence of the current client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getMyPresence(): P;
 ```
-<b>Returns:</b>
+**Returns:**
 
 P
 

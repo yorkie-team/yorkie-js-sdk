@@ -6,12 +6,12 @@
 
 `isActive` checks if the client is active.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 isActive(): boolean;
 ```
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

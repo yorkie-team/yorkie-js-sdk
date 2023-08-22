@@ -6,7 +6,7 @@
 
 `Text` is an extended data type for the contents of a text editor.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 declare class Text<A extends Indexable = Indexable> 
@@ -22,7 +22,7 @@ declare class Text<A extends Indexable = Indexable>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [length](./yorkie-js-sdk.text.length.md) |  | number | <code>length</code> returns size of RGATreeList. |
+|  [length](./yorkie-js-sdk.text.length.md) | <code>readonly</code> | number | <code>length</code> returns size of RGATreeList. |
 
 ## Methods
 

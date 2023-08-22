@@ -6,7 +6,7 @@
 
 `publish` triggers an event in this document, which can be received by callback functions from document.subscribe().
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 publish(event: DocEvent<P>): void;
@@ -18,7 +18,7 @@ publish(event: DocEvent<P>): void;
 |  --- | --- | --- |
 |  event | [DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

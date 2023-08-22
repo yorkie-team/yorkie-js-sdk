@@ -6,7 +6,7 @@
 
 `JSONObject` represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type JSONObject<T> = {
@@ -15,5 +15,5 @@ export declare type JSONObject<T> = {
     toJS?(): T;
 } & T;
 ```
-<b>References:</b> [TimeTicket](./yorkie-js-sdk.timeticket.md)
+**References:** [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

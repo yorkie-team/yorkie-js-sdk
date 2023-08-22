@@ -6,7 +6,7 @@
 
 `attach` attaches the given document to this client. It tells the server that this client will synchronize the given document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 attach<T, P extends Indexable>(doc: Document<T, P>, options?: {
@@ -19,10 +19,10 @@ attach<T, P extends Indexable>(doc: Document<T, P>, options?: {
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
-|  options | { initialPresence?: P; isRealtimeSync?: boolean; } |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
+|  options | { initialPresence?: P; isRealtimeSync?: boolean; } | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
-Promise&lt;Document&lt;T, P&gt;&gt;
+Promise&lt;[Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt;&gt;
 

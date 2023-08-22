@@ -6,7 +6,7 @@
 
 Constructs a new instance of the `Tree` class
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 constructor(initialRoot?: ElementNode);
@@ -16,5 +16,5 @@ constructor(initialRoot?: ElementNode);
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  initialRoot | [ElementNode](./yorkie-js-sdk.elementnode.md) |  |
+|  initialRoot | [ElementNode](./yorkie-js-sdk.elementnode.md) | _(Optional)_ |
 

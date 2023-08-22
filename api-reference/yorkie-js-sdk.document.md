@@ -6,7 +6,7 @@
 
 `Document` is a CRDT-based data type. We can represent the model of the application and edit it even while offline.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 declare class Document<T, P extends Indexable = Indexable> 

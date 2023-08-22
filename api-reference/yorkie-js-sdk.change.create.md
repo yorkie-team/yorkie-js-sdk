@@ -6,7 +6,7 @@
 
 `create` creates a new instance of Change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static create<P extends Indexable>({ id, operations, presenceChange, message, }: {
@@ -23,7 +23,7 @@ static create<P extends Indexable>({ id, operations, presenceChange, message, }:
 |  --- | --- | --- |
 |  { id, operations, presenceChange, message, } | { id: ChangeID; operations?: Array&lt;Operation&gt;; presenceChange?: PresenceChange&lt;P&gt;; message?: string; } |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;
 

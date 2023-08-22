@@ -6,7 +6,7 @@
 
 `TreePosStructRange` represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TreeRangeStruct = [

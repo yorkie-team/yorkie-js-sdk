@@ -6,10 +6,10 @@
 
 `JSONElement` is a wrapper for `CRDTElement` that provides users with an easy-to-use interface for manipulating `Document`<!-- -->s.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type JSONElement<T = unknown, A extends Indexable = Indexable> = PrimitiveValue | JSONObject<T> | JSONArray<T> | Text<A> | Counter | Tree;
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)<!-- -->, [Tree](./yorkie-js-sdk.tree.md)
+**References:** [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)<!-- -->, [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->, [JSONArray](./yorkie-js-sdk.jsonarray.md)<!-- -->, [Text](./yorkie-js-sdk.text.md)<!-- -->, [Counter](./yorkie-js-sdk.counter.md)<!-- -->, [Tree](./yorkie-js-sdk.tree.md)
 

@@ -6,12 +6,12 @@
 
 `toTestString` returns a String containing the meta data of the node for debugging purpose.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toTestString(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

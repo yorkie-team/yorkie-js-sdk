@@ -6,7 +6,7 @@
 
 `SelectOpInfo` represents the information of the select operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type SelectOpInfo = {

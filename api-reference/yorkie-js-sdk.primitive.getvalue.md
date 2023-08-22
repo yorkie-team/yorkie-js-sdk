@@ -6,12 +6,12 @@
 
 `getValue` returns the value of Primitive.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getValue(): PrimitiveValue;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)
 

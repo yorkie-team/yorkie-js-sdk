@@ -6,12 +6,12 @@
 
 `activate` activates this client. That is, it registers itself to the server and receives a unique ID from the server. The given ID is used to distinguish different clients.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 activate(): Promise<void>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Promise&lt;void&gt;
 

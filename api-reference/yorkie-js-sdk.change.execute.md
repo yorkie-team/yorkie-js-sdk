@@ -6,7 +6,7 @@
 
 `execute` executes the operations of this change to the given root.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 execute(root: CRDTRoot, presences: Map<ActorID, P>): Array<OperationInfo>;
@@ -19,7 +19,7 @@ execute(root: CRDTRoot, presences: Map<ActorID, P>): Array<OperationInfo>;
 |  root | CRDTRoot |  |
 |  presences | Map&lt;[ActorID](./yorkie-js-sdk.actorid.md)<!-- -->, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 Array&lt;[OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->&gt;
 

@@ -6,12 +6,12 @@
 
 `getID` returns the ID of this change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getID(): ChangeID;
 ```
-<b>Returns:</b>
+**Returns:**
 
 ChangeID
 

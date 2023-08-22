@@ -6,7 +6,7 @@
 
 `EditOpInfo` represents the information of the edit operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type EditOpInfo = {
@@ -20,5 +20,5 @@ export declare type EditOpInfo = {
     };
 };
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)
+**References:** [Indexable](./yorkie-js-sdk.indexable.md)
 

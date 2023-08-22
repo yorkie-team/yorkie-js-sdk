@@ -6,7 +6,7 @@
 
 `DocEventType` represents the type of the event that occurs in `Document`<!-- -->.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum DocEventType 

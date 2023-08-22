@@ -6,7 +6,7 @@
 
 `token` is the authentication token of this client. It is used to identify the user of the client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 token?: string;

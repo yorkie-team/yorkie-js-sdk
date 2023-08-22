@@ -6,7 +6,7 @@
 
 `posRangeToPathRange` converts the position range into the path range.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 posRangeToPathRange(range: TreeRangeStruct): [
@@ -21,7 +21,7 @@ posRangeToPathRange(range: TreeRangeStruct): [
 |  --- | --- | --- |
 |  range | [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 \[ Array&lt;number&gt;, Array&lt;number&gt; \]
 

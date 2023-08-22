@@ -6,7 +6,7 @@
 
 `setActor` sets the given actor.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 setActor(actorID: ActorID): void;
@@ -18,7 +18,7 @@ setActor(actorID: ActorID): void;
 |  --- | --- | --- |
 |  actorID | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

@@ -6,7 +6,7 @@
 
 `StreamConnectionStatusChangedEvent` is an event that occurs when the client's stream connection state changes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface StreamConnectionStatusChangedEvent 
@@ -14,8 +14,8 @@ export declare interface StreamConnectionStatusChangedEvent
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.streamconnectionstatuschangedevent.type.md) | [ClientEventType.StreamConnectionStatusChanged](./yorkie-js-sdk.clienteventtype.md) | <code>StreamConnectionStatusChangedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StreamConnectionStatusChangedEvent |
-|  [value](./yorkie-js-sdk.streamconnectionstatuschangedevent.value.md) | [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatusChangedEvent</code> value |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.streamconnectionstatuschangedevent.type.md) |  | [ClientEventType.StreamConnectionStatusChanged](./yorkie-js-sdk.clienteventtype.md) | <code>StreamConnectionStatusChangedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StreamConnectionStatusChangedEvent |
+|  [value](./yorkie-js-sdk.streamconnectionstatuschangedevent.value.md) |  | [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatusChangedEvent</code> value |
 

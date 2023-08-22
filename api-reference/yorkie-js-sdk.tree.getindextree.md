@@ -6,12 +6,12 @@
 
 `getIndexTree` returns the index tree of this tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getIndexTree(): IndexTree<CRDTTreeNode>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 IndexTree&lt;CRDTTreeNode&gt;
 

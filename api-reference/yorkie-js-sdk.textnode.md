@@ -6,7 +6,7 @@
 
 `TextNode` is a node that has a value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TextNode = {

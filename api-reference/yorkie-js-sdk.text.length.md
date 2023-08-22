@@ -6,7 +6,7 @@
 
 `length` returns size of RGATreeList.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 get length(): number;

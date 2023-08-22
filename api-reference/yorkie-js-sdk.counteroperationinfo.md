@@ -6,10 +6,10 @@
 
 `CounterOperationInfo` represents the OperationInfo for the yorkie.Counter.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type CounterOperationInfo = IncreaseOpInfo;
 ```
-<b>References:</b> [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md)
+**References:** [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md)
 

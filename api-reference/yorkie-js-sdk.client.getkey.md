@@ -6,12 +6,12 @@
 
 `getKey` returns a key of client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getKey(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

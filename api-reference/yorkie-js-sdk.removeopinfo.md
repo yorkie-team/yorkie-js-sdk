@@ -6,7 +6,7 @@
 
 `RemoveOpInfo` represents the information of the remove operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type RemoveOpInfo = {

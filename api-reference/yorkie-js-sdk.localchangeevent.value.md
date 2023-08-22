@@ -6,7 +6,7 @@
 
 LocalChangeEvent type
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: ChangeInfo<T>;

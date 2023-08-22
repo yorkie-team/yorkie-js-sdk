@@ -6,12 +6,12 @@
 
 `checkWeight` returns false when there is an incorrect weight node. for debugging purpose.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 checkWeight(): boolean;
 ```
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

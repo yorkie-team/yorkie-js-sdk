@@ -6,7 +6,7 @@
 
 `Primitive` represents primitive data type including logical clock. It has a type and a value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare class Primitive 

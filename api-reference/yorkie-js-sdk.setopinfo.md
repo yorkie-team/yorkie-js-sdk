@@ -6,7 +6,7 @@
 
 `SetOpInfo` represents the information of the set operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type SetOpInfo = {

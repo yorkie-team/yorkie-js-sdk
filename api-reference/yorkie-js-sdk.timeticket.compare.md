@@ -6,7 +6,7 @@
 
 `compare` returns an integer comparing two Ticket. The result will be 0 if id==other, -1 if `id < other`<!-- -->, and +1 if `id > other`<!-- -->. If the receiver or argument is nil, it would panic at runtime.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 compare(other: TimeTicket): number;
@@ -18,7 +18,7 @@ compare(other: TimeTicket): number;
 |  --- | --- | --- |
 |  other | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 number
 

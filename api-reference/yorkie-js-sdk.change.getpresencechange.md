@@ -6,12 +6,12 @@
 
 `getPresenceChange` returns the presence change of this change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getPresenceChange(): PresenceChange<P> | undefined;
 ```
-<b>Returns:</b>
+**Returns:**
 
 PresenceChange&lt;P&gt; \| undefined
 

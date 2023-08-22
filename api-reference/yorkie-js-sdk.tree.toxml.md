@@ -6,12 +6,12 @@
 
 `toXML` returns the XML string of this tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toXML(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

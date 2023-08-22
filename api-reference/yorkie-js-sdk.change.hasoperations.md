@@ -6,12 +6,12 @@
 
 `hasOperations` returns whether this change has operations or not.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 hasOperations(): boolean;
 ```
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

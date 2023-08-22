@@ -6,7 +6,7 @@
 
 Constructs a new instance of the `Counter` class
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 constructor(valueType: CounterType, value: number | Long);

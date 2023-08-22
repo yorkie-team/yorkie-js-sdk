@@ -6,7 +6,7 @@
 
 `isInteger` checks if the given number is integer.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static isInteger(num: number): boolean;
@@ -18,7 +18,7 @@ static isInteger(num: number): boolean;
 |  --- | --- | --- |
 |  num | number |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

@@ -6,7 +6,7 @@
 
 `subscribe` registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPath>>(targetPath: TPath, next: NextFn<DocEvent<P, TOperationInfo>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
@@ -18,10 +18,10 @@ subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPa
 |  --- | --- | --- |
 |  targetPath | TPath |  |
 |  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P, TOperationInfo&gt;&gt; |  |
-|  error | ErrorFn |  |
-|  complete | CompleteFn |  |
+|  error | ErrorFn | _(Optional)_ |
+|  complete | CompleteFn | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 Unsubscribe
 

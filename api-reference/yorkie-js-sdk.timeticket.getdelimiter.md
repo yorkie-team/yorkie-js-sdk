@@ -6,12 +6,12 @@
 
 `getDelimiter` returns delimiter.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getDelimiter(): number;
 ```
-<b>Returns:</b>
+**Returns:**
 
 number
 

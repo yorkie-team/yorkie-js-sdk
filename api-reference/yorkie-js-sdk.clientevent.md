@@ -6,10 +6,10 @@
 
 `ClientEvent` is an event that occurs in `Client`<!-- -->. It can be delivered using `Client.subscribe()`<!-- -->.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type ClientEvent = StatusChangedEvent | DocumentChangedEvent | StreamConnectionStatusChangedEvent | DocumentSyncedEvent;
 ```
-<b>References:</b> [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md)<!-- -->, [DocumentChangedEvent](./yorkie-js-sdk.documentchangedevent.md)<!-- -->, [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md)<!-- -->, [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md)
+**References:** [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md)<!-- -->, [DocumentChangedEvent](./yorkie-js-sdk.documentchangedevent.md)<!-- -->, [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md)<!-- -->, [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md)
 

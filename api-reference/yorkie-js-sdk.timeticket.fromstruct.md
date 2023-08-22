@@ -6,7 +6,7 @@
 
 `fromStruct` creates an instance of Ticket from the struct.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static fromStruct(struct: TimeTicketStruct): TimeTicket;
@@ -18,7 +18,7 @@ static fromStruct(struct: TimeTicketStruct): TimeTicket;
 |  --- | --- | --- |
 |  struct | [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

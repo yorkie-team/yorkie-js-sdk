@@ -6,7 +6,7 @@
 
 `ElementNode` is a node that has children.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type ElementNode<A extends Indexable = Indexable> = {
@@ -15,5 +15,5 @@ export declare type ElementNode<A extends Indexable = Indexable> = {
     children: Array<TreeNode>;
 };
 ```
-<b>References:</b> [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TreeNode](./yorkie-js-sdk.treenode.md)
+**References:** [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [TreeNode](./yorkie-js-sdk.treenode.md)
 

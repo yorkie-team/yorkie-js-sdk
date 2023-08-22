@@ -6,7 +6,7 @@
 
 enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 type: DocEventType.LocalChange;

@@ -4,10 +4,10 @@
 
 ## TreeNode type
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TreeNode = TextNode | ElementNode;
 ```
-<b>References:</b> [TextNode](./yorkie-js-sdk.textnode.md)<!-- -->, [ElementNode](./yorkie-js-sdk.elementnode.md)
+**References:** [TextNode](./yorkie-js-sdk.textnode.md)<!-- -->, [ElementNode](./yorkie-js-sdk.elementnode.md)
 

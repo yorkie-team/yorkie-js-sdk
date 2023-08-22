@@ -6,7 +6,7 @@
 
 `RemoteChangeEvent` is an event that occurs when the document is changed by remote changes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface RemoteChangeEvent<T = OperationInfo> 
@@ -14,8 +14,8 @@ export declare interface RemoteChangeEvent<T = OperationInfo>
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.remotechangeevent.type.md) | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
-|  [value](./yorkie-js-sdk.remotechangeevent.value.md) | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | RemoteChangeEvent type |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.remotechangeevent.type.md) |  | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
+|  [value](./yorkie-js-sdk.remotechangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | RemoteChangeEvent type |
 

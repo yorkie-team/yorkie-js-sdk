@@ -6,12 +6,12 @@
 
 `getActorID` returns actorID.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getActorID(): string | undefined;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string \| undefined
 

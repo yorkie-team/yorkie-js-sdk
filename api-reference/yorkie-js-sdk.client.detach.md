@@ -8,7 +8,7 @@
 
 To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 detach<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
@@ -18,9 +18,9 @@ detach<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
-Promise&lt;Document&lt;T, P&gt;&gt;
+Promise&lt;[Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt;&gt;
 

@@ -6,7 +6,7 @@
 
 `indexRangeToPosRange` converts the index range into the position range.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 indexRangeToPosRange(range: [
@@ -21,7 +21,7 @@ indexRangeToPosRange(range: [
 |  --- | --- | --- |
 |  range | \[ number, number \] |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md)
 

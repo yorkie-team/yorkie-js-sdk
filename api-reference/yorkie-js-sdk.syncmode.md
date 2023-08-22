@@ -6,7 +6,7 @@
 
 `SyncMode` is the mode of synchronization. It is used to determine whether to push and pull changes in PushPullChanges API.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum SyncMode 

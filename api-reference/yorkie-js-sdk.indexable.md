@@ -6,7 +6,7 @@
 
 Indexable key, value
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type Indexable = Record<string, any>;

@@ -6,7 +6,7 @@
 
 `update` executes the given updater to update this document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 update(updater: (root: JSONObject<T>, presence: Presence<P>) => void, message?: string): void;
@@ -17,9 +17,9 @@ update(updater: (root: JSONObject<T>, presence: Presence<P>) => void, message?: 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  updater | (root: [JSONObject](./yorkie-js-sdk.jsonobject.md)<!-- -->&lt;T&gt;, presence: Presence&lt;P&gt;) =&gt; void |  |
-|  message | string |  |
+|  message | string | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

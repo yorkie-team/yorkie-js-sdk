@@ -6,12 +6,12 @@
 
 `deepcopy` copies itself deeply.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 deepcopy(): Primitive;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [Primitive](./yorkie-js-sdk.primitive.md)
 

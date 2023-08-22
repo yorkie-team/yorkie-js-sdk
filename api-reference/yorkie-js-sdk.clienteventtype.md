@@ -6,7 +6,7 @@
 
 `ClientEventType` represents the type of the event that the client can emit.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum ClientEventType 

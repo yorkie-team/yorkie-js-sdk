@@ -6,7 +6,7 @@
 
 SnapshotEvent type
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: Uint8Array | undefined;

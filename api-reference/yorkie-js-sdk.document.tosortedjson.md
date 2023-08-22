@@ -6,12 +6,12 @@
 
 `toSortedJSON` returns the sorted JSON encoding of this document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toSortedJSON(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

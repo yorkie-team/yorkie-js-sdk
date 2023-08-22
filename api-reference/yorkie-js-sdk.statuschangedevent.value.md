@@ -6,7 +6,7 @@
 
 `StatusChangedEvent` value
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: ClientStatus;

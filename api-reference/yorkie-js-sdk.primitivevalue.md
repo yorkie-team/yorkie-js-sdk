@@ -6,7 +6,7 @@
 
 `PrimitiveValue` represents a value of primitive type. Only values of type included in `PrimitiveValue` can be set to the document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type PrimitiveValue = null | boolean | number | Long | string | Uint8Array | Date;

@@ -6,12 +6,12 @@
 
 `values` returns values of this text.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 values(): Array<TextValueType<A>>;
 ```
-<b>Returns:</b>
+**Returns:**
 
 Array&lt;TextValueType&lt;A&gt;&gt;
 

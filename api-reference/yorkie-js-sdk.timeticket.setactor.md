@@ -6,7 +6,7 @@
 
 `setActor` creates a new instance of Ticket with the given actorID.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 setActor(actorID: ActorID): TimeTicket;
@@ -18,7 +18,7 @@ setActor(actorID: ActorID): TimeTicket;
 |  --- | --- | --- |
 |  actorID | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

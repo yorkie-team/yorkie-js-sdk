@@ -6,7 +6,7 @@
 
 `delete` deletes the text in the given range.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 delete(fromIdx: number, toIdx: number): [
@@ -22,7 +22,7 @@ delete(fromIdx: number, toIdx: number): [
 |  fromIdx | number |  |
 |  toIdx | number |  |
 
-<b>Returns:</b>
+**Returns:**
 
 \[ number, number \] \| undefined
 

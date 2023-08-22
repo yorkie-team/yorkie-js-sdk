@@ -6,7 +6,7 @@
 
 `apiKey` is the API key of the project. It is used to identify the project. If not set, API key of the default project is used.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 apiKey?: string;

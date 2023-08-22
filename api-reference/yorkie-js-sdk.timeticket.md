@@ -6,7 +6,7 @@
 
 `TimeTicket` is a timestamp of the logical clock. Ticket is immutable. It is created by `ChangeID`<!-- -->.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare class TimeTicket 

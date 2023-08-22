@@ -6,12 +6,12 @@
 
 `toString` returns the string representation of this text.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toString(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

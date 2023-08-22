@@ -6,12 +6,12 @@
 
 `getSize` returns the size of this tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getSize(): number;
 ```
-<b>Returns:</b>
+**Returns:**
 
 number
 

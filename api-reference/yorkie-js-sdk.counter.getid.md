@@ -6,12 +6,12 @@
 
 `getID` returns the ID of this text.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getID(): TimeTicket;
 ```
-<b>Returns:</b>
+**Returns:**
 
 [TimeTicket](./yorkie-js-sdk.timeticket.md)
 

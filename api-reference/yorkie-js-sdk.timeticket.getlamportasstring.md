@@ -6,12 +6,12 @@
 
 `getLamportAsString` returns the lamport string.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getLamportAsString(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

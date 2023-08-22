@@ -6,7 +6,7 @@
 
 `DocumentSyncedEvent` is an event that occurs when document attached to the client are synced.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface DocumentSyncedEvent 
@@ -14,8 +14,8 @@ export declare interface DocumentSyncedEvent
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.documentsyncedevent.type.md) | [ClientEventType.DocumentSynced](./yorkie-js-sdk.clienteventtype.md) | <code>DocumentSyncedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentSyncedEvent |
-|  [value](./yorkie-js-sdk.documentsyncedevent.value.md) | [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncedEvent</code> value |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.documentsyncedevent.type.md) |  | [ClientEventType.DocumentSynced](./yorkie-js-sdk.clienteventtype.md) | <code>DocumentSyncedEvent</code> type enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.DocumentSyncedEvent |
+|  [value](./yorkie-js-sdk.documentsyncedevent.value.md) |  | [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncedEvent</code> value |
 

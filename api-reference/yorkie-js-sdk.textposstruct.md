@@ -6,7 +6,7 @@
 
 `TextPosStruct` represents the structure of RGATreeSplitPos. It is used to serialize and deserialize the RGATreeSplitPos.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TextPosStruct = {
@@ -17,5 +17,5 @@ export declare type TextPosStruct = {
     relativeOffset: number;
 };
 ```
-<b>References:</b> [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md)
+**References:** [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md)
 

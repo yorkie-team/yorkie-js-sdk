@@ -6,7 +6,7 @@
 
 `Change` represents a unit of modification in the document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare class Change<P extends Indexable> 

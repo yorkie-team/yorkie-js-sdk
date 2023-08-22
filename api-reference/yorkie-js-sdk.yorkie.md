@@ -10,7 +10,7 @@ In production, this will be called exactly once and the result assigned to the `
 
 e.g) `new yorkie.Client(...);`
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 yorkie: {

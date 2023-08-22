@@ -6,7 +6,7 @@
 
 `ClientStatus` represents the status of the client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare enum ClientStatus 

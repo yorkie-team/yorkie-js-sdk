@@ -6,7 +6,7 @@
 
 `ChangeInfo` represents the modifications made during a document update and the message passed.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface ChangeInfo<T = OperationInfo> 
@@ -14,9 +14,9 @@ export declare interface ChangeInfo<T = OperationInfo>
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [actor](./yorkie-js-sdk.changeinfo.actor.md) | [ActorID](./yorkie-js-sdk.actorid.md) \| undefined |  |
-|  [message](./yorkie-js-sdk.changeinfo.message.md) | string |  |
-|  [operations](./yorkie-js-sdk.changeinfo.operations.md) | Array&lt;T&gt; |  |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [actor](./yorkie-js-sdk.changeinfo.actor.md) |  | [ActorID](./yorkie-js-sdk.actorid.md) \| undefined |  |
+|  [message](./yorkie-js-sdk.changeinfo.message.md) |  | string |  |
+|  [operations](./yorkie-js-sdk.changeinfo.operations.md) |  | Array&lt;T&gt; |  |
 

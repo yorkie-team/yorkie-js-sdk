@@ -4,7 +4,7 @@
 
 ## TreeChange.fromPath property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 fromPath: Array<number>;

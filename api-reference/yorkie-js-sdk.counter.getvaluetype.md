@@ -6,12 +6,12 @@
 
 `getValueType` returns the value type of this counter.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getValueType(): CounterType;
 ```
-<b>Returns:</b>
+**Returns:**
 
 CounterType
 

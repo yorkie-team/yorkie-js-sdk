@@ -6,7 +6,7 @@
 
 `equals` returns whether the given ticket was created.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 equals(other: TimeTicket): boolean;
@@ -18,7 +18,7 @@ equals(other: TimeTicket): boolean;
 |  --- | --- | --- |
 |  other | [TimeTicket](./yorkie-js-sdk.timeticket.md) |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

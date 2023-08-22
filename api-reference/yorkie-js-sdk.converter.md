@@ -6,7 +6,7 @@
 
 `converter` is a converter that converts the given model to protobuf format. is also used to convert models to bytes and vice versa.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 converter: {

@@ -6,10 +6,10 @@
 
 `ArrayOperationInfo` represents the OperationInfo for the JSONArray.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
 ```
-<b>References:</b> [AddOpInfo](./yorkie-js-sdk.addopinfo.md)<!-- -->, [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md)<!-- -->, [MoveOpInfo](./yorkie-js-sdk.moveopinfo.md)
+**References:** [AddOpInfo](./yorkie-js-sdk.addopinfo.md)<!-- -->, [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md)<!-- -->, [MoveOpInfo](./yorkie-js-sdk.moveopinfo.md)
 

@@ -6,7 +6,7 @@
 
 `StreamConnectionStatusChangedEvent` value
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: StreamConnectionStatus;

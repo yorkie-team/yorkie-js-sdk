@@ -6,7 +6,7 @@
 
 `buildRoot` builds the root of this tree with the given initial root which set by the user.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 buildRoot(context: ChangeContext): CRDTTreeNode;
@@ -18,7 +18,7 @@ buildRoot(context: ChangeContext): CRDTTreeNode;
 |  --- | --- | --- |
 |  context | ChangeContext |  |
 
-<b>Returns:</b>
+**Returns:**
 
 CRDTTreeNode
 

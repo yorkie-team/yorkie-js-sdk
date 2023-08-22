@@ -6,7 +6,7 @@
 
 `empty` makes the text empty.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 empty(): [
@@ -14,7 +14,7 @@ empty(): [
         number
     ] | undefined;
 ```
-<b>Returns:</b>
+**Returns:**
 
 \[ number, number \] \| undefined
 

@@ -49,7 +49,7 @@
 |  Variable | Description |
 |  --- | --- |
 |  [converter](./yorkie-js-sdk.converter.md) | <code>converter</code> is a converter that converts the given model to protobuf format. is also used to convert models to bytes and vice versa. |
-|  [yorkie](./yorkie-js-sdk.yorkie.md) | The top-level yorkie namespace with additional properties.<!-- -->In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.<!-- -->e.g) <code>new yorkie.Client(...);</code> |
+|  [yorkie](./yorkie-js-sdk.yorkie.md) | <p>The top-level yorkie namespace with additional properties.</p><p>In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.</p><p>e.g) <code>new yorkie.Client(...);</code></p> |
 
 ## Type Aliases
 

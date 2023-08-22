@@ -6,7 +6,7 @@
 
 `split` splits this tree at the given index.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 split(index: number, depth: number): boolean;
@@ -19,7 +19,7 @@ split(index: number, depth: number): boolean;
 |  index | number |  |
 |  depth | number |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

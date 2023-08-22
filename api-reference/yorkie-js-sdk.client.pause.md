@@ -6,7 +6,7 @@
 
 `pause` changes the synchronization mode of the given document to manual.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 pause<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
@@ -16,9 +16,9 @@ pause<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
-Promise&lt;Document&lt;T, P&gt;&gt;
+Promise&lt;[Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt;&gt;
 

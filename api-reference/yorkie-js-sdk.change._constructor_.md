@@ -6,7 +6,7 @@
 
 Constructs a new instance of the `Change` class
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 constructor({ id, operations, presenceChange, message, }: {

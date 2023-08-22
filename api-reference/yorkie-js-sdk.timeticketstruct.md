@@ -6,7 +6,7 @@
 
 `TimeTicketStruct` is a structure represents the meta data of the ticket. It is used to serialize and deserialize the ticket.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TimeTicketStruct = {
@@ -15,5 +15,5 @@ export declare type TimeTicketStruct = {
     actorID: ActorID | undefined;
 };
 ```
-<b>References:</b> [ActorID](./yorkie-js-sdk.actorid.md)
+**References:** [ActorID](./yorkie-js-sdk.actorid.md)
 

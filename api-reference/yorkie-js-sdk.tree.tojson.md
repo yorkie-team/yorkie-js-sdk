@@ -6,12 +6,12 @@
 
 `toJSON` returns the JSON string of this tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toJSON(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

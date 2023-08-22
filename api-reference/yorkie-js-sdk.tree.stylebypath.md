@@ -6,7 +6,7 @@
 
 `styleByPath` sets the attributes to the elements of the given path.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 styleByPath(path: Array<number>, attributes: {
@@ -21,7 +21,7 @@ styleByPath(path: Array<number>, attributes: {
 |  path | Array&lt;number&gt; |  |
 |  attributes | { \[key: string\]: any; } |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

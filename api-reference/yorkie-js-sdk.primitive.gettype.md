@@ -6,12 +6,12 @@
 
 `getType` returns the type of the value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getType(): PrimitiveType;
 ```
-<b>Returns:</b>
+**Returns:**
 
 PrimitiveType
 

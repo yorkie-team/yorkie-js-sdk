@@ -6,7 +6,7 @@
 
 `DocumentChangedEvent` value
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 value: Array<string>;

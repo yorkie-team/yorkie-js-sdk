@@ -6,7 +6,7 @@
 
 `StatusChangedEvent` is an event that occurs when the Client's state changes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface StatusChangedEvent 
@@ -14,8 +14,8 @@ export declare interface StatusChangedEvent
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [type](./yorkie-js-sdk.statuschangedevent.type.md) | [ClientEventType.StatusChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StatusChanged |
-|  [value](./yorkie-js-sdk.statuschangedevent.value.md) | [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>StatusChangedEvent</code> value |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [type](./yorkie-js-sdk.statuschangedevent.type.md) |  | [ClientEventType.StatusChanged](./yorkie-js-sdk.clienteventtype.md) | enum [ClientEventType](./yorkie-js-sdk.clienteventtype.md)<!-- -->.StatusChanged |
+|  [value](./yorkie-js-sdk.statuschangedevent.value.md) |  | [ClientStatus](./yorkie-js-sdk.clientstatus.md) | <code>StatusChangedEvent</code> value |
 

@@ -6,7 +6,7 @@
 
 `TreeOperationInfo` represents the OperationInfo for the yorkie.Tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type TreeOperationInfo = TreeEditOpInfo | TreeStyleOpInfo;

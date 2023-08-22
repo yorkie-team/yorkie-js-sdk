@@ -6,7 +6,7 @@
 
 `IncreaseOpInfo` represents the information of the increase operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type IncreaseOpInfo = {

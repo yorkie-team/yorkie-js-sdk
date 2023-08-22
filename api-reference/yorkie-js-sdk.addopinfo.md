@@ -6,7 +6,7 @@
 
 `AddOpInfo` represents the information of the add operation.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type AddOpInfo = {

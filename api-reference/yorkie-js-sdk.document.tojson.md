@@ -6,12 +6,12 @@
 
 `toJSON` returns the JSON encoding of this document.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toJSON(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

@@ -6,7 +6,7 @@
 
 `getPrimitiveType` returns the primitive type of the value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static getPrimitiveType(value: unknown): PrimitiveType | undefined;
@@ -18,7 +18,7 @@ static getPrimitiveType(value: unknown): PrimitiveType | undefined;
 |  --- | --- | --- |
 |  value | unknown |  |
 
-<b>Returns:</b>
+**Returns:**
 
 PrimitiveType \| undefined
 

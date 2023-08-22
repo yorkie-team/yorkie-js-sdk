@@ -6,7 +6,7 @@
 
 `CRDTTreeNodeIDStruct` represents the structure of CRDTTreeNodeID. It is used to serialize and deserialize the CRDTTreeNodeID.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type CRDTTreeNodeIDStruct = {
@@ -14,5 +14,5 @@ export declare type CRDTTreeNodeIDStruct = {
     offset: number;
 };
 ```
-<b>References:</b> [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md)
+**References:** [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md)
 

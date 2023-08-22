@@ -6,12 +6,12 @@
 
 `hasPresenceChange` returns whether this change has presence change or not.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 hasPresenceChange(): boolean;
 ```
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

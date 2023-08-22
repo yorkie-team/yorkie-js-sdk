@@ -6,12 +6,12 @@
 
 `getID` returns a ActorID of client.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 getID(): string | undefined;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string \| undefined
 

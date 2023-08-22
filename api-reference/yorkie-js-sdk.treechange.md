@@ -6,7 +6,7 @@
 
 `TreeChange` represents the change in the tree.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare interface TreeChange 
@@ -14,13 +14,13 @@ export declare interface TreeChange
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [actor](./yorkie-js-sdk.treechange.actor.md) | [ActorID](./yorkie-js-sdk.actorid.md) |  |
-|  [from](./yorkie-js-sdk.treechange.from.md) | number |  |
-|  [fromPath](./yorkie-js-sdk.treechange.frompath.md) | Array&lt;number&gt; |  |
-|  [to](./yorkie-js-sdk.treechange.to.md) | number |  |
-|  [toPath](./yorkie-js-sdk.treechange.topath.md) | Array&lt;number&gt; |  |
-|  [type](./yorkie-js-sdk.treechange.type.md) | [TreeChangeType](./yorkie-js-sdk.treechangetype.md) |  |
-|  [value?](./yorkie-js-sdk.treechange.value.md) | Array&lt;TreeNode&gt; \| { \[key: string\]: any; } | <i>(Optional)</i> |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [actor](./yorkie-js-sdk.treechange.actor.md) |  | [ActorID](./yorkie-js-sdk.actorid.md) |  |
+|  [from](./yorkie-js-sdk.treechange.from.md) |  | number |  |
+|  [fromPath](./yorkie-js-sdk.treechange.frompath.md) |  | Array&lt;number&gt; |  |
+|  [to](./yorkie-js-sdk.treechange.to.md) |  | number |  |
+|  [toPath](./yorkie-js-sdk.treechange.topath.md) |  | Array&lt;number&gt; |  |
+|  [type](./yorkie-js-sdk.treechange.type.md) |  | [TreeChangeType](./yorkie-js-sdk.treechangetype.md) |  |
+|  [value?](./yorkie-js-sdk.treechange.value.md) |  | Array&lt;TreeNode&gt; \| { \[key: string\]: any; } | _(Optional)_ |
 

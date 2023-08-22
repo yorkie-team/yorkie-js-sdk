@@ -6,12 +6,12 @@
 
 `toIDString` returns the lamport string for this Ticket.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 toIDString(): string;
 ```
-<b>Returns:</b>
+**Returns:**
 
 string
 

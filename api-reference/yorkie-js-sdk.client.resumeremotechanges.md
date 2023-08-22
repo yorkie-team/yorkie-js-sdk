@@ -6,7 +6,7 @@
 
 `resumeRemoteChanges` resumes the synchronization of remote changes, allowing both local and remote changes to be applied.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 resumeRemoteChanges<T, P extends Indexable>(doc: Document<T, P>): void;
@@ -16,9 +16,9 @@ resumeRemoteChanges<T, P extends Indexable>(doc: Document<T, P>): void;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  doc | Document&lt;T, P&gt; |  |
+|  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

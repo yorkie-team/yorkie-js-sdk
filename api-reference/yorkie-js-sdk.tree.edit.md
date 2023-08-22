@@ -6,7 +6,7 @@
 
 `edit` edits this tree with the given nodes.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 edit(fromIdx: number, toIdx: number, ...contents: Array<TreeNode>): boolean;
@@ -20,7 +20,7 @@ edit(fromIdx: number, toIdx: number, ...contents: Array<TreeNode>): boolean;
 |  toIdx | number |  |
 |  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
 
-<b>Returns:</b>
+**Returns:**
 
 boolean
 

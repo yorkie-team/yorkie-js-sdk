@@ -6,7 +6,7 @@
 
 `valueFromBytes` parses the given bytes into value.
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 static valueFromBytes(primitiveType: PrimitiveType, bytes: Uint8Array): PrimitiveValue;
@@ -19,7 +19,7 @@ static valueFromBytes(primitiveType: PrimitiveType, bytes: Uint8Array): Primitiv
 |  primitiveType | PrimitiveType |  |
 |  bytes | Uint8Array |  |
 
-<b>Returns:</b>
+**Returns:**
 
 [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md)
 

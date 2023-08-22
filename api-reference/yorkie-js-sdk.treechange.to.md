@@ -4,7 +4,7 @@
 
 ## TreeChange.to property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 to: number;
