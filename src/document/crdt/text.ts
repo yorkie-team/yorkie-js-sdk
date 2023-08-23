@@ -274,17 +274,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   }
 
   /**
-   * `select` stores that the given range has been selected.
-   *
-   */
-  public select(
-    range: RGATreeSplitPosRange,
-    updatedAt: TimeTicket,
-  ): TextChange<A> | undefined {
-    return this.selectPriv(range, updatedAt);
-  }
-
-  /**
    * `indexRangeToPosRange` returns the position range of the given index range.
    */
   public indexRangeToPosRange(
