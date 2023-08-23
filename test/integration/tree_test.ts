@@ -921,6 +921,48 @@ describe('Tree.edit', function () {
       });
     }, 'element node and text node cannot be passed together');
   });
+
+  it('delete nodes in a multi-level range test', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ab' }],
+          },
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'p',
+                children: [{ type: 'text', value: 'cd' }],
+              },
+            ],
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ef' }],
+          },
+        ],
+      });
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p>ab</p><p><p>cd</p></p><p>ef</p></doc>`,
+    );
+
+    doc.update((root) => root.t.edit(2, 12));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p>a</p><p>f</p></doc>`,
+    );
+
+    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
+    // assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
+  });
 });
 
 describe('Tree.style', function () {
@@ -1088,6 +1130,65 @@ describe('Tree.style', function () {
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
     }, this.test!.title);
+  });
+
+  it('style node with element attributes test', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ab' }],
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'cd' }],
+          },
+        ],
+      });
+
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p><p>cd</p></doc>`);
+
+      // 01. style attributes to an element node.
+      // style attributes with opening tag
+      root.t.style(0, 1, { weight: 'bold' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold">ab</p><p>cd</p></doc>`,
+      );
+
+      // style attributes with closing tag
+      root.t.style(3, 4, { color: 'red' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red">ab</p><p>cd</p></doc>`,
+      );
+
+      // style attributes with the whole
+      root.t.style(0, 4, { size: 'small' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small">ab</p><p>cd</p></doc>`,
+      );
+
+      // 02. style attributes to elements.
+      root.t.style(0, 5, { style: 'italic' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+      );
+
+      // 03. Ignore styling attributes to text nodes.
+      root.t.style(1, 3, { bold: 'true' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+      );
+    });
   });
 });
 

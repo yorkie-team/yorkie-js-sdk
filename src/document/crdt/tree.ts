@@ -27,6 +27,7 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverseAll,
+  TagContain,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -634,34 +635,17 @@ export class CRDTTree extends CRDTGCElement {
       value: attributes ? parseObjectValues(attributes) : undefined,
     });
 
-    if (fromLeft !== toLeft) {
-      let fromChildIndex;
-      let parent;
+    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
+      if (!node.isRemoved && attributes) {
+        if (!node.attrs) {
+          node.attrs = new RHT();
+        }
 
-      if (fromLeft.parent === toLeft.parent) {
-        parent = fromLeft.parent!;
-        fromChildIndex = parent.allChildren.indexOf(fromLeft) + 1;
-      } else {
-        parent = fromLeft;
-        fromChildIndex = 0;
-      }
-
-      const toChildIndex = parent.allChildren.indexOf(toLeft);
-
-      for (let i = fromChildIndex; i <= toChildIndex; i++) {
-        const node = parent.allChildren[i];
-
-        if (!node.isRemoved && attributes) {
-          if (!node.attrs) {
-            node.attrs = new RHT();
-          }
-
-          for (const [key, value] of Object.entries(attributes)) {
-            node.attrs.set(key, value, editedAt);
-          }
+        for (const [key, value] of Object.entries(attributes)) {
+          node.attrs.set(key, value, editedAt);
         }
       }
-    }
+    });
 
     return changes;
   }
@@ -701,22 +685,18 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
 
-    if (fromLeft !== toLeft) {
-      let fromChildIndex;
-      let parent;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      (node, contain) => {
+        // If node is a element node and half-contained in the range,
+        // it should not be removed.
+        if (!node.isText && contain != TagContain.ContainsAll) {
+          return;
+        }
 
-      if (fromLeft.parent === toLeft.parent) {
-        parent = fromLeft.parent!;
-        fromChildIndex = parent.allChildren.indexOf(fromLeft) + 1;
-      } else {
-        parent = fromLeft;
-        fromChildIndex = 0;
-      }
-
-      const toChildIndex = parent.allChildren.indexOf(toLeft);
-
-      for (let i = fromChildIndex; i <= toChildIndex; i++) {
-        const node = parent.allChildren[i];
         const actorID = node.getCreatedAt().getActorID()!;
         const latestCreatedAt = latestCreatedAtMapByActor
           ? latestCreatedAtMapByActor!.has(actorID!)
@@ -732,29 +712,16 @@ export class CRDTTree extends CRDTGCElement {
             latestCreatedAtMap.set(actorID, createdAt);
           }
 
-          traverseAll(node, (node) => {
-            if (node.canDelete(editedAt, MaxTimeTicket)) {
-              const latestCreatedAt = latestCreatedAtMap.get(actorID);
-              const createdAt = node.getCreatedAt();
-
-              if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-                latestCreatedAtMap.set(actorID, createdAt);
-              }
-            }
-
-            if (!node.isRemoved) {
-              toBeRemoveds.push(node);
-            }
-          });
+          toBeRemoveds.push(node);
         }
-      }
+      },
+    );
 
-      for (const node of toBeRemoveds) {
-        node.remove(editedAt);
+    for (const node of toBeRemoveds) {
+      node.remove(editedAt);
 
-        if (node.isRemoved) {
-          this.removedNodeMap.set(node.id.toIDString(), node);
-        }
+      if (node.isRemoved) {
+        this.removedNodeMap.set(node.id.toIDString(), node);
       }
     }
 
@@ -788,6 +755,19 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     return [changes, latestCreatedAtMap];
+  }
+
+  private traverseInPosRange(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    callback: (node: CRDTTreeNode, contain: TagContain) => void,
+  ): void {
+    const fromIdx = this.toIndex(fromParent, fromLeft);
+    const toIdx = this.toIndex(toParent, toLeft);
+
+    return this.indexTree.nodesBetween(fromIdx, toIdx, callback);
   }
 
   /**

@@ -43,12 +43,12 @@ function nodesBetweenEqual(
   to: number,
   expected: Array<string>,
 ) {
-  const nodes: Array<CRDTTreeNode> = [];
-  tree.nodesBetween(from, to, (node) => {
-    nodes.push(node);
+  const actual: Array<string> = [];
+  tree.nodesBetween(from, to, (node, contain) => {
+    actual.push(`${toDiagnostic(node)}:${contain}`);
     return true;
   });
-  assert.deepEqual(nodes.map(toDiagnostic), expected);
+  assert.deepEqual(actual, expected);
 }
 
 describe('IndexTree', function () {
@@ -143,17 +143,22 @@ describe('IndexTree', function () {
     });
 
     nodesBetweenEqual(tree, 2, 11, [
-      'text.b',
-      'p',
-      'text.cde',
-      'p',
-      'text.fg',
-      'p',
+      'text.b:ContainsAll',
+      'p:ContainsClosing',
+      'text.cde:ContainsAll',
+      'p:ContainsAll',
+      'text.fg:ContainsAll',
+      'p:ContainsOpening',
     ]);
-    nodesBetweenEqual(tree, 2, 6, ['text.b', 'p', 'text.cde', 'p']);
-    nodesBetweenEqual(tree, 0, 1, ['p']);
-    nodesBetweenEqual(tree, 3, 4, ['p']);
-    nodesBetweenEqual(tree, 3, 5, ['p', 'p']);
+    nodesBetweenEqual(tree, 2, 6, [
+      'text.b:ContainsAll',
+      'p:ContainsClosing',
+      'text.cde:ContainsAll',
+      'p:ContainsOpening',
+    ]);
+    nodesBetweenEqual(tree, 0, 1, ['p:ContainsOpening']);
+    nodesBetweenEqual(tree, 3, 4, ['p:ContainsClosing']);
+    nodesBetweenEqual(tree, 3, 5, ['p:ContainsClosing', 'p:ContainsOpening']);
   });
 
   it('Can convert index to pos', function () {
