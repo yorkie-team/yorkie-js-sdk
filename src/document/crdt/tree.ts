@@ -629,7 +629,7 @@ export class CRDTTree extends CRDTGCElement {
       from: this.toIndex(fromParent, fromLeft),
       to: this.toIndex(toParent, toLeft),
       fromPath: this.toPath(fromParent, fromLeft),
-      toPath: this.toPath(fromParent, fromLeft),
+      toPath: this.toPath(toParent, toLeft),
       actor: editedAt.getActorID()!,
       value: attributes ? parseObjectValues(attributes) : undefined,
     });
