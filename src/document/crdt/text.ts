@@ -28,6 +28,7 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `TextChangeType` is the type of TextChange.
+ *
  */
 enum TextChangeType {
   Content = 'content',
@@ -225,6 +226,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
+   * 
    */
   public setStyle(
     range: RGATreeSplitPosRange,
@@ -347,6 +349,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
   /**
    * `getRGATreeSplit` returns rgaTreeSplit.
+   *
    */
   public getRGATreeSplit(): RGATreeSplit<CRDTTextValue> {
     return this.rgaTreeSplit;
@@ -369,6 +372,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
   /**
    * `purgeRemovedNodesBefore` purges removed nodes before the given time.
+   *
    */
   public purgeRemovedNodesBefore(ticket: TimeTicket): number {
     return this.rgaTreeSplit.purgeRemovedNodesBefore(ticket);
