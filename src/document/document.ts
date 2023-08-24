@@ -475,8 +475,10 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       const change = context.getChange();
+      // TODO: consider about getting undoOps and presence
       const opInfos = change.execute(this.root, this.presences);
       this.localChanges.push(change);
+      // TODO: get undoOps through context.getReverseOps() and add to undoStack
       this.changeID = change.getID();
 
       if (change.hasOperations()) {

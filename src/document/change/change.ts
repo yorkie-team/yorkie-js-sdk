@@ -138,11 +138,13 @@ export class Change<P extends Indexable> {
   ): Array<OperationInfo> {
     const opInfos: Array<OperationInfo> = [];
     for (const operation of this.operations) {
+      // TODO: generate reverse operation
       const infos = operation.execute(root);
       opInfos.push(...infos);
     }
 
     if (this.presenceChange) {
+      // TODO: generate reverse operation for presence
       if (this.presenceChange.type === PresenceChangeType.Put) {
         presences.set(this.id.getActorID()!, this.presenceChange.presence);
       } else {
