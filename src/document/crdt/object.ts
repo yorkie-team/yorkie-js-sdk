@@ -25,7 +25,7 @@ import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
  * `CRDTObject` represents an object data type, but unlike regular JSON,
  * it has `TimeTicket`s which are created by logical clock.
  *
- *
+ * @internal
  */
 export class CRDTObject extends CRDTContainer {
   private memberNodes: ElementRHT;
@@ -182,7 +182,7 @@ export class CRDTObject extends CRDTContainer {
 
   /**
    * eslint-disable-next-line jsdoc/require-jsdoc
-   * 
+   * @internal
    */
   public *[Symbol.iterator](): IterableIterator<[string, CRDTElement]> {
     const keySet = new Set<string>();

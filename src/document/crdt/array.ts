@@ -24,7 +24,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.
  *
- * 
+ * @internal
  */
 export class CRDTArray extends CRDTContainer {
   private elements: RGATreeList;
@@ -152,7 +152,7 @@ export class CRDTArray extends CRDTContainer {
 
   /**
    * eslint-disable-next-line jsdoc/require-jsdoc
-   * 
+   * @internal
    */
   public *[Symbol.iterator](): IterableIterator<CRDTElement> {
     for (const node of this.elements) {

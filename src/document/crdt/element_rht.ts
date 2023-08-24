@@ -69,6 +69,7 @@ export class ElementRHTNode {
 /**
  * ElementRHT is a hashtable with logical clock(Replicated hashtable)
  *
+ * @internal
  */
 export class ElementRHT {
   private nodeMapByKey: Map<string, ElementRHTNode>;

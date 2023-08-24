@@ -160,7 +160,9 @@ export type ClientEvent =
   | StreamConnectionStatusChangedEvent
   | DocumentSyncedEvent;
 
-
+/**
+ * @internal
+ */
 export interface BaseClientEvent {
   type: ClientEventType;
 }

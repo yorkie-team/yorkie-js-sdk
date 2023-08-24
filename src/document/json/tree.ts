@@ -206,6 +206,7 @@ export class Tree {
 
   /**
    * `initialize` initialize this tree with context and internal tree.
+   * @internal
    */
   public initialize(context: ChangeContext, tree: CRDTTree): void {
     this.context = context;

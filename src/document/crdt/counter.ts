@@ -24,7 +24,9 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
 
-
+/**
+ * @internal
+ */
 export enum CounterType {
   IntegerCnt,
   LongCnt,
@@ -36,7 +38,7 @@ export type CounterValue = number | Long;
  * `CRDTCounter` is a CRDT implementation of a counter. It is used to represent
  * a number that can be incremented or decremented.
  *
- * 
+ * @internal
  */
 export class CRDTCounter extends CRDTElement {
   private valueType: CounterType;

@@ -17,15 +17,33 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
 
+/**
+ * @internal
+ */
 export type NextFn<T> = (value: T) => void;
+
+/**
+ * @internal
+ */
 export type ErrorFn = (error: Error) => void;
+
+/**
+ * @internal
+ */
 export type CompleteFn = () => void;
 
+/**
+ * @internal
+ */
 export interface Observer<T> {
   next: NextFn<T>;
   error?: ErrorFn;
   complete?: CompleteFn;
 }
+
+/**
+ * @internal
+ */
 export type Unsubscribe = () => void;
 
 export interface SubscribeFn<T> {
@@ -192,6 +210,9 @@ class ObserverProxy<T> implements Observer<T> {
   }
 }
 
+/**
+ * @internal
+ */
 export interface Observable<T> {
   subscribe: SubscribeFn<T>;
   getProxy?: () => ObserverProxy<T>;

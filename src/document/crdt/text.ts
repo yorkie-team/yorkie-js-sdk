@@ -29,7 +29,7 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 /**
  * `TextChangeType` is the type of TextChange.
  *
- * 
+ * @internal
  */
 enum TextChangeType {
   Content = 'content',
@@ -58,7 +58,7 @@ interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
  * which has a attributes that expresses the text style.
  * Attributes are represented by RHT.
  *
- * 
+ * @internal
  */
 export class CRDTTextValue {
   private attributes: RHT;
@@ -156,6 +156,7 @@ export class CRDTTextValue {
 /**
  *  `CRDTText` is a custom CRDT data type to represent the contents of text editors.
  *
+ * @internal
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
@@ -181,7 +182,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   /**
    * `edit` edits the given range with the given value and attributes.
    *
-   * 
+   * @internal
    */
   public edit(
     range: RGATreeSplitPosRange,
@@ -229,7 +230,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
-   * 
+   * @internal
    */
   public setStyle(
     range: RGATreeSplitPosRange,
@@ -277,7 +278,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 =======
    * `select` stores that the given range has been selected.
    *
-   * 
+   * @internal
    */
   public select(
     range: RGATreeSplitPosRange,
@@ -368,7 +369,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   /**
    * `getRGATreeSplit` returns rgaTreeSplit.
    *
-   * 
+   * @internal
    */
   public getRGATreeSplit(): RGATreeSplit<CRDTTextValue> {
     return this.rgaTreeSplit;
@@ -392,7 +393,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   /**
    * `purgeRemovedNodesBefore` purges removed nodes before the given time.
    *
-   * 
+   * @internal
    */
   public purgeRemovedNodesBefore(ticket: TimeTicket): number {
     return this.rgaTreeSplit.purgeRemovedNodesBefore(ticket);
