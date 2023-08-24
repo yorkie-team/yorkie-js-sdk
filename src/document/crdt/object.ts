@@ -182,6 +182,7 @@ export class CRDTObject extends CRDTContainer {
 
   /**
    * eslint-disable-next-line jsdoc/require-jsdoc
+   * 
    */
   public *[Symbol.iterator](): IterableIterator<[string, CRDTElement]> {
     const keySet = new Set<string>();

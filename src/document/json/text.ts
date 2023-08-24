@@ -59,6 +59,7 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `initialize` initialize this text with context and internal text.
+   * 
    */
   public initialize(context: ChangeContext, text: CRDTText<A>): void {
     this.context = context;
