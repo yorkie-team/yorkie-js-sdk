@@ -238,9 +238,6 @@ export class RGATreeSplitPos {
   }
 }
 
-/**
- * @internal
- */
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 
 /**
@@ -492,7 +489,6 @@ export class RGATreeSplitNode<
  * reduce the size of CRDT metadata. When an edit occurs on a block,
  * the block is split.
  *
- * @internal
  */
 export class RGATreeSplit<T extends RGATreeSplitValue> {
   private head: RGATreeSplitNode<T>;

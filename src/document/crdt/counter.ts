@@ -24,9 +24,6 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
 
-/**
- * @internal
- */
 export enum CounterType {
   IntegerCnt,
   LongCnt,
