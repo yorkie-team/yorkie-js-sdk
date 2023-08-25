@@ -34,7 +34,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 * Fix `pathToTreePos` TC by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/571
 * Fix GC to remove all removed nodes by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/568
 * Expose pathToIndex API by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/567
-* fix: react-tldraw readme typo by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/598
+* Fix react-tldraw readme typo by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/598
 * Fix event-related tests to be deterministic by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/602
 * Fix high and critical vulnerabilities by @mojosoeun in https://github.com/yorkie-team/yorkie-js-sdk/pull/630
 
