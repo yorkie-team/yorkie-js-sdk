@@ -503,6 +503,7 @@ export enum TagContained {
  * `nodesBetween` iterates the nodes between the given range.
  * If the given range is collapsed, the callback is not called.
  * It traverses the tree with postorder traversal.
+ * NOTE(sejongk): Nodes should not be removed in callback, because it leads wrong behaviors.
  */
 function nodesBetween<T extends IndexTreeNode<T>>(
   root: T,
