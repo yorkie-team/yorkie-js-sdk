@@ -65,6 +65,7 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
+import { History } from '@yorkie-js-sdk/src/document/history/history';
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -412,6 +413,11 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private presences: Map<ActorID, P>;
 
+  /**
+   * `history` manages undo and redo of document.
+   */
+  public history: History;
+
   constructor(key: string) {
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -427,6 +433,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.onlineClients = new Set();
     this.presences = new Map();
+
+    this.history = new History();
   }
 
   /**
@@ -476,8 +484,11 @@ export class Document<T, P extends Indexable = Indexable> {
 
       const change = context.getChange();
       // TODO: consider about getting undoOps and presence
-      const opInfos = change.execute(this.root, this.presences);
+      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       this.localChanges.push(change);
+      this.history.pushUndo(reverseOps);
+      this.history.resetRedo();
+
       // TODO: get undoOps through context.getReverseOps() and add to undoStack
       this.changeID = change.getID();
 
@@ -1016,12 +1027,12 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const opInfos = change.execute(this.root, this.presences);
+      const executionResult = change.execute(this.root, this.presences);
       if (change.hasOperations()) {
         changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
-          operations: opInfos,
+          operations: executionResult.opInfos,
         };
       }
 
