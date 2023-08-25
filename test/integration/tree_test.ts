@@ -931,7 +931,10 @@ describe('Tree.edit', function () {
         children: [
           {
             type: 'p',
-            children: [{ type: 'text', value: 'ab' }],
+            children: [
+              { type: 'text', value: 'ab' },
+              { type: 'p', children: [{ type: 'text', value: 'x' }] },
+            ],
           },
           {
             type: 'p',
@@ -944,17 +947,20 @@ describe('Tree.edit', function () {
           },
           {
             type: 'p',
-            children: [{ type: 'text', value: 'ef' }],
+            children: [
+              { type: 'p', children: [{ type: 'text', value: 'y' }] },
+              { type: 'text', value: 'ef' },
+            ],
           },
         ],
       });
     });
     assert.equal(
       doc.getRoot().t.toXML(),
-      /*html*/ `<doc><p>ab</p><p><p>cd</p></p><p>ef</p></doc>`,
+      /*html*/ `<doc><p>ab<p>x</p></p><p><p>cd</p></p><p><p>y</p>ef</p></doc>`,
     );
 
-    doc.update((root) => root.t.edit(2, 12));
+    doc.update((root) => root.t.edit(2, 18));
     assert.equal(
       doc.getRoot().t.toXML(),
       /*html*/ `<doc><p>a</p><p>f</p></doc>`,

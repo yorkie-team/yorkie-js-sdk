@@ -143,22 +143,22 @@ describe('IndexTree', function () {
     });
 
     nodesBetweenEqual(tree, 2, 11, [
-      'text.b:ContainsAll',
-      'p:ContainsClosing',
-      'text.cde:ContainsAll',
-      'p:ContainsAll',
-      'text.fg:ContainsAll',
-      'p:ContainsOpening',
+      'text.b:All',
+      'p:Closing',
+      'text.cde:All',
+      'p:All',
+      'text.fg:All',
+      'p:Opening',
     ]);
     nodesBetweenEqual(tree, 2, 6, [
-      'text.b:ContainsAll',
-      'p:ContainsClosing',
-      'text.cde:ContainsAll',
-      'p:ContainsOpening',
+      'text.b:All',
+      'p:Closing',
+      'text.cde:All',
+      'p:Opening',
     ]);
-    nodesBetweenEqual(tree, 0, 1, ['p:ContainsOpening']);
-    nodesBetweenEqual(tree, 3, 4, ['p:ContainsClosing']);
-    nodesBetweenEqual(tree, 3, 5, ['p:ContainsClosing', 'p:ContainsOpening']);
+    nodesBetweenEqual(tree, 0, 1, ['p:Opening']);
+    nodesBetweenEqual(tree, 3, 4, ['p:Closing']);
+    nodesBetweenEqual(tree, 3, 5, ['p:Closing', 'p:Opening']);
   });
 
   it('Can convert index to pos', function () {

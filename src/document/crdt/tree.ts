@@ -27,7 +27,7 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverseAll,
-  TagContain,
+  TagContained,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -693,7 +693,7 @@ export class CRDTTree extends CRDTGCElement {
       (node, contain) => {
         // If node is a element node and half-contained in the range,
         // it should not be removed.
-        if (!node.isText && contain != TagContain.ContainsAll) {
+        if (!node.isText && contain != TagContained.All) {
           return;
         }
 
@@ -762,7 +762,7 @@ export class CRDTTree extends CRDTGCElement {
     fromLeft: CRDTTreeNode,
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
-    callback: (node: CRDTTreeNode, contain: TagContain) => void,
+    callback: (node: CRDTTreeNode, contain: TagContained) => void,
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const toIdx = this.toIndex(toParent, toLeft);

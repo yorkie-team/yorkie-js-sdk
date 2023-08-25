@@ -489,14 +489,14 @@ function ancestorOf<T extends IndexTreeNode<T>>(ancestor: T, node: T): boolean {
   return false;
 }
 
-// TagContain represents whether the opening or closing tag of a element is selected.
-export enum TagContain {
-  // ContainsAll represents that both opening and closing tag of a element are selected.
-  ContainsAll = 'ContainsAll',
-  // ContainsOpening represents that only the opening tag is selected.
-  ContainsOpening = 'ContainsOpening',
-  // ContainsClosing represents that only the closing tag is selected.
-  ContainsClosing = 'ContainsClosing',
+// TagContained represents whether the opening or closing tag of a element is selected.
+export enum TagContained {
+  // All represents that both opening and closing tag of a element are selected.
+  All = 'All',
+  // Opening represents that only the opening tag is selected.
+  Opening = 'Opening',
+  // Closing represents that only the closing tag is selected.
+  Closing = 'Closing',
 }
 
 /**
@@ -508,7 +508,7 @@ function nodesBetween<T extends IndexTreeNode<T>>(
   root: T,
   from: number,
   to: number,
-  callback: (node: T, contain: TagContain) => void,
+  callback: (node: T, contain: TagContained) => void,
 ) {
   if (from > to) {
     throw new Error(`from is greater than to: ${from} > ${to}`);
@@ -550,13 +550,13 @@ function nodesBetween<T extends IndexTreeNode<T>>(
       // If the range spans outside the child,
       // the callback is called with the child.
       if (fromChild < 0 || toChild > child.size || child.isText) {
-        let contain: TagContain;
+        let contain: TagContained;
         if ((fromChild < 0 && toChild > child.size) || child.isText) {
-          contain = TagContain.ContainsAll;
+          contain = TagContained.All;
         } else if (fromChild < 0) {
-          contain = TagContain.ContainsOpening;
+          contain = TagContained.Opening;
         } else {
-          contain = TagContain.ContainsClosing;
+          contain = TagContained.Closing;
         }
         callback(child, contain);
       }
@@ -738,7 +738,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   nodesBetween(
     from: number,
     to: number,
-    callback: (node: T, contain: TagContain) => void,
+    callback: (node: T, contain: TagContained) => void,
   ): void {
     nodesBetween<T>(this.root, from, to, callback);
   }
