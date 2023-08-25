@@ -15,8 +15,8 @@
  */
 
 import {
+  ExecutionResult,
   Operation,
-  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -35,7 +35,7 @@ export class IncreaseOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.value = value;
@@ -47,7 +47,7 @@ export class IncreaseOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): IncreaseOperation {
     return new IncreaseOperation(parentCreatedAt, value, executedAt);
   }
@@ -55,7 +55,7 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -67,13 +67,31 @@ export class IncreaseOperation extends Operation {
     const value = this.value.deepcopy() as Primitive;
     counter.increase(value);
     // TODO: generate reverse operation
-    return [
-      {
-        type: 'increase',
-        path: root.createPath(this.getParentCreatedAt()),
-        value: value.getValue() as number,
-      },
-    ];
+    return {
+      opInfos: [
+        {
+          type: 'increase',
+          path: root.createPath(this.getParentCreatedAt()),
+          value: value.getValue() as number,
+        },
+      ],
+      reverseOps: [this.getReverseOperation()],
+    };
+  }
+
+  /**
+   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTRoot`.
+   */
+  public getReverseOperation(): Operation {
+    const primitiveValue = this.value.deepcopy() as Primitive;
+    // TODO(chach912): check for long type
+    let value = primitiveValue.getValue() as number;
+    value *= -1;
+    const reverseOp = IncreaseOperation.create(
+      this.getParentCreatedAt(),
+      Primitive.of(value, primitiveValue.getCreatedAt()),
+    );
+    return reverseOp;
   }
 
   /**

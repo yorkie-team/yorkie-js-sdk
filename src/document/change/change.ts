@@ -16,6 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
+  ExecutionResult,
   Operation,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -132,26 +133,33 @@ export class Change<P extends Indexable> {
   /**
    * `execute` executes the operations of this change to the given root.
    */
-  public execute(
-    root: CRDTRoot,
-    presences: Map<ActorID, P>,
-  ): Array<OperationInfo> {
+  public execute(root: CRDTRoot, presences: Map<ActorID, P>): ExecutionResult {
     const opInfos: Array<OperationInfo> = [];
+    const reverseOps: Array<Operation> = [];
     for (const operation of this.operations) {
-      // TODO: generate reverse operation
-      const infos = operation.execute(root);
-      opInfos.push(...infos);
+      const executionResult = operation.execute(root);
+      if (
+        (executionResult as ExecutionResult).opInfos !== undefined &&
+        (executionResult as ExecutionResult).reverseOps !== undefined
+      ) {
+        opInfos.push(...(executionResult as ExecutionResult).opInfos);
+        reverseOps.push(...(executionResult as ExecutionResult).reverseOps);
+      } else {
+        // TODO(Hyemmie): need to edit return type as "ExecutionResult"
+        // after implementing every operation's reverse operation
+        opInfos.push(...(executionResult as Array<OperationInfo>));
+      }
     }
 
     if (this.presenceChange) {
-      // TODO: generate reverse operation for presence
+      // TODO(chacha912): generate reverse operation for presence
       if (this.presenceChange.type === PresenceChangeType.Put) {
         presences.set(this.id.getActorID()!, this.presenceChange.presence);
       } else {
         presences.delete(this.id.getActorID()!);
       }
     }
-    return opInfos;
+    return { opInfos, reverseOps };
   }
 
   /**
