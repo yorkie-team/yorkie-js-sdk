@@ -197,8 +197,8 @@ export abstract class Operation {
   /**
    * `getExecutedAt` returns execution time of this operation.
    */
-  public getExecutedAt(): TimeTicket | undefined {
-    return this.executedAt;
+  public getExecutedAt(): TimeTicket {
+    return this.executedAt!;
   }
 
   /**
@@ -208,6 +208,13 @@ export abstract class Operation {
     if (this.executedAt) {
       this.executedAt = this.executedAt.setActor(actorID);
     }
+  }
+
+  /**
+   * `setExecutedAt` sets the executedAt.
+   */
+  public setExecutedAt(executedAt: TimeTicket): void {
+    this.executedAt = executedAt;
   }
 
   /**
@@ -228,9 +235,4 @@ export abstract class Operation {
   public abstract execute(
     root: CRDTRoot,
   ): ExecutionResult | Array<OperationInfo>;
-
-  /**
-   * `getReverseOperation` returns the reverse operation of this operation.
-   */
-  public abstract getReverseOperation(): Operation;
 }
