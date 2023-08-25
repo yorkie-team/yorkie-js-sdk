@@ -7,6 +7,37 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.6] - 2023-08-25
+
+### Added
+* Build error on node 18+ by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/584
+* add .nvmrc to specify Node version to LTS by @kutta97 in https://github.com/yorkie-team/yorkie-js-sdk/pull/586
+* Add client deactivation before unmount by @degurii in https://github.com/yorkie-team/yorkie-js-sdk/pull/595
+* Add `presence.get()` to get presence value in doc.update() by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/600
+* Add test for concurrent rich-text editing in the Peritext example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/610
+* Concurrent case handling for Yorkie.tree by @ehuas in https://github.com/yorkie-team/yorkie-js-sdk/pull/611
+* Support multi-level and parital element selection by @sejongk in https://github.com/yorkie-team/yorkie-js-sdk/pull/631
+
+### Changed
+* Move "Building & Testing" Guide to CONTRIBUTING.md by @g2hhh2ee in https://github.com/yorkie-team/yorkie-js-sdk/pull/589
+* Define more specific condition to check whether the input is opened by @su-ram in https://github.com/yorkie-team/yorkie-js-sdk/pull/597
+* Clean up methods related to presence by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/599
+* Refactor presence event code in examples by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/614
+* Change TreeNode to have IDs instead of insPrev, insNext by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/627
+* Remove select operation from text by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/622
+* Fix invalid path of style changes by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/632
+
+### Removed
+
+
+### Fixed
+* Fix `pathToTreePos` TC by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/571
+* Fix GC to remove all removed nodes by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/568
+* Expose pathToIndex API by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/567
+* fix: react-tldraw readme typo by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/598
+* Fix event-related tests to be deterministic by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/602
+* Fix high and critical vulnerabilities by @mojosoeun in https://github.com/yorkie-team/yorkie-js-sdk/pull/630
+
 ## [0.4.5] - 2023-07-20
 
 ### Added
