@@ -56,6 +56,7 @@ import {
   CounterOperationInfo,
   ArrayOperationInfo,
   TreeOperationInfo,
+  Operation,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
@@ -65,7 +66,6 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
-import { History } from '@yorkie-js-sdk/src/document/history/history';
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -416,7 +416,12 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `history` manages undo and redo of document.
    */
-  public history: History;
+  public history;
+  /**
+   * `undoStack` and `redoStack` store operations for `undo`, `redo`.
+   */
+  private undoStack: Array<Array<Operation>>;
+  private redoStack: Array<Array<Operation>>;
 
   constructor(key: string) {
     this.key = key;
@@ -434,7 +439,15 @@ export class Document<T, P extends Indexable = Indexable> {
     this.onlineClients = new Set();
     this.presences = new Map();
 
-    this.history = new History();
+    this.undoStack = [];
+    this.redoStack = [];
+
+    this.history = {
+      canUndo: this.canUndo.bind(this),
+      canRedo: this.canRedo.bind(this),
+      undo: this.undo.bind(this),
+      redo: this.redo.bind(this),
+    };
   }
 
   /**
@@ -486,8 +499,8 @@ export class Document<T, P extends Indexable = Indexable> {
       // TODO: consider about getting undoOps and presence
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       this.localChanges.push(change);
-      this.history.pushUndo(reverseOps);
-      this.history.resetRedo();
+      this.pushUndo(reverseOps);
+      this.resetRedo();
 
       // TODO: get undoOps through context.getReverseOps() and add to undoStack
       this.changeID = change.getID();
@@ -1161,5 +1174,111 @@ export class Document<T, P extends Indexable = Indexable> {
       }
     }
     return presences;
+  }
+
+  /**
+   * `canUndo` returns whether there are any operations to undo.
+   */
+  public canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  /**
+   * `canRedo` returns whether there are any operations to redo.
+   */
+  public canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
+  /**
+   * `pushUndo` pushes new undo operations of a change to undo stack.
+   */
+  private pushUndo(undoOps: Array<Operation>): void {
+    this.undoStack.push(undoOps);
+  }
+
+  /**
+   * `pushRedo` pushes new redo operations of a change to redo stack.
+   */
+  private pushRedo(redoOps: Array<Operation>): void {
+    this.redoStack.push(redoOps);
+  }
+
+  /**
+   * `resetRedo` flushes remaining redo operations.
+   */
+  private resetRedo(): void {
+    this.redoStack = [];
+  }
+
+  /**
+   * `undo` undoes the last operation executed by the current client.
+   * It does not impact operations made by other clients.
+   */
+  public undo(): void {
+    this.ensureClone();
+    const context = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!.root,
+    );
+    const undoOps = this.undoStack.pop();
+    if (undoOps === undefined) {
+      return;
+    }
+
+    for (let i = 0; i < undoOps.length; i++) {
+      const undoOp = undoOps[i];
+      // executedAt 발급
+      const ticket = context.issueTimeTicket();
+      undoOp.setExecutedAt(ticket);
+      // context 에 op 추가
+      context.push(undoOp);
+    }
+
+    // context 에서 change 생성 이후 execute
+    // execute 후처리 (리턴값: changeInfo, reverseOp)
+    // change → localChanges에 추가
+    // reverse op → redoStack에 추가
+    // changeInfo → event publish
+
+    if (context.hasChange()) {
+      const change = context.getChange();
+      // execute on proxy
+      try {
+        change.execute(this.clone!.root, this.presences);
+      } catch (err) {
+        // drop clone because it is contaminated.
+        this.clone = undefined;
+        logger.error(err);
+        throw err;
+      }
+      // execute on root
+      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      this.localChanges.push(change);
+      this.pushRedo(reverseOps);
+
+      this.changeID = change.getID();
+
+      if (change.hasOperations()) {
+        this.publish({
+          type: DocEventType.LocalChange,
+          value: {
+            message: change.getMessage() || '',
+            operations: opInfos,
+            actor: this.changeID.getActorID(),
+          },
+        });
+      }
+    }
+
+    return;
+  }
+
+  /**
+   * `redo` redoes the last operation executed by the current client.
+   * It does not impact operations made by other clients.
+   */
+  public redo(): void {
+    return;
   }
 }
