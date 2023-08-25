@@ -11,7 +11,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ### Added
 * Build error on node 18+ by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/584
-* add .nvmrc to specify Node version to LTS by @kutta97 in https://github.com/yorkie-team/yorkie-js-sdk/pull/586
+* Add .nvmrc to specify Node version to LTS by @kutta97 in https://github.com/yorkie-team/yorkie-js-sdk/pull/586
 * Add client deactivation before unmount by @degurii in https://github.com/yorkie-team/yorkie-js-sdk/pull/595
 * Add `presence.get()` to get presence value in doc.update() by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/600
 * Add test for concurrent rich-text editing in the Peritext example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/610
