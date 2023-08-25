@@ -275,6 +275,23 @@
                     deltaOp.attributes = attributes;
                   }
                   deltaOperations.push(deltaOp);
+
+                  // fix remote selection maintainance - https://github.com/yorkie-team/yorkie-js-sdk/issues/553
+                  const currentSeletionIndex = quill.getSelection().index;
+                  const currentSeletionLength = quill.getSelection().length;
+
+                  const needToAdjustPresenceSelection = from<=currentSeletionIndex;
+                  
+                  if(needToAdjustPresenceSelection){
+                    doc.update((root, presence) => {
+                      presence.set({
+                        selection: root.content.indexRangeToPosRange([
+                          currentSeletionIndex+insert.length,
+                          currentSeletionIndex+insert.length + currentSeletionLength,
+                        ]),
+                      });
+                    }, `adjust selection by ${client.getID()}`);
+                  }
                 }
               } else if (op.type === 'style') {
                 const { attributes } = toDeltaOperation(op.value);
