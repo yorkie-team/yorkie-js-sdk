@@ -536,10 +536,6 @@ function nodesBetween<T extends IndexTreeNode<T>>(
       const fromChild = child.isText ? from - pos : from - pos - 1;
       const toChild = child.isText ? to - pos : to - pos - 1;
 
-      // pos can be affected by children traversal and callback call.
-      // so, update pos before these to keep it safe.
-      pos += child.paddedSize;
-
       nodesBetween(
         child,
         Math.max(0, fromChild),
@@ -560,9 +556,8 @@ function nodesBetween<T extends IndexTreeNode<T>>(
         }
         callback(child, contain);
       }
-    } else {
-      pos += child.paddedSize;
     }
+    pos += child.paddedSize;
   }
 }
 

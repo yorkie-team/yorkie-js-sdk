@@ -636,7 +636,7 @@ export class CRDTTree extends CRDTGCElement {
     });
 
     this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
-      if (!node.isRemoved && attributes) {
+      if (!node.isRemoved && !node.isText && attributes) {
         if (!node.attrs) {
           node.attrs = new RHT();
         }
