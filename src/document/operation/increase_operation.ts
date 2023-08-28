@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Long from 'long';
 import {
   ExecutionResult,
   Operation,
@@ -21,7 +22,10 @@ import {
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import {
+  Primitive,
+  PrimitiveType,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 
@@ -84,9 +88,13 @@ export class IncreaseOperation extends Operation {
    */
   public getReverseOperation(): Operation {
     const primitiveValue = this.value.deepcopy() as Primitive;
-    // TODO(chach912): check for long type
-    let value = primitiveValue.getValue() as number;
-    value *= -1;
+
+    const valueType = primitiveValue.getType();
+    const value =
+      valueType === PrimitiveType.Integer
+        ? (primitiveValue.getValue() as number) * -1
+        : (primitiveValue.getValue() as Long).multiply(-1);
+
     const reverseOp = IncreaseOperation.create(
       this.getParentCreatedAt(),
       Primitive.of(value, primitiveValue.getCreatedAt()),
