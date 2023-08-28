@@ -834,7 +834,7 @@ describe('Document', function () {
     assert.equal('{"counter":103}', doc2.toSortedJSON());
   });
 
-  it.only('no change inside batch test', async function () {
+  it.only('undo/redo with empty stack must throw error', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -846,10 +846,53 @@ describe('Document', function () {
     assert.equal(false, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
 
-    doc.update((_root) => {}, 'no changes');
+    assert.throws(
+      () => {
+        doc.history.undo();
+      },
+      Error,
+      'There is no operation to be undone',
+    );
+
+    assert.throws(
+      () => {
+        doc.history.redo();
+      },
+      Error,
+      'There is no operation to be redone',
+    );
+  });
+
+  it.only('update() that contains undo/redo must throw error', async function () {
+    type TestDoc = { counter: Counter };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
     assert.equal(false, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
+
+    assert.throws(
+      () => {
+        doc.update(() => {
+          doc.history.undo();
+        }, 'undo');
+      },
+      Error,
+      'Undo is not allowed during an update',
+    );
+
+    assert.throws(
+      () => {
+        doc.update(() => {
+          doc.history.redo();
+        }, 'redo');
+      },
+      Error,
+      'Redo is not allowed during an update',
+    );
   });
 });

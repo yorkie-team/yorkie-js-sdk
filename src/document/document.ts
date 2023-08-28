@@ -423,6 +423,11 @@ export class Document<T, P extends Indexable = Indexable> {
   private undoStack: Array<Array<Operation>>;
   private redoStack: Array<Array<Operation>>;
 
+  /**
+   * `updateStatus` is a flag that represents if current document is updating by doc.update().
+   */
+  private updateStatus: boolean;
+
   constructor(key: string) {
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -439,6 +444,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.onlineClients = new Set();
     this.presences = new Map();
 
+    this.updateStatus = false;
     this.undoStack = [];
     this.redoStack = [];
 
@@ -460,6 +466,11 @@ export class Document<T, P extends Indexable = Indexable> {
     if (this.getStatus() === DocumentStatus.Removed) {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
+
+    if (this.getUpdateStatus()) {
+      //TODO(Hyemmie): Consider the handling of nested updates. (Issue #606)
+    }
+    this.setUpdateStatus(true);
 
     this.ensureClone();
     const context = ChangeContext.create<P>(
@@ -485,6 +496,7 @@ export class Document<T, P extends Indexable = Indexable> {
       );
     } catch (err) {
       // drop clone because it is contaminated.
+      this.setUpdateStatus(false);
       this.clone = undefined;
       logger.error(err);
       throw err;
@@ -532,6 +544,7 @@ export class Document<T, P extends Indexable = Indexable> {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
+    this.setUpdateStatus(false);
   }
 
   /**
@@ -1181,15 +1194,15 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `canUndo` returns whether there are any operations to undo.
    */
-  public canUndo(): boolean {
-    return this.undoStack.length > 0;
+  private canUndo(): boolean {
+    return this.undoStack.length > 0 && !this.getUpdateStatus();
   }
 
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
-  public canRedo(): boolean {
-    return this.redoStack.length > 0;
+  private canRedo(): boolean {
+    return this.redoStack.length > 0 && !this.getUpdateStatus();
   }
 
   /**
@@ -1217,16 +1230,20 @@ export class Document<T, P extends Indexable = Indexable> {
    * `undo` undoes the last operation executed by the current client.
    * It does not impact operations made by other clients.
    */
-  public undo(): void {
+  private undo(): void {
+    if (this.getUpdateStatus()) {
+      throw new Error('Undo is not allowed during an update');
+    }
+    const undoOps = this.undoStack.pop();
+    if (undoOps === undefined) {
+      throw new Error('There is no operation to be undone');
+    }
+
     this.ensureClone();
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
     );
-    const undoOps = this.undoStack.pop();
-    if (undoOps === undefined) {
-      return;
-    }
 
     for (let i = 0; i < undoOps.length; i++) {
       const undoOp = undoOps[i];
@@ -1270,16 +1287,21 @@ export class Document<T, P extends Indexable = Indexable> {
    * `redo` redoes the last operation executed by the current client.
    * It does not impact operations made by other clients.
    */
-  public redo(): void {
+  private redo(): void {
+    if (this.getUpdateStatus()) {
+      throw new Error('Redo is not allowed during an update');
+    }
+
+    const redoOps = this.redoStack.pop();
+    if (redoOps === undefined) {
+      throw new Error('There is no operation to be redone');
+    }
+
     this.ensureClone();
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
     );
-    const redoOps = this.redoStack.pop();
-    if (redoOps === undefined) {
-      return;
-    }
 
     for (let i = 0; i < redoOps.length; i++) {
       const redoOp = redoOps[i];
@@ -1317,5 +1339,23 @@ export class Document<T, P extends Indexable = Indexable> {
         });
       }
     }
+  }
+
+  /**
+   * `setUpdateStatus` updates the update status of this document.
+   *
+   * @internal
+   */
+  public setUpdateStatus(status: boolean) {
+    this.updateStatus = status;
+  }
+
+  /**
+   * `getStatus` returns the update status of this document.
+   *
+   * @internal
+   */
+  public getUpdateStatus(): boolean {
+    return this.updateStatus;
   }
 }
