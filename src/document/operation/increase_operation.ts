@@ -91,9 +91,9 @@ export class IncreaseOperation extends Operation {
 
     const valueType = primitiveValue.getType();
     const value =
-      valueType === PrimitiveType.Integer
-        ? (primitiveValue.getValue() as number) * -1
-        : (primitiveValue.getValue() as Long).multiply(-1);
+      valueType === PrimitiveType.Long
+        ? (primitiveValue.getValue() as Long).multiply(-1)
+        : (primitiveValue.getValue() as number) * -1;
 
     const reverseOp = IncreaseOperation.create(
       this.getParentCreatedAt(),
