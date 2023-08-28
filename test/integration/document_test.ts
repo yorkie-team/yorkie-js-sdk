@@ -781,6 +781,40 @@ describe('Document', function () {
     assert.equal('{"counter":101}', doc.toSortedJSON());
   });
 
+  it('Doc update should clear redo stack', async function () {
+    type TestDoc = { counter: Counter };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    for (let i = 0; i < 5; i++) {
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+      assert.equal(`{"counter":${100 + i + 1}}`, doc.toSortedJSON());
+    }
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.history.undo();
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(true, doc.history.canRedo());
+
+    doc.update((root) => {
+      root.counter.increase(1);
+    }, 'increase 1');
+
+    // doc.update() clears redo stack
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+  });
+
   it('Can undo/redo for concurrent users', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);

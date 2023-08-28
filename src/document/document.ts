@@ -516,7 +516,7 @@ export class Document<T, P extends Indexable = Indexable> {
       if (reverseOps.length > 0) {
         this.pushUndo(reverseOps);
       }
-      this.resetRedo();
+      this.clearRedo();
 
       // TODO: get undoOps through context.getReverseOps() and add to undoStack
       this.changeID = change.getID();
@@ -1228,9 +1228,9 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `resetRedo` flushes remaining redo operations.
+   * `clearRedo` flushes remaining redo operations.
    */
-  private resetRedo(): void {
+  private clearRedo(): void {
     this.redoStack = [];
   }
 
