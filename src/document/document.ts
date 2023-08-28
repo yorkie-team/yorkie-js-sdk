@@ -1230,16 +1230,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
     for (let i = 0; i < undoOps.length; i++) {
       const undoOp = undoOps[i];
-      // executedAt 발급
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
-      // context 에 op 추가
       context.push(undoOp);
     }
 
     if (context.hasChange()) {
       const change = context.getChange();
-      // execute on proxy
       try {
         change.execute(this.clone!.root, this.presences);
       } catch (err) {
@@ -1248,10 +1245,11 @@ export class Document<T, P extends Indexable = Indexable> {
         logger.error(err);
         throw err;
       }
-      // execute on root
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       this.localChanges.push(change);
-      this.pushRedo(reverseOps);
+      if (reverseOps.length > 0) {
+        this.pushRedo(reverseOps);
+      }
 
       this.changeID = change.getID();
 
@@ -1273,6 +1271,51 @@ export class Document<T, P extends Indexable = Indexable> {
    * It does not impact operations made by other clients.
    */
   public redo(): void {
-    return;
+    this.ensureClone();
+    const context = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!.root,
+    );
+    const redoOps = this.redoStack.pop();
+    if (redoOps === undefined) {
+      return;
+    }
+
+    for (let i = 0; i < redoOps.length; i++) {
+      const redoOp = redoOps[i];
+      const ticket = context.issueTimeTicket();
+      redoOp.setExecutedAt(ticket);
+      context.push(redoOp);
+    }
+
+    if (context.hasChange()) {
+      const change = context.getChange();
+      try {
+        change.execute(this.clone!.root, this.presences);
+      } catch (err) {
+        // drop clone because it is contaminated.
+        this.clone = undefined;
+        logger.error(err);
+        throw err;
+      }
+      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      this.localChanges.push(change);
+      if (reverseOps.length > 0) {
+        this.pushUndo(reverseOps);
+      }
+
+      this.changeID = change.getID();
+
+      if (change.hasOperations()) {
+        this.publish({
+          type: DocEventType.LocalChange,
+          value: {
+            message: change.getMessage() || '',
+            operations: opInfos,
+            actor: this.changeID.getActorID(),
+          },
+        });
+      }
+    }
   }
 }
