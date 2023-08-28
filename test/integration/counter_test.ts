@@ -165,4 +165,32 @@ describe('Counter', function () {
 
     assertUndoRedo(doc, states);
   });
+
+  it('can get proper reverse operations', function () {
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
+
+    doc.update((root) => {
+      root.cnt = new Counter(CounterType.IntegerCnt, 0);
+      root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+    });
+    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.cnt.increase(1.5);
+      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+    });
+    assert.equal(`{"cnt":1,"longCnt":9223372036854775807}`, doc.toSortedJSON());
+    assert.equal(
+      `[["1:00:1.INCREASE.-1.5","1:00:2.INCREASE.-9223372036854775807"]]`,
+      JSON.stringify(doc.getUndoStackForTest()),
+    );
+
+    doc.history.undo();
+    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
+    assert.equal(
+      `[["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]]`,
+      JSON.stringify(doc.getRedoStackForTest()),
+    );
+  });
 });

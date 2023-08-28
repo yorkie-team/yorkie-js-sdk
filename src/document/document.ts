@@ -1350,6 +1350,20 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getUndoStackForTest` returns the undo stack for test.
+   */
+  public getUndoStackForTest(): Array<Array<string>> {
+    return this.undoStack.map((ops) => ops.map((op) => op.toTestString()));
+  }
+
+  /**
+   * `getRedoStackForTest` returns the redo stack for test.
+   */
+  public getRedoStackForTest(): Array<Array<string>> {
+    return this.redoStack.map((ops) => ops.map((op) => op.toTestString()));
+  }
+
+  /**
    * `setUpdateStatus` updates the update status of this document.
    *
    * @internal

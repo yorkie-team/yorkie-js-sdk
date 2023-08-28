@@ -113,7 +113,7 @@ export class IncreaseOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.INCREASE`;
+    return `${this.getParentCreatedAt().toTestString()}.INCREASE.${this.value.toJSON()}`;
   }
 
   /**
