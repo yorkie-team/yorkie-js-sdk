@@ -197,6 +197,8 @@ export abstract class Operation {
   /**
    * `getExecutedAt` returns execution time of this operation.
    */
+  // TODO(Hyemmie): Corner cases need to be considered: undo/redo operations'
+  // `executedAt` could be undefined until they are executed.
   public getExecutedAt(): TimeTicket {
     return this.executedAt!;
   }
