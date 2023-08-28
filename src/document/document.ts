@@ -499,7 +499,9 @@ export class Document<T, P extends Indexable = Indexable> {
       // TODO: consider about getting undoOps and presence
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       this.localChanges.push(change);
-      this.pushUndo(reverseOps);
+      if (reverseOps.length > 0) {
+        this.pushUndo(reverseOps);
+      }
       this.resetRedo();
 
       // TODO: get undoOps through context.getReverseOps() and add to undoStack
@@ -1235,12 +1237,6 @@ export class Document<T, P extends Indexable = Indexable> {
       context.push(undoOp);
     }
 
-    // context 에서 change 생성 이후 execute
-    // execute 후처리 (리턴값: changeInfo, reverseOp)
-    // change → localChanges에 추가
-    // reverse op → redoStack에 추가
-    // changeInfo → event publish
-
     if (context.hasChange()) {
       const change = context.getChange();
       // execute on proxy
@@ -1270,8 +1266,6 @@ export class Document<T, P extends Indexable = Indexable> {
         });
       }
     }
-
-    return;
   }
 
   /**
