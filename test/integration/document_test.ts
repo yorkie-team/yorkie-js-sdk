@@ -743,8 +743,8 @@ describe('Document', function () {
     doc.history.undo();
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
-    // doc.history.redo();
-    // assert.equal('{"counter":101}', doc.toSortedJSON());
+    doc.history.redo();
+    assert.equal('{"counter":101}', doc.toSortedJSON());
   });
 
   it.only('Can canUndo/canRedo work properly', async function () {
@@ -756,10 +756,8 @@ describe('Document', function () {
     }, 'init counter');
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
-    // user cannot undo/redo from initial state
-    debugger;
-    assert.equal(false, doc.history.canUndo(), '1');
-    assert.equal(false, doc.history.canRedo(), '2');
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
 
     // user increases the counter
     doc.update((root) => {
@@ -768,19 +766,19 @@ describe('Document', function () {
     assert.equal('{"counter":101}', doc.toSortedJSON());
 
     // user can only undo the latest operation
-    assert.equal(true, doc.history.canUndo(), '3');
-    assert.equal(false, doc.history.canRedo(), '4');
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
 
     // user undoes the latest operation
     doc.history.undo();
-    assert.equal(false, doc.history.canUndo(), '5');
-    assert.equal(true, doc.history.canRedo(), '6');
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canRedo());
 
     // user redoes the latest undone operation
-    // doc.history.redo();
-    // assert.equal(true, doc.history.canUndo());
-    // assert.equal(false, doc.history.canRedo());
-    // assert.equal('{"counter":101}', doc.toSortedJSON());
+    doc.history.redo();
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+    assert.equal('{"counter":101}', doc.toSortedJSON());
   });
 
   it.only('Can undo/redo for concurrent users', async function () {
@@ -829,10 +827,29 @@ describe('Document', function () {
     assert.equal(false, doc2.history.canRedo());
 
     // client1 redoes one's latest undone operation
-    // doc1.history.redo();
-    // await client1.sync();
-    // await client2.sync();
-    // assert.equal('{"counter":103}', doc1.toSortedJSON());
-    // assert.equal('{"counter":103}', doc2.toSortedJSON());
+    doc1.history.redo();
+    await client1.sync();
+    await client2.sync();
+    assert.equal('{"counter":103}', doc1.toSortedJSON());
+    assert.equal('{"counter":103}', doc2.toSortedJSON());
+  });
+
+  it.only('no change inside batch test', async function () {
+    type TestDoc = { counter: Counter };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.update((_root) => {}, 'no changes');
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
   });
 });
