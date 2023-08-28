@@ -1,15 +1,21 @@
 import { assert } from 'chai';
 import { Document } from '@yorkie-js-sdk/src/document/document';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  withTwoClientsAndDocuments,
+  assertUndoRedo,
+  toDocKey,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Counter } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function () {
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new Document<{
       k1: { age?: Counter; length?: Counter };
-    }>('test-doc');
+    }>(docKey);
+    const states: Array<string> = [];
 
     doc.update((root) => {
       root.k1 = {};
@@ -19,6 +25,7 @@ describe('Counter', function () {
       root.k1.length.increase(3.5);
     });
     assert.equal(`{"k1":{"age":6,"length":13}}`, doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
     assert.equal(6, doc.getRoot().k1.age?.getValue());
     assert.equal(13, doc.getRoot().k1.length?.getValue());
 
@@ -27,6 +34,7 @@ describe('Counter', function () {
       root.k1.length?.increase(3.5).increase(1);
     });
     assert.equal(`{"k1":{"age":8,"length":17}}`, doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
     assert.equal(8, doc.getRoot().k1.age?.getValue());
     assert.equal(17, doc.getRoot().k1.length?.getValue());
 
@@ -39,6 +47,8 @@ describe('Counter', function () {
     assert.equal(`{"k1":{"age":8,"length":17}}`, doc.toSortedJSON());
     assert.equal(8, doc.getRoot().k1.age?.getValue());
     assert.equal(17, doc.getRoot().k1.length?.getValue());
+
+    assertUndoRedo(doc, states);
   });
 
   it('Can handle increase operation', async function () {
@@ -90,8 +100,8 @@ describe('Counter', function () {
   });
 
   it('can handle overflow', function () {
-    const doc = new Document<{ age: Counter }>('test-doc');
-
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<{ age: Counter }>(docKey);
     doc.update((root) => {
       root.age = new Counter(CounterType.IntegerCnt, 2147483647);
       root.age.increase(1);
@@ -119,5 +129,40 @@ describe('Counter', function () {
       );
     });
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
+  });
+
+  it('should handle undo/redo for long type and overflow', function () {
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
+    const states: Array<string> = [];
+
+    doc.update((root) => {
+      root.cnt = new Counter(CounterType.IntegerCnt, 0);
+      root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+    });
+    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.cnt.increase(2147483647); // 2^31-1
+      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+    });
+    assert.equal(
+      `{"cnt":2147483647,"longCnt":9223372036854775807}`,
+      doc.toSortedJSON(),
+    );
+    states.push(doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.cnt.increase(1); // overflow
+      root.longCnt.increase(Long.fromString('1')); // overflow
+    });
+    assert.equal(
+      `{"cnt":-2147483648,"longCnt":-9223372036854775808}`,
+      doc.toSortedJSON(),
+    );
+    states.push(doc.toSortedJSON());
+
+    assertUndoRedo(doc, states);
   });
 });
