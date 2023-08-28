@@ -726,7 +726,7 @@ describe('Document', function () {
     await c1.deactivate();
   });
 
-  it.only('Can undo/redo for increase operation', async function () {
+  it('Can undo/redo for increase operation', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -747,7 +747,7 @@ describe('Document', function () {
     assert.equal('{"counter":101}', doc.toSortedJSON());
   });
 
-  it.only('Can canUndo/canRedo work properly', async function () {
+  it('Can canUndo/canRedo work properly', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -781,7 +781,7 @@ describe('Document', function () {
     assert.equal('{"counter":101}', doc.toSortedJSON());
   });
 
-  it.only('Can undo/redo for concurrent users', async function () {
+  it('Can undo/redo for concurrent users', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
@@ -834,7 +834,7 @@ describe('Document', function () {
     assert.equal('{"counter":103}', doc2.toSortedJSON());
   });
 
-  it.only('undo/redo with empty stack must throw error', async function () {
+  it('undo/redo with empty stack must throw error', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -863,7 +863,7 @@ describe('Document', function () {
     );
   });
 
-  it.only('update() that contains undo/redo must throw error', async function () {
+  it('update() that contains undo/redo must throw error', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -894,5 +894,55 @@ describe('Document', function () {
       Error,
       'Redo is not allowed during an update',
     );
+  });
+
+  it('maximum undo/redo stack test', async function () {
+    type TestDoc = { counter: Counter };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 0);
+    }, 'init counter');
+    assert.equal('{"counter":0}', doc.toSortedJSON());
+
+    assert.equal(false, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    for (let i = 0; i < 100; i++) {
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase loop');
+    }
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+
+    for (let i = 0; i < 100; i++) {
+      if (i < 50) {
+        doc.history.undo();
+      } else {
+        assert.throws(
+          () => {
+            doc.history.undo();
+          },
+          Error,
+          'There is no operation to be undone',
+        );
+      }
+    }
+    assert.equal('{"counter":50}', doc.toSortedJSON());
+
+    for (let i = 0; i < 100; i++) {
+      if (i < 50) {
+        doc.history.redo();
+      } else {
+        assert.throws(
+          () => {
+            doc.history.redo();
+          },
+          Error,
+          'There is no operation to be redone',
+        );
+      }
+    }
+    assert.equal('{"counter":100}', doc.toSortedJSON());
   });
 });

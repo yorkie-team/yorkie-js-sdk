@@ -380,6 +380,8 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   Depth
 >;
 
+export const MaxUndoRedoStackDepth = 50;
+
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
@@ -1209,6 +1211,9 @@ export class Document<T, P extends Indexable = Indexable> {
    * `pushUndo` pushes new undo operations of a change to undo stack.
    */
   private pushUndo(undoOps: Array<Operation>): void {
+    if (this.undoStack.length >= MaxUndoRedoStackDepth) {
+      this.undoStack.shift();
+    }
     this.undoStack.push(undoOps);
   }
 
@@ -1216,6 +1221,9 @@ export class Document<T, P extends Indexable = Indexable> {
    * `pushRedo` pushes new redo operations of a change to redo stack.
    */
   private pushRedo(redoOps: Array<Operation>): void {
+    if (this.redoStack.length >= MaxUndoRedoStackDepth) {
+      this.redoStack.shift();
+    }
     this.redoStack.push(redoOps);
   }
 
