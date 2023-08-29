@@ -74,7 +74,6 @@
 |  [OperationInfo](./yorkie-js-sdk.operationinfo.md) | <code>OperationInfo</code> represents the information of an operation. It is used to inform to the user what kind of operation was executed. |
 |  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
 |  [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md) | <code>RemoveOpInfo</code> represents the information of the remove operation. |
-|  [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md) | <code>SelectOpInfo</code> represents the information of the select operation. |
 |  [SetOpInfo](./yorkie-js-sdk.setopinfo.md) | <code>SetOpInfo</code> represents the information of the set operation. |
 |  [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md) | <code>StyleOpInfo</code> represents the information of the style operation. |
 |  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> is a node that has a value. |

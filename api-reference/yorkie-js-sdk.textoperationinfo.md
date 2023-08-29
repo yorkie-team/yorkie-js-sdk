@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-export declare type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
+export declare type TextOperationInfo = EditOpInfo | StyleOpInfo;
 ```
-**References:** [EditOpInfo](./yorkie-js-sdk.editopinfo.md)<!-- -->, [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md)<!-- -->, [SelectOpInfo](./yorkie-js-sdk.selectopinfo.md)
+**References:** [EditOpInfo](./yorkie-js-sdk.editopinfo.md)<!-- -->, [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md)
 
