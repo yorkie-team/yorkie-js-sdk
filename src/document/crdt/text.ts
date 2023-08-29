@@ -21,7 +21,6 @@ import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitPosRange,
-  Selection,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
@@ -34,7 +33,6 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
  */
 enum TextChangeType {
   Content = 'content',
-  Selection = 'selection',
   Style = 'style',
 }
 
@@ -49,7 +47,7 @@ export interface TextValueType<A> {
 
 /**
  * `TextChange` represents the changes to the text
- * when executing the edit, setstyle, and select methods.
+ * when executing the edit, setstyle methods.
  */
 interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
@@ -162,7 +160,6 @@ export class CRDTTextValue {
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
-  private selectionMap: Map<string, Selection>;
 
   constructor(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
@@ -170,7 +167,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   ) {
     super(createdAt);
     this.rgaTreeSplit = rgaTreeSplit;
-    this.selectionMap = new Map();
   }
 
   /**
@@ -275,18 +271,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     }
 
     return changes;
-  }
-
-  /**
-   * `select` stores that the given range has been selected.
-   *
-   * @internal
-   */
-  public select(
-    range: RGATreeSplitPosRange,
-    updatedAt: TimeTicket,
-  ): TextChange<A> | undefined {
-    return this.selectPriv(range, updatedAt);
   }
 
   /**
@@ -417,26 +401,5 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public findIndexesFromRange(range: RGATreeSplitPosRange): [number, number] {
     return this.rgaTreeSplit.findIndexesFromRange(range);
-  }
-
-  private selectPriv(
-    range: RGATreeSplitPosRange,
-    updatedAt: TimeTicket,
-  ): TextChange<A> | undefined {
-    const prevSelection = this.selectionMap.get(updatedAt.getActorID()!);
-    if (!prevSelection || updatedAt.after(prevSelection!.getUpdatedAt())) {
-      this.selectionMap.set(
-        updatedAt.getActorID()!,
-        Selection.of(range, updatedAt),
-      );
-
-      const [from, to] = this.rgaTreeSplit.findIndexesFromRange(range);
-      return {
-        type: TextChangeType.Selection,
-        actor: updatedAt.getActorID()!,
-        from,
-        to,
-      };
-    }
   }
 }
