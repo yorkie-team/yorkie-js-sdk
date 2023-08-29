@@ -22,7 +22,7 @@ services:
     extra_hosts:
       - 'host.docker.internal:host-gateway'
   yorkie:
-    image: 'yorkieteam/yorkie:0.4.5'
+    image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
     command: ['server', '--enable-pprof']
     restart: always
