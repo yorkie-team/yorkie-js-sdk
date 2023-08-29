@@ -215,24 +215,29 @@ export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
 
 export interface InitializedEvent<P extends Indexable> extends BaseDocEvent {
   type: DocEventType.Initialized;
-  value: Array<{ clientID: ActorID; presence: P }>;
+  value: Array<User<P>>;
 }
 
 export interface WatchedEvent<P extends Indexable> extends BaseDocEvent {
   type: DocEventType.Watched;
-  value: { clientID: ActorID; presence: P };
+  value: User<P>;
 }
 
 export interface UnwatchedEvent<P extends Indexable> extends BaseDocEvent {
   type: DocEventType.Unwatched;
-  value: { clientID: ActorID; presence: P };
+  value: User<P>;
 }
 
 export interface PresenceChangedEvent<P extends Indexable>
   extends BaseDocEvent {
   type: DocEventType.PresenceChanged;
-  value: { clientID: ActorID; presence: P };
+  value: User<P>;
 }
+
+/**
+ * User represents a client connected in a document.
+ */
+export type User<P> = { clientID: ActorID; presence: P };
 
 /**
  * Indexable key, value
@@ -517,8 +522,7 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the clients watching the document
-   * establishe or update its presence.
+   * The callback will be called when the users connected to the document are changed.
    */
   public subscribe(
     type: 'presence',
@@ -528,7 +532,8 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the current client establishes or updates its presence.
+   * The callback will be called when the current user updates their presence or when they
+   * get information about users connected to the document after initially connecting to it.
    */
   public subscribe(
     type: 'my-presence',
@@ -538,8 +543,7 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the client establishes or terminates a connection,
-   * or updates its presence.
+   * The callback will be called when users connect or disconnect, or when they update their presence.
    */
   public subscribe(
     type: 'others',
@@ -1137,8 +1141,8 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getUsers` returns the online users who are watching the document.
    */
-  public getUsers(): Array<{ clientID: ActorID; presence: P }> {
-    const presences: Array<{ clientID: ActorID; presence: P }> = [];
+  public getUsers(): Array<User<P>> {
+    const presences: Array<User<P>> = [];
     for (const clientID of this.onlineClients) {
       if (this.presences.has(clientID)) {
         presences.push({
