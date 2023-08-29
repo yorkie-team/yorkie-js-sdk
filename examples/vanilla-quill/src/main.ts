@@ -63,7 +63,7 @@ async function main() {
   await client.attach(doc, {
     initialPresence: {
       username: `username-${shortUniqueID()}`,
-      selection: null,
+      selection: undefined,
     },
   });
 
@@ -90,8 +90,7 @@ async function main() {
   });
   doc.subscribe('others', (event) => {
     if (event.type === DocEventType.Unwatched) {
-      // TODO(chacha912): We don't know presence of unwatched client now.
-      // cursors.removeCursor(event.value.presence.username);
+      cursors.removeCursor(event.value.presence.username);
     } else if (event.type === DocEventType.PresenceChanged) {
       displayRemoteCursors([event.value]);
     }

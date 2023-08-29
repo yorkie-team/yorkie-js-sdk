@@ -35,7 +35,7 @@ export const network = {
             event.value == StreamConnectionStatus.Connected) ||
           (event.type == ClientEventType.DocumentSynced &&
             event.value == DocumentSyncResultType.Synced) ||
-          event.type == ClientEventType.DocumentsChanged)
+          event.type == ClientEventType.DocumentChanged)
       ) {
         network.showOnline(elem);
       }

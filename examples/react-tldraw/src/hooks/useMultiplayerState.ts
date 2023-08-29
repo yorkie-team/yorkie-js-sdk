@@ -177,8 +177,7 @@ export function useMultiplayerState(roomId: string) {
         doc.subscribe('others', (event) => {
           // remove leaved users
           if (event.type === yorkie.DocEventType.Unwatched) {
-            // TODO(chacha912): We don't know presence of unwatched client now.
-            // app?.removeUser(event.value.presence.tdUser.id);
+            app?.removeUser(event.value.presence.tdUser.id);
           }
 
           // update users
