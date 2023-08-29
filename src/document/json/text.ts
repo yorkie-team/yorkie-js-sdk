@@ -22,13 +22,12 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
-  RGATreeSplitPosRange,
   RGATreeSplitPos,
+  RGATreeSplitPosRange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
-import { SelectOperation } from '@yorkie-js-sdk/src/document/operation/select_operation';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
@@ -176,31 +175,6 @@ export class Text<A extends Indexable = Indexable> {
         new Map(Object.entries(attrs)),
         ticket,
       ),
-    );
-
-    return true;
-  }
-
-  /**
-   * `select` selects the given range.
-   */
-  select(fromIdx: number, toIdx: number): boolean {
-    if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return false;
-    }
-
-    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
-    if (logger.isEnabled(LogLevel.Debug)) {
-      logger.debug(
-        `SELT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()}`,
-      );
-    }
-    const ticket = this.context.issueTimeTicket();
-    this.text.select(range, ticket);
-
-    this.context.push(
-      new SelectOperation(this.text.getCreatedAt(), range[0], range[1], ticket),
     );
 
     return true;
