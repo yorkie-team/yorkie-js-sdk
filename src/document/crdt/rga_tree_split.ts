@@ -35,6 +35,7 @@ export interface ValueChange<T> {
 
 interface RGATreeSplitValue {
   length: number;
+
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 }
 
@@ -1034,41 +1035,5 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     node.setInsPrev(undefined);
     node.setInsNext(undefined);
-  }
-}
-
-/**
- * `Selection` represents the selection of text range in the editor.
- */
-export class Selection {
-  private from: RGATreeSplitPos;
-  private to: RGATreeSplitPos;
-  private updatedAt: TimeTicket;
-
-  constructor(
-    from: RGATreeSplitPos,
-    to: RGATreeSplitPos,
-    updatedAt: TimeTicket,
-  ) {
-    this.from = from;
-    this.to = to;
-    this.updatedAt = updatedAt;
-  }
-
-  /**
-   * `of` creates a new instance of Selection.
-   */
-  public static of(
-    range: RGATreeSplitPosRange,
-    updatedAt: TimeTicket,
-  ): Selection {
-    return new Selection(range[0], range[1], updatedAt);
-  }
-
-  /**
-   * `getUpdatedAt` returns update time of this selection.
-   */
-  public getUpdatedAt(): TimeTicket {
-    return this.updatedAt;
   }
 }

@@ -1,26 +1,24 @@
-import yorkie from 'yorkie-js-sdk';
+import yorkie, { DocEventType } from 'yorkie-js-sdk';
 import { getRandomName, getRandomColor } from './util.js';
 
 async function main() {
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+  });
+  await client.activate();
+  const doc = new yorkie.Document('profile-stack');
+  doc.subscribe('presence', (event) => {
+    if (event.type !== DocEventType.PresenceChanged) {
+      displayPeerList(doc.getPresences(), client.getID());
+    }
+  });
+  await client.attach(doc, {
     // set the client's name and color to presence.
-    presence: {
+    initialPresence: {
       name: getRandomName(),
       color: getRandomColor(),
     },
   });
-  await client.activate();
-
-  client.subscribe((event) => {
-    if (event.type === 'peers-changed') {
-      // show peer list
-      displayPeerList(client.getPeersByDocKey(doc.getKey()), client.getID());
-    }
-  });
-
-  const doc = new yorkie.Document('profile-stack');
-  await client.attach(doc);
 
   window.addEventListener('beforeunload', () => {
     client.deactivate();

@@ -27,6 +27,7 @@ import {
   IndexTreeNode,
   TreeNodeType,
   traverseAll,
+  TagContained,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -230,6 +231,16 @@ export class CRDTTreeNodeID {
   }
 
   /**
+   * `equals` returns whether given ID equals to this ID or not.
+   */
+  public equals(other: CRDTTreeNodeID): boolean {
+    return (
+      this.createdAt.compare(other.createdAt) === 0 &&
+      this.offset === other.offset
+    );
+  }
+
+  /**
    * `getOffset` returns returns the offset of the node.
    */
   public getOffset(): number {
@@ -299,14 +310,14 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   attrs?: RHT;
 
   /**
-   * `insPrev` is the previous node of this node after the node is split.
+   * `insPrevID` is the previous node id of this node after the node is split.
    */
-  insPrev?: CRDTTreeNode;
+  insPrevID?: CRDTTreeNodeID;
 
   /**
-   * `insNext` is the previous node of this node after the node is split.
+   * `insNextID` is the previous node id of this node after the node is split.
    */
-  insNext?: CRDTTreeNode;
+  insNextID?: CRDTTreeNodeID;
 
   _value = '';
 
@@ -525,6 +536,19 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
+   * `findFloorNode` finds node of given id.
+   */
+  private findFloorNode(id: CRDTTreeNodeID) {
+    const entry = this.nodeMapByID.floorEntry(id);
+
+    if (!entry || !entry.key.getCreatedAt().equals(id.getCreatedAt())) {
+      return;
+    }
+
+    return entry.value;
+  }
+
+  /**
    * `findNodesAndSplitText` finds `TreePos` of the given `CRDTTreeNodeID` and
    * splits the text node if necessary.
    *
@@ -555,14 +579,16 @@ export class CRDTTree extends CRDTGCElement {
       );
 
       if (split) {
-        split.insPrev = leftSiblingNode;
+        split.insPrevID = leftSiblingNode.id;
         this.nodeMapByID.put(split.id, split);
 
-        if (leftSiblingNode.insNext) {
-          leftSiblingNode.insNext.insPrev = split;
-          split.insNext = leftSiblingNode.insNext;
+        if (leftSiblingNode.insNextID) {
+          const insNext = this.findFloorNode(leftSiblingNode.insNextID)!;
+
+          insNext.insPrevID = split.id;
+          split.insNextID = leftSiblingNode.insNextID;
         }
-        leftSiblingNode.insNext = split;
+        leftSiblingNode.insNextID = split.id;
       }
     }
 
@@ -604,39 +630,22 @@ export class CRDTTree extends CRDTGCElement {
       from: this.toIndex(fromParent, fromLeft),
       to: this.toIndex(toParent, toLeft),
       fromPath: this.toPath(fromParent, fromLeft),
-      toPath: this.toPath(fromParent, fromLeft),
+      toPath: this.toPath(toParent, toLeft),
       actor: editedAt.getActorID()!,
       value: attributes ? parseObjectValues(attributes) : undefined,
     });
 
-    if (fromLeft !== toLeft) {
-      let fromChildIndex;
-      let parent;
+    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
+      if (!node.isRemoved && !node.isText && attributes) {
+        if (!node.attrs) {
+          node.attrs = new RHT();
+        }
 
-      if (fromLeft.parent === toLeft.parent) {
-        parent = fromLeft.parent!;
-        fromChildIndex = parent.allChildren.indexOf(fromLeft) + 1;
-      } else {
-        parent = fromLeft;
-        fromChildIndex = 0;
-      }
-
-      const toChildIndex = parent.allChildren.indexOf(toLeft);
-
-      for (let i = fromChildIndex; i <= toChildIndex; i++) {
-        const node = parent.allChildren[i];
-
-        if (!node.isRemoved && attributes) {
-          if (!node.attrs) {
-            node.attrs = new RHT();
-          }
-
-          for (const [key, value] of Object.entries(attributes)) {
-            node.attrs.set(key, value, editedAt);
-          }
+        for (const [key, value] of Object.entries(attributes)) {
+          node.attrs.set(key, value, editedAt);
         }
       }
-    }
+    });
 
     return changes;
   }
@@ -676,22 +685,18 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
 
-    if (fromLeft !== toLeft) {
-      let fromChildIndex;
-      let parent;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      (node, contain) => {
+        // If node is a element node and half-contained in the range,
+        // it should not be removed.
+        if (!node.isText && contain != TagContained.All) {
+          return;
+        }
 
-      if (fromLeft.parent === toLeft.parent) {
-        parent = fromLeft.parent!;
-        fromChildIndex = parent.allChildren.indexOf(fromLeft) + 1;
-      } else {
-        parent = fromLeft;
-        fromChildIndex = 0;
-      }
-
-      const toChildIndex = parent.allChildren.indexOf(toLeft);
-
-      for (let i = fromChildIndex; i <= toChildIndex; i++) {
-        const node = parent.allChildren[i];
         const actorID = node.getCreatedAt().getActorID()!;
         const latestCreatedAt = latestCreatedAtMapByActor
           ? latestCreatedAtMapByActor!.has(actorID!)
@@ -707,29 +712,16 @@ export class CRDTTree extends CRDTGCElement {
             latestCreatedAtMap.set(actorID, createdAt);
           }
 
-          traverseAll(node, (node) => {
-            if (node.canDelete(editedAt, MaxTimeTicket)) {
-              const latestCreatedAt = latestCreatedAtMap.get(actorID);
-              const createdAt = node.getCreatedAt();
-
-              if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-                latestCreatedAtMap.set(actorID, createdAt);
-              }
-            }
-
-            if (!node.isRemoved) {
-              toBeRemoveds.push(node);
-            }
-          });
+          toBeRemoveds.push(node);
         }
-      }
+      },
+    );
 
-      for (const node of toBeRemoveds) {
-        node.remove(editedAt);
+    for (const node of toBeRemoveds) {
+      node.remove(editedAt);
 
-        if (node.isRemoved) {
-          this.removedNodeMap.set(node.id.toIDString(), node);
-        }
+      if (node.isRemoved) {
+        this.removedNodeMap.set(node.id.toIDString(), node);
       }
     }
 
@@ -763,6 +755,19 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     return [changes, latestCreatedAtMap];
+  }
+
+  private traverseInPosRange(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    callback: (node: CRDTTreeNode, contain: TagContained) => void,
+  ): void {
+    const fromIdx = this.toIndex(fromParent, fromLeft);
+    const toIdx = this.toIndex(toParent, toLeft);
+
+    return this.indexTree.nodesBetween(fromIdx, toIdx, callback);
   }
 
   /**
@@ -829,19 +834,21 @@ export class CRDTTree extends CRDTGCElement {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: CRDTTreeNode): void {
-    const insPrev = node.insPrev;
-    const insNext = node.insNext;
+    const insPrevID = node.insPrevID;
+    const insNextID = node.insNextID;
 
-    if (insPrev) {
-      insPrev.insNext = insNext;
+    if (insPrevID) {
+      const insPrev = this.findFloorNode(insPrevID)!;
+      insPrev.insNextID = insNextID;
     }
 
-    if (insNext) {
-      insNext.insPrev = insPrev;
+    if (insNextID) {
+      const insNext = this.findFloorNode(insNextID)!;
+      insNext.insPrevID = insPrevID;
     }
 
-    node.insPrev = undefined;
-    node.insNext = undefined;
+    node.insPrevID = undefined;
+    node.insNextID = undefined;
   }
 
   /**
@@ -1004,29 +1011,23 @@ export class CRDTTree extends CRDTGCElement {
   private toTreeNodes(pos: CRDTTreePos) {
     const parentID = pos.getParentID();
     const leftSiblingID = pos.getLeftSiblingID();
-    const parentEntry = this.nodeMapByID.floorEntry(parentID);
-    const leftSiblingEntry = this.nodeMapByID.floorEntry(leftSiblingID);
+    const parentNode = this.findFloorNode(parentID);
+    let leftSiblingNode = this.findFloorNode(leftSiblingID);
 
-    if (
-      !parentEntry ||
-      !leftSiblingEntry ||
-      !parentEntry.key.getCreatedAt().equals(parentID.getCreatedAt()) ||
-      !leftSiblingEntry.key.getCreatedAt().equals(leftSiblingID.getCreatedAt())
-    ) {
+    if (!parentNode || !leftSiblingNode) {
       return [];
     }
-
-    let leftSiblingNode = leftSiblingEntry.value;
 
     if (
       leftSiblingID.getOffset() > 0 &&
       leftSiblingID.getOffset() === leftSiblingNode.id.getOffset() &&
-      leftSiblingNode.insPrev
+      leftSiblingNode.insPrevID
     ) {
-      leftSiblingNode = leftSiblingNode.insPrev;
+      leftSiblingNode =
+        this.findFloorNode(leftSiblingNode.insPrevID) || leftSiblingNode;
     }
 
-    return [parentEntry.value, leftSiblingNode];
+    return [parentNode, leftSiblingNode!];
   }
 
   /**
