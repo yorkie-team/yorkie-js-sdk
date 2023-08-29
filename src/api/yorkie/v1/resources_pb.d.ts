@@ -547,6 +547,9 @@ export namespace Operation {
     hasTo(): boolean;
     clearTo(): TreeEdit;
 
+    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
+    clearCreatedAtMapByActorMap(): TreeEdit;
+
     getContentsList(): Array<TreeNodes>;
     setContentsList(value: Array<TreeNodes>): TreeEdit;
     clearContentsList(): TreeEdit;
@@ -570,6 +573,7 @@ export namespace Operation {
       parentCreatedAt?: TimeTicket.AsObject,
       from?: TreePos.AsObject,
       to?: TreePos.AsObject,
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       contentsList: Array<TreeNodes.AsObject>,
       executedAt?: TimeTicket.AsObject,
     }
@@ -1119,10 +1123,10 @@ export namespace TextNodeID {
 }
 
 export class TreeNode extends jspb.Message {
-  getPos(): TreePos | undefined;
-  setPos(value?: TreePos): TreeNode;
-  hasPos(): boolean;
-  clearPos(): TreeNode;
+  getId(): TreeNodeID | undefined;
+  setId(value?: TreeNodeID): TreeNode;
+  hasId(): boolean;
+  clearId(): TreeNode;
 
   getType(): string;
   setType(value: string): TreeNode;
@@ -1135,10 +1139,15 @@ export class TreeNode extends jspb.Message {
   hasRemovedAt(): boolean;
   clearRemovedAt(): TreeNode;
 
-  getInsPrevPos(): TreePos | undefined;
-  setInsPrevPos(value?: TreePos): TreeNode;
-  hasInsPrevPos(): boolean;
-  clearInsPrevPos(): TreeNode;
+  getInsPrevId(): TreeNodeID | undefined;
+  setInsPrevId(value?: TreeNodeID): TreeNode;
+  hasInsPrevId(): boolean;
+  clearInsPrevId(): TreeNode;
+
+  getInsNextId(): TreeNodeID | undefined;
+  setInsNextId(value?: TreeNodeID): TreeNode;
+  hasInsNextId(): boolean;
+  clearInsNextId(): TreeNode;
 
   getDepth(): number;
   setDepth(value: number): TreeNode;
@@ -1156,11 +1165,12 @@ export class TreeNode extends jspb.Message {
 
 export namespace TreeNode {
   export type AsObject = {
-    pos?: TreePos.AsObject,
+    id?: TreeNodeID.AsObject,
     type: string,
     value: string,
     removedAt?: TimeTicket.AsObject,
-    insPrevPos?: TreePos.AsObject,
+    insPrevId?: TreeNodeID.AsObject,
+    insNextId?: TreeNodeID.AsObject,
     depth: number,
     attributesMap: Array<[string, NodeAttr.AsObject]>,
   }
@@ -1186,14 +1196,40 @@ export namespace TreeNodes {
   }
 }
 
-export class TreePos extends jspb.Message {
+export class TreeNodeID extends jspb.Message {
   getCreatedAt(): TimeTicket | undefined;
-  setCreatedAt(value?: TimeTicket): TreePos;
+  setCreatedAt(value?: TimeTicket): TreeNodeID;
   hasCreatedAt(): boolean;
-  clearCreatedAt(): TreePos;
+  clearCreatedAt(): TreeNodeID;
 
   getOffset(): number;
-  setOffset(value: number): TreePos;
+  setOffset(value: number): TreeNodeID;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TreeNodeID.AsObject;
+  static toObject(includeInstance: boolean, msg: TreeNodeID): TreeNodeID.AsObject;
+  static serializeBinaryToWriter(message: TreeNodeID, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TreeNodeID;
+  static deserializeBinaryFromReader(message: TreeNodeID, reader: jspb.BinaryReader): TreeNodeID;
+}
+
+export namespace TreeNodeID {
+  export type AsObject = {
+    createdAt?: TimeTicket.AsObject,
+    offset: number,
+  }
+}
+
+export class TreePos extends jspb.Message {
+  getParentId(): TreeNodeID | undefined;
+  setParentId(value?: TreeNodeID): TreePos;
+  hasParentId(): boolean;
+  clearParentId(): TreePos;
+
+  getLeftSiblingId(): TreeNodeID | undefined;
+  setLeftSiblingId(value?: TreeNodeID): TreePos;
+  hasLeftSiblingId(): boolean;
+  clearLeftSiblingId(): TreePos;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TreePos.AsObject;
@@ -1205,8 +1241,8 @@ export class TreePos extends jspb.Message {
 
 export namespace TreePos {
   export type AsObject = {
-    createdAt?: TimeTicket.AsObject,
-    offset: number,
+    parentId?: TreeNodeID.AsObject,
+    leftSiblingId?: TreeNodeID.AsObject,
   }
 }
 
@@ -1528,10 +1564,8 @@ export class DocEvent extends jspb.Message {
   getType(): DocEventType;
   setType(value: DocEventType): DocEvent;
 
-  getPublisher(): Uint8Array | string;
-  getPublisher_asU8(): Uint8Array;
-  getPublisher_asB64(): string;
-  setPublisher(value: Uint8Array | string): DocEvent;
+  getPublisher(): string;
+  setPublisher(value: string): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1544,7 +1578,7 @@ export class DocEvent extends jspb.Message {
 export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
-    publisher: Uint8Array | string,
+    publisher: string,
   }
 }
 
@@ -1565,7 +1599,7 @@ export enum ValueType {
   VALUE_TYPE_TREE = 13,
 }
 export enum DocEventType { 
-  DOC_EVENT_TYPE_DOCUMENTS_CHANGED = 0,
-  DOC_EVENT_TYPE_DOCUMENTS_WATCHED = 1,
-  DOC_EVENT_TYPE_DOCUMENTS_UNWATCHED = 2,
+  DOC_EVENT_TYPE_DOCUMENT_CHANGED = 0,
+  DOC_EVENT_TYPE_DOCUMENT_WATCHED = 1,
+  DOC_EVENT_TYPE_DOCUMENT_UNWATCHED = 2,
 }

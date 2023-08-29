@@ -30,7 +30,7 @@ export {
   DocumentSyncResultType,
   ClientEventType,
   StatusChangedEvent,
-  DocumentsChangedEvent,
+  DocumentChangedEvent,
   StreamConnectionStatusChangedEvent,
   DocumentSyncedEvent,
   ClientOptions,
@@ -78,8 +78,8 @@ export type {
 export {
   TreeChange,
   TreeChangeType,
-  CRDTTreePosStruct,
-  TreePosStructRange,
+  CRDTTreeNodeIDStruct,
+  TreePosStructRange as TreeRangeStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 export {

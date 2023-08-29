@@ -41,7 +41,7 @@ module.exports = (env, arg) => {
           exclude: [path.resolve(__dirname, 'test')],
           enforce: 'post',
           use: {
-            loader: 'istanbul-instrumenter-loader',
+            loader: 'coverage-istanbul-loader',
             options: { esModules: true },
           },
         },
