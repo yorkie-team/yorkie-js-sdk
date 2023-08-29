@@ -921,6 +921,54 @@ describe('Tree.edit', function () {
       });
     }, 'element node and text node cannot be passed together');
   });
+
+  it('delete nodes in a multi-level range test', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              { type: 'text', value: 'ab' },
+              { type: 'p', children: [{ type: 'text', value: 'x' }] },
+            ],
+          },
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'p',
+                children: [{ type: 'text', value: 'cd' }],
+              },
+            ],
+          },
+          {
+            type: 'p',
+            children: [
+              { type: 'p', children: [{ type: 'text', value: 'y' }] },
+              { type: 'text', value: 'ef' },
+            ],
+          },
+        ],
+      });
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p>ab<p>x</p></p><p><p>cd</p></p><p><p>y</p>ef</p></doc>`,
+    );
+
+    doc.update((root) => root.t.edit(2, 18));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p>a</p><p>f</p></doc>`,
+    );
+
+    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
+    // assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
+  });
 });
 
 describe('Tree.style', function () {
@@ -1088,6 +1136,65 @@ describe('Tree.style', function () {
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
     }, this.test!.title);
+  });
+
+  it('style node with element attributes test', function () {
+    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ab' }],
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'cd' }],
+          },
+        ],
+      });
+
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>ab</p><p>cd</p></doc>`);
+
+      // 01. style attributes to an element node.
+      // style attributes with opening tag
+      root.t.style(0, 1, { weight: 'bold' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold">ab</p><p>cd</p></doc>`,
+      );
+
+      // style attributes with closing tag
+      root.t.style(3, 4, { color: 'red' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red">ab</p><p>cd</p></doc>`,
+      );
+
+      // style attributes with the whole
+      root.t.style(0, 4, { size: 'small' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small">ab</p><p>cd</p></doc>`,
+      );
+
+      // 02. style attributes to elements.
+      root.t.style(0, 5, { style: 'italic' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+      );
+
+      // 03. Ignore styling attributes to text nodes.
+      root.t.style(1, 3, { bold: 'true' });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+      );
+    });
   });
 });
 
@@ -2341,5 +2448,85 @@ describe('testing edge cases', () => {
       root.t.edit(1, 2);
       assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
     });
+  });
+
+  it('split link can transmitted through rpc', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '1' });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>a1b</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a1b</p></doc>`);
+
+      d2.update((root) => {
+        root.t.edit(3, 3, { type: 'text', value: '1' });
+      });
+
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a11b</p></doc>`);
+
+      d2.update((root) => {
+        root.t.edit(2, 3, { type: 'text', value: '12' });
+      });
+
+      d2.update((root) => {
+        root.t.edit(4, 5, { type: 'text', value: '21' });
+      });
+
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>a1221b</p></doc>`);
+
+      // if split link is not transmitted, then left sibling in from index below, is "b" not "a"
+      d2.update((root) => {
+        root.t.edit(2, 4, { type: 'text', value: '123' });
+      });
+
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a12321b</p></doc>`,
+      );
+    }, this.test!.title);
+  });
+
+  it('can calculate size of index tree correctly', async function () {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '123' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '456' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '789' });
+      });
+      d1.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: '0123' });
+      });
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a0123789456123b</p></doc>`,
+      );
+      await c1.sync();
+      await c2.sync();
+
+      const size = d1.getRoot().t.getIndexTree().getRoot().size;
+
+      assert.equal(d2.getRoot().t.getIndexTree().getRoot().size, size);
+    }, this.test!.title);
   });
 });
