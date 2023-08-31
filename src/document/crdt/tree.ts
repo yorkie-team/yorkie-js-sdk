@@ -678,10 +678,27 @@ export class CRDTTree extends CRDTGCElement {
         leftSiblingNode = next;
       } else {
         break;
+
+  private do<T extends InternalOperation>(
+    operation: T,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ) {
+    switch (operation.getType()) {
+      case InternalOperationType.Edit: {
+        return this.doEdit(
+          operation as unknown as InternalEditOperation,
+          latestCreatedAtMapByActor,
+        );
       }
     }
+  }
 
-    return [parentNode, leftSiblingNode];
+  private undo<T extends InternalOperation>(operation: T) {
+    switch (operation.getType()) {
+      case InternalOperationType.Edit: {
+        return this.undoEdit(operation as unknown as InternalEditOperation);
+      }
+    }
   }
 
   /**
