@@ -1,0 +1,117 @@
+body {
+  max-width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.general-container {
+  max-width: 100%;
+}
+
+.cursor-selector-container {
+  user-select: none;
+
+  height: 92px;
+  width: 192px;
+
+  position: fixed;
+  bottom: 0;
+  right: 0;
+
+  padding: 20px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.cursor-selections-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.num-users-container {
+  border-radius: 8px;
+  background-color: rgba(27, 26, 26, 0.8);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: white;
+
+  height: 40px;
+  width: 192px;
+}
+
+.cursor-shape-selected {
+  background-color: rgb(81, 76, 73);
+  border-radius: 9px;
+}
+
+.cursor-shape-not-selected {
+  background-color: rgb(81, 76, 73);
+  opacity: 0.5;
+  border-radius: 9px;
+}
+.cursor-shape-not-selected:hover {
+  background-color: rgb(81, 76, 73);
+  opacity: 0.7;
+  border-radius: 9px;
+}
+
+.single-animation-container {
+  user-select: none;
+  pointer-events: none;
+  position: absolute;
+  left: -20px;
+  top: -10px;
+}
+
+* {
+  cursor: none;
+}
+
+.pen-cursor {
+  user-select: none;
+  pointer-events: none;
+  position: fixed;
+  left: -10px;
+  top: -30px;
+}
+.pen-cursor-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.heart-cursor {
+  user-select: none;
+  pointer-events: none;
+  position: fixed;
+  left: -17px;
+  top: -17px;
+}
+
+.thumbs-cursor {
+  user-select: none;
+  pointer-events: none;
+  position: fixed;
+  left: -17px;
+  top: -17px;
+}
+
+.cursor-cursor {
+  user-select: none;
+  pointer-events: none;
+  position: fixed;
+  left: -5px;
+  top: -5px;
+}
+
+.cursor-name {
+  position: fixed;
+  left: 35px;
+  top: -10px;
+}

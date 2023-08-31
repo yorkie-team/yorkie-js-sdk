@@ -100,21 +100,14 @@ export class EditOperation extends Operation {
     if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(text);
     }
-    return changes.map(({ type, from, to, value }) => {
-      return type === 'content'
-        ? {
-            type: 'edit',
-            from,
-            to,
-            value,
-            path: root.createPath(this.getParentCreatedAt()),
-          }
-        : {
-            type: 'select',
-            from,
-            to,
-            path: root.createPath(this.getParentCreatedAt()),
-          };
+    return changes.map(({ from, to, value }) => {
+      return {
+        type: 'edit',
+        from,
+        to,
+        value,
+        path: root.createPath(this.getParentCreatedAt()),
+      };
     }) as Array<OperationInfo>;
   }
 
