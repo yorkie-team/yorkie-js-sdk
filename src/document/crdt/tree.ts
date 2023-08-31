@@ -732,6 +732,39 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
+  private traverseInSubtree(
+    root: CRDTTreeNode,
+    left: CRDTTreeNode,
+    right: CRDTTreeNode,
+    callback: (root: CRDTTreeNode) => void,
+    excludeLeft = true,
+    isWithinPath = false,
+  ) {
+    if (!root) return false;
+
+    let found = false;
+
+    for (const child of root.allChildren) {
+      if (
+        this.traverseInSubtree(
+          child,
+          left,
+          right,
+          callback,
+          excludeLeft || root === left,
+          isWithinPath || root === left || root === right,
+        )
+      ) {
+        found = true;
+      }
+    }
+
+    if ((found || isWithinPath) && !excludeLeft) {
+      callback(root);
+    }
+
+    return found || root === left || root === right;
+  }
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. split text nodes at the given range if needed.
