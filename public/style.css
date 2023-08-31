@@ -66,13 +66,15 @@ button {
   font-size: 1rem;
 }
 
-#document:before {
+#document:before,
+.document:before {
   display: block;
   content: 'document: ';
   font-size: 1rem;
 }
 
-#document-text:before {
+#document-text:before,
+.document-text:before {
   display: block;
   content: 'text: ';
   font-size: 1rem;
@@ -81,9 +83,12 @@ button {
 #network-status,
 #peers,
 #document,
-#document-text {
+.document,
+#document-text,
+.document-text {
   margin: 1rem 0;
   font-family: monospace;
+  overflow: scroll;
 }
 
 .ql-editor {
@@ -161,6 +166,18 @@ button {
   height: 30px;
   border: none;
   outline: none;
+}
+.client-container {
+  display: flex;
+  width: 95%;
+}
+.client-container .ql-container {
+  height: auto;
+}
+#client-a,
+#client-b {
+  width: 50%;
+  margin: 15px;
 }
 #editor {
   width: 80%;
