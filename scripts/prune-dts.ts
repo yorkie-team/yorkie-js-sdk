@@ -240,8 +240,8 @@ function extractExportedSymbol(
   // symbol. Note that this is not always safe as we might replace the local
   // symbol with a less restrictive type.
   const localSymbol = typeChecker.getSymbolAtLocation(typeName);
-  if (localSymbol) {
-    for (const declaration of localSymbol!.declarations!) {
+  if (localSymbol?.declarations) {
+    for (const declaration of localSymbol.declarations) {
       if (
         ts.isClassDeclaration(declaration) ||
         ts.isInterfaceDeclaration(declaration)
