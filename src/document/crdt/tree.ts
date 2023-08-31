@@ -64,6 +64,10 @@ export enum TreeChangeType {
   Style = 'style',
 }
 
+enum InternalOperationType {
+  Edit = 'edit',
+}
+
 /**
  * `TreeChange` represents the change in the tree.
  */
@@ -75,6 +79,76 @@ export interface TreeChange {
   fromPath: Array<number>;
   toPath: Array<number>;
   value?: Array<TreeNode> | { [key: string]: any };
+}
+
+/**
+ * `InternalOperation`
+ */
+abstract class InternalOperation {
+  private type: InternalOperationType;
+  private editedAt: TimeTicket;
+
+  constructor(editedAt: TimeTicket, type: InternalOperationType) {
+    this.editedAt = editedAt;
+    this.type = type;
+  }
+
+  /**
+   * `getEditedAt` returns editedAt
+   */
+  public getEditedAt() {
+    return this.editedAt;
+  }
+
+  /**
+   * `getType` returns operation type
+   */
+  public getType() {
+    return this.type;
+  }
+}
+
+/**
+ * `InternalEditOperation`
+ */
+class InternalEditOperation extends InternalOperation {
+  private from: CRDTTreePos;
+  private to: CRDTTreePos;
+  private contents: Array<CRDTTreeNode> | undefined;
+
+  constructor(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    contents: Array<CRDTTreeNode> | undefined,
+    timeTicket: TimeTicket,
+  ) {
+    super(timeTicket, InternalOperationType.Edit);
+
+    this.from = from;
+    this.to = to;
+    this.contents = contents;
+  }
+
+  /**
+   * `getFrom` returns from of operation
+   */
+  public getFrom() {
+    return this.from;
+  }
+
+  /**
+   * `getTo` returns to of operation
+   */
+  public getTo() {
+    return this.to;
+  }
+
+  /**
+   * `getContents` returns contents of operation
+   */
+  public getContents() {
+    return this.contents;
+  }
 }
 
 /**
