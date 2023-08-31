@@ -645,7 +645,7 @@ export class CRDTTree extends CRDTGCElement {
       throw new Error(`cannot find node at ${pos}`);
     }
     const [parentNode] = treeNodes;
-    let [, leftSiblingNode] = treeNodes;
+    const [, leftSiblingNode] = treeNodes;
 
     // Find the appropriate position. This logic is similar to the logical to
     // handle the same position insertion of RGA.
@@ -671,18 +671,23 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    const index =
-      parentNode === leftSiblingNode
-        ? 0
-        : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
+    // const index =
+    //   parentNode === leftSiblingNode
+    //     ? 0
+    //     : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
 
-    for (let i = index; i < parentNode.allChildren.length; i++) {
-      const next = parentNode.allChildren[i];
+    // for (let i = index; i < parentNode.allChildren.length; i++) {
+    //   const next = parentNode.allChildren[i];
 
-      if (next.id.getCreatedAt().after(editedAt)) {
-        leftSiblingNode = next;
-      } else {
-        break;
+    //   if (next.id.getCreatedAt().after(editedAt)) {
+    //     leftSiblingNode = next;
+    //   } else {
+    //     break;
+    //   }
+    // }
+
+    return [parentNode, leftSiblingNode];
+  }
 
   private do<T extends InternalOperation>(
     operation: T,
