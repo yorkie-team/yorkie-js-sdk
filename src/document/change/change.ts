@@ -22,11 +22,15 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import {
+  Indexable,
+  HistoryOperation,
+} from '@yorkie-js-sdk/src/document/document';
 import {
   PresenceChange,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
+import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -133,9 +137,15 @@ export class Change<P extends Indexable> {
   /**
    * `execute` executes the operations of this change to the given root.
    */
-  public execute(root: CRDTRoot, presences: Map<ActorID, P>): ExecutionResult {
+  public execute(
+    root: CRDTRoot,
+    presences: Map<ActorID, P>,
+  ): {
+    opInfos: Array<OperationInfo>;
+    reverseOps: Array<HistoryOperation<P>>;
+  } {
     const opInfos: Array<OperationInfo> = [];
-    const reverseOps: Array<Operation> = [];
+    const reverseOps: Array<HistoryOperation<P>> = [];
     for (const operation of this.operations) {
       const executionResult = operation.execute(root);
       if (
@@ -152,9 +162,11 @@ export class Change<P extends Indexable> {
     }
 
     if (this.presenceChange) {
-      // TODO(chacha912): generate reverse operation for presence
       if (this.presenceChange.type === PresenceChangeType.Put) {
-        presences.set(this.id.getActorID()!, this.presenceChange.presence);
+        presences.set(
+          this.id.getActorID()!,
+          deepcopy(this.presenceChange.presence),
+        );
       } else {
         presences.delete(this.id.getActorID()!);
       }

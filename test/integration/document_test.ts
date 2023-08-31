@@ -745,6 +745,122 @@ describe('Document', function () {
 
     doc.history.redo();
     assert.equal('{"counter":101}', doc.toSortedJSON());
+
+    doc.history.undo();
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+  });
+
+  it('Can undo/redo with presence', async function () {
+    type TestDoc = { counter: Counter };
+    type Presence = { cursor: { x: number; y: number } };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc, Presence>(docKey);
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, {
+      initialPresence: { cursor: { x: 0, y: 0 } },
+    });
+
+    doc.update((root, presence) => {
+      presence.set({ cursor: { x: 1, y: 1 } }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+    });
+
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+
+    doc.update((root, presence) => {
+      root.counter.increase(1);
+      presence.set({ cursor: { x: 2, y: 2 } }, { addToHistory: true });
+    }, 'increase 1');
+    assert.equal('{"counter":101}', doc.toSortedJSON());
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 2, y: 2 },
+    });
+
+    doc.history.undo();
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+    });
+
+    doc.history.redo();
+    assert.equal('{"counter":101}', doc.toSortedJSON());
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 2, y: 2 },
+    });
+
+    doc.history.undo();
+    assert.equal('{"counter":100}', doc.toSortedJSON());
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+    });
+
+    await client.deactivate();
+  });
+
+  it('Should not impact undo if presence is not added to history', async function () {
+    type TestDoc = { counter: Counter };
+    type Presence = { cursor: { x: number; y: number }; color: string };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc, Presence>(docKey);
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, {
+      initialPresence: { cursor: { x: 0, y: 0 }, color: 'red' },
+    });
+
+    doc.update((root, presence) => {
+      presence.set({ cursor: { x: 1, y: 1 } }, { addToHistory: true });
+      presence.set({ color: 'blue' });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 1, y: 1 },
+      color: 'blue',
+    });
+
+    console.log('undo ops!', doc.getUndoStackForTest());
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+      color: 'blue',
+    });
+
+    console.log('undo ops!', doc.getRedoStackForTest());
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 1, y: 1 },
+      color: 'blue',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      cursor: { x: 0, y: 0 },
+      color: 'blue',
+    });
+
+    await client.deactivate();
   });
 
   it('Can canUndo/canRedo work properly', async function () {
@@ -866,6 +982,9 @@ describe('Document', function () {
     await client2.sync();
     assert.equal('{"counter":103}', doc1.toSortedJSON());
     assert.equal('{"counter":103}', doc2.toSortedJSON());
+
+    await client1.deactivate();
+    await client2.deactivate();
   });
 
   it('undo/redo with empty stack must throw error', async function () {

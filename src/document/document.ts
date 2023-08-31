@@ -241,6 +241,13 @@ export interface PresenceChangedEvent<P extends Indexable>
  */
 export type Indexable = Record<string, any>;
 
+export type HistoryOperation<P extends Indexable> =
+  | Operation
+  | {
+      type: 'presence';
+      value: Partial<P>;
+    };
+
 /**
  * Document key type
  * @public
@@ -422,8 +429,8 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `undoStack` and `redoStack` store operations for `undo`, `redo`.
    */
-  private undoStack: Array<Array<Operation>>;
-  private redoStack: Array<Array<Operation>>;
+  private undoStack: Array<Array<HistoryOperation<P>>>;
+  private redoStack: Array<Array<HistoryOperation<P>>>;
 
   /**
    * `updateStatus` is a flag that represents if current document is updating by doc.update().
@@ -512,6 +519,13 @@ export class Document<T, P extends Indexable = Indexable> {
       const change = context.getChange();
       // TODO: consider about getting undoOps and presence
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      const reversePresence = context.getReversePresence();
+      if (reversePresence) {
+        reverseOps.push({
+          type: 'presence',
+          value: reversePresence,
+        });
+      }
       this.localChanges.push(change);
       if (reverseOps.length > 0) {
         this.pushUndo(reverseOps);
@@ -1210,7 +1224,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `pushUndo` pushes new undo operations of a change to undo stack.
    */
-  private pushUndo(undoOps: Array<Operation>): void {
+  private pushUndo(undoOps: Array<HistoryOperation<P>>): void {
     if (this.undoStack.length >= MaxUndoRedoStackDepth) {
       this.undoStack.shift();
     }
@@ -1220,7 +1234,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `pushRedo` pushes new redo operations of a change to redo stack.
    */
-  private pushRedo(redoOps: Array<Operation>): void {
+  private pushRedo(redoOps: Array<HistoryOperation<P>>): void {
     if (this.redoStack.length >= MaxUndoRedoStackDepth) {
       this.redoStack.shift();
     }
@@ -1253,41 +1267,65 @@ export class Document<T, P extends Indexable = Indexable> {
       this.clone!.root,
     );
 
-    for (let i = 0; i < undoOps.length; i++) {
-      const undoOp = undoOps[i];
+    // apply undo operation in the context to generate a change
+    for (const undoOp of undoOps) {
+      if (!(undoOp instanceof Operation)) {
+        const presence = new Presence<P>(
+          context,
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+        );
+        presence.set(undoOp.value, { addToHistory: true });
+        continue;
+      }
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
       context.push(undoOp);
     }
 
-    if (context.hasChange()) {
-      const change = context.getChange();
-      try {
-        change.execute(this.clone!.root, this.presences);
-      } catch (err) {
-        // drop clone because it is contaminated.
-        this.clone = undefined;
-        logger.error(err);
-        throw err;
-      }
-      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
-      this.localChanges.push(change);
-      if (reverseOps.length > 0) {
-        this.pushRedo(reverseOps);
-      }
+    const change = context.getChange();
+    try {
+      change.execute(this.clone!.root, this.clone!.presences);
+    } catch (err) {
+      // drop clone because it is contaminated.
+      this.clone = undefined;
+      logger.error(err);
+      throw err;
+    }
 
-      this.changeID = change.getID();
+    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const reversePresence = context.getReversePresence();
+    if (reversePresence) {
+      reverseOps.push({
+        type: 'presence',
+        value: reversePresence,
+      });
+    }
+    if (reverseOps.length > 0) {
+      this.pushRedo(reverseOps);
+    }
 
-      if (change.hasOperations()) {
-        this.publish({
-          type: DocEventType.LocalChange,
-          value: {
-            message: change.getMessage() || '',
-            operations: opInfos,
-            actor: this.changeID.getActorID(),
-          },
-        });
-      }
+    this.localChanges.push(change);
+    this.changeID = change.getID();
+
+    const actorID = this.changeID.getActorID()!;
+    if (change.hasOperations()) {
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+        },
+      });
+    }
+    if (change.hasPresenceChange()) {
+      this.publish({
+        type: DocEventType.PresenceChanged,
+        value: {
+          clientID: actorID,
+          presence: this.getPresence(actorID)!,
+        },
+      });
     }
   }
 
@@ -1311,41 +1349,65 @@ export class Document<T, P extends Indexable = Indexable> {
       this.clone!.root,
     );
 
-    for (let i = 0; i < redoOps.length; i++) {
-      const redoOp = redoOps[i];
+    // apply redo operation in the context to generate a change
+    for (const redoOp of redoOps) {
+      if (!(redoOp instanceof Operation)) {
+        const presence = new Presence<P>(
+          context,
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+        );
+        presence.set(redoOp.value, { addToHistory: true });
+        continue;
+      }
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
       context.push(redoOp);
     }
 
-    if (context.hasChange()) {
-      const change = context.getChange();
-      try {
-        change.execute(this.clone!.root, this.presences);
-      } catch (err) {
-        // drop clone because it is contaminated.
-        this.clone = undefined;
-        logger.error(err);
-        throw err;
-      }
-      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
-      this.localChanges.push(change);
-      if (reverseOps.length > 0) {
-        this.pushUndo(reverseOps);
-      }
+    const change = context.getChange();
+    try {
+      change.execute(this.clone!.root, this.clone!.presences);
+    } catch (err) {
+      // drop clone because it is contaminated.
+      this.clone = undefined;
+      logger.error(err);
+      throw err;
+    }
 
-      this.changeID = change.getID();
+    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const reversePresence = context.getReversePresence();
+    if (reversePresence) {
+      reverseOps.push({
+        type: 'presence',
+        value: reversePresence,
+      });
+    }
+    if (reverseOps.length > 0) {
+      this.pushUndo(reverseOps);
+    }
 
-      if (change.hasOperations()) {
-        this.publish({
-          type: DocEventType.LocalChange,
-          value: {
-            message: change.getMessage() || '',
-            operations: opInfos,
-            actor: this.changeID.getActorID(),
-          },
-        });
-      }
+    this.localChanges.push(change);
+    this.changeID = change.getID();
+
+    const actorID = this.changeID.getActorID()!;
+    if (change.hasOperations()) {
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+        },
+      });
+    }
+    if (change.hasPresenceChange()) {
+      this.publish({
+        type: DocEventType.PresenceChanged,
+        value: {
+          clientID: actorID,
+          presence: this.getPresence(actorID)!,
+        },
+      });
     }
   }
 
@@ -1353,14 +1415,22 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getUndoStackForTest` returns the undo stack for test.
    */
   public getUndoStackForTest(): Array<Array<string>> {
-    return this.undoStack.map((ops) => ops.map((op) => op.toTestString()));
+    return this.undoStack.map((ops) =>
+      ops.map((op) => {
+        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
+      }),
+    );
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
   public getRedoStackForTest(): Array<Array<string>> {
-    return this.redoStack.map((ops) => ops.map((op) => op.toTestString()));
+    return this.redoStack.map((ops) =>
+      ops.map((op) => {
+        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
+      }),
+    );
   }
 
   /**

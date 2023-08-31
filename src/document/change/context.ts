@@ -40,6 +40,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   private root: CRDTRoot;
   private operations: Array<Operation>;
   private presenceChange?: PresenceChange<P>;
+  private reversePresence: Partial<P>;
   private message?: string;
   private delimiter: number;
 
@@ -48,6 +49,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
     this.root = root;
     this.operations = [];
     this.presenceChange = undefined;
+    this.reversePresence = {};
     this.message = message;
     this.delimiter = InitialDelimiter;
   }
@@ -116,6 +118,25 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   public setPresenceChange(presenceChange: PresenceChange<P>) {
     this.presenceChange = presenceChange;
+  }
+
+  /**
+   * `setReversePresence` registers the previous presence to undo presence updates.
+   */
+  public setReversePresence(presence: Partial<P>) {
+    for (const key of Object.keys(presence)) {
+      if (!(key in this.reversePresence)) {
+        this.reversePresence[key as keyof P] = presence[key];
+      }
+    }
+  }
+
+  /**
+   * `getReversePresence` returns the reverse presence of this context.
+   */
+  public getReversePresence() {
+    if (Object.keys(this.reversePresence).length === 0) return undefined;
+    return this.reversePresence;
   }
 
   /**
