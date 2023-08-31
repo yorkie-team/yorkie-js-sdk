@@ -17,11 +17,11 @@ subscribe(type: 'my-presence', next: NextFn<DocEvent<P>>, error?: ErrorFn, compl
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  type | 'my-presence' |  |
-|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
-|  error | ErrorFn | _(Optional)_ |
-|  complete | CompleteFn | _(Optional)_ |
+|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
+|  error | [ErrorFn](./yorkie-js-sdk.errorfn.md) | _(Optional)_ |
+|  complete | [CompleteFn](./yorkie-js-sdk.completefn.md) | _(Optional)_ |
 
 **Returns:**
 
-Unsubscribe
+[Unsubscribe](./yorkie-js-sdk.unsubscribe.md)
 

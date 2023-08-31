@@ -38,6 +38,8 @@
 |  [DocumentChangedEvent](./yorkie-js-sdk.documentchangedevent.md) | <code>DocumentChangedEvent</code> is an event that occurs when document attached to the client changes. |
 |  [DocumentSyncedEvent](./yorkie-js-sdk.documentsyncedevent.md) | <code>DocumentSyncedEvent</code> is an event that occurs when document attached to the client are synced. |
 |  [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md) | <code>LocalChangeEvent</code> is an event that occurs when the document is changed by local changes. |
+|  [Observable](./yorkie-js-sdk.observable.md) |  |
+|  [Observer](./yorkie-js-sdk.observer.md) |  |
 |  [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md) | <code>RemoteChangeEvent</code> is an event that occurs when the document is changed by remote changes. |
 |  [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md) | <code>SnapshotEvent</code> is an event that occurs when a snapshot is received from the server. |
 |  [StatusChangedEvent](./yorkie-js-sdk.statuschangedevent.md) | <code>StatusChangedEvent</code> is an event that occurs when the Client's state changes. |
@@ -59,17 +61,20 @@
 |  [AddOpInfo](./yorkie-js-sdk.addopinfo.md) | <code>AddOpInfo</code> represents the information of the add operation. |
 |  [ArrayOperationInfo](./yorkie-js-sdk.arrayoperationinfo.md) | <code>ArrayOperationInfo</code> represents the OperationInfo for the JSONArray. |
 |  [ClientEvent](./yorkie-js-sdk.clientevent.md) | <code>ClientEvent</code> is an event that occurs in <code>Client</code>. It can be delivered using <code>Client.subscribe()</code>. |
+|  [CompleteFn](./yorkie-js-sdk.completefn.md) |  |
 |  [CounterOperationInfo](./yorkie-js-sdk.counteroperationinfo.md) | <code>CounterOperationInfo</code> represents the OperationInfo for the yorkie.Counter. |
 |  [CRDTTreeNodeIDStruct](./yorkie-js-sdk.crdttreenodeidstruct.md) | <code>CRDTTreeNodeIDStruct</code> represents the structure of CRDTTreeNodeID. It is used to serialize and deserialize the CRDTTreeNodeID. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>Document</code>. It can be delivered using <code>Document.subscribe()</code>. |
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) | <code>EditOpInfo</code> represents the information of the edit operation. |
 |  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> is a node that has children. |
+|  [ErrorFn](./yorkie-js-sdk.errorfn.md) |  |
 |  [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md) | <code>IncreaseOpInfo</code> represents the information of the increase operation. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [JSONElement](./yorkie-js-sdk.jsonelement.md) | <code>JSONElement</code> is a wrapper for <code>CRDTElement</code> that provides users with an easy-to-use interface for manipulating <code>Document</code>s. |
 |  [JSONObject](./yorkie-js-sdk.jsonobject.md) | <code>JSONObject</code> represents a JSON object, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
 |  [MoveOpInfo](./yorkie-js-sdk.moveopinfo.md) | <code>MoveOpInfo</code> represents the information of the move operation. |
+|  [NextFn](./yorkie-js-sdk.nextfn.md) |  |
 |  [ObjectOperationInfo](./yorkie-js-sdk.objectoperationinfo.md) | <code>ObjectOperationInfo</code> represents the OperationInfo for the JSONObject. |
 |  [OperationInfo](./yorkie-js-sdk.operationinfo.md) | <code>OperationInfo</code> represents the information of an operation. It is used to inform to the user what kind of operation was executed. |
 |  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
@@ -84,5 +89,6 @@
 |  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
 |  [TreeOperationInfo](./yorkie-js-sdk.treeoperationinfo.md) | <code>TreeOperationInfo</code> represents the OperationInfo for the yorkie.Tree. |
 |  [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
+|  [Unsubscribe](./yorkie-js-sdk.unsubscribe.md) |  |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

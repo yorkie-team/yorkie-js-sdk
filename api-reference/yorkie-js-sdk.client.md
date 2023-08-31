@@ -11,7 +11,7 @@
 ```typescript
 export declare class Client implements Observable<ClientEvent> 
 ```
-**Implements:** Observable&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt;
+**Implements:** [Observable](./yorkie-js-sdk.observable.md)<!-- -->&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt;
 
 ## Constructors
 

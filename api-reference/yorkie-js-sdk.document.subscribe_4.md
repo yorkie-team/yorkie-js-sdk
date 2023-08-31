@@ -17,11 +17,11 @@ subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPa
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  targetPath | TPath |  |
-|  next | NextFn&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P, TOperationInfo&gt;&gt; |  |
-|  error | ErrorFn | _(Optional)_ |
-|  complete | CompleteFn | _(Optional)_ |
+|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P, TOperationInfo&gt;&gt; |  |
+|  error | [ErrorFn](./yorkie-js-sdk.errorfn.md) | _(Optional)_ |
+|  complete | [CompleteFn](./yorkie-js-sdk.completefn.md) | _(Optional)_ |
 
 **Returns:**
 
-Unsubscribe
+[Unsubscribe](./yorkie-js-sdk.unsubscribe.md)
 
