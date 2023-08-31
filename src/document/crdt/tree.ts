@@ -28,12 +28,15 @@ import {
   TreeNodeType,
   traverseAll,
   TagContained,
+  traverse,
+  findCommonAncestor,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import { getUpperBound } from '@yorkie-js-sdk/src/util/array';
 
 /**
  * `TreeNode` represents the JSON representation of a node in the tree.
@@ -590,12 +593,14 @@ export class CRDTTree extends CRDTGCElement {
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
+  private operationLog: Array<InternalOperation>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
     this.removedNodeMap = new Map();
+    this.operationLog = [];
 
     this.indexTree.traverse((node) => {
       this.nodeMapByID.put(node.id, node);
@@ -831,14 +836,19 @@ export class CRDTTree extends CRDTGCElement {
 
     return found || root === left || root === right;
   }
+
+  private doEdit(
+    operation: InternalEditOperation,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const editedAt = operation.getEditedAt();
+    const contents = operation.getContents();
+
     // 01. split text nodes at the given range if needed.
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      editedAt,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from, editedAt);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to, editedAt);
 
     // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
     // range(from, to) into multiple ranges.
@@ -926,6 +936,51 @@ export class CRDTTree extends CRDTGCElement {
         });
       }
     }
+
+    return [changes, latestCreatedAtMap];
+  }
+
+  /**
+   * `edit` edits the tree with the given range and content.
+   * If the content is undefined, the range will be removed.
+   */
+  public edit(
+    range: [CRDTTreePos, CRDTTreePos],
+    contents: Array<CRDTTreeNode> | undefined,
+    editedAt: TimeTicket,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ): [Array<TreeChange>, Map<string, TimeTicket>] {
+    const operation = new InternalEditOperation(
+      range[0],
+      range[1],
+      contents,
+      editedAt,
+    );
+    const upperBoundIndex = getUpperBound(
+      this.operationLog,
+      operation,
+      (existOp, newOp) => {
+        const existOpEditedAt = existOp.getEditedAt();
+        const newOpEditedAt = newOp.getEditedAt();
+
+        return existOpEditedAt.compare(newOpEditedAt);
+      },
+    );
+    const operationsToUndo = this.operationLog.slice(
+      upperBoundIndex,
+      this.operationLog.length,
+    );
+
+    this.operationLog.splice(upperBoundIndex, 0, operation);
+
+    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
+
+    const [changes, latestCreatedAtMap] = this.doEdit(
+      operation,
+      latestCreatedAtMapByActor,
+    );
+
+    operationsToUndo.forEach((op) => this.do(op, latestCreatedAtMapByActor));
 
     return [changes, latestCreatedAtMap];
   }
