@@ -724,14 +724,63 @@ export class CRDTTree extends CRDTGCElement {
     return changes;
   }
 
-  /**
-   * `edit` edits the tree with the given range and content.
-   * If the content is undefined, the range will be removed.
-   */
-  public edit(
-    range: [CRDTTreePos, CRDTTreePos],
-    contents: Array<CRDTTreeNode> | undefined,
-    editedAt: TimeTicket,
+  private undoEdit(operation: InternalEditOperation) {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const content = operation.getContents();
+    const editedAt = operation.getEditedAt();
+
+    // 1. remove inserted tree nodes
+    content?.forEach((treeNode) => {
+      // 1-1 remove subtree from nodeMapByID and recalculate parent size
+      traverse(treeNode, (node) => {
+        this.nodeMapByID.remove(node.id);
+
+        if (!node.isRemoved) {
+          node.remove(MaxTimeTicket);
+          node.removedAt = undefined;
+        }
+      });
+
+      // 1-3 remove subtree from its parent
+      treeNode.parent!.removeChild(treeNode);
+    });
+
+    // 2. restore deleted nodes
+    if (!from.equals(to)) {
+      const fromNodes = this.toTreeNodes(from);
+      const fromParent = fromNodes[0];
+      let fromLeft = fromNodes[1];
+      const [, toLeft] = this.toTreeNodes(to);
+      let excludeLeft = true;
+
+      if (fromParent === fromLeft) {
+        fromLeft = fromParent.allChildren[0];
+
+        excludeLeft = false;
+      }
+
+      const lca = findCommonAncestor(fromLeft, toLeft);
+
+      lca &&
+        this.traverseInSubtree(
+          lca,
+          fromLeft,
+          toLeft,
+          (node) => {
+            if (node.removedAt?.equals(editedAt)) {
+              node.removedAt = undefined;
+              node.updateAncestorsSize();
+              if (this.removedNodeMap.has(node.id.toIDString())) {
+                this.removedNodeMap.delete(node.id.toIDString());
+              }
+            }
+          },
+          excludeLeft,
+        );
+    }
+  }
+
   private traverseInSubtree(
     root: CRDTTreeNode,
     left: CRDTTreeNode,
