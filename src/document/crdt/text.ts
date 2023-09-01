@@ -29,7 +29,6 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 /**
  * `TextChangeType` is the type of TextChange.
  *
- * @internal
  */
 enum TextChangeType {
   Content = 'content',
@@ -58,7 +57,6 @@ interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
  * which has a attributes that expresses the text style.
  * Attributes are represented by RHT.
  *
- * @internal
  */
 export class CRDTTextValue {
   private attributes: RHT;
@@ -156,7 +154,6 @@ export class CRDTTextValue {
 /**
  *  `CRDTText` is a custom CRDT data type to represent the contents of text editors.
  *
- * @internal
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;

@@ -34,7 +34,7 @@ export type OperationInfo =
 /**
  * `TextOperationInfo` represents the OperationInfo for the yorkie.Text.
  */
-export type TextOperationInfo = EditOpInfo | StyleOpInfo | SelectOpInfo;
+export type TextOperationInfo = EditOpInfo | StyleOpInfo;
 
 /**
  * `CounterOperationInfo` represents the OperationInfo for the yorkie.Counter.
@@ -128,16 +128,6 @@ export type StyleOpInfo = {
   value: {
     attributes: Indexable;
   };
-};
-
-/**
- * `SelectOpInfo` represents the information of the select operation.
- */
-export type SelectOpInfo = {
-  type: 'select';
-  from: number;
-  to: number;
-  path: string;
 };
 
 /**

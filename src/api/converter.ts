@@ -1084,6 +1084,9 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );
+    } else if (pbOperation.hasSelect()) {
+      // TODO(hackerwins): Select is deprecated.
+      continue;
     } else if (pbOperation.hasIncrease()) {
       const pbIncreaseOperation = pbOperation.getIncrease();
       operation = IncreaseOperation.create(
