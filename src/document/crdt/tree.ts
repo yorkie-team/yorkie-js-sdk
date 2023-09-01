@@ -453,9 +453,9 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
 }
 
 /**
- * toJSON converts the given CRDTNode to JSON.
+ * toJS converts the given CRDTTreeNode to TreeNode.
  */
-function toJSON(node: CRDTTreeNode): TreeNode {
+function toJS(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
     const currentNode = node;
     return {
@@ -466,7 +466,7 @@ function toJSON(node: CRDTTreeNode): TreeNode {
 
   return {
     type: node.type,
-    children: node.children.map(toJSON),
+    children: node.children.map(toJS),
     attributes: node.attrs
       ? parseObjectValues(node.attrs?.toObject())
       : undefined,
@@ -678,7 +678,7 @@ export class CRDTTree extends CRDTGCElement {
       toPath: this.toPath(toParent, toLeft),
       actor: editedAt.getActorID()!,
       value: contents?.length
-        ? contents.map((content) => toJSON(content))
+        ? contents.map((content) => toJS(content))
         : undefined,
     });
 
@@ -950,7 +950,14 @@ export class CRDTTree extends CRDTGCElement {
    * `toJSON` returns the JSON encoding of this tree.
    */
   public toJSON(): string {
-    return JSON.stringify(toJSON(this.indexTree.getRoot()));
+    return JSON.stringify(this.toJS());
+  }
+
+  /**
+   * `toJS` returns the converted value of this tree to TreeNode.
+   */
+  public toJS(): TreeNode {
+    return toJS(this.indexTree.getRoot());
   }
 
   /**

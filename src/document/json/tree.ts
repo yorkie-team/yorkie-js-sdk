@@ -472,6 +472,17 @@ export class Tree {
   }
 
   /**
+   * `toJS` returns TreeNode of this tree.
+   */
+  public toJS() {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.toJS();
+  }
+
+  /**
    * `indexToPath` returns the path of the given index.
    */
   public indexToPath(index: number): Array<number> {
