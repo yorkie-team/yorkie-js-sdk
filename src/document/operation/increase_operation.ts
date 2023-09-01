@@ -70,7 +70,6 @@ export class IncreaseOperation extends Operation {
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
     counter.increase(value);
-    // TODO: generate reverse operation
     return {
       opInfos: [
         {
@@ -84,7 +83,7 @@ export class IncreaseOperation extends Operation {
   }
 
   /**
-   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTRoot`.
+   * `getReverseOperation` returns this operation's reverse operation.
    */
   public getReverseOperation(): Operation {
     const primitiveValue = this.value.deepcopy() as Primitive;

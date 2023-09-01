@@ -52,6 +52,13 @@ export abstract class CRDTElement {
   }
 
   /**
+   * `setCreatedAt` sets the creation time of this element.
+   */
+  public setCreatedAt(createdAt: TimeTicket): void {
+    this.createdAt = createdAt;
+  }
+
+  /**
    * `getRemovedAt` returns the removal time of this element.
    */
   public getRemovedAt(): TimeTicket | undefined {

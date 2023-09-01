@@ -20,9 +20,10 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
+  ExecutionResult,
   Operation,
-  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { RemoveOperation } from './remove_operation';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -36,7 +37,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.key = key;
@@ -50,7 +51,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): SetOperation {
     return new SetOperation(key, value, parentCreatedAt, executedAt);
   }
@@ -58,7 +59,7 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -68,15 +69,42 @@ export class SetOperation extends Operation {
     }
     const obj = parentObject as CRDTObject;
     const value = this.value.deepcopy();
+    const reverseOp = this.getReverseOperation(root);
     obj.set(this.key, value);
     root.registerElement(value, obj);
-    return [
-      {
-        type: 'set',
-        path: root.createPath(this.getParentCreatedAt()),
-        key: this.key,
-      },
-    ];
+    return {
+      opInfos: [
+        {
+          type: 'set',
+          path: root.createPath(this.getParentCreatedAt()),
+          key: this.key,
+        },
+      ],
+      reverseOps: [reverseOp],
+    };
+  }
+
+  /**
+   * `getReverseOperation` calculates this operation's reverse operation.
+   */
+  public getReverseOperation(root: CRDTRoot): Operation {
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    const obj = parentObject as CRDTObject;
+    const value = obj.get(this.key);
+
+    let reverseOp: Operation = RemoveOperation.create(
+      this.getParentCreatedAt(),
+      this.value.deepcopy().getCreatedAt(),
+    );
+
+    if (value !== undefined) {
+      reverseOp = SetOperation.create(
+        this.key,
+        value.deepcopy(),
+        this.getParentCreatedAt(),
+      );
+    }
+    return reverseOp;
   }
 
   /**

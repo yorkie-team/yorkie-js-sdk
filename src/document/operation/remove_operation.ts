@@ -18,11 +18,14 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
+  ExecutionResult,
   Operation,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { SetOperation } from './set_operation';
+import { CRDTObject } from '../crdt/object';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -33,7 +36,7 @@ export class RemoveOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
@@ -45,7 +48,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
@@ -53,7 +56,8 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  // TODO(Hyemmie): consider CRDTArray
+  public execute(root: CRDTRoot): Array<OperationInfo> | ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -63,24 +67,59 @@ export class RemoveOperation extends Operation {
     }
     const obj = parentObject as CRDTContainer;
     const key = obj.subPathOf(this.createdAt);
+    const reverseOp = this.getReverseOperation(root);
+    const reverseOps = [];
+    if (reverseOp !== undefined) {
+      reverseOps.push(reverseOp);
+    }
+
     const elem = obj.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
-    return parentObject instanceof CRDTArray
-      ? [
-          {
-            type: 'remove',
-            path: root.createPath(this.getParentCreatedAt()),
-            index: Number(key),
-          },
-        ]
-      : [
-          {
-            type: 'remove',
-            path: root.createPath(this.getParentCreatedAt()),
+    return {
+      opInfos:
+        parentObject instanceof CRDTArray
+          ? [
+              {
+                type: 'remove',
+                path: root.createPath(this.getParentCreatedAt()),
+                index: Number(key),
+              },
+            ]
+          : [
+              {
+                type: 'remove',
+                path: root.createPath(this.getParentCreatedAt()),
+                key,
+              },
+            ],
+      reverseOps,
+    };
+  }
+
+  /**
+   * `getReverseOperation` calculates this operation's reverse operation.
+   */
+  public getReverseOperation(root: CRDTRoot): Operation | undefined {
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    let reverseOp;
+    //TODO(Hyemmie): consider CRDTArray
+    if (parentObject instanceof CRDTObject) {
+      const obj = parentObject as CRDTObject;
+      const key = obj.subPathOf(this.createdAt);
+      if (key !== undefined) {
+        const value = obj.get(key);
+        if (value !== undefined) {
+          reverseOp = SetOperation.create(
             key,
-          },
-        ];
+            value.deepcopy(),
+            this.getParentCreatedAt(),
+          );
+        }
+      }
+    }
+
+    return reverseOp;
   }
 
   /**
