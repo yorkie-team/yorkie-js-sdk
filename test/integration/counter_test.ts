@@ -182,15 +182,15 @@ describe('Counter', function () {
     });
     assert.equal(`{"cnt":1,"longCnt":9223372036854775807}`, doc.toSortedJSON());
     assert.equal(
-      `[["1:00:1.INCREASE.-1.5","1:00:2.INCREASE.-9223372036854775807"]]`,
-      JSON.stringify(doc.getUndoStackForTest()),
+      `["1:00:1.INCREASE.-1.5","1:00:2.INCREASE.-9223372036854775807"]`,
+      JSON.stringify(doc.getUndoStackForTest().pop()),
     );
 
     doc.history.undo();
     assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
     assert.equal(
-      `[["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]]`,
-      JSON.stringify(doc.getRedoStackForTest()),
+      `["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]`,
+      JSON.stringify(doc.getRedoStackForTest().pop()),
     );
   });
 });
