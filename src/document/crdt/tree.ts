@@ -453,7 +453,7 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
 }
 
 /**
- * toJS converts the given CRDTTreeNode to TreeNode.
+ * `toJS` converts the given CRDTTreeNode to TreeNode.
  */
 function toJS(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
