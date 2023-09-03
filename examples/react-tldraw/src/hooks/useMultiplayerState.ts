@@ -64,26 +64,40 @@ export function useMultiplayerState(roomId: string) {
     ) => {
       if (!app || client === undefined || doc === undefined) return;
 
-      doc.update((root) => {
-        Object.entries(shapes).forEach(([id, shape]) => {
+      Object.entries(shapes).forEach(([id, shape]) => {
+        doc.update((root) => {
+          const rootShapePoint = root.shapes[id]?.toJS?.().point;
+          const isMoving =
+            root.shapes[id] &&
+            JSON.stringify(rootShapePoint) !== JSON.stringify(shape?.point);
+
+          if (isMoving) {
+            root.shapes[id].point = shape?.point as Array<number>;
+            return;
+          }
+
           if (!shape) {
             delete root.shapes[id];
           } else {
             root.shapes[id] = shape;
           }
         });
+      });
 
-        Object.entries(bindings).forEach(([id, binding]) => {
+      Object.entries(bindings).forEach(([id, binding]) => {
+        doc.update((root) => {
           if (!binding) {
             delete root.bindings[id];
           } else {
             root.bindings[id] = binding;
           }
         });
+      });
 
-        // Should store app.document.assets which is global asset storage referenced by inner page assets
-        // Document key for assets should be asset.id (string), not index
-        Object.entries(app.assets).forEach(([, asset]) => {
+      // Should store app.document.assets which is global asset storage referenced by inner page assets
+      // Document key for assets should be asset.id (string), not index
+      Object.entries(app.assets).forEach(([, asset]) => {
+        doc.update((root) => {
           if (!asset.id) {
             delete root.assets[asset.id];
           } else {
