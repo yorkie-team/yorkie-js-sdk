@@ -453,9 +453,9 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
 }
 
 /**
- * toJS converts the given CRDTTreeNode to TreeNode.
+ * toTreeNode converts the given CRDTTreeNode to TreeNode.
  */
-function toJS(node: CRDTTreeNode): TreeNode {
+function toTreeNode(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
     const currentNode = node;
     return {
@@ -466,7 +466,7 @@ function toJS(node: CRDTTreeNode): TreeNode {
 
   return {
     type: node.type,
-    children: node.children.map(toJS),
+    children: node.children.map(toTreeNode),
     attributes: node.attrs
       ? parseObjectValues(node.attrs?.toObject())
       : undefined,
@@ -678,7 +678,7 @@ export class CRDTTree extends CRDTGCElement {
       toPath: this.toPath(toParent, toLeft),
       actor: editedAt.getActorID()!,
       value: contents?.length
-        ? contents.map((content) => toJS(content))
+        ? contents.map((content) => toTreeNode(content))
         : undefined,
     });
 
@@ -950,14 +950,14 @@ export class CRDTTree extends CRDTGCElement {
    * `toJSON` returns the JSON encoding of this tree.
    */
   public toJSON(): string {
-    return JSON.stringify(this.toJS());
+    return JSON.stringify(this.getRootTreeNode());
   }
 
   /**
-   * `toJS` returns the converted value of this tree to TreeNode.
+   * `getRootTreeNode` returns the converted value of this tree to TreeNode.
    */
-  public toJS(): TreeNode {
-    return toJS(this.indexTree.getRoot());
+  public getRootTreeNode(): TreeNode {
+    return toTreeNode(this.indexTree.getRoot());
   }
 
   /**

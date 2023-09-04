@@ -472,14 +472,14 @@ export class Tree {
   }
 
   /**
-   * `toJS` returns TreeNode of this tree.
+   * `getRootTreeNode` returns TreeNode of this tree.
    */
-  public toJS() {
+  public getRootTreeNode() {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
 
-    return this.tree.toJS();
+    return this.tree.getRootTreeNode();
   }
 
   /**
