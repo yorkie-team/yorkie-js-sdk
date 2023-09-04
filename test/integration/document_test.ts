@@ -1203,4 +1203,168 @@ describe('Document', function () {
       '10',
     );
   });
+
+  it.only('concurrent undo/redo of object - no sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '1');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"color":"black"}', doc2.toSortedJSON(), '2');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+
+    assert.equal('{"color":"red"}', doc1.toSortedJSON(), '3');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '4');
+
+    doc1.history.undo();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '5');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    // client 2's green set wins client 1's undo
+    assert.equal('{"color":"green"}', doc1.toSortedJSON(), '6');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '7');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"red"}', doc1.toSortedJSON(), '8');
+    assert.equal('{"color":"red"}', doc2.toSortedJSON(), '9');
+  });
+
+  it.only('concurrent undo/redo of object - sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '1');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"color":"black"}', doc2.toSortedJSON(), '2');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"color":"green"}', doc1.toSortedJSON(), '3');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '4');
+
+    doc1.history.undo();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '5');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '6');
+    assert.equal('{"color":"black"}', doc2.toSortedJSON(), '7');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"green"}', doc1.toSortedJSON(), '8');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '9');
+  });
+
+  it.only('concurrent undo/redo of object - sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '1');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"color":"black"}', doc2.toSortedJSON(), '2');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"color":"green"}', doc1.toSortedJSON(), '3');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '4');
+
+    doc1.history.undo();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '5');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"black"}', doc1.toSortedJSON(), '6');
+    assert.equal('{"color":"black"}', doc2.toSortedJSON(), '7');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"green"}', doc1.toSortedJSON(), '8');
+    assert.equal('{"color":"green"}', doc2.toSortedJSON(), '9');
+  });
 });
