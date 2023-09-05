@@ -11,6 +11,7 @@ import {
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
+  Document,
   DocumentStatus,
   DocEventType,
 } from '@yorkie-js-sdk/src/document/document';
@@ -863,7 +864,7 @@ describe('Document', function () {
     await client.deactivate();
   });
 
-  it('Can canUndo/canRedo work properly', async function () {
+  it('Can canUndo/canRedo work properly for counter', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
@@ -872,7 +873,7 @@ describe('Document', function () {
     }, 'init counter');
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
-    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
 
     // user increases the counter
@@ -887,7 +888,7 @@ describe('Document', function () {
 
     // user undoes the latest operation
     doc.history.undo();
-    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canUndo());
     assert.equal(true, doc.history.canRedo());
 
     // user redoes the latest undone operation
@@ -906,7 +907,7 @@ describe('Document', function () {
     }, 'init counter');
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
-    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
 
     for (let i = 0; i < 5; i++) {
@@ -931,7 +932,7 @@ describe('Document', function () {
     assert.equal(false, doc.history.canRedo());
   });
 
-  it('Can undo/redo for concurrent users', async function () {
+  it('undo/redo for concurrent users', async function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
@@ -991,13 +992,6 @@ describe('Document', function () {
     type TestDoc = { counter: Counter };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
-    doc.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
-    }, 'init counter');
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-
-    assert.equal(false, doc.history.canUndo());
-    assert.equal(false, doc.history.canRedo());
 
     assert.throws(
       () => {
@@ -1025,7 +1019,7 @@ describe('Document', function () {
     }, 'init counter');
     assert.equal('{"counter":100}', doc.toSortedJSON());
 
-    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
 
     assert.throws(
@@ -1058,7 +1052,7 @@ describe('Document', function () {
     }, 'init counter');
     assert.equal('{"counter":0}', doc.toSortedJSON());
 
-    assert.equal(false, doc.history.canUndo());
+    assert.equal(true, doc.history.canUndo());
     assert.equal(false, doc.history.canRedo());
 
     for (let i = 0; i < 100; i++) {
@@ -1097,5 +1091,259 @@ describe('Document', function () {
       }
     }
     assert.equal('{"counter":100}', doc.toSortedJSON());
+  });
+
+  it('Can undo/redo work properly for simple object set 1', function () {
+    const doc = new Document<{
+      a: number;
+    }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.a = 1;
+    }, 'set a');
+    assert.equal('{"a":1}', doc.toSortedJSON());
+
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.update((root) => {
+      root.a = 2;
+    }, 'set a');
+    assert.equal('{"a":2}', doc.toSortedJSON());
+
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.history.undo();
+    assert.equal('{"a":1}', doc.toSortedJSON());
+
+    assert.equal(true, doc.history.canRedo());
+    doc.history.redo();
+    assert.equal('{"a":2}', doc.toSortedJSON());
+  });
+
+  it('Can undo/redo work properly for simple object set 2', function () {
+    const doc = new Document<{
+      a: number;
+    }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.a = 1;
+    }, 'set a');
+    assert.equal('{"a":1}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.a = 2;
+    }, 'set a');
+    assert.equal('{"a":2}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.a = 3;
+    }, 'set a');
+    assert.equal('{"a":3}', doc.toSortedJSON());
+
+    doc.history.undo();
+    assert.equal('{"a":2}', doc.toSortedJSON());
+
+    doc.history.redo();
+    assert.equal('{"a":3}', doc.toSortedJSON());
+
+    doc.history.undo();
+    assert.equal('{"a":2}', doc.toSortedJSON());
+
+    doc.history.undo();
+    assert.equal('{"a":1}', doc.toSortedJSON());
+  });
+
+  it('Can undo/redo work properly for nested object 1', function () {
+    const doc = new Document<{
+      content: { a: number };
+    }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.content = { a: 1 };
+    }, 'set a');
+    assert.equal('{"content":{"a":1}}', doc.toSortedJSON(), '1');
+
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.update((root) => {
+      root.content = { a: 2 };
+    }, 'set a');
+    assert.equal('{"content":{"a":2}}', doc.toSortedJSON(), '2');
+
+    assert.equal(true, doc.history.canUndo());
+    assert.equal(false, doc.history.canRedo());
+
+    doc.history.undo();
+    assert.equal('{"content":{"a":1}}', doc.toSortedJSON(), '3');
+
+    assert.equal(true, doc.history.canRedo());
+    doc.history.redo();
+    assert.equal('{"content":{"a":2}}', doc.toSortedJSON(), '4');
+  });
+
+  it('Can undo/redo work properly for nested object 2', function () {
+    const doc = new Document<{
+      k1: { 'k1-1'?: string; 'k1-2'?: string };
+      k2: Array<string | { 'k2-5': string }>;
+    }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON(), '1');
+
+    doc.update((root) => {
+      root['k1'] = { 'k1-1': 'v1' };
+      root['k1']['k1-2'] = 'v2';
+    }, 'set {"k1-1":"v1","k1-2":"v2":}');
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON(), '2');
+
+    doc.history.undo();
+    assert.equal('{}', doc.toSortedJSON(), '3');
+
+    doc.history.redo();
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON(), '4');
+
+    doc.update((root) => {
+      root['k1']['k1-2'] = 'v3';
+    }, 'set {"k1-2":"v3"}');
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON(), '5');
+
+    doc.history.undo();
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON(), '6');
+
+    doc.history.redo();
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON(), '7');
+
+    doc.update((root) => {
+      root['k2'] = ['1', '2'];
+      root['k2'].push('3');
+    }, 'set ["1","2","3"]');
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      doc.toSortedJSON(),
+      '8',
+    );
+
+    doc.history.undo();
+    assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON()), '9';
+
+    doc.history.redo();
+    assert.equal(
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      doc.toSortedJSON(),
+      '10',
+    );
+  });
+
+  it('concurrent undo/redo of object - no sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"color":"black"}', doc2.toSortedJSON());
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+
+    assert.equal('{"color":"red"}', doc1.toSortedJSON());
+    assert.equal('{"color":"green"}', doc2.toSortedJSON());
+
+    doc1.history.undo();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    // client 2's green set wins client 1's undo
+    assert.equal('{"color":"green"}', doc1.toSortedJSON());
+    assert.equal('{"color":"green"}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"red"}', doc1.toSortedJSON());
+    assert.equal('{"color":"red"}', doc2.toSortedJSON());
+  });
+
+  it('concurrent undo/redo of object - sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"color":"black"}', doc2.toSortedJSON());
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"color":"green"}', doc1.toSortedJSON());
+    assert.equal('{"color":"green"}', doc2.toSortedJSON());
+
+    doc1.history.undo();
+    assert.equal('{"color":"black"}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"black"}', doc1.toSortedJSON());
+    assert.equal('{"color":"black"}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"color":"green"}', doc1.toSortedJSON());
+    assert.equal('{"color":"green"}', doc2.toSortedJSON());
   });
 });
