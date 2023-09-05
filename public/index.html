@@ -113,6 +113,10 @@
         <div class="editor-area">
           <div>
             <textarea id="textarea" cols="30" rows="10"></textarea>
+            <div class="editor-control">
+              <button class="undo-button">undo</button>
+              <button class="redo-button">redo</button>
+            </div>
           </div>
           <div class="data-area" id="view-text">
             <div class="text-view-area">
@@ -368,7 +372,11 @@
           });
 
           doc.subscribe('$.content', (event) => {
-            if (event.type === 'remote-change') {
+            if (
+              event.type === 'remote-change' ||
+              (event.type === 'local-change' &&
+                event.value.message === 'YORKIE_HISTORY')
+            ) {
               const { actor, operations } = event.value;
               handleOperations(operations, actor);
 
@@ -393,7 +401,6 @@
             const from = cm.indexFromPos(change.from);
             const to = cm.indexFromPos(change.to);
             const content = change.text.join('\n');
-
             doc.update((root, presence) => {
               const range = root.content.edit(from, to, content);
               presence.set({
@@ -427,7 +434,6 @@
 
             const from = cm.indexFromPos(change.ranges[0].anchor);
             const to = cm.indexFromPos(change.ranges[0].head);
-
             doc.update((root, presence) => {
               presence.set({
                 selection: root.content.indexRangeToPosRange([from, to]),
@@ -453,6 +459,19 @@
               }
             }
           }
+
+          document
+            .querySelector('.undo-button')
+            .addEventListener('click', () => {
+              console.log('undo op', doc.getUndoStackForTest().at(-1));
+              doc.undo();
+            });
+          document
+            .querySelector('.redo-button')
+            .addEventListener('click', () => {
+              console.log('redo op', doc.getRedoStackForTest().at(-1));
+              doc.redo();
+            });
 
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());

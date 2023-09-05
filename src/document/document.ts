@@ -1267,6 +1267,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      'YORKIE_HISTORY',
     );
 
     // apply undo operation in the context to generate a change
@@ -1352,6 +1353,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      'YORKIE_HISTORY',
     );
 
     // apply redo operation in the context to generate a change

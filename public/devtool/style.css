@@ -553,3 +553,9 @@
 #llrbtree-log-holder.hide-deleted-node .node-item.is-removed {
   display: none;
 }
+
+.editor-control {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
