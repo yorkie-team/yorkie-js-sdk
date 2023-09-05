@@ -1,7 +1,10 @@
 import { assert } from 'chai';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  withTwoClientsAndDocuments,
+  assertUndoRedo,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Object', function () {
@@ -32,18 +35,22 @@ describe('Object', function () {
       k1: { 'k1-1'?: string; 'k1-2'?: string };
       k2: Array<string | { 'k2-5': string }>;
     }>('test-doc');
+    const states: Array<string> = [];
     assert.equal('{}', doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k1']['k1-2'] = 'v2';
     }, 'set {"k1-1":"v1","k1-2":"v2":}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1']['k1-2'] = 'v3';
     }, 'set {"k1-2":"v3"}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v3"}}', doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'] = ['1', '2'];
@@ -53,6 +60,7 @@ describe('Object', function () {
       '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
       doc.toSortedJSON(),
     );
+    states.push(doc.toSortedJSON());
 
     assert.throws(() => {
       doc.update((root) => {
@@ -64,6 +72,7 @@ describe('Object', function () {
       '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
       doc.toSortedJSON(),
     );
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'].push('4');
@@ -72,6 +81,7 @@ describe('Object', function () {
       '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4"]}',
       doc.toSortedJSON(),
     );
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root['k2'].push({ 'k2-5': 'v4' });
@@ -80,24 +90,33 @@ describe('Object', function () {
       '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3","4",{"k2-5":"v4"}]}',
       doc.toSortedJSON(),
     );
+    states.push(doc.toSortedJSON());
+
+    //TODO(Hyemmie): test assertUndoRedo after implementing array's reverse operation
+    // assertUndoRedo(doc, states);
   });
 
   it('should handle delete operations', function () {
     const doc = new Document<{
       k1: { 'k1-1'?: string; 'k1-2': string; 'k1-3'?: string };
     }>('test-doc');
+    const states: Array<string> = [];
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
       root['k1'] = { 'k1-1': 'v1', 'k1-2': 'v2' };
     }, 'set {"k1":{"k1-1":"v1","k1-2":"v2"}}');
     assert.equal('{"k1":{"k1-1":"v1","k1-2":"v2"}}', doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
 
     doc.update((root) => {
-      delete root['k1']['k1-1'];
       root['k1']['k1-3'] = 'v4';
+      delete root['k1']['k1-1'];
     }, 'set {"k1":{"k1-2":"v2"}}');
     assert.equal('{"k1":{"k1-2":"v2","k1-3":"v4"}}', doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
+
+    assertUndoRedo(doc, states);
   });
 
   it('should support toJS and toJSON methods', function () {
