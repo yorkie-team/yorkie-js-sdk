@@ -97,7 +97,7 @@ export class SetOperation extends Operation {
       this.value.deepcopy().getCreatedAt(),
     );
 
-    if (value !== undefined) {
+    if (value !== undefined && !value.isRemoved()) {
       reverseOp = SetOperation.create(
         this.key,
         value.deepcopy(),
