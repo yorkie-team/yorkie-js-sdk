@@ -1,20 +1,21 @@
 import { Indexable } from 'yorkie-js-sdk';
 
 const randomPeers = [
-  'John',
   'Alice',
-  'Steven',
-  'Kate',
-  'Daniel',
-  'Chang',
-  'Marie',
-  'Fred',
-  'Sanchez',
-  'Kim',
-  'Wayne',
-  'Seon',
-  'Diaz',
-  'Tom',
+  'Bob',
+  'Carol',
+  'Chuck',
+  'Dave',
+  'Erin',
+  'Frank',
+  'Grace',
+  'Ivan',
+  'Justin',
+  'Matilda',
+  'Oscar',
+  'Steve',
+  'Victor',
+  'Zoe',
 ];
 
 /**
