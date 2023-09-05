@@ -1,6 +1,9 @@
 import { assert } from 'chai';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import {
+  withTwoClientsAndDocuments,
+  assertUndoRedo,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Text', function () {
@@ -88,10 +91,11 @@ describe('Text', function () {
     assert.equal('{"k1":[{"val":"하"},{"val":"늘"}]}', doc.toSortedJSON());
   });
 
-  it('should handle deletion of nested nodes', function () {
+  it.only('should handle deletion of nested nodes', function () {
     const doc = new Document<{
       text: Text;
     }>('test-doc');
+    const states: Array<string> = [];
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -102,16 +106,20 @@ describe('Text', function () {
     });
 
     const commands = [
-      { from: 0, to: 0, content: 'ABC' },
-      { from: 3, to: 3, content: 'DEF' },
-      { from: 2, to: 4, content: '1' },
-      { from: 1, to: 4, content: '2' },
+      { from: 0, to: 0, content: 'ABC' }, // ABC
+      { from: 3, to: 3, content: 'DEF' }, // ABCDEF
+      { from: 2, to: 4, content: '1' }, // AB1EF
+      { from: 1, to: 4, content: '2' }, // A2F
     ];
 
     for (const cmd of commands) {
       doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content));
+      states.push(doc.getValueByPath('$.text')!.toString());
       assert.equal(view.toString(), doc.getRoot().text.toString());
     }
+    assertUndoRedo(doc, states, (doc) =>
+      doc.getValueByPath('$.text')!.toString(),
+    );
   });
 
   it('should handle deletion of the last nodes', function () {

@@ -48,27 +48,20 @@ export async function withTwoClientsAndDocuments<T>(
 export function assertUndoRedo<T, P extends Indexable>(
   doc: Document<T, P>,
   states: Array<string>,
+  compareFn: (doc: Document<T, P>) => any = (doc) => doc.toSortedJSON(),
 ) {
   for (let i = 0; i < states.length - 1; i++) {
     doc.history.undo();
-    assert.equal(
-      states[states.length - 2 - i],
-      doc.toSortedJSON(),
-      `undo 1-${i}`,
-    );
+    assert.equal(states[states.length - 2 - i], compareFn(doc), `undo 1-${i}`);
   }
 
   for (let i = 0; i < states.length - 1; i++) {
     doc.history.redo();
-    assert.equal(states[i + 1], doc.toSortedJSON(), `redo${i}`);
+    assert.equal(states[i + 1], compareFn(doc), `redo${i}`);
   }
 
   for (let i = 0; i < states.length - 1; i++) {
     doc.history.undo();
-    assert.equal(
-      states[states.length - 2 - i],
-      doc.toSortedJSON(),
-      `undo 2-${i}`,
-    );
+    assert.equal(states[states.length - 2 - i], compareFn(doc), `undo 2-${i}`);
   }
 }
