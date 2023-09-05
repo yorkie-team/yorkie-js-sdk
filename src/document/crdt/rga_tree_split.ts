@@ -530,15 +530,24 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     editedAt: TimeTicket,
     value?: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitPos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
+  ): [
+    RGATreeSplitPos,
+    Map<string, TimeTicket>,
+    Array<ValueChange<T>>,
+    Array<T>,
+  ] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const [changes, latestCreatedAtMap, removedNodeMapByNodeKey] =
-      this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
+    const [
+      changes,
+      latestCreatedAtMap,
+      removedNodeMapByNodeKey,
+      deletedContent,
+    ] = this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitPos.of(caretID, 0);
@@ -574,7 +583,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       this.removedNodeMap.set(key, removedNode);
     }
 
-    return [caretPos, latestCreatedAtMap, changes];
+    return [caretPos, latestCreatedAtMap, changes, deletedContent];
   }
 
   /**
@@ -840,9 +849,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     Array<ValueChange<T>>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
+    Array<T>,
   ] {
     if (!candidates.length) {
-      return [[], new Map(), new Map()];
+      return [[], new Map(), new Map(), []];
     }
 
     // There are 2 types of nodes in `candidates`: should delete, should not delete.
@@ -856,6 +866,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     const createdAtMapByActor = new Map();
     const removedNodeMap = new Map();
+    const deletedContents = [];
     // First we need to collect indexes for change.
     const changes = this.makeChanges(nodesToKeep, editedAt);
     for (const node of nodesToDelete) {
@@ -868,12 +879,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
       removedNodeMap.set(node.getID().toIDString(), node);
+      if (!node.isRemoved()) deletedContents.push(node.getValue());
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);
 
-    return [changes, createdAtMapByActor, removedNodeMap];
+    return [changes, createdAtMapByActor, removedNodeMap, deletedContents];
   }
 
   private filterNodes(

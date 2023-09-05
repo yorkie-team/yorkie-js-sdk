@@ -751,6 +751,43 @@ describe('Document', function () {
     assert.equal('{"counter":100}', doc.toSortedJSON());
   });
 
+  it.only('Can undo/redo for text edit operation', async function () {
+    type TestDoc = { text: Text };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'ABCD');
+    }, 'init text');
+    assert.equal('{"text":[{"val":"ABCD"}]}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.text.edit(1, 3, '12');
+    }, `edit 'ABCD' to 'A12D'`);
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+      doc.toSortedJSON(),
+    );
+
+    doc.history.undo();
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+      doc.toSortedJSON(),
+    );
+
+    doc.history.redo();
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+      doc.toSortedJSON(),
+    );
+
+    doc.history.undo();
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+      doc.toSortedJSON(),
+    );
+  });
+
   it('Can undo/redo with presence', async function () {
     type TestDoc = { counter: Counter };
     type Presence = { cursor: { x: number; y: number } };

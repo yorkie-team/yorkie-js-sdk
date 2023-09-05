@@ -339,8 +339,11 @@ function toOperation(operation: Operation): PbOperation {
     pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
     pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
     const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
-    for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+    // TODO(chacha912): check in edit_operation
+    if (editOperation.getMaxCreatedAtMapByActor()) {
+      for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()!) {
+        pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      }
     }
     pbEditOperation.setContent(editOperation.getContent());
     const pbAttributes = pbEditOperation.getAttributesMap();
@@ -1062,15 +1065,15 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbEditOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
       });
-      operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbEditOperation!.getFrom()!),
-        fromTextNodePos(pbEditOperation!.getTo()!),
-        createdAtMapByActor,
-        pbEditOperation!.getContent(),
+      operation = EditOperation.create({
+        parentCreatedAt: fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
+        fromPos: fromTextNodePos(pbEditOperation!.getFrom()!),
+        toPos: fromTextNodePos(pbEditOperation!.getTo()!),
+        content: pbEditOperation!.getContent(),
         attributes,
-        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
-      );
+        executedAt: fromTimeTicket(pbEditOperation!.getExecutedAt())!,
+        maxCreatedAtMapByActor: createdAtMapByActor,
+      });
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
       const attributes = new Map();
