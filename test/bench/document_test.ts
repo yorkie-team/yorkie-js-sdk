@@ -616,12 +616,6 @@ const tests = [
     },
   },
   {
-    name: 'Document#tree 10000',
-    run: (): void => {
-      benchmarkTree(10000);
-    },
-  },
-  {
     name: 'Document#tree delete all 1000',
     run: (): void => {
       benchmarkTreeDeleteAll(1000);
