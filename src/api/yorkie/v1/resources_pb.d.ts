@@ -471,6 +471,9 @@ export namespace Operation {
     hasTo(): boolean;
     clearTo(): Style;
 
+    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
+    clearCreatedAtMapByActorMap(): Style;
+
     getAttributesMap(): jspb.Map<string, string>;
     clearAttributesMap(): Style;
 
@@ -492,6 +495,7 @@ export namespace Operation {
       parentCreatedAt?: TimeTicket.AsObject,
       from?: TextNodePos.AsObject,
       to?: TextNodePos.AsObject,
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       attributesMap: Array<[string, string]>,
       executedAt?: TimeTicket.AsObject,
     }
