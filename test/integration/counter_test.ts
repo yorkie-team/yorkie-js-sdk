@@ -193,4 +193,28 @@ describe('Counter', function () {
       JSON.stringify(doc.getRedoStackForTest().pop()),
     );
   });
+
+  it('Can undo/redo for increase operation', async function () {
+    type TestDoc = { counter: Counter };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(CounterType.IntegerCnt, 100);
+    }, 'init counter');
+    assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+    doc.update((root) => {
+      root.counter.increase(1);
+    }, 'increase 1');
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"counter":100}');
+  });
 });

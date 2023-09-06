@@ -1,9 +1,11 @@
 import { assert } from 'chai';
-import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
+import { JSONObject, Client } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
+  toDocKey,
+  testRPCAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
@@ -210,5 +212,259 @@ describe('Object', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
+  });
+
+  it('Can undo/redo work properly for simple object set 1', function () {
+    const doc = new Document<{
+      a: number;
+    }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}');
+
+    doc.update((root) => {
+      root.a = 1;
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.update((root) => {
+      root.a = 2;
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+
+    assert.equal(doc.history.canRedo(), true);
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+  });
+
+  it('Can undo/redo work properly for simple object set 2', function () {
+    const doc = new Document<{
+      a: number;
+    }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}');
+
+    doc.update((root) => {
+      root.a = 1;
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+
+    doc.update((root) => {
+      root.a = 2;
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+
+    doc.update((root) => {
+      root.a = 3;
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"a":3}');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"a":3}');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+  });
+
+  it('Can undo/redo work properly for nested object 1', function () {
+    const doc = new Document<{
+      content: { a: number };
+    }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}');
+
+    doc.update((root) => {
+      root.content = { a: 1 };
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"content":{"a":1}}', '1');
+
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.update((root) => {
+      root.content = { a: 2 };
+    }, 'set a');
+    assert.equal(doc.toSortedJSON(), '{"content":{"a":2}}', '2');
+
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"content":{"a":1}}', '3');
+
+    assert.equal(doc.history.canRedo(), true);
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"content":{"a":2}}', '4');
+  });
+
+  it('Can undo/redo work properly for nested object 2', function () {
+    const doc = new Document<{
+      k1: { 'k1-1'?: string; 'k1-2'?: string };
+      k2: Array<string | { 'k2-5': string }>;
+    }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}', '1');
+
+    doc.update((root) => {
+      root['k1'] = { 'k1-1': 'v1' };
+      root['k1']['k1-2'] = 'v2';
+    }, 'set {"k1-1":"v1","k1-2":"v2":}');
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v2"}}', '2');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{}', '3');
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v2"}}', '4');
+
+    doc.update((root) => {
+      root['k1']['k1-2'] = 'v3';
+    }, 'set {"k1-2":"v3"}');
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v3"}}', '5');
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v2"}}', '6');
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v3"}}', '7');
+
+    doc.update((root) => {
+      root['k2'] = ['1', '2'];
+      root['k2'].push('3');
+    }, 'set ["1","2","3"]');
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      '8',
+    );
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k1":{"k1-1":"v1","k1-2":"v3"}}', '9');
+
+    doc.history.redo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"k1":{"k1-1":"v1","k1-2":"v3"},"k2":["1","2","3"]}',
+      '10',
+    );
+  });
+
+  it('concurrent undo/redo of object - no sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new Document<TestDoc>(docKey);
+    const doc2 = new Document<TestDoc>(docKey);
+
+    const client1 = new Client(testRPCAddr);
+    const client2 = new Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"red"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.undo();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    // client 2's green set wins client 1's undo
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"red"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
+  });
+
+  it('concurrent undo/redo of object - sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new Document<TestDoc>(docKey);
+    const doc2 = new Document<TestDoc>(docKey);
+
+    const client1 = new Client(testRPCAddr);
+    const client2 = new Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.undo();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
   });
 });

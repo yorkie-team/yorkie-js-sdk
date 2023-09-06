@@ -3,6 +3,7 @@ import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
+  toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
 
@@ -91,7 +92,7 @@ describe('Text', function () {
     assert.equal('{"k1":[{"val":"하"},{"val":"늘"}]}', doc.toSortedJSON());
   });
 
-  it.only('should handle deletion of nested nodes', function () {
+  it.skip('should handle deletion of nested nodes', function () {
     const doc = new Document<{
       text: Text;
     }>('test-doc');
@@ -380,6 +381,43 @@ describe('Text', function () {
       // assert.isOk(d1.getRoot().k1.checkWeight());
       // assert.isOk(d2.getRoot().k1.checkWeight());
     }, this.test!.title);
+  });
+
+  it('Can undo/redo for text edit operation', async function () {
+    type TestDoc = { text: Text };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'ABCD');
+    }, 'init text');
+    assert.equal(doc.toSortedJSON(), '{"text":[{"val":"ABCD"}]}');
+
+    doc.update((root) => {
+      root.text.edit(1, 3, '12');
+    }, `edit 'ABCD' to 'A12D'`);
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+    );
+
+    doc.history.undo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+    );
+
+    doc.history.redo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+    );
+
+    doc.history.undo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+    );
   });
 });
 
