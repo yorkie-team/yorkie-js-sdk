@@ -592,13 +592,14 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
+    const allChildren = parentNode.allChildren;
     const index =
       parentNode === leftSiblingNode
         ? 0
-        : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
+        : allChildren.indexOf(leftSiblingNode) + 1;
 
     for (let i = index; i < parentNode.allChildren.length; i++) {
-      const next = parentNode.allChildren[i];
+      const next = allChildren[i];
 
       if (next.id.getCreatedAt().after(editedAt)) {
         leftSiblingNode = next;
