@@ -66,6 +66,11 @@ export function useMultiplayerState(roomId: string) {
 
       Object.entries(shapes).forEach(([id, shape]) => {
         doc.update((root) => {
+          if (!shape) {
+            delete root.shapes[id];
+            return;
+          }
+
           const rootShapePoint = root.shapes[id]?.toJS?.().point;
           const isMoving =
             root.shapes[id] &&
@@ -73,11 +78,6 @@ export function useMultiplayerState(roomId: string) {
 
           if (isMoving) {
             root.shapes[id].point = shape?.point as Array<number>;
-            return;
-          }
-
-          if (!shape) {
-            delete root.shapes[id];
           } else {
             root.shapes[id] = shape;
           }
