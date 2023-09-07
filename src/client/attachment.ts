@@ -20,6 +20,7 @@ export class Attachment<T, P extends Indexable> {
 
   watchStream?: WatchStream;
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
+  reconnectWatchStream?: boolean;
 
   constructor(
     reconnectStreamDelay: number,
@@ -33,6 +34,7 @@ export class Attachment<T, P extends Indexable> {
     this.isRealtimeSync = isRealtimeSync;
     this.syncMode = SyncMode.PushPull;
     this.remoteChangeEventReceived = false;
+    this.reconnectWatchStream = false;
   }
 
   /**
@@ -90,10 +92,25 @@ export class Attachment<T, P extends Indexable> {
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
       };
 
+      setInterval(() => {
+        if(this.reconnectWatchStream === true) {
+          this.cancelWatchStream();
+          this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
+          this.reconnectWatchStream = false;
+        }
+      }, 1000);
+
       this.watchStream = await watchStreamCreator(onDisconnect);
     };
 
     await doLoop();
+  }
+  
+  /**
+   * `setReconnectWatchStream` sets whether to reconnect the watch stream or not.
+   */
+  public setReconnectWatchStream(reconnectWatchStream: boolean): void {
+    this.reconnectWatchStream = reconnectWatchStream;
   }
 
   /**

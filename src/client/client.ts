@@ -55,6 +55,7 @@ import {
   MetricStreamInterceptor,
 } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { Metadata } from 'grpc-web';
 
 /**
  * `SyncMode` is the mode of synchronization. It is used to determine
@@ -312,6 +313,8 @@ export class Client implements Observable<ClientEvent> {
   private rpcClient: RPCClient;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver!: Observer<ClientEvent>;
+
+  private rpcSessionID?: string;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -995,6 +998,12 @@ export class Client implements Observable<ClientEvent> {
             );
           },
         )
+        .on('metadata', (metadata: Metadata) => {
+          if(this.rpcSessionID && this.rpcSessionID !== metadata['x-rpc-session-id']) {
+            attachment.setReconnectWatchStream(true);
+          }
+          this.rpcSessionID = metadata['x-rpc-session-id'];
+        })
         .on('end', () => {
           if (isRejected) {
             return;
