@@ -12,6 +12,7 @@ import { useThrottleCallback } from '@react-hook/throttle';
 import * as yorkie from 'yorkie-js-sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
+import _ from 'lodash';
 
 import type { Options, YorkieDocType, YorkiePresenceType } from './types';
 
@@ -64,22 +65,31 @@ export function useMultiplayerState(roomId: string) {
     ) => {
       if (!app || client === undefined || doc === undefined) return;
 
+      const getUpdatedPropertyList = <T extends object>(
+        source: T,
+        target: T,
+      ) => {
+        return (Object.keys(source) as Array<keyof T>).filter(
+          (key) => !_.isEqual(source[key], target[key]),
+        );
+      };
+
       Object.entries(shapes).forEach(([id, shape]) => {
         doc.update((root) => {
           if (!shape) {
             delete root.shapes[id];
-            return;
-          }
-
-          const rootShapePoint = root.shapes[id]?.toJS?.().point;
-          const isMoving =
-            root.shapes[id] &&
-            JSON.stringify(rootShapePoint) !== JSON.stringify(shape?.point);
-
-          if (isMoving) {
-            root.shapes[id].point = shape?.point as Array<number>;
-          } else {
+          } else if (!root.shapes[id]) {
             root.shapes[id] = shape;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              shape,
+              root.shapes[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = shape[key];
+              (root.shapes[id][key] as typeof newValue) = newValue;
+            });
           }
         });
       });
@@ -88,8 +98,18 @@ export function useMultiplayerState(roomId: string) {
         doc.update((root) => {
           if (!binding) {
             delete root.bindings[id];
-          } else {
+          } else if (!root.bindings[id]) {
             root.bindings[id] = binding;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              binding,
+              root.bindings[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = binding[key];
+              (root.bindings[id][key] as typeof newValue) = newValue;
+            });
           }
         });
       });
@@ -102,6 +122,22 @@ export function useMultiplayerState(roomId: string) {
             delete root.assets[asset.id];
           } else {
             root.assets[asset.id] = asset;
+          }
+
+          if (!asset.id) {
+            delete root.assets[asset.id];
+          } else if (root.assets[asset.id]) {
+            root.assets[asset.id] = asset;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              asset,
+              root.assets[asset.id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = asset[key];
+              (root.assets[asset.id][key] as typeof newValue) = newValue;
+            });
           }
         });
       });
