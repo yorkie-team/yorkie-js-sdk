@@ -444,7 +444,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex2. concurrent formatting and insertion', async function () {
+  // TODO(MoonGyu1): remove skip after applying mark operation
+  it.skip('ex2. concurrent formatting and insertion', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -474,15 +475,9 @@ describe('peri-text example: text concurrent edit', function () {
       await c1.sync();
       assert.equal(
         d1.toSortedJSON(),
-        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
         'd1',
       );
-      // TODO(MoonGyu1): d1 and d2 should have the result below after applying mark operation
-      // assert.equal(
-      //   d1.toSortedJSON(),
-      //   '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
-      //   'd1',
-      // );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
     }, this.test!.title);
   });
@@ -598,7 +593,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex6. conflicting overlaps(bold) - 1', async function () {
+  // TODO(MoonGyu1): remove skip after applying mark operation
+  it.skip('ex6. conflicting overlaps(bold) - 1', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -617,7 +613,7 @@ describe('peri-text example: text concurrent edit', function () {
         `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
       );
       d1.update((root) => {
-        root.k1.setStyle(4, 15, { bold: false });
+        root.k1.removeStyle(4, 15, { bold: false });
       }, `non-bolds text by c1`);
       assert.equal(
         d1.toSortedJSON(),
@@ -642,7 +638,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex6. conflicting overlaps(bold) - 2', async function () {
+  // TODO(MoonGyu1): remove skip after applying mark operation
+  it.skip('ex6. conflicting overlaps(bold) - 2', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -661,7 +658,7 @@ describe('peri-text example: text concurrent edit', function () {
         `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
       );
       d1.update((root) => {
-        root.k1.setStyle(4, 15, { bold: false });
+        root.k1.removeStyle(4, 15, { bold: false });
       }, `non-bolds text by c1`);
       assert.equal(
         d1.toSortedJSON(),
@@ -724,7 +721,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex8. text insertion at span boundaries(bold)', async function () {
+  // TODO(MoonGyu1): remove skip after applying mark operation
+  it.skip('ex8. text insertion at span boundaries(bold)', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -761,7 +759,7 @@ describe('peri-text example: text concurrent edit', function () {
       // That is, the text inserted before the bold span becomes non-bold, and the text inserted after the bold span becomes bold.
       assert.equal(
         d1.toSortedJSON(),
-        '{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"bold":true},"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}',
+        '{"k1":[{"val":"The "},{"val":"quick "},{"attrs":{"bold":true},"val":"fox jumped"},{"attrs":{"bold":true},"val":" over the dog"},{"val":"."}]}',
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
@@ -809,5 +807,31 @@ describe('peri-text example: text concurrent edit', function () {
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
     }, this.test!.title);
+  });
+});
+
+describe('Style', function () {
+  // TODO(MoonGyu1): remove skip after applying mark operation
+  it.skip('should handle style operations', function () {
+    const doc = new Document<{ k1: Text }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.k1 = new Text();
+      root.k1.edit(0, 0, 'ABCD');
+      root.k1.removeStyle(0, 4, { bold: true });
+    });
+    assert.equal(
+      doc.toSortedJSON(),
+      `{"k1":[{"attrs":{"bold":"true"},"val":"ABCD"}]}`,
+    );
+
+    doc.update((root) => {
+      root.k1.removeStyle(1, 3, { bold: false });
+    });
+    assert.equal(
+      doc.toSortedJSON(),
+      `{"k1":[{"attrs":{"bold":"true"},"val":"A"},{"attrs":{"bold":"false"},"val":"BC"},{"attrs":{"bold":"true"},"val":"D"}]}`,
+    );
   });
 });
