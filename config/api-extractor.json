@@ -15,7 +15,9 @@
     "enabled": false
   },
   "dtsRollup": {
-    "enabled": true
+    "enabled": true,
+    "untrimmedFilePath": "<projectFolder>/dist/yorkie-js-sdk.d.untrimmed.d.ts",
+    "publicTrimmedFilePath": "<projectFolder>/dist/yorkie-js-sdk.d.ts"
   },
   "messages": {
     "compilerMessageReporting": {

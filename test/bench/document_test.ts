@@ -15,7 +15,7 @@
  */
 
 import { assert } from 'chai';
-import { JSONArray, Text, Document } from '@yorkie-js-sdk/src/yorkie';
+import { JSONArray, Text, Document, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
@@ -142,6 +142,88 @@ const benchmarkArrayGC = (size: number) => {
   });
 
   assert.equal(size + 1, doc.garbageCollect(MaxTimeTicket));
+};
+const benchmarkTree = (size: number) => {
+  const doc = new Document<{ tree: Tree }>('test-doc');
+
+  doc.update((root) => {
+    root.tree = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [] }],
+    });
+
+    for (let i = 1; i <= size; i++) {
+      root.tree.edit(i, i, { type: 'text', value: 'a' });
+    }
+  });
+};
+const benchmarkTreeDeleteAll = (size: number) => {
+  const doc = new Document<{ tree: Tree }>('test-doc');
+
+  doc.update((root) => {
+    root.tree = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [] }],
+    });
+
+    for (let i = 1; i <= size; i++) {
+      root.tree.edit(i, i, { type: 'text', value: 'a' });
+    }
+  });
+
+  doc.update((root) => {
+    root.tree.edit(1, size + 1);
+  }, 'delete them');
+  assert.equal(doc.getRoot().tree.toXML(), `<doc><p></p></doc>`);
+};
+const benchmarkTreeSplitGC = (size: number) => {
+  const doc = new Document<{ tree: Tree }>('test-doc');
+
+  doc.update((root) => {
+    root.tree = new Tree({
+      type: 'doc',
+      children: [
+        { type: 'p', children: [{ type: 'text', value: 'a'.repeat(size) }] },
+      ],
+    });
+  });
+
+  doc.update((root) => {
+    for (let i = 1; i <= size; i++) {
+      root.tree.edit(i, i + 1, { type: 'text', value: 'b' });
+    }
+  }, `modify ${size} nodes`);
+  // 03. GC
+  assert.equal(size, doc.getGarbageLen());
+  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  const empty = 0;
+  assert.equal(empty, doc.getGarbageLen());
+};
+const benchmarkTreeEditGC = (size: number) => {
+  const doc = new Document<{ tree: Tree }>('test-doc');
+
+  doc.update((root) => {
+    root.tree = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [] }],
+    });
+  });
+  doc.update((root) => {
+    for (let i = 1; i <= size; i++) {
+      root.tree.edit(i, i, { type: 'text', value: 'a' });
+    }
+  });
+
+  doc.update((root) => {
+    for (let i = 1; i <= size; i++) {
+      root.tree.edit(i, i + 1, { type: 'text', value: 'b' });
+    }
+  }, `modify ${size} nodes`);
+  // 03. GC
+  assert.equal(size, doc.getGarbageLen());
+  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  const empty = 0;
+  assert.equal(empty, doc.getGarbageLen());
 };
 
 const tests = [
@@ -519,6 +601,48 @@ const tests = [
     name: 'Document#object 10000',
     run: (): void => {
       benchmarkObject(10000);
+    },
+  },
+  {
+    name: 'Document#tree 100',
+    run: (): void => {
+      benchmarkTree(100);
+    },
+  },
+  {
+    name: 'Document#tree 1000',
+    run: (): void => {
+      benchmarkTree(1000);
+    },
+  },
+  {
+    name: 'Document#tree delete all 1000',
+    run: (): void => {
+      benchmarkTreeDeleteAll(1000);
+    },
+  },
+  {
+    name: 'Document#tree split GC 100',
+    run: (): void => {
+      benchmarkTreeSplitGC(100);
+    },
+  },
+  {
+    name: 'Document#tree split GC 1000',
+    run: (): void => {
+      benchmarkTreeSplitGC(1000);
+    },
+  },
+  {
+    name: 'Document#tree edit GC 100',
+    run: (): void => {
+      benchmarkTreeEditGC(100);
+    },
+  },
+  {
+    name: 'Document#tree edit GC 1000',
+    run: (): void => {
+      benchmarkTreeEditGC(1000);
     },
   },
 ];

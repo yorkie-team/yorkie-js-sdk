@@ -108,7 +108,6 @@ export abstract class CRDTElement {
 /**
  *
  * `CRDTContainer` represents CRDTArray or CRDtObject.
- * @internal
  */
 export abstract class CRDTContainer extends CRDTElement {
   constructor(createdAt: TimeTicket) {

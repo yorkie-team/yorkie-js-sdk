@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { type Text as YorkieText, OperationInfo } from 'yorkie-js-sdk';
+import yorkie, { DocEventType, OperationInfo } from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {
@@ -10,11 +10,8 @@ import {
 import { Transaction } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
+import { YorkieDoc } from './type';
 import './style.css';
-
-type YorkieDoc = {
-  content: YorkieText;
-};
 
 const editorParentElem = document.getElementById('editor')!;
 const peersElem = document.getElementById('peers')!;
@@ -32,13 +29,6 @@ async function main() {
   // subscribe peer change event
   client.subscribe((event) => {
     network.statusListener(networkStatusElem)(event);
-    if (event.type === 'peers-changed') {
-      displayPeers(
-        peersElem,
-        client.getPeersByDocKey(doc.getKey()),
-        client.getID()!,
-      );
-    }
   });
 
   // 02-1. create a document then attach it into the client.
@@ -48,6 +38,11 @@ async function main() {
       .substring(0, 10)
       .replace(/-/g, '')}`,
   );
+  doc.subscribe('presence', (event) => {
+    if (event.type !== DocEventType.PresenceChanged) {
+      displayPeers(peersElem, doc.getPresences(), client.getID()!);
+    }
+  });
   await client.attach(doc);
   doc.update((root) => {
     if (!root.content) {
