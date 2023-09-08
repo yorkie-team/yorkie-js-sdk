@@ -120,12 +120,6 @@ export function useMultiplayerState(roomId: string) {
         doc.update((root) => {
           if (!asset.id) {
             delete root.assets[asset.id];
-          } else {
-            root.assets[asset.id] = asset;
-          }
-
-          if (!asset.id) {
-            delete root.assets[asset.id];
           } else if (root.assets[asset.id]) {
             root.assets[asset.id] = asset;
           } else {
