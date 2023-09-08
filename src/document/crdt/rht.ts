@@ -98,6 +98,13 @@ export class RHT {
   }
 
   /**
+   * `delete` deletes the key
+   */
+  public delete(key: string) {
+    return this.nodeMapByKey.delete(key);
+  }
+
+  /**
    * `get` returns the value of the given key.
    */
   public get(key: string): string | undefined {

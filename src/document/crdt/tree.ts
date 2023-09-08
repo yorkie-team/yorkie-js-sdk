@@ -69,6 +69,7 @@ export enum TreeChangeType {
 
 enum InternalOperationType {
   Edit = 'edit',
+  Style = 'style',
 }
 
 /**
@@ -151,6 +152,49 @@ class InternalEditOperation extends InternalOperation {
    */
   public getContents() {
     return this.contents;
+  }
+}
+
+/**
+ * `InternalOperation`
+ */
+class InternalStyleOperation extends InternalOperation {
+  private from: CRDTTreePos;
+  private to: CRDTTreePos;
+  private attributes: { [key: string]: any } | undefined;
+
+  constructor(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    attributes: { [key: string]: any } | undefined,
+    timeTicket: TimeTicket,
+  ) {
+    super(timeTicket, InternalOperationType.Style);
+
+    this.from = from;
+    this.to = to;
+    this.attributes = attributes;
+  }
+
+  /**
+   * `getFrom` returns from of operation
+   */
+  public getFrom() {
+    return this.from;
+  }
+
+  /**
+   * `getTo` returns to of operation
+   */
+  public getTo() {
+    return this.to;
+  }
+
+  /**
+   * `attributes` returns contents of operation
+   */
+  public getAttributes() {
+    return this.attributes;
   }
 }
 
@@ -700,6 +744,9 @@ export class CRDTTree extends CRDTGCElement {
           latestCreatedAtMapByActor,
         );
       }
+      case InternalOperationType.Style: {
+        return this.doStyle(operation as unknown as InternalStyleOperation);
+      }
     }
   }
 
@@ -707,6 +754,9 @@ export class CRDTTree extends CRDTGCElement {
     switch (operation.getType()) {
       case InternalOperationType.Edit: {
         return this.undoEdit(operation as unknown as InternalEditOperation);
+      }
+      case InternalOperationType.Style: {
+        return this.undoStyle(operation as unknown as InternalStyleOperation);
       }
     }
   }
@@ -719,11 +769,47 @@ export class CRDTTree extends CRDTGCElement {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
   ) {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+    const operation = new InternalStyleOperation(
       range[0],
+      range[1],
+      attributes,
       editedAt,
     );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+
+    const upperBoundIndex = getUpperBound(
+      this.operationLog,
+      operation,
+      (existOp, newOp) => {
+        const existOpEditedAt = existOp.getEditedAt();
+        const newOpEditedAt = newOp.getEditedAt();
+
+        return existOpEditedAt.compare(newOpEditedAt);
+      },
+    );
+    const operationsToUndo = this.operationLog.slice(
+      upperBoundIndex,
+      this.operationLog.length,
+    );
+
+    this.operationLog.splice(upperBoundIndex, 0, operation);
+
+    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
+
+    const changes = this.doStyle(operation);
+
+    operationsToUndo.forEach((op) => this.do(op));
+
+    return changes;
+  }
+
+  private doStyle(operation: InternalStyleOperation) {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const attributes = operation.getAttributes();
+    const editedAt = operation.getEditedAt();
+
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from, editedAt);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to, editedAt);
     const changes: Array<TreeChange> = [];
 
     changes.push({
@@ -749,6 +835,59 @@ export class CRDTTree extends CRDTGCElement {
     });
 
     return changes;
+  }
+
+  private undoStyle(operation: InternalStyleOperation) {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const attributes = operation.getAttributes();
+    const editedAt = operation.getEditedAt();
+
+    if (!attributes) {
+      return;
+    }
+
+    const fromNodes = this.toTreeNodes(from);
+    const fromParent = fromNodes[0];
+    let fromLeft = fromNodes[1];
+    const [, toLeft] = this.toTreeNodes(to);
+    let excludeLeft = true;
+
+    if (fromParent === fromLeft) {
+      fromLeft = fromParent.allChildren[0];
+
+      excludeLeft = false;
+    }
+
+    const lca = findCommonAncestor(fromLeft, toLeft);
+
+    lca &&
+      this.traverseInSubtree(
+        lca,
+        fromLeft,
+        toLeft,
+        (node) => {
+          const attrs = [...(node.attrs ?? [])].reduce((acc, attr) => {
+            const key = attr.getKey();
+            const updatedAt = attr.getUpdatedAt();
+
+            acc[key] = updatedAt;
+
+            return acc;
+          }, {} as { [key: string]: TimeTicket });
+          for (const [key] of Object.entries(attributes)) {
+            if (
+              !node.isRemoved &&
+              !node.isText &&
+              node.attrs?.has(key) &&
+              editedAt.equals(attrs[key])
+            ) {
+              node.attrs?.delete(key);
+            }
+          }
+        },
+        excludeLeft,
+      );
   }
 
   private undoEdit(operation: InternalEditOperation) {
@@ -816,7 +955,9 @@ export class CRDTTree extends CRDTGCElement {
     excludeLeft = true,
     isWithinPath = false,
   ) {
-    if (!root) return false;
+    if (!root) {
+      return false;
+    }
 
     let found = false;
 
