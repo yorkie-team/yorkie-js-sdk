@@ -17,7 +17,6 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   ExecutionResult,
@@ -25,71 +24,62 @@ import {
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
-import { EditReverseOperation } from './edit_reverse_operation';
 
 /**
- * `EditOperation` is an operation representing editing Text. Most of the same as
- * Edit, but with additional style properties, attributes.
+ * `EditReverseOperation` is a reverse operation of Edit operation.
  */
-export class EditOperation extends Operation {
-  private fromPos: RGATreeSplitPos;
-  private toPos: RGATreeSplitPos;
+export class EditReverseOperation extends Operation {
+  // TODO(Hyemmie): need to add more fields to support
+  // the reverse operation of rich text edit.
+  private fromIdx: number;
+  private toIdx: number;
   private content: string;
-  private attributes: Map<string, string>;
   private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
   constructor({
     parentCreatedAt,
-    fromPos,
-    toPos,
+    fromIdx,
+    toIdx,
     content,
-    attributes,
     executedAt,
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    fromPos: RGATreeSplitPos;
-    toPos: RGATreeSplitPos;
+    fromIdx: number;
+    toIdx: number;
     content: string;
-    attributes: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }) {
     super(parentCreatedAt, executedAt);
-    this.fromPos = fromPos;
-    this.toPos = toPos;
+    this.fromIdx = fromIdx;
+    this.toIdx = toIdx;
     this.content = content;
-    this.attributes = attributes;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
-   * `create` creates a new instance of EditOperation.
+   * `create` creates a new instance of EditReverseOperation.
    */
   public static create({
     parentCreatedAt,
-    fromPos,
-    toPos,
+    fromIdx,
+    toIdx,
     content,
-    attributes,
-    executedAt,
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    fromPos: RGATreeSplitPos;
-    toPos: RGATreeSplitPos;
+    fromIdx: number;
+    toIdx: number;
     content: string;
-    attributes: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
-  }): EditOperation {
-    return new EditOperation({
+  }): EditReverseOperation {
+    return new EditReverseOperation({
       parentCreatedAt,
-      fromPos,
-      toPos,
+      fromIdx,
+      toIdx,
       content,
-      attributes,
-      executedAt,
       maxCreatedAtMapByActor,
     });
   }
@@ -107,19 +97,9 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    // TODO(chacha912): check where we can set maxCreatedAtMapByActor of edit operation(undo)
-    // based on the result from text.edit.
     const reverseOps = this.getReverseOperation(text);
-    const [, changes] = text.edit(
-      [this.fromPos, this.toPos],
-      this.content,
-      this.getExecutedAt(),
-      Object.fromEntries(this.attributes),
-      this.maxCreatedAtMapByActor,
-    );
-    if (!this.fromPos.equals(this.toPos)) {
-      root.registerElementHasRemovedNodes(text);
-    }
+    const range = text.indexRangeToPosRange(this.fromIdx, this.toIdx);
+    const [, changes] = text.edit(range, this.content, this.getExecutedAt());
 
     return {
       opInfos: changes.map(({ from, to, value }) => {
@@ -141,15 +121,14 @@ export class EditOperation extends Operation {
   public getReverseOperation<A extends Indexable>(
     text: CRDTText<A>,
   ): Array<Operation> {
-    const idxRange = text.findIndexesFromRange([this.fromPos, this.toPos]);
-    const content = text.toString().slice(idxRange[0], idxRange[1]);
+    const content = text.toString().slice(this.fromIdx, this.toIdx);
     const toIdx = this.content
-      ? idxRange[0] + this.content.length
-      : idxRange[0];
+      ? this.fromIdx + this.content.length
+      : this.fromIdx;
     const reverseOp = [
       EditReverseOperation.create({
-        parentCreatedAt: text.getCreatedAt(),
-        fromIdx: idxRange[0],
+        parentCreatedAt: this.getParentCreatedAt(),
+        fromIdx: this.fromIdx,
         toIdx,
         content,
       }),
@@ -165,42 +144,32 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `toTestString` returns a string containing the meta data.
+   * `getFromIdx` returns the fromIdx of this operation.
    */
-  public toTestString(): string {
-    const parent = this.getParentCreatedAt().toTestString();
-    const fromPos = this.fromPos.toTestString();
-    const toPos = this.toPos.toTestString();
-    const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
+  public getFromIdx(): number {
+    return this.fromIdx;
   }
 
   /**
-   * `getFromPos` returns the start point of the editing range.
+   * `getInsertedIDs` returns the toIdx of this operation.
    */
-  public getFromPos(): RGATreeSplitPos {
-    return this.fromPos;
+  public getToIdx(): number {
+    return this.toIdx;
   }
 
   /**
-   * `getToPos` returns the end point of the editing range.
-   */
-  public getToPos(): RGATreeSplitPos {
-    return this.toPos;
-  }
-
-  /**
-   * `getContent` returns the content of Edit.
+   * `getContent` returns the content of this operation.
    */
   public getContent(): string {
     return this.content;
   }
 
   /**
-   * `getAttributes` returns the attributes of this Edit.
+   * `toTestString` returns a string containing the meta data.
    */
-  public getAttributes(): Map<string, string> {
-    return this.attributes || new Map();
+  public toTestString(): string {
+    const parent = this.getParentCreatedAt().toTestString();
+    return `${parent}.EDIT-REVERSE(${this.getFromIdx()},${this.getToIdx()},${this.getContent()})`;
   }
 
   /**

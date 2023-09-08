@@ -91,7 +91,7 @@ describe('Text', function () {
     assert.equal('{"k1":[{"val":"하"},{"val":"늘"}]}', doc.toSortedJSON());
   });
 
-  it.only('should handle deletion of nested nodes', function () {
+  it('should handle deletion of nested nodes', function () {
     const doc = new Document<{
       text: Text;
     }>('test-doc');

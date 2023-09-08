@@ -751,7 +751,7 @@ describe('Document', function () {
     assert.equal('{"counter":100}', doc.toSortedJSON());
   });
 
-  it.only('Can undo/redo for text edit operation', async function () {
+  it('Can undo/redo for text edit operation', async function () {
     type TestDoc = { text: Text };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
