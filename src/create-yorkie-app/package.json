@@ -1,0 +1,24 @@
+{
+  "name": "create-yorkie-app",
+  "version": "0.0.0",
+  "bin": {
+    "create-yorkie-app": "dist/create-yorkie-app.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "webpack --config ./webpack.config.js && cp -r ../../examples ./dist",
+    "start": "npm run build && node dist/create-yorkie-app.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.2",
+    "@types/minimist": "^1.2.2",
+    "@types/prompts": "^2.4.4",
+    "cross-spawn": "^7.0.3",
+    "kolorist": "^1.8.0",
+    "minimist": "^1.2.8",
+    "prompts": "^2.4.2"
+  }
+}
