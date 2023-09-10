@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
 import minimist from 'minimist';
 import prompts from 'prompts';
@@ -271,7 +272,10 @@ async function init() {
 
   console.log(`\nScaffolding project in ${root}...`);
 
-  const templateDir = path.resolve(import.meta.url, `../examples/${template}`);
+  const templateDir = path.resolve(
+    fileURLToPath(import.meta.url),
+    `../examples/${template}`,
+  );
 
   const write = (file: string, content?: string) => {
     const targetPath = path.join(root, renameFiles[file] ?? file);
