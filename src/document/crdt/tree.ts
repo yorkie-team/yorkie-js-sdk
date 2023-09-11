@@ -1311,8 +1311,26 @@ export class CRDTTree extends CRDTGCElement {
     source: [number, number],
     ticket: TimeTicket,
   ): void {
-    // TODO(hackerwins, easylogic): Implement this with keeping references of the nodes.
-    throw new Error(`not implemented: ${target}, ${source}, ${ticket}`);
+    const [from, to] = [this.findPos(target[0]), this.findPos(target[1])];
+    const [gapFrom, gapTo] = [this.findPos(source[0]), this.findPos(source[1])];
+    const slice = this.createSlice(gapFrom, gapTo);
+    const operation = new InternalMoveOperation(
+      from,
+      to,
+      gapFrom,
+      gapTo,
+      slice,
+      ticket,
+    );
+    const operationsToUndo = this.getOperationsToUndo(operation);
+
+    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
+
+    const changes = this.doMove(operation);
+
+    operationsToUndo.forEach((op) => this.do(op));
+
+    return changes;
   }
 
   /**
