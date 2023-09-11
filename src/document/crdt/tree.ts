@@ -70,6 +70,7 @@ export enum TreeChangeType {
 enum InternalOperationType {
   Edit = 'edit',
   Style = 'style',
+  Move = 'move',
 }
 
 /**
@@ -195,6 +196,69 @@ class InternalStyleOperation extends InternalOperation {
    */
   public getAttributes() {
     return this.attributes;
+  }
+}
+
+/**
+ * `InternalOperation`
+ */
+class InternalMoveOperation extends InternalOperation {
+  private from: CRDTTreePos;
+  private to: CRDTTreePos;
+  private gapFrom: CRDTTreePos;
+  private gapTo: CRDTTreePos;
+  private slice: Array<CRDTTreeNode>;
+
+  constructor(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    gapFrom: CRDTTreePos,
+    gapTo: CRDTTreePos,
+    slice: Array<CRDTTreeNode>,
+    timeTicket: TimeTicket,
+  ) {
+    super(timeTicket, InternalOperationType.Style);
+
+    this.from = from;
+    this.to = to;
+    this.gapFrom = gapFrom;
+    this.gapTo = gapTo;
+    this.slice = slice;
+  }
+
+  /**
+   * `getFrom` returns from of operation
+   */
+  public getFrom() {
+    return this.from;
+  }
+
+  /**
+   * `getTo` returns to of operation
+   */
+  public getTo() {
+    return this.to;
+  }
+
+  /**
+   * `getGapFrom` returns gapFrom of operation
+   */
+  public getGapFrom() {
+    return this.gapFrom;
+  }
+
+  /**
+   * `getGapTo` returns gapTo of operation
+   */
+  public getGapTo() {
+    return this.gapTo;
+  }
+
+  /**
+   * `slice` returns slice of moved tree nodes
+   */
+  public getSlice() {
+    return this.slice;
   }
 }
 
