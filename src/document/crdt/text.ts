@@ -235,12 +235,16 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public setStyle(
+    // TODO(MoonGyu1): Peritext 1. Use RGATreeSplitBoundaryRange
     range: RGATreeSplitPosRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
+
+    // TODO(MoonGyu1): Peritext 1. Split node by NodeID of RGATreeSplitBoundaryRange if it is remote operation
+    // TODO(MoonGyu1): Peritext 1. Use splitNodeByBoundaryPos method
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
     const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
       range[0],
@@ -250,6 +254,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
     const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
+
+    // TODO(MoonGyu1): Peritext 2. Update styleOpsBefore/styleOpsAfter of fromRight/toRight nodes
+    //                 if markType is `bold` else keep existing logic below
+
     const createdAtMapByActor = new Map<string, TimeTicket>();
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
@@ -335,6 +343,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     const json = [];
 
     for (const node of this.rgaTreeSplit) {
+      // TODO(MoonGyu1): Peritext 3. Convert operations to attrs and pass as argument of toJSON
       if (!node.isRemoved()) {
         json.push(node.getValue().toJSON());
       }

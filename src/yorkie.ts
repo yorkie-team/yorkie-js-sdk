@@ -72,6 +72,7 @@ export type {
   MoveOpInfo,
   EditOpInfo,
   StyleOpInfo,
+  // TODO(MoonGyu1): Peritext 1. Add RemoveStyleOpInfo
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {

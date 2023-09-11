@@ -369,7 +369,9 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(styleOperation.getExecutedAt()),
     );
     pbOperation.setStyle(pbStyleOperation);
-  } else if (operation instanceof IncreaseOperation) {
+  }
+  // TODO(MoonGyu1): Peritext 1. Add RemoveStyleOperation
+  else if (operation instanceof IncreaseOperation) {
     const increaseOperation = operation as IncreaseOperation;
     const pbIncreaseOperation = new PbOperation.Increase();
     pbIncreaseOperation.setParentCreatedAt(
@@ -1093,7 +1095,9 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );
-    } else if (pbOperation.hasSelect()) {
+    }
+    // TODO(MoonGyu1): Peritext 1. Add RemoveStyleOperation
+    else if (pbOperation.hasSelect()) {
       // TODO(hackerwins): Select is deprecated.
       continue;
     } else if (pbOperation.hasIncrease()) {

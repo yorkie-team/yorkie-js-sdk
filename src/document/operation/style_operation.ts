@@ -29,6 +29,7 @@ import { Indexable } from '../document';
  *  `StyleOperation` is an operation applies the style of the given range to Text.
  */
 export class StyleOperation extends Operation {
+  // TODO(MoonGyu1): Peritext 1. Change from `fromPos/toPos` to `fromBoundary/toBoundary`
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
   private maxCreatedAtMapByActor: Map<string, TimeTicket>;
@@ -36,6 +37,7 @@ export class StyleOperation extends Operation {
 
   constructor(
     parentCreatedAt: TimeTicket,
+    // TODO(MoonGyu1): Peritext 1. Change from `fromPos/toPos` to `fromBoundary/toBoundary`
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
@@ -54,6 +56,7 @@ export class StyleOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
+    // TODO(MoonGyu1): Peritext 1. Change from `fromPos/toPos` to `fromBoundary/toBoundary`
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
@@ -83,6 +86,7 @@ export class StyleOperation extends Operation {
     }
     const text = parentObject as CRDTText<A>;
     const [, changes] = text.setStyle(
+      // TODO(MoonGyu1): Peritext 1. Change from `fromPos/toPos` to `fromBoundary/toBoundary`
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),

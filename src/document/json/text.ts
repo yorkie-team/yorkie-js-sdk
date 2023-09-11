@@ -51,10 +51,12 @@ export type TextPosStructRange = [TextPosStruct, TextPosStruct];
 export class Text<A extends Indexable = Indexable> {
   private context?: ChangeContext;
   private text?: CRDTText<A>;
+  // TODO(MoonGyu1): Peritext 1. Add markType for `bold`
 
   constructor(context?: ChangeContext, text?: CRDTText<A>) {
     this.context = context;
     this.text = text;
+    // TODO(MoonGyu1): Peritext 1. initialize markType for `bold`
   }
 
   /**
@@ -64,6 +66,7 @@ export class Text<A extends Indexable = Indexable> {
   public initialize(context: ChangeContext, text: CRDTText<A>): void {
     this.context = context;
     this.text = text;
+    // TODO(MoonGyu1): Peritext 1. initialize markType for `bold`
   }
 
   /**
@@ -163,13 +166,19 @@ export class Text<A extends Indexable = Indexable> {
       );
     }
 
+    // TODO(MoonGyu1): Peritext 1. Split node and get start/end node considering markType by PosRange
+    // TODO(MoonGyu1): Peritext 1. Change from node to RGATreeSplitBoundaryRange
+
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
+
+    // TODO(MoonGyu1): Peritext 1. Use RGATreeSplitBoundaryRange
     const [maxCreatedAtMapByActor] = this.text.setStyle(range, attrs, ticket);
 
     this.context.push(
       new StyleOperation(
         this.text.getCreatedAt(),
+        // TODO(MoonGyu1): Peritext 1. Change from `fromPos/toPos` to `fromBoundary/toBoundary`
         range[0],
         range[1],
         maxCreatedAtMapByActor,
@@ -180,6 +189,9 @@ export class Text<A extends Indexable = Indexable> {
 
     return true;
   }
+
+  // TODO(MoonGyu1): Peritext 1. Add removeStyle method
+  removeStyle(fromIdx: number, toIdx: number, attributes: A) {}
 
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.

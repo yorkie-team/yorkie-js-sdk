@@ -238,7 +238,11 @@ export class RGATreeSplitPos {
   }
 }
 
+// TODO(MoonGyu1): Peritext 1. Add RGATreeSplitBoundary class
+
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
+
+// TODO(MoonGyu1): Peritext 1. Add RGATreeSplitBoundaryRange
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -253,6 +257,8 @@ export class RGATreeSplitNode<
   private next?: RGATreeSplitNode<T>;
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
+
+  // TODO(MoonGyu1): Peritext 1. add `styleOpsBefore` and `styleOpsAfter`
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
     super(value!);
@@ -355,6 +361,8 @@ export class RGATreeSplitNode<
     return this.insPrev!.getID();
   }
 
+  // TODO(MoonGyu1): Peritext 2. Add getter of styleOpsBefore/styleOpsAfter
+
   /**
    * `setPrev` sets previous node of this node.
    */
@@ -394,6 +402,8 @@ export class RGATreeSplitNode<
       node.insPrev = this;
     }
   }
+
+  // TODO(MoonGyu1): Peritext 2. Add setter of styleOpsBefore/styleOpsAfter
 
   /**
    * `hasNext` checks if next node exists.
@@ -760,6 +770,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     return [node, node.getNext()!];
   }
+
+  // TODO(MoonGyu1): Peritext 1. Add `splitNodeByBoundaryPos` method
+  // TODO(MoonGyu1): It can be optimized later
 
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
