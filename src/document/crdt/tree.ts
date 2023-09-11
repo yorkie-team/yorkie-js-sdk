@@ -1231,6 +1231,78 @@ export class CRDTTree extends CRDTGCElement {
     throw new Error(`not implemented, ${index} ${depth}`);
   }
 
+  private createSlice(from: CRDTTreePos, to: CRDTTreePos): Array<CRDTTreeNode> {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
+
+    // TOOD(JOOHOJANG): Have to discuss supporting multi level or not.
+    if (fromParent !== toParent) {
+      return [];
+    }
+
+    const startIndex =
+      fromParent === fromLeft ? 0 : fromParent.allChildren.indexOf(fromLeft);
+    const endIndex = toParent.allChildren.indexOf(toLeft);
+
+    return fromParent.allChildren.slice(startIndex, endIndex + 1);
+  }
+
+  private detectCycle(
+    newParent: CRDTTreeNode | undefined,
+    child: CRDTTreeNode,
+  ) {
+    while (newParent) {
+      if (newParent === child) {
+        return true;
+      }
+
+      newParent = newParent.parent;
+    }
+
+    return false;
+  }
+
+  private doMove(operation: InternalMoveOperation) {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const slice = operation.getSlice();
+
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+
+    // clear from ~ to
+    if (!from.equals(to)) {
+      //
+    }
+
+    // detect cycle
+    // only need to check [0] because nodes in slice have same parent.
+    if (this.detectCycle(fromParent, slice[0])) {
+      return;
+    }
+    // remove node from its parent.
+    slice.forEach((node) => {
+      if (!node.isRemoved) {
+        node.remove(MaxTimeTicket);
+        node.removedAt = undefined;
+      }
+
+      node.parent?.removeChild(node);
+    });
+
+    let prev = slice[0];
+    if (fromParent === fromLeft) {
+      fromParent.insertAt(prev, 0);
+
+      slice.shift();
+    }
+
+    slice.forEach((node) => {
+      fromParent.insertAfter(node, prev);
+
+      prev = node;
+    });
+  }
+
   /**
    * `move` move the given source range to the given target range.
    */
