@@ -231,7 +231,6 @@ describe('CRDTTree', function () {
 
     let [parent, left] = tree.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
-      issueTime(),
     );
     assert.equal(tree.toIndex(parent, left), 1);
 
@@ -243,7 +242,6 @@ describe('CRDTTree', function () {
 
     [parent, left] = tree.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
-      issueTime(),
     );
     assert.equal(tree.toIndex(parent, left), 0);
   });

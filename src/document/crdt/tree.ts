@@ -743,10 +743,7 @@ export class CRDTTree extends CRDTGCElement {
    * different from `TreePos` which is a position of the tree in the local
    * perspective.
    */
-  public findNodesAndSplitText(
-    pos: CRDTTreePos,
-    editedAt: TimeTicket,
-  ): [CRDTTreeNode, CRDTTreeNode] {
+  public findNodesAndSplitText(pos: CRDTTreePos): [CRDTTreeNode, CRDTTreeNode] {
     const treeNodes = this.toTreeNodes(pos);
 
     if (!treeNodes) {
@@ -779,21 +776,6 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    // const index =
-    //   parentNode === leftSiblingNode
-    //     ? 0
-    //     : parentNode.allChildren.indexOf(leftSiblingNode) + 1;
-
-    // for (let i = index; i < parentNode.allChildren.length; i++) {
-    //   const next = parentNode.allChildren[i];
-
-    //   if (next.id.getCreatedAt().after(editedAt)) {
-    //     leftSiblingNode = next;
-    //   } else {
-    //     break;
-    //   }
-    // }
-
     return [parentNode, leftSiblingNode];
   }
 
@@ -825,21 +807,7 @@ export class CRDTTree extends CRDTGCElement {
     }
   }
 
-  /**
-   * `style` applies the given attributes of the given range.
-   */
-  public style(
-    range: [CRDTTreePos, CRDTTreePos],
-    attributes: { [key: string]: string } | undefined,
-    editedAt: TimeTicket,
-  ) {
-    const operation = new InternalStyleOperation(
-      range[0],
-      range[1],
-      attributes,
-      editedAt,
-    );
-
+  private getOperationsToUndo<T extends InternalOperation>(operation: T) {
     const upperBoundIndex = getUpperBound(
       this.operationLog,
       operation,
@@ -857,6 +825,25 @@ export class CRDTTree extends CRDTGCElement {
 
     this.operationLog.splice(upperBoundIndex, 0, operation);
 
+    return operationsToUndo;
+  }
+
+  /**
+   * `style` applies the given attributes of the given range.
+   */
+  public style(
+    range: [CRDTTreePos, CRDTTreePos],
+    attributes: { [key: string]: string } | undefined,
+    editedAt: TimeTicket,
+  ) {
+    const operation = new InternalStyleOperation(
+      range[0],
+      range[1],
+      attributes,
+      editedAt,
+    );
+    const operationsToUndo = this.getOperationsToUndo(operation);
+
     [...operationsToUndo].reverse().forEach((op) => this.undo(op));
 
     const changes = this.doStyle(operation);
@@ -872,8 +859,8 @@ export class CRDTTree extends CRDTGCElement {
     const attributes = operation.getAttributes();
     const editedAt = operation.getEditedAt();
 
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(from, editedAt);
-    const [toParent, toLeft] = this.findNodesAndSplitText(to, editedAt);
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
     const changes: Array<TreeChange> = [];
 
     changes.push({
@@ -1057,8 +1044,8 @@ export class CRDTTree extends CRDTGCElement {
     const contents = operation.getContents();
 
     // 01. split text nodes at the given range if needed.
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(from, editedAt);
-    const [toParent, toLeft] = this.findNodesAndSplitText(to, editedAt);
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
 
     // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
     // range(from, to) into multiple ranges.
@@ -1166,22 +1153,7 @@ export class CRDTTree extends CRDTGCElement {
       contents,
       editedAt,
     );
-    const upperBoundIndex = getUpperBound(
-      this.operationLog,
-      operation,
-      (existOp, newOp) => {
-        const existOpEditedAt = existOp.getEditedAt();
-        const newOpEditedAt = newOp.getEditedAt();
-
-        return existOpEditedAt.compare(newOpEditedAt);
-      },
-    );
-    const operationsToUndo = this.operationLog.slice(
-      upperBoundIndex,
-      this.operationLog.length,
-    );
-
-    this.operationLog.splice(upperBoundIndex, 0, operation);
+    const operationsToUndo = this.getOperationsToUndo(operation);
 
     [...operationsToUndo].reverse().forEach((op) => this.undo(op));
 
@@ -1659,13 +1631,9 @@ export class CRDTTree extends CRDTGCElement {
    */
   public posRangeToPathRange(
     range: TreePosRange,
-    timeTicket: TimeTicket,
   ): [Array<number>, Array<number>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      timeTicket,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
 
     return [this.toPath(fromParent, fromLeft), this.toPath(toParent, toLeft)];
   }
@@ -1673,15 +1641,9 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `posRangeToIndexRange` converts the given position range to the path range.
    */
-  public posRangeToIndexRange(
-    range: TreePosRange,
-    timeTicket: TimeTicket,
-  ): [number, number] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      timeTicket,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
+  public posRangeToIndexRange(range: TreePosRange): [number, number] {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
 
     return [this.toIndex(fromParent, fromLeft), this.toIndex(toParent, toLeft)];
   }
