@@ -34,6 +34,7 @@ export class EditReverseOperation extends Operation {
   private fromIdx: number;
   private toIdx: number;
   private content: string;
+  private attributes?: Map<string, string>;
   private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
   constructor({
@@ -41,6 +42,7 @@ export class EditReverseOperation extends Operation {
     fromIdx,
     toIdx,
     content,
+    attributes,
     executedAt,
     maxCreatedAtMapByActor,
   }: {
@@ -48,6 +50,7 @@ export class EditReverseOperation extends Operation {
     fromIdx: number;
     toIdx: number;
     content: string;
+    attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }) {
@@ -55,6 +58,7 @@ export class EditReverseOperation extends Operation {
     this.fromIdx = fromIdx;
     this.toIdx = toIdx;
     this.content = content;
+    this.attributes = attributes;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
@@ -66,12 +70,15 @@ export class EditReverseOperation extends Operation {
     fromIdx,
     toIdx,
     content,
+    attributes,
+    executedAt,
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
     fromIdx: number;
     toIdx: number;
     content: string;
+    attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }): EditReverseOperation {
@@ -80,6 +87,8 @@ export class EditReverseOperation extends Operation {
       fromIdx,
       toIdx,
       content,
+      attributes,
+      executedAt,
       maxCreatedAtMapByActor,
     });
   }
@@ -98,7 +107,9 @@ export class EditReverseOperation extends Operation {
 
     const text = parentObject as CRDTText<A>;
     const reverseOps = this.getReverseOperation(text);
-    const range = text.indexRangeToPosRange(this.fromIdx, this.toIdx);
+    const maxFromIdx = Math.min(text.length, this.fromIdx);
+    const maxToIdx = Math.min(text.length, this.toIdx);
+    const range = text.indexRangeToPosRange(maxFromIdx, maxToIdx);
     const [, changes] = text.edit(range, this.content, this.getExecutedAt());
 
     return {
@@ -130,7 +141,7 @@ export class EditReverseOperation extends Operation {
         parentCreatedAt: this.getParentCreatedAt(),
         fromIdx: this.fromIdx,
         toIdx,
-        content,
+        content: content ? content : '',
       }),
     ];
     return reverseOp;
@@ -170,6 +181,13 @@ export class EditReverseOperation extends Operation {
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
     return `${parent}.EDIT-REVERSE(${this.getFromIdx()},${this.getToIdx()},${this.getContent()})`;
+  }
+
+  /**
+   * `getAttributes` returns the attributes of this Edit.
+   */
+  public getAttributes(): Map<string, string> {
+    return this.attributes || new Map();
   }
 
   /**

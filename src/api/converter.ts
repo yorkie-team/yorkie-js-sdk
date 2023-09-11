@@ -33,6 +33,7 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
+import { EditReverseOperation } from '@yorkie-js-sdk/src/document/operation/edit_reverse_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
@@ -352,6 +353,33 @@ function toOperation(operation: Operation): PbOperation {
     }
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
+  } else if (operation instanceof EditReverseOperation) {
+    const editReverseOperation = operation as EditReverseOperation;
+    const pbEditReverseOperation = new PbOperation.EditReverse();
+    pbEditReverseOperation.setParentCreatedAt(
+      toTimeTicket(editReverseOperation.getParentCreatedAt()),
+    );
+    pbEditReverseOperation.setFromIdx(editReverseOperation.getFromIdx());
+    pbEditReverseOperation.setToIdx(editReverseOperation.getToIdx());
+    const pbCreatedAtMapByActor =
+      pbEditReverseOperation.getCreatedAtMapByActorMap();
+    if (editReverseOperation.getMaxCreatedAtMapByActor()) {
+      for (const [
+        key,
+        value,
+      ] of editReverseOperation.getMaxCreatedAtMapByActor()!) {
+        pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      }
+    }
+    pbEditReverseOperation.setContent(editReverseOperation.getContent());
+    const pbAttributes = pbEditReverseOperation.getAttributesMap();
+    for (const [key, value] of editReverseOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
+    pbEditReverseOperation.setExecutedAt(
+      toTimeTicket(editReverseOperation.getExecutedAt()),
+    );
+    pbOperation.setEditReverse(pbEditReverseOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
@@ -1072,6 +1100,29 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         content: pbEditOperation!.getContent(),
         attributes,
         executedAt: fromTimeTicket(pbEditOperation!.getExecutedAt())!,
+        maxCreatedAtMapByActor: createdAtMapByActor,
+      });
+    } else if (pbOperation.hasEditReverse()) {
+      const pbEditReverseOperation = pbOperation.getEditReverse();
+      const createdAtMapByActor = new Map();
+      pbEditReverseOperation!
+        .getCreatedAtMapByActorMap()
+        .forEach((value, key) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        });
+      const attributes = new Map();
+      pbEditReverseOperation!.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      operation = EditReverseOperation.create({
+        parentCreatedAt: fromTimeTicket(
+          pbEditReverseOperation!.getParentCreatedAt(),
+        )!,
+        fromIdx: pbEditReverseOperation!.getFromIdx()!,
+        toIdx: pbEditReverseOperation!.getToIdx()!,
+        content: pbEditReverseOperation!.getContent(),
+        attributes,
+        executedAt: fromTimeTicket(pbEditReverseOperation!.getExecutedAt())!,
         maxCreatedAtMapByActor: createdAtMapByActor,
       });
     } else if (pbOperation.hasStyle()) {

@@ -151,7 +151,7 @@ export class EditOperation extends Operation {
         parentCreatedAt: text.getCreatedAt(),
         fromIdx: idxRange[0],
         toIdx,
-        content,
+        content: content ? content : '',
       }),
     ];
     return reverseOp;
