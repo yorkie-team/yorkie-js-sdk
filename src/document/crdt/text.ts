@@ -256,7 +256,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     for (const node of nodes) {
       const actorID = node.getCreatedAt().getActorID()!;
 
-      const latestCreatedAt = latestCreatedAtMapByActor
+      const latestCreatedAt = latestCreatedAtMapByActor?.size
         ? latestCreatedAtMapByActor!.has(actorID!)
           ? latestCreatedAtMapByActor!.get(actorID!)!
           : InitialTimeTicket
