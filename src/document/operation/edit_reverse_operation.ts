@@ -17,10 +17,6 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import {
-  RGATreeSplitNodeID,
-  RGATreeSplitPos,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   ExecutionResult,
@@ -28,69 +24,63 @@ import {
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
-import { EditReverseOperation } from './edit_reverse_operation';
+import { RGATreeSplitNodeID } from '../crdt/rga_tree_split';
 
 /**
- * `EditOperation` is an operation representing editing Text. Most of the same as
- * Edit, but with additional style properties, attributes.
+ * `EditReverseOperation` is a reverse operation of Edit operation.
  */
-export class EditOperation extends Operation {
-  private fromPos: RGATreeSplitPos;
-  private toPos: RGATreeSplitPos;
-  private content: string;
-  private attributes: Map<string, string>;
+export class EditReverseOperation extends Operation {
+  // TODO(Hyemmie): need to add more fields to support
+  // the reverse operation of rich text edit.
+  private deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+  private insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+  private attributes?: Map<string, string>;
   private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
   constructor({
     parentCreatedAt,
-    fromPos,
-    toPos,
-    content,
+    deletedIDs,
+    insertedIDs,
     attributes,
     executedAt,
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    fromPos: RGATreeSplitPos;
-    toPos: RGATreeSplitPos;
-    content: string;
-    attributes: Map<string, string>;
+    deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }) {
     super(parentCreatedAt, executedAt);
-    this.fromPos = fromPos;
-    this.toPos = toPos;
-    this.content = content;
+    this.deletedIDs = deletedIDs;
+    this.insertedIDs = insertedIDs;
     this.attributes = attributes;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
-   * `create` creates a new instance of EditOperation.
+   * `create` creates a new instance of EditReverseOperation.
    */
   public static create({
     parentCreatedAt,
-    fromPos,
-    toPos,
-    content,
+    deletedIDs,
+    insertedIDs,
     attributes,
     executedAt,
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    fromPos: RGATreeSplitPos;
-    toPos: RGATreeSplitPos;
-    content: string;
-    attributes: Map<string, string>;
+    deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
-  }): EditOperation {
-    return new EditOperation({
+  }): EditReverseOperation {
+    return new EditReverseOperation({
       parentCreatedAt,
-      fromPos,
-      toPos,
-      content,
+      deletedIDs,
+      insertedIDs,
       attributes,
       executedAt,
       maxCreatedAtMapByActor,
@@ -109,20 +99,16 @@ export class EditOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
 
+    console.log(this.toTestString());
+
     const text = parentObject as CRDTText<A>;
-    // TODO(chacha912): check where we can set maxCreatedAtMapByActor of edit operation(undo)
-    // based on the result from text.edit.
-    const [, changes, , reverseInfo] = text.edit(
-      [this.fromPos, this.toPos],
-      this.content,
+    const reverseOps = this.getReverseOperation();
+
+    const changes = text.reverseEdit(
+      this.deletedIDs,
+      this.insertedIDs,
       this.getExecutedAt(),
-      Object.fromEntries(this.attributes),
-      this.maxCreatedAtMapByActor,
     );
-    const reverseOps = this.getReverseOperation(text, reverseInfo);
-    if (!this.fromPos.equals(this.toPos)) {
-      root.registerElementHasRemovedNodes(text);
-    }
 
     return {
       opInfos: changes.map(({ from, to, value }) => {
@@ -139,23 +125,15 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTRoot`.
+   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTText`.
    */
-  public getReverseOperation<A extends Indexable>(
-    text: CRDTText<A>,
-    reverseInfo: {
-      deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-      insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-    },
-  ): Array<Operation> {
-    // TODO(chacha912): let's assume this in plain text.
-    // we also need to consider rich text content.
+  public getReverseOperation(): Array<Operation> {
     const reverseOp = [
       EditReverseOperation.create({
-        parentCreatedAt: text.getCreatedAt(),
-        deletedIDs: reverseInfo.deletedIDs,
-        insertedIDs: reverseInfo.insertedIDs,
-        attributes: new Map(),
+        parentCreatedAt: this.getParentCreatedAt(),
+        deletedIDs: this.insertedIDs,
+        insertedIDs: this.deletedIDs,
+        attributes: this.attributes,
       }),
     ];
     return reverseOp;
@@ -169,35 +147,43 @@ export class EditOperation extends Operation {
   }
 
   /**
+   * `getDeletedIDs` returns the deletedIDs of this operation.
+   */
+  public getDeletedIDs(): Array<{
+    nodeID: RGATreeSplitNodeID;
+    length: number;
+  }> {
+    return this.deletedIDs;
+  }
+
+  /**
+   * `getInsertedIDs` returns the insertedIDs of this operation.
+   */
+  public getInsertedIDs(): Array<{
+    nodeID: RGATreeSplitNodeID;
+    length: number;
+  }> {
+    return this.insertedIDs;
+  }
+
+  /**
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
-    const fromPos = this.fromPos.toTestString();
-    const toPos = this.toPos.toTestString();
-    const content = this.content;
-    return `${parent}.EDIT(${fromPos},${toPos},${content})`;
-  }
-
-  /**
-   * `getFromPos` returns the start point of the editing range.
-   */
-  public getFromPos(): RGATreeSplitPos {
-    return this.fromPos;
-  }
-
-  /**
-   * `getToPos` returns the end point of the editing range.
-   */
-  public getToPos(): RGATreeSplitPos {
-    return this.toPos;
-  }
-
-  /**
-   * `getContent` returns the content of Edit.
-   */
-  public getContent(): string {
-    return this.content;
+    let deletedIDs = '';
+    for (const id of this.getDeletedIDs()) {
+      deletedIDs = deletedIDs.concat(
+        `{nodeID: ${id.nodeID.toTestString()}, length: ${id.length}}, `,
+      );
+    }
+    let insertedIDs = '';
+    for (const id of this.getInsertedIDs()) {
+      insertedIDs = insertedIDs.concat(
+        `{nodeID: ${id.nodeID.toTestString()}, length: ${id.length}}, `,
+      );
+    }
+    return `${parent}.EDIT-REVERSE(deletedIDs:[${deletedIDs}], insertedIds:[${insertedIDs}])`;
   }
 
   /**

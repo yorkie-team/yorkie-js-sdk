@@ -814,7 +814,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket()!);
+    // this.garbageCollect(pack.getMinSyncedTicket()!);
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
