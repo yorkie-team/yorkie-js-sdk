@@ -27,6 +27,7 @@ export declare class Tree
 |  [editByPath(fromPath, toPath, contents)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
+|  [getRootTreeNode()](./yorkie-js-sdk.tree.getroottreenode.md) |  | <code>getRootTreeNode</code> returns TreeNode of this tree. |
 |  [getSize()](./yorkie-js-sdk.tree.getsize.md) |  | <code>getSize</code> returns the size of this tree. |
 |  [indexRangeToPosRange(range)](./yorkie-js-sdk.tree.indexrangetoposrange.md) |  | <code>indexRangeToPosRange</code> converts the index range into the position range. |
 |  [indexToPath(index)](./yorkie-js-sdk.tree.indextopath.md) |  | <code>indexToPath</code> returns the path of the given index. |
