@@ -913,47 +913,29 @@ export class CRDTTree extends CRDTGCElement {
       return;
     }
 
-    const fromNodes = this.toTreeNodes(from);
-    const fromParent = fromNodes[0];
-    let fromLeft = fromNodes[1];
-    const [, toLeft] = this.toTreeNodes(to);
-    let excludeLeft = true;
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
 
-    if (fromParent === fromLeft) {
-      fromLeft = fromParent.allChildren[0];
+    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
+      const attrs = [...(node.attrs ?? [])].reduce((acc, attr) => {
+        const key = attr.getKey();
+        const updatedAt = attr.getUpdatedAt();
 
-      excludeLeft = false;
-    }
+        acc[key] = updatedAt;
 
-    const lca = findCommonAncestor(fromLeft, toLeft);
-
-    lca &&
-      this.traverseInSubtree(
-        lca,
-        fromLeft,
-        toLeft,
-        (node) => {
-          const attrs = [...(node.attrs ?? [])].reduce((acc, attr) => {
-            const key = attr.getKey();
-            const updatedAt = attr.getUpdatedAt();
-
-            acc[key] = updatedAt;
-
-            return acc;
-          }, {} as { [key: string]: TimeTicket });
-          for (const [key] of Object.entries(attributes)) {
-            if (
-              !node.isRemoved &&
-              !node.isText &&
-              node.attrs?.has(key) &&
-              editedAt.equals(attrs[key])
-            ) {
-              node.attrs?.delete(key);
-            }
-          }
-        },
-        excludeLeft,
-      );
+        return acc;
+      }, {} as { [key: string]: TimeTicket });
+      for (const [key] of Object.entries(attributes)) {
+        if (
+          !node.isRemoved &&
+          !node.isText &&
+          node.attrs?.has(key) &&
+          editedAt.equals(attrs[key])
+        ) {
+          node.attrs?.delete(key);
+        }
+      }
+    });
   }
 
   private undoEdit(operation: InternalEditOperation) {
