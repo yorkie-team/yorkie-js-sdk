@@ -808,6 +808,9 @@ export class CRDTTree extends CRDTGCElement {
       case InternalOperationType.Style: {
         return this.doStyle(operation as unknown as InternalStyleOperation);
       }
+      case InternalOperationType.Move: {
+        return this.doMove(operation as unknown as InternalMoveOperation);
+      }
     }
   }
 
@@ -818,6 +821,9 @@ export class CRDTTree extends CRDTGCElement {
       }
       case InternalOperationType.Style: {
         return this.undoStyle(operation as unknown as InternalStyleOperation);
+      }
+      case InternalOperationType.Move: {
+        return this.undoMove(operation as unknown as InternalMoveOperation);
       }
     }
   }
