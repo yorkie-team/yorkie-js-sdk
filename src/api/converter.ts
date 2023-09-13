@@ -73,6 +73,7 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeIDWithLength as PbTextNodeIDWithLength,
   TimeTicket as PbTimeTicket,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
@@ -93,6 +94,7 @@ import {
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
+import { EditReverseOperation } from '../document/operation/edit_reverse_operation';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -278,6 +280,19 @@ function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
 }
 
 /**
+ * `toTextNodeIDWithLength` converts the given model to Protobuf format.
+ */
+function toTextNodeIDWithLength(treeNodeIDWithLength: {
+  nodeID: RGATreeSplitNodeID;
+  length: number;
+}): PbTextNodeIDWithLength {
+  const pbTextNodeIDWithLength = new PbTextNodeIDWithLength();
+  pbTextNodeIDWithLength.setNodeId(toTextNodeID(treeNodeIDWithLength.nodeID));
+  pbTextNodeIDWithLength.setLength(treeNodeIDWithLength.length);
+  return pbTextNodeIDWithLength;
+}
+
+/**
  * `toOperation` converts the given model to Protobuf format.
  */
 function toOperation(operation: Operation): PbOperation {
@@ -352,6 +367,42 @@ function toOperation(operation: Operation): PbOperation {
     }
     pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
     pbOperation.setEdit(pbEditOperation);
+  } else if (operation instanceof EditReverseOperation) {
+    const editReverseOperation = operation as EditReverseOperation;
+    const pbEditReverseOperation = new PbOperation.EditReverse();
+    pbEditReverseOperation.setParentCreatedAt(
+      toTimeTicket(editReverseOperation.getParentCreatedAt()),
+    );
+    const pbDeletedIDs = [];
+    const deletedIDs = editReverseOperation.getDeletedIDs();
+    for (const deletedID of deletedIDs) {
+      pbDeletedIDs.push(toTextNodeIDWithLength(deletedID));
+    }
+    const pbInsertedIDs = [];
+    const insertedIDs = editReverseOperation.getInsertedIDs();
+    for (const insertedID of insertedIDs) {
+      pbInsertedIDs.push(toTextNodeIDWithLength(insertedID));
+    }
+    pbEditReverseOperation.setDeletedIdsList(pbDeletedIDs);
+    pbEditReverseOperation.setInsertedIdsList(pbInsertedIDs);
+    const pbCreatedAtMapByActor =
+      pbEditReverseOperation.getCreatedAtMapByActorMap();
+    if (editReverseOperation.getMaxCreatedAtMapByActor()) {
+      for (const [
+        key,
+        value,
+      ] of editReverseOperation.getMaxCreatedAtMapByActor()!) {
+        pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      }
+    }
+    const pbAttributes = pbEditReverseOperation.getAttributesMap();
+    for (const [key, value] of editReverseOperation.getAttributes()) {
+      pbAttributes.set(key, value);
+    }
+    pbEditReverseOperation.setExecutedAt(
+      toTimeTicket(editReverseOperation.getExecutedAt()),
+    );
+    pbOperation.setEditReverse(pbEditReverseOperation);
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
     const pbStyleOperation = new PbOperation.Style();
@@ -896,6 +947,18 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 }
 
 /**
+ * `fromTextNodeIDWithLength` converts the given Protobuf format to model format.
+ */
+function fromTextNodeIDWithLength(
+  pbTextNodeIDWithLength: PbTextNodeIDWithLength,
+): { nodeID: RGATreeSplitNodeID; length: number } {
+  return {
+    nodeID: fromTextNodeID(pbTextNodeIDWithLength.getNodeId()!),
+    length: pbTextNodeIDWithLength.getLength(),
+  };
+}
+
+/**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
@@ -1072,6 +1135,38 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         content: pbEditOperation!.getContent(),
         attributes,
         executedAt: fromTimeTicket(pbEditOperation!.getExecutedAt())!,
+        maxCreatedAtMapByActor: createdAtMapByActor,
+      });
+    } else if (pbOperation.hasEditReverse()) {
+      const pbEditReverseOperation = pbOperation.getEditReverse();
+      const createdAtMapByActor = new Map();
+      pbEditReverseOperation!
+        .getCreatedAtMapByActorMap()
+        .forEach((value, key) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        });
+      const attributes = new Map();
+      pbEditReverseOperation!.getAttributesMap().forEach((value, key) => {
+        attributes.set(key, value);
+      });
+      const pbDeletedIDs = pbEditReverseOperation!.getDeletedIdsList()!;
+      const deletedIDs = [];
+      for (const pbDeletedID of pbDeletedIDs) {
+        deletedIDs.push(fromTextNodeIDWithLength(pbDeletedID));
+      }
+      const pbInsertedIDs = pbEditReverseOperation!.getInsertedIdsList()!;
+      const insertedIDs = [];
+      for (const pbInsertedID of pbInsertedIDs) {
+        insertedIDs.push(fromTextNodeIDWithLength(pbInsertedID));
+      }
+      operation = EditReverseOperation.create({
+        parentCreatedAt: fromTimeTicket(
+          pbEditReverseOperation!.getParentCreatedAt(),
+        )!,
+        deletedIDs,
+        insertedIDs,
+        attributes,
+        executedAt: fromTimeTicket(pbEditReverseOperation!.getExecutedAt())!,
         maxCreatedAtMapByActor: createdAtMapByActor,
       });
     } else if (pbOperation.hasStyle()) {
