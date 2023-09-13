@@ -216,9 +216,9 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
     } = {
       deletedIDs,
-      insertedIDs: [
-        { nodeID: caretPos.getID(), length: content ? content.length : 0 },
-      ],
+      insertedIDs: content
+        ? [{ nodeID: caretPos.getID(), length: content.length }]
+        : [],
     };
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
