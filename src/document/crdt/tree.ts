@@ -1309,13 +1309,15 @@ export class CRDTTree extends CRDTGCElement {
    * `move` move the given source range to the given target range.
    */
   public move(
-    target: [number, number],
-    source: [number, number],
+    target: [CRDTTreePos, CRDTTreePos],
+    source: [CRDTTreePos, CRDTTreePos],
     ticket: TimeTicket,
   ): void {
-    const [from, to] = [this.findPos(target[0]), this.findPos(target[1])];
-    const [gapFrom, gapTo] = [this.findPos(source[0]), this.findPos(source[1])];
-    const slice = this.createSlice(gapFrom, gapTo);
+    const [from, to] = target;
+    const [gapFrom, gapTo] = source;
+    const slice = this.createSlice(gapFrom, gapTo).map((node) =>
+      node.deepcopy(),
+    );
     const operation = new InternalMoveOperation(
       from,
       to,
