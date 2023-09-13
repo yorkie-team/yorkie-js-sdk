@@ -1249,59 +1249,181 @@ export class CRDTTree extends CRDTGCElement {
     return fromParent.allChildren.slice(startIndex, endIndex + 1);
   }
 
-  private detectCycle(
-    newParent: CRDTTreeNode | undefined,
-    child: CRDTTreeNode,
-  ) {
+  private detectCycle(newParent: CRDTTreeNode, child: CRDTTreeNode) {
     while (newParent) {
       if (newParent === child) {
         return true;
       }
 
-      newParent = newParent.parent;
+      newParent = newParent.parent!;
     }
 
     return false;
   }
 
+  private undoMove(operation: InternalMoveOperation) {
+    const from = operation.getFrom();
+    const to = operation.getTo();
+    const gapFrom = operation.getGapFrom();
+    const editedAt = operation.getEditedAt();
+    const slice = operation.getSlice();
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
+    const [gapFromParent, gapFromLeft] = this.findNodesAndSplitText(gapFrom);
+
+    // remove slice from parent.
+    const sliceToLeft = this.findFloorNode(slice[slice.length - 1].id)!;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      fromParent,
+      sliceToLeft,
+      (node) => {
+        if (this.nodeMapByID.get(node.id)) {
+          this.nodeMapByID.remove(node.id);
+        }
+
+        node.remove(editedAt);
+        node.parent?.removeChild(node);
+
+        this.purge(node);
+      },
+    );
+
+    // insert slice into gap
+    let index =
+      gapFromParent === gapFromLeft
+        ? 0
+        : gapFromParent.allChildren.indexOf(gapFromLeft) + 1;
+
+    slice.forEach((node) => {
+      this.nodeMapByID.put(node.id, node);
+
+      gapFromParent.insertAt(node, index);
+      index++;
+    });
+
+    // revive nodes between from ~ to
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      (node, contain) => {
+        if (!node.isText && contain != TagContained.All) {
+          return;
+        }
+
+        if (node.removedAt?.equals(editedAt)) {
+          node.removedAt = undefined;
+          node.updateAncestorsSize();
+        }
+      },
+    );
+  }
+
+  private checkRangeType(
+    from: [CRDTTreeNode, CRDTTreeNode],
+    to: [CRDTTreeNode, CRDTTreeNode],
+    gapFrom: [CRDTTreeNode, CRDTTreeNode],
+    gapTo: [CRDTTreeNode, CRDTTreeNode],
+  ) {
+    const fromIdx = this.toIndex(from[0], from[1]);
+    const toIdx = this.toIndex(to[0], to[1]);
+    const gapFromIdx = this.toIndex(gapFrom[0], gapTo[1]);
+    const gapToIdx = this.toIndex(gapTo[0], gapTo[1]);
+
+    if (fromIdx <= gapFromIdx && toIdx >= gapToIdx) {
+      return TreeMoveRange.Contained;
+    } else if (fromIdx >= gapToIdx || toIdx <= gapFromIdx) {
+      return TreeMoveRange.Separated;
+    } else {
+      return TreeMoveRange.None;
+    }
+  }
+
+  // TOOD(JOOHOJANG): define change
   private doMove(operation: InternalMoveOperation) {
     const from = operation.getFrom();
     const to = operation.getTo();
+    const gapFrom = operation.getGapFrom();
+    const gapTo = operation.getGapTo();
+    const editedAt = operation.getEditedAt();
     const slice = operation.getSlice();
-
     const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const [toParent, toLeft] = this.findNodesAndSplitText(to);
+    const [gapFromParent, gapFromLeft] = this.findNodesAndSplitText(gapFrom);
+    const [gapToParent, gapToLeft] = this.findNodesAndSplitText(gapTo);
+    const sliceRefs = this.createSlice(gapFrom, gapTo);
 
-    // clear from ~ to
-    if (!from.equals(to)) {
-      //
-    }
-
-    // detect cycle
-    // only need to check [0] because nodes in slice have same parent.
-    if (this.detectCycle(fromParent, slice[0])) {
+    if (
+      this.detectCycle(
+        fromParent,
+        gapFromParent === gapFromLeft
+          ? gapFromParent.allChildren[0]
+          : gapFromLeft,
+      )
+    ) {
       return;
     }
-    // remove node from its parent.
-    slice.forEach((node) => {
-      if (!node.isRemoved) {
-        node.remove(MaxTimeTicket);
-        node.removedAt = undefined;
+    // check the ranges are valid
+    const rangeType = this.checkRangeType(
+      [fromParent, fromLeft],
+      [toParent, toLeft],
+      [gapFromParent, gapFromLeft],
+      [gapToParent, gapToLeft],
+    );
+
+    if (rangeType === TreeMoveRange.None) {
+      return;
+    }
+
+    // delete nodes between from ~ to
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      (node, contain) => {
+        if (!node.isText && contain != TagContained.All) {
+          return;
+        }
+
+        if (!node.isRemoved) {
+          node.remove(editedAt);
+        }
+
+        this.removedNodeMap.set(node.id.toIDString(), node);
+      },
+    );
+
+    // if contained range, delete nodes from their parent.
+    sliceRefs.forEach((node) => {
+      if (this.removedNodeMap.has(node.id.toIDString())) {
+        this.removedNodeMap.delete(node.id.toIDString());
+      }
+
+      if (this.nodeMapByID.get(node.id)) {
+        this.nodeMapByID.remove(node.id);
+      }
+
+      if (rangeType === TreeMoveRange.Separated) {
+        node.remove(editedAt);
       }
 
       node.parent?.removeChild(node);
+      this.purge(node);
     });
 
-    let prev = slice[0];
-    if (fromParent === fromLeft) {
-      fromParent.insertAt(prev, 0);
-
-      slice.shift();
-    }
-
+    // insert slice
+    let index =
+      fromParent === fromLeft
+        ? 0
+        : fromParent.allChildren.indexOf(fromLeft) + 1;
     slice.forEach((node) => {
-      fromParent.insertAfter(node, prev);
-
-      prev = node;
+      fromParent.insertAt(node, index);
+      this.nodeMapByID.put(node.id, node);
+      index++;
     });
   }
 
