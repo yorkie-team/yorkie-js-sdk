@@ -99,8 +99,6 @@ export class EditReverseOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
 
-    console.log(this.toTestString());
-
     const text = parentObject as CRDTText<A>;
     const reverseOps = this.getReverseOperation();
 
