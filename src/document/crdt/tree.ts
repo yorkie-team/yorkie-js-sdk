@@ -1210,6 +1210,21 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
+   * `moveByIndex` moves the given range with the given value.
+   * This method uses indexes instead of a pair of TreePos for testing.
+   */
+  public moveByIndex(
+    target: [number, number],
+    source: [number, number],
+    editedAt: TimeTicket,
+  ): void {
+    const [from, to] = [this.findPos(target[0]), this.findPos(target[1])];
+    const [gapFrom, gapTo] = [this.findPos(source[0]), this.findPos(source[1])];
+
+    return this.move([from, to], [gapFrom, gapTo], editedAt);
+  }
+
+  /**
    * `split` splits the node at the given index.
    */
   public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
