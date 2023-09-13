@@ -91,7 +91,7 @@ describe('Text', function () {
     assert.equal('{"k1":[{"val":"하"},{"val":"늘"}]}', doc.toSortedJSON());
   });
 
-  it.only('should handle deletion of nested nodes', function () {
+  it('should handle deletion of nested nodes', function () {
     const doc = new Document<{
       text: Text;
     }>('test-doc');
@@ -124,7 +124,9 @@ describe('Text', function () {
 
   it('should handle deletion of the last nodes', function () {
     const doc = new Document<{ text: Text }>('test-doc');
+    const states: Array<string> = [];
     const view = new TextView();
+
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
       if (event.type === 'local-change') {
@@ -150,12 +152,17 @@ describe('Text', function () {
 
     for (const cmd of commands) {
       doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content!));
+      states.push(doc.getValueByPath('$.text')!.toString());
       assert.equal(view.toString(), doc.getRoot().text.toString());
     }
+    assertUndoRedo(doc, states, (doc) =>
+      doc.getValueByPath('$.text')!.toString(),
+    );
   });
 
   it('should handle deletion with boundary nodes already removed', function () {
     const doc = new Document<{ text: Text }>('test-doc');
+    const states: Array<string> = [];
     const view = new TextView();
     doc.update((root) => (root.text = new Text()));
     doc.subscribe('$.text', (event) => {
@@ -179,6 +186,7 @@ describe('Text', function () {
 
     for (const cmd of commands) {
       doc.update((root) => root.text.edit(cmd.from, cmd.to, cmd.content!));
+      states.push(doc.getValueByPath('$.text')!.toString());
       assert.equal(view.toString(), doc.getRoot().text.toString());
     }
   });
