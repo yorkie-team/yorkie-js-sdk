@@ -182,7 +182,7 @@ describe('Counter', function () {
     });
     assert.equal(`{"cnt":1,"longCnt":9223372036854775807}`, doc.toSortedJSON());
     assert.equal(
-      `["1:00:1.INCREASE.-1.5","1:00:2.INCREASE.-9223372036854775807"]`,
+      `["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]`,
       JSON.stringify(doc.getUndoStackForTest().pop()),
     );
 

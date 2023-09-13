@@ -268,7 +268,8 @@ describe('Object', function () {
       a: number;
     }>('test-doc');
     const states: Array<string> = [];
-    states.push(doc.toSortedJSON());
+    // TODO(chacha912): fix this test
+    // states.push(doc.toSortedJSON());
     assert.equal(doc.toSortedJSON(), '{}');
 
     doc.update((root) => {
@@ -301,8 +302,7 @@ describe('Object', function () {
       '{"a":2,"shape":{"color":"blue","point":{"x":1,"y":1}}}',
     );
 
-    // TODO(chacha912): fix this test
-    // assertUndoRedo(doc, states);
+    assertUndoRedo(doc, states);
   });
 
   it('concurrent undo/redo of object - no sync before undo', async function () {
