@@ -1383,4 +1383,287 @@ describe('Document', function () {
     assert.equal('{"color":"green"}', doc1.toSortedJSON());
     assert.equal('{"color":"green"}', doc2.toSortedJSON());
   });
+
+  // TODO(Hyemmie): The text.edit test is not currently available
+  // in the `yorkieteam/yorkie` docker image because it requires a protocol change.
+  it.skip('concurrent undo/redo of text.edit', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(2, 4, 'CD'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    doc1.history.undo();
+    assert.equal('{"text":[{"val":"CD"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"CD"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"CD"}]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"34"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"34"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"34"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
+  });
+
+  it.skip('concurrent undo/redo of text.edit 2', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(0, 0, 'ABC'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    doc1.history.undo();
+    assert.equal('{"text":[{"val":"ABC"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"ABC"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"ABC"}]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc1.toSortedJSON(),
+    );
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc2.toSortedJSON(),
+    );
+  });
+
+  it.skip('concurrent undo/redo of text.edit 3', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(3, 6, ''));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123"}]}', doc2.toSortedJSON());
+
+    doc1.history.undo();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal('{"text":[{"val":"123"},{"val":"456"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"123"},{"val":"456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123"},{"val":"456"}]}', doc2.toSortedJSON());
+  });
+
+  it.skip('concurrent undo/redo of text.edit 4', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(4, 4, 'ABC'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    doc1.history.undo();
+    assert.equal('{"text":[{"val":"ABC"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"ABC"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"ABC"}]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
+  });
 });
