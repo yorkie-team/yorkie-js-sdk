@@ -450,6 +450,37 @@ export class Tree {
   }
 
   /**
+   * `move` moves this tree at the given index.
+   */
+  public move(
+    fromIdx: number,
+    toIdx: number,
+    gapFromIdx: number,
+    gapToIdx: number,
+  ): boolean {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    if (fromIdx > toIdx || gapFromIdx > gapToIdx) {
+      throw new Error('from should be less than or equal to to');
+    }
+
+    if (
+      !(fromIdx <= gapFromIdx && toIdx >= gapToIdx) &&
+      !(fromIdx >= gapToIdx || toIdx <= gapFromIdx)
+    ) {
+      throw new Error('gap range cannot be overlapped');
+    }
+    this.tree.move(
+      [this.tree.findPos(fromIdx), this.tree.findPos(toIdx)],
+      [this.tree.findPos(gapFromIdx), this.tree.findPos(gapToIdx)],
+      this.context.issueTimeTicket(),
+    );
+    return true;
+  }
+
+  /**
    * `toXML` returns the XML string of this tree.
    */
   public toXML(): string {
