@@ -552,6 +552,15 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     clone._value = this._value;
     clone.size = this.size;
     clone.attrs = this.attrs?.deepcopy();
+
+    if (this.insNextID) {
+      clone.insNextID = this.insNextID;
+    }
+
+    if (this.insPrevID) {
+      clone.insPrevID = this.insPrevID;
+    }
+
     clone._children = this._children.map((child) => {
       const childClone = child.deepcopy();
       childClone.parent = clone;
