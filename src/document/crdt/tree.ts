@@ -73,6 +73,12 @@ enum InternalOperationType {
   Move = 'move',
 }
 
+enum TreeMoveRange {
+  Separated = 'separated',
+  Contained = 'contained',
+  None = 'none',
+}
+
 /**
  * `TreeChange` represents the change in the tree.
  */
