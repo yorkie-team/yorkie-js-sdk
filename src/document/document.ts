@@ -1282,9 +1282,6 @@ export class Document<T, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
-      if (undoOp instanceof SetOperation) {
-        undoOp.getValue().setCreatedAt(ticket);
-      }
       context.push(undoOp);
     }
 
@@ -1368,9 +1365,6 @@ export class Document<T, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
-      if (redoOp instanceof SetOperation) {
-        redoOp.getValue().setCreatedAt(ticket);
-      }
       context.push(redoOp);
     }
 

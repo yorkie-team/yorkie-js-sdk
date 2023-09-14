@@ -251,15 +251,10 @@ describe('Object', function () {
     assert.equal(doc.history.canUndo(), true);
     assert.equal(doc.history.canRedo(), true);
 
-    // TODO(chacha912): fix this test
-    try {
-      doc.history.undo();
-    } catch (err) {
-      console.log(err);
-    }
-    // assert.equal(doc.toSortedJSON(), '{}');
-    // assert.equal(doc.history.canUndo(), false);
-    // assert.equal(doc.history.canRedo(), true);
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{}');
+    assert.equal(doc.history.canUndo(), false);
+    assert.equal(doc.history.canRedo(), true);
   });
 
   it('Can undo/redo work properly for nested object', function () {
@@ -268,8 +263,7 @@ describe('Object', function () {
       a: number;
     }>('test-doc');
     const states: Array<string> = [];
-    // TODO(chacha912): fix this test
-    // states.push(doc.toSortedJSON());
+    states.push(doc.toSortedJSON());
     assert.equal(doc.toSortedJSON(), '{}');
 
     doc.update((root) => {
