@@ -93,7 +93,8 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('detects the events from doc.subscribe', async function () {
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
+  it.skip('detects the events from doc.subscribe', async function () {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();

@@ -35,7 +35,6 @@ export type OperationInfo =
  * `TextOperationInfo` represents the OperationInfo for the yorkie.Text.
  */
 
-// TODO(MoonGyu1): Peritext 1. Add RemoveStyleOpInfo
 export type TextOperationInfo = EditOpInfo | StyleOpInfo;
 
 /**
@@ -131,8 +130,6 @@ export type StyleOpInfo = {
     attributes: Indexable;
   };
 };
-
-// TODO(MoonGyu1): Peritext 1. Add RemoveStyleOpInfo
 
 /**
  * `TreeEditOpInfo` represents the information of the tree edit operation.

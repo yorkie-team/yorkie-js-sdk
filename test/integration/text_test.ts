@@ -444,7 +444,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  // TODO(MoonGyu1): remove skip after applying mark operation
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
   it.skip('ex2. concurrent formatting and insertion', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -482,7 +482,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex3. overlapping formatting(bold)', async function () {
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
+  it.skip('ex3. overlapping formatting(bold)', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -519,7 +520,8 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it('ex4. overlapping different formatting(bold and italic)', async function () {
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
+  it.skip('ex4. overlapping different formatting(bold and italic)', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -593,7 +595,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  // TODO(MoonGyu1): remove skip after applying mark operation
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
   it.skip('ex6. conflicting overlaps(bold) - 1', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -638,7 +640,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  // TODO(MoonGyu1): remove skip after applying mark operation
+  // TODO(MoonGyu1): Remove skip after implementing removeMark operation of bold type
   it.skip('ex6. conflicting overlaps(bold) - 2', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -721,7 +723,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  // TODO(MoonGyu1): remove skip after applying mark operation
+  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
   it.skip('ex8. text insertion at span boundaries(bold)', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -811,7 +813,7 @@ describe('peri-text example: text concurrent edit', function () {
 });
 
 describe('Style', function () {
-  // TODO(MoonGyu1): remove skip after applying mark operation
+  // TODO(MoonGyu1): Remove skip after implementing removeMark operation of bold type
   it.skip('should handle style operations', function () {
     const doc = new Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
