@@ -816,16 +816,19 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     length: number,
   ): Array<RGATreeSplitNodeID> {
     const nodes = [];
-    while (length > 0) {
-      const node = this.findFloorNodePreferToLeft(
-        new RGATreeSplitNodeID(id.getCreatedAt(), length),
+    let node = this.findFloorNode(
+      new RGATreeSplitNodeID(id.getCreatedAt(), id.getOffset() + length - 1),
+    );
+    if (!node) {
+      logger.fatal(
+        `the node of the given id should be found: ${id.toTestString()}`,
       );
-      if (node.getID().getOffset() > id.getOffset()) {
+    } else {
+      while (node && node.getID().getOffset() >= id.getOffset()) {
         nodes.push(node.getID());
+        node = node.getInsPrev();
       }
-      length -= node.getValue().length;
     }
-    nodes.push(id);
     return nodes;
   }
 
@@ -1096,13 +1099,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   public purgeRemovedNodesBefore(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
-      console.log(
-        `${
-          ticket.compare(node.getRemovedAt()!) >= 0
-        } purgeRemovedNodesBefore, node: ${node
-          .getRemovedAt()
-          ?.toTestString()}, ticket: ${ticket.toTestString()}}`,
-      );
       if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
         this.treeByIndex.delete(node);
         this.purge(node);
