@@ -602,7 +602,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   /**
    * `posToIndex` converts the given position to index.
    */
-  public posToIndex(pos: RGATreeSplitPos, preferToLeft: boolean): number {
+  public posToIndex(
+    pos: RGATreeSplitPos,
+    preferToLeft: boolean,
+    includeRemoved = false,
+  ): number {
     const absoluteID = pos.getAbsoluteID();
     const node = preferToLeft
       ? this.findFloorNodePreferToLeft(absoluteID)
@@ -613,9 +617,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       );
     }
     const index = this.treeByIndex.indexOf(node!);
-    const offset = node!.isRemoved()
-      ? 0
-      : absoluteID.getOffset() - node!.getID().getOffset();
+    const offset =
+      node!.isRemoved() && !includeRemoved
+        ? 0
+        : absoluteID.getOffset() - node!.getID().getOffset();
     return index + offset;
   }
 
@@ -780,19 +785,29 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         );
 
         if (node) {
-          const [fromIdx, toIdx] = this.findIndexesFromRange(
-            node.createPosRange(),
-          );
+          let curr: SplayNode<T> = node;
+          while (curr) {
+            this.treeByIndex.updateWeight(curr);
+            curr = curr.getParent()!;
+          }
+          const [fromIdx, toIdx] = [
+            this.posToIndex(RGATreeSplitPos.of(nodeID, 0), false, toRemove),
+            this.posToIndex(
+              RGATreeSplitPos.of(nodeID, node.getContentLength()),
+              true,
+              toRemove,
+            ),
+          ];
           changes.push({
             actor: editedAt.getActorID()!,
             from: fromIdx,
-            to: toIdx,
+            to: toRemove ? toIdx : fromIdx,
+            value: toRemove ? undefined : node.getValue(),
           });
         }
         nodes.push(node);
       }
     }
-    changes.reverse();
     return changes;
   }
 
@@ -1081,6 +1096,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   public purgeRemovedNodesBefore(ticket: TimeTicket): number {
     let count = 0;
     for (const [, node] of this.removedNodeMap) {
+      console.log(
+        `${
+          ticket.compare(node.getRemovedAt()!) >= 0
+        } purgeRemovedNodesBefore, node: ${node
+          .getRemovedAt()
+          ?.toTestString()}, ticket: ${ticket.toTestString()}}`,
+      );
       if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
         this.treeByIndex.delete(node);
         this.purge(node);

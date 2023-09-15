@@ -249,7 +249,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
     editedAt: TimeTicket,
   ): Array<TextChange<A>> {
-    const valueChanges: Array<ValueChange<CRDTTextValue>> = [];
+    let valueChanges: Array<ValueChange<CRDTTextValue>> = [];
     if (deletedIDs.length > 0) {
       const restoringDeletionChange =
         this.rgaTreeSplit.findSplitNodesAndSetRemovedAt(
@@ -257,7 +257,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
           editedAt,
           false,
         );
-      valueChanges.concat(restoringDeletionChange);
+      valueChanges = valueChanges.concat(restoringDeletionChange);
     }
 
     if (insertedIDs.length > 0) {
@@ -267,7 +267,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
           editedAt,
           true,
         );
-      valueChanges.concat(removingInsertionChange);
+      valueChanges = valueChanges.concat(removingInsertionChange);
     }
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
