@@ -13,6 +13,23 @@ export type YorkieDocType = {
   assets: JSONObject<Record<string, JSONObject<TDAsset>>>;
 };
 
+export type TlType = {
+  shapes: Record<string, JSONObject<TDShape>>;
+  bindings: Record<string, JSONObject<TDBinding>>;
+  assets: Record<string, JSONObject<TDAsset>>;
+};
+
+export type HistoryType = {
+  undoStack: Array<CommandType>;
+  redoStack: Array<CommandType>;
+};
+
+export type CommandType = {
+  snapshot: TlType;
+  undo: () => void;
+  redo: () => void;
+};
+
 export type YorkiePresenceType = {
   tdUser: TDUser;
 };
