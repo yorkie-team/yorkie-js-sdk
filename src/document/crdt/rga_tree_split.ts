@@ -43,6 +43,7 @@ export interface StyleOperation {
   fromBoundary: RGATreeSplitBoundary;
   toBoundary?: RGATreeSplitBoundary;
   attributes: Record<string, string>;
+  // NOTE(MoonGyu1): May need to introduce TimeTicket to address concurrent cases
 }
 
 /**
@@ -884,6 +885,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     } else if (type === BoundaryType.After) {
       opSet = node.getStyleOpsAfter();
     }
+    // NOTE(MoonGyu1): have to consider Start/End boundary type later
 
     const currentType = type;
     let currentNode: RGATreeSplitNode<T> | undefined = node;
@@ -893,6 +895,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       if (currentType == BoundaryType.Before) {
         currentNode = currentNode.getPrev();
         opSet = currentNode?.getStyleOpsAfter();
+        if (opSet) break;
+        opSet = currentNode?.getStyleOpsBefore();
       } else if (currentType == BoundaryType.After) {
         opSet = currentNode?.getStyleOpsBefore();
       }

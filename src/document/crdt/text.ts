@@ -143,9 +143,16 @@ export class CRDTTextValue {
   /**
    * `toJSON` returns the JSON encoding of this value.
    */
-  public toJSON(): string {
+  public toJSON(markAttrs?: Map<string, string>): string {
     const content = escapeString(this.content);
     const attrsObj = this.attributes.toObject();
+    // Merge existing attrsObj and markAttrs
+    if (markAttrs) {
+      for (const [key, value] of markAttrs.entries()) {
+        attrsObj[key] = value;
+      }
+    }
+
     const attrs = [];
     for (const [key, v] of Object.entries(attrsObj)) {
       const value = JSON.parse(v);
@@ -183,6 +190,8 @@ export class CRDTTextValue {
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
+  // NOTE(MoonGyu1): This anchor can be relocated to better place
+  private lastAnchor?: Set<StyleOperation> | undefined;
 
   constructor(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
@@ -266,7 +275,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     if (isRemote) {
       // NOTE(MoonGyu1): This logic may be meaningless
       this.rgaTreeSplit.splitNodeByBoundary(range[1]!);
-      this.rgaTreeSplit.splitNodeByBoundary(range[0]);
+      if (range[0].getID()?.getCreatedAt())
+        this.rgaTreeSplit.splitNodeByBoundary(range[0]);
     }
 
     // 02. style nodes between from and to
@@ -279,8 +289,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       toBoundary?.getType() != BoundaryType.None
     ) {
       // Get fromNode and toNode from boundary
+      const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
       const fromNode = this.rgaTreeSplit.findNode(fromBoundary.getID()!);
-      const toNode = this.rgaTreeSplit.findNode(toBoundary!.getID()!);
+      const toNode = toBoundary?.getID()?.getCreatedAt()
+        ? this.rgaTreeSplit.findNode(toBoundary!.getID()!)
+        : undefined;
 
       // Define new StyleOperation
       const newOp: StyleOperation = {
@@ -294,17 +307,27 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
         fromNode,
         fromBoundary.getType()!,
       );
+
+      const toOpSet = toNode
+        ? this.rgaTreeSplit.findOpsetPreferToLeft(
+            toNode,
+            toBoundary!.getType()!,
+          )
+        : this.lastAnchor;
+
       fromOpSet.add(newOp);
 
       if (fromBoundary.getType() === BoundaryType.Before) {
         fromNode.setStyleOpsBefore(fromOpSet);
+        toBeStyleds.push(fromNode);
       } else if (fromBoundary.getType() === BoundaryType.After) {
         fromNode.setStyleOpsAfter(fromOpSet);
       }
 
       // Add a new StyleOperation to between nodes if it has an opSet
-      const betweenNode = fromNode.getNext();
+      let betweenNode = fromNode.getNext();
       while (betweenNode && betweenNode !== toNode) {
+        toBeStyleds.push(betweenNode);
         const styleOpsBefore = betweenNode.getStyleOpsBefore();
         const styleOpsAfter = betweenNode.getStyleOpsAfter();
         if (styleOpsBefore) {
@@ -315,20 +338,38 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
           styleOpsAfter.add(newOp);
           betweenNode.setStyleOpsAfter(styleOpsAfter);
         }
+        betweenNode = betweenNode.getNext();
       }
 
       // Update styleOpsBefore or styleOpsAfter of toNode
-      const toOpSet = this.rgaTreeSplit.findOpsetPreferToLeft(
-        toNode,
-        toBoundary!.getType()!,
-      );
-
       if (toBoundary!.getType() === BoundaryType.Before) {
-        toNode.setStyleOpsBefore(toOpSet);
+        toNode!.setStyleOpsBefore(toOpSet!);
       } else if (toBoundary!.getType() === BoundaryType.After) {
-        toNode.setStyleOpsAfter(toOpSet);
+        toBeStyleds.push(toNode!);
+        toNode!.setStyleOpsAfter(toOpSet!);
+      } else if (toBoundary!.getType() === BoundaryType.End) {
+        // TODO(MoonGyu1): Add last node to toBeStyled
+        if (!toOpSet) this.lastAnchor = new Set();
       }
 
+      for (const node of toBeStyleds) {
+        if (node.isRemoved()) {
+          continue;
+        }
+
+        const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+          node.createPosRange(),
+        );
+        changes.push({
+          type: TextChangeType.Style,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+          value: {
+            attributes: parseObjectValues(attributes) as A,
+          },
+        });
+      }
       const createdAtMapByActor = new Map<string, TimeTicket>();
       return [createdAtMapByActor, changes];
     }
@@ -425,12 +466,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
       if (expand === 'after') {
         while (fromNode && fromNode.isRemoved()) {
-          // NOTE(MoonGyu1): have to check if it is a last node
+          // NOTE(MoonGyu1): Have to check if it is a last node
           fromNode = fromNode.getNext();
         }
 
         while (toNode && toNode.isRemoved()) {
-          // NOTE(MoonGyu1): have to check if it is a last node
+          // NOTE(MoonGyu1): Have to check if it is a last node
           toNode = toNode.getNext();
         }
 
@@ -485,10 +526,45 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   public toJSON(): string {
     const json = [];
 
+    // Keep current attributes info for applying to current node
+    const currentAttr = new Map<string, string>();
+
+    // NOTE(MoonGyu1): This logic can be optimized later
     for (const node of this.rgaTreeSplit) {
-      // TODO(MoonGyu1): Peritext 3. Convert operations to attrs and pass as argument of toJSON
+      // Update currentAttr by node anchors
+      const anchors = [node.getStyleOpsBefore(), node.getStyleOpsAfter()];
+      for (const anchor of anchors) {
+        if (anchor) {
+          // Traverse each attribute of anchor
+          anchor.forEach((op) => {
+            for (const [key, value] of Object.entries(op.attributes)) {
+              // Add attribute to currentAttr if currentAttr doesn't have the attribute of anchor
+              if (!currentAttr.has(key)) {
+                currentAttr.set(key, value);
+              }
+            }
+          });
+
+          // Traverse each attribute of currentAttr
+          let hasAttr = false;
+          for (const [currentKey] of currentAttr.entries()) {
+            // Remove attribute from currentAttr if anchor doesn't have the attribute of currentAttr
+            anchor.forEach((op) => {
+              for (const [anchorKey] of Object.entries(op.attributes)) {
+                if (currentKey === anchorKey) {
+                  hasAttr = true;
+                }
+              }
+            });
+            if (!hasAttr) {
+              currentAttr.delete(currentKey);
+            }
+          }
+        }
+      }
+
       if (!node.isRemoved()) {
-        json.push(node.getValue().toJSON());
+        json.push(node.getValue().toJSON(currentAttr));
       }
     }
 
