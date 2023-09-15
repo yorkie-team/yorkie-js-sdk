@@ -25,7 +25,6 @@ import {
   TimeTicket,
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { StyleOperation } from '../operation/style_operation';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -38,6 +37,12 @@ interface RGATreeSplitValue {
   length: number;
 
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+}
+
+export interface StyleOperation {
+  fromBoundary: RGATreeSplitBoundary;
+  toBoundary?: RGATreeSplitBoundary;
+  attributes: Record<string, string>;
 }
 
 /**
