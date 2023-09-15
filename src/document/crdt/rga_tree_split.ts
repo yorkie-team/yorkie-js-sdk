@@ -63,6 +63,8 @@ export enum BoundaryType {
   After = 'after',
   Start = 'start',
   End = 'end',
+  // TODO(MoonGyu1): 'None' type can be deleted after replacing existing logic with mark
+  None = 'none',
 }
 
 /**
@@ -415,10 +417,16 @@ export class RGATreeSplitNode<
     return this.insPrev!.getID();
   }
 
+  /**
+   * `getStyleOpsBefore` returns a styleOpsBefore of this node.
+   */
   public getStyleOpsBefore(): Set<StyleOperation> | undefined {
     return this.styleOpsBefore;
   }
 
+  /**
+   * `getStyleOpsAfter` returns a styleOpsAfter of this node.
+   */
   public getStyleOpsAfter(): Set<StyleOperation> | undefined {
     return this.styleOpsAfter;
   }
@@ -463,10 +471,16 @@ export class RGATreeSplitNode<
     }
   }
 
+  /**
+   * `setStyleOpsBefore` sets styleOpsBefore of this node.
+   */
   public setStyleOpsBefore(operations: Set<StyleOperation>): void {
     this.styleOpsBefore = operations;
   }
 
+  /**
+   * `setStyleOpsAfter` sets styleOpsAfter of this node.
+   */
   public setStyleOpsAfter(operations: Set<StyleOperation>): void {
     this.styleOpsAfter = operations;
   }
@@ -844,7 +858,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   public splitNodeByBoundary(boundary: RGATreeSplitBoundary): void {
     const absoluteID = boundary.getID();
     if (absoluteID?.getCreatedAt()) {
-      let node = this.findFloorNodePreferToLeft(absoluteID);
+      const node = this.findFloorNodePreferToLeft(absoluteID);
       const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
 
       this.splitNode(node, relativeOffset);

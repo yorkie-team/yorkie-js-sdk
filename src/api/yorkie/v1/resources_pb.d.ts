@@ -1619,6 +1619,7 @@ export enum BoundaryType {
   BOUNDARY_TYPE_AFTER = 1,
   BOUNDARY_TYPE_START = 2,
   BOUNDARY_TYPE_END = 3,
+  BOUNDARY_TYPE_NONE = 4,
 }
 export enum ValueType { 
   VALUE_TYPE_NULL = 0,

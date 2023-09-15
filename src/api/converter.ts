@@ -277,12 +277,18 @@ function toTextNodeBoundary(
   switch (boundary?.getType()) {
     case BoundaryType.Before:
       pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_BEFORE);
+      break;
     case BoundaryType.After:
       pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_AFTER);
+      break;
     case BoundaryType.Start:
       pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_START);
+      break;
     case BoundaryType.End:
       pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_END);
+      break;
+    case BoundaryType.None:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_NONE);
   }
   return pbTextNodeBoundary;
 }
@@ -929,14 +935,18 @@ function fromTextNodeBoundary(
   switch (pbTextNodeBoundary.getType()) {
     case PbBoundaryType.BOUNDARY_TYPE_BEFORE:
       boundaryType = BoundaryType.Before;
+      break;
     case PbBoundaryType.BOUNDARY_TYPE_AFTER:
       boundaryType = BoundaryType.After;
+      break;
     case PbBoundaryType.BOUNDARY_TYPE_START:
       boundaryType = BoundaryType.Start;
+      break;
     case PbBoundaryType.BOUNDARY_TYPE_END:
       boundaryType = BoundaryType.End;
-    default:
-      boundaryType = undefined;
+      break;
+    case PbBoundaryType.BOUNDARY_TYPE_NONE:
+      boundaryType = BoundaryType.None;
   }
   return RGATreeSplitBoundary.of(
     RGATreeSplitNodeID.of(

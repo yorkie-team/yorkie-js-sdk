@@ -71,7 +71,7 @@ export type AttributeSpec = {
 export type MarkSpec = {
   expand: 'before' | 'after' | 'both' | 'none';
   allowMultiple: boolean;
-  excludes?: string[];
+  excludes?: Array<string>;
   attributes?: { [key: string]: AttributeSpec };
 };
 
@@ -272,7 +272,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     const fromBoundary = range[0];
     const toBoundary = range[1];
     // 02-1. Update styleOpsBefore and styleOpsAfter if it is a bold type
-    if (fromBoundary.getType() && toBoundary?.getType()) {
+    if (
+      fromBoundary.getType() != BoundaryType.None &&
+      toBoundary?.getType() != BoundaryType.None
+    ) {
       // TODO(MoonGyu1): Peritext 2. Update styleOpsBefore/styleOpsAfter of fromRight/toRight nodes
 
       const createdAtMapByActor = new Map<string, TimeTicket>();
@@ -405,8 +408,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     );
 
     return [
-      RGATreeSplitBoundary.of(fromRight.getID()),
-      RGATreeSplitBoundary.of(toRight?.getID()),
+      RGATreeSplitBoundary.of(fromRight.getID(), BoundaryType.None),
+      RGATreeSplitBoundary.of(toRight?.getID(), BoundaryType.None),
     ];
   }
 

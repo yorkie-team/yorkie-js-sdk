@@ -234,8 +234,12 @@ export class Text<A extends Indexable = Indexable> {
     return true;
   }
 
-  // TODO(MoonGyu1): Peritext 1. Add removeStyle method
-  removeStyle(fromIdx: number, toIdx: number, attributes: A) {}
+  /**
+   * `removeStyle` remove styles from text with the given attributes.
+   */
+  removeStyle(fromIdx: number, toIdx: number, attributes: A) {
+    // TODO(MoonGyu1): Peritext 1. Add removeStyle method
+  }
 
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.
