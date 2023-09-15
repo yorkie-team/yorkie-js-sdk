@@ -857,7 +857,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [node, node.getNext()!];
   }
 
-  // TODO(MoonGyu1): It can be optimized later
+  // NOTE(MoonGyu1): This logic can be optimized later
   /**
    * `findNodeWithSplit` splits and return nodes of the given position.
    */
