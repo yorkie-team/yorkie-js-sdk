@@ -7,24 +7,19 @@
   </head>
   <body>
     <div>
-      <div>status: <span id="network-status"></span></div>
-      <div class="wrap">
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
+      <div class="counter-wrap">
         <span id="counter"></span>
         <button id="increaseButton">+</button>
         <button id="decreaseButton">-</button>
       </div>
-      <div>Online clients:</div>
-      <pre
-        style="white-space: pre-wrap"
-      ><code id="online-clients-holder"></code></pre>
     </div>
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
       const statusHolder = document.getElementById('network-status');
-      const onlineClientsHolder = document.getElementById(
-        'online-clients-holder',
-      );
+      const onlineClientsHolder = document.getElementById('online-clients');
       const counter = document.getElementById('counter');
       const counterIncreaseButton = document.getElementById('increaseButton');
       const counterDecreaseButton = document.getElementById('decreaseButton');
