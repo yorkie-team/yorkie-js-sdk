@@ -461,13 +461,13 @@ export namespace Operation {
     hasParentCreatedAt(): boolean;
     clearParentCreatedAt(): Style;
 
-    getFrom(): TextNodePos | undefined;
-    setFrom(value?: TextNodePos): Style;
+    getFrom(): TextNodeBoundary | undefined;
+    setFrom(value?: TextNodeBoundary): Style;
     hasFrom(): boolean;
     clearFrom(): Style;
 
-    getTo(): TextNodePos | undefined;
-    setTo(value?: TextNodePos): Style;
+    getTo(): TextNodeBoundary | undefined;
+    setTo(value?: TextNodeBoundary): Style;
     hasTo(): boolean;
     clearTo(): Style;
 
@@ -493,8 +493,8 @@ export namespace Operation {
   export namespace Style {
     export type AsObject = {
       parentCreatedAt?: TimeTicket.AsObject,
-      from?: TextNodePos.AsObject,
-      to?: TextNodePos.AsObject,
+      from?: TextNodeBoundary.AsObject,
+      to?: TextNodeBoundary.AsObject,
       attributesMap: Array<[string, string]>,
       executedAt?: TimeTicket.AsObject,
       createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
@@ -1536,6 +1536,34 @@ export namespace TextNodePos {
   }
 }
 
+export class TextNodeBoundary extends jspb.Message {
+  getCreatedAt(): TimeTicket | undefined;
+  setCreatedAt(value?: TimeTicket): TextNodeBoundary;
+  hasCreatedAt(): boolean;
+  clearCreatedAt(): TextNodeBoundary;
+
+  getOffset(): number;
+  setOffset(value: number): TextNodeBoundary;
+
+  getType(): BoundaryType;
+  setType(value: BoundaryType): TextNodeBoundary;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): TextNodeBoundary.AsObject;
+  static toObject(includeInstance: boolean, msg: TextNodeBoundary): TextNodeBoundary.AsObject;
+  static serializeBinaryToWriter(message: TextNodeBoundary, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): TextNodeBoundary;
+  static deserializeBinaryFromReader(message: TextNodeBoundary, reader: jspb.BinaryReader): TextNodeBoundary;
+}
+
+export namespace TextNodeBoundary {
+  export type AsObject = {
+    createdAt?: TimeTicket.AsObject,
+    offset: number,
+    type: BoundaryType,
+  }
+}
+
 export class TimeTicket extends jspb.Message {
   getLamport(): string;
   setLamport(value: string): TimeTicket;
@@ -1586,6 +1614,12 @@ export namespace DocEvent {
   }
 }
 
+export enum BoundaryType { 
+  BOUNDARY_TYPE_BEFORE = 0,
+  BOUNDARY_TYPE_AFTER = 1,
+  BOUNDARY_TYPE_START = 2,
+  BOUNDARY_TYPE_END = 3,
+}
 export enum ValueType { 
   VALUE_TYPE_NULL = 0,
   VALUE_TYPE_BOOLEAN = 1,

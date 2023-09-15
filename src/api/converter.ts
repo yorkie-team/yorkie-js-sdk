@@ -47,6 +47,8 @@ import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
+  RGATreeSplitBoundary,
+  BoundaryType,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
@@ -73,6 +75,8 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeBoundary as PbTextNodeBoundary,
+  BoundaryType as PbBoundaryType,
   TimeTicket as PbTimeTicket,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
@@ -258,6 +262,32 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
 }
 
 /**
+ * `toTextNodeBoundary` converts the given model to Protobuf format.
+ */
+function toTextNodeBoundary(
+  boundary: RGATreeSplitBoundary | undefined,
+): PbTextNodeBoundary {
+  const pbTextNodeBoundary = new PbTextNodeBoundary();
+
+  pbTextNodeBoundary.setCreatedAt(
+    toTimeTicket(boundary?.getID()?.getCreatedAt()),
+  );
+  pbTextNodeBoundary.setOffset(boundary?.getID()?.getOffset() ?? 0);
+
+  switch (boundary?.getType()) {
+    case BoundaryType.Before:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_BEFORE);
+    case BoundaryType.After:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_AFTER);
+    case BoundaryType.Start:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_START);
+    case BoundaryType.End:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_END);
+  }
+  return pbTextNodeBoundary;
+}
+
+/**
  * `toTreePos` converts the given model to Protobuf format.
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
@@ -355,8 +385,10 @@ function toOperation(operation: Operation): PbOperation {
     pbStyleOperation.setParentCreatedAt(
       toTimeTicket(styleOperation.getParentCreatedAt()),
     );
-    pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
-    pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
+    pbStyleOperation.setFrom(
+      toTextNodeBoundary(styleOperation.getFromBoundary()),
+    );
+    pbStyleOperation.setTo(toTextNodeBoundary(styleOperation.getToBoundary()));
     const pbCreatedAtMapByActor = pbStyleOperation.getCreatedAtMapByActorMap();
     for (const [key, value] of styleOperation.getMaxCreatedAtMapByActor()) {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
@@ -369,9 +401,7 @@ function toOperation(operation: Operation): PbOperation {
       toTimeTicket(styleOperation.getExecutedAt()),
     );
     pbOperation.setStyle(pbStyleOperation);
-  }
-  // TODO(MoonGyu1): Peritext 1. Add RemoveStyleOperation
-  else if (operation instanceof IncreaseOperation) {
+  } else if (operation instanceof IncreaseOperation) {
     const increaseOperation = operation as IncreaseOperation;
     const pbIncreaseOperation = new PbOperation.Increase();
     pbIncreaseOperation.setParentCreatedAt(
@@ -889,6 +919,35 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
 }
 
 /**
+ * `fromTextNodeBoundary` converts the given Protobuf format to model format.
+ */
+function fromTextNodeBoundary(
+  pbTextNodeBoundary: PbTextNodeBoundary,
+): RGATreeSplitBoundary {
+  let boundaryType: BoundaryType | undefined;
+
+  switch (pbTextNodeBoundary.getType()) {
+    case PbBoundaryType.BOUNDARY_TYPE_BEFORE:
+      boundaryType = BoundaryType.Before;
+    case PbBoundaryType.BOUNDARY_TYPE_AFTER:
+      boundaryType = BoundaryType.After;
+    case PbBoundaryType.BOUNDARY_TYPE_START:
+      boundaryType = BoundaryType.Start;
+    case PbBoundaryType.BOUNDARY_TYPE_END:
+      boundaryType = BoundaryType.End;
+    default:
+      boundaryType = undefined;
+  }
+  return RGATreeSplitBoundary.of(
+    RGATreeSplitNodeID.of(
+      fromTimeTicket(pbTextNodeBoundary.getCreatedAt())!,
+      pbTextNodeBoundary.getOffset(),
+    ),
+    boundaryType,
+  );
+}
+
+/**
  * `fromTextNodeID` converts the given Protobuf format to model format.
  */
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
@@ -1089,15 +1148,13 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       });
       operation = StyleOperation.create(
         fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbStyleOperation!.getFrom()!),
-        fromTextNodePos(pbStyleOperation!.getTo()!),
+        fromTextNodeBoundary(pbStyleOperation!.getFrom()!),
+        fromTextNodeBoundary(pbStyleOperation!.getTo()!),
         createdAtMapByActor,
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );
-    }
-    // TODO(MoonGyu1): Peritext 1. Add RemoveStyleOperation
-    else if (pbOperation.hasSelect()) {
+    } else if (pbOperation.hasSelect()) {
       // TODO(hackerwins): Select is deprecated.
       continue;
     } else if (pbOperation.hasIncrease()) {
