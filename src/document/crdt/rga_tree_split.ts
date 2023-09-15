@@ -25,6 +25,7 @@ import {
   TimeTicket,
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { StyleOperation } from '../operation/style_operation';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -56,6 +57,13 @@ export type RGATreeSplitNodeIDStruct = {
   createdAt: TimeTicketStruct;
   offset: number;
 };
+
+export enum BoundaryType {
+  Before = 'before',
+  After = 'after',
+  Start = 'start',
+  End = 'end',
+}
 
 /**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
@@ -238,11 +246,57 @@ export class RGATreeSplitPos {
   }
 }
 
-// TODO(MoonGyu1): Peritext 1. Add RGATreeSplitBoundary class
+/**
+ * `RGATreeSplitBoundary` is the boundary of the text node.
+ */
+export class RGATreeSplitBoundary {
+  private id?: RGATreeSplitNodeID;
+  private type?: BoundaryType;
+
+  constructor(id?: RGATreeSplitNodeID, type?: BoundaryType) {
+    this.id = id;
+    this.type = type;
+  }
+
+  /**
+   * `of` creates a instance of RGATreeSplitBoundary.
+   */
+  public static of(
+    id?: RGATreeSplitNodeID,
+    type?: BoundaryType,
+  ): RGATreeSplitBoundary {
+    return new RGATreeSplitBoundary(id, type);
+  }
+
+  /**
+   * `getID` returns the ID of this RGATreeSplitBoundary.
+   */
+  public getID(): RGATreeSplitNodeID | undefined {
+    return this.id;
+  }
+
+  /**
+   * `getType` returns the type of this RGATreeSplitBoundary.
+   */
+  public getType(): BoundaryType | undefined {
+    return this.type;
+  }
+
+  /**
+   *`toTestString` returns a String containing
+   * the meta data of the boundary for debugging purpose.
+   */
+  public toTestString(): string {
+    return `${this.id?.toTestString()}:${this.type}`;
+  }
+}
 
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 
-// TODO(MoonGyu1): Peritext 1. Add RGATreeSplitBoundaryRange
+export type RGATreeSplitBoundaryRange = [
+  RGATreeSplitBoundary,
+  RGATreeSplitBoundary | undefined,
+];
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -257,8 +311,8 @@ export class RGATreeSplitNode<
   private next?: RGATreeSplitNode<T>;
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
-
-  // TODO(MoonGyu1): Peritext 1. add `styleOpsBefore` and `styleOpsAfter`
+  private styleOpsBefore?: Set<StyleOperation>;
+  private styleOpsAfter?: Set<StyleOperation>;
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
     super(value!);
@@ -361,7 +415,13 @@ export class RGATreeSplitNode<
     return this.insPrev!.getID();
   }
 
-  // TODO(MoonGyu1): Peritext 2. Add getter of styleOpsBefore/styleOpsAfter
+  public getStyleOpsBefore(): Set<StyleOperation> | undefined {
+    return this.styleOpsBefore;
+  }
+
+  public getStyleOpsAfter(): Set<StyleOperation> | undefined {
+    return this.styleOpsAfter;
+  }
 
   /**
    * `setPrev` sets previous node of this node.
@@ -403,7 +463,13 @@ export class RGATreeSplitNode<
     }
   }
 
-  // TODO(MoonGyu1): Peritext 2. Add setter of styleOpsBefore/styleOpsAfter
+  public setStyleOpsBefore(operations: Set<StyleOperation>): void {
+    this.styleOpsBefore = operations;
+  }
+
+  public setStyleOpsAfter(operations: Set<StyleOperation>): void {
+    this.styleOpsAfter = operations;
+  }
 
   /**
    * `hasNext` checks if next node exists.
@@ -771,8 +837,19 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [node, node.getNext()!];
   }
 
-  // TODO(MoonGyu1): Peritext 1. Add `splitNodeByBoundaryPos` method
   // TODO(MoonGyu1): It can be optimized later
+  /**
+   * `findNodeWithSplit` splits and return nodes of the given position.
+   */
+  public splitNodeByBoundary(boundary: RGATreeSplitBoundary): void {
+    const absoluteID = boundary.getID();
+    if (absoluteID?.getCreatedAt()) {
+      let node = this.findFloorNodePreferToLeft(absoluteID);
+      const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
+
+      this.splitNode(node, relativeOffset);
+    }
+  }
 
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
@@ -815,7 +892,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   public findBetween(
     fromNode: RGATreeSplitNode<T>,
-    toNode: RGATreeSplitNode<T>,
+    toNode: RGATreeSplitNode<T> | undefined,
   ): Array<RGATreeSplitNode<T>> {
     const nodes = [];
 

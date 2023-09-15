@@ -23,8 +23,12 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
+  BoundaryType,
   RGATreeSplit,
+  RGATreeSplitBoundary,
+  RGATreeSplitBoundaryRange,
   RGATreeSplitNode,
+  RGATreeSplitPos,
   RGATreeSplitPosRange,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -56,6 +60,22 @@ export interface TextValueType<A> {
 interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
 }
+
+export type MarkName = string;
+
+export type AttributeSpec = {
+  default?: any;
+  required?: boolean;
+};
+
+export type MarkSpec = {
+  expand: 'before' | 'after' | 'both' | 'none';
+  allowMultiple: boolean;
+  excludes?: string[];
+  attributes?: { [key: string]: AttributeSpec };
+};
+
+export type MarkTypes = Map<MarkName, MarkSpec>;
 
 /**
  * `CRDTTextValue` is a value of Text
@@ -235,75 +255,83 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public setStyle(
-    // TODO(MoonGyu1): Peritext 1. Use RGATreeSplitBoundaryRange
-    range: RGATreeSplitPosRange,
+    range: RGATreeSplitBoundaryRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
-    // 01. split nodes with from and to
-
-    // TODO(MoonGyu1): Peritext 1. Split node by NodeID of RGATreeSplitBoundaryRange if it is remote operation
-    // TODO(MoonGyu1): Peritext 1. Use splitNodeByBoundaryPos method
-    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
-    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
-      range[0],
-      editedAt,
-    );
+    // 01. Split nodes with boundaryRange if it is a remote operation
+    const isRemote = !!latestCreatedAtMapByActor;
+    if (isRemote) {
+      this.rgaTreeSplit.splitNodeByBoundary(range[1]!);
+      this.rgaTreeSplit.splitNodeByBoundary(range[0]);
+    }
 
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
-    const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
+    const fromBoundary = range[0];
+    const toBoundary = range[1];
+    // 02-1. Update styleOpsBefore and styleOpsAfter if it is a bold type
+    if (fromBoundary.getType() && toBoundary?.getType()) {
+      // TODO(MoonGyu1): Peritext 2. Update styleOpsBefore/styleOpsAfter of fromRight/toRight nodes
 
-    // TODO(MoonGyu1): Peritext 2. Update styleOpsBefore/styleOpsAfter of fromRight/toRight nodes
-    //                 if markType is `bold` else keep existing logic below
+      const createdAtMapByActor = new Map<string, TimeTicket>();
+      return [createdAtMapByActor, changes];
+    }
+    // 02-2. Apply the existing logic to style nodes if they are not of a bold type
+    else {
+      const fromNode = this.rgaTreeSplit.findNode(fromBoundary.getID()!);
+      const toNode = toBoundary?.getID()?.getCreatedAt()
+        ? this.rgaTreeSplit.findNode(toBoundary.getID()!)
+        : undefined;
 
-    const createdAtMapByActor = new Map<string, TimeTicket>();
-    const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
+      const nodes = this.rgaTreeSplit.findBetween(fromNode, toNode);
+      const createdAtMapByActor = new Map<string, TimeTicket>();
+      const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
-    for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID()!;
+      for (const node of nodes) {
+        const actorID = node.getCreatedAt().getActorID()!;
+        const latestCreatedAt = latestCreatedAtMapByActor?.size
+          ? latestCreatedAtMapByActor!.has(actorID!)
+            ? latestCreatedAtMapByActor!.get(actorID!)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
 
-      const latestCreatedAt = latestCreatedAtMapByActor?.size
-        ? latestCreatedAtMapByActor!.has(actorID!)
-          ? latestCreatedAtMapByActor!.get(actorID!)!
-          : InitialTimeTicket
-        : MaxTimeTicket;
-
-      if (node.canStyle(editedAt, latestCreatedAt)) {
-        const latestCreatedAt = createdAtMapByActor.get(actorID);
-        const createdAt = node.getCreatedAt();
-        if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-          createdAtMapByActor.set(actorID, createdAt);
+        if (node.canStyle(editedAt, latestCreatedAt)) {
+          const latestCreatedAt = createdAtMapByActor.get(actorID);
+          const createdAt = node.getCreatedAt();
+          if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+            createdAtMapByActor.set(actorID, createdAt);
+          }
+          toBeStyleds.push(node);
         }
-        toBeStyleds.push(node);
       }
+
+      for (const node of toBeStyleds) {
+        if (node.isRemoved()) {
+          continue;
+        }
+
+        const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+          node.createPosRange(),
+        );
+        changes.push({
+          type: TextChangeType.Style,
+          actor: editedAt.getActorID()!,
+          from: fromIdx,
+          to: toIdx,
+          value: {
+            attributes: parseObjectValues(attributes) as A,
+          },
+        });
+
+        for (const [key, value] of Object.entries(attributes)) {
+          node.getValue().setAttr(key, value, editedAt);
+        }
+      }
+
+      return [createdAtMapByActor, changes];
     }
-
-    for (const node of toBeStyleds) {
-      if (node.isRemoved()) {
-        continue;
-      }
-
-      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
-        node.createPosRange(),
-      );
-      changes.push({
-        type: TextChangeType.Style,
-        actor: editedAt.getActorID()!,
-        from: fromIdx,
-        to: toIdx,
-        value: {
-          attributes: parseObjectValues(attributes) as A,
-        },
-      });
-
-      for (const [key, value] of Object.entries(attributes)) {
-        node.getValue().setAttr(key, value, editedAt);
-      }
-    }
-
-    return [createdAtMapByActor, changes];
   }
 
   /**
@@ -319,6 +347,67 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     }
 
     return [fromPos, this.rgaTreeSplit.indexToPos(toIdx)];
+  }
+
+  /**
+   * `posRangeToBoundaryRange` returns the boundary range of the given position range.
+   */
+  public posRangeToBoundaryRange(
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
+    editedAt: TimeTicket,
+    expand?: 'before' | 'after' | 'both' | 'none',
+  ): RGATreeSplitBoundaryRange {
+    // Make a RGATreeSplitBoundary if it is a mark type
+    if (expand) {
+      const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(toPos, editedAt);
+      const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+        fromPos,
+        editedAt,
+      );
+
+      let fromNode: RGATreeSplitNode<CRDTTextValue> | undefined = fromRight;
+      let toNode: RGATreeSplitNode<CRDTTextValue> | undefined = toRight;
+
+      if (expand === 'after') {
+        while (fromNode && fromNode.isRemoved()) {
+          // NOTE(MoonGyu1): have to check if it is a last node
+          fromNode = fromNode.getNext();
+        }
+
+        while (toNode && toNode.isRemoved()) {
+          // NOTE(MoonGyu1): have to check if it is a last node
+          toNode = toNode.getNext();
+        }
+
+        const fromNodeID = fromNode?.getID();
+        const toNodeID = toNode?.getID();
+
+        const fromBoundaryType = fromNodeID
+          ? BoundaryType.Before
+          : BoundaryType.Start;
+        const toBoundaryType = toNodeID
+          ? BoundaryType.Before
+          : BoundaryType.End;
+
+        return [
+          RGATreeSplitBoundary.of(fromNodeID, fromBoundaryType),
+          RGATreeSplitBoundary.of(toNodeID, toBoundaryType),
+        ];
+      }
+    }
+
+    // Make a RGATreeSplitBoundary without BoundaryType if it is not a mark type
+    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(toPos, editedAt);
+    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+      fromPos,
+      editedAt,
+    );
+
+    return [
+      RGATreeSplitBoundary.of(fromRight.getID()),
+      RGATreeSplitBoundary.of(toRight?.getID()),
+    ];
   }
 
   /**
