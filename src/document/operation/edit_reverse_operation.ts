@@ -26,6 +26,7 @@ import {
 import { Indexable } from '../document';
 import { RGATreeSplitNodeID } from '../crdt/rga_tree_split';
 
+
 /**
  * `EditReverseOperation` is a reverse operation of Edit operation.
  */

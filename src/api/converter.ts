@@ -33,6 +33,7 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
+import { EditReverseOperation } from '@yorkie-js-sdk/src/document/operation/edit_reverse_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
@@ -373,6 +374,7 @@ function toOperation(operation: Operation): PbOperation {
     pbEditReverseOperation.setParentCreatedAt(
       toTimeTicket(editReverseOperation.getParentCreatedAt()),
     );
+    
     const pbDeletedIDs = [];
     const deletedIDs = editReverseOperation.getDeletedIDs();
     for (const deletedID of deletedIDs) {
@@ -385,6 +387,7 @@ function toOperation(operation: Operation): PbOperation {
     }
     pbEditReverseOperation.setDeletedIdsList(pbDeletedIDs);
     pbEditReverseOperation.setInsertedIdsList(pbInsertedIDs);
+
     const pbCreatedAtMapByActor =
       pbEditReverseOperation.getCreatedAtMapByActorMap();
     if (editReverseOperation.getMaxCreatedAtMapByActor()) {
@@ -1149,6 +1152,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbEditReverseOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
       });
+
       const pbDeletedIDs = pbEditReverseOperation!.getDeletedIdsList()!;
       const deletedIDs = [];
       for (const pbDeletedID of pbDeletedIDs) {
@@ -1159,6 +1163,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       for (const pbInsertedID of pbInsertedIDs) {
         insertedIDs.push(fromTextNodeIDWithLength(pbInsertedID));
       }
+
       operation = EditReverseOperation.create({
         parentCreatedAt: fromTimeTicket(
           pbEditReverseOperation!.getParentCreatedAt(),

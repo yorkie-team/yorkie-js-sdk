@@ -112,14 +112,14 @@ export class EditOperation extends Operation {
     const text = parentObject as CRDTText<A>;
     // TODO(chacha912): check where we can set maxCreatedAtMapByActor of edit operation(undo)
     // based on the result from text.edit.
-    const [, changes, , reverseInfo] = text.edit(
+    const reverseOps = this.getReverseOperation(text);
+    const [, changes] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
       this.maxCreatedAtMapByActor,
     );
-    const reverseOps = this.getReverseOperation(text, reverseInfo);
     if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(text);
     }
@@ -139,7 +139,7 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTRoot`.
+   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTText`.
    */
   public getReverseOperation<A extends Indexable>(
     text: CRDTText<A>,
