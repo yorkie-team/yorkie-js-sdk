@@ -30,6 +30,7 @@ import {
   RGATreeSplitNode,
   RGATreeSplitPos,
   RGATreeSplitPosRange,
+  StyleOperation,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
@@ -263,6 +264,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     // 01. Split nodes with boundaryRange if it is a remote operation
     const isRemote = !!latestCreatedAtMapByActor;
     if (isRemote) {
+      // NOTE(MoonGyu1): This logic may be meaningless
       this.rgaTreeSplit.splitNodeByBoundary(range[1]!);
       this.rgaTreeSplit.splitNodeByBoundary(range[0]);
     }
@@ -276,7 +278,56 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       fromBoundary.getType() != BoundaryType.None &&
       toBoundary?.getType() != BoundaryType.None
     ) {
-      // TODO(MoonGyu1): Peritext 2. Update styleOpsBefore/styleOpsAfter of fromRight/toRight nodes
+      // Get fromNode and toNode from boundary
+      const fromNode = this.rgaTreeSplit.findNode(fromBoundary.getID()!);
+      const toNode = this.rgaTreeSplit.findNode(toBoundary!.getID()!);
+
+      // Define new StyleOperation
+      const newOp: StyleOperation = {
+        fromBoundary,
+        toBoundary,
+        attributes,
+      };
+
+      // Update styleOpsBefore or styleOpsAfter of fromNode
+      const fromOpSet = this.rgaTreeSplit.findOpsetPreferToLeft(
+        fromNode,
+        fromBoundary.getType()!,
+      );
+      fromOpSet.add(newOp);
+
+      if (fromBoundary.getType() === BoundaryType.Before) {
+        fromNode.setStyleOpsBefore(fromOpSet);
+      } else if (fromBoundary.getType() === BoundaryType.After) {
+        fromNode.setStyleOpsAfter(fromOpSet);
+      }
+
+      // Add a new StyleOperation to between nodes if it has an opSet
+      const betweenNode = fromNode.getNext();
+      while (betweenNode && betweenNode !== toNode) {
+        const styleOpsBefore = betweenNode.getStyleOpsBefore();
+        const styleOpsAfter = betweenNode.getStyleOpsAfter();
+        if (styleOpsBefore) {
+          styleOpsBefore.add(newOp);
+          betweenNode.setStyleOpsBefore(styleOpsBefore);
+        }
+        if (styleOpsAfter) {
+          styleOpsAfter.add(newOp);
+          betweenNode.setStyleOpsAfter(styleOpsAfter);
+        }
+      }
+
+      // Update styleOpsBefore or styleOpsAfter of toNode
+      const toOpSet = this.rgaTreeSplit.findOpsetPreferToLeft(
+        toNode,
+        toBoundary!.getType()!,
+      );
+
+      if (toBoundary!.getType() === BoundaryType.Before) {
+        toNode.setStyleOpsBefore(toOpSet);
+      } else if (toBoundary!.getType() === BoundaryType.After) {
+        toNode.setStyleOpsAfter(toOpSet);
+      }
 
       const createdAtMapByActor = new Map<string, TimeTicket>();
       return [createdAtMapByActor, changes];

@@ -870,6 +870,38 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
   }
 
+  /**
+   * `findOpsetPreferToLeft` find a closest opSet of the given anchor.
+   */
+  public findOpsetPreferToLeft(
+    node: RGATreeSplitNode<T>,
+    type: BoundaryType,
+  ): Set<StyleOperation> {
+    // Find current opSet from given anchor
+    let opSet: Set<StyleOperation> | undefined;
+    if (type === BoundaryType.Before) {
+      opSet = node.getStyleOpsBefore();
+    } else if (type === BoundaryType.After) {
+      opSet = node.getStyleOpsAfter();
+    }
+
+    const currentType = type;
+    let currentNode: RGATreeSplitNode<T> | undefined = node;
+
+    // Traverse the node's anchor to the left to find the closest opSet
+    while (!opSet && currentNode) {
+      if (currentType == BoundaryType.Before) {
+        currentNode = currentNode.getPrev();
+        opSet = currentNode?.getStyleOpsAfter();
+      } else if (currentType == BoundaryType.After) {
+        opSet = currentNode?.getStyleOpsBefore();
+      }
+    }
+
+    // If there is no existing opSet, return an empty opSet
+    return opSet ? opSet : new Set();
+  }
+
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {

@@ -179,7 +179,7 @@ export class Text<A extends Indexable = Indexable> {
     const ticket = this.context.issueTimeTicket();
 
     let hasMarkType = false;
-    for (const [key, value] of Object.entries(attrs)) {
+    for (const [key] of Object.entries(attrs)) {
       if (this.markTypes?.has(key)) {
         hasMarkType = true;
       }
@@ -189,7 +189,7 @@ export class Text<A extends Indexable = Indexable> {
 
     // Find the boundaryRange if the attributes have the mark type (bold).
     if (hasMarkType) {
-      for (const [key, value] of Object.entries(attrs)) {
+      for (const [key] of Object.entries(attrs)) {
         if (this.markTypes?.has(key)) {
           const expand = this.markTypes.get(key)!.expand;
 
@@ -234,12 +234,7 @@ export class Text<A extends Indexable = Indexable> {
     return true;
   }
 
-  /**
-   * `removeStyle` remove styles from text with the given attributes.
-   */
-  removeStyle(fromIdx: number, toIdx: number, attributes: A) {
-    // TODO(MoonGyu1): Peritext 1. Add removeStyle method
-  }
+  // TODO(MoonGyu1): Peritext 1. Add removeStyle method
 
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.

@@ -595,7 +595,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  // TODO(MoonGyu1): Remove skip after implementing addMark operation of bold type
+  // TODO(MoonGyu1): Remove skip and annotation after implementing addMark operation of bold type
   it.skip('ex6. conflicting overlaps(bold) - 1', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -614,9 +614,9 @@ describe('peri-text example: text concurrent edit', function () {
         d1.toSortedJSON(),
         `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
       );
-      d1.update((root) => {
-        root.k1.removeStyle(4, 15, { bold: false });
-      }, `non-bolds text by c1`);
+      // d1.update((root) => {
+      //   root.k1.removeStyle(4, 15, { bold: false });
+      // }, `non-bolds text by c1`);
       assert.equal(
         d1.toSortedJSON(),
         `{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox jumped."}]}`,
@@ -659,9 +659,9 @@ describe('peri-text example: text concurrent edit', function () {
         d1.toSortedJSON(),
         `{"k1":[{"attrs":{"bold":true},"val":"The fox jumped."}]}`,
       );
-      d1.update((root) => {
-        root.k1.removeStyle(4, 15, { bold: false });
-      }, `non-bolds text by c1`);
+      // d1.update((root) => {
+      //   root.k1.removeStyle(4, 15, { bold: false });
+      // }, `non-bolds text by c1`);
       assert.equal(
         d1.toSortedJSON(),
         `{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox jumped."}]}`,
@@ -813,24 +813,24 @@ describe('peri-text example: text concurrent edit', function () {
 });
 
 describe('Style', function () {
-  // TODO(MoonGyu1): Remove skip after implementing removeMark operation of bold type
+  // TODO(MoonGyu1): Remove skip and annotation after implementing removeMark operation of bold type
   it.skip('should handle style operations', function () {
     const doc = new Document<{ k1: Text }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
-    doc.update((root) => {
-      root.k1 = new Text();
-      root.k1.edit(0, 0, 'ABCD');
-      root.k1.removeStyle(0, 4, { bold: true });
-    });
+    // doc.update((root) => {
+    //   root.k1 = new Text();
+    //   root.k1.edit(0, 0, 'ABCD');
+    //   root.k1.removeStyle(0, 4, { bold: true });
+    // });
     assert.equal(
       doc.toSortedJSON(),
       `{"k1":[{"attrs":{"bold":"true"},"val":"ABCD"}]}`,
     );
 
-    doc.update((root) => {
-      root.k1.removeStyle(1, 3, { bold: false });
-    });
+    // doc.update((root) => {
+    //   root.k1.removeStyle(1, 3, { bold: false });
+    // });
     assert.equal(
       doc.toSortedJSON(),
       `{"k1":[{"attrs":{"bold":"true"},"val":"A"},{"attrs":{"bold":"false"},"val":"BC"},{"attrs":{"bold":"true"},"val":"D"}]}`,
