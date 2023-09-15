@@ -16,7 +16,7 @@ declare class Document<T, P extends Indexable = Indexable>
 
 |  Constructor | Modifiers | Description |
 |  --- | --- | --- |
-|  [(constructor)(key)](./yorkie-js-sdk.document._constructor_.md) |  | Constructs a new instance of the <code>Document</code> class |
+|  [(constructor)(key, opts)](./yorkie-js-sdk.document._constructor_.md) |  | Constructs a new instance of the <code>Document</code> class |
 
 ## Methods
 

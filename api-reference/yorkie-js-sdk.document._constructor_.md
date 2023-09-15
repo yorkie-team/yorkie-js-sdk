@@ -9,7 +9,7 @@ Constructs a new instance of the `Document` class
 **Signature:**
 
 ```typescript
-constructor(key: string);
+constructor(key: string, opts?: DocumentOptions);
 ```
 
 ## Parameters
@@ -17,4 +17,5 @@ constructor(key: string);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  key | string |  |
+|  opts | DocumentOptions | _(Optional)_ |
 
