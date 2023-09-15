@@ -1386,6 +1386,9 @@ describe('Document', function () {
 
   // TODO(Hyemmie): The text.edit test is not currently available
   // in the `yorkieteam/yorkie` docker image because it requires a protocol change.
+  // To test this case, you need to stop the docker yorkie container
+  // and run the yorkie server with the code from the `feat/text-edit-reverse`
+  // branch of the yorkie repository.
   it.skip('concurrent undo/redo of text.edit', async function () {
     interface TestDoc {
       text: Text;
@@ -1665,5 +1668,98 @@ describe('Document', function () {
       '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
       doc2.toSortedJSON(),
     );
+  });
+
+  it.skip('concurrent undo/redo of text.edit must turn off GC', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, 'ABC'));
+    await client1.sync();
+    await client2.sync();
+
+    assert.equal('{"text":[{"val":"ABC"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"ABC"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(3, 3, 'DEF'));
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"ABC"},{"val":"DEF"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"ABC"},{"val":"DEF"}]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(2, 4, '1'));
+    await client1.sync();
+    await client2.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(
+      '{"text":[{"val":"AB"},{"val":"1"},{"val":"EF"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"AB"},{"val":"1"},{"val":"EF"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    console.log(doc1.toSortedJSON(), doc1.getGarbageLen());
+
+    doc1.update((root) => root.text.edit(1, 4, '2'));
+    await client1.sync();
+    await client2.sync();
+
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"2"},{"val":"F"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"2"},{"val":"F"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    console.log(doc1.toSortedJSON(), doc1.getGarbageLen());
+
+    doc1.history.undo();
+    assert.equal(
+      '{"text":[{"val":"A"},{"val":"B"},{"val":"1"},{"val":"E"},{"val":"F"}]}',
+      doc1.toSortedJSON(),
+    );
+
+    console.log(doc1.toSortedJSON(), doc1.getGarbageLen());
+
+    assert.throws(
+      () => {
+        doc1.history.undo();
+      },
+      Error,
+      'the node of the given id should be found',
+    );
+    // assert.equal(
+    //   '{"text":[{"val":"A"},{"val":"B"},{"val":"C"},{"val":"D"},{"val":"E"},{"val":"F"}]}',
+    //   doc1.toSortedJSON(),
+    // );
+
+    client1.detach(doc1);
+    client2.detach(doc2);
   });
 });

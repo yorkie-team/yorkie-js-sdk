@@ -428,7 +428,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it.skip('ex2. concurrent formatting and insertion', async function () {
+  it('ex2. concurrent formatting and insertion', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
