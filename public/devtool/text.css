@@ -1,49 +1,91 @@
-.char-item {
-  padding: 4px;
-  border-bottom: 1px solid #e5e5e5;
-  cursor: pointer;
-  font-size: 14px;
+:root {
+  --deleted-node-color: #dadada;
+  --selected-node-color: #ffffff;
+  --selected-node-bg-color: #ff0000;
+  --hover-node-bg-color: rgba(0, 0, 0, 0.1);
+}
+
+/* layout */
+
+.layout {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .toolbar {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #ececec;
+}
+
+.layout > .toolbar .tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 0px 20px;
+}
+
+.layout > .content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .content > .editor-area,
+.layout > .content > .graph-view {
+  flex: 1;
+}
+
+.layout > .content > .graph-view {
+  display: flex;
   position: relative;
-  display: inline-block;
-  margin-bottom: 10px;
-  vertical-align: middle;
-  min-height: 20px;
+  border-top: 1px solid #ececec;
 }
 
-.char-item.selected {
-  color: white;
-  background-color: red;
+.layout > .content > .graph-view > .graph-area:first-child {
+  border-right: 1px solid #ececec;
 }
 
-.char-item > .time {
-  display: none;
+.layout > .content > .editor-area {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  height: 300px;
+  flex: none;
 }
 
-.char-item[data-has-length='true'] {
-  text-decoration: underline;
+.layout > .content > .editor-area > .codemirror-area,
+.layout > .content > .editor-area > .data-area {
+  flex: 1 1 auto;
+  width: 50%;
+  position: relative;
 }
 
-.char-item:hover {
-  background-color: black !important;
-  color: white;
+.layout > .content > .editor-area > .codemirror-area {
+  border-right: 1px solid #ececec;
 }
 
-.line-break {
-  width: 10px;
-  height: 10px;
-  background-image: linear-gradient(
-    135deg,
-    transparent 5px,
-    red 5px 7px,
-    transparent 7px
-  );
-  background-position: center center;
+.layout > .content > .editor-area .CodeMirror {
+  height: 100%;
 }
 
-.char-item.deleted:not(.selected) {
-  text-decoration: line-through;
-  background-color: #dadada;
+.layout > .content > .editor-area > .data-area {
+  display: flex;
 }
+
+.layout > .content > .editor-area > .data-area > .text-view-area {
+  flex: 1 1 auto;
+  display: flex;
+  height: 100%;
+}
+
+/* toolbar > userlist */
 
 #users-holder {
   display: flex;
@@ -53,19 +95,19 @@
 .user-info {
   --client-background-color: var(--client-color, #000);
   --client-status-color: var(--network-status-color, --client-background-color);
-  color: white;
-  padding: 0px 1px;
-  border-radius: 50%;
-  height: 30px;
-  width: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-transform: uppercase;
-  box-sizing: border-box;
-  position: relative;
-  cursor: pointer;
   background-color: var(--client-background-color);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0px 1px;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  text-transform: uppercase;
+  color: white;
+  cursor: pointer;
 }
 
 .user-info.me::before {
@@ -81,37 +123,228 @@
   border-radius: 50%;
 }
 
-.node-item {
+/* toolbar > hide deleted node */
+
+.text-view-area.hide-deleted-node .char-item.deleted,
+.text-view-area.hide-deleted-node .structure-item.deleted,
+#splaytree-log-holder.hide-deleted-node .node-item.is-removed,
+#llrbtree-log-holder.hide-deleted-node .node-item.is-removed {
+  display: none;
+}
+
+/* toolbar > hide view */
+
+.layout > .content.hide-splay-tree.hide-llrb-tree > .editor-area,
+.layout > .content.hide-splay-tree.hide-llrb-tree .tabcontent {
+  height: 100%;
+}
+
+/* body > top > center(tab)  */
+
+.text-view-area .tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.text-view-area .tab-header {
+  flex: none;
+  display: flex;
+  height: 30px;
+  border-bottom: 1px solid #ececec;
+}
+
+.text-view-area .tab-body {
+  flex: 1;
+  display: flex;
+}
+
+.text-view-area .tab-button {
+  margin-right: 3px;
+  border: none;
+}
+
+.text-view-area .tab-button.active {
+  background-color: #ccc;
+}
+
+.text-view-area .tabcontent {
+  display: none;
+  height: 270px;
+  width: 100%;
+  overflow: auto;
+}
+
+.text-view-area .tabcontent.active {
+  display: block;
+}
+
+/* body > top > center(tab) > text */
+
+.text-view-area .char-item {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px;
+  min-height: 20px;
+  border-bottom: 1px solid #e5e5e5;
+  vertical-align: bottom;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.text-view-area .char-item:hover {
+  background-color: var(--hover-node-bg-color) !important;
+}
+
+.text-view-area .char-item.selected {
+  color: var(--selected-node-color);
+  background-color: var(--selected-node-bg-color);
+}
+
+.text-view-area .char-item.deleted:not(.selected) {
+  text-decoration: line-through;
+  background-color: var(--deleted-node-color);
+}
+
+.text-view-area .char-item .time {
+  display: none;
+}
+
+/* body > top > center(tab) > structure data */
+
+.text-view-area .structure-item {
+  --structure-background-color: var(--client-color, white);
+  display: flex;
+  position: relative;
+  padding: 2px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.text-view-area .structure-item > .icon {
+  background-color: var(--structure-background-color);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-right: 5px;
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.text-view-area .structure-item.deleted {
+  text-align: right;
+  background-color: var(--deleted-node-color);
+}
+
+.text-view-area .structure-item.selected {
+  color: var(--selected-node-color);
+  background-color: var(--selected-node-bg-color);
+}
+
+.text-view-area .structure-item:hover {
+  background-color: var(--hover-node-bg-color) !important;
+}
+
+/* body > top > center(tab) > structure text */
+
+.text-view-area #structure-text-holder {
+  padding: 10px;
+  width: 100%;
+  font-size: 12px;
+}
+
+/* body > top > right(selected node info) */
+
+.text-view-area .selected-node-info-area {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}
+
+.text-view-area .selected-node-info-area .title {
+  display: flex;
+  align-items: center;
+  margin: 0px;
+  padding: 10px 10px;
+  height: 30px;
+  border-bottom: 1px solid #ececec;
+  border-left: 1px solid #ececec;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.text-view-area .selected-node-info {
+  flex: 1;
+  width: 100%;
+  border-left: 1px solid #ececec;
+  font-size: 14px;
+}
+
+.text-view-area .selected-node-info .property-item-view {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  text-align: left;
+}
+
+.text-view-area .selected-node-info .property-item-view label {
+  flex: none;
+  width: 72px;
+  text-align: left;
+  font-weight: bold;
+}
+
+/* body > bottom > tree graph  */
+
+.graph-view .graph-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-view .title {
+  display: flex;
+  align-items: center;
+  margin: 0px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ececec;
+  font-weight: bold;
+}
+
+.graph-view .badge {
+  margin-left: 10px;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.graph-view .tree-area {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tree-area .node-item {
   display: inline-block;
   padding: 2px;
   box-sizing: border-box;
   cursor: pointer;
   position: absolute;
   z-index: 10;
-}
-
-.node-item.selected > .content > .inner-description {
-  border-color: red !important;
-  background-color: red !important;
-  color: white !important;
-}
-
-.node-item.empty {
-  width: 30px;
-  height: 30px;
-  color: red;
-}
-
-.node-item.is-removed > .content > .inner-description {
-  background-color: #dadada;
-  border-width: 1px;
-}
-
-.node-item > .content {
   text-align: center;
 }
 
-.node-item > .content > .inner-description {
+.tree-area .node-item .inner-description {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -131,42 +364,25 @@
   background-color: white;
 }
 
-.node-item > .content > .inner-description > .prev-view,
-.node-item > .content > .inner-description > .next-view {
-  position: absolute;
-  display: none;
-  width: 10px;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  color: black;
+.tree-area .node-item.selected .inner-description {
+  border-color: var(--selected-node-bg-color) !important;
+  background-color: var(--selected-node-bg-color) !important;
+  color: var(--selected-node-color) !important;
 }
 
-.node-item > .content > .inner-description > .prev-view {
-  top: 50%;
-  left: -12px;
-  transform: translate(0, -50%);
+.tree-area .node-item.is-removed .inner-description {
+  background-color: var(--deleted-node-color);
+  border-width: 1px;
 }
 
-.node-item > .content > .inner-description > .next-view {
-  top: 50%;
-  right: -12px;
-  transform: translate(0, -50%);
-}
-
-.node-item > .content > .inner-description:hover > .prev-view,
-.node-item > .content > .inner-description:hover > .next-view {
-  display: flex;
-}
-
-.node-item > .content > .inner-description > .key-area {
+.tree-area .node-item .inner-description .key-area {
   font-size: 10px;
   padding: 4px;
   box-sizing: border-box;
   flex: 1;
 }
 
-.node-item > .content > .inner-description > .value-area {
+.tree-area .node-item .inner-description .value-area {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -177,7 +393,8 @@
   border-top: 1px solid black;
   font-size: 11px;
 }
-.node-item > .content > .inner-description > .value-area > .value {
+
+.tree-area .node-item .inner-description .value-area .value {
   flex: 1;
   text-align: center;
   text-overflow: ellipsis;
@@ -185,7 +402,8 @@
   white-space: nowrap;
   max-width: 40px;
 }
-.node-item > .content > .inner-description > .value-area > .weight {
+
+.tree-area .node-item .inner-description .value-area .weight {
   flex: none;
   border-right: 1px solid black;
   box-sizing: border-box;
@@ -195,334 +413,35 @@
   height: 100%;
 }
 
-.node-item > .content > .children {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: space-between;
-}
-
-.node-item > .content > .children > .left,
-.node-item > .content > .children > .right {
-  position: relative;
-}
-
-.node-item > .content > .children > .left.has-right:before {
-  content: '';
+.tree-area .node-item .inner-description .prev-view,
+.tree-area .node-item .inner-description .next-view {
   position: absolute;
-  left: 50%;
-  right: 0px;
-  top: -5px;
-  height: 6px;
-  border-left: 1px solid black;
-  border-top: 1px solid black;
-}
-
-.node-item > .content > .children > .right.has-left:before {
-  content: '';
-  position: absolute;
-  left: 0px;
-  right: 50%;
-  top: -5px;
-  height: 6px;
-  border-right: 1px solid black;
-  border-top: 1px solid black;
-}
-
-.layout {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout > .toolbar {
-  flex: none;
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid #ececec;
-}
-
-.layout > .toolbar > .left-tools {
-  display: flex;
-  gap: 20px;
-  padding: 0px 10px;
-  align-items: center;
-}
-
-.layout > .toolbar > .left-tools > .tools {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.layout > .toolbar > .left-tools > .tools > * {
-  margin: 0px;
-}
-
-.layout > .toolbar > .right-tools {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 0px 20px;
-  box-sizing: border-box;
-}
-
-.layout > .toolbar > .center-tools {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 0px 20px;
-  box-sizing: border-box;
-}
-
-.layout > .content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout > .content.hide-splay-tree.hide-llrb-tree > .editor-area {
-  height: 100%;
-  max-height: 900px;
-  flex: 1;
-}
-
-.layout > .content.hide-splay-tree.hide-llrb-tree .tabcontent {
-  max-height: 600px;
-  height: auto;
-}
-
-.layout > .content.hide-splay-tree.hide-llrb-tree > .graph-view {
   display: none;
-}
-
-.layout > .content > * {
-  flex: 1;
-}
-
-.layout > .content > .graph-view {
-  display: flex;
-  position: relative;
-  border-top: 1px solid #ececec;
-}
-
-.layout > .content > .graph-view > * {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout > .content > .graph-view > .graph-area:first-child {
-  box-sizing: border-box;
-  border-right: 1px solid #ececec;
-}
-
-.layout > .content > .graph-view > .graph-area > .title {
-  padding: 10px 20px;
-  border-bottom: 1px solid #ececec;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  margin: 0px;
-  gap: 10px;
-}
-
-.layout > .content > .graph-view > .graph-area > .title > .badge {
-  font-weight: 400;
-  font-size: 12px;
-}
-
-.layout > .content > .graph-view > .graph-area > .tree-area {
-  flex: 1;
-  overflow: auto;
-  position: relative;
-  box-sizing: border-box;
-}
-
-.layout > .content > .editor-area {
-  display: flex;
-  flex-direction: row;
-  position: relative;
-  height: 300px;
-  flex: none;
-}
-
-.layout > .content > .editor-area > * {
-  flex: 1 1 auto;
-  width: 50%;
-  position: relative;
-}
-
-.layout > .content > .editor-area > *:first-child {
-  border-right: 1px solid #ececec;
-}
-
-.layout > .content > .editor-area > .data-area {
-  display: flex;
-}
-
-.layout
-  > .content
-  > .editor-area
-  > .data-area
-  > .text-view-area.hide-deleted-node
-  *
-  .deleted {
-  display: none;
-}
-
-.layout > .content > .editor-area > .data-area > * {
-  flex: 1 1 auto;
-  display: flex;
-}
-
-.layout > .content > .editor-area > .data-area > * > .info-area {
-  width: 300px;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-}
-
-.layout > .content > .editor-area > .data-area > * > .info-area > .title {
-  padding: 10px 10px;
-  border-bottom: 1px solid #ececec;
-  border-left: 1px solid #ececec;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  margin: 0px;
-  font-size: 12px;
-  box-sizing: border-box;
-  height: 30px;
-}
-
-.layout
-  > .content
-  > .editor-area
-  > .data-area
-  > *
-  > .info-area
-  > .selected-node-info {
-  flex: 1;
-  position: relative;
-  box-sizing: border-box;
-  border-left: 1px solid #ececec;
-  width: 100%;
-}
-
-.CodeMirror {
+  width: 10px;
   height: 100%;
-}
-
-.tab {
-  position: relative;
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.tab-header {
-  display: flex;
-  flex: none;
-  height: 30px;
-  border-bottom: 1px solid #ececec;
-}
-
-.tab-body {
-  flex: 1;
-  display: flex;
-}
-
-.tablinks {
-  border: 0px;
-  margin-right: 3px;
-}
-
-.tablinks.active {
-  background-color: #ccc;
-}
-
-.tabcontent {
-  display: none;
-  height: 270px;
-  width: 100%;
-  overflow: auto;
-}
-
-.tabcontent.active {
-  display: block;
-}
-
-#structure-log-holder {
-  width: 100%;
-}
-
-#structure-text-holder {
-  width: 100%;
-  padding: 10px;
-  font-size: 12px;
-}
-
-.structure-item {
-  --structure-background-color: var(--client-color, white);
-  padding: 2px;
-  cursor: pointer;
-  font-size: 12px;
-  position: relative;
-  display: flex;
-}
-
-.structure-item > .icon {
-  background-color: var(--structure-background-color);
-  width: 16px;
-  height: 16px;
-  display: flex;
   align-items: center;
   justify-content: center;
-  flex: none;
-  margin-right: 5px;
-  box-sizing: border-box;
-  padding: 2px;
-  /* border: 1px solid white; */
-  border-radius: 50%;
+  color: black;
 }
 
-.structure-item.deleted {
-  text-align: right;
-  background-color: #dadada;
+.tree-area .node-item .inner-description .prev-view {
+  top: 50%;
+  left: -12px;
+  transform: translate(0, -50%);
 }
 
-.structure-item.selected {
-  color: white;
-  background-color: red;
+.tree-area .node-item .inner-description .next-view {
+  top: 50%;
+  right: -12px;
+  transform: translate(0, -50%);
 }
 
-.structure-item:hover {
-  background-color: rgba(0, 0, 0, 0.1) !important;
-}
-
-.selected-node-info > .property-view > .property-item-view {
+.tree-area .node-item .inner-description:hover .prev-view,
+.tree-area .node-item .inner-description:hover .next-view {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  text-align: left;
 }
 
-.selected-node-info > .property-view > .property-item-view > label {
-  flex: none;
-  width: 100px;
-  text-align: left;
-  font-weight: bold;
-}
-
-.line-holder {
+.tree-area .line-holder {
   position: absolute;
   left: 0px;
   top: 0px;
@@ -530,7 +449,7 @@
   height: 100px;
 }
 
-.line-holder svg {
+.tree-area .line-holder svg {
   display: block;
   position: absolute;
   left: 0px;
@@ -542,14 +461,6 @@
   overflow: visible;
 }
 
-.line-holder path {
+.tree-area .line-holder path {
   stroke: black;
-}
-
-#splaytree-log-holder.hide-deleted-node .node-item.is-removed {
-  display: none;
-}
-
-#llrbtree-log-holder.hide-deleted-node .node-item.is-removed {
-  display: none;
 }

@@ -16,7 +16,7 @@
   <body>
     <div class="layout">
       <div class="toolbar">
-        <div class="left-tools">
+        <div class="left-tools tools">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="100"
@@ -74,7 +74,7 @@
           </svg>
           <div><span id="network-status"></span></div>
         </div>
-        <div class="center-tools">
+        <div class="center-tools tools">
           <label style="display: flex; align-items: center">
             <input
               type="checkbox"
@@ -108,13 +108,13 @@
             <span>LLRBTree</span>
           </label>
         </div>
-        <div class="right-tools">
+        <div class="right-tools tools">
           <div style="padding: 10px 0px" id="users-holder"></div>
         </div>
       </div>
-      <div class="content" id="real-view">
+      <div id="real-view" class="content">
         <div class="editor-area">
-          <div>
+          <div class="codemirror-area">
             <textarea id="textarea" cols="30" rows="10"></textarea>
           </div>
           <div class="data-area" id="view-text">
@@ -122,19 +122,19 @@
               <div id="tab-container" class="tab">
                 <div class="tab-header">
                   <button
-                    class="tablinks active"
+                    class="tab-button active"
                     onclick="devtool.openTab(event, 'text')"
                   >
                     Text
                   </button>
                   <button
-                    class="tablinks"
+                    class="tab-button"
                     onclick="devtool.openTab(event, 'structure')"
                   >
                     Structure Data
                   </button>
                   <button
-                    class="tablinks"
+                    class="tab-button"
                     onclick="devtool.openTab(event, 'structure-text')"
                   >
                     Structure Text
@@ -152,7 +152,7 @@
                   </div>
                 </div>
               </div>
-              <div class="info-area">
+              <div class="selected-node-info-area">
                 <h4 class="title">Selected SplayTree Node</h4>
                 <div class="selected-node-info"></div>
               </div>

@@ -740,10 +740,10 @@
 
   // Manages tabs within the 'text-view-area', displaying the content of the selected tab.
   function openTab(e, target) {
-    const tablinks = tabContainer.querySelectorAll('.tablinks');
+    const tabButtons = tabContainer.querySelectorAll('.tab-button');
     const tabcontents = tabContainer.querySelectorAll('.tabcontent');
 
-    tablinks.forEach((it) => it.classList.remove('active'));
+    tabButtons.forEach((it) => it.classList.remove('active'));
     tabcontents.forEach((it) => it.classList.remove('active'));
 
     e.target.classList.add('active');
