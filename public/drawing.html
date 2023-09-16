@@ -16,18 +16,14 @@
         id="drawing-panel"
         style="border: 1px solid black"
       ></canvas>
-      <div>Online clients:</div>
-      <pre
-        style="white-space: pre-wrap"
-      ><code id="online-clients-log"></code></pre>
-      <div>document:</div>
-      <pre style="white-space: pre-wrap"><code id="doc-log"></code></pre>
+      <pre style="white-space: pre-wrap"><code id="online-clients"></code></pre>
+      <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
     <script src="./yorkie.js"></script>
     <script>
       const drawingPanel = document.getElementById('drawing-panel');
-      const docPanel = document.getElementById('doc-log');
-      const onlineClientsPanel = document.getElementById('online-clients-log');
+      const docPanel = document.getElementById('log-holder');
+      const onlineClientsPanel = document.getElementById('online-clients');
       const onlineClientsCount = document.getElementById(
         'online-clients-count',
       );
