@@ -329,7 +329,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
       // Add a new StyleOperation to between nodes if it has an opSet
       let betweenNode = fromNode.getNext();
-      while (betweenNode && betweenNode !== toNode) {
+      while (
+        betweenNode &&
+        betweenNode !== toNode &&
+        !betweenNode.isRemoved()
+      ) {
         toBeStyleds.push(betweenNode);
         const styleOpsBefore = betweenNode.getStyleOpsBefore();
         const styleOpsAfter = betweenNode.getStyleOpsAfter();
@@ -351,13 +355,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
         toBeStyleds.push(toNode!);
         toNode!.setStyleOpsAfter(toOpSet!);
       } else if (toBoundaryType === BoundaryType.End) {
-        // Add last node to toBeStyled if boundary type is End
-        let lastNode = fromNode;
-        while (lastNode.getNext() && !lastNode.getNext()!.isRemoved()) {
-          lastNode = lastNode.getNext()!;
-        }
-        toBeStyleds.push(lastNode);
-        if (!toOpSet) this.lastAnchor = new Set();
+        if (!toOpSet) this.lastAnchor = new Set<StyleOperation>();
       }
     }
     // 02-2. Apply the existing logic to style nodes if they are not of a bold type
