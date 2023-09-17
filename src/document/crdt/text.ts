@@ -351,7 +351,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
         toBeStyleds.push(toNode!);
         toNode!.setStyleOpsAfter(toOpSet!);
       } else if (toBoundaryType === BoundaryType.End) {
-        // TODO(MoonGyu1): Add last node to toBeStyled
+        // Add last node to toBeStyled if boundary type is End
+        let lastNode = fromNode;
+        while (lastNode.getNext() && !lastNode.getNext()!.isRemoved()) {
+          lastNode = lastNode.getNext()!;
+        }
+        toBeStyleds.push(lastNode);
         if (!toOpSet) this.lastAnchor = new Set();
       }
     }
