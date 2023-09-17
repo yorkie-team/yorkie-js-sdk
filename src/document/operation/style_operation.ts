@@ -30,14 +30,14 @@ import { Indexable } from '../document';
  */
 export class StyleOperation extends Operation {
   private fromBoundary: RGATreeSplitBoundary;
-  private toBoundary: RGATreeSplitBoundary | undefined;
+  private toBoundary: RGATreeSplitBoundary;
   private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromBoundary: RGATreeSplitBoundary,
-    toBoundary: RGATreeSplitBoundary | undefined,
+    toBoundary: RGATreeSplitBoundary,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,

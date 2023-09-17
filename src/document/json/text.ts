@@ -177,59 +177,68 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-
-    let hasMarkType = false;
-    for (const [key] of Object.entries(attrs)) {
-      if (this.markTypes?.has(key)) {
-        hasMarkType = true;
-      }
-    }
-
     let boundaryRange: RGATreeSplitBoundaryRange;
 
-    // Find the boundaryRange if the attributes have the mark type (bold).
-    if (hasMarkType) {
-      for (const [key] of Object.entries(attrs)) {
-        if (this.markTypes?.has(key)) {
-          const expand = this.markTypes.get(key)!.expand;
+    for (const [key, value] of Object.entries(attrs)) {
+      if (this.markTypes?.has(key)) {
+        const expand = this.markTypes.get(key)!.expand;
 
-          // delete attrs[key];
+        // Find the boundaryRange if the attributes have the mark type (bold).
+        boundaryRange = this.text.posRangeToBoundaryRange(
+          posRange[0],
+          posRange[1],
+          ticket,
+          expand,
+        );
 
-          boundaryRange = this.text.posRangeToBoundaryRange(
-            posRange[0],
-            posRange[1],
+        // Execute the existing logic
+        const [maxCreatedAtMapByActor] = this.text.setStyle(
+          boundaryRange!,
+          { [key]: value },
+          ticket,
+        );
+
+        this.context.push(
+          new StyleOperation(
+            this.text.getCreatedAt(),
+            boundaryRange![0],
+            boundaryRange![1],
+            maxCreatedAtMapByActor,
+            new Map([[key, value]]),
             ticket,
-            expand,
-          );
-        }
+          ),
+        );
+
+        delete attrs[key];
       }
     }
-    // Find the boundaryRange if the attributes don't have the mark type (bold)
-    else {
+
+    if (Object.entries(attrs).length > 0) {
+      // Find the boundaryRange if the attributes don't have the mark type (bold)
       boundaryRange = this.text.posRangeToBoundaryRange(
         posRange[0],
         posRange[1],
         ticket,
       );
-    }
 
-    // Execute the existing logic
-    const [maxCreatedAtMapByActor] = this.text.setStyle(
-      boundaryRange!,
-      attrs,
-      ticket,
-    );
-
-    this.context.push(
-      new StyleOperation(
-        this.text.getCreatedAt(),
-        boundaryRange![0],
-        boundaryRange![1],
-        maxCreatedAtMapByActor,
-        new Map(Object.entries(attrs)),
+      // Execute the existing logic
+      const [maxCreatedAtMapByActor] = this.text.setStyle(
+        boundaryRange!,
+        attrs,
         ticket,
-      ),
-    );
+      );
+
+      this.context.push(
+        new StyleOperation(
+          this.text.getCreatedAt(),
+          boundaryRange![0],
+          boundaryRange![1],
+          maxCreatedAtMapByActor,
+          new Map(Object.entries(attrs)),
+          ticket,
+        ),
+      );
+    }
 
     return true;
   }

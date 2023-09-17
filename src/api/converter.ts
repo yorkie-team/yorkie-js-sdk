@@ -949,11 +949,11 @@ function fromTextNodeBoundary(
       boundaryType = BoundaryType.None;
   }
   return RGATreeSplitBoundary.of(
+    boundaryType,
     RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodeBoundary.getCreatedAt())!,
       pbTextNodeBoundary.getOffset(),
     ),
-    boundaryType,
   );
 }
 

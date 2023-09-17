@@ -258,10 +258,10 @@ export class RGATreeSplitPos {
  * `RGATreeSplitBoundary` is the boundary of the text node.
  */
 export class RGATreeSplitBoundary {
+  private type: BoundaryType;
   private id?: RGATreeSplitNodeID;
-  private type?: BoundaryType;
 
-  constructor(id?: RGATreeSplitNodeID, type?: BoundaryType) {
+  constructor(type: BoundaryType, id?: RGATreeSplitNodeID) {
     this.id = id;
     this.type = type;
   }
@@ -270,10 +270,17 @@ export class RGATreeSplitBoundary {
    * `of` creates a instance of RGATreeSplitBoundary.
    */
   public static of(
+    type: BoundaryType,
     id?: RGATreeSplitNodeID,
-    type?: BoundaryType,
   ): RGATreeSplitBoundary {
-    return new RGATreeSplitBoundary(id, type);
+    return new RGATreeSplitBoundary(type, id);
+  }
+
+  /**
+   * `getType` returns the type of this RGATreeSplitBoundary.
+   */
+  public getType(): BoundaryType {
+    return this.type;
   }
 
   /**
@@ -281,13 +288,6 @@ export class RGATreeSplitBoundary {
    */
   public getID(): RGATreeSplitNodeID | undefined {
     return this.id;
-  }
-
-  /**
-   * `getType` returns the type of this RGATreeSplitBoundary.
-   */
-  public getType(): BoundaryType | undefined {
-    return this.type;
   }
 
   /**
@@ -303,7 +303,7 @@ export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 
 export type RGATreeSplitBoundaryRange = [
   RGATreeSplitBoundary,
-  RGATreeSplitBoundary | undefined,
+  RGATreeSplitBoundary,
 ];
 
 /**
