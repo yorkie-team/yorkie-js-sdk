@@ -77,7 +77,7 @@
           });
 
           await client.attach(doc, {
-            initialPresence: { username: `username-${shortUniqueID()}` },
+            initialPresence: { username: `username-${shortUniqueID}` },
           });
 
           doc.update((root) => {
