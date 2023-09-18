@@ -235,7 +235,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
+    return [latestCreatedAtMap, changes, [caretPos, caretPos], reverseInfo];
   }
 
   /**

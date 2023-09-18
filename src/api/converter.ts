@@ -95,7 +95,6 @@ import {
 import { traverse } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
-import { EditReverseOperation } from '../document/operation/edit_reverse_operation';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -374,7 +373,7 @@ function toOperation(operation: Operation): PbOperation {
     pbEditReverseOperation.setParentCreatedAt(
       toTimeTicket(editReverseOperation.getParentCreatedAt()),
     );
-    
+
     const pbDeletedIDs = [];
     const deletedIDs = editReverseOperation.getDeletedIDs();
     for (const deletedID of deletedIDs) {
