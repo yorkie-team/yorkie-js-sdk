@@ -539,6 +539,7 @@ function toTextNodes(
   rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
 ): Array<PbTextNode> {
   const pbTextNodes = [];
+  let currentAttr = new Map<string, string>();
 
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
@@ -547,6 +548,23 @@ function toTextNodes(
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     const pbNodeAttrsMap = pbTextNode.getAttributesMap();
+
+    const beforeAnchor = textNode.getStyleOpsBefore();
+    const afterAnchor = textNode.getStyleOpsAfter();
+    if (beforeAnchor) {
+      currentAttr = rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
+    }
+    if (!textNode.isRemoved()) {
+      for (const [key, value] of currentAttr.entries()) {
+        const pbNodeAttr = new PbNodeAttr();
+        pbNodeAttr.setValue(value);
+        pbNodeAttrsMap.set(key, pbNodeAttr);
+      }
+    }
+    if (afterAnchor) {
+      currentAttr = rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
+    }
+
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
       const pbNodeAttr = new PbNodeAttr();

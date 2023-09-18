@@ -514,7 +514,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
       // Update currentAttr by before anchor of node
       if (beforeAnchor) {
-        currentAttr = this.getAttrsFromAnchor(beforeAnchor);
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
       }
 
       // Apply currentAttr if node is not removed
@@ -524,7 +524,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
       // Update currentAttr by after anchor of node
       if (afterAnchor) {
-        currentAttr = this.getAttrsFromAnchor(afterAnchor);
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
       }
     }
 
@@ -614,20 +614,5 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public findIndexesFromRange(range: RGATreeSplitPosRange): [number, number] {
     return this.rgaTreeSplit.findIndexesFromRange(range);
-  }
-
-  /**
-   * `getAttrsFromAnchor` returns the attributes of the given anchor.
-   */
-  public getAttrsFromAnchor(anchor: Set<StyleOperation>): Map<string, string> {
-    const attrs = new Map<string, string>();
-
-    anchor.forEach((op) => {
-      for (const [key, value] of Object.entries(op.attributes)) {
-        attrs.set(key, value);
-      }
-    });
-
-    return attrs;
   }
 }

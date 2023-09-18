@@ -906,6 +906,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return opSet ? opSet : new Set();
   }
 
+  /**
+   * `getAttrsFromAnchor` returns the attributes of the given anchor.
+   */
+  public getAttrsFromAnchor(anchor: Set<StyleOperation>): Map<string, string> {
+    const attrs = new Map<string, string>();
+
+    anchor.forEach((op) => {
+      for (const [key, value] of Object.entries(op.attributes)) {
+        attrs.set(key, value);
+      }
+    });
+
+    return attrs;
+  }
+
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
