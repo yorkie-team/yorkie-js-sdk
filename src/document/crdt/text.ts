@@ -329,21 +329,19 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
 
       // Add a new StyleOperation to between nodes if it has an opSet
       let betweenNode = fromNode.getNext();
-      while (
-        betweenNode &&
-        betweenNode !== toNode &&
-        !betweenNode.isRemoved()
-      ) {
-        toBeStyleds.push(betweenNode);
-        const styleOpsBefore = betweenNode.getStyleOpsBefore();
-        const styleOpsAfter = betweenNode.getStyleOpsAfter();
-        if (styleOpsBefore) {
-          styleOpsBefore.add(newOp);
-          betweenNode.setStyleOpsBefore(styleOpsBefore);
-        }
-        if (styleOpsAfter) {
-          styleOpsAfter.add(newOp);
-          betweenNode.setStyleOpsAfter(styleOpsAfter);
+      while (betweenNode && betweenNode !== toNode) {
+        if (!betweenNode.isRemoved()) {
+          toBeStyleds.push(betweenNode);
+          const styleOpsBefore = betweenNode.getStyleOpsBefore();
+          const styleOpsAfter = betweenNode.getStyleOpsAfter();
+          if (styleOpsBefore) {
+            styleOpsBefore.add(newOp);
+            betweenNode.setStyleOpsBefore(styleOpsBefore);
+          }
+          if (styleOpsAfter) {
+            styleOpsAfter.add(newOp);
+            betweenNode.setStyleOpsAfter(styleOpsAfter);
+          }
         }
         betweenNode = betweenNode.getNext();
       }

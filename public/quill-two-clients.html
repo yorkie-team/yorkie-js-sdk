@@ -139,7 +139,6 @@
 
           clientASyncButton.addEventListener('click', async () => {
             await clientA.sync();
-            syncText(docA, quillA);
           });
 
           const {
@@ -150,7 +149,6 @@
 
           clientBSyncButton.addEventListener('click', async () => {
             await clientB.sync();
-            syncText(docB, quillB);
           });
 
           // 04. bind the document with the Quill.
