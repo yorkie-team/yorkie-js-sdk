@@ -1,3 +1,4 @@
+import { DefaultTextType } from './../../util/index_tree';
 /*
  * Copyright 2023 The Yorkie Authors. All rights reserved.
  *
@@ -30,6 +31,7 @@ import {
   TagContained,
   traverse,
   findCommonAncestor,
+  getAncestors,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -968,36 +970,121 @@ export class CRDTTree extends CRDTGCElement {
 
     // 2. restore deleted nodes
     if (!from.equals(to)) {
-      const fromNodes = this.toTreeNodes(from);
-      const fromParent = fromNodes[0];
-      let fromLeft = fromNodes[1];
-      const [, toLeft] = this.toTreeNodes(to);
-      let excludeLeft = true;
+      const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+      const [toParent, toLeft] = this.findNodesAndSplitText(to);
 
-      if (fromParent === fromLeft) {
-        fromLeft = fromParent.allChildren[0];
+      this.traverseBetweenNodes(
+        fromParent,
+        fromLeft,
+        toParent,
+        toLeft,
+        (contained) => (node) => {
+          if (contained !== TagContained.All) {
+            return;
+          }
 
-        excludeLeft = false;
+          if (node.removedAt?.equals(editedAt)) {
+            node.removedAt = undefined;
+            node.updateAncestorsSize();
+            if (this.removedNodeMap.has(node.id.toIDString())) {
+              this.removedNodeMap.delete(node.id.toIDString());
+            }
+          }
+        },
+      );
+    }
+  }
+
+  private traverseBetweenNodes(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    callback: (contained: TagContained) => (node: CRDTTreeNode) => void,
+  ) {
+    const fromAncestors = getAncestors(fromLeft);
+    const toAncestors = getAncestors(toLeft);
+    const root = this.indexTree.getRoot();
+
+    if (fromLeft === fromParent && fromAncestors.indexOf(fromParent) === -1) {
+      fromAncestors.push(fromParent);
+    }
+
+    if (toParent === toLeft && toAncestors.indexOf(toParent) === -1) {
+      toAncestors.push(toParent);
+    }
+
+    let lca = findCommonAncestor(fromLeft, toLeft);
+
+    if (!lca) {
+      if (root === fromLeft || root === toLeft) {
+        lca = root;
+      } else {
+        throw new Error('tree is broken');
+      }
+    }
+
+    const fromAncestorsToLca = fromAncestors.slice(
+      fromAncestors.indexOf(lca) + 1,
+    );
+    const toAncestorsToLca = toAncestors.slice(toAncestors.indexOf(lca) + 1);
+    const lcaAllChildren = lca.allChildren;
+
+    if (fromAncestorsToLca.length && toAncestorsToLca.length) {
+      const startIndex = lcaAllChildren.indexOf(fromAncestorsToLca[0]) + 1;
+      const endIndex = lcaAllChildren.indexOf(toAncestorsToLca[0]);
+
+      for (let i = startIndex; i < endIndex; i++) {
+        const node = lcaAllChildren[i];
+
+        traverseAll(node, callback(TagContained.All));
+      }
+    }
+
+    fromAncestorsToLca.push(fromLeft);
+    toAncestorsToLca.push(toLeft);
+
+    while (fromAncestorsToLca.length) {
+      const parent = fromAncestorsToLca.shift();
+      const child = fromAncestorsToLca[0];
+
+      if (!child) {
+        break;
       }
 
-      const lca = findCommonAncestor(fromLeft, toLeft);
+      const allChildren = parent!.allChildren;
+      const includeFirst = parent === child;
+      const startIndex = includeFirst ? 0 : allChildren.indexOf(child);
+      for (let i = startIndex; i < allChildren.length; i++) {
+        const node = allChildren[i];
 
-      lca &&
-        this.traverseInSubtree(
-          lca,
-          fromLeft,
-          toLeft,
-          (node) => {
-            if (node.removedAt?.equals(editedAt)) {
-              node.removedAt = undefined;
-              node.updateAncestorsSize();
-              if (this.removedNodeMap.has(node.id.toIDString())) {
-                this.removedNodeMap.delete(node.id.toIDString());
-              }
-            }
-          },
-          excludeLeft,
-        );
+        if (i === startIndex && !includeFirst) {
+          traverseAll(node, callback(TagContained.Opening));
+        } else {
+          traverseAll(node, callback(TagContained.All));
+        }
+      }
+    }
+
+    while (toAncestorsToLca.length) {
+      const parent = toAncestorsToLca.shift();
+      const child = toAncestorsToLca[0];
+
+      if (!child) {
+        break;
+      }
+
+      const allChildren = parent!.allChildren;
+      const endIndex = parent === child ? 0 : allChildren.indexOf(child);
+      for (let i = 0; i <= endIndex; i++) {
+        const node = allChildren[i];
+
+        if (i === endIndex && node.type !== DefaultTextType) {
+          traverseAll(node, callback(TagContained.Closing));
+        } else {
+          traverseAll(node, callback(TagContained.All));
+        }
+      }
     }
   }
 
@@ -1103,9 +1190,7 @@ export class CRDTTree extends CRDTGCElement {
     for (const node of toBeRemoveds) {
       node.remove(editedAt);
 
-      if (node.isRemoved) {
-        this.removedNodeMap.set(node.id.toIDString(), node);
-      }
+      this.removedNodeMap.set(node.id.toIDString(), node);
     }
 
     // 03. insert the given node at the given position.
@@ -1367,13 +1452,13 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     // delete nodes between from ~ to
-    this.traverseInPosRange(
+    this.traverseBetweenNodes(
       fromParent,
       fromLeft,
       toParent,
       toLeft,
-      (node, contain) => {
-        if (!node.isText && contain != TagContained.All) {
+      (contained) => (node) => {
+        if (contained !== TagContained.All) {
           return;
         }
 
@@ -1491,6 +1576,7 @@ export class CRDTTree extends CRDTGCElement {
 
     node.insPrevID = undefined;
     node.insNextID = undefined;
+    node.parent = undefined;
   }
 
   /**
