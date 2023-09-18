@@ -67,6 +67,18 @@ import {
 } from '@yorkie-js-sdk/src/document/presence/presence';
 
 /**
+ * `DocumentOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface DocumentOptions {
+  /**
+   * `disableGC` disables garbage collection if true.
+   */
+  disableGC?: boolean;
+}
+
+/**
  * `DocumentStatus` represents the status of the document.
  * @public
  */
@@ -388,6 +400,7 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 export class Document<T, P extends Indexable = Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
+  private opts: DocumentOptions;
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
@@ -412,7 +425,9 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private presences: Map<ActorID, P>;
 
-  constructor(key: string) {
+  constructor(key: string, opts?: DocumentOptions) {
+    this.opts = opts || {};
+
     this.key = key;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
@@ -888,6 +903,10 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
+    if (this.opts.disableGC) {
+      return 0;
+    }
+
     if (this.clone) {
       this.clone.root.garbageCollect(ticket);
     }
