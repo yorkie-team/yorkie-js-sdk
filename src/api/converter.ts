@@ -52,6 +52,7 @@ import {
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
+  StyleOperation as MarkOperation,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
@@ -83,6 +84,8 @@ import {
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
   ValueType as PbValueType,
+  MarkOps as PbMarkOps,
+  MarkOp as PbMarkOp,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -126,6 +129,33 @@ function toPresenceChange(
   }
 
   return pbPresenceChange;
+}
+
+/**
+ * `toMarkOps` converts the given model to Protobuf format.
+ */
+function toMarkOps(markOps: Set<MarkOperation>): PbMarkOps {
+  const pbMarkOps = new PbMarkOps();
+  const pbMarkOpsList: Array<PbMarkOp> = [];
+  for (const markOp of markOps) {
+    pbMarkOpsList.push(toMarkOp(markOp));
+  }
+  pbMarkOps.setOperationsList(pbMarkOpsList);
+  return pbMarkOps;
+}
+
+/**
+ * `toMarkOp` converts the given model to Protobuf format.
+ */
+function toMarkOp(markOp: MarkOperation): PbMarkOp {
+  const pbMarkOp = new PbMarkOp();
+  pbMarkOp.setFromboundary(toTextNodeBoundary(markOp.fromBoundary));
+  pbMarkOp.setToboundary(toTextNodeBoundary(markOp.toBoundary));
+  const pbAttributes = pbMarkOp.getAttributesMap();
+  for (const [key, value] of Object.entries(markOp.attributes)) {
+    pbAttributes.set(key, value);
+  }
+  return pbMarkOp;
 }
 
 /**
@@ -539,7 +569,6 @@ function toTextNodes(
   rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
 ): Array<PbTextNode> {
   const pbTextNodes = [];
-  let currentAttr = new Map<string, string>();
 
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
@@ -548,23 +577,6 @@ function toTextNodes(
     pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
 
     const pbNodeAttrsMap = pbTextNode.getAttributesMap();
-
-    const beforeAnchor = textNode.getStyleOpsBefore();
-    const afterAnchor = textNode.getStyleOpsAfter();
-    if (beforeAnchor) {
-      currentAttr = rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
-    }
-    if (!textNode.isRemoved()) {
-      for (const [key, value] of currentAttr.entries()) {
-        const pbNodeAttr = new PbNodeAttr();
-        pbNodeAttr.setValue(value);
-        pbNodeAttrsMap.set(key, pbNodeAttr);
-      }
-    }
-    if (afterAnchor) {
-      currentAttr = rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
-    }
-
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
       const pbNodeAttr = new PbNodeAttr();
@@ -573,6 +585,14 @@ function toTextNodes(
       pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
     }
 
+    const styleOpsBefore = textNode.getStyleOpsBefore();
+    if (styleOpsBefore) {
+      pbTextNode.setMarkopsbefore(toMarkOps(styleOpsBefore));
+    }
+    const styleOpsAfter = textNode.getStyleOpsAfter();
+    if (styleOpsAfter) {
+      pbTextNode.setMarkopsafter(toMarkOps(styleOpsAfter));
+    }
     pbTextNodes.push(pbTextNode);
   }
 
@@ -986,6 +1006,22 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 }
 
 /**
+ * `fromMarkOp` converts the given Protobuf format to model format.
+ */
+function fromMarkOp(pbMarkOp: PbMarkOp): MarkOperation {
+  const attributes: Record<string, string> = {};
+  pbMarkOp.getAttributesMap().forEach((value, key) => {
+    attributes[key as string] = value;
+  });
+
+  return {
+    fromBoundary: fromTextNodeBoundary(pbMarkOp.getFromboundary()!),
+    toBoundary: fromTextNodeBoundary(pbMarkOp.getToboundary()!),
+    attributes,
+  };
+}
+
+/**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
@@ -998,10 +1034,30 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     );
   });
 
-  const textNode = RGATreeSplitNode.create(
-    fromTextNodeID(pbTextNode.getId()!),
-    textValue,
-  );
+  let styleOpsBefore: Set<MarkOperation> | undefined;
+  const markOpsBefore = pbTextNode.getMarkopsbefore()?.getOperationsList();
+  if (markOpsBefore) {
+    styleOpsBefore = new Set();
+    for (const op of markOpsBefore) {
+      styleOpsBefore.add(fromMarkOp(op));
+    }
+  }
+
+  let styleOpsAfter: Set<MarkOperation> | undefined;
+  const markOpsAfter = pbTextNode.getMarkopsafter()?.getOperationsList();
+  if (markOpsAfter) {
+    styleOpsAfter = new Set();
+    for (const op of markOpsAfter) {
+      styleOpsAfter.add(fromMarkOp(op));
+    }
+  }
+
+  const textNode = RGATreeSplitNode.create({
+    id: fromTextNodeID(pbTextNode.getId()!),
+    value: textValue,
+    styleOpsBefore,
+    styleOpsAfter,
+  });
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
 }

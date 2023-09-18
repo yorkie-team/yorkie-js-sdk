@@ -1084,6 +1084,16 @@ export class TextNode extends jspb.Message {
   getAttributesMap(): jspb.Map<string, NodeAttr>;
   clearAttributesMap(): TextNode;
 
+  getMarkopsbefore(): MarkOps | undefined;
+  setMarkopsbefore(value?: MarkOps): TextNode;
+  hasMarkopsbefore(): boolean;
+  clearMarkopsbefore(): TextNode;
+
+  getMarkopsafter(): MarkOps | undefined;
+  setMarkopsafter(value?: MarkOps): TextNode;
+  hasMarkopsafter(): boolean;
+  clearMarkopsafter(): TextNode;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TextNode.AsObject;
   static toObject(includeInstance: boolean, msg: TextNode): TextNode.AsObject;
@@ -1099,6 +1109,8 @@ export namespace TextNode {
     removedAt?: TimeTicket.AsObject,
     insPrevId?: TextNodeID.AsObject,
     attributesMap: Array<[string, NodeAttr.AsObject]>,
+    markopsbefore?: MarkOps.AsObject,
+    markopsafter?: MarkOps.AsObject,
   }
 }
 
@@ -1123,6 +1135,56 @@ export namespace TextNodeID {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     offset: number,
+  }
+}
+
+export class MarkOps extends jspb.Message {
+  getOperationsList(): Array<MarkOp>;
+  setOperationsList(value: Array<MarkOp>): MarkOps;
+  clearOperationsList(): MarkOps;
+  addOperations(value?: MarkOp, index?: number): MarkOp;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MarkOps.AsObject;
+  static toObject(includeInstance: boolean, msg: MarkOps): MarkOps.AsObject;
+  static serializeBinaryToWriter(message: MarkOps, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MarkOps;
+  static deserializeBinaryFromReader(message: MarkOps, reader: jspb.BinaryReader): MarkOps;
+}
+
+export namespace MarkOps {
+  export type AsObject = {
+    operationsList: Array<MarkOp.AsObject>,
+  }
+}
+
+export class MarkOp extends jspb.Message {
+  getFromboundary(): TextNodeBoundary | undefined;
+  setFromboundary(value?: TextNodeBoundary): MarkOp;
+  hasFromboundary(): boolean;
+  clearFromboundary(): MarkOp;
+
+  getToboundary(): TextNodeBoundary | undefined;
+  setToboundary(value?: TextNodeBoundary): MarkOp;
+  hasToboundary(): boolean;
+  clearToboundary(): MarkOp;
+
+  getAttributesMap(): jspb.Map<string, string>;
+  clearAttributesMap(): MarkOp;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): MarkOp.AsObject;
+  static toObject(includeInstance: boolean, msg: MarkOp): MarkOp.AsObject;
+  static serializeBinaryToWriter(message: MarkOp, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): MarkOp;
+  static deserializeBinaryFromReader(message: MarkOp, reader: jspb.BinaryReader): MarkOp;
+}
+
+export namespace MarkOp {
+  export type AsObject = {
+    fromboundary?: TextNodeBoundary.AsObject,
+    toboundary?: TextNodeBoundary.AsObject,
+    attributesMap: Array<[string, string]>,
   }
 }
 

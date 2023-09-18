@@ -322,20 +322,41 @@ export class RGATreeSplitNode<
   private styleOpsBefore?: Set<StyleOperation>;
   private styleOpsAfter?: Set<StyleOperation>;
 
-  constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
+  constructor({
+    id,
+    value,
+    removedAt,
+    styleOpsBefore,
+    styleOpsAfter,
+  }: {
+    id: RGATreeSplitNodeID;
+    value?: T;
+    removedAt?: TimeTicket;
+    styleOpsBefore?: Set<StyleOperation>;
+    styleOpsAfter?: Set<StyleOperation>;
+  }) {
     super(value!);
     this.id = id;
     this.removedAt = removedAt;
+    this.styleOpsBefore = styleOpsBefore;
+    this.styleOpsAfter = styleOpsAfter;
   }
 
   /**
    * `create` creates a instance of RGATreeSplitNode.
    */
-  public static create<T extends RGATreeSplitValue>(
-    id: RGATreeSplitNodeID,
-    value?: T,
-  ): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(id, value);
+  public static create<T extends RGATreeSplitValue>({
+    id,
+    value,
+    styleOpsBefore,
+    styleOpsAfter,
+  }: {
+    id: RGATreeSplitNodeID;
+    value?: T;
+    styleOpsBefore?: Set<StyleOperation>;
+    styleOpsAfter?: Set<StyleOperation>;
+  }): RGATreeSplitNode<T> {
+    return new RGATreeSplitNode({ id, value, styleOpsBefore, styleOpsAfter });
   }
 
   /**
@@ -523,11 +544,11 @@ export class RGATreeSplitNode<
    * `split` creates a new split node of the given offset.
    */
   public split(offset: number): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(
-      this.id.split(offset),
-      this.splitValue(offset),
-      this.removedAt,
-    );
+    return new RGATreeSplitNode({
+      id: this.id.split(offset),
+      value: this.splitValue(offset),
+      removedAt: this.removedAt,
+    });
   }
 
   /**
@@ -571,7 +592,11 @@ export class RGATreeSplitNode<
    * `deepcopy` returns a new instance of this RGATreeSplitNode without structural info.
    */
   public deepcopy(): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(this.id, this.value, this.removedAt);
+    return new RGATreeSplitNode({
+      id: this.id,
+      value: this.value,
+      removedAt: this.removedAt,
+    });
   }
 
   /**
@@ -603,7 +628,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private removedNodeMap: Map<string, RGATreeSplitNode<T>>;
 
   constructor() {
-    this.head = RGATreeSplitNode.create(InitialRGATreeSplitNodeID);
+    this.head = RGATreeSplitNode.create({ id: InitialRGATreeSplitNodeID });
     this.treeByIndex = new SplayTree();
     this.treeByID = new LLRBTree(RGATreeSplitNode.createComparator());
     this.removedNodeMap = new Map();
@@ -655,7 +680,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       const inserted = this.insertAfter(
         fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
+        RGATreeSplitNode.create({
+          id: RGATreeSplitNodeID.of(editedAt, 0),
+          value,
+        }),
       );
 
       if (changes.length && changes[changes.length - 1].from === idx) {
