@@ -550,14 +550,32 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public values(): Array<TextValueType<A>> {
     const values = [];
+    let currentAttr = new Map<string, string>();
 
     for (const node of this.rgaTreeSplit) {
+      const beforeAnchor = node.getStyleOpsBefore();
+      const afterAnchor = node.getStyleOpsAfter();
+
+      if (beforeAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
+      }
+
       if (!node.isRemoved()) {
         const value = node.getValue();
+        const attributes = value.getAttributes();
+        if (currentAttr) {
+          for (const [key, value] of currentAttr.entries()) {
+            attributes[key] = value;
+          }
+        }
         values.push({
-          attributes: parseObjectValues<A>(value.getAttributes()),
+          attributes: parseObjectValues<A>(attributes),
           content: value.getContent(),
         });
+      }
+
+      if (afterAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
       }
     }
 
