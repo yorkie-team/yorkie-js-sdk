@@ -727,6 +727,179 @@ describe('Document', function () {
   });
 
   describe('Undo/Redo', function () {
+    it('Can canUndo/canRedo work properly (for counter)', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      // user increases the counter
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+      // user can only undo the latest operation
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      // user undoes the latest operation
+      doc.history.undo();
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), true);
+
+      // user redoes the latest undone operation
+      doc.history.redo();
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+    });
+
+    it('doc.update should clear redo stack', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      for (let i = 0; i < 5; i++) {
+        doc.update((root) => {
+          root.counter.increase(1);
+        }, 'increase 1');
+        assert.equal(doc.toSortedJSON(), `{"counter":${100 + i + 1}}`);
+      }
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      doc.history.undo();
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), true);
+
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+
+      // doc.update() clears redo stack
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+    });
+
+    it('undo/redo with empty stack must throw error', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+
+      assert.throws(
+        () => {
+          doc.history.undo();
+        },
+        Error,
+        'There is no operation to be undone',
+      );
+
+      assert.throws(
+        () => {
+          doc.history.redo();
+        },
+        Error,
+        'There is no operation to be redone',
+      );
+    });
+
+    it('update() that contains undo/redo must throw error', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      assert.throws(
+        () => {
+          doc.update(() => {
+            doc.history.undo();
+          }, 'undo');
+        },
+        Error,
+        'Undo is not allowed during an update',
+      );
+
+      assert.throws(
+        () => {
+          doc.update(() => {
+            doc.history.redo();
+          }, 'redo');
+        },
+        Error,
+        'Redo is not allowed during an update',
+      );
+    });
+
+    it('maximum undo/redo stack test', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 0);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":0}');
+
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      for (let i = 0; i < 100; i++) {
+        doc.update((root) => {
+          root.counter.increase(1);
+        }, 'increase loop');
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      for (let i = 0; i < 100; i++) {
+        if (i < 50) {
+          doc.history.undo();
+        } else {
+          assert.throws(
+            () => {
+              doc.history.undo();
+            },
+            Error,
+            'There is no operation to be undone',
+          );
+        }
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":50}');
+
+      for (let i = 0; i < 100; i++) {
+        if (i < 50) {
+          doc.history.redo();
+        } else {
+          assert.throws(
+            () => {
+              doc.history.redo();
+            },
+            Error,
+            'There is no operation to be redone',
+          );
+        }
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    });
+
     it('Can undo/redo with presence', async function () {
       type TestDoc = { counter: Counter };
       type Presence = { cursor: { x: number; y: number } };
@@ -843,234 +1016,283 @@ describe('Document', function () {
 
       await client.deactivate();
     });
+  });
 
-    it('Can canUndo/canRedo work properly for counter', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc = new yorkie.Document<TestDoc>(docKey);
-      doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
-      }, 'init counter');
-      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+  // TODO(Hyemmie): The text.edit test is not currently available
+  // in the `yorkieteam/yorkie` docker image because it requires a protocol change.
+  // To test this case, you will need to create a separate docker image
+  // with the updated source code (https://github.com/yorkie-team/yorkie/pull/640)
+  // and use it for the `yorkie` container in docker-compose.yml.
+  // Or you can just use `hyemmie/yorkie-dev` image.
+  it.skip('concurrent undo/redo of text.edit', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
 
-      // user increases the counter
-      doc.update((root) => {
-        root.counter.increase(1);
-      }, 'increase 1');
-      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
 
-      // user can only undo the latest operation
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
 
-      // user undoes the latest operation
-      doc.history.undo();
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), true);
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
 
-      // user redoes the latest undone operation
-      doc.history.redo();
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
-      assert.equal(doc.toSortedJSON(), '{"counter":101}');
-    });
+    doc2.update((root) => root.text.edit(2, 4, 'CD'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"12"},{"val":"CD"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
 
-    it('Doc update should clear redo stack', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc = new yorkie.Document<TestDoc>(docKey);
-      doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
-      }, 'init counter');
-      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    doc1.history.undo();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
 
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
 
-      for (let i = 0; i < 5; i++) {
-        doc.update((root) => {
-          root.counter.increase(1);
-        }, 'increase 1');
-        assert.equal(doc.toSortedJSON(), `{"counter":${100 + i + 1}}`);
-      }
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
 
-      doc.history.undo();
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), true);
+    doc1.history.redo();
 
-      doc.update((root) => {
-        root.counter.increase(1);
-      }, 'increase 1');
+    assert.equal('{"text":[{"val":"12CD56"}]}', doc1.toSortedJSON());
 
-      // doc.update() clears redo stack
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
-    });
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
 
-    it('undo/redo for concurrent users', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc1 = new yorkie.Document<TestDoc>(docKey);
-      const doc2 = new yorkie.Document<TestDoc>(docKey);
+    assert.equal('{"text":[{"val":"12CD56"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"12CD56"}]}', doc2.toSortedJSON());
+  });
 
-      const client1 = new yorkie.Client(testRPCAddr);
-      const client2 = new yorkie.Client(testRPCAddr);
-      await client1.activate();
-      await client2.activate();
+  it.skip('concurrent undo/redo of text.edit 2', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-      await client1.attach(doc1, { isRealtimeSync: false });
-      doc1.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
-      }, 'init counter');
-      await client1.sync();
-      assert.equal(doc1.toSortedJSON(), '{"counter":100}');
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
 
-      await client2.attach(doc2, { isRealtimeSync: false });
-      assert.equal(doc2.toSortedJSON(), '{"counter":100}');
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
 
-      // client1 increases 1 and client2 increases 2
-      doc1.update((root) => {
-        root.counter.increase(1);
-      }, 'increase 1');
-      doc2.update((root) => {
-        root.counter.increase(2);
-      }, 'increase 2');
-      await client1.sync();
-      await client2.sync();
-      await client1.sync();
-      assert.equal(doc1.toSortedJSON(), '{"counter":103}');
-      assert.equal(doc2.toSortedJSON(), '{"counter":103}');
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
 
-      // client1 undoes one's latest increase operation
-      doc1.history.undo();
-      await client1.sync();
-      await client2.sync();
-      assert.equal(doc1.toSortedJSON(), '{"counter":102}');
-      assert.equal(doc2.toSortedJSON(), '{"counter":102}');
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
 
-      // only client1 can redo undone operation
-      assert.equal(true, doc1.history.canRedo());
-      assert.equal(false, doc2.history.canRedo());
+    doc2.update((root) => root.text.edit(0, 0, 'ABC'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"ABC"},{"val":"123456"}]}',
+      doc2.toSortedJSON(),
+    );
 
-      // client1 redoes one's latest undone operation
-      doc1.history.redo();
-      await client1.sync();
-      await client2.sync();
-      assert.equal(doc1.toSortedJSON(), '{"counter":103}');
-      assert.equal(doc2.toSortedJSON(), '{"counter":103}');
+    doc1.history.undo();
+    assert.equal('{"text":[{"val":"456"}]}', doc1.toSortedJSON());
 
-      await client1.deactivate();
-      await client2.deactivate();
-    });
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
 
-    it('undo/redo with empty stack must throw error', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc = new yorkie.Document<TestDoc>(docKey);
+    assert.equal('{"text":[{"val":"456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"456"}]}', doc2.toSortedJSON());
 
-      assert.throws(
-        () => {
-          doc.history.undo();
-        },
-        Error,
-        'There is no operation to be undone',
-      );
+    doc1.history.redo();
 
-      assert.throws(
-        () => {
-          doc.history.redo();
-        },
-        Error,
-        'There is no operation to be redone',
-      );
-    });
+    assert.equal(
+      '{"text":[{"val":"ABC123"},{"val":"456"}]}',
+      doc1.toSortedJSON(),
+    );
 
-    it('update() that contains undo/redo must throw error', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc = new yorkie.Document<TestDoc>(docKey);
-      doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
-      }, 'init counter');
-      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
 
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    assert.equal(
+      '{"text":[{"val":"ABC123"},{"val":"456"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"ABC123"},{"val":"456"}]}',
+      doc2.toSortedJSON(),
+    );
+  });
 
-      assert.throws(
-        () => {
-          doc.update(() => {
-            doc.history.undo();
-          }, 'undo');
-        },
-        Error,
-        'Undo is not allowed during an update',
-      );
+  it.skip('concurrent undo/redo of text.edit 3', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-      assert.throws(
-        () => {
-          doc.update(() => {
-            doc.history.redo();
-          }, 'redo');
-        },
-        Error,
-        'Redo is not allowed during an update',
-      );
-    });
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
 
-    it('maximum undo/redo stack test', async function () {
-      type TestDoc = { counter: Counter };
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-      const doc = new yorkie.Document<TestDoc>(docKey);
-      doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 0);
-      }, 'init counter');
-      assert.equal(doc.toSortedJSON(), '{"counter":0}');
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
 
-      assert.equal(doc.history.canUndo(), true);
-      assert.equal(doc.history.canRedo(), false);
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
 
-      for (let i = 0; i < 100; i++) {
-        doc.update((root) => {
-          root.counter.increase(1);
-        }, 'increase loop');
-      }
-      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
 
-      for (let i = 0; i < 100; i++) {
-        if (i < 50) {
-          doc.history.undo();
-        } else {
-          assert.throws(
-            () => {
-              doc.history.undo();
-            },
-            Error,
-            'There is no operation to be undone',
-          );
-        }
-      }
-      assert.equal(doc.toSortedJSON(), '{"counter":50}');
+    doc2.update((root) => root.text.edit(3, 6, ''));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123"}]}', doc2.toSortedJSON());
 
-      for (let i = 0; i < 100; i++) {
-        if (i < 50) {
-          doc.history.redo();
-        } else {
-          assert.throws(
-            () => {
-              doc.history.redo();
-            },
-            Error,
-            'There is no operation to be redone',
-          );
-        }
-      }
-      assert.equal(doc.toSortedJSON(), '{"counter":100}');
-    });
+    doc1.history.undo();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal('{"text":[{"val":"123"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"123"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123"}]}', doc2.toSortedJSON());
+  });
+
+  it.skip('concurrent undo/redo of text.edit 4', async function () {
+    interface TestDoc {
+      text: Text;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.text = new Text();
+    }, 'init doc');
+    await client1.sync();
+    assert.equal('{"text":[]}', doc1.toSortedJSON());
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal('{"text":[]}', doc2.toSortedJSON());
+
+    doc1.update((root) => root.text.edit(0, 0, '123456'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal('{"text":[{"val":"123456"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"123456"}]}', doc2.toSortedJSON());
+
+    doc2.update((root) => root.text.edit(4, 4, 'ABC'));
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"1234"},{"val":"ABC"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
+
+    doc1.history.undo();
+    assert.equal('{"text":[{"val":"C"},{"val":"56"}]}', doc1.toSortedJSON());
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal('{"text":[{"val":"C"},{"val":"56"}]}', doc1.toSortedJSON());
+    assert.equal('{"text":[{"val":"C"},{"val":"56"}]}', doc2.toSortedJSON());
+
+    doc1.history.redo();
+
+    assert.equal(
+      '{"text":[{"val":"1234AB"},{"val":"C"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(
+      '{"text":[{"val":"1234AB"},{"val":"C"},{"val":"56"}]}',
+      doc1.toSortedJSON(),
+    );
+    assert.equal(
+      '{"text":[{"val":"1234AB"},{"val":"C"},{"val":"56"}]}',
+      doc2.toSortedJSON(),
+    );
   });
 });

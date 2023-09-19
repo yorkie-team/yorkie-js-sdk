@@ -187,15 +187,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [
-    Map<string, TimeTicket>,
-    Array<TextChange<A>>,
-    RGATreeSplitPosRange,
-    {
-      range: RGATreeSplitPosRange;
-      content: Array<CRDTTextValue>;
-    },
-  ] {
+  ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitPosRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -203,20 +195,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
-    const [caretPos, latestCreatedAtMap, valueChanges, deletedContent] =
-      this.rgaTreeSplit.edit(
-        range,
-        editedAt,
-        crdtTextValue,
-        latestCreatedAtMapByActor,
-      );
-    const reverseInfo: {
-      range: RGATreeSplitPosRange;
-      content: Array<CRDTTextValue>;
-    } = {
-      range: [range[0], caretPos],
-      content: deletedContent,
-    };
+    const [caretPos, latestCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
+      range,
+      editedAt,
+      crdtTextValue,
+      latestCreatedAtMapByActor,
+    );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -232,7 +216,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    return [latestCreatedAtMap, changes, [caretPos, caretPos], reverseInfo];
+    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
   }
 
   /**
