@@ -31,18 +31,21 @@ import { Indexable } from '../document';
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
+    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.attributes = attributes;
   }
 
@@ -53,6 +56,7 @@ export class StyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
@@ -60,6 +64,7 @@ export class StyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
+      maxCreatedAtMapByActor,
       attributes,
       executedAt,
     );
@@ -77,10 +82,11 @@ export class StyleOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
     const text = parentObject as CRDTText<A>;
-    const changes = text.setStyle(
+    const [, changes] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
+      this.maxCreatedAtMapByActor,
     );
     return changes.map(({ from, to, value }) => {
       return {
@@ -130,5 +136,13 @@ export class StyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes;
+  }
+
+  /**
+   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
+   * by actor for the nodes included in the editing range.
+   */
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+    return this.maxCreatedAtMapByActor;
   }
 }

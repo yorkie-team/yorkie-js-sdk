@@ -8,9 +8,9 @@ export type Options = {
 };
 
 export type YorkieDocType = {
-  shapes: JSONObject<Record<string, TDShape>>;
-  bindings: JSONObject<Record<string, TDBinding>>;
-  assets: JSONObject<Record<string, TDAsset>>;
+  shapes: JSONObject<Record<string, JSONObject<TDShape>>>;
+  bindings: JSONObject<Record<string, JSONObject<TDBinding>>>;
+  assets: JSONObject<Record<string, JSONObject<TDAsset>>>;
 };
 
 export type YorkiePresenceType = {

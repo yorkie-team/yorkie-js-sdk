@@ -66,7 +66,18 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
-import { SetOperation } from './operation/set_operation';
+
+/**
+ * `DocumentOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface DocumentOptions {
+  /**
+   * `disableGC` disables garbage collection if true.
+   */
+  disableGC?: boolean;
+}
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -399,6 +410,7 @@ export const MaxUndoRedoStackDepth = 50;
 export class Document<T, P extends Indexable = Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
+  private opts: DocumentOptions;
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
@@ -438,7 +450,9 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private updateStatus: boolean;
 
-  constructor(key: string) {
+  constructor(key: string, opts?: DocumentOptions) {
+    this.opts = opts || {};
+
     this.key = key;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
@@ -946,6 +960,10 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
+    if (this.opts.disableGC) {
+      return 0;
+    }
+
     if (this.clone) {
       this.clone.root.garbageCollect(ticket);
     }

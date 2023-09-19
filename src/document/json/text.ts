@@ -165,13 +165,14 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    this.text.setStyle(range, attrs, ticket);
+    const [maxCreatedAtMapByActor] = this.text.setStyle(range, attrs, ticket);
 
     this.context.push(
       new StyleOperation(
         this.text.getCreatedAt(),
         range[0],
         range[1],
+        maxCreatedAtMapByActor,
         new Map(Object.entries(attrs)),
         ticket,
       ),

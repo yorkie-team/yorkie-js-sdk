@@ -107,8 +107,6 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    // TODO(chacha912): check where we can set maxCreatedAtMapByActor of edit operation(undo)
-    // based on the result from text.edit.
     const reverseOps = this.getReverseOperation(text);
     const [, changes] = text.edit(
       [this.fromPos, this.toPos],

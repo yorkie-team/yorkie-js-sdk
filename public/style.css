@@ -1,13 +1,34 @@
-body {
-  background: white;
+/* ============== RESET CSS ============= */
+/* prettier-ignore */
+html, body, div, span, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a,  address, cite, code,
+del, dfn, em, img,  strong, sub,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+  vertical-align: baseline;
+  box-sizing: border-box;
 }
-
-h2 {
-  margin-top: 1.6em;
-}
-
-li {
+ol,
+ul {
   list-style: none;
+}
+
+/* ============= COMMON CSS ============= */
+body {
+  margin: 8px;
+  background: white;
 }
 
 button {
@@ -17,22 +38,61 @@ button {
   align-items: center;
 }
 
+#network-status,
+#online-clients,
+#log-holder {
+  margin: 1rem;
+  font-family: monospace;
+}
+#network-status:before {
+  content: 'network: ';
+}
+#online-clients:before {
+  content: 'online-clients: ';
+}
+#log-holder:before {
+  content: 'root: ';
+}
 #network-status span {
   display: inline-block;
   height: 0.8rem;
   width: 0.8rem;
   border-radius: 0.4rem;
 }
-
-.green {
+#network-status .green {
   background-color: green;
 }
-
-.red {
+#network-status .red {
   background-color: red;
 }
 
-.wrap {
+/* ============= quill.html ============= */
+
+.ql-editor {
+  min-height: 300px;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+#document,
+#document-text {
+  margin: 1rem;
+  font-family: monospace;
+}
+
+#document:before {
+  display: block;
+  content: 'document: ';
+}
+
+#document-text:before {
+  display: block;
+  content: 'text: ';
+}
+
+/* ============ counter.html ============ */
+
+.counter-wrap {
   display: flex;
   align-items: center;
   margin: 1em 0;
@@ -55,41 +115,12 @@ button {
   height: 30px;
 }
 
-#network-status:before {
-  content: 'network: ';
-  font-size: 1rem;
-}
+/* ============= multi.html ============= */
 
-#peers:before {
-  display: block;
-  content: 'peers: ';
-  font-size: 1rem;
-}
-
-#document:before {
-  display: block;
-  content: 'document: ';
-  font-size: 1rem;
-}
-
-#document-text:before {
-  display: block;
-  content: 'text: ';
-  font-size: 1rem;
-}
-
-#network-status,
-#peers,
-#document,
-#document-text {
-  margin: 1rem 0;
-  font-family: monospace;
-}
-
-.ql-editor {
-  min-height: 300px;
-  overflow-y: auto;
-  resize: vertical;
+h2 {
+  margin: 1.6em 0 0.4em;
+  font-weight: bold;
+  font-size: 24px;
 }
 
 .increaseButton {
@@ -161,39 +192,4 @@ button {
   height: 30px;
   border: none;
   outline: none;
-}
-#editor {
-  width: 80%;
-  margin: 30px 10px;
-  padding: 30px 20px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-.input-wrapper {
-  display: flex;
-  flex-direction: column;
-  margin: 20px;
-  width: 80%;
-}
-.input-wrapper label {
-  margin-bottom: 10px;
-}
-.input-wrapper input {
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-}
-.input-wrapper button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  background-color: #2196f3;
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-}
-.input-wrapper button:hover {
-  background-color: #0d8bf2;
 }

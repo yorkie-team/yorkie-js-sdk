@@ -445,6 +445,16 @@ export class RGATreeSplitNode<
   }
 
   /**
+   * `canStyle` checks if node is able to set style.
+   */
+  public canStyle(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+    return (
+      !this.getCreatedAt().after(latestCreatedAt) &&
+      (!this.removedAt || editedAt.after(this.removedAt))
+    );
+  }
+
+  /**
    * `remove` removes node of given edited time.
    */
   public remove(editedAt?: TimeTicket): void {

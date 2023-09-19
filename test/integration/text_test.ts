@@ -306,6 +306,38 @@ describe('Text', function () {
     }, this.test!.title);
   });
 
+  it('should handle concurrent insertion and deletion', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'AB');
+      }, 'set new text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"AB"}]}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].edit(0, 2, '');
+      });
+      assert.equal(d1.toSortedJSON(), `{"k1":[]}`);
+      d2.update((root) => {
+        root['k1'].edit(1, 1, 'C');
+      });
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"A"},{"val":"C"},{"val":"B"}]}`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
+      assert.equal(d2.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
   it('should handle concurrent block deletions', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -458,7 +490,7 @@ describe('peri-text example: text concurrent edit', function () {
     }, this.test!.title);
   });
 
-  it.skip('ex2. concurrent formatting and insertion', async function () {
+  it('ex2. concurrent formatting and insertion', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -486,17 +518,18 @@ describe('peri-text example: text concurrent edit', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      // NOTE(chacha912): d1 and d2 should have the same content
       assert.equal(
         d1.toSortedJSON(),
         '{"k1":[{"attrs":{"bold":true},"val":"The "},{"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
         'd1',
       );
-      assert.equal(
-        d2.toSortedJSON(),
-        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
-        'd2',
-      );
+      // TODO(MoonGyu1): d1 and d2 should have the result below after applying mark operation
+      // assert.equal(
+      //   d1.toSortedJSON(),
+      //   '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
+      //   'd1',
+      // );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
     }, this.test!.title);
   });
 
