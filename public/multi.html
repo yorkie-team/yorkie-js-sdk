@@ -11,15 +11,12 @@
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.1.0/dist/quill-cursors.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/color-hash@1.0.3/dist/color-hash.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/short-unique-id@latest/dist/short-unique-id.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/short-unique-id@4.4.4/dist/short-unique-id.min.js"></script>
   </head>
   <body>
     <div>
-      <div>status: <span id="network-status"></span></div>
-      <div>online clients:</div>
-      <pre
-        style="white-space: pre-wrap"
-      ><code id="online-clients-holder"></code></pre>
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
       <div class="counter">
         <h2>Counter</h2>
         <button class="increaseButton">
@@ -44,9 +41,7 @@
     <script>
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
-      const onlineClientsHolder = document.getElementById(
-        'online-clients-holder',
-      );
+      const onlineClientsHolder = document.getElementById('online-clients');
       const logHolder = document.getElementById('log-holder');
       const shortUniqueID = new ShortUniqueId();
       const colorHash = new ColorHash();

@@ -12,6 +12,7 @@ import { useThrottleCallback } from '@react-hook/throttle';
 import * as yorkie from 'yorkie-js-sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
+import _ from 'lodash';
 
 import type { Options, YorkieDocType, YorkiePresenceType } from './types';
 
@@ -64,30 +65,73 @@ export function useMultiplayerState(roomId: string) {
     ) => {
       if (!app || client === undefined || doc === undefined) return;
 
-      doc.update((root) => {
-        Object.entries(shapes).forEach(([id, shape]) => {
+      const getUpdatedPropertyList = <T extends object>(
+        source: T,
+        target: T,
+      ) => {
+        return (Object.keys(source) as Array<keyof T>).filter(
+          (key) => !_.isEqual(source[key], target[key]),
+        );
+      };
+
+      Object.entries(shapes).forEach(([id, shape]) => {
+        doc.update((root) => {
           if (!shape) {
             delete root.shapes[id];
-          } else {
+          } else if (!root.shapes[id]) {
             root.shapes[id] = shape;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              shape,
+              root.shapes[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = shape[key];
+              (root.shapes[id][key] as typeof newValue) = newValue;
+            });
           }
         });
+      });
 
-        Object.entries(bindings).forEach(([id, binding]) => {
+      Object.entries(bindings).forEach(([id, binding]) => {
+        doc.update((root) => {
           if (!binding) {
             delete root.bindings[id];
-          } else {
+          } else if (!root.bindings[id]) {
             root.bindings[id] = binding;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              binding,
+              root.bindings[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = binding[key];
+              (root.bindings[id][key] as typeof newValue) = newValue;
+            });
           }
         });
+      });
 
-        // Should store app.document.assets which is global asset storage referenced by inner page assets
-        // Document key for assets should be asset.id (string), not index
-        Object.entries(app.assets).forEach(([, asset]) => {
+      // Should store app.document.assets which is global asset storage referenced by inner page assets
+      // Document key for assets should be asset.id (string), not index
+      Object.entries(app.assets).forEach(([, asset]) => {
+        doc.update((root) => {
           if (!asset.id) {
             delete root.assets[asset.id];
-          } else {
+          } else if (root.assets[asset.id]) {
             root.assets[asset.id] = asset;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              asset,
+              root.assets[asset.id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = asset[key];
+              (root.assets[asset.id][key] as typeof newValue) = newValue;
+            });
           }
         });
       });

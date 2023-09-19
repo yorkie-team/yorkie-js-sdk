@@ -354,7 +354,6 @@ function toOperation(operation: Operation): PbOperation {
     pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
     pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
     const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
-    // TODO(chacha912): check in edit_operation
     if (editOperation.getMaxCreatedAtMapByActor()) {
       for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()!) {
         pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
@@ -413,6 +412,10 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
     pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
+    const pbCreatedAtMapByActor = pbStyleOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of styleOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+    }
     const pbAttributes = pbStyleOperation.getAttributesMap();
     for (const [key, value] of styleOperation.getAttributes()) {
       pbAttributes.set(key, value);
@@ -1175,6 +1178,10 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       });
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
+      const createdAtMapByActor = new Map();
+      pbStyleOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
       const attributes = new Map();
       pbStyleOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
@@ -1183,6 +1190,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbStyleOperation!.getFrom()!),
         fromTextNodePos(pbStyleOperation!.getTo()!),
+        createdAtMapByActor,
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );
@@ -1291,7 +1299,11 @@ function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
   const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
-    rht.set(pbRHTNode.getKey(), fromElement(pbRHTNode.getElement()!));
+    rht.set(
+      pbRHTNode.getKey(),
+      fromElement(pbRHTNode.getElement()!),
+      fromTimeTicket(pbObject.getCreatedAt())!,
+    );
   }
 
   const obj = new CRDTObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);

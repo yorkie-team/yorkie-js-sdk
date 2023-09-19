@@ -70,7 +70,7 @@ export class SetOperation extends Operation {
     const obj = parentObject as CRDTObject;
     const value = this.value.deepcopy();
     const reverseOp = this.getReverseOperation(root);
-    obj.set(this.key, value);
+    obj.set(this.key, value, this.getExecutedAt());
     root.registerElement(value, obj);
     return {
       opInfos: [

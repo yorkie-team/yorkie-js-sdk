@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  InitialTimeTicket,
+  MaxTimeTicket,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNodeID,
+  RGATreeSplitNode,
   RGATreeSplitPosRange,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -301,7 +306,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     range: RGATreeSplitPosRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
-  ): Array<TextChange<A>> {
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
     const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -312,7 +318,29 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
     const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
+    const createdAtMapByActor = new Map<string, TimeTicket>();
+    const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
+
     for (const node of nodes) {
+      const actorID = node.getCreatedAt().getActorID()!;
+
+      const latestCreatedAt = latestCreatedAtMapByActor?.size
+        ? latestCreatedAtMapByActor!.has(actorID!)
+          ? latestCreatedAtMapByActor!.get(actorID!)!
+          : InitialTimeTicket
+        : MaxTimeTicket;
+
+      if (node.canStyle(editedAt, latestCreatedAt)) {
+        const latestCreatedAt = createdAtMapByActor.get(actorID);
+        const createdAt = node.getCreatedAt();
+        if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+          createdAtMapByActor.set(actorID, createdAt);
+        }
+        toBeStyleds.push(node);
+      }
+    }
+
+    for (const node of toBeStyleds) {
       if (node.isRemoved()) {
         continue;
       }
@@ -335,7 +363,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
-    return changes;
+    return [createdAtMapByActor, changes];
   }
 
   /**

@@ -1031,9 +1031,9 @@ describe('Document', function () {
 
     doc.history.undo();
     await eventCollector.waitAndVerifyNthEvent(3, [
-      { type: 'increase', path: '$.cnt', value: -1 },
-      { type: 'increase', path: '$.cnt', value: -10 },
       { type: 'increase', path: '$.cnt', value: 3 },
+      { type: 'increase', path: '$.cnt', value: -10 },
+      { type: 'increase', path: '$.cnt', value: -1 },
     ]);
 
     unsub();

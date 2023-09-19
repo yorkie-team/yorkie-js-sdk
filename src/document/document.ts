@@ -66,7 +66,18 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
-import { SetOperation } from './operation/set_operation';
+
+/**
+ * `DocumentOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface DocumentOptions {
+  /**
+   * `disableGC` disables garbage collection if true.
+   */
+  disableGC?: boolean;
+}
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1305,9 +1316,6 @@ export class Document<T, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
-      if (undoOp instanceof SetOperation) {
-        undoOp.getValue().setCreatedAt(ticket);
-      }
       context.push(undoOp);
     }
 
@@ -1391,9 +1399,6 @@ export class Document<T, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
-      if (redoOp instanceof SetOperation) {
-        redoOp.getValue().setCreatedAt(ticket);
-      }
       context.push(redoOp);
     }
 

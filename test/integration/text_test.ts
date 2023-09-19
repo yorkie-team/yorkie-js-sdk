@@ -3,6 +3,7 @@ import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
+  toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
 
@@ -313,6 +314,38 @@ describe('Text', function () {
     }, this.test!.title);
   });
 
+  it('should handle concurrent insertion and deletion', async function () {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'AB');
+      }, 'set new text by c1');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"AB"}]}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.update((root) => {
+        root['k1'].edit(0, 2, '');
+      });
+      assert.equal(d1.toSortedJSON(), `{"k1":[]}`);
+      d2.update((root) => {
+        root['k1'].edit(1, 1, 'C');
+      });
+      assert.equal(
+        d2.toSortedJSON(),
+        `{"k1":[{"val":"A"},{"val":"C"},{"val":"B"}]}`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
+      assert.equal(d2.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, this.test!.title);
+  });
+
   it('should handle concurrent block deletions', async function () {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -389,6 +422,43 @@ describe('Text', function () {
       // assert.isOk(d2.getRoot().k1.checkWeight());
     }, this.test!.title);
   });
+
+  it('Can undo/redo for text edit operation', async function () {
+    type TestDoc = { text: Text };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new Document<TestDoc>(docKey);
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'ABCD');
+    }, 'init text');
+    assert.equal(doc.toSortedJSON(), '{"text":[{"val":"ABCD"}]}');
+
+    doc.update((root) => {
+      root.text.edit(1, 3, '12');
+    }, `edit 'ABCD' to 'A12D'`);
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+    );
+
+    doc.history.undo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+    );
+
+    doc.history.redo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"12"},{"val":"D"}]}',
+    );
+
+    doc.history.undo();
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"text":[{"val":"A"},{"val":"BC"},{"val":"D"}]}',
+    );
+  });
 });
 
 describe('peri-text example: text concurrent edit', function () {
@@ -456,17 +526,18 @@ describe('peri-text example: text concurrent edit', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      // NOTE(chacha912): d1 and d2 should have the same content
       assert.equal(
         d1.toSortedJSON(),
         '{"k1":[{"attrs":{"bold":true},"val":"The "},{"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
         'd1',
       );
-      assert.equal(
-        d2.toSortedJSON(),
-        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
-        'd2',
-      );
+      // TODO(MoonGyu1): d1 and d2 should have the result below after applying mark operation
+      // assert.equal(
+      //   d1.toSortedJSON(),
+      //   '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":true},"val":"brown "},{"attrs":{"bold":true},"val":"fox jumped."}]}',
+      //   'd1',
+      // );
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
     }, this.test!.title);
   });
 

@@ -96,9 +96,10 @@ export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
   offset: number,
 ): number {
   let acc = 0;
+  const siblings = parent.children;
 
   for (let i = 0; i < offset; i++) {
-    const leftSibling = parent.children[i];
+    const leftSibling = siblings[i];
 
     if (!leftSibling || leftSibling.isRemoved) {
       continue;

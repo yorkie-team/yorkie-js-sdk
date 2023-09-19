@@ -1,9 +1,11 @@
 import { assert } from 'chai';
-import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
+import { JSONObject, Client } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
+  toDocKey,
+  testRPCAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
@@ -210,5 +212,199 @@ describe('Object', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, this.test!.title);
+  });
+
+  it('Can undo/redo work properly for simple object', function () {
+    const doc = new Document<{
+      a: number;
+    }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}');
+    assert.equal(doc.history.canUndo(), false);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.update((root) => {
+      root.a = 1;
+    });
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.update((root) => {
+      root.a = 2;
+    });
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), true);
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"a":2}');
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), false);
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+    assert.equal(doc.history.canUndo(), true);
+    assert.equal(doc.history.canRedo(), true);
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{}');
+    assert.equal(doc.history.canUndo(), false);
+    assert.equal(doc.history.canRedo(), true);
+  });
+
+  it('Can undo/redo work properly for nested object', function () {
+    const doc = new Document<{
+      shape: { point: { x: number; y: number }; color: string };
+      a: number;
+    }>('test-doc');
+    const states: Array<string> = [];
+    states.push(doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{}');
+
+    doc.update((root) => {
+      root.shape = { point: { x: 0, y: 0 }, color: 'red' };
+      root.a = 0;
+    });
+    states.push(doc.toSortedJSON());
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"a":0,"shape":{"color":"red","point":{"x":0,"y":0}}}',
+    );
+
+    doc.update((root) => {
+      root.shape.point = { x: 1, y: 1 };
+      root.shape.color = 'blue';
+    });
+    states.push(doc.toSortedJSON());
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"a":0,"shape":{"color":"blue","point":{"x":1,"y":1}}}',
+    );
+
+    doc.update((root) => {
+      root.a = 1;
+      root.a = 2;
+    });
+    states.push(doc.toSortedJSON());
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"a":2,"shape":{"color":"blue","point":{"x":1,"y":1}}}',
+    );
+
+    assertUndoRedo(doc, states);
+  });
+
+  it('concurrent undo/redo of object - no sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new Document<TestDoc>(docKey);
+    const doc2 = new Document<TestDoc>(docKey);
+
+    const client1 = new Client(testRPCAddr);
+    const client2 = new Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"red"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.undo();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    // client 2's green set wins client 1's undo
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"red"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
+  });
+
+  it('concurrent undo/redo of object - sync before undo', async function () {
+    interface TestDoc {
+      color: string;
+    }
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc1 = new Document<TestDoc>(docKey);
+    const doc2 = new Document<TestDoc>(docKey);
+
+    const client1 = new Client(testRPCAddr);
+    const client2 = new Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => {
+      root.color = 'black';
+    }, 'init doc');
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client2.attach(doc2, { isRealtimeSync: false });
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.update((root) => {
+      root.color = 'red';
+    }, 'set red');
+    doc2.update((root) => {
+      root.color = 'green';
+    }, 'set green');
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
+
+    doc1.history.undo();
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+
+    doc1.history.redo();
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+    assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
   });
 });
