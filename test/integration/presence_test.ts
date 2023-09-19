@@ -132,24 +132,28 @@ describe('Presence', function () {
       value: { clientID: c2ID, presence: { name: 'b' } },
     });
 
-    doc1.update((root, p) => p.set({ name: 'A' }));
-    doc2.update((root, p) => p.set({ name: 'B' }));
+    doc1.update((root, p) => p.set({ name: 'A' }), 'update A');
+    doc2.update((root, p) => p.set({ name: 'B' }), 'update B');
 
     await eventCollectorP1.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: { name: 'A' } },
+      message: 'update A',
     });
     await eventCollectorP1.waitAndVerifyNthEvent(3, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c2ID, presence: { name: 'B' } },
+      message: 'update B',
     });
     await eventCollectorP2.waitAndVerifyNthEvent(1, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c2ID, presence: { name: 'B' } },
+      message: 'update B',
     });
     await eventCollectorP2.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: { name: 'A' } },
+      message: 'update A',
     });
     assert.deepEqual(
       deepSort(doc2.getPresences()),
@@ -350,10 +354,12 @@ describe(`Document.Subscribe('presence')`, function () {
     await eventCollectorP1.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: doc1.getMyPresence() },
+      message: '',
     });
     await eventCollectorP2.waitAndVerifyNthEvent(1, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: doc1.getMyPresence() },
+      message: '',
     });
 
     await c1.deactivate();
@@ -468,6 +474,7 @@ describe(`Document.Subscribe('presence')`, function () {
         clientID: c2ID,
         presence: { cursor: { x: 0, y: 0 }, name: 'b2' },
       },
+      message: '',
     });
 
     // 03-1. c2 pauses the document, c1 receives an unwatched event from c2.
@@ -509,6 +516,7 @@ describe(`Document.Subscribe('presence')`, function () {
         clientID: c3ID,
         presence: { cursor: { x: 0, y: 0 }, name: 'c3' },
       },
+      message: '',
     });
 
     // 05-1. c3 pauses the document, c1 receives an unwatched event from c3.
