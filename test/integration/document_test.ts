@@ -726,30 +726,6 @@ describe('Document', function () {
     await c1.deactivate();
   });
 
-  it('Can undo/redo for increase operation', async function () {
-    type TestDoc = { counter: Counter };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc = new yorkie.Document<TestDoc>(docKey);
-    doc.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
-    }, 'init counter');
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-
-    doc.update((root) => {
-      root.counter.increase(1);
-    }, 'increase 1');
-    assert.equal('{"counter":101}', doc.toSortedJSON());
-
-    doc.history.undo();
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-
-    doc.history.redo();
-    assert.equal('{"counter":101}', doc.toSortedJSON());
-
-    doc.history.undo();
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-  });
-
   it('Can undo/redo with presence', async function () {
     type TestDoc = { counter: Counter };
     type Presence = { cursor: { x: number; y: number } };

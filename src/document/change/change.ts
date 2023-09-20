@@ -153,7 +153,7 @@ export class Change<P extends Indexable> {
         (executionResult as ExecutionResult).reverseOps !== undefined
       ) {
         opInfos.push(...(executionResult as ExecutionResult).opInfos);
-        reverseOps.push(...(executionResult as ExecutionResult).reverseOps);
+        reverseOps.unshift(...(executionResult as ExecutionResult).reverseOps);
       } else {
         // TODO(Hyemmie): need to edit return type as "ExecutionResult"
         // after implementing every operation's reverse operation
