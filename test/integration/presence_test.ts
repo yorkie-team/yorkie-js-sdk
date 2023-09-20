@@ -547,110 +547,230 @@ describe(`Document.Subscribe('presence')`, function () {
 describe('Undo/Redo', function () {
   it('Can undo/redo with presence', async function () {
     type TestDoc = { counter: Counter };
-    type Presence = { cursor: { x: number; y: number } };
+    type Presence = { color: string };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc, Presence>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
 
     const client = new yorkie.Client(testRPCAddr);
     await client.activate();
     await client.attach(doc, {
-      initialPresence: { cursor: { x: 0, y: 0 } },
+      initialPresence: { color: 'red' },
     });
 
+    // 1. Presence update only
     doc.update((root, presence) => {
-      presence.set({ cursor: { x: 1, y: 1 } }, { addToHistory: true });
+      presence.set({ color: 'blue' }, { addToHistory: true });
     });
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 1, y: 1 },
+      color: 'blue',
     });
 
     doc.history.undo();
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 0, y: 0 },
+      color: 'red',
     });
 
     doc.history.redo();
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 1, y: 1 },
+      color: 'blue',
     });
 
-    doc.history.undo();
-    assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 0, y: 0 },
-    });
-
-    doc.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
-    }, 'init counter');
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-
+    // 2. Presence update with root update
     doc.update((root, presence) => {
       root.counter.increase(1);
-      presence.set({ cursor: { x: 2, y: 2 } }, { addToHistory: true });
+      presence.set({ color: 'green' }, { addToHistory: true });
     }, 'increase 1');
-    assert.equal('{"counter":101}', doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 2, y: 2 },
+      color: 'green',
     });
 
     doc.history.undo();
-    assert.equal('{"counter":100}', doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{"counter":100}');
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 0, y: 0 },
+      color: 'blue',
     });
 
     doc.history.redo();
-    assert.equal('{"counter":101}', doc.toSortedJSON());
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 2, y: 2 },
-    });
-
-    doc.history.undo();
-    assert.equal('{"counter":100}', doc.toSortedJSON());
-    assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 0, y: 0 },
+      color: 'green',
     });
 
     await client.deactivate();
   });
 
   it('Should not impact undo if presence is not added to history', async function () {
-    type TestDoc = { counter: Counter };
-    type Presence = { cursor: { x: number; y: number }; color: string };
+    type Presence = { color: string; cursor: { x: number; y: number } };
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc = new yorkie.Document<TestDoc, Presence>(docKey);
+    const doc = new yorkie.Document<{}, Presence>(docKey);
 
     const client = new yorkie.Client(testRPCAddr);
     await client.activate();
     await client.attach(doc, {
-      initialPresence: { cursor: { x: 0, y: 0 }, color: 'red' },
+      initialPresence: { color: 'red', cursor: { x: 0, y: 0 } },
     });
 
+    // 1. Setting addToHistory for both color and cursor
     doc.update((root, presence) => {
-      presence.set({ cursor: { x: 1, y: 1 } }, { addToHistory: true });
-      presence.set({ color: 'blue' });
+      presence.set(
+        { color: 'blue', cursor: { x: 1, y: 1 } },
+        { addToHistory: true },
+      );
     });
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 1, y: 1 },
       color: 'blue',
+      cursor: { x: 1, y: 1 },
     });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+    ]);
 
     doc.history.undo();
     assert.deepEqual(doc.getMyPresence(), {
+      color: 'red',
       cursor: { x: 0, y: 0 },
-      color: 'blue',
     });
 
     doc.history.redo();
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 1, y: 1 },
       color: 'blue',
+      cursor: { x: 1, y: 1 },
+    });
+
+    // 2. Setting addToHistory only for the cursor
+    doc.update((root, presence) => {
+      presence.set({ color: 'green' });
+      presence.set({ cursor: { x: 2, y: 2 } }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 2, y: 2 },
+    });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { cursor: { x: 1, y: 1 } },
+        }),
+      ],
+    ]);
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 2, y: 2 },
+    });
+
+    // 3. Not setting addToHistory
+    doc.update((root, presence) => {
+      presence.set({ color: 'black' });
+      presence.set({ cursor: { x: 3, y: 3 } });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 3, y: 3 },
+    });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { cursor: { x: 1, y: 1 } },
+        }),
+      ],
+    ]);
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 3, y: 3 },
+    });
+
+    await client.deactivate();
+  });
+
+  it('Should handle undo/redo correctly for multiple changes to a single presence key within update', async function () {
+    type Presence = { color: string };
+    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{}, Presence>(docKey);
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, {
+      initialPresence: { color: 'red' },
+    });
+
+    // 1. When multiple changes are made to the "color" key,
+    // it should revert to the value before doc.update() call.
+    doc.update((root, presence) => {
+      presence.set({ color: 'blue' }, { addToHistory: true });
+      presence.set({ color: 'green' }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
     });
 
     doc.history.undo();
     assert.deepEqual(doc.getMyPresence(), {
-      cursor: { x: 0, y: 0 },
-      color: 'blue',
+      color: 'red',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    // 2. If addToHistory is set for one "color" key, you can undo
+    // to its previous value(purple -> green). During redo, it changes
+    // to the final value(green -> purple).
+    doc.update((root, presence) => {
+      presence.set({ color: 'black' }, { addToHistory: true });
+      presence.set({ color: 'purple' });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'purple',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'purple',
     });
 
     await client.deactivate();
