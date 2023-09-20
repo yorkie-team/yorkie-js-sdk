@@ -61,6 +61,8 @@ export class Presence<P extends Indexable> {
       type: PresenceChangeType.Put,
       presence: deepcopy(this.presence),
     });
+
+    // TODO(chacha): Ensure that the presence is restored.
     if (option?.addToHistory) {
       this.changeContext.setReversePresence(oldPresence);
     }
@@ -82,5 +84,7 @@ export class Presence<P extends Indexable> {
     this.changeContext.setPresenceChange({
       type: PresenceChangeType.Clear,
     });
+
+    // TODO(chacha): Ensure that the presence is restored.
   }
 }

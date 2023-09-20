@@ -548,7 +548,6 @@ export class Document<T, P extends Indexable = Indexable> {
         this.pushUndo(reverseOps);
       }
       this.clearRedo();
-
       this.changeID = change.getID();
 
       if (change.hasOperations()) {
@@ -561,7 +560,6 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
-
       if (change.hasPresenceChange()) {
         this.publish({
           type: DocEventType.PresenceChanged,
@@ -571,7 +569,6 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
-
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
