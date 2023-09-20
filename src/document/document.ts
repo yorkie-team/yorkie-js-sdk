@@ -492,11 +492,7 @@ export class Document<T, P extends Indexable = Indexable> {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
 
-    if (this.getUpdateStatus()) {
-      //TODO(Hyemmie): Consider the handling of nested updates. (Issue #606)
-    }
-    this.setUpdateStatus(true);
-
+    // 01. Update the clone object and create a change.
     this.ensureClone();
     const context = ChangeContext.create<P>(
       this.changeID.next(),
@@ -515,25 +511,29 @@ export class Document<T, P extends Indexable = Indexable> {
         this.clone!.presences.set(actorID, {} as P);
       }
 
+      // NOTE(chacha912): Throw an error when calling history.undo() or redo() in
+      // the updater.
+      this.setUpdateStatus(true);
       updater(
         proxy,
         new Presence(context, this.clone!.presences.get(actorID)!),
       );
     } catch (err) {
       // drop clone because it is contaminated.
-      this.setUpdateStatus(false);
       this.clone = undefined;
       logger.error(err);
       throw err;
+    } finally {
+      this.setUpdateStatus(false);
     }
 
+    // 02. Update the root object and presences from changes.
     if (context.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
       const change = context.getChange();
-      // TODO: consider about getting undoOps and presence
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
@@ -542,13 +542,13 @@ export class Document<T, P extends Indexable = Indexable> {
           value: reversePresence,
         });
       }
+
       this.localChanges.push(change);
       if (reverseOps.length > 0) {
         this.pushUndo(reverseOps);
       }
       this.clearRedo();
 
-      // TODO: get undoOps through context.getReverseOps() and add to undoStack
       this.changeID = change.getID();
 
       if (change.hasOperations()) {
@@ -576,7 +576,6 @@ export class Document<T, P extends Indexable = Indexable> {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
-    this.setUpdateStatus(false);
   }
 
   /**
