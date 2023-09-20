@@ -12,14 +12,15 @@ import { useThrottleCallback } from '@react-hook/throttle';
 import * as yorkie from 'yorkie-js-sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
+import _ from 'lodash';
 
-import type { Options, YorkieDocType } from './types';
+import type { Options, YorkieDocType, YorkiePresenceType } from './types';
 
 // Yorkie Client declaration
-let client: yorkie.Client<yorkie.Indexable>;
+let client: yorkie.Client;
 
 // Yorkie Document declaration
-let doc: yorkie.Document<yorkie.Indexable>;
+let doc: yorkie.Document<YorkieDocType, YorkiePresenceType>;
 
 export function useMultiplayerState(roomId: string) {
   const [app, setApp] = useState<TldrawApp>();
@@ -64,30 +65,73 @@ export function useMultiplayerState(roomId: string) {
     ) => {
       if (!app || client === undefined || doc === undefined) return;
 
-      doc.update((root) => {
-        Object.entries(shapes).forEach(([id, shape]) => {
+      const getUpdatedPropertyList = <T extends object>(
+        source: T,
+        target: T,
+      ) => {
+        return (Object.keys(source) as Array<keyof T>).filter(
+          (key) => !_.isEqual(source[key], target[key]),
+        );
+      };
+
+      Object.entries(shapes).forEach(([id, shape]) => {
+        doc.update((root) => {
           if (!shape) {
             delete root.shapes[id];
-          } else {
+          } else if (!root.shapes[id]) {
             root.shapes[id] = shape;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              shape,
+              root.shapes[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = shape[key];
+              (root.shapes[id][key] as typeof newValue) = newValue;
+            });
           }
         });
+      });
 
-        Object.entries(bindings).forEach(([id, binding]) => {
+      Object.entries(bindings).forEach(([id, binding]) => {
+        doc.update((root) => {
           if (!binding) {
             delete root.bindings[id];
-          } else {
+          } else if (!root.bindings[id]) {
             root.bindings[id] = binding;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              binding,
+              root.bindings[id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = binding[key];
+              (root.bindings[id][key] as typeof newValue) = newValue;
+            });
           }
         });
+      });
 
-        // Should store app.document.assets which is global asset storage referenced by inner page assets
-        // Document key for assets should be asset.id (string), not index
-        Object.entries(app.assets).forEach(([, asset]) => {
+      // Should store app.document.assets which is global asset storage referenced by inner page assets
+      // Document key for assets should be asset.id (string), not index
+      Object.entries(app.assets).forEach(([, asset]) => {
+        doc.update((root) => {
           if (!asset.id) {
             delete root.assets[asset.id];
-          } else {
+          } else if (root.assets[asset.id]) {
             root.assets[asset.id] = asset;
+          } else {
+            const updatedPropertyList = getUpdatedPropertyList(
+              asset,
+              root.assets[asset.id]!.toJS!(),
+            );
+
+            updatedPropertyList.forEach((key) => {
+              const newValue = asset[key];
+              (root.assets[asset.id][key] as typeof newValue) = newValue;
+            });
           }
         });
       });
@@ -101,7 +145,9 @@ export function useMultiplayerState(roomId: string) {
     (app: TldrawApp, user: TDUser) => {
       if (!app || client === undefined || !client.isActive()) return;
 
-      client.updatePresence('user', user);
+      doc.update((root, presence) => {
+        presence.set({ tdUser: user });
+      });
     },
     60,
     false,
@@ -128,13 +174,13 @@ export function useMultiplayerState(roomId: string) {
 
       // Parse proxy object to record
       const shapeRecord: Record<string, TDShape> = JSON.parse(
-        root.shapes.toJSON(),
+        root.shapes.toJSON!(),
       );
       const bindingRecord: Record<string, TDBinding> = JSON.parse(
-        root.bindings.toJSON(),
+        root.bindings.toJSON!(),
       );
       const assetRecord: Record<string, TDAsset> = JSON.parse(
-        root.assets.toJSON(),
+        root.assets.toJSON!(),
       );
 
       // Replace page content with changed(propagated) records
@@ -146,13 +192,10 @@ export function useMultiplayerState(roomId: string) {
     // Setup the document's storage and subscriptions
     async function setupDocument() {
       try {
-        // 01. Create client with RPCAddr(envoy) and options with presence and apiKey if provided.
+        // 01. Create client with RPCAddr(envoy) and options with apiKey if provided.
         //     Then activate client.
         const options: Options = {
           apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-          presence: {
-            user: app?.currentUser,
-          },
           syncLoopDuration: 0,
           reconnectStreamDelay: 1000,
         };
@@ -163,28 +206,37 @@ export function useMultiplayerState(roomId: string) {
         );
         await client.activate();
 
-        // 01-1. Subscribe peers-changed event and update tldraw users state
-        client.subscribe((event) => {
-          if (event.type !== 'peers-changed') return;
+        // 02. Create document with tldraw custom object type.
+        doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(roomId);
 
-          const { type, peers } = event.value;
+        // 02-1. Subscribe peers-changed event and update tldraw users state
+        doc.subscribe('my-presence', (event) => {
+          if (event.type === yorkie.DocEventType.Initialized) {
+            const allPeers = doc
+              .getPresences()
+              .map((peer) => peer.presence.tdUser);
+            app?.updateUsers(allPeers);
+          }
+        });
+        doc.subscribe('others', (event) => {
           // remove leaved users
-          if (type === 'unwatched') {
-            peers[doc.getKey()].map((peer) => {
-              app?.removeUser(peer.presence.user.id);
-            });
+          if (event.type === yorkie.DocEventType.Unwatched) {
+            app?.removeUser(event.value.presence.tdUser.id);
           }
 
           // update users
-          const allPeers = client
-            .getPeersByDocKey(doc.getKey())
-            .map((peer) => peer.presence.user);
+          const allPeers = doc
+            .getPresences()
+            .map((peer) => peer.presence.tdUser);
           app?.updateUsers(allPeers);
         });
 
-        // 02. Create document with tldraw custom object type, then attach it into the client.
-        doc = new yorkie.Document<YorkieDocType>(roomId);
-        await client.attach(doc);
+        // 02-2. Attach document with initialPresence.
+        await client.attach(doc, {
+          initialPresence: {
+            tdUser: app?.currentUser,
+          },
+        });
 
         // 03. Initialize document if document not exists.
         doc.update((root) => {

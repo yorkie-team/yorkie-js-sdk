@@ -72,7 +72,6 @@ export type {
   MoveOpInfo,
   EditOpInfo,
   StyleOpInfo,
-  SelectOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {

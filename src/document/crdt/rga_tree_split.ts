@@ -238,9 +238,6 @@ export class RGATreeSplitPos {
   }
 }
 
-/**
- * @internal
- */
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 
 /**
@@ -448,6 +445,16 @@ export class RGATreeSplitNode<
   }
 
   /**
+   * `canStyle` checks if node is able to set style.
+   */
+  public canStyle(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+    return (
+      !this.getCreatedAt().after(latestCreatedAt) &&
+      (!this.removedAt || editedAt.after(this.removedAt))
+    );
+  }
+
+  /**
    * `remove` removes node of given edited time.
    */
   public remove(editedAt?: TimeTicket): void {
@@ -492,7 +499,6 @@ export class RGATreeSplitNode<
  * reduce the size of CRDT metadata. When an edit occurs on a block,
  * the block is split.
  *
- * @internal
  */
 export class RGATreeSplit<T extends RGATreeSplitValue> {
   private head: RGATreeSplitNode<T>;

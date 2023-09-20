@@ -50,6 +50,29 @@ describe('Garbage Collection', function () {
     assert.equal(0, doc.getGarbageLen());
   });
 
+  it('disable GC test', function () {
+    const doc = new yorkie.Document<{
+      1: number;
+      2?: Array<number>;
+      3: number;
+    }>('test-doc', { disableGC: true });
+
+    doc.update((root) => {
+      root['1'] = 1;
+      root['2'] = [1, 2, 3];
+      root['3'] = 3;
+    }, 'set 1, 2, 3');
+    assert.equal('{"1":1,"2":[1,2,3],"3":3}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      delete root['2'];
+    }, 'deletes 2');
+    assert.equal('{"1":1,"3":3}', doc.toSortedJSON());
+    assert.equal(4, doc.getGarbageLen());
+    assert.equal(0, doc.garbageCollect(MaxTimeTicket));
+    assert.equal(4, doc.getGarbageLen());
+  });
+
   it('garbage collection test2', function () {
     const size = 10000;
     const doc = new yorkie.Document<{ 1?: Array<unknown> }>('test-doc');
