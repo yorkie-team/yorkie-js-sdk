@@ -16,7 +16,6 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
-  ExecutionResult,
   Operation,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -144,20 +143,13 @@ export class Change<P extends Indexable> {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
   } {
-    const opInfos: Array<OperationInfo> = [];
+    const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
     for (const operation of this.operations) {
-      const executionResult = operation.execute(root);
-      if (
-        (executionResult as ExecutionResult).opInfos !== undefined &&
-        (executionResult as ExecutionResult).reverseOps !== undefined
-      ) {
-        opInfos.push(...(executionResult as ExecutionResult).opInfos);
-        reverseOps.unshift(...(executionResult as ExecutionResult).reverseOps);
-      } else {
-        // TODO(Hyemmie): need to edit return type as "ExecutionResult"
-        // after implementing every operation's reverse operation
-        opInfos.push(...(executionResult as Array<OperationInfo>));
+      const { opInfos, reverseOp } = operation.execute(root);
+      changeOpInfos.push(...opInfos);
+      if (reverseOp) {
+        reverseOps.unshift(reverseOp);
       }
     }
 
@@ -171,7 +163,7 @@ export class Change<P extends Indexable> {
         presences.delete(this.id.getActorID()!);
       }
     }
-    return { opInfos, reverseOps };
+    return { opInfos: changeOpInfos, reverseOps };
   }
 
   /**

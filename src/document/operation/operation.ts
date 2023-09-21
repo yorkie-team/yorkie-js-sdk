@@ -160,7 +160,9 @@ export type TreeStyleOpInfo = {
  */
 export type ExecutionResult = {
   opInfos: Array<OperationInfo>;
-  reverseOps: Array<Operation>;
+  // TODO(chacha912): After implementing all of the reverseOperation,
+  // we change the type to non-optional.
+  reverseOp?: Operation;
 };
 
 /**
@@ -222,9 +224,8 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  // TODO(Hyemmie): need to standardize the return type as "ExecutionResult"
-  // after implement every operation's reverse operation
-  public abstract execute(
-    root: CRDTRoot,
-  ): ExecutionResult | Array<OperationInfo>;
+  public abstract execute(root: CRDTRoot): ExecutionResult;
+
+  // TODO(chacha912): We need to implement all of the reverseOperation
+  // public abstract getReverseOperation(): Operation;
 }

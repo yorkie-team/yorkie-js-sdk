@@ -78,7 +78,7 @@ export class IncreaseOperation extends Operation {
           value: value.getValue() as number,
         },
       ],
-      reverseOps: [this.getReverseOperation()],
+      reverseOp: this.getReverseOperation(),
     };
   }
 
