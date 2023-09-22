@@ -21,10 +21,8 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import {
-  Indexable,
-  HistoryOperation,
-} from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
   PresenceChange,
   PresenceChangeType,

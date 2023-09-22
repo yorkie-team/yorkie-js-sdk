@@ -66,6 +66,7 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
+import { History } from '@yorkie-js-sdk/src/document/history';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -253,13 +254,6 @@ export interface PresenceChangedEvent<P extends Indexable>
  */
 export type Indexable = Record<string, any>;
 
-export type HistoryOperation<P extends Indexable> =
-  | Operation
-  | {
-      type: 'presence';
-      value: Partial<P>;
-    };
-
 /**
  * Document key type
  * @public
@@ -399,8 +393,6 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   Depth
 >;
 
-export const MaxUndoRedoStackDepth = 50;
-
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
@@ -436,23 +428,18 @@ export class Document<T, P extends Indexable = Indexable> {
   private presences: Map<ActorID, P>;
 
   /**
-   * `history` manages undo and redo of document.
+   * `history` is exposed to the user to manage undo/redo operations.
    */
   public history;
 
   /**
-   * `undoStack` stores the history of undo operations.
+   * `internalHistory` is used to manage undo/redo operations internally.
    */
-  private undoStack: Array<Array<HistoryOperation<P>>>;
+  public internalHistory: History<P>;
 
   /**
-   * `redoStack` stores the history of redo operations.
-   */
-  private redoStack: Array<Array<HistoryOperation<P>>>;
-
-  /**
-   * `isUpdating` is whether the document is updating or not. It is used to
-   * prevent calling `undo` or `redo` in the updater.
+   * `isUpdating` is whether the document is updating by updater or not. It is
+   * used to prevent the updater from calling undo/redo.
    */
   private isUpdating: boolean;
 
@@ -475,9 +462,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.presences = new Map();
 
     this.isUpdating = false;
-    this.undoStack = [];
-    this.redoStack = [];
-
+    this.internalHistory = new History();
     this.history = {
       canUndo: this.canUndo.bind(this),
       canRedo: this.canRedo.bind(this),
@@ -516,8 +501,8 @@ export class Document<T, P extends Indexable = Indexable> {
         this.clone!.presences.set(actorID, {} as P);
       }
 
-      // NOTE(chacha912): Throw an error when calling history.undo() or redo() in
-      // the updater.
+      // NOTE(hackerwins): The updater should not be able to call undo/redo.
+      // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
       updater(
         proxy,
@@ -550,9 +535,9 @@ export class Document<T, P extends Indexable = Indexable> {
 
       this.localChanges.push(change);
       if (reverseOps.length > 0) {
-        this.pushUndo(reverseOps);
+        this.internalHistory.pushUndo(reverseOps);
       }
-      this.clearRedo();
+      this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
       if (change.hasOperations()) {
@@ -1232,41 +1217,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * `canUndo` returns whether there are any operations to undo.
    */
   private canUndo(): boolean {
-    return this.undoStack.length > 0 && !this.isUpdating;
+    return this.internalHistory.hasUndo() && !this.isUpdating;
   }
 
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
   private canRedo(): boolean {
-    return this.redoStack.length > 0 && !this.isUpdating;
-  }
-
-  /**
-   * `pushUndo` pushes new undo operations of a change to undo stack.
-   */
-  private pushUndo(undoOps: Array<HistoryOperation<P>>): void {
-    if (this.undoStack.length >= MaxUndoRedoStackDepth) {
-      this.undoStack.shift();
-    }
-    this.undoStack.push(undoOps);
-  }
-
-  /**
-   * `pushRedo` pushes new redo operations of a change to redo stack.
-   */
-  private pushRedo(redoOps: Array<HistoryOperation<P>>): void {
-    if (this.redoStack.length >= MaxUndoRedoStackDepth) {
-      this.redoStack.shift();
-    }
-    this.redoStack.push(redoOps);
-  }
-
-  /**
-   * `clearRedo` flushes remaining redo operations.
-   */
-  private clearRedo(): void {
-    this.redoStack = [];
+    return this.internalHistory.hasRedo() && !this.isUpdating;
   }
 
   /**
@@ -1277,7 +1235,7 @@ export class Document<T, P extends Indexable = Indexable> {
     if (this.isUpdating) {
       throw new Error('Undo is not allowed during an update');
     }
-    const undoOps = this.undoStack.pop();
+    const undoOps = this.internalHistory.popUndo();
     if (undoOps === undefined) {
       throw new Error('There is no operation to be undone');
     }
@@ -1322,7 +1280,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (reverseOps.length > 0) {
-      this.pushRedo(reverseOps);
+      this.internalHistory.pushRedo(reverseOps);
     }
 
     this.localChanges.push(change);
@@ -1359,7 +1317,7 @@ export class Document<T, P extends Indexable = Indexable> {
       throw new Error('Redo is not allowed during an update');
     }
 
-    const redoOps = this.redoStack.pop();
+    const redoOps = this.internalHistory.popRedo();
     if (redoOps === undefined) {
       throw new Error('There is no operation to be redone');
     }
@@ -1404,7 +1362,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (reverseOps.length > 0) {
-      this.pushUndo(reverseOps);
+      this.internalHistory.pushUndo(reverseOps);
     }
 
     this.localChanges.push(change);
@@ -1436,21 +1394,13 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getUndoStackForTest` returns the undo stack for test.
    */
   public getUndoStackForTest(): Array<Array<string>> {
-    return this.undoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
+    return this.internalHistory.getUndoStackForTest();
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
   public getRedoStackForTest(): Array<Array<string>> {
-    return this.redoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
+    return this.internalHistory.getRedoStackForTest();
   }
 }
