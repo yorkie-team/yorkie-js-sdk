@@ -225,7 +225,4 @@ export abstract class Operation {
    * `execute` executes this operation on the given `CRDTRoot`.
    */
   public abstract execute(root: CRDTRoot): ExecutionResult;
-
-  // TODO(chacha912): We need to implement all of the reverseOperation
-  // public abstract getReverseOperation(): Operation;
 }
