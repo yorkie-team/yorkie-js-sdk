@@ -441,15 +441,20 @@ export class Document<T, P extends Indexable = Indexable> {
   public history;
 
   /**
-   * `undoStack` and `redoStack` store operations for `undo`, `redo`.
+   * `undoStack` stores the history of undo operations.
    */
   private undoStack: Array<Array<HistoryOperation<P>>>;
+
+  /**
+   * `redoStack` stores the history of redo operations.
+   */
   private redoStack: Array<Array<HistoryOperation<P>>>;
 
   /**
-   * `updateStatus` is a flag that represents if current document is updating by doc.update().
+   * `isUpdating` is whether the document is updating or not. It is used to
+   * prevent calling `undo` or `redo` in the updater.
    */
-  private updateStatus: boolean;
+  private isUpdating: boolean;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -469,7 +474,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.onlineClients = new Set();
     this.presences = new Map();
 
-    this.updateStatus = false;
+    this.isUpdating = false;
     this.undoStack = [];
     this.redoStack = [];
 
@@ -513,7 +518,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
       // NOTE(chacha912): Throw an error when calling history.undo() or redo() in
       // the updater.
-      this.setUpdateStatus(true);
+      this.isUpdating = true;
       updater(
         proxy,
         new Presence(context, this.clone!.presences.get(actorID)!),
@@ -524,7 +529,7 @@ export class Document<T, P extends Indexable = Indexable> {
       logger.error(err);
       throw err;
     } finally {
-      this.setUpdateStatus(false);
+      this.isUpdating = false;
     }
 
     // 02. Update the root object and presences from changes.
@@ -1227,14 +1232,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * `canUndo` returns whether there are any operations to undo.
    */
   private canUndo(): boolean {
-    return this.undoStack.length > 0 && !this.getUpdateStatus();
+    return this.undoStack.length > 0 && !this.isUpdating;
   }
 
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
   private canRedo(): boolean {
-    return this.redoStack.length > 0 && !this.getUpdateStatus();
+    return this.redoStack.length > 0 && !this.isUpdating;
   }
 
   /**
@@ -1269,7 +1274,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * It does not impact operations made by other clients.
    */
   private undo(): void {
-    if (this.getUpdateStatus()) {
+    if (this.isUpdating) {
       throw new Error('Undo is not allowed during an update');
     }
     const undoOps = this.undoStack.pop();
@@ -1350,7 +1355,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * It does not impact operations made by other clients.
    */
   private redo(): void {
-    if (this.getUpdateStatus()) {
+    if (this.isUpdating) {
       throw new Error('Redo is not allowed during an update');
     }
 
@@ -1447,23 +1452,5 @@ export class Document<T, P extends Indexable = Indexable> {
         return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
       }),
     );
-  }
-
-  /**
-   * `setUpdateStatus` updates the update status of this document.
-   *
-   * @internal
-   */
-  public setUpdateStatus(status: boolean) {
-    this.updateStatus = status;
-  }
-
-  /**
-   * `getStatus` returns the update status of this document.
-   *
-   * @internal
-   */
-  public getUpdateStatus(): boolean {
-    return this.updateStatus;
   }
 }
