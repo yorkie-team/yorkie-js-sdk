@@ -484,12 +484,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 01. Update the clone object and create a change.
     this.ensureClone();
+    const actorID = this.changeID.getActorID()!;
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(actorID) || ({} as P),
       message,
     );
-    const actorID = this.changeID.getActorID()!;
 
     try {
       const proxy = createJSON<JSONObject<T>>(
@@ -937,6 +938,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
     );
     return createJSON<T>(context, this.clone!.root.getObject());
   }
@@ -1241,9 +1243,12 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     this.ensureClone();
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
     );
 
     // apply undo operation in the context to generate a change
@@ -1326,6 +1331,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
     );
 
     // apply redo operation in the context to generate a change

@@ -29,6 +29,7 @@ import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -40,16 +41,22 @@ export class ChangeContext<P extends Indexable = Indexable> {
   private root: CRDTRoot;
   private operations: Array<Operation>;
   private presenceChange?: PresenceChange<P>;
-  private reversePresence: Partial<P>;
   private message?: string;
   private delimiter: number;
+  /**
+   * `oldPresence` stores the previous presence when creating the context,
+   * to be used for undoing presence changes.
+   */
+  private oldPresence: P;
+  private reversePresenceKey: { set: Set<string> };
 
-  constructor(id: ChangeID, root: CRDTRoot, message?: string) {
+  constructor(id: ChangeID, root: CRDTRoot, presence: P, message?: string) {
     this.id = id;
     this.root = root;
     this.operations = [];
+    this.oldPresence = deepcopy(presence);
     this.presenceChange = undefined;
-    this.reversePresence = {};
+    this.reversePresenceKey = { set: new Set() };
     this.message = message;
     this.delimiter = InitialDelimiter;
   }
@@ -60,9 +67,10 @@ export class ChangeContext<P extends Indexable = Indexable> {
   public static create<P extends Indexable>(
     id: ChangeID,
     root: CRDTRoot,
+    presence: P,
     message?: string,
   ): ChangeContext<P> {
-    return new ChangeContext(id, root, message);
+    return new ChangeContext(id, root, presence, message);
   }
 
   /**
@@ -123,10 +131,15 @@ export class ChangeContext<P extends Indexable = Indexable> {
   /**
    * `setReversePresence` registers the previous presence to undo presence updates.
    */
-  public setReversePresence(presence: Partial<P>) {
+  public setReversePresence(
+    presence: Partial<P>,
+    option?: { addToHistory: boolean },
+  ) {
     for (const key of Object.keys(presence)) {
-      if (!(key in this.reversePresence)) {
-        this.reversePresence[key as keyof P] = presence[key];
+      if (option?.addToHistory) {
+        this.reversePresenceKey.set.add(key);
+      } else {
+        this.reversePresenceKey.set.delete(key);
       }
     }
   }
@@ -135,8 +148,13 @@ export class ChangeContext<P extends Indexable = Indexable> {
    * `getReversePresence` returns the reverse presence of this context.
    */
   public getReversePresence() {
-    if (Object.keys(this.reversePresence).length === 0) return undefined;
-    return this.reversePresence;
+    if (this.reversePresenceKey.set.size === 0) return undefined;
+
+    const reversePresence: Partial<P> = {};
+    for (const key of this.reversePresenceKey.set) {
+      reversePresence[key as keyof P] = this.oldPresence[key];
+    }
+    return reversePresence;
   }
 
   /**

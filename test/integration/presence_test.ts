@@ -752,12 +752,12 @@ describe('Undo/Redo', function () {
       color: 'green',
     });
 
-    // 2. If addToHistory is set for one "color" key, you can undo
-    // to its previous value(purple -> green). During redo, it changes
-    // to the final value(green -> purple).
+    // 2. `addToHistory` option accumulates for a single key,
+    // applying to the last key only. When set to true for the
+    // last "color" key, it adds the color to the undo stack.
     doc.update((root, presence) => {
-      presence.set({ color: 'black' }, { addToHistory: true });
-      presence.set({ color: 'purple' });
+      presence.set({ color: 'black' });
+      presence.set({ color: 'purple' }, { addToHistory: true });
     });
     assert.deepEqual(doc.getMyPresence(), {
       color: 'purple',
@@ -771,6 +771,27 @@ describe('Undo/Redo', function () {
     doc.history.redo();
     assert.deepEqual(doc.getMyPresence(), {
       color: 'purple',
+    });
+
+    // 3. When `addToHistory` is false for the last key, it
+    // will not be added to the undo stack. The default value
+    // when the option is not set is false.
+    doc.update((root, presence) => {
+      presence.set({ color: 'yellow' }, { addToHistory: true });
+      presence.set({ color: 'orange' });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'orange',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'orange',
     });
 
     await client.deactivate();

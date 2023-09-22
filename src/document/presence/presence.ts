@@ -51,9 +51,7 @@ export class Presence<P extends Indexable> {
    * `set` updates the presence based on the partial presence.
    */
   public set(presence: Partial<P>, option?: { addToHistory: boolean }) {
-    const oldPresence = {} as Partial<P>;
     for (const key of Object.keys(presence)) {
-      oldPresence[key as keyof P] = this.presence[key];
       this.presence[key as keyof P] = presence[key]!;
     }
 
@@ -62,9 +60,7 @@ export class Presence<P extends Indexable> {
       presence: deepcopy(this.presence),
     });
 
-    if (option?.addToHistory) {
-      this.changeContext.setReversePresence(oldPresence);
-    }
+    this.changeContext.setReversePresence(presence, option);
   }
 
   /**
