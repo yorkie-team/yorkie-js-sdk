@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {

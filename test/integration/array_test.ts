@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
@@ -252,7 +252,7 @@ describe('Array', function () {
     });
   });
 
-  it('Can handle concurrent insertAfter operations', async function () {
+  it('Can handle concurrent insertAfter operations', async function ({ task }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
@@ -292,10 +292,12 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveBefore operations with the same position', async function () {
+  it('Can handle concurrent moveBefore operations with the same position', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -338,10 +340,12 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveBefore operations from the different position', async function () {
+  it('Can handle concurrent moveBefore operations from the different position', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -370,10 +374,12 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveFront operations with the item which has the different index', async function () {
+  it('Can handle concurrent moveFront operations with the item which has the different index', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -412,10 +418,12 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveFront operations with the item which has the same index', async function () {
+  it('Can handle concurrent moveFront operations with the item which has the same index', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -442,10 +450,10 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveAfter operations', async function () {
+  it('Can handle concurrent moveAfter operations', async function ({ task }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -472,10 +480,12 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent insertAfter and moveBefore operations', async function () {
+  it('Can handle concurrent insertAfter and moveBefore operations', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
@@ -518,10 +528,10 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent moveAfter', async function () {
+  it('Can handle concurrent moveAfter', async function ({ task }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -550,10 +560,10 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent add operations', async function () {
+  it('Can handle concurrent add operations', async function ({ task }) {
     type TestDoc = { k1: Array<string> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -573,10 +583,10 @@ describe('Array', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent delete operations', async function () {
+  it('Can handle concurrent delete operations', async function ({ task }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
@@ -603,10 +613,12 @@ describe('Array', function () {
       d1.update((root) => {
         assert.equal(3, root.k1.length);
       });
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent insertBefore and delete operations', async function () {
+  it('Can handle concurrent insertBefore and delete operations', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
@@ -637,10 +649,12 @@ describe('Array', function () {
         assert.equal('{"k1":[2]}', root.toJSON!());
         assert.equal(1, root.k1.length);
       });
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle complex concurrent insertBefore and delete operations', async function () {
+  it('Can handle complex concurrent insertBefore and delete operations', async function ({
+    task,
+  }) {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
@@ -691,7 +705,7 @@ describe('Array', function () {
         assert.equal('{"k1":[7,1,5,3,6,4]}', root.toJSON!());
         assert.equal(6, root.k1.length);
       });
-    }, this.test!.title);
+    }, task.name);
   });
 
   it('Returns undefined when looking up an element that doesnt exist after GC', function () {

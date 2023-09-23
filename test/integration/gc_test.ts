@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
@@ -289,8 +289,10 @@ describe('Garbage Collection', function () {
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
   });
 
-  it('Can handle tree garbage collection for multi client', async function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can handle tree garbage collection for multi client', async function ({
+    task,
+  }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<{ t: Tree }>(docKey);
     const doc2 = new yorkie.Document<{ t: Tree }>(docKey);
 
@@ -371,9 +373,11 @@ describe('Garbage Collection', function () {
     await client2.deactivate();
   });
 
-  it('Can handle garbage collection for container type', async function () {
+  it('Can handle garbage collection for container type', async function ({
+    task,
+  }) {
     type TestDoc = { 1: number; 2?: Array<number>; 3: number };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -439,9 +443,9 @@ describe('Garbage Collection', function () {
     await client2.deactivate();
   });
 
-  it('Can handle garbage collection for text type', async function () {
+  it('Can handle garbage collection for text type', async function ({ task }) {
     type TestDoc = { text: Text; textWithAttr: Text };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -510,7 +514,9 @@ describe('Garbage Collection', function () {
     await client2.deactivate();
   });
 
-  it('Can handle garbage collection with detached document test', async function () {
+  it('Can handle garbage collection with detached document test', async function ({
+    task,
+  }) {
     type TestDoc = {
       1: number;
       2?: Array<number>;
@@ -518,7 +524,7 @@ describe('Garbage Collection', function () {
       4: Text;
       5: Text;
     };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
