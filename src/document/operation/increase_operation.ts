@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
+import Long from 'long';
 import {
+  ExecutionResult,
   Operation,
-  OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import {
+  Primitive,
+  PrimitiveType,
+} from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 
@@ -35,7 +39,7 @@ export class IncreaseOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.value = value;
@@ -47,7 +51,7 @@ export class IncreaseOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): IncreaseOperation {
     return new IncreaseOperation(parentCreatedAt, value, executedAt);
   }
@@ -55,7 +59,7 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -66,13 +70,35 @@ export class IncreaseOperation extends Operation {
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
     counter.increase(value);
-    return [
-      {
-        type: 'increase',
-        path: root.createPath(this.getParentCreatedAt()),
-        value: value.getValue() as number,
-      },
-    ];
+    return {
+      opInfos: [
+        {
+          type: 'increase',
+          path: root.createPath(this.getParentCreatedAt()),
+          value: value.getValue() as number,
+        },
+      ],
+      reverseOp: this.getReverseOperation(),
+    };
+  }
+
+  /**
+   * `getReverseOperation` returns the reverse operation of this operation.
+   */
+  public getReverseOperation(): Operation {
+    const primitiveValue = this.value.deepcopy() as Primitive;
+
+    const valueType = primitiveValue.getType();
+    const value =
+      valueType === PrimitiveType.Long
+        ? (primitiveValue.getValue() as Long).multiply(-1)
+        : (primitiveValue.getValue() as number) * -1;
+
+    const reverseOp = IncreaseOperation.create(
+      this.getParentCreatedAt(),
+      Primitive.of(value, primitiveValue.getCreatedAt()),
+    );
+    return reverseOp;
   }
 
   /**
@@ -86,7 +112,7 @@ export class IncreaseOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.INCREASE`;
+    return `${this.getParentCreatedAt().toTestString()}.INCREASE.${this.value.toJSON()}`;
   }
 
   /**
