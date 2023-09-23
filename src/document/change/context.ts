@@ -38,27 +38,35 @@ import { deepcopy } from '@yorkie-js-sdk/src/util/object';
  */
 export class ChangeContext<P extends Indexable = Indexable> {
   private id: ChangeID;
+  private delimiter: number;
+  private message?: string;
+
   private root: CRDTRoot;
   private operations: Array<Operation>;
   private presenceChange?: PresenceChange<P>;
-  private message?: string;
-  private delimiter: number;
+
   /**
-   * `oldPresence` stores the previous presence when creating the context,
-   * to be used for undoing presence changes.
+   * `previousPresence` stores the previous presence to be used for undoing
+   * presence changes.
    */
-  private oldPresence: P;
-  private reversePresenceKey: { set: Set<string> };
+  private previousPresence: P;
+
+  /**
+   * `reversePresenceKeys` stores the keys of the presence to be used for undoing
+   * presence changes.
+   */
+  private reversePresenceKeys: Set<string>;
 
   constructor(id: ChangeID, root: CRDTRoot, presence: P, message?: string) {
     this.id = id;
+    this.delimiter = InitialDelimiter;
+
     this.root = root;
     this.operations = [];
-    this.oldPresence = deepcopy(presence);
+    this.previousPresence = deepcopy(presence);
     this.presenceChange = undefined;
-    this.reversePresenceKey = { set: new Set() };
+    this.reversePresenceKeys = new Set();
     this.message = message;
-    this.delimiter = InitialDelimiter;
   }
 
   /**
@@ -137,9 +145,9 @@ export class ChangeContext<P extends Indexable = Indexable> {
   ) {
     for (const key of Object.keys(presence)) {
       if (option?.addToHistory) {
-        this.reversePresenceKey.set.add(key);
+        this.reversePresenceKeys.add(key);
       } else {
-        this.reversePresenceKey.set.delete(key);
+        this.reversePresenceKeys.delete(key);
       }
     }
   }
@@ -148,11 +156,11 @@ export class ChangeContext<P extends Indexable = Indexable> {
    * `getReversePresence` returns the reverse presence of this context.
    */
   public getReversePresence() {
-    if (this.reversePresenceKey.set.size === 0) return undefined;
+    if (this.reversePresenceKeys.size === 0) return undefined;
 
     const reversePresence: Partial<P> = {};
-    for (const key of this.reversePresenceKey.set) {
-      reversePresence[key as keyof P] = this.oldPresence[key];
+    for (const key of this.reversePresenceKeys) {
+      reversePresence[key as keyof P] = this.previousPresence[key];
     }
     return reversePresence;
   }

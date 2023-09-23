@@ -18,15 +18,6 @@ import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 
-export type PresenceChange<P extends Indexable> =
-  | {
-      type: PresenceChangeType.Put;
-      presence: P;
-    }
-  | {
-      type: PresenceChangeType.Clear;
-    };
-
 /**
  * `PresenceChangeType` represents the type of presence change.
  */
@@ -36,14 +27,21 @@ export enum PresenceChangeType {
 }
 
 /**
+ * `PresenceChange` represents the change of presence.
+ */
+export type PresenceChange<P extends Indexable> =
+  | { type: PresenceChangeType.Put; presence: P; }
+  | { type: PresenceChangeType.Clear; };
+
+/**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
  */
 export class Presence<P extends Indexable> {
-  private changeContext: ChangeContext;
+  private context: ChangeContext;
   private presence: P;
 
   constructor(changeContext: ChangeContext, presence: P) {
-    this.changeContext = changeContext;
+    this.context = changeContext;
     this.presence = presence;
   }
 
@@ -55,12 +53,12 @@ export class Presence<P extends Indexable> {
       this.presence[key as keyof P] = presence[key]!;
     }
 
-    this.changeContext.setPresenceChange({
+    this.context.setPresenceChange({
       type: PresenceChangeType.Put,
       presence: deepcopy(this.presence),
     });
 
-    this.changeContext.setReversePresence(presence, option);
+    this.context.setReversePresence(presence, option);
   }
 
   /**
@@ -77,7 +75,7 @@ export class Presence<P extends Indexable> {
   public clear() {
     this.presence = {} as P;
 
-    this.changeContext.setPresenceChange({
+    this.context.setPresenceChange({
       type: PresenceChangeType.Clear,
     });
   }
