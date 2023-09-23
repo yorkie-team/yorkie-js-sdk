@@ -9,7 +9,10 @@
 **Signature:**
 
 ```typescript
-execute(root: CRDTRoot, presences: Map<ActorID, P>): Array<OperationInfo>;
+execute(root: CRDTRoot, presences: Map<ActorID, P>): {
+        opInfos: Array<OperationInfo>;
+        reverseOps: Array<HistoryOperation<P>>;
+    };
 ```
 
 ## Parameters
@@ -21,5 +24,5 @@ execute(root: CRDTRoot, presences: Map<ActorID, P>): Array<OperationInfo>;
 
 **Returns:**
 
-Array&lt;[OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->&gt;
+{ opInfos: Array&lt;[OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->&gt;; reverseOps: Array&lt;HistoryOperation&lt;P&gt;&gt;; }
 

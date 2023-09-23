@@ -18,6 +18,13 @@ declare class Document<T, P extends Indexable = Indexable>
 |  --- | --- | --- |
 |  [(constructor)(key, opts)](./yorkie-js-sdk.document._constructor_.md) |  | Constructs a new instance of the <code>Document</code> class |
 
+## Properties
+
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [history](./yorkie-js-sdk.document.history.md) |  | { canUndo: () =&gt; boolean; canRedo: () =&gt; boolean; undo: () =&gt; void; redo: () =&gt; void; } | <code>history</code> is exposed to the user to manage undo/redo operations. |
+|  [internalHistory](./yorkie-js-sdk.document.internalhistory.md) |  | History&lt;P&gt; | <code>internalHistory</code> is used to manage undo/redo operations internally. |
+
 ## Methods
 
 |  Method | Modifiers | Description |
@@ -27,7 +34,9 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
 |  [getPresence(clientID)](./yorkie-js-sdk.document.getpresence.md) |  | <code>getPresence</code> returns the presence of the given clientID. |
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
+|  [getRedoStackForTest()](./yorkie-js-sdk.document.getredostackfortest.md) |  | <code>getRedoStackForTest</code> returns the redo stack for test. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
+|  [getUndoStackForTest()](./yorkie-js-sdk.document.getundostackfortest.md) |  | <code>getUndoStackForTest</code> returns the undo stack for test. |
 |  [getValueByPath(path)](./yorkie-js-sdk.document.getvaluebypath.md) |  | <code>getValueByPath</code> returns the JSONElement corresponding to the given path. |
 |  [publish(event)](./yorkie-js-sdk.document.publish.md) |  | <code>publish</code> triggers an event in this document, which can be received by callback functions from document.subscribe(). |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the document is changed. |
