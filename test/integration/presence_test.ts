@@ -21,14 +21,10 @@ describe('Presence', function () {
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      isRealtimeSync: false,
-    });
+    await c1.attach(doc1, { isRealtimeSync: false });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      isRealtimeSync: false,
-    });
+    await c2.attach(doc2, { isRealtimeSync: false });
 
     const snapshotThreshold = 500;
     for (let i = 0; i < snapshotThreshold; i++) {
@@ -87,14 +83,10 @@ describe('Presence', function () {
     const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      isRealtimeSync: false,
-    });
+    await c1.attach(doc1, { isRealtimeSync: false });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      isRealtimeSync: false,
-    });
+    await c2.attach(doc2, { isRealtimeSync: false });
 
     const emptyObject = {} as PresenceType;
     assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), emptyObject);
@@ -379,18 +371,14 @@ describe(`Document.Subscribe('presence')`, function () {
     type PresenceType = { name: string };
     const eventCollector = new EventCollector<DocEvent>();
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      initialPresence: { name: 'a' },
-    });
+    await c1.attach(doc1, { initialPresence: { name: 'a' } });
     const stub1 = sinon.stub().callsFake((event) => {
       eventCollector.add(event);
     });
     const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      initialPresence: { name: 'b' },
-    });
+    await c2.attach(doc2, { initialPresence: { name: 'b' } });
     await eventCollector.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: { name: 'b' } },
@@ -556,9 +544,7 @@ describe('Undo/Redo', function () {
 
     const client = new yorkie.Client(testRPCAddr);
     await client.activate();
-    await client.attach(doc, {
-      initialPresence: { color: 'red' },
-    });
+    await client.attach(doc, { initialPresence: { color: 'red' } });
 
     // 1. Presence update only
     doc.update((root, presence) => {
@@ -728,9 +714,7 @@ describe('Undo/Redo', function () {
 
     const client = new yorkie.Client(testRPCAddr);
     await client.activate();
-    await client.attach(doc, {
-      initialPresence: { color: 'red' },
-    });
+    await client.attach(doc, { initialPresence: { color: 'red' } });
 
     // 1. When multiple changes are made to the "color" key,
     // it should revert to the value before doc.update() call.

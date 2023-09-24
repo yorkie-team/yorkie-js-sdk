@@ -444,8 +444,8 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    await c1.attach(d1);
-    await c2.attach(d2);
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2, { isRealtimeSync: false });
 
     d1.update((root) => {
       root['k1'] = [1, 2];
