@@ -91,8 +91,6 @@ export class Counter {
     }
 
     this.counter.increase(value);
-    // TODO: consider generate reverse operation and add to Context
-    // or it could be done in doc.update()
     this.context.push(
       IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
     );

@@ -81,18 +81,6 @@ export interface DocumentOptions {
 }
 
 /**
- * `DocumentOptions` are the options to create a new document.
- *
- * @public
- */
-export interface DocumentOptions {
-  /**
-   * `disableGC` disables garbage collection if true.
-   */
-  disableGC?: boolean;
-}
-
-/**
  * `DocumentStatus` represents the status of the document.
  * @public
  */
@@ -267,13 +255,6 @@ export interface PresenceChangedEvent<P extends Indexable>
  */
 export type Indexable = Record<string, any>;
 
-export type HistoryOperation<P extends Indexable> =
-  | Operation
-  | {
-      type: 'presence';
-      value: Partial<P>;
-    };
-
 /**
  * Document key type
  * @public
@@ -412,8 +393,6 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   '$.',
   Depth
 >;
-
-export const MaxUndoRedoStackDepth = 50;
 
 /**
  * `Document` is a CRDT-based data type. We can represent the model
@@ -839,10 +818,6 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    // TODO(Hyemmie): To support undo&redo in text.edit, garbage collection
-    // should be disabled.
-    // It should be implemented so that GC can be turned on/off manually,
-    // not by commenting.
     this.garbageCollect(pack.getMinSyncedTicket()!);
 
     // 05. Update the status.
@@ -976,6 +951,8 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
+    // TODO(Hyemmie): To support undo&redo in text.edit, garbage collection
+    // should be disabled.
     if (this.opts.disableGC) {
       return 0;
     }

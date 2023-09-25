@@ -25,11 +25,9 @@ export abstract class CRDTElement {
   private createdAt: TimeTicket;
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
-  private lastUpdatedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
-    this.lastUpdatedAt = createdAt;
   }
 
   /**
@@ -58,20 +56,6 @@ export abstract class CRDTElement {
    */
   public getRemovedAt(): TimeTicket | undefined {
     return this.removedAt;
-  }
-
-  /**
-   * `getLastUpdatedAt` returns the last update time of this element.
-   */
-  public getLastUpdatedAt(): TimeTicket {
-    return this.lastUpdatedAt;
-  }
-
-  /**
-   * `setLastUpdatedAt` sets the last update time of this element.
-   */
-  public setLastUpdatedAt(lastUpdatedAt: TimeTicket): void {
-    this.lastUpdatedAt = lastUpdatedAt;
   }
 
   /**

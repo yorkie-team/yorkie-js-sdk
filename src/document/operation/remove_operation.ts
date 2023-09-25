@@ -19,6 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   Operation,
+  OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -33,7 +34,7 @@ export class RemoveOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt?: TimeTicket,
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
@@ -45,7 +46,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt?: TimeTicket,
+    executedAt: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
@@ -63,28 +64,27 @@ export class RemoveOperation extends Operation {
     }
     const obj = parentObject as CRDTContainer;
     const key = obj.subPathOf(this.createdAt);
-
     const elem = obj.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
-    return {
-      opInfos:
-        parentObject instanceof CRDTArray
-          ? [
-              {
-                type: 'remove',
-                path: root.createPath(this.getParentCreatedAt()),
-                index: Number(key),
-              },
-            ]
-          : [
-              {
-                type: 'remove',
-                path: root.createPath(this.getParentCreatedAt()),
-                key,
-              },
-            ],
-    };
+    const opInfos: Array<OperationInfo> =
+      parentObject instanceof CRDTArray
+        ? [
+            {
+              type: 'remove',
+              path: root.createPath(this.getParentCreatedAt()),
+              index: Number(key),
+            },
+          ]
+        : [
+            {
+              type: 'remove',
+              path: root.createPath(this.getParentCreatedAt()),
+              key,
+            },
+          ];
+
+    return { opInfos };
   }
 
   /**

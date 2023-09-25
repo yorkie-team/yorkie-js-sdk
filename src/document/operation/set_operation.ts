@@ -20,8 +20,8 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
-  ExecutionResult,
   Operation,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -36,7 +36,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt?: TimeTicket,
+    executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.key = key;
@@ -50,7 +50,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt?: TimeTicket,
+    executedAt: TimeTicket,
   ): SetOperation {
     return new SetOperation(key, value, parentCreatedAt, executedAt);
   }
@@ -68,7 +68,7 @@ export class SetOperation extends Operation {
     }
     const obj = parentObject as CRDTObject;
     const value = this.value.deepcopy();
-    obj.set(this.key, value, this.getExecutedAt());
+    obj.set(this.key, value);
     root.registerElement(value, obj);
     return {
       opInfos: [

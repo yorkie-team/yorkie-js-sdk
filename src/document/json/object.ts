@@ -154,7 +154,7 @@ export class ObjectProxy {
     const ticket = context.issueTimeTicket();
 
     const setAndRegister = function (elem: CRDTElement) {
-      const removed = target.set(key, elem, ticket);
+      const removed = target.set(key, elem);
       context.registerElement(elem, target);
       if (removed) {
         context.registerRemovedElement(removed);
@@ -184,7 +184,7 @@ export class ObjectProxy {
     } else if (typeof value === 'object') {
       if (value instanceof Text) {
         const text = CRDTText.create(RGATreeSplit.create(), ticket);
-        target.set(key, text, ticket);
+        target.set(key, text);
         context.registerElement(text, target);
         context.push(
           SetOperation.create(
@@ -201,7 +201,7 @@ export class ObjectProxy {
           value.getValue(),
           ticket,
         );
-        target.set(key, counter, ticket);
+        target.set(key, counter);
         context.registerElement(counter, target);
         context.push(
           SetOperation.create(
@@ -214,7 +214,7 @@ export class ObjectProxy {
         value.initialize(context, counter);
       } else if (value instanceof Tree) {
         const tree = CRDTTree.create(value.buildRoot(context), ticket);
-        target.set(key, tree, ticket);
+        target.set(key, tree);
         context.registerElement(tree, target);
         context.push(
           SetOperation.create(
