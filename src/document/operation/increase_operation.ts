@@ -78,12 +78,12 @@ export class IncreaseOperation extends Operation {
           value: value.getValue() as number,
         },
       ],
-      reverseOps: [this.getReverseOperation()],
+      reverseOp: this.getReverseOperation(),
     };
   }
 
   /**
-   * `getReverseOperation` returns this operation's reverse operation.
+   * `getReverseOperation` returns the reverse operation of this operation.
    */
   public getReverseOperation(): Operation {
     const primitiveValue = this.value.deepcopy() as Primitive;

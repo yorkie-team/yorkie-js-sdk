@@ -66,6 +66,7 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
+import { History } from '@yorkie-js-sdk/src/document/history';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -449,19 +450,20 @@ export class Document<T, P extends Indexable = Indexable> {
   private presences: Map<ActorID, P>;
 
   /**
-   * `history` manages undo and redo of document.
+   * `history` is exposed to the user to manage undo/redo operations.
    */
   public history;
-  /**
-   * `undoStack` and `redoStack` store operations for `undo`, `redo`.
-   */
-  private undoStack: Array<Array<HistoryOperation<P>>>;
-  private redoStack: Array<Array<HistoryOperation<P>>>;
 
   /**
-   * `updateStatus` is a flag that represents if current document is updating by doc.update().
+   * `internalHistory` is used to manage undo/redo operations internally.
    */
-  private updateStatus: boolean;
+  public internalHistory: History<P>;
+
+  /**
+   * `isUpdating` is whether the document is updating by updater or not. It is
+   * used to prevent the updater from calling undo/redo.
+   */
+  private isUpdating: boolean;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -481,10 +483,8 @@ export class Document<T, P extends Indexable = Indexable> {
     this.onlineClients = new Set();
     this.presences = new Map();
 
-    this.updateStatus = false;
-    this.undoStack = [];
-    this.redoStack = [];
-
+    this.isUpdating = false;
+    this.internalHistory = new History();
     this.history = {
       canUndo: this.canUndo.bind(this),
       canRedo: this.canRedo.bind(this),
@@ -504,18 +504,15 @@ export class Document<T, P extends Indexable = Indexable> {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
 
-    if (this.getUpdateStatus()) {
-      //TODO(Hyemmie): Consider the handling of nested updates. (Issue #606)
-    }
-    this.setUpdateStatus(true);
-
+    // 01. Update the clone object and create a change.
     this.ensureClone();
+    const actorID = this.changeID.getActorID()!;
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(actorID) || ({} as P),
       message,
     );
-    const actorID = this.changeID.getActorID()!;
 
     try {
       const proxy = createJSON<JSONObject<T>>(
@@ -527,25 +524,29 @@ export class Document<T, P extends Indexable = Indexable> {
         this.clone!.presences.set(actorID, {} as P);
       }
 
+      // NOTE(hackerwins): The updater should not be able to call undo/redo.
+      // If the updater calls undo/redo, an error will be thrown.
+      this.isUpdating = true;
       updater(
         proxy,
         new Presence(context, this.clone!.presences.get(actorID)!),
       );
     } catch (err) {
       // drop clone because it is contaminated.
-      this.setUpdateStatus(false);
       this.clone = undefined;
       logger.error(err);
       throw err;
+    } finally {
+      this.isUpdating = false;
     }
 
+    // 02. Update the root object and presences from changes.
     if (context.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
       const change = context.getChange();
-      // TODO: consider about getting undoOps and presence
       const { opInfos, reverseOps } = change.execute(this.root, this.presences);
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
@@ -554,13 +555,12 @@ export class Document<T, P extends Indexable = Indexable> {
           value: reversePresence,
         });
       }
+
       this.localChanges.push(change);
       if (reverseOps.length > 0) {
-        this.pushUndo(reverseOps);
+        this.internalHistory.pushUndo(reverseOps);
       }
-      this.clearRedo();
-
-      // TODO: get undoOps through context.getReverseOps() and add to undoStack
+      this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
       if (change.hasOperations()) {
@@ -573,7 +573,6 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
-
       if (change.hasPresenceChange()) {
         this.publish({
           type: DocEventType.PresenceChanged,
@@ -584,12 +583,10 @@ export class Document<T, P extends Indexable = Indexable> {
           message: change.getMessage() || '',
         });
       }
-
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
-    this.setUpdateStatus(false);
   }
 
   /**
@@ -968,6 +965,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
     );
     return createJSON<T>(context, this.clone!.root.getObject());
   }
@@ -1257,41 +1255,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * `canUndo` returns whether there are any operations to undo.
    */
   private canUndo(): boolean {
-    return this.undoStack.length > 0 && !this.getUpdateStatus();
+    return this.internalHistory.hasUndo() && !this.isUpdating;
   }
 
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
   private canRedo(): boolean {
-    return this.redoStack.length > 0 && !this.getUpdateStatus();
-  }
-
-  /**
-   * `pushUndo` pushes new undo operations of a change to undo stack.
-   */
-  private pushUndo(undoOps: Array<HistoryOperation<P>>): void {
-    if (this.undoStack.length >= MaxUndoRedoStackDepth) {
-      this.undoStack.shift();
-    }
-    this.undoStack.push(undoOps);
-  }
-
-  /**
-   * `pushRedo` pushes new redo operations of a change to redo stack.
-   */
-  private pushRedo(redoOps: Array<HistoryOperation<P>>): void {
-    if (this.redoStack.length >= MaxUndoRedoStackDepth) {
-      this.redoStack.shift();
-    }
-    this.redoStack.push(redoOps);
-  }
-
-  /**
-   * `clearRedo` flushes remaining redo operations.
-   */
-  private clearRedo(): void {
-    this.redoStack = [];
+    return this.internalHistory.hasRedo() && !this.isUpdating;
   }
 
   /**
@@ -1299,19 +1270,21 @@ export class Document<T, P extends Indexable = Indexable> {
    * It does not impact operations made by other clients.
    */
   private undo(): void {
-    if (this.getUpdateStatus()) {
+    if (this.isUpdating) {
       throw new Error('Undo is not allowed during an update');
     }
-    const undoOps = this.undoStack.pop();
-
+    const undoOps = this.internalHistory.popUndo();
     if (undoOps === undefined) {
       throw new Error('There is no operation to be undone');
     }
 
     this.ensureClone();
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
       'YORKIE_HISTORY',
     );
 
@@ -1349,7 +1322,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (reverseOps.length > 0) {
-      this.pushRedo(reverseOps);
+      this.internalHistory.pushRedo(reverseOps);
     }
 
     this.localChanges.push(change);
@@ -1383,11 +1356,11 @@ export class Document<T, P extends Indexable = Indexable> {
    * It does not impact operations made by other clients.
    */
   private redo(): void {
-    if (this.getUpdateStatus()) {
+    if (this.isUpdating) {
       throw new Error('Redo is not allowed during an update');
     }
 
-    const redoOps = this.redoStack.pop();
+    const redoOps = this.internalHistory.popRedo();
     if (redoOps === undefined) {
       throw new Error('There is no operation to be redone');
     }
@@ -1396,6 +1369,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
       'YORKIE_HISTORY',
     );
 
@@ -1433,7 +1407,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (reverseOps.length > 0) {
-      this.pushUndo(reverseOps);
+      this.internalHistory.pushUndo(reverseOps);
     }
 
     this.localChanges.push(change);
@@ -1466,39 +1440,13 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getUndoStackForTest` returns the undo stack for test.
    */
   public getUndoStackForTest(): Array<Array<string>> {
-    return this.undoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
+    return this.internalHistory.getUndoStackForTest();
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
   public getRedoStackForTest(): Array<Array<string>> {
-    return this.redoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
-  }
-
-  /**
-   * `setUpdateStatus` updates the update status of this document.
-   *
-   * @internal
-   */
-  public setUpdateStatus(status: boolean) {
-    this.updateStatus = status;
-  }
-
-  /**
-   * `getStatus` returns the update status of this document.
-   *
-   * @internal
-   */
-  public getUpdateStatus(): boolean {
-    return this.updateStatus;
+    return this.internalHistory.getRedoStackForTest();
   }
 }

@@ -23,9 +23,9 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
-  ExecutionResult,
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 import { EditReverseOperation } from './edit_reverse_operation';
@@ -119,7 +119,7 @@ export class EditOperation extends Operation {
       Object.fromEntries(this.attributes),
       this.maxCreatedAtMapByActor,
     );
-    const reverseOps = this.getReverseOperation(text, reverseInfo);
+    const reverseOp = this.getReverseOperation(text, reverseInfo);
 
     if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(text);
@@ -135,7 +135,7 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         };
       }) as Array<OperationInfo>,
-      reverseOps,
+      reverseOp,
     };
   }
 
@@ -148,18 +148,15 @@ export class EditOperation extends Operation {
       deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
       insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
     },
-  ): Array<Operation> {
+  ): Operation {
     // TODO(chacha912): let's assume this in plain text.
     // we also need to consider rich text content.
-    const reverseOp = [
-      EditReverseOperation.create({
-        parentCreatedAt: text.getCreatedAt(),
-        deletedIDs: reverseInfo.deletedIDs,
-        insertedIDs: reverseInfo.insertedIDs,
-        attributes: new Map(),
-      }),
-    ];
-    return reverseOp;
+    return EditReverseOperation.create({
+      parentCreatedAt: text.getCreatedAt(),
+      deletedIDs: reverseInfo.deletedIDs,
+      insertedIDs: reverseInfo.insertedIDs,
+      attributes: new Map(),
+    });
   }
 
   /**

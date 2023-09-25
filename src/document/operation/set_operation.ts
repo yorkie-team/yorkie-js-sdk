@@ -23,7 +23,6 @@ import {
   ExecutionResult,
   Operation,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { RemoveOperation } from './remove_operation';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -69,7 +68,6 @@ export class SetOperation extends Operation {
     }
     const obj = parentObject as CRDTObject;
     const value = this.value.deepcopy();
-    const reverseOp = this.getReverseOperation(root);
     obj.set(this.key, value, this.getExecutedAt());
     root.registerElement(value, obj);
     return {
@@ -80,31 +78,7 @@ export class SetOperation extends Operation {
           key: this.key,
         },
       ],
-      reverseOps: [reverseOp],
     };
-  }
-
-  /**
-   * `getReverseOperation` calculates this operation's reverse operation.
-   */
-  public getReverseOperation(root: CRDTRoot): Operation {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    const obj = parentObject as CRDTObject;
-    const value = obj.get(this.key);
-
-    let reverseOp: Operation = RemoveOperation.create(
-      this.getParentCreatedAt(),
-      this.value.deepcopy().getCreatedAt(),
-    );
-
-    if (value !== undefined && !value.isRemoved()) {
-      reverseOp = SetOperation.create(
-        this.key,
-        value.deepcopy(),
-        this.getParentCreatedAt(),
-      );
-    }
-    return reverseOp;
   }
 
   /**

@@ -132,146 +132,151 @@ describe('Counter', function () {
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
   });
 
-  it('should handle undo/redo for long type and overflow', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
-    const states: Array<string> = [];
+  describe('Undo/Redo', function () {
+    it('can get proper reverse operations', function () {
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
 
-    doc.update((root) => {
-      root.cnt = new Counter(CounterType.IntegerCnt, 0);
-      root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+      doc.update((root) => {
+        root.cnt = new Counter(CounterType.IntegerCnt, 0);
+        root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+      });
+      assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
+
+      doc.update((root) => {
+        root.cnt.increase(1.5);
+        root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+      });
+      assert.equal(
+        doc.toSortedJSON(),
+        `{"cnt":1,"longCnt":9223372036854775807}`,
+      );
+      assert.equal(
+        JSON.stringify(doc.getUndoStackForTest()),
+        `[["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]]`,
+      );
+
+      doc.history.undo();
+      assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
+      assert.equal(
+        JSON.stringify(doc.getRedoStackForTest()),
+        `[["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]]`,
+      );
     });
-    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
-    states.push(doc.toSortedJSON());
 
-    doc.update((root) => {
-      root.cnt.increase(2147483647); // 2^31-1
-      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+    it('Can undo/redo for increase operation', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(CounterType.IntegerCnt, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+      doc.history.undo();
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      doc.history.redo();
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+      doc.history.undo();
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
     });
-    assert.equal(
-      `{"cnt":2147483647,"longCnt":9223372036854775807}`,
-      doc.toSortedJSON(),
-    );
-    states.push(doc.toSortedJSON());
 
-    doc.update((root) => {
-      root.cnt.increase(1); // overflow
-      root.longCnt.increase(Long.fromString('1')); // overflow
+    it('should handle undo/redo for long type and overflow', function () {
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
+      const states: Array<string> = [];
+
+      doc.update((root) => {
+        root.cnt = new Counter(CounterType.IntegerCnt, 0);
+        root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+      });
+      assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
+      states.push(doc.toSortedJSON());
+
+      doc.update((root) => {
+        root.cnt.increase(2147483647); // 2^31-1
+        root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+      });
+      assert.equal(
+        doc.toSortedJSON(),
+        `{"cnt":2147483647,"longCnt":9223372036854775807}`,
+      );
+      states.push(doc.toSortedJSON());
+
+      doc.update((root) => {
+        root.cnt.increase(1); // overflow
+        root.longCnt.increase(Long.fromString('1')); // overflow
+      });
+      assert.equal(
+        doc.toSortedJSON(),
+        `{"cnt":-2147483648,"longCnt":-9223372036854775808}`,
+      );
+      states.push(doc.toSortedJSON());
+
+      assertUndoRedo(doc, states);
     });
-    assert.equal(
-      `{"cnt":-2147483648,"longCnt":-9223372036854775808}`,
-      doc.toSortedJSON(),
-    );
-    states.push(doc.toSortedJSON());
 
-    assertUndoRedo(doc, states);
-  });
+    it('Can undo/redo for concurrent users', async function () {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc1 = new yorkie.Document<TestDoc>(docKey);
+      const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-  it('can get proper reverse operations', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
+      const client1 = new yorkie.Client(testRPCAddr);
+      const client2 = new yorkie.Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
 
-    doc.update((root) => {
-      root.cnt = new Counter(CounterType.IntegerCnt, 0);
-      root.longCnt = new Counter(CounterType.LongCnt, Long.fromString('0'));
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"counter":100}');
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"counter":100}');
+
+      // client1 increases 1 and client2 increases 2
+      doc1.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+      doc2.update((root) => {
+        root.counter.increase(2);
+      }, 'increase 2');
+      await client1.sync();
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"counter":103}');
+      assert.equal(doc2.toSortedJSON(), '{"counter":103}');
+
+      // client1 undoes one's latest increase operation
+      doc1.history.undo();
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc1.toSortedJSON(), '{"counter":102}');
+      assert.equal(doc2.toSortedJSON(), '{"counter":102}');
+
+      // only client1 can redo undone operation
+      assert.equal(doc1.history.canRedo(), true);
+      assert.equal(doc2.history.canRedo(), false);
+
+      // client1 redoes one's latest undone operation
+      doc1.history.redo();
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc1.toSortedJSON(), '{"counter":103}');
+      assert.equal(doc2.toSortedJSON(), '{"counter":103}');
+
+      await client1.deactivate();
+      await client2.deactivate();
     });
-    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
-
-    doc.update((root) => {
-      root.cnt.increase(1.5);
-      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
-    });
-    assert.equal(`{"cnt":1,"longCnt":9223372036854775807}`, doc.toSortedJSON());
-    assert.equal(
-      `["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]`,
-      JSON.stringify(doc.getUndoStackForTest().pop()),
-    );
-
-    doc.history.undo();
-    assert.equal(`{"cnt":0,"longCnt":0}`, doc.toSortedJSON());
-    assert.equal(
-      `["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]`,
-      JSON.stringify(doc.getRedoStackForTest().pop()),
-    );
-  });
-
-  it('Can undo/redo for increase operation', async function () {
-    type TestDoc = { counter: Counter };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc = new Document<TestDoc>(docKey);
-    doc.update((root) => {
-      root.counter = new Counter(CounterType.IntegerCnt, 100);
-    }, 'init counter');
-    assert.equal(doc.toSortedJSON(), '{"counter":100}');
-
-    doc.update((root) => {
-      root.counter.increase(1);
-    }, 'increase 1');
-    assert.equal(doc.toSortedJSON(), '{"counter":101}');
-
-    doc.history.undo();
-    assert.equal(doc.toSortedJSON(), '{"counter":100}');
-
-    doc.history.redo();
-    assert.equal(doc.toSortedJSON(), '{"counter":101}');
-
-    doc.history.undo();
-    assert.equal(doc.toSortedJSON(), '{"counter":100}');
-  });
-
-  it('Can undo/redo for concurrent users', async function () {
-    type TestDoc = { counter: Counter };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
-
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
-    await client1.activate();
-    await client2.activate();
-
-    await client1.attach(doc1, { isRealtimeSync: false });
-    doc1.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
-    }, 'init counter');
-    await client1.sync();
-    assert.equal(doc1.toSortedJSON(), '{"counter":100}');
-
-    await client2.attach(doc2, { isRealtimeSync: false });
-    assert.equal(doc2.toSortedJSON(), '{"counter":100}');
-
-    // client1 increases 1 and client2 increases 2
-    doc1.update((root) => {
-      root.counter.increase(1);
-    }, 'increase 1');
-    doc2.update((root) => {
-      root.counter.increase(2);
-    }, 'increase 2');
-    await client1.sync();
-    await client2.sync();
-    await client1.sync();
-    assert.equal(doc1.toSortedJSON(), '{"counter":103}');
-    assert.equal(doc2.toSortedJSON(), '{"counter":103}');
-
-    // client1 undoes one's latest increase operation
-    doc1.history.undo();
-    await client1.sync();
-    await client2.sync();
-    assert.equal(doc1.toSortedJSON(), '{"counter":102}');
-    assert.equal(doc2.toSortedJSON(), '{"counter":102}');
-
-    // only client1 can redo undone operation
-    assert.equal(true, doc1.history.canRedo());
-    assert.equal(false, doc2.history.canRedo());
-
-    // client1 redoes one's latest undone operation
-    doc1.history.redo();
-    await client1.sync();
-    await client2.sync();
-    assert.equal(doc1.toSortedJSON(), '{"counter":103}');
-    assert.equal(doc2.toSortedJSON(), '{"counter":103}');
-
-    await client1.deactivate();
-    await client2.deactivate();
   });
 });

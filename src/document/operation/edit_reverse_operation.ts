@@ -100,7 +100,7 @@ export class EditReverseOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const reverseOps = this.getReverseOperation();
+    const reverseOp = this.getReverseOperation();
 
     const changes = text.reverseEdit(
       this.deletedIDs,
@@ -118,23 +118,20 @@ export class EditReverseOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         };
       }) as Array<OperationInfo>,
-      reverseOps,
+      reverseOp,
     };
   }
 
   /**
    * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTText`.
    */
-  public getReverseOperation(): Array<Operation> {
-    const reverseOp = [
-      EditReverseOperation.create({
-        parentCreatedAt: this.getParentCreatedAt(),
-        deletedIDs: this.insertedIDs,
-        insertedIDs: this.deletedIDs,
-        attributes: this.attributes,
-      }),
-    ];
-    return reverseOp;
+  public getReverseOperation(): Operation {
+    return EditReverseOperation.create({
+      parentCreatedAt: this.getParentCreatedAt(),
+      deletedIDs: this.insertedIDs,
+      insertedIDs: this.deletedIDs,
+      attributes: this.attributes,
+    });
   }
 
   /**

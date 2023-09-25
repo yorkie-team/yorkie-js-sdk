@@ -19,7 +19,7 @@ describe('ROOT', function () {
     const root = new CRDTRoot(
       new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
-    const cc = ChangeContext.create(InitialChangeID, root);
+    const cc = ChangeContext.create(InitialChangeID, root, {});
     assert.isUndefined(root.findByCreatedAt(MaxTimeTicket));
     assert.equal(root.createPath(MaxTimeTicket), '');
 
@@ -81,7 +81,7 @@ describe('ROOT', function () {
       new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
     const arr = new CRDTArray(InitialTimeTicket, RGATreeList.create());
-    const change = ChangeContext.create(InitialChangeID, root);
+    const change = ChangeContext.create(InitialChangeID, root, {});
 
     ArrayProxy.pushInternal(change, arr, 0);
     ArrayProxy.pushInternal(change, arr, 1);
@@ -112,7 +112,7 @@ describe('ROOT', function () {
       new CRDTObject(InitialTimeTicket, ElementRHT.create()),
     );
     const obj = new CRDTObject(InitialTimeTicket, ElementRHT.create());
-    const change = ChangeContext.create(InitialChangeID, root);
+    const change = ChangeContext.create(InitialChangeID, root, {});
     const executedAt = change.issueTimeTicket();
     const crdtText = CRDTText.create(RGATreeSplit.create(), executedAt);
     obj.set('k1', crdtText, executedAt);
