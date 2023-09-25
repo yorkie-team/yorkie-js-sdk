@@ -74,7 +74,6 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
-  TextNodeIDWithLength as PbTextNodeIDWithLength,
   TimeTicket as PbTimeTicket,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
@@ -280,19 +279,6 @@ function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
 }
 
 /**
- * `toTextNodeIDWithLength` converts the given model to Protobuf format.
- */
-function toTextNodeIDWithLength(treeNodeIDWithLength: {
-  nodeID: RGATreeSplitNodeID;
-  length: number;
-}): PbTextNodeIDWithLength {
-  const pbTextNodeIDWithLength = new PbTextNodeIDWithLength();
-  pbTextNodeIDWithLength.setNodeId(toTextNodeID(treeNodeIDWithLength.nodeID));
-  pbTextNodeIDWithLength.setLength(treeNodeIDWithLength.length);
-  return pbTextNodeIDWithLength;
-}
-
-/**
  * `toOperation` converts the given model to Protobuf format.
  */
 function toOperation(operation: Operation): PbOperation {
@@ -376,12 +362,12 @@ function toOperation(operation: Operation): PbOperation {
     const pbDeletedIDs = [];
     const deletedIDs = editReverseOperation.getDeletedIDs();
     for (const deletedID of deletedIDs) {
-      pbDeletedIDs.push(toTextNodeIDWithLength(deletedID));
+      pbDeletedIDs.push(toTextNodePos(deletedID));
     }
     const pbInsertedIDs = [];
     const insertedIDs = editReverseOperation.getInsertedIDs();
     for (const insertedID of insertedIDs) {
-      pbInsertedIDs.push(toTextNodeIDWithLength(insertedID));
+      pbInsertedIDs.push(toTextNodePos(insertedID));
     }
     pbEditReverseOperation.setDeletedIdsList(pbDeletedIDs);
     pbEditReverseOperation.setInsertedIdsList(pbInsertedIDs);
@@ -952,18 +938,6 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 }
 
 /**
- * `fromTextNodeIDWithLength` converts the given Protobuf format to model format.
- */
-function fromTextNodeIDWithLength(
-  pbTextNodeIDWithLength: PbTextNodeIDWithLength,
-): { nodeID: RGATreeSplitNodeID; length: number } {
-  return {
-    nodeID: fromTextNodeID(pbTextNodeIDWithLength.getNodeId()!),
-    length: pbTextNodeIDWithLength.getLength(),
-  };
-}
-
-/**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
@@ -1158,12 +1132,12 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       const pbDeletedIDs = pbEditReverseOperation!.getDeletedIdsList()!;
       const deletedIDs = [];
       for (const pbDeletedID of pbDeletedIDs) {
-        deletedIDs.push(fromTextNodeIDWithLength(pbDeletedID));
+        deletedIDs.push(fromTextNodePos(pbDeletedID));
       }
       const pbInsertedIDs = pbEditReverseOperation!.getInsertedIdsList()!;
       const insertedIDs = [];
       for (const pbInsertedID of pbInsertedIDs) {
-        insertedIDs.push(fromTextNodeIDWithLength(pbInsertedID));
+        insertedIDs.push(fromTextNodePos(pbInsertedID));
       }
 
       operation = EditReverseOperation.create({

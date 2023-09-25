@@ -544,7 +544,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     RGATreeSplitPos,
     Map<string, TimeTicket>,
     Array<ValueChange<T>>,
-    Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
+    Array<RGATreeSplitPos>,
   ] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -777,16 +777,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   // TODO(Hyemmie): consider returning latestedCreatedAtMapByActor
   public findSplitNodesAndSetRemovedAt(
-    ids: Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
+    ids: Array<RGATreeSplitPos>,
     editedAt: TimeTicket,
     toRemove: boolean,
   ): Array<ValueChange<T>> {
     const changes: Array<ValueChange<T>> = [];
     for (const id of ids) {
-      const splitNodeIDs = this.findAllSplitNodesWithinLength(
-        id.nodeID,
-        id.length,
-      );
+      const splitNodeIDs = this.findAllSplitNodesWithinLength(id);
       const nodes = [];
       for (const nodeID of splitNodeIDs) {
         const node = this.setRemovedAtWithNodeID(
@@ -822,19 +819,25 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   }
 
   private findAllSplitNodesWithinLength(
-    id: RGATreeSplitNodeID,
-    length: number,
+    pos: RGATreeSplitPos,
   ): Array<RGATreeSplitNodeID> {
     const nodes = [];
+    // TODO(hackerwins): This logic is similar to `pos.getAbsoluteID` except
+    // that it subtracts 1 from the offset. We should refactor this logic.
     let node = this.findFloorNode(
-      new RGATreeSplitNodeID(id.getCreatedAt(), id.getOffset() + length - 1),
+      new RGATreeSplitNodeID(
+        pos.getID().getCreatedAt(),
+        pos.getID().getOffset() + pos.getRelativeOffset() - 1,
+      ),
     );
     if (!node) {
       logger.fatal(
-        `the node of the given id should be found: ${id.toTestString()}`,
+        `the node of the given id should be found: ${pos
+          .getID()
+          .toTestString()}`,
       );
     } else {
-      while (node && node.getID().getOffset() >= id.getOffset()) {
+      while (node && node.getID().getOffset() >= pos.getID().getOffset()) {
         nodes.push(node.getID());
         node = node.getInsPrev();
       }
@@ -952,7 +955,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     Array<ValueChange<T>>,
     Map<string, TimeTicket>,
     Map<string, RGATreeSplitNode<T>>,
-    Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
+    Array<RGATreeSplitPos>,
   ] {
     if (!candidates.length) {
       return [[], new Map(), new Map(), []];
@@ -983,10 +986,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       }
       removedNodeMap.set(node.getID().toIDString(), node);
       if (!node.isRemoved())
-        deletedIDs.push({
-          nodeID: node.getID(),
-          length: node.getValue().length,
-        });
+        deletedIDs.push(
+          RGATreeSplitPos.of(node.getID(), node.getValue().length),
+        );
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.

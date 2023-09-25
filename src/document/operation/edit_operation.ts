@@ -17,10 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import {
-  RGATreeSplitNodeID,
-  RGATreeSplitPos,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
@@ -145,8 +142,8 @@ export class EditOperation extends Operation {
   public getReverseOperation<A extends Indexable>(
     text: CRDTText<A>,
     reverseInfo: {
-      deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-      insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
     },
   ): Operation {
     // TODO(chacha912): let's assume this in plain text.

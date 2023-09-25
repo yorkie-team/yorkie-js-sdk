@@ -24,10 +24,10 @@ import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
-  RGATreeSplitNodeID,
   RGATreeSplitNode,
   RGATreeSplitPosRange,
   ValueChange,
+  RGATreeSplitPos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
@@ -198,8 +198,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     Array<TextChange<A>>,
     RGATreeSplitPosRange,
     {
-      deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-      insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
     },
   ] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
@@ -217,12 +217,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
         latestCreatedAtMapByActor,
       );
     const reverseInfo: {
-      deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-      insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
     } = {
       deletedIDs,
       insertedIDs: content
-        ? [{ nodeID: caretPos.getID(), length: content.length }]
+        ? [RGATreeSplitPos.of(caretPos.getID(), content.length)]
         : [],
     };
 
@@ -250,8 +250,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public reverseEdit(
-    deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
-    insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>,
+    deletedIDs: Array<RGATreeSplitPos>,
+    insertedIDs: Array<RGATreeSplitPos>,
     editedAt: TimeTicket,
   ): Array<TextChange<A>> {
     let valueChanges: Array<ValueChange<CRDTTextValue>> = [];

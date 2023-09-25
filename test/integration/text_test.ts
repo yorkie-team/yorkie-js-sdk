@@ -429,7 +429,7 @@ describe('Text', function () {
   // To test this case, you need to stop the docker yorkie container
   // and run the yorkie server with the code from the `feat/text-edit-reverse`
   // branch of the yorkie repository.
-  describe.skip('Undo/Redo', function () {
+  describe('Undo/Redo', function () {
     it('Can undo/redo for text edit operation', async function () {
       type TestDoc = { text: Text };
       const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);

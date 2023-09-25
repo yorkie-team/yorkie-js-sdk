@@ -24,7 +24,7 @@ import {
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
-import { RGATreeSplitNodeID } from '../crdt/rga_tree_split';
+import { RGATreeSplitPos } from '../crdt/rga_tree_split';
 
 /**
  * `EditReverseOperation` is a reverse operation of Edit operation.
@@ -32,8 +32,8 @@ import { RGATreeSplitNodeID } from '../crdt/rga_tree_split';
 export class EditReverseOperation extends Operation {
   // TODO(Hyemmie): need to add more fields to support
   // the reverse operation of rich text edit.
-  private deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-  private insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+  private deletedIDs: Array<RGATreeSplitPos>;
+  private insertedIDs: Array<RGATreeSplitPos>;
   private attributes?: Map<string, string>;
   private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
@@ -46,8 +46,8 @@ export class EditReverseOperation extends Operation {
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-    insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    deletedIDs: Array<RGATreeSplitPos>;
+    insertedIDs: Array<RGATreeSplitPos>;
     attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
@@ -71,8 +71,8 @@ export class EditReverseOperation extends Operation {
     maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
-    deletedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
-    insertedIDs: Array<{ nodeID: RGATreeSplitNodeID; length: number }>;
+    deletedIDs: Array<RGATreeSplitPos>;
+    insertedIDs: Array<RGATreeSplitPos>;
     attributes?: Map<string, string>;
     executedAt?: TimeTicket;
     maxCreatedAtMapByActor?: Map<string, TimeTicket>;
@@ -144,20 +144,14 @@ export class EditReverseOperation extends Operation {
   /**
    * `getDeletedIDs` returns the deletedIDs of this operation.
    */
-  public getDeletedIDs(): Array<{
-    nodeID: RGATreeSplitNodeID;
-    length: number;
-  }> {
+  public getDeletedIDs(): Array<RGATreeSplitPos> {
     return this.deletedIDs;
   }
 
   /**
    * `getInsertedIDs` returns the insertedIDs of this operation.
    */
-  public getInsertedIDs(): Array<{
-    nodeID: RGATreeSplitNodeID;
-    length: number;
-  }> {
+  public getInsertedIDs(): Array<RGATreeSplitPos> {
     return this.insertedIDs;
   }
 
@@ -168,15 +162,11 @@ export class EditReverseOperation extends Operation {
     const parent = this.getParentCreatedAt().toTestString();
     let deletedIDs = '';
     for (const id of this.getDeletedIDs()) {
-      deletedIDs = deletedIDs.concat(
-        `{nodeID: ${id.nodeID.toTestString()}, length: ${id.length}}, `,
-      );
+      deletedIDs = deletedIDs.concat(`${id.toTestString()}, `);
     }
     let insertedIDs = '';
     for (const id of this.getInsertedIDs()) {
-      insertedIDs = insertedIDs.concat(
-        `{nodeID: ${id.nodeID.toTestString()}, length: ${id.length}}, `,
-      );
+      insertedIDs = insertedIDs.concat(`${id.toTestString()}, `);
     }
     return `${parent}.EDIT-REVERSE(deletedIDs:[${deletedIDs}], insertedIds:[${insertedIDs}])`;
   }

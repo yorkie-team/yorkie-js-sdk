@@ -639,15 +639,15 @@ export namespace Operation {
     hasParentCreatedAt(): boolean;
     clearParentCreatedAt(): EditReverse;
 
-    getDeletedIdsList(): Array<TextNodeIDWithLength>;
-    setDeletedIdsList(value: Array<TextNodeIDWithLength>): EditReverse;
+    getDeletedIdsList(): Array<TextNodePos>;
+    setDeletedIdsList(value: Array<TextNodePos>): EditReverse;
     clearDeletedIdsList(): EditReverse;
-    addDeletedIds(value?: TextNodeIDWithLength, index?: number): TextNodeIDWithLength;
+    addDeletedIds(value?: TextNodePos, index?: number): TextNodePos;
 
-    getInsertedIdsList(): Array<TextNodeIDWithLength>;
-    setInsertedIdsList(value: Array<TextNodeIDWithLength>): EditReverse;
+    getInsertedIdsList(): Array<TextNodePos>;
+    setInsertedIdsList(value: Array<TextNodePos>): EditReverse;
     clearInsertedIdsList(): EditReverse;
-    addInsertedIds(value?: TextNodeIDWithLength, index?: number): TextNodeIDWithLength;
+    addInsertedIds(value?: TextNodePos, index?: number): TextNodePos;
 
     getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
     clearCreatedAtMapByActorMap(): EditReverse;
@@ -671,8 +671,8 @@ export namespace Operation {
   export namespace EditReverse {
     export type AsObject = {
       parentCreatedAt?: TimeTicket.AsObject,
-      deletedIdsList: Array<TextNodeIDWithLength.AsObject>,
-      insertedIdsList: Array<TextNodeIDWithLength.AsObject>,
+      deletedIdsList: Array<TextNodePos.AsObject>,
+      insertedIdsList: Array<TextNodePos.AsObject>,
       createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       executedAt?: TimeTicket.AsObject,
       attributesMap: Array<[string, string]>,
@@ -1177,30 +1177,6 @@ export namespace TextNodeID {
   export type AsObject = {
     createdAt?: TimeTicket.AsObject,
     offset: number,
-  }
-}
-
-export class TextNodeIDWithLength extends jspb.Message {
-  getNodeId(): TextNodeID | undefined;
-  setNodeId(value?: TextNodeID): TextNodeIDWithLength;
-  hasNodeId(): boolean;
-  clearNodeId(): TextNodeIDWithLength;
-
-  getLength(): number;
-  setLength(value: number): TextNodeIDWithLength;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): TextNodeIDWithLength.AsObject;
-  static toObject(includeInstance: boolean, msg: TextNodeIDWithLength): TextNodeIDWithLength.AsObject;
-  static serializeBinaryToWriter(message: TextNodeIDWithLength, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): TextNodeIDWithLength;
-  static deserializeBinaryFromReader(message: TextNodeIDWithLength, reader: jspb.BinaryReader): TextNodeIDWithLength;
-}
-
-export namespace TextNodeIDWithLength {
-  export type AsObject = {
-    nodeId?: TextNodeID.AsObject,
-    length: number,
   }
 }
 
