@@ -372,16 +372,6 @@ function toOperation(operation: Operation): PbOperation {
     pbEditReverseOperation.setDeletedIdsList(pbDeletedIDs);
     pbEditReverseOperation.setInsertedIdsList(pbInsertedIDs);
 
-    const pbCreatedAtMapByActor =
-      pbEditReverseOperation.getCreatedAtMapByActorMap();
-    if (editReverseOperation.getMaxCreatedAtMapByActor()) {
-      for (const [
-        key,
-        value,
-      ] of editReverseOperation.getMaxCreatedAtMapByActor()!) {
-        pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
-      }
-    }
     const pbAttributes = pbEditReverseOperation.getAttributesMap();
     for (const [key, value] of editReverseOperation.getAttributes()) {
       pbAttributes.set(key, value);
@@ -1118,12 +1108,6 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       });
     } else if (pbOperation.hasEditReverse()) {
       const pbEditReverseOperation = pbOperation.getEditReverse();
-      const createdAtMapByActor = new Map();
-      pbEditReverseOperation!
-        .getCreatedAtMapByActorMap()
-        .forEach((value, key) => {
-          createdAtMapByActor.set(key, fromTimeTicket(value));
-        });
       const attributes = new Map();
       pbEditReverseOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
@@ -1148,7 +1132,6 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         insertedIDs,
         attributes,
         executedAt: fromTimeTicket(pbEditReverseOperation!.getExecutedAt())!,
-        maxCreatedAtMapByActor: createdAtMapByActor,
       });
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();

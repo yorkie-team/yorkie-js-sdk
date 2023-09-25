@@ -35,7 +35,6 @@ export class EditReverseOperation extends Operation {
   private deletedIDs: Array<RGATreeSplitPos>;
   private insertedIDs: Array<RGATreeSplitPos>;
   private attributes?: Map<string, string>;
-  private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
   constructor({
     parentCreatedAt,
@@ -43,20 +42,17 @@ export class EditReverseOperation extends Operation {
     insertedIDs,
     attributes,
     executedAt,
-    maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
     deletedIDs: Array<RGATreeSplitPos>;
     insertedIDs: Array<RGATreeSplitPos>;
     attributes?: Map<string, string>;
     executedAt?: TimeTicket;
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }) {
     super(parentCreatedAt, executedAt);
     this.deletedIDs = deletedIDs;
     this.insertedIDs = insertedIDs;
     this.attributes = attributes;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
@@ -68,14 +64,12 @@ export class EditReverseOperation extends Operation {
     insertedIDs,
     attributes,
     executedAt,
-    maxCreatedAtMapByActor,
   }: {
     parentCreatedAt: TimeTicket;
     deletedIDs: Array<RGATreeSplitPos>;
     insertedIDs: Array<RGATreeSplitPos>;
     attributes?: Map<string, string>;
     executedAt?: TimeTicket;
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>;
   }): EditReverseOperation {
     return new EditReverseOperation({
       parentCreatedAt,
@@ -83,7 +77,6 @@ export class EditReverseOperation extends Operation {
       insertedIDs,
       attributes,
       executedAt,
-      maxCreatedAtMapByActor,
     });
   }
 
@@ -176,13 +169,5 @@ export class EditReverseOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes || new Map();
-  }
-
-  /**
-   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
-   * by actor for the nodes included in the editing range.
-   */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> | undefined {
-    return this.maxCreatedAtMapByActor;
   }
 }

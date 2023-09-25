@@ -649,9 +649,6 @@ export namespace Operation {
     clearInsertedIdsList(): EditReverse;
     addInsertedIds(value?: TextNodePos, index?: number): TextNodePos;
 
-    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
-    clearCreatedAtMapByActorMap(): EditReverse;
-
     getExecutedAt(): TimeTicket | undefined;
     setExecutedAt(value?: TimeTicket): EditReverse;
     hasExecutedAt(): boolean;
@@ -673,7 +670,6 @@ export namespace Operation {
       parentCreatedAt?: TimeTicket.AsObject,
       deletedIdsList: Array<TextNodePos.AsObject>,
       insertedIdsList: Array<TextNodePos.AsObject>,
-      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       executedAt?: TimeTicket.AsObject,
       attributesMap: Array<[string, string]>,
     }

@@ -5626,7 +5626,6 @@ proto.yorkie.v1.Operation.EditReverse.toObject = function(includeInstance, msg) 
     proto.yorkie.v1.TextNodePos.toObject, includeInstance),
     insertedIdsList: jspb.Message.toObjectList(msg.getInsertedIdsList(),
     proto.yorkie.v1.TextNodePos.toObject, includeInstance),
-    createdAtMapByActorMap: (f = msg.getCreatedAtMapByActorMap()) ? f.toObject(includeInstance, proto.yorkie.v1.TimeTicket.toObject) : [],
     executedAt: (f = msg.getExecutedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
     attributesMap: (f = msg.getAttributesMap()) ? f.toObject(includeInstance, undefined) : []
   };
@@ -5681,17 +5680,11 @@ proto.yorkie.v1.Operation.EditReverse.deserializeBinaryFromReader = function(msg
       msg.addInsertedIds(value);
       break;
     case 4:
-      var value = msg.getCreatedAtMapByActorMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader, "", new proto.yorkie.v1.TimeTicket());
-         });
-      break;
-    case 5:
       var value = new proto.yorkie.v1.TimeTicket;
       reader.readMessage(value,proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader);
       msg.setExecutedAt(value);
       break;
-    case 6:
+    case 5:
       var value = msg.getAttributesMap();
       reader.readMessage(value, function(message, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
@@ -5750,21 +5743,17 @@ proto.yorkie.v1.Operation.EditReverse.serializeBinaryToWriter = function(message
       proto.yorkie.v1.TextNodePos.serializeBinaryToWriter
     );
   }
-  f = message.getCreatedAtMapByActorMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(4, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.yorkie.v1.TimeTicket.serializeBinaryToWriter);
-  }
   f = message.getExecutedAt();
   if (f != null) {
     writer.writeMessage(
-      5,
+      4,
       f,
       proto.yorkie.v1.TimeTicket.serializeBinaryToWriter
     );
   }
   f = message.getAttributesMap(true);
   if (f && f.getLength() > 0) {
-    f.serializeBinary(6, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
+    f.serializeBinary(5, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -5883,34 +5872,12 @@ proto.yorkie.v1.Operation.EditReverse.prototype.clearInsertedIdsList = function(
 
 
 /**
- * map<string, TimeTicket> created_at_map_by_actor = 4;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>}
- */
-proto.yorkie.v1.Operation.EditReverse.prototype.getCreatedAtMapByActorMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>} */ (
-      jspb.Message.getMapField(this, 4, opt_noLazyCreate,
-      proto.yorkie.v1.TimeTicket));
-};
-
-
-/**
- * Clears values from the map. The map will be non-null.
- * @return {!proto.yorkie.v1.Operation.EditReverse} returns this
- */
-proto.yorkie.v1.Operation.EditReverse.prototype.clearCreatedAtMapByActorMap = function() {
-  this.getCreatedAtMapByActorMap().clear();
-  return this;};
-
-
-/**
- * optional TimeTicket executed_at = 5;
+ * optional TimeTicket executed_at = 4;
  * @return {?proto.yorkie.v1.TimeTicket}
  */
 proto.yorkie.v1.Operation.EditReverse.prototype.getExecutedAt = function() {
   return /** @type{?proto.yorkie.v1.TimeTicket} */ (
-    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 5));
+    jspb.Message.getWrapperField(this, proto.yorkie.v1.TimeTicket, 4));
 };
 
 
@@ -5919,7 +5886,7 @@ proto.yorkie.v1.Operation.EditReverse.prototype.getExecutedAt = function() {
  * @return {!proto.yorkie.v1.Operation.EditReverse} returns this
 */
 proto.yorkie.v1.Operation.EditReverse.prototype.setExecutedAt = function(value) {
-  return jspb.Message.setWrapperField(this, 5, value);
+  return jspb.Message.setWrapperField(this, 4, value);
 };
 
 
@@ -5937,19 +5904,19 @@ proto.yorkie.v1.Operation.EditReverse.prototype.clearExecutedAt = function() {
  * @return {boolean}
  */
 proto.yorkie.v1.Operation.EditReverse.prototype.hasExecutedAt = function() {
-  return jspb.Message.getField(this, 5) != null;
+  return jspb.Message.getField(this, 4) != null;
 };
 
 
 /**
- * map<string, string> attributes = 6;
+ * map<string, string> attributes = 5;
  * @param {boolean=} opt_noLazyCreate Do not create the map if
  * empty, instead returning `undefined`
  * @return {!jspb.Map<string,string>}
  */
 proto.yorkie.v1.Operation.EditReverse.prototype.getAttributesMap = function(opt_noLazyCreate) {
   return /** @type {!jspb.Map<string,string>} */ (
-      jspb.Message.getMapField(this, 6, opt_noLazyCreate,
+      jspb.Message.getMapField(this, 5, opt_noLazyCreate,
       null));
 };
 
