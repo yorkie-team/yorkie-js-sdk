@@ -541,7 +541,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
-      if (change.hasOperations()) {
+      if (change.hasOperations() && opInfos.length > 0) {
         this.publish({
           type: DocEventType.LocalChange,
           value: {
@@ -1086,12 +1086,12 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const executionResult = change.execute(this.root, this.presences);
-      if (change.hasOperations()) {
+      const { opInfos } = change.execute(this.root, this.presences);
+      if (change.hasOperations() && opInfos.length > 0) {
         changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
-          operations: executionResult.opInfos,
+          operations: opInfos,
         };
       }
 
@@ -1274,16 +1274,23 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    try {
-      change.execute(this.clone!.root, this.clone!.presences);
-    } catch (err) {
-      // drop clone because it is contaminated.
-      this.clone = undefined;
-      logger.error(err);
-      throw err;
+    const cloneExecutionResult = change.execute(
+      this.clone!.root,
+      this.clone!.presences,
+      'UNDOREDO',
+    );
+    if (
+      !change.hasPresenceChange() &&
+      cloneExecutionResult.opInfos.length === 0
+    ) {
+      return;
     }
 
-    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const { opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      'UNDOREDO',
+    );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {
       reverseOps.push({
@@ -1299,7 +1306,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = change.getID();
 
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations()) {
+    if (change.hasOperations() && opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {
@@ -1357,16 +1364,23 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    try {
-      change.execute(this.clone!.root, this.clone!.presences);
-    } catch (err) {
-      // drop clone because it is contaminated.
-      this.clone = undefined;
-      logger.error(err);
-      throw err;
+    const cloneExecutionResult = change.execute(
+      this.clone!.root,
+      this.clone!.presences,
+      'UNDOREDO',
+    );
+    if (
+      !change.hasPresenceChange() &&
+      cloneExecutionResult.opInfos.length === 0
+    ) {
+      return;
     }
 
-    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const { opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      'UNDOREDO',
+    );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {
       reverseOps.push({
@@ -1382,7 +1396,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = change.getID();
 
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations()) {
+    if (change.hasOperations() && opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {

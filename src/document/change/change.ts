@@ -137,6 +137,7 @@ export class Change<P extends Indexable> {
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
+    origin?: string,
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
@@ -145,7 +146,9 @@ export class Change<P extends Indexable> {
     const reverseOps: Array<HistoryOperation<P>> = [];
     for (const operation of this.operations) {
       root.opsForTest.push(operation);
-      const { opInfos, reverseOp } = operation.execute(root);
+      const executionResult = operation.execute(root, origin);
+      if (!executionResult) continue;
+      const { opInfos, reverseOp } = executionResult;
       changeOpInfos.push(...opInfos);
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
@@ -162,6 +165,7 @@ export class Change<P extends Indexable> {
         presences.delete(this.id.getActorID()!);
       }
     }
+
     return { opInfos: changeOpInfos, reverseOps };
   }
 

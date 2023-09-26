@@ -291,6 +291,63 @@ describe('Object', function () {
       assertUndoRedo(doc, states);
     });
 
+    it('Can handle concurrent undo/redo', async function () {
+      // Test scenario:
+      // c1: set shape.color to 'red'
+      // c2: delete shape
+      // c1: undo(no changes as the shape was deleted)
+      interface TestDoc {
+        shape?: { color: string };
+      }
+      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.shape = { color: 'black' };
+      }, 'init doc');
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      doc1.update((root) => {
+        root.shape!.color = 'red';
+      }, 'set red');
+      await client1.sync();
+      await client2.sync();
+      doc2.update((root) => {
+        delete root.shape;
+      }, 'delete shape');
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{}');
+
+      // there is no change because c2 deletes the shape
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc1.getRedoStackForTest().length, 0);
+      assert.equal(doc1.history.canRedo(), false);
+      await client1.sync();
+      await client2.sync();
+      await client1.sync();
+
+      doc2.history.undo();
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+      await client1.sync();
+      await client2.sync();
+      await client1.sync();
+    });
+
     it('concurrent undo/redo of object - no sync before undo', async function () {
       interface TestDoc {
         color: string;

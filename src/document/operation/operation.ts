@@ -224,5 +224,8 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): ExecutionResult;
+  public abstract execute(
+    root: CRDTRoot,
+    origin?: string,
+  ): ExecutionResult | undefined;
 }

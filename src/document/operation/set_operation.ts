@@ -59,8 +59,15 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
+  public execute(root: CRDTRoot, source?: string): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+
+    if (
+      source === 'UNDOREDO' &&
+      (!parentObject || parentObject.getRemovedAt())
+    ) {
+      return;
+    }
 
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
