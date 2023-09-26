@@ -11,7 +11,8 @@
     "build": "webpack --config ./config/webpack.config.js && npm run api-report && npm run prune",
     "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/yorkie/v1/*.proto",
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
-    "build:examples": "npm run build --workspaces",
+    "build:examples": "npm run build --workspace examples",
+    "build:create-yorkie-app": "npm run build --workspace create-yorkie-app",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
@@ -98,6 +99,7 @@
     }
   },
   "workspaces": [
-    "examples/*"
+    "examples/*",
+    "tools/*"
   ]
 }
