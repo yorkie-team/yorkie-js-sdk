@@ -207,6 +207,25 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): { id: string; value: any } {
+    const values = {} as any;
+    for (let i = 0; i < this.length; i++) {
+      const { id, value } = this.getByIndex(i)!.toJSForTest();
+      values[i] = {
+        key: i,
+        id,
+        value,
+      };
+    }
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: values,
+    };
+  }
+
+  /**
    * `toSortedJSON` returns the sorted JSON encoding of this array.
    */
   public toSortedJSON(): string {

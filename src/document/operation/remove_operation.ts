@@ -124,7 +124,7 @@ export class RemoveOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.REMOVE`;
+    return `${this.getParentCreatedAt().toTestString()}.REMOVE.${this.createdAt.toTestString()}`;
   }
 
   /**

@@ -117,6 +117,25 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): { id: string; value: any } {
+    const values = {} as any;
+    for (const [key, elem] of this) {
+      const { id, value } = elem.toJSForTest();
+      values[key] = {
+        key,
+        id,
+        value,
+      };
+    }
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: values,
+    };
+  }
+
+  /**
    * `getKeys` returns array of keys in this object.
    */
   public getKeys(): Array<string> {

@@ -144,6 +144,7 @@ export class Change<P extends Indexable> {
     const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
     for (const operation of this.operations) {
+      root.opsForTest.push(operation);
       const { opInfos, reverseOp } = operation.execute(root);
       changeOpInfos.push(...opInfos);
       if (reverseOp) {

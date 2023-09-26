@@ -944,6 +944,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getOpsForTest` returns the operations of this document for testing.
+   */
+  public getOpsForTest() {
+    return this.root.opsForTest;
+  }
+
+  /**
    * `garbageCollect` purges elements that were removed before the given time.
    *
    * @internal

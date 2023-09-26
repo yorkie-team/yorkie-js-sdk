@@ -61,6 +61,7 @@ export class SetOperation extends Operation {
    */
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
@@ -117,7 +118,9 @@ export class SetOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.SET`;
+    return `${this.getParentCreatedAt().toTestString()}.SET.${
+      this.key
+    }=${this.value.toSortedJSON()}`;
   }
 
   /**

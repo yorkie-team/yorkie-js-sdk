@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Object Devtool</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="object.css" />
+  </head>
+  <body>
+    <div class="obj-dev-tool">
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
+      <div class="update-wrap">
+        <form class="update-form">
+          <label for="update-key">key: </label
+          ><input type="text" id="update-key" autocomplete="off" />
+          <label for="update-value">value: </label
+          ><input type="text" id="update-value" autocomplete="off" />
+          <button id="set-btn">set</button>
+          <button id="delete-btn">delete</button>
+        </form>
+        <div class="update-code">
+          <pre style="white-space: pre-wrap" id="update-holder"></pre>
+          <div class="btn">
+            <button id="update-btn">update!</button>
+            <button id="undo-btn">undo</button>
+            <button id="redo-btn">redo</button>
+          </div>
+        </div>
+      </div>
+      <div class="obj-dev-log">
+        <div>
+          <h2>yorkie document</h2>
+          <div id="document-holder"></div>
+        </div>
+        <div class="stack-holder">
+          <div>
+            <h2>operations</h2>
+            <pre style="white-space: pre-wrap" id="ops-holder"></pre>
+          </div>
+          <div>
+            <h2>undo stack</h2>
+            <pre style="white-space: pre-wrap" id="undo-holder"></pre>
+          </div>
+          <div>
+            <h2>redo stack</h2>
+            <pre style="white-space: pre-wrap" id="redo-holder"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./yorkie.js"></script>
+    <script src="./util.js"></script>
+    <script>
+      const statusHolder = document.getElementById('network-status');
+      const onlineClientsHolder = document.getElementById('online-clients');
+      const setBtn = document.getElementById('set-btn');
+      const deleteBtn = document.getElementById('delete-btn');
+      const updateBtn = document.getElementById('update-btn');
+      const undoBtn = document.getElementById('undo-btn');
+      const redoBtn = document.getElementById('redo-btn');
+      const updateKey = document.getElementById('update-key');
+      const updateValue = document.getElementById('update-value');
+      const updateHolder = document.getElementById('update-holder');
+      const undoHolder = document.getElementById('undo-holder');
+      const redoHolder = document.getElementById('redo-holder');
+      const opsHolder = document.getElementById('ops-holder');
+      const docHolder = document.getElementById('document-holder');
+      const updateCode = {
+        start: 'doc.update((root) => {',
+        content: ['\n  // update key, value'],
+        end: '\n})',
+        data: [],
+      };
+      function getEntireUpdateCode() {
+        // prettier-ignore
+        return `${updateCode.start}${updateCode.content.join('')}${updateCode.end}`;
+      }
+      function pushUpdateCode(str) {
+        updateCode.content.push(`\n  ${str}`);
+      }
+      function pushUpdateData({ key, value, type }) {
+        updateCode.data.push({ key, value, type });
+      }
+      updateHolder.innerHTML = getEntireUpdateCode();
+
+      function printUndoStack(doc) {
+        undoHolder.innerHTML = JSON.stringify(
+          doc.getUndoStackForTest(),
+          null,
+          2,
+        );
+      }
+      function printRedoStack(doc) {
+        redoHolder.innerHTML = JSON.stringify(
+          doc.getRedoStackForTest(),
+          null,
+          2,
+        );
+      }
+      function printOps(doc) {
+        opsHolder.innerHTML = JSON.stringify(
+          doc.getOpsForTest().map((op) => op.toTestString()),
+          null,
+          2,
+        );
+      }
+
+      const displayDocument = (doc) => {
+        const docData = doc.getRoot().toJSForTest();
+        docHolder.innerHTML = displayObject(docData);
+      };
+      function displayObject({ key, value, id }) {
+        const valueHTML = Object.values(value)
+          .map((v) => {
+            return Object.prototype.toString.call(v.value) === '[object Object]'
+              ? displayObject(v)
+              : displayValue(v);
+          })
+          .join('');
+        if (!key) key = 'root';
+        return `
+            <div class="object-key-val">
+                ${displayKey({ key, id })}
+                <div class="object-content">
+                    ${valueHTML}
+                </div>
+            </div>
+            `;
+      }
+      function displayKey({ key, id }) {
+        return `
+            <input type="checkbox" id="${id}" />
+            <label for="${id}">▾ ${key}
+                <span class="timeticket">${id}</span>
+            </label>
+            `;
+      }
+      function displayValue({ key, value, id }) {
+        return `
+            <div class="variable-row">
+                <span>${key} : ${JSON.stringify(value)} 
+                    <span class="timeticket">${id}</span>
+                </span>
+            </div>
+            `;
+      }
+
+      function displayOnlineClients(presences, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of presences) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        onlineClientsHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      async function main() {
+        try {
+          // 01. create client with RPCAddr(envoy) then activate it.
+          const client = new yorkie.Client('http://localhost:8080');
+          client.subscribe(network.statusListener(statusHolder));
+          await client.activate();
+
+          // 02. create a document then attach it into the client.
+          const doc = new yorkie.Document('object');
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') return;
+            displayOnlineClients(doc.getPresences(), client.getID());
+          });
+          window.doc = doc;
+          await client.attach(doc);
+
+          // 03. update doc
+          setBtn.onclick = (e) => {
+            e.preventDefault();
+            if (!updateKey.value || !updateValue.value) return;
+            let value = updateValue.value;
+            let jsonValue = `"${updateValue.value}"`;
+            if (value.startsWith('{')) {
+              value = JSON.parse(value);
+              jsonValue = JSON.stringify(value);
+            }
+            pushUpdateData({ type: 'add', key: updateKey.value, value });
+            pushUpdateCode(`root.${updateKey.value} = ${jsonValue};`);
+            updateHolder.innerHTML = getEntireUpdateCode();
+            updateKey.value = '';
+            updateValue.value = '';
+          };
+
+          deleteBtn.onclick = (e) => {
+            e.preventDefault();
+            if (!updateKey.value) return;
+            pushUpdateData({ type: 'delete', key: updateKey.value });
+            pushUpdateCode(`delete root.${updateKey.value};`);
+            updateHolder.innerHTML = getEntireUpdateCode();
+            updateKey.value = '';
+            updateValue.value = '';
+          };
+
+          updateBtn.onclick = (e) => {
+            e.preventDefault();
+            if (!updateCode.data.length) return;
+            doc.update((root) => {
+              for (const { type, key, value } of updateCode.data) {
+                const keys = key.split('.');
+                let currentObj = root;
+                if (type === 'add') {
+                  for (let i = 0; i < keys.length - 1; i++) {
+                    const currentKey = keys[i];
+                    if (currentObj[currentKey]) {
+                      currentObj = currentObj[currentKey];
+                    } else {
+                      return;
+                    }
+                  }
+                  const lastKey = keys[keys.length - 1];
+                  currentObj[lastKey] = value;
+                } else if (type === 'delete') {
+                  for (let i = 0; i < keys.length - 1; i++) {
+                    const currentKey = keys[i];
+                    if (typeof currentObj[currentKey] === 'object') {
+                      currentObj = currentObj[currentKey];
+                    } else {
+                      return;
+                    }
+                  }
+                  const lastKey = keys[keys.length - 1];
+                  delete currentObj[lastKey];
+                }
+              }
+            });
+            updateCode.data = [];
+            updateCode.content = ['\n  // update key, value'];
+            updateHolder.innerHTML = getEntireUpdateCode();
+            printUndoStack(doc);
+            printRedoStack(doc);
+          };
+
+          undoBtn.onclick = (e) => {
+            e.preventDefault();
+            doc.undo();
+            printUndoStack(doc);
+            printRedoStack(doc);
+          };
+
+          redoBtn.onclick = (e) => {
+            e.preventDefault();
+            doc.redo();
+            printUndoStack(doc);
+            printRedoStack(doc);
+          };
+
+          // 04. subscribe to document changes
+          doc.subscribe((event) => {
+            displayDocument(doc);
+            printOps(doc);
+          });
+
+          // 05. set initial value
+          doc.update((root) => {
+            root.shape = {
+              point: {
+                x: 0,
+                y: 0,
+              },
+              color: 'red',
+            };
+            root.a = 1;
+          });
+          displayDocument(doc);
+          printOps(doc);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

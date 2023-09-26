@@ -118,6 +118,7 @@ export abstract class CRDTElement {
 
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
+  abstract toJSForTest(): { id: string; value: any };
   abstract deepcopy(): CRDTElement;
 }
 

@@ -120,6 +120,16 @@ export class CRDTCounter extends CRDTElement {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): { id: string; value: any } {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: this.value,
+    };
+  }
+
+  /**
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTCounter {

@@ -351,6 +351,16 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): { id: string; value: any } {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: JSON.parse(this.toJSON()),
+    };
+  }
+
+  /**
    * `toString` returns the string representation of this text.
    */
   public toString(): string {

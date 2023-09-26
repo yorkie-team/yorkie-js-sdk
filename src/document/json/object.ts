@@ -108,6 +108,10 @@ export class ObjectProxy {
           return (): object => {
             return target.toJS();
           };
+        } else if (keyOrMethod === 'toJSForTest') {
+          return (): object => {
+            return target.toJSForTest();
+          };
         }
 
         return toJSONElement(context, target.get(keyOrMethod));

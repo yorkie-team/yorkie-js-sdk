@@ -69,12 +69,14 @@ export class CRDTRoot {
    * the element that has removed nodes when executing garbage collection.
    */
   private elementHasRemovedNodesSetByCreatedAt: Set<string>;
+  public opsForTest: Array<any>;
 
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
     this.elementHasRemovedNodesSetByCreatedAt = new Set();
+    this.opsForTest = [];
 
     this.elementPairMapByCreatedAt.set(
       this.rootObject.getCreatedAt().toIDString(),

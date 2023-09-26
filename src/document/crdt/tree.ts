@@ -955,6 +955,16 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): { id: string; value: any } {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: JSON.parse(this.toJSON()),
+    };
+  }
+
+  /**
    * `getRootTreeNode` returns the converted value of this tree to TreeNode.
    */
   public getRootTreeNode(): TreeNode {
