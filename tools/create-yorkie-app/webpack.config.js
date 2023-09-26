@@ -46,13 +46,11 @@ module.exports = {
     extensions: ['.ts', '.js'],
   },
   output: {
-    library: {
-      type: 'module',
-    },
+    module: true,
+    chunkFormat: 'module',
     filename: 'create-yorkie-app.mjs',
     path: path.resolve(__dirname, './dist'),
     clean: true,
-    chunkFormat: 'module',
   },
   plugins: [
     new webpack.BannerPlugin({
