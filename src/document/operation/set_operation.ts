@@ -21,7 +21,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
   Operation,
-  OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -58,7 +58,7 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -70,13 +70,15 @@ export class SetOperation extends Operation {
     const value = this.value.deepcopy();
     obj.set(this.key, value);
     root.registerElement(value, obj);
-    return [
-      {
-        type: 'set',
-        path: root.createPath(this.getParentCreatedAt()),
-        key: this.key,
-      },
-    ];
+    return {
+      opInfos: [
+        {
+          type: 'set',
+          path: root.createPath(this.getParentCreatedAt()),
+          key: this.key,
+        },
+      ],
+    };
   }
 
   /**

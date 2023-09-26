@@ -479,6 +479,9 @@ export namespace Operation {
     hasExecutedAt(): boolean;
     clearExecutedAt(): Style;
 
+    getCreatedAtMapByActorMap(): jspb.Map<string, TimeTicket>;
+    clearCreatedAtMapByActorMap(): Style;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): Style.AsObject;
     static toObject(includeInstance: boolean, msg: Style): Style.AsObject;
@@ -494,6 +497,7 @@ export namespace Operation {
       to?: TextNodePos.AsObject,
       attributesMap: Array<[string, string]>,
       executedAt?: TimeTicket.AsObject,
+      createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
     }
   }
 

@@ -1013,16 +1013,27 @@ describe('Document', function () {
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
+    });
+    await eventCollector.waitAndVerifyNthEvent(1, [
+      { type: 'set', path: '$', key: 'cnt' },
+    ]);
+
+    doc.update((root) => {
       root.cnt.increase(1);
       root.cnt.increase(10);
       root.cnt.increase(-3);
     });
-
-    await eventCollector.waitAndVerifyNthEvent(1, [
-      { type: 'set', path: '$', key: 'cnt' },
+    await eventCollector.waitAndVerifyNthEvent(2, [
       { type: 'increase', path: '$.cnt', value: 1 },
       { type: 'increase', path: '$.cnt', value: 10 },
       { type: 'increase', path: '$.cnt', value: -3 },
+    ]);
+
+    doc.history.undo();
+    await eventCollector.waitAndVerifyNthEvent(3, [
+      { type: 'increase', path: '$.cnt', value: 3 },
+      { type: 'increase', path: '$.cnt', value: -10 },
+      { type: 'increase', path: '$.cnt', value: -1 },
     ]);
 
     unsub();
