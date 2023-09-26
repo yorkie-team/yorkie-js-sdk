@@ -968,6 +968,17 @@ describe('Document', function () {
       { type: 'remove', path: '$', key: 'obj' },
     ]);
 
+    doc.history.undo();
+    await eventCollector.waitAndVerifyNthEvent(2, [
+      { type: 'set', path: '$', key: 'obj' },
+      { type: 'set', path: '$.obj', key: '$hello' },
+      { type: 'remove', path: '$.obj', key: '$hello' },
+      { type: 'set', path: '$.obj', key: 'a' },
+      { type: 'remove', path: '$.obj', key: 'a' },
+      { type: 'remove', path: '$', key: 'obj' },
+      { type: 'remove', path: '$', key: '' },
+    ]);
+
     unsub();
   });
 

@@ -89,7 +89,11 @@ export class ElementRHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: CRDTElement): CRDTElement | undefined {
+  public set(
+    key: string,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement | undefined {
     let removed;
     const node = this.nodeMapByKey.get(key);
     if (
@@ -102,11 +106,9 @@ export class ElementRHT {
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
-    if (
-      node == null ||
-      value.getCreatedAt().after(node.getValue().getCreatedAt())
-    ) {
+    if (node == null || executedAt.after(node.getValue().getExecutedAt())) {
       this.nodeMapByKey.set(key, newNode);
+      value.setExecutedAt(executedAt);
     }
     return removed;
   }

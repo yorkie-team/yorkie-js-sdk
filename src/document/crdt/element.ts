@@ -25,9 +25,11 @@ export abstract class CRDTElement {
   private createdAt: TimeTicket;
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
+  private executedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
+    this.executedAt = createdAt;
   }
 
   /**
@@ -59,6 +61,13 @@ export abstract class CRDTElement {
   }
 
   /**
+   * `getExecutedAt` returns the execution time of this element.
+   */
+  public getExecutedAt(): TimeTicket {
+    return this.executedAt;
+  }
+
+  /**
    * `setMovedAt` sets the move time of this element.
    */
   public setMovedAt(movedAt?: TimeTicket): boolean {
@@ -75,6 +84,13 @@ export abstract class CRDTElement {
    */
   public setRemovedAt(removedAt?: TimeTicket): void {
     this.removedAt = removedAt;
+  }
+
+  /**
+   * `setExecutedAt` sets the execution time of this element.
+   */
+  public setExecutedAt(executedAt: TimeTicket): void {
+    this.executedAt = executedAt;
   }
 
   /**

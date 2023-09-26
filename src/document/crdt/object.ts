@@ -59,8 +59,12 @@ export class CRDTObject extends CRDTContainer {
   /**
    * `set` sets the given element of the given key.
    */
-  public set(key: string, value: CRDTElement): CRDTElement | undefined {
-    return this.memberNodes.set(key, value);
+  public set(
+    key: string,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement | undefined {
+    return this.memberNodes.set(key, value, executedAt);
   }
 
   /**
@@ -155,7 +159,11 @@ export class CRDTObject extends CRDTContainer {
   public deepcopy(): CRDTObject {
     const clone = CRDTObject.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
-      clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
+      clone.memberNodes.set(
+        node.getStrKey(),
+        node.getValue().deepcopy(),
+        this.getExecutedAt(),
+      );
     }
     clone.remove(this.getRemovedAt());
     return clone;

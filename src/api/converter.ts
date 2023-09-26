@@ -1198,7 +1198,11 @@ function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
   const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
     // eslint-disable-next-line
-    rht.set(pbRHTNode.getKey(), fromElement(pbRHTNode.getElement()!));
+    rht.set(
+      pbRHTNode.getKey(),
+      fromElement(pbRHTNode.getElement()!),
+      fromTimeTicket(pbObject.getCreatedAt())!,
+    );
   }
 
   const obj = new CRDTObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);

@@ -23,6 +23,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -36,7 +37,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.key = key;
@@ -50,7 +51,7 @@ export class SetOperation extends Operation {
     key: string,
     value: CRDTElement,
     parentCreatedAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): SetOperation {
     return new SetOperation(key, value, parentCreatedAt, executedAt);
   }
@@ -67,9 +68,13 @@ export class SetOperation extends Operation {
       logger.fatal(`fail to execute, only object can execute set`);
     }
     const obj = parentObject as CRDTObject;
+    const previousValue = obj.get(this.key);
+    const reverseOp = this.getReverseOperation(previousValue);
+
     const value = this.value.deepcopy();
-    obj.set(this.key, value);
+    obj.set(this.key, value, this.getExecutedAt());
     root.registerElement(value, obj);
+
     return {
       opInfos: [
         {
@@ -78,7 +83,27 @@ export class SetOperation extends Operation {
           key: this.key,
         },
       ],
+      reverseOp,
     };
+  }
+
+  /**
+   * `getReverseOperation` returns the reverse operation of this operation.
+   */
+  public getReverseOperation(value: CRDTElement | undefined): Operation {
+    let reverseOp: SetOperation | RemoveOperation = RemoveOperation.create(
+      this.getParentCreatedAt(),
+      this.value.getCreatedAt(),
+    );
+
+    if (value !== undefined && !value.isRemoved()) {
+      reverseOp = SetOperation.create(
+        this.key,
+        value.deepcopy(),
+        this.getParentCreatedAt(),
+      );
+    }
+    return reverseOp;
   }
 
   /**

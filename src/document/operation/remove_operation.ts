@@ -23,7 +23,9 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -34,7 +36,7 @@ export class RemoveOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
@@ -46,7 +48,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
@@ -64,6 +66,8 @@ export class RemoveOperation extends Operation {
     }
     const obj = parentObject as CRDTContainer;
     const key = obj.subPathOf(this.createdAt);
+    const reverseOp = this.getReverseOperation(obj);
+
     const elem = obj.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
@@ -84,7 +88,29 @@ export class RemoveOperation extends Operation {
             },
           ];
 
-    return { opInfos };
+    return { opInfos, reverseOp };
+  }
+
+  /**
+   * `getReverseOperation` returns the reverse operation of this operation.
+   */
+  public getReverseOperation(
+    parentObject: CRDTContainer,
+  ): Operation | undefined {
+    //TODO(Hyemmie): consider CRDTArray
+    if (parentObject instanceof CRDTObject) {
+      const key = parentObject.subPathOf(this.createdAt);
+      if (key !== undefined) {
+        const value = parentObject.get(key);
+        if (value !== undefined) {
+          return SetOperation.create(
+            key,
+            value.deepcopy(),
+            this.getParentCreatedAt(),
+          );
+        }
+      }
+    }
   }
 
   /**

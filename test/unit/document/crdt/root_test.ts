@@ -24,8 +24,9 @@ describe('ROOT', function () {
     assert.equal(root.createPath(MaxTimeTicket), '');
 
     // set '$.k1'
-    const k1 = Primitive.of('k1', cc.issueTimeTicket());
-    root.getObject().set('k1', k1);
+    let ticket = cc.issueTimeTicket();
+    const k1 = Primitive.of('k1', ticket);
+    root.getObject().set('k1', k1, ticket);
     root.registerElement(k1, root.getObject());
     assert.equal(root.getElementMapSize(), 2);
     assert.equal(root.findByCreatedAt(k1.getCreatedAt()), k1);
@@ -39,8 +40,9 @@ describe('ROOT', function () {
     assert.isUndefined(root.findByCreatedAt(k1.getCreatedAt()));
 
     // set '$.k2'
-    const k2 = CRDTObject.create(cc.issueTimeTicket());
-    root.getObject().set('k2', k2);
+    ticket = cc.issueTimeTicket();
+    const k2 = CRDTObject.create(ticket);
+    root.getObject().set('k2', k2, ticket);
     root.registerElement(k2, root.getObject());
     assert.equal(root.getElementMapSize(), 2);
     assert.equal(root.findByCreatedAt(k2.getCreatedAt()), k2);
@@ -49,8 +51,9 @@ describe('ROOT', function () {
     assert.equal(Object.keys(k2.toJS()).length, 0);
 
     // set '$.k2.1'
-    const k2Dot1 = CRDTArray.create(cc.issueTimeTicket());
-    k2.set('1', k2Dot1);
+    ticket = cc.issueTimeTicket();
+    const k2Dot1 = CRDTArray.create(ticket);
+    k2.set('1', k2Dot1, ticket);
     root.registerElement(k2Dot1, k2);
     assert.equal(root.getElementMapSize(), 3);
     assert.equal(root.findByCreatedAt(k2Dot1.getCreatedAt()), k2Dot1);
@@ -110,11 +113,9 @@ describe('ROOT', function () {
     );
     const obj = new CRDTObject(InitialTimeTicket, ElementRHT.create());
     const change = ChangeContext.create(InitialChangeID, root, {});
-    const crdtText = CRDTText.create(
-      RGATreeSplit.create(),
-      change.issueTimeTicket(),
-    );
-    obj.set('k1', crdtText);
+    const executedAt = change.issueTimeTicket();
+    const crdtText = CRDTText.create(RGATreeSplit.create(), executedAt);
+    obj.set('k1', crdtText, executedAt);
     change.registerElement(crdtText, obj);
     const text = new Text(change, crdtText);
 

@@ -148,15 +148,15 @@ describe('Counter', function () {
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":1,"longCnt":9223372036854775807}`);
     assert.equal(
-      JSON.stringify(doc.getUndoStackForTest()),
-      `[["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]]`,
+      JSON.stringify(doc.getUndoStackForTest().at(-1)),
+      `["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]`,
     );
 
     doc.history.undo();
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
     assert.equal(
-      JSON.stringify(doc.getRedoStackForTest()),
-      `[["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]]`,
+      JSON.stringify(doc.getRedoStackForTest().at(-1)),
+      `["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]`,
     );
   });
 
