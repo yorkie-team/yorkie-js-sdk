@@ -293,13 +293,17 @@
     return currentNode;
   }
 
+  const BLOCK_WIDTH = 80;
+  const BLOCK_HEIGHT = 50;
+  const GAP_WIDTH = 10;
   function calculateTreeViewport(node) {
     if (!node) {
       return;
     }
     if (!node.left && !node.right) {
       node.viewport = {
-        width: 64,
+        width: BLOCK_WIDTH,
+        center: BLOCK_WIDTH / 2,
       };
       return;
     }
@@ -309,100 +313,82 @@
     };
     if (node.left) {
       calculateTreeViewport(node.left);
-      node.viewport.width += node.left.viewport.width;
-      node.viewport.width += 10;
+      node.viewport.center = node.left.viewport.center + GAP_WIDTH;
+      node.viewport.width += node.left?.viewport.width;
     }
     if (node.right) {
       calculateTreeViewport(node.right);
-      node.viewport.width += node.right.viewport.width;
+      node.viewport.center = node.right.viewport.center;
+      node.viewport.width += node.right?.viewport.width;
+    }
+    node.viewport.width += GAP_WIDTH;
+    if (node.left && node.right) {
+      const cl = node.left.viewport.center;
+      const cr = node.right.viewport.center;
+      node.viewport.center =
+        cl + (node.left.viewport.width - cl + GAP_WIDTH + cr) / 2;
     }
   }
 
-  function calculateAbsolutePosition(type, node, startX = 0, endX = 0) {
+  function calculateAbsolutePosition(
+    type,
+    node,
+    startX,
+    endX,
+    direction = 'left',
+  ) {
     if (!node) {
       return;
     }
-
-    node.viewport.x = startX + node.viewport.width / 2;
-    node.viewport.top = node.depth * 52;
-    node.viewport.left = node.viewport.x;
-
-    let hasReconcileLeft = false;
+    node.viewport.top = node.depth * BLOCK_HEIGHT;
+    if (direction === 'left') {
+      node.viewport.left = startX + node.viewport.center - BLOCK_WIDTH / 2;
+    } else {
+      node.viewport.left =
+        endX - node.viewport.width + node.viewport.center - BLOCK_WIDTH / 2;
+    }
 
     if (node.left) {
-      if (
-        (node.right?.left || node.right?.right) &&
-        !node.left.left &&
-        !node.left.right
-      ) {
-        if (node.right) {
-          hasReconcileLeft = true;
-        }
-      } else {
-        // startX -= (node.right?.viewport.width || 0);
-      }
       calculateAbsolutePosition(
         type,
         node.left,
         startX,
         startX + node.left.viewport.width,
+        'left',
       );
     }
 
-    let hasReconcileRight = false;
     if (node.right) {
-      if (
-        (node.left?.left || node.left?.right) &&
-        !node.right.left &&
-        !node.right.right
-      ) {
-        if (node.left) {
-          hasReconcileRight = true;
-        }
-      } else {
-        startX += node.left?.viewport.width || 0;
-      }
       calculateAbsolutePosition(
         type,
         node.right,
-        startX + 10,
-        startX + node.right.viewport.width,
+        endX - node.right.viewport.width,
+        endX,
+        'right',
       );
-    }
-
-    if (hasReconcileLeft) {
-      node.left.viewport.left =
-        node.viewport.left - node.left.viewport.width / 2 - 10;
-    }
-    if (hasReconcileRight) {
-      if (node.left) {
-        node.right.viewport.left = node.left.viewport.left + 70;
-      } else {
-        node.right.viewport.left =
-          node.viewport.left + node.viewport.width / 2 + 10;
-      }
     }
   }
 
   function renderHeadLineView(type, node) {
     return `
-  <div class="line-holder">
-    <svg overflow="visible">
-      <path class="line" d="${renderLineHTML(type, node)}"/>
-    </svg>
-  </div>`;
+    <div class="line-holder">
+      <svg overflow="visible">
+        <path class="line" d="${renderLineHTML(type, node)}"/>
+      </svg>
+    </div>`;
   }
 
   function renderLineHTML(type, node) {
     if (!node) {
       return '';
     }
+
+    // prettier-ignore
     return `
     ${
       node.parent
-        ? `M ${node.viewport.left + 40} ${node.viewport.top + 25} L ${
-            node.parent.viewport.left + 40
-          } ${node.parent.viewport.top + 25}`
+        ? `M ${node.viewport.left + BLOCK_WIDTH / 2} ${node.viewport.top + BLOCK_HEIGHT / 2}
+           L ${node.parent.viewport.left + BLOCK_WIDTH / 2} ${node.parent.viewport.top + BLOCK_HEIGHT / 2}`
         : ''
     }
     ${node.left ? renderLineHTML(type, node.left) : ''}
@@ -439,18 +425,8 @@
   }
 
   // Initialize panzoom
-  splayPanzoomInstance = panzoom(splayTreeLogHolder, {
-    transformOrigin: {
-      x: 0.5,
-      y: 0.5,
-    },
-  });
-  llrbPanzoomInstance = panzoom(llrbTreeLogHolder, {
-    transformOrigin: {
-      x: 0.5,
-      y: 0.5,
-    },
-  });
+  splayPanzoomInstance = panzoom(splayTreeLogHolder);
+  llrbPanzoomInstance = panzoom(llrbTreeLogHolder);
 
   // ======================================
   // ========== Selecting Node ============
