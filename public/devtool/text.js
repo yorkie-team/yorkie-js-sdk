@@ -351,7 +351,7 @@
       weight: node.weight,
       parent,
     };
-    currentNode.right = node.next
+    currentNode.nextNode = node.next
       ? getNewRGASplit(node.next, currentNode)
       : null;
     return currentNode;
@@ -495,7 +495,7 @@
     }
 
     node.viewport = {
-      left: left + 80 + 10,
+      left: left + BLOCK_WIDTH + GAP_WIDTH,
       top: 0,
     };
 
@@ -520,8 +520,7 @@
         </div>
       </div>
     </div>` +
-      // (node.left ? renderHeadHTML(node.left) : '') +
-      (node.right ? renderListHTML(node.right, node.viewport.left) : '')
+      (node.nextNode ? renderListHTML(node.nextNode, node.viewport.left) : '')
     );
   }
 
@@ -533,11 +532,11 @@
     return `
     ${
       node.parent
-        ? `M ${node.viewport.left + 40} 25
-           L ${node.parent.viewport.left + 40} 25`
+        ? `M ${node.viewport.left + BLOCK_WIDTH / 2} ${BLOCK_HEIGHT / 2}
+           L ${node.parent.viewport.left + BLOCK_WIDTH / 2} ${BLOCK_HEIGHT / 2}`
         : ''
     }
-    ${node.right ? renderListLineHTML(node.right) : ''}
+    ${node.nextNode ? renderListLineHTML(node.nextNode) : ''}
   `;
   }
 
@@ -677,7 +676,7 @@
         return true;
       }
     });
-    const rgaSelectedNode = traverseTree(rgaHeadNode, (node) => {
+    const rgaSelectedNode = traverseList(rgaHeadNode, (node) => {
       if (node.key === selectedKey) {
         return true;
       }
@@ -724,6 +723,19 @@
       const right = traverseTree(node.right, callback);
       if (right) {
         return right;
+      }
+    }
+  }
+
+  function traverseList(node, callback) {
+    if (callback(node)) {
+      return node;
+    }
+
+    if (node.nextNode) {
+      const next = traverseList(node.nextNode, callback);
+      if (next) {
+        return next;
       }
     }
   }
