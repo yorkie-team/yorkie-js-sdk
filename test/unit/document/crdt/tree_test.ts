@@ -43,6 +43,7 @@ const DTP = CRDTTreeNodeID.of(ITT, 0);
 const dummyContext = ChangeContext.create(
   InitialChangeID,
   new CRDTRoot(new CRDTObject(ITT, ElementRHT.create())),
+  {},
 );
 
 /**

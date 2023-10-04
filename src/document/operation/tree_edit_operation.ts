@@ -25,6 +25,7 @@ import {
 import {
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -75,7 +76,7 @@ export class TreeEditOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -94,17 +95,19 @@ export class TreeEditOperation extends Operation {
     if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(tree);
     }
-    return changes.map(({ from, to, value, fromPath, toPath }) => {
-      return {
-        type: 'tree-edit',
-        from,
-        to,
-        value,
-        fromPath,
-        toPath,
-        path: root.createPath(this.getParentCreatedAt()),
-      };
-    }) as Array<OperationInfo>;
+    return {
+      opInfos: changes.map(({ from, to, value, fromPath, toPath }) => {
+        return {
+          type: 'tree-edit',
+          from,
+          to,
+          value,
+          fromPath,
+          toPath,
+          path: root.createPath(this.getParentCreatedAt()),
+        } as OperationInfo;
+      }),
+    };
   }
 
   /**

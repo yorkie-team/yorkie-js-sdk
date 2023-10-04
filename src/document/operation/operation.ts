@@ -157,13 +157,24 @@ export type TreeStyleOpInfo = {
 };
 
 /**
+ * `ExecutionResult` represents the result of operation execution.
+ */
+export type ExecutionResult = {
+  opInfos: Array<OperationInfo>;
+  // TODO(chacha912): After implementing all of the reverseOperation,
+  // we change the type to non-optional.
+  reverseOp?: Operation;
+};
+
+/**
  * `Operation` represents an operation to be executed on a document.
  */
 export abstract class Operation {
   private parentCreatedAt: TimeTicket;
-  private executedAt: TimeTicket;
+  // NOTE(Hyemmie): `executedAt` variable is undefined if this operation is not executed yet.
+  private executedAt?: TimeTicket;
 
-  constructor(parentCreatedAt: TimeTicket, executedAt: TimeTicket) {
+  constructor(parentCreatedAt: TimeTicket, executedAt?: TimeTicket) {
     this.parentCreatedAt = parentCreatedAt;
     this.executedAt = executedAt;
   }
@@ -179,15 +190,26 @@ export abstract class Operation {
   /**
    * `getExecutedAt` returns execution time of this operation.
    */
+  // TODO(Hyemmie): Corner cases need to be considered: undo/redo operations'
+  // `executedAt` could be undefined until they are executed.
   public getExecutedAt(): TimeTicket {
-    return this.executedAt;
+    return this.executedAt!;
   }
 
   /**
    * `setActor` sets the given actor to this operation.
    */
   public setActor(actorID: ActorID): void {
-    this.executedAt = this.executedAt.setActor(actorID);
+    if (this.executedAt) {
+      this.executedAt = this.executedAt.setActor(actorID);
+    }
+  }
+
+  /**
+   * `setExecutedAt` sets the executedAt.
+   */
+  public setExecutedAt(executedAt: TimeTicket): void {
+    this.executedAt = executedAt;
   }
 
   /**
@@ -203,5 +225,5 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): Array<OperationInfo>;
+  public abstract execute(root: CRDTRoot): ExecutionResult;
 }

@@ -22,6 +22,7 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 
@@ -73,7 +74,7 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): Array<OperationInfo> {
+  public execute<A extends Indexable>(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -88,15 +89,17 @@ export class StyleOperation extends Operation {
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
     );
-    return changes.map(({ from, to, value }) => {
-      return {
-        type: 'style',
-        from,
-        to,
-        value,
-        path: root.createPath(this.getParentCreatedAt()),
-      };
-    }) as Array<OperationInfo>;
+    return {
+      opInfos: changes.map(({ from, to, value }) => {
+        return {
+          type: 'style',
+          from,
+          to,
+          value,
+          path: root.createPath(this.getParentCreatedAt()),
+        } as OperationInfo;
+      }),
+    };
   }
 
   /**

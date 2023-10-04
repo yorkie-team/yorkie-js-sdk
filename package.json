@@ -27,7 +27,7 @@
     "profile:bundle": "webpack --config ./config/webpack.dev.config.js --profile"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=18.0.0",
     "npm": ">=7.1.0"
   },
   "repository": {
@@ -57,7 +57,7 @@
     "benchmark": "^2.1.4",
     "chai": "^4.2.0",
     "copy-webpack-plugin": "^11.0.0",
-    "coverage-istanbul-loader": "^3.0.5",
+    "istanbul-instrumenter-loader": "^2.0.0",
     "eslint": "^8.19.0",
     "eslint-plugin-jsdoc": "^39.3.3",
     "eslint-plugin-prettier": "^4.2.1",
