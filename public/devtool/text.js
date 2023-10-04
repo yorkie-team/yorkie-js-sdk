@@ -339,14 +339,17 @@
 
   function getNewRGASplit(node, parent = null) {
     const currentNode = {
-      parent,
       actorID: node.id.createdAt.actorID,
-      isRemoved: node.isRemoved(),
-      removedAt: node.removedAt,
       key: node.id.toTestString(),
-      weight: node.weight,
+      removedAt: node.removedAt,
+      prev: node.getPrev()?.getID().toTestString(),
+      next: node.getNext()?.getID().toTestString(),
+      insPrev: node.getInsPrev()?.getID().toTestString(),
+      insNext: node.getInsNext()?.getID().toTestString(),
+      isRemoved: node.isRemoved(),
       value: node.value?.content,
-      left: null,
+      weight: node.weight,
+      parent,
     };
     currentNode.right = node.next
       ? getNewRGASplit(node.next, currentNode)
@@ -681,7 +684,7 @@
     });
 
     // Displays selected item info.
-    displaySelectedItemInfo(splaySelectedNode);
+    displaySelectedItemInfo(rgaSelectedNode);
     // Highlights the selected item in the CodeMirror editor.
     highlightCMSelectedItem(splaySelectedNode);
     // Highlights the selected item in the text log, structure data, and tree log.
@@ -730,27 +733,27 @@
       const block = blockKeys[node.key];
       selectedNodeInfo.innerHTML = `
       <div class="property-view">
-        <div class="property-item-view"><label>parent:</label> <div class="value">${
-          node.parent?.key
-        }</div></div>
-        <hr />
-        <div class="property-item-view"><label>key:</label> <div class="value">${
-          node.key
-        }</div></div>
-        <div class="property-item-view"><label>weight:</label> <div class="value">${
-          node.weight
-        }</div></div>
-        <div class="property-item-view"><label>offset:</label> <div class="value">${
+        <div class="property-item-view"><label>index:</label> <div class="value">${
           block ? block.offset : 'deleted'
         }</div></div>
-        <div class="property-item-view"><label>value:</label> <div class="value">${displayValue(
-          node.value,
-        )}</div></div>
-        <div class="property-item-view"><label>left:</label> <div class="value">${
-          node.left?.key
+         <div class="property-item-view"><label>value:</label> <div class="value">${displayValue(
+           node.value,
+         )}</div></div>
+        <hr/>
+        <div class="property-item-view"><label>id:</label> <div class="value">${
+          node.key
         }</div></div>
-        <div class="property-item-view"><label>right:</label> <div class="value">${
-          node.right?.key
+        <div class="property-item-view"><label>prev:</label> <div class="value">${
+          node.prev
+        }</div></div>
+        <div class="property-item-view"><label>next:</label> <div class="value">${
+          node.next
+        }</div></div>
+        <div class="property-item-view"><label>insPrev:</label> <div class="value">${
+          node.insPrev
+        }</div></div>
+        <div class="property-item-view"><label>insNext:</label> <div class="value">${
+          node.insNext
         }</div></div>
       </div>`;
     }
@@ -768,7 +771,7 @@
 
     const cm = codeMirrorInstance;
     const fromPos = cm.posFromIndex(block.offset);
-    const toPos = cm.posFromIndex(block.offset + selectedItem.value.length);
+    const toPos = cm.posFromIndex(block.offset + selectedItem.value?.length);
     const color = usersInfo[selectedItem.actorID]?.color || 'red';
     selectedItemMaker = cm.markText(fromPos, toPos, {
       css: `background: ${color}; color: white; border: 2px solid black; box-sizing: border-box; border-radius: 4px; padding: 2px`,
