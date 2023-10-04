@@ -25,8 +25,8 @@
   const structureTextHolder = document.getElementById('structure-text-holder');
   const selectedNodeInfo = document.querySelector(`.selected-node-info`);
 
-  // bottom
-  const treeArea = document.querySelector('.tree-area');
+  // center: RGASplit
+  const rgaSplitLogHolder = document.getElementById('rgasplit-log-holder');
 
   // bottom-left: SplayTree
   const splayTreeLogHolder = document.getElementById('splaytree-log-holder');
@@ -40,6 +40,9 @@
   let blockList = [];
   let blockKeys = {};
   let usersInfo = {};
+  let rgaSplitCanvas;
+  let splayTreeCanvas;
+  let llrbTreeCanvas;
 
   function displayLog(doc) {
     blockList = [];
@@ -205,8 +208,25 @@
   let llrbNext = [];
   let splayHeadNode;
   let llrbHeadNode;
+  let rgaHeadNode;
   let splayPanzoomInstance;
   let llrbPanzoomInstance;
+  let rgaPanzoomInstance;
+
+  function initCanvasDom() {
+    rgaSplitLogHolder.innerHTML = `<div class="canvas-wrap"></div>`;
+    splayTreeLogHolder.innerHTML = `<div class="canvas-wrap"></div>`;
+    llrbTreeLogHolder.innerHTML = `<div class="canvas-wrap"></div>`;
+
+    rgaSplitCanvas = rgaSplitLogHolder.querySelector('.canvas-wrap');
+    splayTreeCanvas = splayTreeLogHolder.querySelector('.canvas-wrap');
+    llrbTreeCanvas = llrbTreeLogHolder.querySelector('.canvas-wrap');
+    // Initialize panzoom
+    rgaPanzoomInstance = panzoom(rgaSplitCanvas);
+    splayPanzoomInstance = panzoom(splayTreeCanvas);
+    llrbPanzoomInstance = panzoom(llrbTreeCanvas);
+  }
+
   function displayTreeLog(doc) {
     // render splay tree
     splayNext = [];
@@ -217,7 +237,7 @@
     calculateTreeViewport(splayhead);
     calculateAbsolutePosition('splay', splayhead, 0, splayhead.viewport.width);
     splayTreeInfo.innerHTML = `depth: ${splayNext.length - 1}`;
-    splayTreeLogHolder.innerHTML =
+    splayTreeCanvas.innerHTML =
       renderHeadLineView('splay', splayhead) +
       renderHeadHTML('splay', splayhead);
 
@@ -230,13 +250,37 @@
     calculateTreeViewport(llrbhead);
     calculateAbsolutePosition('llrb', llrbhead, 0, llrbhead.viewport.width);
     llrbTreeInfo.innerHTML = `depth: ${llrbNext.length - 1}`;
-    llrbTreeLogHolder.innerHTML =
+    llrbTreeCanvas.innerHTML =
       renderHeadLineView('llrb', llrbhead) + renderHeadHTML('llrb', llrbhead);
 
+    const rgaHead = getNewRGASplit(
+      doc.getRoot().content.text.rgaTreeSplit.getHead(),
+    );
+    rgaHeadNode = rgaHead;
+    rgaSplitCanvas.innerHTML =
+      renderListHTML(rgaHeadNode) +
+      `<div class="line-holder">
+        <svg overflow="visible">
+          <path class="line" d="${renderListLineHTML(rgaHeadNode)}"/>
+        </svg>
+      </div>`;
+
     if (firstRendering) {
-      const rootRect = treeArea.getBoundingClientRect();
-      moveToSelectedItem(splayPanzoomInstance, rootRect, splayhead);
-      moveToSelectedItem(llrbPanzoomInstance, rootRect, llrbhead);
+      moveToSelectedItem(
+        splayPanzoomInstance,
+        splayTreeLogHolder.getBoundingClientRect(),
+        splayhead,
+      );
+      moveToSelectedItem(
+        llrbPanzoomInstance,
+        llrbTreeLogHolder.getBoundingClientRect(),
+        llrbhead,
+      );
+      moveToSelectedItem(
+        rgaPanzoomInstance,
+        rgaSplitLogHolder.getBoundingClientRect(),
+        rgaHead,
+      );
       firstRendering = false;
     }
   }
@@ -293,9 +337,27 @@
     return currentNode;
   }
 
+  function getNewRGASplit(node, parent = null) {
+    const currentNode = {
+      parent,
+      actorID: node.id.createdAt.actorID,
+      isRemoved: node.isRemoved(),
+      removedAt: node.removedAt,
+      key: node.id.toTestString(),
+      weight: node.weight,
+      value: node.value?.content,
+      left: null,
+    };
+    currentNode.right = node.next
+      ? getNewRGASplit(node.next, currentNode)
+      : null;
+    return currentNode;
+  }
+
   const BLOCK_WIDTH = 80;
   const BLOCK_HEIGHT = 50;
   const GAP_WIDTH = 10;
+
   function calculateTreeViewport(node) {
     if (!node) {
       return;
@@ -403,8 +465,8 @@
 
     // prettier-ignore
     return (
-    `<div 
-        class="node-item ${node.isRemoved ? 'is-removed' : ''}" 
+    `<div
+        class="node-item ${node.isRemoved ? 'is-removed' : ''}"
         style="--ticker-color: ${usersInfo[node.actorID]?.color}; transform-origin: center center; transform: translate3d(${node.viewport.left}px, ${node.viewport.top}px, 0px);"
         data-key="${node.key}">
       <div class="content">
@@ -424,16 +486,65 @@
   );
   }
 
-  // Initialize panzoom
-  splayPanzoomInstance = panzoom(splayTreeLogHolder);
-  llrbPanzoomInstance = panzoom(llrbTreeLogHolder);
+  function renderListHTML(node, left = 0) {
+    if (!node) {
+      return '';
+    }
+
+    node.viewport = {
+      left: left + 80 + 10,
+      top: 0,
+    };
+
+    return (
+      `<div 
+        class="node-item ${node.isRemoved ? 'is-removed' : ''}" 
+        style="--ticker-color: ${
+          usersInfo[node.actorID]?.color
+        }; transform-origin: center center; transform: translate3d(${
+        node.viewport.left
+      }px, ${node.viewport.top}px, 0px);"
+        data-key="${node.key}">
+      <div class="content">
+        <div class="inner-description">
+          ${!node.isRemoved ? `<div class="prev-view">&lt;</div>` : ''}
+          <div class="key-area">${node.key}</div>
+          <div class="value-area">
+            <div class="weight">${node.weight === 0 ? 'Ø' : node.weight}</div>
+            <div class="value">${displayValue(node.value)}</div>
+          </div>
+          ${!node.isRemoved ? `<div class="next-view">&gt;</div>` : ''}
+        </div>
+      </div>
+    </div>` +
+      // (node.left ? renderHeadHTML(node.left) : '') +
+      (node.right ? renderListHTML(node.right, node.viewport.left) : '')
+    );
+  }
+
+  function renderListLineHTML(node) {
+    if (!node) {
+      return '';
+    }
+
+    return `
+    ${
+      node.parent
+        ? `M ${node.viewport.left + 40} 25
+           L ${node.parent.viewport.left + 40} 25`
+        : ''
+    }
+    ${node.right ? renderListLineHTML(node.right) : ''}
+  `;
+  }
 
   // ======================================
   // ========== Selecting Node ============
   // ======================================
 
-  let selectedNodeElement = null;
+  let splayselectedNodeElement = null;
   let llrbselectedNodeElement = null;
+  let rgaselectedNodeElement = null;
   let selectedNodeCharElement = null;
   let selectedNodeStructureElement = null;
 
@@ -480,6 +591,7 @@
   structureInfoHolder.addEventListener('click', structureInfoEventHandler);
   splayTreeLogHolder.addEventListener('click', treeLogEventHandler);
   llrbTreeLogHolder.addEventListener('click', treeLogEventHandler);
+  rgaSplitLogHolder.addEventListener('click', treeLogEventHandler);
 
   function goPrevNode(e) {
     e.preventDefault();
@@ -562,6 +674,11 @@
         return true;
       }
     });
+    const rgaSelectedNode = traverseTree(rgaHeadNode, (node) => {
+      if (node.key === selectedKey) {
+        return true;
+      }
+    });
 
     // Displays selected item info.
     displaySelectedItemInfo(splaySelectedNode);
@@ -571,9 +688,21 @@
     highlightSelectedItem(selectedKey);
 
     // panzoom refresh
-    const rootRect = treeArea.getBoundingClientRect();
-    moveToSelectedItem(splayPanzoomInstance, rootRect, splaySelectedNode);
-    moveToSelectedItem(llrbPanzoomInstance, rootRect, llrbSelectedNode);
+    moveToSelectedItem(
+      splayPanzoomInstance,
+      splayTreeLogHolder.getBoundingClientRect(),
+      splaySelectedNode,
+    );
+    moveToSelectedItem(
+      llrbPanzoomInstance,
+      llrbTreeLogHolder.getBoundingClientRect(),
+      llrbSelectedNode,
+    );
+    moveToSelectedItem(
+      rgaPanzoomInstance,
+      rgaSplitLogHolder.getBoundingClientRect(),
+      rgaSelectedNode,
+    );
   }
 
   function traverseTree(node, callback) {
@@ -648,14 +777,14 @@
   }
 
   function highlightSelectedItem(selectedKey) {
-    if (selectedNodeElement) {
-      selectedNodeElement.classList.remove('selected');
+    if (splayselectedNodeElement) {
+      splayselectedNodeElement.classList.remove('selected');
     }
-    selectedNodeElement = splayTreeLogHolder.querySelector(
+    splayselectedNodeElement = splayTreeLogHolder.querySelector(
       `.node-item[data-key="${selectedKey}"]`,
     );
-    if (selectedNodeElement) {
-      selectedNodeElement.classList.add('selected');
+    if (splayselectedNodeElement) {
+      splayselectedNodeElement.classList.add('selected');
     }
 
     if (llrbselectedNodeElement) {
@@ -666,6 +795,16 @@
     );
     if (llrbselectedNodeElement) {
       llrbselectedNodeElement.classList.add('selected');
+    }
+
+    if (rgaselectedNodeElement) {
+      rgaselectedNodeElement.classList.remove('selected');
+    }
+    rgaselectedNodeElement = rgaSplitLogHolder.querySelector(
+      `.node-item[data-key="${selectedKey}"]`,
+    );
+    if (rgaselectedNodeElement) {
+      rgaselectedNodeElement.classList.add('selected');
     }
 
     if (selectedNodeCharElement) {
@@ -703,10 +842,9 @@
       x: selectedItem.viewport.left,
       y: selectedItem.viewport.top,
     };
-
     panzoomInstance?.moveTo(
-      -rect.x * trans.scale + rootRect.width / 2,
-      -rect.y * trans.scale + rootRect.height / 2,
+      -(rect.x + BLOCK_WIDTH / 2) * trans.scale + rootRect.width / 2,
+      -(rect.y + BLOCK_HEIGHT / 2) * trans.scale + rootRect.height / 2,
     );
   }
 
@@ -789,6 +927,8 @@
   function setCodeMirror(cm) {
     codeMirrorInstance = cm;
   }
+
+  initCanvasDom();
 
   global.devtool = {
     displayLog,

@@ -44,8 +44,19 @@
 
 .layout > .content > .graph-view {
   display: flex;
+  flex-direction: column;
   position: relative;
   border-top: 1px solid #ececec;
+}
+
+.layout .graph {
+  display: flex;
+  flex: 1;
+}
+
+.layout .split-graph {
+  display: flex;
+  height: 200px;
 }
 
 .layout > .content > .graph-view > .graph-area:first-child {
@@ -56,7 +67,7 @@
   display: flex;
   flex-direction: row;
   position: relative;
-  height: 300px;
+  height: 240px;
   flex: none;
 }
 
@@ -159,6 +170,7 @@
 .text-view-area .tab-body {
   flex: 1;
   display: flex;
+  overflow: auto;
 }
 
 .text-view-area .tab-button {
@@ -172,9 +184,7 @@
 
 .text-view-area .tabcontent {
   display: none;
-  height: 270px;
   width: 100%;
-  overflow: auto;
 }
 
 .text-view-area .tabcontent.active {
@@ -286,6 +296,7 @@
   width: 100%;
   border-left: 1px solid #ececec;
   font-size: 14px;
+  overflow: auto;
 }
 
 .text-view-area .selected-node-info .property-item-view {
@@ -327,14 +338,14 @@
   font-size: 12px;
 }
 
-.graph-view .tree-area {
+.graph-view .tree-log-holder {
   flex: 1;
   overflow: auto;
   position: relative;
   box-sizing: border-box;
 }
 
-.tree-area .node-item {
+.canvas-wrap .node-item {
   display: inline-block;
   padding: 2px;
   box-sizing: border-box;
@@ -344,7 +355,7 @@
   text-align: center;
 }
 
-.tree-area .node-item .inner-description {
+.canvas-wrap .node-item .inner-description {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -364,25 +375,25 @@
   background-color: white;
 }
 
-.tree-area .node-item.selected .inner-description {
+.canvas-wrap .node-item.selected .inner-description {
   border-color: var(--selected-node-bg-color) !important;
   background-color: var(--selected-node-bg-color) !important;
   color: var(--selected-node-color) !important;
 }
 
-.tree-area .node-item.is-removed .inner-description {
+.canvas-wrap .node-item.is-removed .inner-description {
   background-color: var(--deleted-node-color);
   border-width: 1px;
 }
 
-.tree-area .node-item .inner-description .key-area {
+.canvas-wrap .node-item .inner-description .key-area {
   font-size: 10px;
   padding: 4px;
   box-sizing: border-box;
   flex: 1;
 }
 
-.tree-area .node-item .inner-description .value-area {
+.canvas-wrap .node-item .inner-description .value-area {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -394,7 +405,7 @@
   font-size: 11px;
 }
 
-.tree-area .node-item .inner-description .value-area .value {
+.canvas-wrap .node-item .inner-description .value-area .value {
   flex: 1;
   text-align: center;
   text-overflow: ellipsis;
@@ -403,7 +414,7 @@
   max-width: 40px;
 }
 
-.tree-area .node-item .inner-description .value-area .weight {
+.canvas-wrap .node-item .inner-description .value-area .weight {
   flex: none;
   border-right: 1px solid black;
   box-sizing: border-box;
@@ -413,8 +424,8 @@
   height: 100%;
 }
 
-.tree-area .node-item .inner-description .prev-view,
-.tree-area .node-item .inner-description .next-view {
+.canvas-wrap .node-item .inner-description .prev-view,
+.canvas-wrap .node-item .inner-description .next-view {
   position: absolute;
   display: none;
   width: 10px;
@@ -424,24 +435,24 @@
   color: black;
 }
 
-.tree-area .node-item .inner-description .prev-view {
+.canvas-wrap .node-item .inner-description .prev-view {
   top: 50%;
   left: -12px;
   transform: translate(0, -50%);
 }
 
-.tree-area .node-item .inner-description .next-view {
+.canvas-wrap .node-item .inner-description .next-view {
   top: 50%;
   right: -12px;
   transform: translate(0, -50%);
 }
 
-.tree-area .node-item .inner-description:hover .prev-view,
-.tree-area .node-item .inner-description:hover .next-view {
+.canvas-wrap .node-item .inner-description:hover .prev-view,
+.canvas-wrap .node-item .inner-description:hover .next-view {
   display: flex;
 }
 
-.tree-area .line-holder {
+.canvas-wrap .line-holder {
   position: absolute;
   left: 0px;
   top: 0px;
@@ -449,7 +460,7 @@
   height: 100px;
 }
 
-.tree-area .line-holder svg {
+.canvas-wrap .line-holder svg {
   display: block;
   position: absolute;
   left: 0px;
@@ -461,6 +472,6 @@
   overflow: visible;
 }
 
-.tree-area .line-holder path {
+.canvas-wrap .line-holder path {
   stroke: black;
 }
