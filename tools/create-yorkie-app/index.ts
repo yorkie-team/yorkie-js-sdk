@@ -287,9 +287,14 @@ async function init() {
   };
 
   const files = fs.readdirSync(templateDir);
-  for (const file of files.filter((f) => f !== 'package.json')) {
+  for (const file of files.filter(
+    (f) => f !== 'package.json' && f !== '.env',
+  )) {
     write(file);
   }
+
+  const dotenvPath = path.resolve(fileURLToPath(import.meta.url), '../.env');
+  write('.env', fs.readFileSync(dotenvPath).toString());
 
   const pkg = JSON.parse(
     fs.readFileSync(path.join(templateDir, `package.json`), 'utf-8'),
