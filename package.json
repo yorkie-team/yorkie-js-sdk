@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -58,7 +58,7 @@
     "benchmark": "^2.1.4",
     "chai": "^4.2.0",
     "copy-webpack-plugin": "^11.0.0",
-    "coverage-istanbul-loader": "^3.0.5",
+    "istanbul-instrumenter-loader": "^2.0.0",
     "eslint": "^8.19.0",
     "eslint-plugin-jsdoc": "^39.3.3",
     "eslint-plugin-prettier": "^4.2.1",
