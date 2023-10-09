@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
 import minimist from 'minimist';
 import prompts from 'prompts';
-import { cyan, lightGreen, red, reset, yellow } from 'kolorist';
+import { red, reset } from 'kolorist';
+import { type Framework, FRAMEWORKS } from './FRAMEWORKS';
 
 // Avoids autoconversion to number of the project name by defining that the args
 // non associated with an option ( _ ) needs to be parsed as a string. See https://github.com/vitejs/vite/pull/4606
@@ -17,91 +18,6 @@ const argv = minimist<{
   template?: string;
 }>(process.argv.slice(2), { string: ['_'] });
 const cwd = process.cwd();
-
-type ColorFunc = (str: string | number) => string;
-type Framework = {
-  name: string;
-  display: string;
-  color: ColorFunc;
-  variants: Array<FrameworkVariant>;
-};
-type FrameworkVariant = {
-  name: string;
-  display: string;
-  color: ColorFunc;
-  customCommand?: string;
-};
-
-const FRAMEWORKS: Array<Framework> = [
-  {
-    name: 'vanilla',
-    display: 'Vanilla',
-    color: yellow,
-    variants: [
-      {
-        name: 'vanilla-codemirror6',
-        display: 'codemirror',
-        color: yellow,
-      },
-      {
-        name: 'vanilla-quill',
-        display: 'quill',
-        color: yellow,
-      },
-      {
-        name: 'profile-stack',
-        display: 'profile-stack',
-        color: yellow,
-      },
-    ],
-  },
-  {
-    name: 'react',
-    display: 'React',
-    color: cyan,
-    variants: [
-      {
-        name: 'react-tldraw',
-        display: 'tldraw',
-        color: cyan,
-      },
-      {
-        name: 'react-todomvc',
-        display: 'todomvc',
-        color: cyan,
-      },
-      {
-        name: 'simultaneous-cursors',
-        display: 'simultaneous-cursors',
-        color: cyan,
-      },
-    ],
-  },
-  {
-    name: 'nextjs',
-    display: 'Next.js',
-    color: reset,
-    variants: [
-      {
-        name: 'nextjs-scheduler',
-        display: 'scheduler',
-        color: reset,
-      },
-    ],
-  },
-  {
-    name: 'vue',
-    display: 'Vue',
-    color: lightGreen,
-    variants: [
-      {
-        name: 'vuejs-kanban',
-        display: 'kanban',
-        color: lightGreen,
-      },
-    ],
-  },
-];
 
 const TEMPLATES = FRAMEWORKS.map(
   (f) => (f.variants && f.variants.map((v) => v.name)) || [f.name],
@@ -112,13 +28,14 @@ const renameFiles: Record<string, string | undefined> = {
 };
 
 const apiKeyMessage = 'You can update your API key in .env';
+let apiKey = '';
+
 const defaultTargetDir = 'yorkie-app';
 
 async function init() {
   const argTargetDir = formatTargetDir(argv._[0]);
   const argTemplate = argv.template || argv.t;
 
-  let apiKey = '';
   let targetDir = argTargetDir || defaultTargetDir;
   const getProjectName = () =>
     targetDir === '.' ? path.basename(path.resolve()) : targetDir;
