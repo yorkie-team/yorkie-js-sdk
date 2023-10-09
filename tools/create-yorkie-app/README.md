@@ -24,5 +24,7 @@ $ npm run dev
 
 Open the browser and go to the URL that is printed in the terminal.
 
-Note that you are sharing the Yorkie server with other create-yorkie-app users.
-If you want to configure own local Yorkie server, refer to [this README](../../examples/README.md).
+## Note
+
+Yorkie API key or local server is necessary to run each example.
+You can create and manage your projects and API keys at [Yorkie Dashboard](https://yorkie.dev/dashboard). If you want to configure your own server, refer to [this README](../../examples/README.md).
