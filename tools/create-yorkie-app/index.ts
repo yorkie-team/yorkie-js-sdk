@@ -111,23 +111,46 @@ const renameFiles: Record<string, string | undefined> = {
   _gitignore: '.gitignore',
 };
 
+const apiKeyMessage = 'You can update your API key in .env';
 const defaultTargetDir = 'yorkie-app';
 
 async function init() {
   const argTargetDir = formatTargetDir(argv._[0]);
   const argTemplate = argv.template || argv.t;
 
+  let apiKey = '';
   let targetDir = argTargetDir || defaultTargetDir;
   const getProjectName = () =>
     targetDir === '.' ? path.basename(path.resolve()) : targetDir;
 
   let result: prompts.Answers<
-    'projectName' | 'overwrite' | 'packageName' | 'framework' | 'variant'
+    | 'apiKey'
+    | 'projectName'
+    | 'overwrite'
+    | 'packageName'
+    | 'framework'
+    | 'variant'
   >;
 
   try {
     result = await prompts(
       [
+        {
+          type: () => {
+            console.log(
+              '\n🔑 To run these examples, you need Yorkie API key.' +
+                '\nGet your API key at https://yorkie.dev/dashboard\n',
+            );
+
+            return 'text';
+          },
+          name: 'apiKey',
+          message: reset('API key:'),
+          initial: apiKeyMessage,
+          onState: ({ value }) => {
+            apiKey = value === apiKeyMessage ? '' : value;
+          },
+        },
         {
           type: argTargetDir ? null : 'text',
           name: 'projectName',
@@ -288,13 +311,15 @@ async function init() {
 
   const files = fs.readdirSync(templateDir);
   for (const file of files.filter(
-    (f) => f !== 'package.json' && f !== '.env',
+    (f) => f !== '.env' && f !== 'package.json',
   )) {
     write(file);
   }
 
   const dotenvPath = path.resolve(fileURLToPath(import.meta.url), '../.env');
-  write('.env', fs.readFileSync(dotenvPath).toString());
+  const dotenvTemplate = fs.readFileSync(dotenvPath).toString();
+
+  write('.env', `${dotenvTemplate.trim()}'${apiKey}'`);
 
   const pkg = JSON.parse(
     fs.readFileSync(path.join(templateDir, `package.json`), 'utf-8'),
