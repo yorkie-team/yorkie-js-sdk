@@ -193,6 +193,11 @@ export class Operation extends jspb.Message {
   hasTreeStyle(): boolean;
   clearTreeStyle(): Operation;
 
+  getEditReverse(): Operation.EditReverse | undefined;
+  setEditReverse(value?: Operation.EditReverse): Operation;
+  hasEditReverse(): boolean;
+  clearEditReverse(): Operation;
+
   getBodyCase(): Operation.BodyCase;
 
   serializeBinary(): Uint8Array;
@@ -215,6 +220,7 @@ export namespace Operation {
     increase?: Operation.Increase.AsObject,
     treeEdit?: Operation.TreeEdit.AsObject,
     treeStyle?: Operation.TreeStyle.AsObject,
+    editReverse?: Operation.EditReverse.AsObject,
   }
 
   export class Set extends jspb.Message {
@@ -627,6 +633,49 @@ export namespace Operation {
   }
 
 
+  export class EditReverse extends jspb.Message {
+    getParentCreatedAt(): TimeTicket | undefined;
+    setParentCreatedAt(value?: TimeTicket): EditReverse;
+    hasParentCreatedAt(): boolean;
+    clearParentCreatedAt(): EditReverse;
+
+    getDeletedIdsList(): Array<TextNodePos>;
+    setDeletedIdsList(value: Array<TextNodePos>): EditReverse;
+    clearDeletedIdsList(): EditReverse;
+    addDeletedIds(value?: TextNodePos, index?: number): TextNodePos;
+
+    getInsertedIdsList(): Array<TextNodePos>;
+    setInsertedIdsList(value: Array<TextNodePos>): EditReverse;
+    clearInsertedIdsList(): EditReverse;
+    addInsertedIds(value?: TextNodePos, index?: number): TextNodePos;
+
+    getExecutedAt(): TimeTicket | undefined;
+    setExecutedAt(value?: TimeTicket): EditReverse;
+    hasExecutedAt(): boolean;
+    clearExecutedAt(): EditReverse;
+
+    getAttributesMap(): jspb.Map<string, string>;
+    clearAttributesMap(): EditReverse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EditReverse.AsObject;
+    static toObject(includeInstance: boolean, msg: EditReverse): EditReverse.AsObject;
+    static serializeBinaryToWriter(message: EditReverse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EditReverse;
+    static deserializeBinaryFromReader(message: EditReverse, reader: jspb.BinaryReader): EditReverse;
+  }
+
+  export namespace EditReverse {
+    export type AsObject = {
+      parentCreatedAt?: TimeTicket.AsObject,
+      deletedIdsList: Array<TextNodePos.AsObject>,
+      insertedIdsList: Array<TextNodePos.AsObject>,
+      executedAt?: TimeTicket.AsObject,
+      attributesMap: Array<[string, string]>,
+    }
+  }
+
+
   export enum BodyCase { 
     BODY_NOT_SET = 0,
     SET = 1,
@@ -639,6 +688,7 @@ export namespace Operation {
     INCREASE = 8,
     TREE_EDIT = 9,
     TREE_STYLE = 10,
+    EDIT_REVERSE = 11,
   }
 }
 

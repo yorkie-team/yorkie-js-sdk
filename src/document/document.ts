@@ -246,6 +246,7 @@ export interface PresenceChangedEvent<P extends Indexable>
   extends BaseDocEvent {
   type: DocEventType.PresenceChanged;
   value: { clientID: ActorID; presence: P };
+  message: string;
 }
 
 /**
@@ -558,6 +559,7 @@ export class Document<T, P extends Indexable = Indexable> {
             clientID: actorID,
             presence: this.getPresence(actorID)!,
           },
+          message: change.getMessage() || '',
         });
       }
       if (logger.isEnabled(LogLevel.Trivial)) {
@@ -949,6 +951,8 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
+    // TODO(Hyemmie): To support undo&redo in text.edit, garbage collection
+    // should be disabled.
     if (this.opts.disableGC) {
       return 0;
     }
@@ -1049,15 +1053,24 @@ export class Document<T, P extends Indexable = Indexable> {
             // NOTE(chacha912): When the user exists in onlineClients, but
             // their presence was initially absent, we can consider that we have
             // received their initial presence, so trigger the 'watched' event.
-            presenceEvent = {
-              type: this.presences.has(actorID)
-                ? DocEventType.PresenceChanged
-                : DocEventType.Watched,
-              value: {
-                clientID: actorID,
-                presence: presenceChange.presence,
-              },
-            };
+            if (this.presences.has(actorID)) {
+              presenceEvent = {
+                type: DocEventType.PresenceChanged,
+                value: {
+                  clientID: actorID,
+                  presence: presenceChange.presence,
+                },
+                message: change.getMessage() || '',
+              };
+            } else {
+              presenceEvent = {
+                type: DocEventType.Watched,
+                value: {
+                  clientID: actorID,
+                  presence: presenceChange.presence,
+                },
+              };
+            }
             break;
           case PresenceChangeType.Clear:
             // NOTE(chacha912): When the user exists in onlineClients, but
@@ -1249,6 +1262,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.changeID.next(),
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+      'YORKIE_HISTORY',
     );
 
     // apply undo operation in the context to generate a change
@@ -1309,6 +1323,7 @@ export class Document<T, P extends Indexable = Indexable> {
           clientID: actorID,
           presence: this.getPresence(actorID)!,
         },
+        message: change.getMessage() || '',
       });
     }
   }
@@ -1332,6 +1347,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.changeID.next(),
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+      'YORKIE_HISTORY',
     );
 
     // apply redo operation in the context to generate a change
@@ -1392,6 +1408,7 @@ export class Document<T, P extends Indexable = Indexable> {
           clientID: actorID,
           presence: this.getPresence(actorID)!,
         },
+        message: change.getMessage() || '',
       });
     }
   }

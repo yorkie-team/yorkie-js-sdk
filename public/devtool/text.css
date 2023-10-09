@@ -75,6 +75,12 @@
   height: 100%;
 }
 
+.layout > .content > .editor-area .editor-control {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+
 .layout > .content > .editor-area > .data-area {
   display: flex;
 }

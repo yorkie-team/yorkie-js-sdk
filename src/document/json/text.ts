@@ -108,15 +108,15 @@ export class Text<A extends Indexable = Indexable> {
     );
 
     this.context.push(
-      new EditOperation(
-        this.text.getCreatedAt(),
-        range[0],
-        range[1],
-        maxCreatedAtMapByActor,
+      new EditOperation({
+        parentCreatedAt: this.text.getCreatedAt(),
+        fromPos: range[0],
+        toPos: range[1],
         content,
-        attrs ? new Map(Object.entries(attrs)) : new Map(),
-        ticket,
-      ),
+        attributes: attrs ? new Map(Object.entries(attrs)) : new Map(),
+        executedAt: ticket,
+        maxCreatedAtMapByActor,
+      }),
     );
 
     if (!range[0].equals(range[1])) {

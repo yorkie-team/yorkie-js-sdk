@@ -25,6 +25,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
+import { EditReverseOperation } from './edit_reverse_operation';
 
 /**
  * `EditOperation` is an operation representing editing Text. Most of the same as
@@ -33,48 +34,64 @@ import { Indexable } from '../document';
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private content: string;
   private attributes: Map<string, string>;
+  private maxCreatedAtMapByActor?: Map<string, TimeTicket>;
 
-  constructor(
-    parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitPos,
-    toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
-    content: string,
-    attributes: Map<string, string>,
-    executedAt: TimeTicket,
-  ) {
+  constructor({
+    parentCreatedAt,
+    fromPos,
+    toPos,
+    content,
+    attributes,
+    executedAt,
+    maxCreatedAtMapByActor,
+  }: {
+    parentCreatedAt: TimeTicket;
+    fromPos: RGATreeSplitPos;
+    toPos: RGATreeSplitPos;
+    content: string;
+    attributes: Map<string, string>;
+    executedAt?: TimeTicket;
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>;
+  }) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.content = content;
     this.attributes = attributes;
+    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
    * `create` creates a new instance of EditOperation.
    */
-  public static create(
-    parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitPos,
-    toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
-    content: string,
-    attributes: Map<string, string>,
-    executedAt: TimeTicket,
-  ): EditOperation {
-    return new EditOperation(
+  public static create({
+    parentCreatedAt,
+    fromPos,
+    toPos,
+    content,
+    attributes,
+    executedAt,
+    maxCreatedAtMapByActor,
+  }: {
+    parentCreatedAt: TimeTicket;
+    fromPos: RGATreeSplitPos;
+    toPos: RGATreeSplitPos;
+    content: string;
+    attributes: Map<string, string>;
+    executedAt?: TimeTicket;
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>;
+  }): EditOperation {
+    return new EditOperation({
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       content,
       attributes,
       executedAt,
-    );
+      maxCreatedAtMapByActor,
+    });
   }
 
   /**
@@ -90,17 +107,21 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [, changes] = text.edit(
+    // TODO(chacha912): check where we can set maxCreatedAtMapByActor of edit operation(undo)
+    // based on the result from text.edit.
+    const [, changes, , reverseInfo] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
       this.maxCreatedAtMapByActor,
     );
+    const reverseOp = this.getReverseOperation(text, reverseInfo);
 
     if (!this.fromPos.equals(this.toPos)) {
       root.registerElementHasRemovedNodes(text);
     }
+
     return {
       opInfos: changes.map(({ from, to, value }) => {
         return {
@@ -109,9 +130,30 @@ export class EditOperation extends Operation {
           to,
           value,
           path: root.createPath(this.getParentCreatedAt()),
-        } as OperationInfo;
-      }),
+        };
+      }) as Array<OperationInfo>,
+      reverseOp,
     };
+  }
+
+  /**
+   * `getReverseOperation` calculates this operation's reverse operation on the given `CRDTText`.
+   */
+  public getReverseOperation<A extends Indexable>(
+    text: CRDTText<A>,
+    reverseInfo: {
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
+    },
+  ): Operation {
+    // TODO(chacha912): let's assume this in plain text.
+    // we also need to consider rich text content.
+    return EditReverseOperation.create({
+      parentCreatedAt: text.getCreatedAt(),
+      deletedIDs: reverseInfo.deletedIDs,
+      insertedIDs: reverseInfo.insertedIDs,
+      attributes: new Map(),
+    });
   }
 
   /**
@@ -164,7 +206,7 @@ export class EditOperation extends Operation {
    * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
    * by actor for the nodes included in the editing range.
    */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> | undefined {
     return this.maxCreatedAtMapByActor;
   }
 }

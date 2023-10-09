@@ -27,6 +27,7 @@ import {
   RGATreeSplitNode,
   RGATreeSplitPosRange,
   ValueChange,
+  RGATreeSplitPos,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
@@ -192,7 +193,15 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitPosRange] {
+  ): [
+    Map<string, TimeTicket>,
+    Array<TextChange<A>>,
+    RGATreeSplitPosRange,
+    {
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
+    },
+  ] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -200,12 +209,22 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
-    const [caretPos, latestCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
-      range,
-      editedAt,
-      crdtTextValue,
-      latestCreatedAtMapByActor,
-    );
+    const [caretPos, latestCreatedAtMap, valueChanges, deletedIDs] =
+      this.rgaTreeSplit.edit(
+        range,
+        editedAt,
+        crdtTextValue,
+        latestCreatedAtMapByActor,
+      );
+    const reverseInfo: {
+      deletedIDs: Array<RGATreeSplitPos>;
+      insertedIDs: Array<RGATreeSplitPos>;
+    } = {
+      deletedIDs,
+      insertedIDs: content
+        ? [RGATreeSplitPos.of(caretPos.getID(), content.length)]
+        : [],
+    };
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -221,7 +240,56 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
+    return [latestCreatedAtMap, changes, [caretPos, caretPos], reverseInfo];
+  }
+
+  /**
+   * `reverseEdit` reverses the effect of previous edit.
+   * It restores the given `deletedIDs` and removes the given `insertedIDs`.
+   *
+   * @internal
+   */
+  public reverseEdit(
+    deletedIDs: Array<RGATreeSplitPos>,
+    insertedIDs: Array<RGATreeSplitPos>,
+    editedAt: TimeTicket,
+  ): Array<TextChange<A>> {
+    let valueChanges: Array<ValueChange<CRDTTextValue>> = [];
+    if (deletedIDs.length > 0) {
+      const restoringDeletionChange =
+        this.rgaTreeSplit.findSplitNodesAndSetRemovedAt(
+          deletedIDs,
+          editedAt,
+          false,
+        );
+      valueChanges = valueChanges.concat(restoringDeletionChange);
+    }
+
+    if (insertedIDs.length > 0) {
+      const removingInsertionChange =
+        this.rgaTreeSplit.findSplitNodesAndSetRemovedAt(
+          insertedIDs,
+          editedAt,
+          true,
+        );
+      valueChanges = valueChanges.concat(removingInsertionChange);
+    }
+
+    const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
+      ...change,
+      value: change.value
+        ? {
+            attributes: parseObjectValues<A>(change.value.getAttributes()),
+            content: change.value.getContent(),
+          }
+        : {
+            attributes: undefined,
+            content: '',
+          },
+      type: TextChangeType.Content,
+    }));
+
+    return changes;
   }
 
   /**
