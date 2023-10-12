@@ -9,10 +9,10 @@ export default defineConfig({
       provider: 'istanbul',
       reporter: ['lcov', 'text-summary'],
     },
-    environment: 'jsdom',
+    environment: 'custom-jsdom',
     globals: true,
     singleThread: true,
-    testTimeout: 15000,
+    testTimeout: 5000,
   },
   plugins: [tsconfigPaths()],
 });
