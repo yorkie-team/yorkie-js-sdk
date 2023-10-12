@@ -16,7 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { TreeNode } from '@yorkie-js-sdk/src/document/json/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
