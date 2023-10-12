@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { buildIndexTree } from '@yorkie-js-sdk/test/helper/helper';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {

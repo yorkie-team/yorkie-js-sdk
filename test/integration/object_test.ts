@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { JSONObject } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
@@ -133,7 +133,7 @@ describe('Object', function () {
     assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
   });
 
-  it('Can handle concurrent set/delete operations', async function () {
+  it('Can handle concurrent set/delete operations', async function ({ task }) {
     await withTwoClientsAndDocuments<{
       k1: string;
       k2: string;
@@ -190,6 +190,6 @@ describe('Object', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 });
