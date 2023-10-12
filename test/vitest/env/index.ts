@@ -138,7 +138,6 @@ export default <Environment>{
     });
 
     AllowedKeys.forEach((key) => {
-      delete global[key];
       global[key] = originals.get(key);
     });
 
