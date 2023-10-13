@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
@@ -43,6 +43,7 @@ const DTP = CRDTTreeNodeID.of(ITT, 0);
 const dummyContext = ChangeContext.create(
   InitialChangeID,
   new CRDTRoot(new CRDTObject(ITT, ElementRHT.create())),
+  {},
 );
 
 /**

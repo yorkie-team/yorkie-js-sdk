@@ -503,6 +503,17 @@ export class Tree {
   }
 
   /**
+   * `getRootTreeNode` returns TreeNode of this tree.
+   */
+  public getRootTreeNode() {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.getRootTreeNode();
+  }
+
+  /**
    * `indexToPath` returns the path of the given index.
    */
   public indexToPath(index: number): Array<number> {

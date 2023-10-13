@@ -1,10 +1,10 @@
+import { assert } from 'vitest';
 import yorkie from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
-const __karma__ = (global as any).__karma__;
-export const testRPCAddr =
-  __karma__?.config?.testRPCAddr || 'http://localhost:8080';
+export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://localhost:8080';
 
 export function toDocKey(title: string): string {
   return title
@@ -41,4 +41,32 @@ export async function withTwoClientsAndDocuments<T>(
 
   await client1.deactivate();
   await client2.deactivate();
+}
+
+export function assertUndoRedo<T, P extends Indexable>(
+  doc: Document<T, P>,
+  states: Array<string>,
+) {
+  for (let i = 0; i < states.length - 1; i++) {
+    doc.history.undo();
+    assert.equal(
+      states[states.length - 2 - i],
+      doc.toSortedJSON(),
+      `undo 1-${i}`,
+    );
+  }
+
+  for (let i = 0; i < states.length - 1; i++) {
+    doc.history.redo();
+    assert.equal(states[i + 1], doc.toSortedJSON(), `redo${i}`);
+  }
+
+  for (let i = 0; i < states.length - 1; i++) {
+    doc.history.undo();
+    assert.equal(
+      states[states.length - 2 - i],
+      doc.toSortedJSON(),
+      `undo 2-${i}`,
+    );
+  }
 }

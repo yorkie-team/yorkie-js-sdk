@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
-import * as sinon from 'sinon';
+import { describe, it, assert, vi, afterEach } from 'vitest';
 import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
@@ -24,7 +23,11 @@ import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
-describe('Document', function () {
+describe.sequential('Document', function () {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('doesnt return error when trying to delete a missing key', function () {
     const doc = new Document<{
       k1?: string;
@@ -943,7 +946,7 @@ describe('Document', function () {
 
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
     const unsub = doc.subscribe(stub);
@@ -975,7 +978,7 @@ describe('Document', function () {
     const doc = new Document<any>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
     const unsub = doc.subscribe(stub);
@@ -1006,23 +1009,34 @@ describe('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
     const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
+    });
+    await eventCollector.waitAndVerifyNthEvent(1, [
+      { type: 'set', path: '$', key: 'cnt' },
+    ]);
+
+    doc.update((root) => {
       root.cnt.increase(1);
       root.cnt.increase(10);
       root.cnt.increase(-3);
     });
-
-    await eventCollector.waitAndVerifyNthEvent(1, [
-      { type: 'set', path: '$', key: 'cnt' },
+    await eventCollector.waitAndVerifyNthEvent(2, [
       { type: 'increase', path: '$.cnt', value: 1 },
       { type: 'increase', path: '$.cnt', value: 10 },
       { type: 'increase', path: '$.cnt', value: -3 },
+    ]);
+
+    doc.history.undo();
+    await eventCollector.waitAndVerifyNthEvent(3, [
+      { type: 'increase', path: '$.cnt', value: 3 },
+      { type: 'increase', path: '$.cnt', value: -10 },
+      { type: 'increase', path: '$.cnt', value: -1 },
     ]);
 
     unsub();
@@ -1047,7 +1061,7 @@ describe('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
     const unsub = doc.subscribe(stub);
@@ -1076,7 +1090,7 @@ describe('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
     const unsub = doc.subscribe(stub);

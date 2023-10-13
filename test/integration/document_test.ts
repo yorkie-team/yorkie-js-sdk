@@ -1,5 +1,4 @@
-import { assert } from 'chai';
-import * as sinon from 'sinon';
+import { describe, it, assert, vi, afterEach } from 'vitest';
 import yorkie, { Counter, Text, JSONArray } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -18,9 +17,13 @@ import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Document', function () {
-  it('Can attach/detach documents', async function () {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('Can attach/detach documents', async function ({ task }) {
     type TestDoc = { k1: { ['k1-1']: string }; k2: Array<string> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -53,13 +56,13 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
-  it('Can watch documents', async function () {
+  it('Can watch documents', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ k1: string }>(docKey);
     const d2 = new yorkie.Document<{ k1: string }>(docKey);
     await c1.attach(d1);
@@ -67,10 +70,10 @@ describe('Document', function () {
 
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
-    const stub1 = sinon.stub().callsFake((event) => {
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stub2 = sinon.stub().callsFake((event) => {
+    const stub2 = vi.fn().mockImplementation((event) => {
       eventCollectorD2.add(event.type);
     });
     const unsub1 = d1.subscribe(stub1);
@@ -93,13 +96,13 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('detects the events from doc.subscribe', async function () {
+  it('detects the events from doc.subscribe', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type TestDoc = {
       counter: Counter;
       todos: JSONArray<string>; // specify type as `JSONArray` to use the `moveAfter` method
@@ -123,10 +126,10 @@ describe('Document', function () {
     let expectedEventValue: Array<OperationInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
-    const stub1 = sinon.stub().callsFake((event) => {
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollectorD1.add({ type: event.type, value: event.value.operations });
     });
-    const stub2 = sinon.stub().callsFake((event) => {
+    const stub2 = vi.fn().mockImplementation((event) => {
       eventCollectorD2.add({ type: event.type, value: event.value.operations });
     });
     const unsub1 = d1.subscribe(stub1);
@@ -234,13 +237,13 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('specify the topic to subscribe to', async function () {
+  it('specify the topic to subscribe to', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type TestDoc = {
       counter: Counter;
       todos: JSONArray<string>;
@@ -254,13 +257,13 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos = new EventCollector<EventForTest>();
     const eventCollectorForCounter = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = sinon.stub().callsFake((event) => {
+    const stubTodo = vi.fn().mockImplementation((event) => {
       eventCollectorForTodos.add(event.value.operations);
     });
-    const stubCounter = sinon.stub().callsFake((event) => {
+    const stubCounter = vi.fn().mockImplementation((event) => {
       eventCollectorForCounter.add(event.value.operations);
     });
     const unsub = d1.subscribe(stub);
@@ -327,13 +330,13 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('specify the nested topic to subscribe to', async function () {
+  it('specify the nested topic to subscribe to', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type TestDoc = {
       todos: Array<{
         text: string;
@@ -350,13 +353,13 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos0 = new EventCollector<EventForTest>();
     const eventCollectorForObjC1 = new EventCollector<EventForTest>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = sinon.stub().callsFake((event) => {
+    const stubTodo = vi.fn().mockImplementation((event) => {
       eventCollectorForTodos0.add(event.value.operations);
     });
-    const stubObj = sinon.stub().callsFake((event) => {
+    const stubObj = vi.fn().mockImplementation((event) => {
       eventCollectorForObjC1.add(event.value.operations);
     });
     const unsub = d1.subscribe(stub);
@@ -433,9 +436,9 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('Can handle tombstone', async function () {
+  it('Can handle tombstone', async function ({ task }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
 
@@ -444,8 +447,8 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    await c1.attach(d1);
-    await c2.attach(d2);
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2, { isRealtimeSync: false });
 
     d1.update((root) => {
       root['k1'] = [1, 2];
@@ -470,9 +473,9 @@ describe('Document', function () {
     assert.isTrue(prevArray?.isRemoved());
   });
 
-  it('Can remove document', async function () {
+  it('Can remove document', async function ({ task }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const c1 = new yorkie.Client(testRPCAddr);
     const c1Key = c1.getKey();
@@ -523,9 +526,11 @@ describe('Document', function () {
     await c1.deactivate();
   });
 
-  it('Can create document with the same key as the removed document key', async function () {
+  it('Can create document with the same key as the removed document key', async function ({
+    task,
+  }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 creates d1 and removes it.
     const c1 = new yorkie.Client(testRPCAddr);
@@ -554,9 +559,11 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('Can know that document has been removed when doing client.sync()', async function () {
+  it('Can know that document has been removed when doing client.sync()', async function ({
+    task,
+  }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
@@ -591,9 +598,11 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('Can know that document has been removed when doing client.detach()', async function () {
+  it('Can know that document has been removed when doing client.detach()', async function ({
+    task,
+  }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
@@ -622,9 +631,9 @@ describe('Document', function () {
     await c2.deactivate();
   });
 
-  it('removed document removal test', async function () {
+  it('removed document removal test', async function ({ task }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
     const c1 = new yorkie.Client(testRPCAddr);
@@ -659,9 +668,9 @@ describe('Document', function () {
   //           ▲           │ │     ▲
   //           └───────────┘ └─────┘
   //              Detach     PushPull
-  it('document state transition test', async function () {
+  it('document state transition test', async function ({ task }) {
     type TestDoc = { k1: Array<number> };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
 
@@ -724,5 +733,184 @@ describe('Document', function () {
     );
 
     await c1.deactivate();
+  });
+
+  describe('Undo/Redo', function () {
+    it('Can canUndo/canRedo work properly', async function ({ task }) {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canRedo(), false);
+
+      // user increases the counter
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+
+      // user can only undo the latest operation
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      // user undoes the latest operation
+      doc.history.undo();
+      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canRedo(), true);
+
+      // user redoes the latest undone operation
+      doc.history.redo();
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+      assert.equal(doc.toSortedJSON(), '{"counter":101}');
+    });
+
+    it('doc.update should clear redo stack', async function ({ task }) {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canRedo(), false);
+
+      for (let i = 0; i < 5; i++) {
+        doc.update((root) => {
+          root.counter.increase(1);
+        }, 'increase 1');
+        assert.equal(doc.toSortedJSON(), `{"counter":${100 + i + 1}}`);
+      }
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+
+      doc.history.undo();
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), true);
+
+      doc.update((root) => {
+        root.counter.increase(1);
+      }, 'increase 1');
+
+      // doc.update() clears redo stack
+      assert.equal(doc.history.canUndo(), true);
+      assert.equal(doc.history.canRedo(), false);
+    });
+
+    it('undo/redo with empty stack must throw error', async function ({
+      task,
+    }) {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+
+      assert.throws(
+        () => {
+          doc.history.undo();
+        },
+        Error,
+        'There is no operation to be undone',
+      );
+
+      assert.throws(
+        () => {
+          doc.history.redo();
+        },
+        Error,
+        'There is no operation to be redone',
+      );
+    });
+
+    it('update() that contains undo/redo must throw error', async function ({
+      task,
+    }) {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 100);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canRedo(), false);
+
+      assert.throws(
+        () => {
+          doc.update(() => {
+            doc.history.undo();
+          }, 'undo');
+        },
+        Error,
+        'Undo is not allowed during an update',
+      );
+
+      assert.throws(
+        () => {
+          doc.update(() => {
+            doc.history.redo();
+          }, 'redo');
+        },
+        Error,
+        'Redo is not allowed during an update',
+      );
+    });
+
+    it('maximum undo/redo stack test', async function ({ task }) {
+      type TestDoc = { counter: Counter };
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document<TestDoc>(docKey);
+      doc.update((root) => {
+        root.counter = new Counter(yorkie.IntType, 0);
+      }, 'init counter');
+      assert.equal(doc.toSortedJSON(), '{"counter":0}');
+
+      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canRedo(), false);
+
+      for (let i = 0; i < 100; i++) {
+        doc.update((root) => {
+          root.counter.increase(1);
+        }, 'increase loop');
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+
+      for (let i = 0; i < 100; i++) {
+        if (i < 50) {
+          doc.history.undo();
+        } else {
+          assert.throws(
+            () => {
+              doc.history.undo();
+            },
+            Error,
+            'There is no operation to be undone',
+          );
+        }
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":50}');
+
+      for (let i = 0; i < 100; i++) {
+        if (i < 50) {
+          doc.history.redo();
+        } else {
+          assert.throws(
+            () => {
+              doc.history.redo();
+            },
+            Error,
+            'There is no operation to be redone',
+          );
+        }
+      }
+      assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    });
   });
 });
