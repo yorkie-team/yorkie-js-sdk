@@ -400,9 +400,11 @@ export class Client implements Observable<ClientEvent> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
     }
-    this.attachmentMap.forEach((_, docKey) => {
-      this.detachInternal(docKey);
-    });
+
+    for (const [key] of this.attachmentMap) {
+      this.detachInternal(key);
+    }
+
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
       req.setClientId(this.id!);
@@ -920,12 +922,13 @@ export class Client implements Observable<ClientEvent> {
   }
 
   private detachInternal(docKey: DocumentKey) {
+    // NOTE(hackerwins): If attachment is not found, it means that the document
+    // has been already detached by another routine.
+    // This can happen when detach or remove is called while the watch loop is
+    // running.
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
-      throw new YorkieError(
-        Code.DocumentNotAttached,
-        `${docKey} is not attached`,
-      );
+      return;
     }
 
     attachment.cancelWatchStream();
