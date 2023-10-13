@@ -18,6 +18,7 @@
     "predoc": "ts-node-script ./scripts/api-extractor.ts && sed -i.bak 's/_2//g' temp/yorkie-js-sdk.api.json temp/yorkie-js-sdk.api.md",
     "dev": "webpack serve --config config/webpack.dev.config.js",
     "test": "vitest run",
+    "test:ci": "vitest run --coverage",
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
