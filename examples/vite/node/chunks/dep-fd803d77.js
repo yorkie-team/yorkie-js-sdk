@@ -1,10 +1,10 @@
-import { F as commonjsGlobal, E as getDefaultExportFromCjs } from './dep-df561101.js';
 import require$$0__default from 'fs';
 import require$$0 from 'postcss';
+import { A as commonjsGlobal } from './dep-2faf2534.js';
 import require$$0$1 from 'path';
-import require$$3 from 'crypto';
+import require$$5 from 'crypto';
 import require$$0$2 from 'util';
-import { l as lib } from './dep-c423598f.js';
+import { l as lib } from './dep-07a79996.js';
 
 import { fileURLToPath as __cjs_fileURLToPath } from 'node:url';
 import { dirname as __cjs_dirname } from 'node:path';
@@ -1446,8 +1446,6 @@ src$3.exports = (options = {}) => {
 
 src$3.exports.postcss = true;
 
-var srcExports$2 = src$3.exports;
-
 var wasmHash = {exports: {}};
 
 /*
@@ -1998,7 +1996,7 @@ function getHashDigest$1(buffer, algorithm, digestType, maxLength) {
     hash = new BatchedHash(createMd4());
   } else if (algorithm === "native-md4") {
     if (typeof crypto === "undefined") {
-      crypto = require$$3;
+      crypto = require$$5;
 
       if (BulkUpdateDecorator === undefined) {
         BulkUpdateDecorator = requireBulkUpdateDecorator();
@@ -2008,7 +2006,7 @@ function getHashDigest$1(buffer, algorithm, digestType, maxLength) {
     hash = new BulkUpdateDecorator(() => crypto.createHash("md4"), "md4");
   } else {
     if (typeof crypto === "undefined") {
-      crypto = require$$3;
+      crypto = require$$5;
 
       if (BulkUpdateDecorator === undefined) {
         BulkUpdateDecorator = requireBulkUpdateDecorator();
@@ -2311,10 +2309,8 @@ var unesc = {exports: {}};
 	  return ret;
 	}
 
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (unesc, unesc.exports));
-
-var unescExports = unesc.exports;
 
 var getProp = {exports: {}};
 
@@ -2341,10 +2337,8 @@ var getProp = {exports: {}};
 	  return obj;
 	}
 
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (getProp, getProp.exports));
-
-var getPropExports = getProp.exports;
 
 var ensureObject = {exports: {}};
 
@@ -2369,10 +2363,8 @@ var ensureObject = {exports: {}};
 	  }
 	}
 
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (ensureObject, ensureObject.exports));
-
-var ensureObjectExports = ensureObject.exports;
 
 var stripComments = {exports: {}};
 
@@ -2402,27 +2394,25 @@ var stripComments = {exports: {}};
 	  return s;
 	}
 
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (stripComments, stripComments.exports));
-
-var stripCommentsExports = stripComments.exports;
 
 util.__esModule = true;
 util.stripComments = util.ensureObject = util.getProp = util.unesc = void 0;
 
-var _unesc = _interopRequireDefault$3(unescExports);
+var _unesc = _interopRequireDefault$3(unesc.exports);
 
 util.unesc = _unesc["default"];
 
-var _getProp = _interopRequireDefault$3(getPropExports);
+var _getProp = _interopRequireDefault$3(getProp.exports);
 
 util.getProp = _getProp["default"];
 
-var _ensureObject = _interopRequireDefault$3(ensureObjectExports);
+var _ensureObject = _interopRequireDefault$3(ensureObject.exports);
 
 util.ensureObject = _ensureObject["default"];
 
-var _stripComments = _interopRequireDefault$3(stripCommentsExports);
+var _stripComments = _interopRequireDefault$3(stripComments.exports);
 
 util.stripComments = _stripComments["default"];
 
@@ -2666,10 +2656,8 @@ function _interopRequireDefault$3(obj) { return obj && obj.__esModule ? obj : { 
 	}();
 
 	exports["default"] = Node;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (node$1, node$1.exports));
-
-var nodeExports = node$1.exports;
 
 var types = {};
 
@@ -2705,7 +2693,7 @@ types.UNIVERSAL = UNIVERSAL;
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var types$1 = _interopRequireWildcard(types);
 
@@ -3094,17 +3082,15 @@ types.UNIVERSAL = UNIVERSAL;
 	}(_node["default"]);
 
 	exports["default"] = Container;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (container, container.exports));
-
-var containerExports = container.exports;
 
 (function (module, exports) {
 
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _container = _interopRequireDefault(containerExports);
+	var _container = _interopRequireDefault(container.exports);
 
 	var _types = types;
 
@@ -3158,10 +3144,8 @@ var containerExports = container.exports;
 	}(_container["default"]);
 
 	exports["default"] = Root;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (root$1, root$1.exports));
-
-var rootExports = root$1.exports;
 
 var selector$1 = {exports: {}};
 
@@ -3170,7 +3154,7 @@ var selector$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _container = _interopRequireDefault(containerExports);
+	var _container = _interopRequireDefault(container.exports);
 
 	var _types = types;
 
@@ -3195,10 +3179,8 @@ var selector$1 = {exports: {}};
 	}(_container["default"]);
 
 	exports["default"] = Selector;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (selector$1, selector$1.exports));
-
-var selectorExports = selector$1.exports;
 
 var className$1 = {exports: {}};
 
@@ -3320,7 +3302,7 @@ var cssesc_1 = cssesc;
 
 	var _util = util;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -3379,10 +3361,8 @@ var cssesc_1 = cssesc;
 	}(_node["default"]);
 
 	exports["default"] = ClassName;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (className$1, className$1.exports));
-
-var classNameExports = className$1.exports;
 
 var comment$2 = {exports: {}};
 
@@ -3391,7 +3371,7 @@ var comment$2 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -3416,10 +3396,8 @@ var comment$2 = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = Comment;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (comment$2, comment$2.exports));
-
-var commentExports = comment$2.exports;
 
 var id$1 = {exports: {}};
 
@@ -3428,7 +3406,7 @@ var id$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -3459,10 +3437,8 @@ var id$1 = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = ID;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (id$1, id$1.exports));
-
-var idExports = id$1.exports;
 
 var tag$1 = {exports: {}};
 
@@ -3477,7 +3453,7 @@ var namespace = {exports: {}};
 
 	var _util = util;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
@@ -3567,17 +3543,15 @@ var namespace = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = Namespace;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (namespace, namespace.exports));
-
-var namespaceExports = namespace.exports;
 
 (function (module, exports) {
 
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _namespace = _interopRequireDefault(namespaceExports);
+	var _namespace = _interopRequireDefault(namespace.exports);
 
 	var _types = types;
 
@@ -3602,10 +3576,8 @@ var namespaceExports = namespace.exports;
 	}(_namespace["default"]);
 
 	exports["default"] = Tag;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (tag$1, tag$1.exports));
-
-var tagExports = tag$1.exports;
 
 var string$1 = {exports: {}};
 
@@ -3614,7 +3586,7 @@ var string$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -3639,10 +3611,8 @@ var string$1 = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = String;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (string$1, string$1.exports));
-
-var stringExports = string$1.exports;
 
 var pseudo$1 = {exports: {}};
 
@@ -3651,7 +3621,7 @@ var pseudo$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _container = _interopRequireDefault(containerExports);
+	var _container = _interopRequireDefault(container.exports);
 
 	var _types = types;
 
@@ -3683,10 +3653,8 @@ var pseudo$1 = {exports: {}};
 	}(_container["default"]);
 
 	exports["default"] = Pseudo;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (pseudo$1, pseudo$1.exports));
-
-var pseudoExports = pseudo$1.exports;
 
 var attribute$1 = {};
 
@@ -3704,9 +3672,9 @@ var node = require$$0$2.deprecate;
 
 	var _cssesc = _interopRequireDefault(cssesc_1);
 
-	var _unesc = _interopRequireDefault(unescExports);
+	var _unesc = _interopRequireDefault(unesc.exports);
 
-	var _namespace = _interopRequireDefault(namespaceExports);
+	var _namespace = _interopRequireDefault(namespace.exports);
 
 	var _types = types;
 
@@ -4139,8 +4107,7 @@ var node = require$$0$2.deprecate;
 	    key: "value",
 	    get: function get() {
 	      return this._value;
-	    },
-	    set:
+	    }
 	    /**
 	     * Before 3.0, the value had to be set to an escaped value including any wrapped
 	     * quote marks. In 3.0, the semantics of `Attribute.value` changed so that the value
@@ -4153,7 +4120,8 @@ var node = require$$0$2.deprecate;
 	     * Instead, you should call `attr.setValue(newValue, opts)` and pass options that describe
 	     * how the new value is quoted.
 	     */
-	    function set(v) {
+	    ,
+	    set: function set(v) {
 	      if (this._constructed) {
 	        var _unescapeValue2 = unescapeValue(v),
 	            deprecatedUsage = _unescapeValue2.deprecatedUsage,
@@ -4175,31 +4143,6 @@ var node = require$$0$2.deprecate;
 	      } else {
 	        this._value = v;
 	      }
-	    }
-	  }, {
-	    key: "insensitive",
-	    get: function get() {
-	      return this._insensitive;
-	    }
-	    /**
-	     * Set the case insensitive flag.
-	     * If the case insensitive flag changes, the raw (escaped) value at `attr.raws.insensitiveFlag`
-	     * of the attribute is updated accordingly.
-	     *
-	     * @param {true | false} insensitive true if the attribute should match case-insensitively.
-	     */
-	    ,
-	    set: function set(insensitive) {
-	      if (!insensitive) {
-	        this._insensitive = false; // "i" and "I" can be used in "this.raws.insensitiveFlag" to store the original notation.
-	        // When setting `attr.insensitive = false` both should be erased to ensure correct serialization.
-
-	        if (this.raws && (this.raws.insensitiveFlag === 'I' || this.raws.insensitiveFlag === 'i')) {
-	          this.raws.insensitiveFlag = undefined;
-	        }
-	      }
-
-	      this._insensitive = insensitive;
 	    }
 	  }, {
 	    key: "attribute",
@@ -4235,7 +4178,7 @@ var node = require$$0$2.deprecate;
 
 	function defaultAttrConcat(attrValue, attrSpaces) {
 	  return "" + attrSpaces.before + attrValue + attrSpaces.after;
-	} 
+	}
 } (attribute$1));
 
 var universal$1 = {exports: {}};
@@ -4245,7 +4188,7 @@ var universal$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _namespace = _interopRequireDefault(namespaceExports);
+	var _namespace = _interopRequireDefault(namespace.exports);
 
 	var _types = types;
 
@@ -4271,10 +4214,8 @@ var universal$1 = {exports: {}};
 	}(_namespace["default"]);
 
 	exports["default"] = Universal;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (universal$1, universal$1.exports));
-
-var universalExports = universal$1.exports;
 
 var combinator$2 = {exports: {}};
 
@@ -4283,7 +4224,7 @@ var combinator$2 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -4308,10 +4249,8 @@ var combinator$2 = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = Combinator;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (combinator$2, combinator$2.exports));
-
-var combinatorExports = combinator$2.exports;
 
 var nesting$1 = {exports: {}};
 
@@ -4320,7 +4259,7 @@ var nesting$1 = {exports: {}};
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _node = _interopRequireDefault(nodeExports);
+	var _node = _interopRequireDefault(node$1.exports);
 
 	var _types = types;
 
@@ -4346,10 +4285,8 @@ var nesting$1 = {exports: {}};
 	}(_node["default"]);
 
 	exports["default"] = Nesting;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (nesting$1, nesting$1.exports));
-
-var nestingExports = nesting$1.exports;
 
 var sortAscending = {exports: {}};
 
@@ -4363,10 +4300,8 @@ var sortAscending = {exports: {}};
 	    return a - b;
 	  });
 	}
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (sortAscending, sortAscending.exports));
-
-var sortAscendingExports = sortAscending.exports;
 
 var tokenize = {};
 
@@ -4735,7 +4670,7 @@ tokenTypes.combinator = combinator$1;
 	  }
 
 	  return tokens;
-	} 
+	}
 } (tokenize));
 
 (function (module, exports) {
@@ -4743,31 +4678,31 @@ tokenTypes.combinator = combinator$1;
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _root = _interopRequireDefault(rootExports);
+	var _root = _interopRequireDefault(root$1.exports);
 
-	var _selector = _interopRequireDefault(selectorExports);
+	var _selector = _interopRequireDefault(selector$1.exports);
 
-	var _className = _interopRequireDefault(classNameExports);
+	var _className = _interopRequireDefault(className$1.exports);
 
-	var _comment = _interopRequireDefault(commentExports);
+	var _comment = _interopRequireDefault(comment$2.exports);
 
-	var _id = _interopRequireDefault(idExports);
+	var _id = _interopRequireDefault(id$1.exports);
 
-	var _tag = _interopRequireDefault(tagExports);
+	var _tag = _interopRequireDefault(tag$1.exports);
 
-	var _string = _interopRequireDefault(stringExports);
+	var _string = _interopRequireDefault(string$1.exports);
 
-	var _pseudo = _interopRequireDefault(pseudoExports);
+	var _pseudo = _interopRequireDefault(pseudo$1.exports);
 
 	var _attribute = _interopRequireWildcard(attribute$1);
 
-	var _universal = _interopRequireDefault(universalExports);
+	var _universal = _interopRequireDefault(universal$1.exports);
 
-	var _combinator = _interopRequireDefault(combinatorExports);
+	var _combinator = _interopRequireDefault(combinator$2.exports);
 
-	var _nesting = _interopRequireDefault(nestingExports);
+	var _nesting = _interopRequireDefault(nesting$1.exports);
 
-	var _sortAscending = _interopRequireDefault(sortAscendingExports);
+	var _sortAscending = _interopRequireDefault(sortAscending.exports);
 
 	var _tokenize = _interopRequireWildcard(tokenize);
 
@@ -5084,7 +5019,7 @@ tokenTypes.combinator = combinator$1;
 	            }
 
 	            lastAdded = 'attribute';
-	          } else if (!node.value && node.value !== "" || lastAdded === "value" && !(spaceAfterMeaningfulToken || node.quoteMark)) {
+	          } else if (!node.value && node.value !== "" || lastAdded === "value" && !spaceAfterMeaningfulToken) {
 	            var _unescaped = (0, _util.unesc)(content);
 
 	            var _oldRawValue = (0, _util.getProp)(node, 'raws', 'value') || '';
@@ -5272,8 +5207,8 @@ tokenTypes.combinator = combinator$1;
 	    return nodes;
 	  }
 	  /**
-	   *
-	   * @param {*} nodes
+	   * 
+	   * @param {*} nodes 
 	   */
 	  ;
 
@@ -5979,17 +5914,15 @@ tokenTypes.combinator = combinator$1;
 	}();
 
 	exports["default"] = Parser;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (parser, parser.exports));
-
-var parserExports = parser.exports;
 
 (function (module, exports) {
 
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _parser = _interopRequireDefault(parserExports);
+	var _parser = _interopRequireDefault(parser.exports);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
@@ -6189,10 +6122,8 @@ var parserExports = parser.exports;
 	}();
 
 	exports["default"] = Processor;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (processor, processor.exports));
-
-var processorExports = processor.exports;
 
 var selectors = {};
 
@@ -6203,27 +6134,27 @@ constructors.universal = constructors.tag = constructors.string = constructors.s
 
 var _attribute = _interopRequireDefault$2(attribute$1);
 
-var _className = _interopRequireDefault$2(classNameExports);
+var _className = _interopRequireDefault$2(className$1.exports);
 
-var _combinator = _interopRequireDefault$2(combinatorExports);
+var _combinator = _interopRequireDefault$2(combinator$2.exports);
 
-var _comment = _interopRequireDefault$2(commentExports);
+var _comment = _interopRequireDefault$2(comment$2.exports);
 
-var _id = _interopRequireDefault$2(idExports);
+var _id = _interopRequireDefault$2(id$1.exports);
 
-var _nesting = _interopRequireDefault$2(nestingExports);
+var _nesting = _interopRequireDefault$2(nesting$1.exports);
 
-var _pseudo = _interopRequireDefault$2(pseudoExports);
+var _pseudo = _interopRequireDefault$2(pseudo$1.exports);
 
-var _root = _interopRequireDefault$2(rootExports);
+var _root = _interopRequireDefault$2(root$1.exports);
 
-var _selector = _interopRequireDefault$2(selectorExports);
+var _selector = _interopRequireDefault$2(selector$1.exports);
 
-var _string = _interopRequireDefault$2(stringExports);
+var _string = _interopRequireDefault$2(string$1.exports);
 
-var _tag = _interopRequireDefault$2(tagExports);
+var _tag = _interopRequireDefault$2(tag$1.exports);
 
-var _universal = _interopRequireDefault$2(universalExports);
+var _universal = _interopRequireDefault$2(universal$1.exports);
 
 function _interopRequireDefault$2(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 
@@ -6390,7 +6321,7 @@ function isNamespace(node) {
 	  if (key === "default" || key === "__esModule") return;
 	  if (key in exports && exports[key] === _guards[key]) return;
 	  exports[key] = _guards[key];
-	}); 
+	});
 } (selectors));
 
 (function (module, exports) {
@@ -6398,7 +6329,7 @@ function isNamespace(node) {
 	exports.__esModule = true;
 	exports["default"] = void 0;
 
-	var _processor = _interopRequireDefault(processorExports);
+	var _processor = _interopRequireDefault(processor.exports);
 
 	var selectors$1 = _interopRequireWildcard(selectors);
 
@@ -6416,12 +6347,10 @@ function isNamespace(node) {
 	delete parser.__esModule;
 	var _default = parser;
 	exports["default"] = _default;
-	module.exports = exports.default; 
+	module.exports = exports.default;
 } (dist, dist.exports));
 
-var distExports = dist.exports;
-
-const selectorParser$1 = distExports;
+const selectorParser$1 = dist.exports;
 const valueParser = lib;
 const { extractICSS } = src$4;
 
@@ -6957,9 +6886,7 @@ src$2.exports = (options = {}) => {
 };
 src$2.exports.postcss = true;
 
-var srcExports$1 = src$2.exports;
-
-const selectorParser = distExports;
+const selectorParser = dist.exports;
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -7435,8 +7362,6 @@ src.exports = (options) => {
 
 src.exports.postcss = true;
 
-var srcExports = src.exports;
-
 Object.defineProperty(scoping, "__esModule", {
   value: true
 });
@@ -7445,17 +7370,17 @@ scoping.getDefaultPlugins = getDefaultPlugins;
 scoping.getDefaultScopeBehaviour = getDefaultScopeBehaviour;
 scoping.getScopedNameGenerator = getScopedNameGenerator;
 
-var _postcssModulesExtractImports = _interopRequireDefault$1(srcExports$2);
+var _postcssModulesExtractImports = _interopRequireDefault$1(src$3.exports);
 
 var _genericNames = _interopRequireDefault$1(genericNames);
 
-var _postcssModulesLocalByDefault = _interopRequireDefault$1(srcExports$1);
+var _postcssModulesLocalByDefault = _interopRequireDefault$1(src$2.exports);
 
 var _postcssModulesScope = _interopRequireDefault$1(src$1);
 
 var _stringHash = _interopRequireDefault$1(stringHash);
 
-var _postcssModulesValues = _interopRequireDefault$1(srcExports);
+var _postcssModulesValues = _interopRequireDefault$1(src.exports);
 
 function _interopRequireDefault$1(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -7634,13 +7559,10 @@ build.exports = (opts = {}) => (0, _pluginFactory.makePlugin)(opts);
 
 var postcss = build.exports.postcss = true;
 
-var buildExports = build.exports;
-var index = /*@__PURE__*/getDefaultExportFromCjs(buildExports);
-
-var index$1 = /*#__PURE__*/_mergeNamespaces({
+var index = /*#__PURE__*/_mergeNamespaces({
   __proto__: null,
-  default: index,
-  postcss: postcss
-}, [buildExports]);
+  postcss: postcss,
+  'default': build.exports
+}, [build.exports]);
 
-export { index$1 as i };
+export { index as i };

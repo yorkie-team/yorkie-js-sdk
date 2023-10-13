@@ -263,8 +263,7 @@ class Preprocessor {
             this.endOfChunkHit = !this.lastChunkWritten;
             return CODE_POINTS.EOF;
         }
-        const code = this.html.charCodeAt(pos);
-        return code === CODE_POINTS.CARRIAGE_RETURN ? CODE_POINTS.LINE_FEED : code;
+        return this.html.charCodeAt(pos);
     }
     advance() {
         this.pos++;
@@ -352,6 +351,12 @@ function getTokenAttr(token, attrName) {
     }
     return null;
 }
+
+var token = {
+    __proto__: null,
+    get TokenType () { return TokenType; },
+    getTokenAttr: getTokenAttr
+};
 
 // Generated using scripts/write-decode-map.ts
 var htmlDecodeTree = new Uint16Array(
@@ -929,6 +934,31 @@ const SPECIAL_ELEMENTS = {
 function isNumberedHeader(tn) {
     return tn === $.H1 || tn === $.H2 || tn === $.H3 || tn === $.H4 || tn === $.H5 || tn === $.H6;
 }
+const UNESCAPED_TEXT = new Set([
+    TAG_NAMES.STYLE,
+    TAG_NAMES.SCRIPT,
+    TAG_NAMES.XMP,
+    TAG_NAMES.IFRAME,
+    TAG_NAMES.NOEMBED,
+    TAG_NAMES.NOFRAMES,
+    TAG_NAMES.PLAINTEXT,
+]);
+function hasUnescapedText(tn, scriptingEnabled) {
+    return UNESCAPED_TEXT.has(tn) || (scriptingEnabled && tn === TAG_NAMES.NOSCRIPT);
+}
+
+var html = {
+    __proto__: null,
+    get NS () { return NS; },
+    get ATTRS () { return ATTRS; },
+    get DOCUMENT_MODE () { return DOCUMENT_MODE; },
+    get TAG_NAMES () { return TAG_NAMES; },
+    get TAG_ID () { return TAG_ID; },
+    getTagID: getTagID,
+    SPECIAL_ELEMENTS: SPECIAL_ELEMENTS,
+    isNumberedHeader: isNumberedHeader,
+    hasUnescapedText: hasUnescapedText
+};
 
 //C1 Unicode control character reference replacements
 const C1_CONTROLS_REFERENCE_REPLACEMENTS = new Map([
@@ -3161,7 +3191,7 @@ class Tokenizer {
                 this._emitEOFToken();
                 break;
             }
-            default: {
+            default:
                 if (this._consumeSequenceIfMatch(SEQUENCES.PUBLIC, false)) {
                     this.state = State.AFTER_DOCTYPE_PUBLIC_KEYWORD;
                 }
@@ -3176,7 +3206,6 @@ class Tokenizer {
                     this.state = State.BOGUS_DOCTYPE;
                     this._stateBogusDoctype(cp);
                 }
-            }
         }
     }
     // After DOCTYPE public keyword state
@@ -3865,9 +3894,6 @@ const TABLE_CONTEXT = [TAG_ID.TABLE, TAG_ID.TEMPLATE, TAG_ID.HTML];
 const TABLE_CELLS = [TAG_ID.TD, TAG_ID.TH];
 //Stack of open elements
 class OpenElementStack {
-    get currentTmplContentOrNode() {
-        return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
-    }
     constructor(document, treeAdapter, handler) {
         this.treeAdapter = treeAdapter;
         this.handler = handler;
@@ -3877,6 +3903,9 @@ class OpenElementStack {
         this.tmplCount = 0;
         this.currentTagId = TAG_ID.UNKNOWN;
         this.current = document;
+    }
+    get currentTmplContentOrNode() {
+        return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
     }
     //Index of element
     _indexOf(element) {
@@ -4763,6 +4792,17 @@ function isIntegrationPoint(tn, ns, attrs, foreignNS) {
         ((!foreignNS || foreignNS === NS.MATHML) && isMathMLTextIntegrationPoint(tn, ns)));
 }
 
+var foreignContent = {
+    __proto__: null,
+    SVG_TAG_NAMES_ADJUSTMENT_MAP: SVG_TAG_NAMES_ADJUSTMENT_MAP,
+    causesExit: causesExit,
+    adjustTokenMathMLAttrs: adjustTokenMathMLAttrs,
+    adjustTokenSVGAttrs: adjustTokenSVGAttrs,
+    adjustTokenXMLAttrs: adjustTokenXMLAttrs,
+    adjustTokenSVGTagName: adjustTokenSVGTagName,
+    isIntegrationPoint: isIntegrationPoint
+};
+
 //Misc constants
 const HIDDEN_INPUT_TYPE = 'hidden';
 //Adoption agency loops iteration count
@@ -5213,63 +5253,51 @@ class Parser {
         for (let i = this.openElements.stackTop; i >= 0; i--) {
             //Insertion mode reset map
             switch (i === 0 && this.fragmentContext ? this.fragmentContextID : this.openElements.tagIDs[i]) {
-                case TAG_ID.TR: {
+                case TAG_ID.TR:
                     this.insertionMode = InsertionMode.IN_ROW;
                     return;
-                }
                 case TAG_ID.TBODY:
                 case TAG_ID.THEAD:
-                case TAG_ID.TFOOT: {
+                case TAG_ID.TFOOT:
                     this.insertionMode = InsertionMode.IN_TABLE_BODY;
                     return;
-                }
-                case TAG_ID.CAPTION: {
+                case TAG_ID.CAPTION:
                     this.insertionMode = InsertionMode.IN_CAPTION;
                     return;
-                }
-                case TAG_ID.COLGROUP: {
+                case TAG_ID.COLGROUP:
                     this.insertionMode = InsertionMode.IN_COLUMN_GROUP;
                     return;
-                }
-                case TAG_ID.TABLE: {
+                case TAG_ID.TABLE:
                     this.insertionMode = InsertionMode.IN_TABLE;
                     return;
-                }
-                case TAG_ID.BODY: {
+                case TAG_ID.BODY:
                     this.insertionMode = InsertionMode.IN_BODY;
                     return;
-                }
-                case TAG_ID.FRAMESET: {
+                case TAG_ID.FRAMESET:
                     this.insertionMode = InsertionMode.IN_FRAMESET;
                     return;
-                }
-                case TAG_ID.SELECT: {
+                case TAG_ID.SELECT:
                     this._resetInsertionModeForSelect(i);
                     return;
-                }
-                case TAG_ID.TEMPLATE: {
+                case TAG_ID.TEMPLATE:
                     this.insertionMode = this.tmplInsertionModeStack[0];
                     return;
-                }
-                case TAG_ID.HTML: {
+                case TAG_ID.HTML:
                     this.insertionMode = this.headElement ? InsertionMode.AFTER_HEAD : InsertionMode.BEFORE_HEAD;
                     return;
-                }
                 case TAG_ID.TD:
-                case TAG_ID.TH: {
+                case TAG_ID.TH:
                     if (i > 0) {
                         this.insertionMode = InsertionMode.IN_CELL;
                         return;
                     }
                     break;
-                }
-                case TAG_ID.HEAD: {
+                case TAG_ID.HEAD:
                     if (i > 0) {
                         this.insertionMode = InsertionMode.IN_HEAD;
                         return;
                     }
                     break;
-                }
             }
         }
         this.insertionMode = InsertionMode.IN_BODY;
@@ -5300,12 +5328,11 @@ class Parser {
         for (let i = this.openElements.stackTop; i >= 0; i--) {
             const openElement = this.openElements.items[i];
             switch (this.openElements.tagIDs[i]) {
-                case TAG_ID.TEMPLATE: {
+                case TAG_ID.TEMPLATE:
                     if (this.treeAdapter.getNamespaceURI(openElement) === NS.HTML) {
                         return { parent: this.treeAdapter.getTemplateContent(openElement), beforeElement: null };
                     }
                     break;
-                }
                 case TAG_ID.TABLE: {
                     const parent = this.treeAdapter.getParentNode(openElement);
                     if (parent) {
@@ -5339,65 +5366,52 @@ class Parser {
             return;
         }
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 tokenInInitialMode(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HTML: {
+            case InsertionMode.BEFORE_HTML:
                 tokenBeforeHtml(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HEAD: {
+            case InsertionMode.BEFORE_HEAD:
                 tokenBeforeHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD: {
+            case InsertionMode.IN_HEAD:
                 tokenInHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+            case InsertionMode.IN_HEAD_NO_SCRIPT:
                 tokenInHeadNoScript(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 tokenAfterHead(this, token);
                 break;
-            }
             case InsertionMode.IN_BODY:
             case InsertionMode.IN_CAPTION:
             case InsertionMode.IN_CELL:
-            case InsertionMode.IN_TEMPLATE: {
+            case InsertionMode.IN_TEMPLATE:
                 characterInBody(this, token);
                 break;
-            }
             case InsertionMode.TEXT:
             case InsertionMode.IN_SELECT:
-            case InsertionMode.IN_SELECT_IN_TABLE: {
+            case InsertionMode.IN_SELECT_IN_TABLE:
                 this._insertCharacters(token);
                 break;
-            }
             case InsertionMode.IN_TABLE:
             case InsertionMode.IN_TABLE_BODY:
-            case InsertionMode.IN_ROW: {
+            case InsertionMode.IN_ROW:
                 characterInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 characterInTableText(this, token);
                 break;
-            }
-            case InsertionMode.IN_COLUMN_GROUP: {
+            case InsertionMode.IN_COLUMN_GROUP:
                 tokenInColumnGroup(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_BODY: {
+            case InsertionMode.AFTER_BODY:
                 tokenAfterBody(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_AFTER_BODY: {
+            case InsertionMode.AFTER_AFTER_BODY:
                 tokenAfterAfterBody(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -5408,52 +5422,41 @@ class Parser {
             return;
         }
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 tokenInInitialMode(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HTML: {
+            case InsertionMode.BEFORE_HTML:
                 tokenBeforeHtml(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HEAD: {
+            case InsertionMode.BEFORE_HEAD:
                 tokenBeforeHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD: {
+            case InsertionMode.IN_HEAD:
                 tokenInHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+            case InsertionMode.IN_HEAD_NO_SCRIPT:
                 tokenInHeadNoScript(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 tokenAfterHead(this, token);
                 break;
-            }
-            case InsertionMode.TEXT: {
+            case InsertionMode.TEXT:
                 this._insertCharacters(token);
                 break;
-            }
             case InsertionMode.IN_TABLE:
             case InsertionMode.IN_TABLE_BODY:
-            case InsertionMode.IN_ROW: {
+            case InsertionMode.IN_ROW:
                 characterInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_COLUMN_GROUP: {
+            case InsertionMode.IN_COLUMN_GROUP:
                 tokenInColumnGroup(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_BODY: {
+            case InsertionMode.AFTER_BODY:
                 tokenAfterBody(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_AFTER_BODY: {
+            case InsertionMode.AFTER_AFTER_BODY:
                 tokenAfterAfterBody(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -5481,44 +5484,37 @@ class Parser {
             case InsertionMode.IN_SELECT_IN_TABLE:
             case InsertionMode.IN_TEMPLATE:
             case InsertionMode.IN_FRAMESET:
-            case InsertionMode.AFTER_FRAMESET: {
+            case InsertionMode.AFTER_FRAMESET:
                 appendComment(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 tokenInTableText(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_BODY: {
+            case InsertionMode.AFTER_BODY:
                 appendCommentToRootHtmlElement(this, token);
                 break;
-            }
             case InsertionMode.AFTER_AFTER_BODY:
-            case InsertionMode.AFTER_AFTER_FRAMESET: {
+            case InsertionMode.AFTER_AFTER_FRAMESET:
                 appendCommentToDocument(this, token);
                 break;
-            }
             // Do nothing
         }
     }
     onDoctype(token) {
         this.skipNextNewLine = false;
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 doctypeInInitialMode(this, token);
                 break;
-            }
             case InsertionMode.BEFORE_HEAD:
             case InsertionMode.IN_HEAD:
             case InsertionMode.IN_HEAD_NO_SCRIPT:
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 this._err(token, ERR.misplacedDoctype);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 tokenInTableText(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -5550,94 +5546,72 @@ class Parser {
     }
     _startTagOutsideForeignContent(token) {
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 tokenInInitialMode(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HTML: {
+            case InsertionMode.BEFORE_HTML:
                 startTagBeforeHtml(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HEAD: {
+            case InsertionMode.BEFORE_HEAD:
                 startTagBeforeHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD: {
+            case InsertionMode.IN_HEAD:
                 startTagInHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+            case InsertionMode.IN_HEAD_NO_SCRIPT:
                 startTagInHeadNoScript(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 startTagAfterHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_BODY: {
+            case InsertionMode.IN_BODY:
                 startTagInBody(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE: {
+            case InsertionMode.IN_TABLE:
                 startTagInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 tokenInTableText(this, token);
                 break;
-            }
-            case InsertionMode.IN_CAPTION: {
+            case InsertionMode.IN_CAPTION:
                 startTagInCaption(this, token);
                 break;
-            }
-            case InsertionMode.IN_COLUMN_GROUP: {
+            case InsertionMode.IN_COLUMN_GROUP:
                 startTagInColumnGroup(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_BODY: {
+            case InsertionMode.IN_TABLE_BODY:
                 startTagInTableBody(this, token);
                 break;
-            }
-            case InsertionMode.IN_ROW: {
+            case InsertionMode.IN_ROW:
                 startTagInRow(this, token);
                 break;
-            }
-            case InsertionMode.IN_CELL: {
+            case InsertionMode.IN_CELL:
                 startTagInCell(this, token);
                 break;
-            }
-            case InsertionMode.IN_SELECT: {
+            case InsertionMode.IN_SELECT:
                 startTagInSelect(this, token);
                 break;
-            }
-            case InsertionMode.IN_SELECT_IN_TABLE: {
+            case InsertionMode.IN_SELECT_IN_TABLE:
                 startTagInSelectInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TEMPLATE: {
+            case InsertionMode.IN_TEMPLATE:
                 startTagInTemplate(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_BODY: {
+            case InsertionMode.AFTER_BODY:
                 startTagAfterBody(this, token);
                 break;
-            }
-            case InsertionMode.IN_FRAMESET: {
+            case InsertionMode.IN_FRAMESET:
                 startTagInFrameset(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_FRAMESET: {
+            case InsertionMode.AFTER_FRAMESET:
                 startTagAfterFrameset(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_AFTER_BODY: {
+            case InsertionMode.AFTER_AFTER_BODY:
                 startTagAfterAfterBody(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_AFTER_FRAMESET: {
+            case InsertionMode.AFTER_AFTER_FRAMESET:
                 startTagAfterAfterFrameset(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -5653,123 +5627,95 @@ class Parser {
     }
     _endTagOutsideForeignContent(token) {
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 tokenInInitialMode(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HTML: {
+            case InsertionMode.BEFORE_HTML:
                 endTagBeforeHtml(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HEAD: {
+            case InsertionMode.BEFORE_HEAD:
                 endTagBeforeHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD: {
+            case InsertionMode.IN_HEAD:
                 endTagInHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+            case InsertionMode.IN_HEAD_NO_SCRIPT:
                 endTagInHeadNoScript(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 endTagAfterHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_BODY: {
+            case InsertionMode.IN_BODY:
                 endTagInBody(this, token);
                 break;
-            }
-            case InsertionMode.TEXT: {
+            case InsertionMode.TEXT:
                 endTagInText(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE: {
+            case InsertionMode.IN_TABLE:
                 endTagInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 tokenInTableText(this, token);
                 break;
-            }
-            case InsertionMode.IN_CAPTION: {
+            case InsertionMode.IN_CAPTION:
                 endTagInCaption(this, token);
                 break;
-            }
-            case InsertionMode.IN_COLUMN_GROUP: {
+            case InsertionMode.IN_COLUMN_GROUP:
                 endTagInColumnGroup(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_BODY: {
+            case InsertionMode.IN_TABLE_BODY:
                 endTagInTableBody(this, token);
                 break;
-            }
-            case InsertionMode.IN_ROW: {
+            case InsertionMode.IN_ROW:
                 endTagInRow(this, token);
                 break;
-            }
-            case InsertionMode.IN_CELL: {
+            case InsertionMode.IN_CELL:
                 endTagInCell(this, token);
                 break;
-            }
-            case InsertionMode.IN_SELECT: {
+            case InsertionMode.IN_SELECT:
                 endTagInSelect(this, token);
                 break;
-            }
-            case InsertionMode.IN_SELECT_IN_TABLE: {
+            case InsertionMode.IN_SELECT_IN_TABLE:
                 endTagInSelectInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TEMPLATE: {
+            case InsertionMode.IN_TEMPLATE:
                 endTagInTemplate(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_BODY: {
+            case InsertionMode.AFTER_BODY:
                 endTagAfterBody(this, token);
                 break;
-            }
-            case InsertionMode.IN_FRAMESET: {
+            case InsertionMode.IN_FRAMESET:
                 endTagInFrameset(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_FRAMESET: {
+            case InsertionMode.AFTER_FRAMESET:
                 endTagAfterFrameset(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_AFTER_BODY: {
+            case InsertionMode.AFTER_AFTER_BODY:
                 tokenAfterAfterBody(this, token);
                 break;
-            }
             // Do nothing
         }
     }
     onEof(token) {
         switch (this.insertionMode) {
-            case InsertionMode.INITIAL: {
+            case InsertionMode.INITIAL:
                 tokenInInitialMode(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HTML: {
+            case InsertionMode.BEFORE_HTML:
                 tokenBeforeHtml(this, token);
                 break;
-            }
-            case InsertionMode.BEFORE_HEAD: {
+            case InsertionMode.BEFORE_HEAD:
                 tokenBeforeHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD: {
+            case InsertionMode.IN_HEAD:
                 tokenInHead(this, token);
                 break;
-            }
-            case InsertionMode.IN_HEAD_NO_SCRIPT: {
+            case InsertionMode.IN_HEAD_NO_SCRIPT:
                 tokenInHeadNoScript(this, token);
                 break;
-            }
-            case InsertionMode.AFTER_HEAD: {
+            case InsertionMode.AFTER_HEAD:
                 tokenAfterHead(this, token);
                 break;
-            }
             case InsertionMode.IN_BODY:
             case InsertionMode.IN_TABLE:
             case InsertionMode.IN_CAPTION:
@@ -5778,30 +5724,25 @@ class Parser {
             case InsertionMode.IN_ROW:
             case InsertionMode.IN_CELL:
             case InsertionMode.IN_SELECT:
-            case InsertionMode.IN_SELECT_IN_TABLE: {
+            case InsertionMode.IN_SELECT_IN_TABLE:
                 eofInBody(this, token);
                 break;
-            }
-            case InsertionMode.TEXT: {
+            case InsertionMode.TEXT:
                 eofInText(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 tokenInTableText(this, token);
                 break;
-            }
-            case InsertionMode.IN_TEMPLATE: {
+            case InsertionMode.IN_TEMPLATE:
                 eofInTemplate(this, token);
                 break;
-            }
             case InsertionMode.AFTER_BODY:
             case InsertionMode.IN_FRAMESET:
             case InsertionMode.AFTER_FRAMESET:
             case InsertionMode.AFTER_AFTER_BODY:
-            case InsertionMode.AFTER_AFTER_FRAMESET: {
+            case InsertionMode.AFTER_AFTER_FRAMESET:
                 stopParsing(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -5828,30 +5769,26 @@ class Parser {
             case InsertionMode.IN_SELECT:
             case InsertionMode.IN_SELECT_IN_TABLE:
             case InsertionMode.IN_FRAMESET:
-            case InsertionMode.AFTER_FRAMESET: {
+            case InsertionMode.AFTER_FRAMESET:
                 this._insertCharacters(token);
                 break;
-            }
             case InsertionMode.IN_BODY:
             case InsertionMode.IN_CAPTION:
             case InsertionMode.IN_CELL:
             case InsertionMode.IN_TEMPLATE:
             case InsertionMode.AFTER_BODY:
             case InsertionMode.AFTER_AFTER_BODY:
-            case InsertionMode.AFTER_AFTER_FRAMESET: {
+            case InsertionMode.AFTER_AFTER_FRAMESET:
                 whitespaceCharacterInBody(this, token);
                 break;
-            }
             case InsertionMode.IN_TABLE:
             case InsertionMode.IN_TABLE_BODY:
-            case InsertionMode.IN_ROW: {
+            case InsertionMode.IN_ROW:
                 characterInTable(this, token);
                 break;
-            }
-            case InsertionMode.IN_TABLE_TEXT: {
+            case InsertionMode.IN_TABLE_TEXT:
                 whitespaceCharacterInTableText(this, token);
                 break;
-            }
             // Do nothing
         }
     }
@@ -7479,9 +7416,8 @@ function endTagInRow(p, token) {
             // Ignore end tag
             break;
         }
-        default: {
+        default:
             endTagInTable(p, token);
-        }
     }
 }
 // The "in cell" insertion mode
@@ -7668,45 +7604,39 @@ function startTagInTemplate(p, token) {
         case TAG_ID.SCRIPT:
         case TAG_ID.STYLE:
         case TAG_ID.TEMPLATE:
-        case TAG_ID.TITLE: {
+        case TAG_ID.TITLE:
             startTagInHead(p, token);
             break;
-        }
         // Re-process the token in the appropriate mode
         case TAG_ID.CAPTION:
         case TAG_ID.COLGROUP:
         case TAG_ID.TBODY:
         case TAG_ID.TFOOT:
-        case TAG_ID.THEAD: {
+        case TAG_ID.THEAD:
             p.tmplInsertionModeStack[0] = InsertionMode.IN_TABLE;
             p.insertionMode = InsertionMode.IN_TABLE;
             startTagInTable(p, token);
             break;
-        }
-        case TAG_ID.COL: {
+        case TAG_ID.COL:
             p.tmplInsertionModeStack[0] = InsertionMode.IN_COLUMN_GROUP;
             p.insertionMode = InsertionMode.IN_COLUMN_GROUP;
             startTagInColumnGroup(p, token);
             break;
-        }
-        case TAG_ID.TR: {
+        case TAG_ID.TR:
             p.tmplInsertionModeStack[0] = InsertionMode.IN_TABLE_BODY;
             p.insertionMode = InsertionMode.IN_TABLE_BODY;
             startTagInTableBody(p, token);
             break;
-        }
         case TAG_ID.TD:
-        case TAG_ID.TH: {
+        case TAG_ID.TH:
             p.tmplInsertionModeStack[0] = InsertionMode.IN_ROW;
             p.insertionMode = InsertionMode.IN_ROW;
             startTagInRow(p, token);
             break;
-        }
-        default: {
+        default:
             p.tmplInsertionModeStack[0] = InsertionMode.IN_BODY;
             p.insertionMode = InsertionMode.IN_BODY;
             startTagInBody(p, token);
-        }
     }
 }
 function endTagInTemplate(p, token) {
@@ -7905,6 +7835,212 @@ function endTagInForeignContent(p, token) {
     }
 }
 
+function getEscaper(regex, map) {
+    return function escape(data) {
+        let match;
+        let lastIdx = 0;
+        let result = "";
+        while ((match = regex.exec(data))) {
+            if (lastIdx !== match.index) {
+                result += data.substring(lastIdx, match.index);
+            }
+            // We know that this chararcter will be in the map.
+            result += map.get(match[0].charCodeAt(0));
+            // Every match will be of length 1
+            lastIdx = match.index + 1;
+        }
+        return result + data.substring(lastIdx);
+    };
+}
+/**
+ * Encodes all characters that have to be escaped in HTML attributes,
+ * following {@link https://html.spec.whatwg.org/multipage/parsing.html#escapingString}.
+ *
+ * @param data String to escape.
+ */
+const escapeAttribute = getEscaper(/["&\u00A0]/g, new Map([
+    [34, "&quot;"],
+    [38, "&amp;"],
+    [160, "&nbsp;"],
+]));
+/**
+ * Encodes all characters that have to be escaped in HTML text,
+ * following {@link https://html.spec.whatwg.org/multipage/parsing.html#escapingString}.
+ *
+ * @param data String to escape.
+ */
+const escapeText = getEscaper(/[&<>\u00A0]/g, new Map([
+    [38, "&amp;"],
+    [60, "&lt;"],
+    [62, "&gt;"],
+    [160, "&nbsp;"],
+]));
+
+// Sets
+const VOID_ELEMENTS = new Set([
+    TAG_NAMES.AREA,
+    TAG_NAMES.BASE,
+    TAG_NAMES.BASEFONT,
+    TAG_NAMES.BGSOUND,
+    TAG_NAMES.BR,
+    TAG_NAMES.COL,
+    TAG_NAMES.EMBED,
+    TAG_NAMES.FRAME,
+    TAG_NAMES.HR,
+    TAG_NAMES.IMG,
+    TAG_NAMES.INPUT,
+    TAG_NAMES.KEYGEN,
+    TAG_NAMES.LINK,
+    TAG_NAMES.META,
+    TAG_NAMES.PARAM,
+    TAG_NAMES.SOURCE,
+    TAG_NAMES.TRACK,
+    TAG_NAMES.WBR,
+]);
+function isVoidElement(node, options) {
+    return (options.treeAdapter.isElementNode(node) &&
+        options.treeAdapter.getNamespaceURI(node) === NS.HTML &&
+        VOID_ELEMENTS.has(options.treeAdapter.getTagName(node)));
+}
+const defaultOpts = { treeAdapter: defaultTreeAdapter, scriptingEnabled: true };
+/**
+ * Serializes an AST node to an HTML string.
+ *
+ * @example
+ *
+ * ```js
+ * const parse5 = require('parse5');
+ *
+ * const document = parse5.parse('<!DOCTYPE html><html><head></head><body>Hi there!</body></html>');
+ *
+ * // Serializes a document.
+ * const html = parse5.serialize(document);
+ *
+ * // Serializes the <html> element content.
+ * const str = parse5.serialize(document.childNodes[1]);
+ *
+ * console.log(str); //> '<head></head><body>Hi there!</body>'
+ * ```
+ *
+ * @param node Node to serialize.
+ * @param options Serialization options.
+ */
+function serialize(node, options) {
+    const opts = { ...defaultOpts, ...options };
+    if (isVoidElement(node, opts)) {
+        return '';
+    }
+    return serializeChildNodes(node, opts);
+}
+/**
+ * Serializes an AST element node to an HTML string, including the element node.
+ *
+ * @example
+ *
+ * ```js
+ * const parse5 = require('parse5');
+ *
+ * const document = parse5.parseFragment('<div>Hello, <b>world</b>!</div>');
+ *
+ * // Serializes the <div> element.
+ * const html = parse5.serializeOuter(document.childNodes[0]);
+ *
+ * console.log(str); //> '<div>Hello, <b>world</b>!</div>'
+ * ```
+ *
+ * @param node Node to serialize.
+ * @param options Serialization options.
+ */
+function serializeOuter(node, options) {
+    const opts = { ...defaultOpts, ...options };
+    return serializeNode(node, opts);
+}
+function serializeChildNodes(parentNode, options) {
+    let html = '';
+    // Get container of the child nodes
+    const container = options.treeAdapter.isElementNode(parentNode) &&
+        options.treeAdapter.getTagName(parentNode) === TAG_NAMES.TEMPLATE &&
+        options.treeAdapter.getNamespaceURI(parentNode) === NS.HTML
+        ? options.treeAdapter.getTemplateContent(parentNode)
+        : parentNode;
+    const childNodes = options.treeAdapter.getChildNodes(container);
+    if (childNodes) {
+        for (const currentNode of childNodes) {
+            html += serializeNode(currentNode, options);
+        }
+    }
+    return html;
+}
+function serializeNode(node, options) {
+    if (options.treeAdapter.isElementNode(node)) {
+        return serializeElement(node, options);
+    }
+    if (options.treeAdapter.isTextNode(node)) {
+        return serializeTextNode(node, options);
+    }
+    if (options.treeAdapter.isCommentNode(node)) {
+        return serializeCommentNode(node, options);
+    }
+    if (options.treeAdapter.isDocumentTypeNode(node)) {
+        return serializeDocumentTypeNode(node, options);
+    }
+    // Return an empty string for unknown nodes
+    return '';
+}
+function serializeElement(node, options) {
+    const tn = options.treeAdapter.getTagName(node);
+    return `<${tn}${serializeAttributes(node, options)}>${isVoidElement(node, options) ? '' : `${serializeChildNodes(node, options)}</${tn}>`}`;
+}
+function serializeAttributes(node, { treeAdapter }) {
+    let html = '';
+    for (const attr of treeAdapter.getAttrList(node)) {
+        html += ' ';
+        if (!attr.namespace) {
+            html += attr.name;
+        }
+        else
+            switch (attr.namespace) {
+                case NS.XML: {
+                    html += `xml:${attr.name}`;
+                    break;
+                }
+                case NS.XMLNS: {
+                    if (attr.name !== 'xmlns') {
+                        html += 'xmlns:';
+                    }
+                    html += attr.name;
+                    break;
+                }
+                case NS.XLINK: {
+                    html += `xlink:${attr.name}`;
+                    break;
+                }
+                default: {
+                    html += `${attr.prefix}:${attr.name}`;
+                }
+            }
+        html += `="${escapeAttribute(attr.value)}"`;
+    }
+    return html;
+}
+function serializeTextNode(node, options) {
+    const { treeAdapter } = options;
+    const content = treeAdapter.getTextNodeContent(node);
+    const parent = treeAdapter.getParentNode(node);
+    const parentTn = parent && treeAdapter.isElementNode(parent) && treeAdapter.getTagName(parent);
+    return parentTn &&
+        treeAdapter.getNamespaceURI(parent) === NS.HTML &&
+        hasUnescapedText(parentTn, options.scriptingEnabled)
+        ? content
+        : escapeText(content);
+}
+function serializeCommentNode(node, { treeAdapter }) {
+    return `<!--${treeAdapter.getCommentNodeContent(node)}-->`;
+}
+function serializeDocumentTypeNode(node, { treeAdapter }) {
+    return `<!DOCTYPE ${treeAdapter.getDocumentTypeNodeName(node)}>`;
+}
+
 // Shorthands
 /**
  * Parses an HTML string.
@@ -7926,5 +8062,15 @@ function endTagInForeignContent(p, token) {
 function parse(html, options) {
     return Parser.parse(html, options);
 }
+function parseFragment(fragmentContext, html, options) {
+    if (typeof fragmentContext === 'string') {
+        options = html;
+        html = fragmentContext;
+        fragmentContext = null;
+    }
+    const parser = Parser.getFragmentParser(fragmentContext, options);
+    parser.tokenizer.write(html, true);
+    return parser.getFragment();
+}
 
-export { ERR as ErrorCodes, Parser, Tokenizer, TokenizerMode, defaultTreeAdapter, parse };
+export { Parser, token as Token, Tokenizer, TokenizerMode, defaultTreeAdapter, foreignContent, html, parse, parseFragment, serialize, serializeOuter };

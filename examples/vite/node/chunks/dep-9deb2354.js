@@ -1,7 +1,7 @@
-import { E as getDefaultExportFromCjs } from './dep-df561101.js';
 import require$$0 from 'path';
+import resolve$2 from 'resolve';
 import require$$0__default from 'fs';
-import { l as lib } from './dep-c423598f.js';
+import { l as lib } from './dep-07a79996.js';
 
 import { fileURLToPath as __cjs_fileURLToPath } from 'node:url';
 import { dirname as __cjs_dirname } from 'node:path';
@@ -23,8 +23,6 @@ function _mergeNamespaces(n, m) {
   return n;
 }
 
-const startsWithKeywordRegexp = /^(all|not|only|print|screen)/i;
-
 var joinMedia$1 = function (parentMedia, childMedia) {
   if (!parentMedia.length && childMedia.length) return childMedia
   if (parentMedia.length && !childMedia.length) return parentMedia
@@ -33,17 +31,8 @@ var joinMedia$1 = function (parentMedia, childMedia) {
   const media = [];
 
   parentMedia.forEach(parentItem => {
-    const parentItemStartsWithKeyword = startsWithKeywordRegexp.test(parentItem);
-
     childMedia.forEach(childItem => {
-      const childItemStartsWithKeyword = startsWithKeywordRegexp.test(childItem);
-      if (parentItem !== childItem) {
-        if (childItemStartsWithKeyword && !parentItemStartsWithKeyword) {
-          media.push(`${childItem} and ${parentItem}`);
-        } else {
-          media.push(`${parentItem} and ${childItem}`);
-        }
-      }
+      if (parentItem !== childItem) media.push(`${parentItem} and ${childItem}`);
     });
   });
 
@@ -56,6 +45,47 @@ var joinLayer$1 = function (parentLayer, childLayer) {
   if (!parentLayer.length && !childLayer.length) return []
 
   return parentLayer.concat(childLayer)
+};
+
+// external tooling
+const resolve$1 = resolve$2;
+
+const moduleDirectories = ["web_modules", "node_modules"];
+
+function resolveModule(id, opts) {
+  return new Promise((res, rej) => {
+    resolve$1(id, opts, (err, path) => (err ? rej(err) : res(path)));
+  })
+}
+
+var resolveId$1 = function (id, base, options) {
+  const paths = options.path;
+
+  const resolveOpts = {
+    basedir: base,
+    moduleDirectory: moduleDirectories.concat(options.addModulesDirectories),
+    paths,
+    extensions: [".css"],
+    packageFilter: function processPackage(pkg) {
+      if (pkg.style) pkg.main = pkg.style;
+      else if (!pkg.main || !/\.css$/.test(pkg.main)) pkg.main = "index.css";
+      return pkg
+    },
+    preserveSymlinks: false,
+  };
+
+  return resolveModule(`./${id}`, resolveOpts)
+    .catch(() => resolveModule(id, resolveOpts))
+    .catch(() => {
+      if (paths.indexOf(base) === -1) paths.unshift(base);
+
+      throw new Error(
+        `Failed to find '${id}'
+  in [
+    ${paths.join(",\n        ")}
+  ]`
+      )
+    })
 };
 
 var readCache$1 = {exports: {}};
@@ -129,11 +159,9 @@ var pify$1 = pify$2.exports = function (obj, P, opts) {
 
 pify$1.all = pify$1;
 
-var pifyExports = pify$2.exports;
-
 var fs = require$$0__default;
 var path$2 = require$$0;
-var pify = pifyExports;
+var pify = pify$2.exports;
 
 var stat = pify(fs.stat);
 var readFile = pify(fs.readFile);
@@ -210,34 +238,9 @@ readCache$1.exports.clear = function () {
 	cache = Object.create(null);
 };
 
-var readCacheExports = readCache$1.exports;
+const readCache = readCache$1.exports;
 
-const dataURLRegexp = /^data:text\/css;base64,/i;
-
-function isValid(url) {
-  return dataURLRegexp.test(url)
-}
-
-function contents(url) {
-  // "data:text/css;base64,".length === 21
-  return Buffer.from(url.slice(21), "base64").toString()
-}
-
-var dataUrl = {
-  isValid,
-  contents,
-};
-
-const readCache = readCacheExports;
-const dataURL$1 = dataUrl;
-
-var loadContent$1 = filename => {
-  if (dataURL$1.isValid(filename)) {
-    return dataURL$1.contents(filename)
-  }
-
-  return readCache(filename, "utf-8")
-};
+var loadContent$1 = filename => readCache(filename, "utf-8");
 
 // builtin tooling
 const path$1 = require$$0;
@@ -468,34 +471,16 @@ function parseImport(result, atRule) {
   return stmt
 }
 
-var assignLayerNames$1 = function (layer, node, state, options) {
-  layer.forEach((layerPart, i) => {
-    if (layerPart.trim() === "") {
-      if (options.nameLayer) {
-        layer[i] = options
-          .nameLayer(state.anonymousLayerCounter++, state.rootFilename)
-          .toString();
-      } else {
-        throw node.error(
-          `When using anonymous layers in @import you must also set the "nameLayer" plugin option`
-        )
-      }
-    }
-  });
-};
-
 // builtin tooling
 const path = require$$0;
 
 // internal tooling
 const joinMedia = joinMedia$1;
 const joinLayer = joinLayer$1;
-const resolveId = (id) => id;
+const resolveId = resolveId$1;
 const loadContent = loadContent$1;
 const processContent = processContent$1;
 const parseStatements = parseStatements$1;
-const assignLayerNames = assignLayerNames$1;
-const dataURL = dataUrl;
 
 function AtImport(options) {
   options = {
@@ -573,36 +558,13 @@ function AtImport(options) {
             return
           }
 
-          if (stmt.layer.length > 1) {
-            assignLayerNames(stmt.layer, stmt.node, state, options);
-          }
-
           if (stmt.type === "import") {
-            const parts = [stmt.fullUri];
-
-            const media = stmt.media.join(", ");
-
-            if (stmt.layer.length) {
-              const layerName = stmt.layer.join(".");
-
-              let layerParams = "layer";
-              if (layerName) {
-                layerParams = `layer(${layerName})`;
-              }
-
-              parts.push(layerParams);
-            }
-
-            if (media) {
-              parts.push(media);
-            }
-
-            stmt.node.params = parts.join(" ");
+            stmt.node.params = `${stmt.fullUri} ${stmt.media.join(", ")}`;
           } else if (stmt.type === "media") {
             if (stmt.layer.length) {
               const layerNode = atRule({
                 name: "layer",
-                params: stmt.layer.join("."),
+                params: stmt.layer.filter(layer => layer !== "").join("."),
                 source: stmt.node.source,
               });
 
@@ -638,7 +600,7 @@ function AtImport(options) {
 
               const layerNode = atRule({
                 name: "layer",
-                params: stmt.layer.join("."),
+                params: stmt.layer.filter(layer => layer !== "").join("."),
                 source: parent.source,
               });
 
@@ -657,7 +619,7 @@ function AtImport(options) {
             } else if (stmt.layer.length) {
               const layerNode = atRule({
                 name: "layer",
-                params: stmt.layer.join("."),
+                params: stmt.layer.filter(layer => layer !== "").join("."),
                 source: parent.source,
               });
 
@@ -776,14 +738,6 @@ function AtImport(options) {
       }
 
       function resolveImportId(result, stmt, options, state) {
-        if (dataURL.isValid(stmt.uri)) {
-          return loadImportContent(result, stmt, stmt.uri, options, state).then(
-            result => {
-              stmt.children = result;
-            }
-          )
-        }
-
         const atRule = stmt.node;
         let sourceFile;
         if (atRule.source?.input?.file) {
@@ -800,7 +754,7 @@ function AtImport(options) {
             return Promise.all(
               paths.map(file => {
                 return !path.isAbsolute(file)
-                  ? resolveId(file)
+                  ? resolveId(file, base, options)
                   : file
               })
             )
@@ -833,8 +787,19 @@ function AtImport(options) {
       function loadImportContent(result, stmt, filename, options, state) {
         const atRule = stmt.node;
         const { media, layer } = stmt;
-
-        assignLayerNames(layer, atRule, state, options);
+        layer.forEach((layerPart, i) => {
+          if (layerPart === "") {
+            if (options.nameLayer) {
+              layer[i] = options
+                .nameLayer(state.anonymousLayerCounter++, state.rootFilename)
+                .toString();
+            } else {
+              throw atRule.error(
+                `When using anonymous layers in @import you must also set the "nameLayer" plugin option`
+              )
+            }
+          }
+        });
 
         if (options.skipDuplicates) {
           // skip files already imported at the same scope
@@ -904,11 +869,9 @@ AtImport.postcss = true;
 
 var postcssImport = AtImport;
 
-var index = /*@__PURE__*/getDefaultExportFromCjs(postcssImport);
-
-var index$1 = /*#__PURE__*/_mergeNamespaces({
+var index = /*#__PURE__*/_mergeNamespaces({
   __proto__: null,
-  default: index
+  'default': postcssImport
 }, [postcssImport]);
 
-export { index$1 as i };
+export { index as i };
