@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
   withTwoClientsAndDocuments,
@@ -11,8 +11,8 @@ import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Counter', function () {
-  it('can be increased by Counter type', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('can be increased by Counter type', function ({ task }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{
       k1: { age?: Counter; length?: Counter };
     }>(docKey);
@@ -52,7 +52,7 @@ describe('Counter', function () {
     assertUndoRedo(doc, states);
   });
 
-  it('Can handle increase operation', async function () {
+  it('Can handle increase operation', async function ({ task }) {
     type TestDoc = { age: Counter; length: Counter };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -66,10 +66,10 @@ describe('Counter', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent increase operation', async function () {
+  it('Can handle concurrent increase operation', async function ({ task }) {
     await withTwoClientsAndDocuments<{
       age: Counter;
       width: Counter;
@@ -97,11 +97,11 @@ describe('Counter', function () {
       await c1.sync();
 
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('can handle overflow', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('can handle overflow', function ({ task }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{ age: Counter }>(docKey);
     doc.update((root) => {
       root.age = new Counter(CounterType.IntegerCnt, 2147483647);
@@ -132,8 +132,8 @@ describe('Counter', function () {
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
   });
 
-  it('can get proper reverse operations', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('can get proper reverse operations', function ({ task }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
 
     doc.update((root) => {
@@ -160,9 +160,9 @@ describe('Counter', function () {
     );
   });
 
-  it('Can undo/redo for increase operation', async function () {
+  it('Can undo/redo for increase operation', async function ({ task }) {
     type TestDoc = { counter: Counter };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<TestDoc>(docKey);
     doc.update((root) => {
       root.counter = new Counter(CounterType.IntegerCnt, 100);
@@ -184,8 +184,8 @@ describe('Counter', function () {
     assert.equal(doc.toSortedJSON(), '{"counter":100}');
   });
 
-  it('should handle undo/redo for long type and overflow', function () {
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('should handle undo/redo for long type and overflow', function ({ task }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
     const states: Array<string> = [];
 
@@ -219,9 +219,9 @@ describe('Counter', function () {
     assertUndoRedo(doc, states);
   });
 
-  it('Can undo/redo for concurrent users', async function () {
+  it('Can undo/redo for concurrent users', async function ({ task }) {
     type TestDoc = { counter: Counter };
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 

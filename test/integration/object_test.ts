@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { JSONObject, Client } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
@@ -145,7 +145,7 @@ describe('Object', function () {
     assert.equal('a,1,b,2,c,3', Object.entries(content).join(','));
   });
 
-  it('Can handle concurrent set/delete operations', async function () {
+  it('Can handle concurrent set/delete operations', async function ({ task }) {
     await withTwoClientsAndDocuments<{
       k1: string;
       k2: string;
@@ -202,7 +202,7 @@ describe('Object', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
   describe('Undo/Redo', function () {
@@ -291,7 +291,7 @@ describe('Object', function () {
       assertUndoRedo(doc, states);
     });
 
-    it('Can handle concurrent undo/redo', async function () {
+    it('Can handle concurrent undo/redo', async function ({ task }) {
       // Test scenario:
       // c1: set shape.color to 'red'
       // c2: delete shape
@@ -299,7 +299,7 @@ describe('Object', function () {
       interface TestDoc {
         shape?: { color: string };
       }
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
@@ -348,11 +348,13 @@ describe('Object', function () {
       await client1.sync();
     });
 
-    it('concurrent undo/redo of object - no sync before undo', async function () {
+    it('concurrent undo/redo of object - no sync before undo', async function ({
+      task,
+    }) {
       interface TestDoc {
         color: string;
       }
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
@@ -402,11 +404,13 @@ describe('Object', function () {
       assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
     });
 
-    it('concurrent undo/redo of object - sync before undo', async function () {
+    it('concurrent undo/redo of object - sync before undo', async function ({
+      task,
+    }) {
       interface TestDoc {
         color: string;
       }
-      const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 

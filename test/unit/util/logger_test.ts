@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { logger, setLogLevel, LogLevel } from '@yorkie-js-sdk/src/util/logger';
 
 describe('logger', function () {

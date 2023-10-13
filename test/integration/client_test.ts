@@ -1,5 +1,5 @@
-import { assert } from 'chai';
-import * as sinon from 'sinon';
+import { describe, it, assert, vi, afterEach } from 'vitest';
+
 import yorkie, {
   Counter,
   SyncMode,
@@ -14,9 +14,13 @@ import {
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 
-describe('Client', function () {
-  it('Can be activated, deactivated', async function () {
-    const clientKey = `${this.test!.title}-${new Date().getTime()}`;
+describe.sequential('Client', function () {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('Can be activated, deactivated', async function ({ task }) {
+    const clientKey = `${task.name}-${new Date().getTime()}`;
     const clientWithKey = new yorkie.Client(testRPCAddr, {
       key: clientKey,
       syncLoopDuration: 50,
@@ -39,27 +43,27 @@ describe('Client', function () {
     assert.isFalse(clientWithoutKey.isActive());
   });
 
-  it('Can handle sync', async function () {
+  it('Can handle sync', async function ({ task }) {
     type TestDoc = { k1: string; k2: string; k3: string };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-      const spy = sinon.spy();
+      const spy = vi.fn();
       const unsub = d2.subscribe(spy);
 
-      assert.equal(0, spy.callCount);
+      assert.equal(0, spy.mock.calls.length);
 
       d1.update((root) => {
         root['k1'] = 'v1';
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(1, spy.callCount);
+      assert.equal(1, spy.mock.calls.length);
 
       d1.update((root) => {
         root['k2'] = 'v2';
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(2, spy.callCount);
+      assert.equal(2, spy.mock.calls.length);
 
       unsub();
 
@@ -68,11 +72,13 @@ describe('Client', function () {
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(2, spy.callCount);
-    }, this.test!.title);
+      assert.equal(2, spy.mock.calls.length);
+    }, task.name);
   });
 
-  it('Can recover from temporary disconnect (manual sync)', async function () {
+  it('Can recover from temporary disconnect (manual sync)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: string }>(async (c1, d1, c2, d2) => {
       // Normal Condition
       d2.update((root) => {
@@ -83,17 +89,21 @@ describe('Client', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      // Simulate network error
-      const xhr = sinon.useFakeXMLHttpRequest();
-      xhr.onCreate = (req) => {
-        req.respond(
-          400,
-          {
-            'Content-Type': 'application/grpc-web-text+proto',
+      vi.stubGlobal(
+        'XMLHttpRequest',
+        vi.fn(() => ({
+          send: (req: any) => {
+            req.respond(
+              400,
+              { 'Content-Type': 'application/grpc-web-text+proto' },
+              '',
+            );
           },
-          '',
-        );
-      };
+          abort: vi.fn(() => {
+            throw new Error('INVALID_STATE_ERR - 0');
+          }),
+        })),
+      );
 
       d2.update((root) => {
         root['k1'] = 'v1';
@@ -109,21 +119,23 @@ describe('Client', function () {
       assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
       // Back to normal condition
-      xhr.restore();
+      vi.unstubAllGlobals();
 
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can recover from temporary disconnect (realtime sync)', async function () {
+  it('Can recover from temporary disconnect (realtime sync)', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ k1: string }>(docKey);
     const d2 = new yorkie.Document<{ k1: string }>(docKey);
 
@@ -135,20 +147,20 @@ describe('Client', function () {
     const eventCollectorC1 = new EventCollector();
     const eventCollectorC2 = new EventCollector();
 
-    const stubC1 = sinon.stub().callsFake((event) => {
+    const stubC1 = vi.fn().mockImplementation((event) => {
       if (event.type === ClientEventType.DocumentSynced) {
         eventCollectorC1.add(event.value);
       }
     });
-    const stubC2 = sinon.stub().callsFake((event) => {
+    const stubC2 = vi.fn().mockImplementation((event) => {
       if (event.type === ClientEventType.DocumentSynced) {
         eventCollectorC2.add(event.value);
       }
     });
-    const stubD1 = sinon.stub().callsFake((event) => {
+    const stubD1 = vi.fn().mockImplementation((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stubD2 = sinon.stub().callsFake((event) => {
+    const stubD2 = vi.fn().mockImplementation((event) => {
       eventCollectorD2.add(event.type);
     });
 
@@ -170,19 +182,25 @@ describe('Client', function () {
     await eventCollectorD1.waitAndVerifyNthEvent(1, DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-    // Simulate network error
     eventCollectorC1.reset();
     eventCollectorC2.reset();
-    const xhr = sinon.useFakeXMLHttpRequest();
-    xhr.onCreate = (req) => {
-      req.respond(
-        400,
-        {
-          'Content-Type': 'application/grpc-web-text+proto',
+
+    // Simulate network error
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(() => ({
+        send: (req: any) => {
+          req.respond(
+            400,
+            { 'Content-Type': 'application/grpc-web-text+proto' },
+            '',
+          );
         },
-        '',
-      );
-    };
+        abort: vi.fn(() => {
+          throw new Error('INVALID_STATE_ERR - 0');
+        }),
+      })),
+    );
 
     d2.update((root) => {
       root['k1'] = 'v1';
@@ -201,7 +219,7 @@ describe('Client', function () {
     // Back to normal condition
     eventCollectorC1.reset();
     eventCollectorC2.reset();
-    xhr.restore();
+    vi.unstubAllGlobals();
 
     await eventCollectorC1.waitFor(DocumentSyncResultType.Synced); // wait for c1 to sync
     await eventCollectorC2.waitFor(DocumentSyncResultType.Synced);
@@ -220,13 +238,13 @@ describe('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can change realtime sync', async function () {
+  it('Can change realtime sync', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ version: string }>(docKey);
     const d2 = new yorkie.Document<{ version: string }>(docKey);
 
@@ -245,7 +263,7 @@ describe('Client', function () {
 
     // 02. c2 changes the sync mode to realtime sync mode.
     const eventCollector = new EventCollector();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event.type);
     });
     const unsub1 = c2.subscribe(stub);
@@ -277,7 +295,7 @@ describe('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can change sync mode in manual sync', async function () {
+  it('Can change sync mode in manual sync', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -285,7 +303,7 @@ describe('Client', function () {
     await c2.activate();
     await c3.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
     const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
     const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
@@ -336,7 +354,7 @@ describe('Client', function () {
     await c3.deactivate();
   });
 
-  it('Can change sync mode in realtime sync', async function () {
+  it('Can change sync mode in realtime sync', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -344,7 +362,7 @@ describe('Client', function () {
     await c2.activate();
     await c3.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
     const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
     const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
@@ -357,13 +375,13 @@ describe('Client', function () {
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
     const eventCollectorD3 = new EventCollector();
-    const stub1 = sinon.stub().callsFake((event) => {
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stub2 = sinon.stub().callsFake((event) => {
+    const stub2 = vi.fn().mockImplementation((event) => {
       eventCollectorD2.add(event.type);
     });
-    const stub3 = sinon.stub().callsFake((event) => {
+    const stub3 = vi.fn().mockImplementation((event) => {
       eventCollectorD3.add(event.type);
     });
     const unsub1 = d1.subscribe(stub1);
@@ -423,12 +441,12 @@ describe('Client', function () {
     await c3.deactivate();
   });
 
-  it('sync option with mixed mode test', async function () {
+  it('sync option with mixed mode test', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
 
     // 01. cli attach to the document having counter.
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
     await c1.attach(d1, { isRealtimeSync: false });
 
