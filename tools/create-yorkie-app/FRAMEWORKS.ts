@@ -8,10 +8,19 @@ export type Framework = {
   variants: Array<FrameworkVariant>;
 };
 type FrameworkVariant = {
+  /**
+   * directory name of the example
+   */
   name: string;
+  /**
+   * display name (in prompt) of the example
+   */
   display: string;
+  /**
+   * highlight color
+   * @see https://github.com/marvinhagemeister/kolorist#readme
+   */
   color: ColorFunc;
-  customCommand?: string;
 };
 
 export const FRAMEWORKS: Array<Framework> = [
