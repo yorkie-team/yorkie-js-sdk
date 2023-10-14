@@ -14,7 +14,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/cross-spawn": "^6.0.2",
     "@types/minimist": "^1.2.2",
     "@types/prompts": "^2.4.4",
     "kolorist": "^1.8.0",

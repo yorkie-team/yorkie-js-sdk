@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import minimist from 'minimist';
 import prompts from 'prompts';
 import { red, reset } from 'kolorist';
-import { type Framework, FRAMEWORKS } from './FRAMEWORKS';
+import { type Framework, FRAMEWORKS } from './frameworks';
 
 // Avoids autoconversion to number of the project name by defining that the args
 // non associated with an option ( _ ) needs to be parsed as a string. See https://github.com/vitejs/vite/pull/4606
@@ -18,13 +18,13 @@ const argv = minimist<{
 }>(process.argv.slice(2), { string: ['_'] });
 const cwd = process.cwd();
 
-const TEMPLATES = FRAMEWORKS.map(
-  (f) => (f.variants && f.variants.map((v) => v.name)) || [f.name],
-).reduce((a, b) => a.concat(b), []);
-
 const renameFiles: Record<string, string | undefined> = {
   _gitignore: '.gitignore',
 };
+
+const TEMPLATES = FRAMEWORKS.map(
+  (f) => (f.variants && f.variants.map((v) => v.name)) || [f.name],
+).reduce((a, b) => a.concat(b), []);
 
 const apiKeyMessage = 'You can update your API key in .env';
 let apiKey = '';
@@ -127,11 +127,10 @@ async function init() {
             framework && framework.variants ? 'select' : null,
           name: 'variant',
           message: reset('Select a variant:'),
-          choices: (framework: Framework) =>
-            framework.variants.map((variant) => {
-              const variantColor = variant.color;
+          choices: ({ variants, color }: Framework) =>
+            variants.map((variant) => {
               return {
-                title: variantColor(variant.display || variant.name),
+                title: color(variant.display || variant.name),
                 value: variant.name,
               };
             }),
@@ -144,7 +143,7 @@ async function init() {
       },
     );
   } catch (cancelled: any) {
-    console.log(cancelled.message);
+    console.error(cancelled.message);
     return;
   }
 
@@ -262,7 +261,7 @@ function copyDir(srcDir: string, destDir: string) {
 
 function isEmpty(path: string) {
   const files = fs.readdirSync(path);
-  return files.length === 0 || (files.length === 1 && files[0] === '.git');
+  return !files.length || !files.filter((file) => /^[^.]+/.test(file)).length;
 }
 
 function emptyDir(dir: string) {
@@ -270,7 +269,7 @@ function emptyDir(dir: string) {
     return;
   }
   for (const file of fs.readdirSync(dir)) {
-    if (file === '.git') {
+    if (/^\./.test(file)) {
       continue;
     }
     fs.rmSync(path.resolve(dir, file), { recursive: true, force: true });
