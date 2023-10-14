@@ -1,12 +1,17 @@
 import { cyan, lightGreen, reset, yellow } from 'kolorist';
 
-type ColorFunc = (str: string | number) => string;
 export type Framework = {
   name: string;
   display: string;
   color: ColorFunc;
   variants: Array<FrameworkVariant>;
 };
+
+/**
+ * @see https://github.com/marvinhagemeister/kolorist#readme
+ */
+type ColorFunc = (str: string | number) => string;
+
 type FrameworkVariant = {
   /**
    * directory name of the example
@@ -16,11 +21,6 @@ type FrameworkVariant = {
    * display name (in prompt) of the example
    */
   display: string;
-  /**
-   * highlight color
-   * @see https://github.com/marvinhagemeister/kolorist#readme
-   */
-  color: ColorFunc;
 };
 
 export const FRAMEWORKS: Array<Framework> = [
@@ -32,17 +32,14 @@ export const FRAMEWORKS: Array<Framework> = [
       {
         name: 'vanilla-codemirror6',
         display: 'codemirror',
-        color: yellow,
       },
       {
         name: 'vanilla-quill',
         display: 'quill',
-        color: yellow,
       },
       {
         name: 'profile-stack',
         display: 'profile-stack',
-        color: yellow,
       },
     ],
   },
@@ -54,17 +51,14 @@ export const FRAMEWORKS: Array<Framework> = [
       {
         name: 'react-tldraw',
         display: 'tldraw',
-        color: cyan,
       },
       {
         name: 'react-todomvc',
         display: 'todomvc',
-        color: cyan,
       },
       {
         name: 'simultaneous-cursors',
         display: 'simultaneous-cursors',
-        color: cyan,
       },
     ],
   },
@@ -76,7 +70,6 @@ export const FRAMEWORKS: Array<Framework> = [
       {
         name: 'nextjs-scheduler',
         display: 'scheduler',
-        color: reset,
       },
     ],
   },
@@ -88,7 +81,6 @@ export const FRAMEWORKS: Array<Framework> = [
       {
         name: 'vuejs-kanban',
         display: 'kanban',
-        color: lightGreen,
       },
     ],
   },
