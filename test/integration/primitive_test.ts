@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import Long from 'long';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
@@ -43,7 +43,7 @@ describe('Primitive', function () {
     assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
   });
 
-  it('Can handle primitive types', async function () {
+  it('Can handle primitive types', async function ({ task }) {
     await withTwoClientsAndDocuments<{
       k0: null;
       k1: boolean;
@@ -70,6 +70,6 @@ describe('Primitive', function () {
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 });
