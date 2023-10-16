@@ -348,6 +348,51 @@ describe('Object', function () {
       await client1.sync();
     });
 
+    it('Should ensure convergence after undoing nested objects', async function ({
+      task,
+    }) {
+      // Test scenario:
+      // c1: set shape.point to {x: 0, y: 0}
+      // c1: set shape.point to {x: 1, y: 1}
+      // c1: undo
+      interface TestDoc {
+        shape?: { point: { x: number; y: number } };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.shape = { point: { x: 0, y: 0 } };
+      });
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
+
+      doc1.update((root) => {
+        root.shape!.point = { x: 1, y: 1 };
+      });
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":1,"y":1}}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":1,"y":1}}}');
+
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
+      await client1.sync();
+      await client2.sync();
+      // TODO(chacha912): fix test
+      // assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
+    });
+
     it('concurrent undo/redo of object - no sync before undo', async function ({
       task,
     }) {
