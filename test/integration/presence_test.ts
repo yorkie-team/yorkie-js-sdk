@@ -632,10 +632,10 @@ describe('Undo/Redo', function () {
     });
     assert.deepEqual(doc.getUndoStackForTest(), [
       [
-        JSON.stringify({
+        {
           type: 'presence',
           value: { color: 'red', cursor: { x: 0, y: 0 } },
-        }),
+        },
       ],
     ]);
 
@@ -662,16 +662,16 @@ describe('Undo/Redo', function () {
     });
     assert.deepEqual(doc.getUndoStackForTest(), [
       [
-        JSON.stringify({
+        {
           type: 'presence',
           value: { color: 'red', cursor: { x: 0, y: 0 } },
-        }),
+        },
       ],
       [
-        JSON.stringify({
+        {
           type: 'presence',
           value: { cursor: { x: 1, y: 1 } },
-        }),
+        },
       ],
     ]);
 
@@ -698,16 +698,16 @@ describe('Undo/Redo', function () {
     });
     assert.deepEqual(doc.getUndoStackForTest(), [
       [
-        JSON.stringify({
+        {
           type: 'presence',
           value: { color: 'red', cursor: { x: 0, y: 0 } },
-        }),
+        },
       ],
       [
-        JSON.stringify({
+        {
           type: 'presence',
           value: { cursor: { x: 1, y: 1 } },
-        }),
+        },
       ],
     ]);
 

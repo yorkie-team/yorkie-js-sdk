@@ -96,22 +96,14 @@ export class History<P extends Indexable> {
   /**
    * `getUndoStackForTest` returns the undo stack for test.
    */
-  public getUndoStackForTest(): Array<Array<string>> {
-    return this.undoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
+  public getUndoStackForTest(): Array<Array<HistoryOperation<P>>> {
+    return this.undoStack;
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
-  public getRedoStackForTest(): Array<Array<string>> {
-    return this.redoStack.map((ops) =>
-      ops.map((op) => {
-        return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
-      }),
-    );
+  public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
+    return this.redoStack;
   }
 }

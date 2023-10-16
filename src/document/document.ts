@@ -66,7 +66,7 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
-import { History } from '@yorkie-js-sdk/src/document/history';
+import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1420,14 +1420,14 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getUndoStackForTest` returns the undo stack for test.
    */
-  public getUndoStackForTest(): Array<Array<string>> {
+  public getUndoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getUndoStackForTest();
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
-  public getRedoStackForTest(): Array<Array<string>> {
+  public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getRedoStackForTest();
   }
 }

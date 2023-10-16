@@ -19,7 +19,11 @@ import { assert } from 'chai';
 import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  OperationInfo,
+  Operation,
+} from '@yorkie-js-sdk/src/document/operation/operation';
+import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 
 export type Indexable = Record<string, any>;
 
@@ -227,4 +231,10 @@ export function buildIndexTree(node: ElementNode): IndexTree<CRDTTreeNode> {
     root.t = new Tree(node);
   });
   return doc.getRoot().t.getIndexTree();
+}
+
+export function toStringHistoryOp<P extends Indexable>(
+  op: HistoryOperation<P>,
+): string {
+  return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
 }
