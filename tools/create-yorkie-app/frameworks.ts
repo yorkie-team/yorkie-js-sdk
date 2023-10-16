@@ -1,16 +1,16 @@
 import { cyan, lightGreen, reset, yellow } from 'kolorist';
 
+/**
+ * @see https://github.com/marvinhagemeister/kolorist#readme
+ */
+type ColorFunc = (str: string | number) => string;
+
 export type Framework = {
   name: string;
   display: string;
   color: ColorFunc;
   variants: Array<FrameworkVariant>;
 };
-
-/**
- * @see https://github.com/marvinhagemeister/kolorist#readme
- */
-type ColorFunc = (str: string | number) => string;
 
 type FrameworkVariant = {
   /**

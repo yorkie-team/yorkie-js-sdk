@@ -261,15 +261,16 @@ function copyDir(srcDir: string, destDir: string) {
 
 function isEmpty(path: string) {
   const files = fs.readdirSync(path);
-  return !files.length || !files.filter((file) => /^[^.]+/.test(file)).length;
+  return !files.length || !files.filter((file) => !file.startsWith('.')).length;
 }
 
 function emptyDir(dir: string) {
   if (!fs.existsSync(dir)) {
     return;
   }
+
   for (const file of fs.readdirSync(dir)) {
-    if (/^\./.test(file)) {
+    if (file.startsWith('.')) {
       continue;
     }
     fs.rmSync(path.resolve(dir, file), { recursive: true, force: true });
