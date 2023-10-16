@@ -602,10 +602,7 @@ describe('Tree.move', function () {
     );
   });
 
-  it('Can replace around node', function () {
-    // 01. edit between two element nodes in the same hierarchy.
-    //       0   1   2   3 4 5    6    7    8
-    // <root> <p> <b> <i> a b </i> </b> </p> </root>
+  it('Can move node (replaceAround in prosemirror)', function () {
     const tree = new CRDTTree(
       new CRDTTreeNode(issuePos(), 'root'),
       issueTime(),
@@ -625,9 +622,6 @@ describe('Tree.move', function () {
   });
 
   it('Can move nodes to another parent (text only)', function () {
-    // 01. edit between two element nodes in the same hierarchy.
-    //       0   1   2   3 4 5    6    7    8
-    // <root> <p> <b> <i> a b </i> </b> </p> </root>
     const tree = new CRDTTree(
       new CRDTTreeNode(issuePos(), 'root'),
       issueTime(),
@@ -646,9 +640,6 @@ describe('Tree.move', function () {
   });
 
   it('Can move nodes to another parent (element + text)', function () {
-    // 01. edit between two element nodes in the same hierarchy.
-    //       0   1   2   3 4 5    6    7    8
-    // <root> <p> <b> <i> a b </i> </b> </p> </root>
     const tree = new CRDTTree(
       new CRDTTreeNode(issuePos(), 'root'),
       issueTime(),
@@ -667,9 +658,6 @@ describe('Tree.move', function () {
   });
 
   it('Can move nodes to another parent (element + text) (multiple nodes)', function () {
-    // 01. edit between two element nodes in the same hierarchy.
-    //       0   1   2   3 4 5    6    7    8
-    // <root> <p> <b> <i> a b </i> </b> </p> </root>
     const tree = new CRDTTree(
       new CRDTTreeNode(issuePos(), 'root'),
       issueTime(),
