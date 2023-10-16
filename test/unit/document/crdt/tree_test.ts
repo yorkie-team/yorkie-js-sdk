@@ -665,4 +665,26 @@ describe('Tree.move', function () {
     tree.moveByIndex([1, 1], [2, 6], issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p></p></root>`);
   });
+
+  it('Can move nodes to another parent (element + text) (multiple nodes)', function () {
+    // 01. edit between two element nodes in the same hierarchy.
+    //       0   1   2   3 4 5    6    7    8
+    // <root> <p> <b> <i> a b </i> </b> </p> </root>
+    const tree = new CRDTTree(
+      new CRDTTreeNode(issuePos(), 'root'),
+      issueTime(),
+    );
+    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex(
+      [3, 3],
+      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
+      issueTime(),
+    );
+    tree.editByIndex([6, 6], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p><p></p></root>`);
+
+    tree.moveByIndex([1, 1], [2, 8], issueTime());
+    assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p><p></p></p></root>`);
+  });
 });
