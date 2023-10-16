@@ -33,7 +33,30 @@ import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
-import type { TreeNode, TextNode } from '@yorkie-js-sdk/src/document/json/tree';
+import type {
+  DefaultTextType,
+  TreeNodeType,
+} from '@yorkie-js-sdk/src/util/index_tree';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+
+export type TreeNode = TextNode | ElementNode;
+
+/**
+ * `ElementNode` is a node that has children.
+ */
+export type ElementNode<A extends Indexable = Indexable> = {
+  type: TreeNodeType;
+  attributes?: A;
+  children: Array<TreeNode>;
+};
+
+/**
+ * `TextNode` is a node that has a value.
+ */
+export type TextNode = {
+  type: typeof DefaultTextType;
+  value: string;
+};
 
 /**
  * `TreeNodeForTest` represents the JSON representation of a node in the tree.
