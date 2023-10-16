@@ -1358,7 +1358,7 @@ describe('Concurrent editing, contained range', () => {
     }, task.name);
   });
 
-  it('Detecting error when inserting and deleting contained elements at different depths', async function ({
+  it('Can concurrently insert and delete contained elements of the different depth', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {

@@ -1163,6 +1163,7 @@ export class CRDTTree extends CRDTGCElement {
       (node, contain) => {
         // If node is a element node and half-contained in the range,
         // it should not be removed.
+
         if (!node.isText && contain != TagContained.All) {
           return;
         }
@@ -1250,7 +1251,9 @@ export class CRDTTree extends CRDTGCElement {
       latestCreatedAtMapByActor,
     );
 
-    operationsToUndo.forEach((op) => this.do(op, latestCreatedAtMapByActor));
+    operationsToUndo.forEach((op) =>
+      this.do(op, latestCreatedAtMap.size ? latestCreatedAtMap : undefined),
+    );
 
     return [changes, latestCreatedAtMap];
   }
