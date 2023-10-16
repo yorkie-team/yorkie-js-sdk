@@ -624,7 +624,7 @@ describe('Tree.move', function () {
     assert.equal(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
   });
 
-  it('Can move nodes to another parent', function () {
+  it('Can move nodes to another parent (text only)', function () {
     // 01. edit between two element nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
@@ -643,5 +643,26 @@ describe('Tree.move', function () {
 
     tree.moveByIndex([1, 1], [3, 5], issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
+  });
+
+  it('Can move nodes to another parent (element + text)', function () {
+    // 01. edit between two element nodes in the same hierarchy.
+    //       0   1   2   3 4 5    6    7    8
+    // <root> <p> <b> <i> a b </i> </b> </p> </root>
+    const tree = new CRDTTree(
+      new CRDTTreeNode(issuePos(), 'root'),
+      issueTime(),
+    );
+    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex(
+      [3, 3],
+      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
+      issueTime(),
+    );
+    assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
+
+    tree.moveByIndex([1, 1], [2, 6], issueTime());
+    assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p></p></root>`);
   });
 });

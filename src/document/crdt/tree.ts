@@ -1088,42 +1088,6 @@ export class CRDTTree extends CRDTGCElement {
     }
   }
 
-  private traverseInSubtree(
-    root: CRDTTreeNode,
-    left: CRDTTreeNode,
-    right: CRDTTreeNode,
-    callback: (root: CRDTTreeNode) => void,
-    excludeLeft = true,
-    isWithinPath = false,
-  ) {
-    if (!root) {
-      return false;
-    }
-
-    let found = false;
-
-    for (const child of root.allChildren) {
-      if (
-        this.traverseInSubtree(
-          child,
-          left,
-          right,
-          callback,
-          excludeLeft || root === left,
-          isWithinPath || root === left || root === right,
-        )
-      ) {
-        found = true;
-      }
-    }
-
-    if ((found || isWithinPath) && !excludeLeft) {
-      callback(root);
-    }
-
-    return found || root === left || root === right;
-  }
-
   private doEdit(
     operation: InternalEditOperation,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
@@ -1319,7 +1283,9 @@ export class CRDTTree extends CRDTGCElement {
     }
 
     const startIndex =
-      fromParent === fromLeft ? 0 : fromParent.allChildren.indexOf(fromLeft);
+      fromParent === fromLeft
+        ? 0
+        : fromParent.allChildren.indexOf(fromLeft) + 1;
     const endIndex = toParent.allChildren.indexOf(toLeft);
 
     return fromParent.allChildren.slice(startIndex, endIndex + 1);
@@ -1437,7 +1403,9 @@ export class CRDTTree extends CRDTGCElement {
         fromParent,
         gapFromParent === gapFromLeft
           ? gapFromParent.allChildren[0]
-          : gapFromLeft,
+          : gapFromParent.allChildren[
+              gapFromParent.allChildren.indexOf(gapFromLeft) + 1
+            ],
       )
     ) {
       return;
