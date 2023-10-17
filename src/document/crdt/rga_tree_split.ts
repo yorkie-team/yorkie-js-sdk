@@ -37,6 +37,7 @@ interface RGATreeSplitValue {
   length: number;
 
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+  setAttr(key: string, content: string, updatedAt: TimeTicket): void;
 }
 
 export interface StyleOperation {
@@ -686,6 +687,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         }),
       );
 
+      const opset = this.findOpsetPreferToLeft(inserted, BoundaryType.Before);
+      const attrs = this.getAttrsFromAnchor(opset);
+      for (const [k, v] of attrs) {
+        value.setAttr(k, v, editedAt);
+      }
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
       } else {

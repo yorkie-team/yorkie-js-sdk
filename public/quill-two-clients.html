@@ -12,27 +12,24 @@
     <link rel="stylesheet" href="quill-two-clients.css" />
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.1.0/dist/quill-cursors.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/color-hash@1.0.3/dist/color-hash.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/short-unique-id@4.4.4/dist/short-unique-id.min.js"></script>
   </head>
   <body>
     <div class="client-container">
       <div id="client-a">
         Client A :
-        <button class="sync">Sync</button>
+        <button class="sync">Disconnect</button>
         <div class="editor"></div>
         <div class="document"></div>
         <div class="document-text"></div>
       </div>
       <div id="client-b">
         Client B :
-        <button class="sync">Sync</button>
+        <button class="sync">Disconnect</button>
         <div class="editor"></div>
         <div class="document"></div>
         <div class="document-text"></div>
       </div>
     </div>
-
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script>
@@ -40,7 +37,7 @@
       const clientBElem = document.getElementById('client-b');
       const clientASyncButton = clientAElem?.querySelector('.sync');
       const clientBSyncButton = clientBElem?.querySelector('.sync');
-      const documentKey = 'quill';
+      const documentKey = 'quill-two-clients';
 
       function displayLog(clientElem, doc) {
         const documentElem = clientElem?.getElementsByClassName('document')[0];
@@ -66,7 +63,7 @@
 
       async function main() {
         try {
-          async function createClientAndDocumentAndQuill(clientElem) {
+          async function createClientAndDocumentAndQuill(clientElem, presence) {
             // 01. create client with RPCAddr(envoy) then activate it.
             const client = new yorkie.Client('http://localhost:8080');
             await client.activate();
@@ -75,7 +72,7 @@
             const doc = new yorkie.Document(documentKey);
 
             await client.attach(doc, {
-              isRealtimeSync: false,
+              initialPresence: presence,
             });
 
             doc.update((root) => {
@@ -101,6 +98,14 @@
               }
             });
 
+            doc.subscribe('others', (event) => {
+              if (event.type === 'unwatched') {
+                cursors.removeCursor(event.value.presence.username);
+              } else if (event.type === 'presence-changed') {
+                displayRemoteCursor(event.value);
+              }
+            });
+
             await client.sync();
 
             // 03. create an instance of Quill
@@ -109,7 +114,7 @@
             const quill = new Quill(editorElem, {
               modules: {
                 toolbar: [
-                  ['bold', 'italic', 'underline', 'strike'],
+                  ['bold', 'italic', 'underline', 'strike', 'link'],
                   ['blockquote', 'code-block'],
                   [{ header: 1 }, { header: 2 }],
                   [{ list: 'ordered' }, { list: 'bullet' }],
@@ -124,9 +129,27 @@
                   ['image', 'video'],
                   ['clean'],
                 ],
+                cursors: true,
               },
               theme: 'snow',
             });
+
+            const cursors = quill.getModule('cursors');
+            function displayRemoteCursor(user) {
+              const {
+                clientID: id,
+                presence: { username, color, selection },
+              } = user;
+              if (!selection || id === client.getID()) return;
+              const range = doc
+                .getRoot()
+                .content.posRangeToIndexRange(selection);
+              cursors.createCursor(username, username, color);
+              cursors.moveCursor(username, {
+                index: range[0],
+                length: range[1] - range[0],
+              });
+            }
 
             return { client, doc, quill };
           }
@@ -135,100 +158,137 @@
             client: clientA,
             doc: docA,
             quill: quillA,
-          } = await createClientAndDocumentAndQuill(clientAElem);
+          } = await createClientAndDocumentAndQuill(clientAElem, {
+            username: 'clientA',
+            color: 'gold',
+          });
 
+          let isRealtimeA = true;
           clientASyncButton.addEventListener('click', async () => {
-            await clientA.sync();
+            if (isRealtimeA) {
+              await clientA.pause(docA);
+              clientASyncButton.textContent = 'Connect';
+            } else {
+              await clientA.resume(docA);
+              clientASyncButton.textContent = 'Disconnect';
+            }
+            isRealtimeA = !isRealtimeA;
           });
 
           const {
             client: clientB,
             doc: docB,
             quill: quillB,
-          } = await createClientAndDocumentAndQuill(clientBElem);
+          } = await createClientAndDocumentAndQuill(clientBElem, {
+            username: 'clientB',
+            color: 'dodgerblue',
+          });
 
+          let isRealtimeB = true;
           clientBSyncButton.addEventListener('click', async () => {
-            await clientB.sync();
+            if (isRealtimeB) {
+              await clientB.pause(docB);
+              clientBSyncButton.textContent = 'Connect';
+            } else {
+              await clientB.resume(docB);
+              clientBSyncButton.textContent = 'Disconnect';
+            }
+            isRealtimeB = !isRealtimeB;
           });
 
           // 04. bind the document with the Quill.
           // 04-1. Quill to Document.
           function bindDocumentToQuill(client, doc, quill) {
-            quill.on('text-change', (delta, _, source) => {
-              if (source === 'api' || !delta.ops) {
-                return;
-              }
-
-              let from = 0,
-                to = 0;
-              console.log(
-                `%c quill: ${JSON.stringify(delta.ops)}`,
-                'color: green',
-              );
-              for (const op of delta.ops) {
-                if (op.attributes !== undefined || op.insert !== undefined) {
-                  if (op.retain !== undefined) {
-                    to = from + op.retain;
-                  }
-                  console.log(
-                    `%c local: ${from}-${to}: ${op.insert} ${
-                      op.attributes ? JSON.stringify(op.attributes) : '{}'
-                    }`,
-                    'color: green',
-                  );
-
-                  doc.update((root, presence) => {
-                    let range;
-                    if (
-                      op.attributes !== undefined &&
-                      op.insert === undefined
-                    ) {
-                      root.content.setStyle(from, to, op.attributes);
-                    } else if (op.insert !== undefined) {
-                      if (to < from) {
-                        to = from;
-                      }
-
-                      if (typeof op.insert === 'object') {
-                        range = root.content.edit(from, to, ' ', {
-                          embed: op.insert,
-                          ...op.attributes,
-                        });
-                      } else {
-                        range = root.content.edit(
-                          from,
-                          to,
-                          op.insert,
-                          op.attributes,
-                        );
-                      }
-                      from = to + op.insert.length;
-                    }
-
-                    if (range) {
-                      presence.set({
-                        selection: root.content.indexRangeToPosRange(range),
-                      });
-                    }
-                  }, `update style by ${client.getID()}`);
-                } else if (op.delete !== undefined) {
-                  to = from + op.delete;
-                  console.log(`%c local: ${from}-${to}: ''`, 'color: green');
-
-                  doc.update((root, presence) => {
-                    const range = root.content.edit(from, to, '');
-                    if (range) {
-                      presence.set({
-                        selection: root.content.indexRangeToPosRange(range),
-                      });
-                    }
-                  }, `update content by ${client.getID()}`);
-                } else if (op.retain !== undefined) {
-                  from = to + op.retain;
-                  to = from;
+            quill
+              .on('text-change', (delta, _, source) => {
+                if (source === 'api' || !delta.ops) {
+                  return;
                 }
-              }
-            });
+
+                let from = 0,
+                  to = 0;
+                console.log(
+                  `%c quill: ${JSON.stringify(delta.ops)}`,
+                  'color: green',
+                );
+                for (const op of delta.ops) {
+                  if (op.attributes !== undefined || op.insert !== undefined) {
+                    if (op.retain !== undefined) {
+                      to = from + op.retain;
+                    }
+                    console.log(
+                      `%c local: ${from}-${to}: ${op.insert} ${
+                        op.attributes ? JSON.stringify(op.attributes) : '{}'
+                      }`,
+                      'color: green',
+                    );
+
+                    doc.update((root, presence) => {
+                      let range;
+                      if (
+                        op.attributes !== undefined &&
+                        op.insert === undefined
+                      ) {
+                        root.content.setStyle(from, to, op.attributes);
+                      } else if (op.insert !== undefined) {
+                        if (to < from) {
+                          to = from;
+                        }
+
+                        if (typeof op.insert === 'object') {
+                          range = root.content.edit(from, to, ' ', {
+                            embed: op.insert,
+                            ...op.attributes,
+                          });
+                        } else {
+                          range = root.content.edit(
+                            from,
+                            to,
+                            op.insert,
+                            op.attributes,
+                          );
+                        }
+                        from = to + op.insert.length;
+                      }
+
+                      if (range) {
+                        presence.set({
+                          selection: root.content.indexRangeToPosRange(range),
+                        });
+                      }
+                    }, `update style by ${client.getID()}`);
+                  } else if (op.delete !== undefined) {
+                    to = from + op.delete;
+                    console.log(`%c local: ${from}-${to}: ''`, 'color: green');
+
+                    doc.update((root, presence) => {
+                      const range = root.content.edit(from, to, '');
+                      if (range) {
+                        presence.set({
+                          selection: root.content.indexRangeToPosRange(range),
+                        });
+                      }
+                    }, `update content by ${client.getID()}`);
+                  } else if (op.retain !== undefined) {
+                    from = to + op.retain;
+                    to = from;
+                  }
+                }
+              })
+              .on('selection-change', (range, _, source) => {
+                if (source === 'api' || !range) {
+                  return;
+                }
+
+                doc.update((root, presence) => {
+                  presence.set({
+                    selection: root.content.indexRangeToPosRange([
+                      range.index,
+                      range.index + range.length,
+                    ]),
+                  });
+                }, `update selection by ${client.getID()}`);
+              });
           }
           bindDocumentToQuill(clientA, docA, quillA);
           bindDocumentToQuill(clientB, docB, quillB);
