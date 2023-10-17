@@ -70,6 +70,10 @@ export class CRDTRoot {
    * the element that has removed nodes when executing garbage collection.
    */
   private elementHasRemovedNodesSetByCreatedAt: Set<string>;
+  /**
+   * `opsForTest` is used for debugging the entire operation.
+   * operations accumulate only in dev mode.
+   */
   public opsForTest: Array<Array<Operation>>;
 
   constructor(rootObject: CRDTObject) {

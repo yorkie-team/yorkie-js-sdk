@@ -66,6 +66,7 @@ export class SetOperation extends Operation {
   ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
 
+    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
     if (
       source === OpSource.UndoRedo &&
       (!parentObject || parentObject.getRemovedAt())

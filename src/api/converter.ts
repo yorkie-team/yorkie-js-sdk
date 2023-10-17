@@ -1197,12 +1197,8 @@ function fromChangePack<P extends Indexable>(
 function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
   const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
-    // eslint-disable-next-line
-    rht.set(
-      pbRHTNode.getKey(),
-      fromElement(pbRHTNode.getElement()!),
-      fromTimeTicket(pbObject.getCreatedAt())!,
-    );
+    const value = fromElement(pbRHTNode.getElement()!);
+    rht.set(pbRHTNode.getKey(), value, value.getExecutedAt());
   }
 
   const obj = new CRDTObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
