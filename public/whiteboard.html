@@ -9,7 +9,8 @@
   <body>
     <div class="canvas">
       <div class="toolbar">
-        <button class="rectangle">◼️ (new!)</button>
+        <button class="delete">🗑 delete</button>
+        <button class="rectangle">⬜️ (new!)</button>
         <button class="undo">⬅ undo</button>
         <button class="redo">➡️ redo</button>
       </div>
@@ -95,6 +96,7 @@
               </div>
             `;
           })
+          .reverse()
           .join('');
       }
 
@@ -313,6 +315,18 @@
               presence.set({ selectedShape: shapeId }, { addToHistory: true });
             });
           };
+          const deleteRectangle = () => {
+            const selectedShapeId = doc.getMyPresence().selectedShape;
+            if (!selectedShapeId) return;
+            doc.update((root, presence) => {
+              const selectedShape = root.shapes.find(
+                (shape) => shape.id === selectedShapeId,
+              );
+              if (!selectedShape) return;
+              root.shapes.deleteByID(selectedShape.getID());
+              presence.set({ selectedShape: null });
+            });
+          };
           const setColor = (e) => {
             if (!e.target.dataset.color) return;
             const selectedShapeId = doc.getMyPresence().selectedShape;
@@ -325,9 +339,16 @@
             });
           };
           rectangleTool.onclick = insertRectangle;
-          undoTool.onclick = doc.history.undo;
-          redoTool.onclick = doc.history.redo;
+          deleteTool.onclick = deleteRectangle;
           colorPicker.onclick = setColor;
+          undoTool.onclick = () => {
+            doc.history.undo();
+            printOps(doc);
+          };
+          redoTool.onclick = () => {
+            doc.history.redo();
+            printOps(doc);
+          };
         } catch (e) {
           console.error(e);
         }
