@@ -5,16 +5,16 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [ 18.x ]
+        node-version: [18.x]
     steps:
       - uses: actions/checkout@v2
 
@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
       - run: npm run build:examples
       - run: docker-compose -f docker/docker-compose-ci.yml up --build -d
-      - run: npm run test
+      - run: npm run test:ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1

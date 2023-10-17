@@ -1,9 +1,9 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Text } from '@yorkie-js-sdk/src/yorkie';
 
 describe('Snapshot', function () {
-  it('should handle snapshot', async function () {
+  it('should handle snapshot', async function ({ task }) {
     type TestDoc = Record<string, number> & { key: string };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       // 01. Updates 700 changes over snapshot threshold.
@@ -25,10 +25,10 @@ describe('Snapshot', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('should handle snapshot for text object', async function () {
+  it('should handle snapshot for text object', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       for (let idx = 0; idx < 700; idx++) {
         d1.update((root) => {
@@ -55,12 +55,14 @@ describe('Snapshot', function () {
       await c1.sync();
 
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
   // TODO(MoonGyu1): Remove skip after applying mark
   // when creating a snapshot in the Go SDK.
-  it.skip('should handle snapshot for text with attributes', async function () {
+  it.skip('should handle snapshot for text with attributes', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -79,6 +81,6 @@ describe('Snapshot', function () {
       await c2.sync();
 
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 });

@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { TextView } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
@@ -175,7 +175,7 @@ describe('Text', function () {
     }
   });
 
-  it('should handle edit operations', async function () {
+  it('should handle edit operations', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -195,7 +195,7 @@ describe('Text', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"1234"}]}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
   it('should handle text edit operations with attributes', function () {
@@ -249,7 +249,7 @@ describe('Text', function () {
     assert.equal(doc.getRoot().k1.toString(), ``);
   });
 
-  it('should handle concurrent edit operations', async function () {
+  it('should handle concurrent edit operations', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -294,10 +294,12 @@ describe('Text', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('should handle concurrent insertion and deletion', async function () {
+  it('should handle concurrent insertion and deletion', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -326,10 +328,10 @@ describe('Text', function () {
       assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
       assert.equal(d2.toSortedJSON(), `{"k1":[{"val":"C"}]}`);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('should handle concurrent block deletions', async function () {
+  it('should handle concurrent block deletions', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -369,10 +371,12 @@ describe('Text', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('should maintain the correct weight for nodes newly created then concurrently removed', async function () {
+  it('should maintain the correct weight for nodes newly created then concurrently removed', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -403,12 +407,12 @@ describe('Text', function () {
 
       // assert.isOk(d1.getRoot().k1.checkWeight());
       // assert.isOk(d2.getRoot().k1.checkWeight());
-    }, this.test!.title);
+    }, task.name);
   });
 });
 
 describe('peri-text example: text concurrent edit', function () {
-  it('ex1. concurrent insertions on plain text', async function () {
+  it('ex1. concurrent insertions on plain text', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -441,10 +445,10 @@ describe('peri-text example: text concurrent edit', function () {
         '{"k1":[{"val":"The "},{"val":"quick "},{"val":"fox jumped"},{"val":" over the dog"},{"val":"."}]}',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex2. concurrent formatting and insertion', async function () {
+  it('ex2. concurrent formatting and insertion', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -478,10 +482,10 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex3. overlapping formatting(bold)', async function () {
+  it('ex3. overlapping formatting(bold)', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -515,10 +519,12 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex4. overlapping different formatting(bold and italic)', async function () {
+  it('ex4. overlapping different formatting(bold and italic)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -552,10 +558,10 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex5. conflicting overlaps(highlighting)', async function () {
+  it('ex5. conflicting overlaps(highlighting)', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -589,11 +595,11 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
   // TODO(MoonGyu1): Remove skip and annotation after implementing removeStyle operation of bold type
-  it.skip('ex6. conflicting overlaps(bold) - 1', async function () {
+  it.skip('ex6. conflicting overlaps(bold) - 1', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -634,11 +640,11 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
   // TODO(MoonGyu1): Remove skip and annotation after implementing removeStyle operation of bold type
-  it.skip('ex6. conflicting overlaps(bold) - 2', async function () {
+  it.skip('ex6. conflicting overlaps(bold) - 2', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -678,10 +684,10 @@ describe('peri-text example: text concurrent edit', function () {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'd1');
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex7. multiple instances of the same mark', async function () {
+  it('ex7. multiple instances of the same mark', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -717,10 +723,10 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex8. text insertion at span boundaries(bold)', async function () {
+  it('ex8. text insertion at span boundaries(bold)', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -759,10 +765,10 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('ex9. text insertion at span boundaries(link)', async function () {
+  it('ex9. text insertion at span boundaries(link)', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.k1 = new Text();
@@ -802,7 +808,7 @@ describe('peri-text example: text concurrent edit', function () {
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
-    }, this.test!.title);
+    }, task.name);
   });
 });
 

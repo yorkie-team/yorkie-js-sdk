@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import Long from 'long';
 import {

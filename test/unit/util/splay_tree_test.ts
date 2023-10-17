@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
 
 class StringNode extends SplayNode<string> {

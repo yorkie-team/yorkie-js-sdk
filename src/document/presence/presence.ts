@@ -30,8 +30,8 @@ export enum PresenceChangeType {
  * `PresenceChange` represents the change of presence.
  */
 export type PresenceChange<P extends Indexable> =
-  | { type: PresenceChangeType.Put; presence: P; }
-  | { type: PresenceChangeType.Clear; };
+  | { type: PresenceChangeType.Put; presence: P }
+  | { type: PresenceChangeType.Clear };
 
 /**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
