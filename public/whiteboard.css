@@ -28,6 +28,9 @@
 .log-holder-wrap h2 {
   margin: 10px 0;
 }
+.dev-log-wrap .network {
+  margin-top: 10px;
+}
 
 .canvas {
   position: relative;
