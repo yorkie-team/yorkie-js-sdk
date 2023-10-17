@@ -25,6 +25,7 @@ import {
   CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -69,7 +70,7 @@ export class CRDTRoot {
    * the element that has removed nodes when executing garbage collection.
    */
   private elementHasRemovedNodesSetByCreatedAt: Set<string>;
-  public opsForTest: Array<any>;
+  public opsForTest: Array<Array<Operation>>;
 
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;

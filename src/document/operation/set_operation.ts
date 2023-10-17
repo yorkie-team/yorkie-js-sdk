@@ -20,6 +20,7 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
+  OpSource,
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -59,11 +60,14 @@ export class SetOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot, source?: string): ExecutionResult | undefined {
+  public execute(
+    root: CRDTRoot,
+    source?: OpSource,
+  ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
 
     if (
-      source === 'UNDOREDO' &&
+      source === OpSource.UndoRedo &&
       (!parentObject || parentObject.getRemovedAt())
     ) {
       return;

@@ -50,6 +50,7 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
+  OpSource,
   OperationInfo,
   ObjectOperationInfo,
   TextOperationInfo,
@@ -1277,7 +1278,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const cloneExecutionResult = change.execute(
       this.clone!.root,
       this.clone!.presences,
-      'UNDOREDO',
+      OpSource.UndoRedo,
     );
     if (
       !change.hasPresenceChange() &&
@@ -1289,7 +1290,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const { opInfos, reverseOps } = change.execute(
       this.root,
       this.presences,
-      'UNDOREDO',
+      OpSource.UndoRedo,
     );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {
@@ -1367,7 +1368,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const cloneExecutionResult = change.execute(
       this.clone!.root,
       this.clone!.presences,
-      'UNDOREDO',
+      OpSource.UndoRedo,
     );
     if (
       !change.hasPresenceChange() &&
@@ -1379,7 +1380,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const { opInfos, reverseOps } = change.execute(
       this.root,
       this.presences,
-      'UNDOREDO',
+      OpSource.UndoRedo,
     );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {

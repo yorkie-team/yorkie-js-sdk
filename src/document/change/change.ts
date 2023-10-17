@@ -16,6 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
+  OpSource,
   Operation,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -137,7 +138,7 @@ export class Change<P extends Indexable> {
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
-    origin?: string,
+    origin?: OpSource,
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;

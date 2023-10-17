@@ -20,6 +20,10 @@ import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
+export enum OpSource {
+  UndoRedo = 'undoredo',
+}
+
 /**
  * `OperationInfo` represents the information of an operation.
  * It is used to inform to the user what kind of operation was executed.
@@ -226,6 +230,6 @@ export abstract class Operation {
    */
   public abstract execute(
     root: CRDTRoot,
-    origin?: string,
+    origin?: OpSource,
   ): ExecutionResult | undefined;
 }
