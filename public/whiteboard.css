@@ -7,7 +7,7 @@
 .dev-log-wrap {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 300px);
+  height: calc(100vh - 350px);
 }
 .dev-log {
   display: flex;
@@ -27,6 +27,9 @@
 }
 .log-holder-wrap h2 {
   margin: 10px 0;
+}
+.dev-log-wrap .network {
+  margin-top: 10px;
 }
 
 .canvas {

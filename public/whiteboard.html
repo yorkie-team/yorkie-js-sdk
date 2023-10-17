@@ -31,7 +31,10 @@
         </div>
       </div>
       <div class="dev-log-wrap">
-        <div id="network-status"></div>
+        <div class="network">
+          <span id="network-status"></span>
+          <button class="sync-button">disconnect</button>
+        </div>
         <div id="online-clients"></div>
         <div class="dev-log">
           <div class="log-holders">
@@ -151,6 +154,8 @@
             (shape) => shape.id === selectedShapeId,
           );
           if (!selectedShape) return;
+
+          // TODO(chacha912): Setting it up like this doesn't work as expected when undo
           selectedShape.point = {
             x: e.clientX - rectangleSize / 2,
             y: e.clientY - rectangleSize / 2,
@@ -294,6 +299,19 @@
           });
           shapesHolder.addEventListener('pointermove', (e) => {
             onCanvasPointerMove(e, doc);
+          });
+
+          let isRealtime = true;
+          const syncButton = document.querySelector('.sync-button');
+          syncButton.addEventListener('click', async () => {
+            if (isRealtime) {
+              await client.pause(doc);
+              syncButton.textContent = 'Connect';
+            } else {
+              await client.resume(doc);
+              syncButton.textContent = 'Disconnect';
+            }
+            isRealtime = !isRealtime;
           });
         } catch (e) {
           console.error(e);
