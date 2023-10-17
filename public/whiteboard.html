@@ -5,51 +5,56 @@
     <title>Whiteboard Example</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="whiteboard.css" />
+    <link rel="stylesheet" href="devtool/object.css" />
   </head>
   <body>
-    <div class="canvas">
-      <div class="toolbar">
-        <button class="delete">🗑 delete</button>
-        <button class="rectangle">⬜️ (new!)</button>
-        <button class="undo">⬅ undo</button>
-        <button class="redo">➡️ redo</button>
-      </div>
-      <div class="shapes"></div>
-      <div class="selection-tools">
-        <div class="color-picker">
-          <button class="color" data-color="orangered"></button>
-          <button class="color" data-color="gold"></button>
-          <button class="color" data-color="limegreen"></button>
-          <button class="color" data-color="dodgerblue"></button>
-          <button class="color" data-color="darkviolet"></button>
-          <button class="color" data-color="darkorange"></button>
-          <button class="color" data-color="dimgray"></button>
-          <button class="color" data-color="white"></button>
+    <div class="whiteboard-example">
+      <div class="canvas">
+        <div class="toolbar">
+          <button class="delete">🗑 delete</button>
+          <button class="rectangle">⬜️ (new!)</button>
+          <button class="undo">⬅ undo</button>
+          <button class="redo">➡️ redo</button>
         </div>
-      </div>
-    </div>
-    <div class="obj-dev-tool">
-      <div id="network-status"></div>
-      <div id="online-clients"></div>
-      <div class="obj-dev-log">
-        <div>
-          <h2>yorkie document</h2>
-          <div id="document-holder"></div>
-        </div>
-        <div class="stack-holder">
-          <div>
-            <h2>operations</h2>
-            <div id="ops-holder" class="ops-holder"></div>
+        <div class="shapes"></div>
+        <div class="selection-tools">
+          <div class="color-picker">
+            <button class="color" data-color="orangered"></button>
+            <button class="color" data-color="gold"></button>
+            <button class="color" data-color="limegreen"></button>
+            <button class="color" data-color="dodgerblue"></button>
+            <button class="color" data-color="darkviolet"></button>
+            <button class="color" data-color="darkorange"></button>
+            <button class="color" data-color="dimgray"></button>
+            <button class="color" data-color="white"></button>
           </div>
         </div>
-        <div class="stack-holder">
-          <div>
-            <h2>undo stack</h2>
-            <div id="undo-holder" class="ops-holder"></div>
+      </div>
+      <div class="dev-log-wrap">
+        <div id="network-status"></div>
+        <div id="online-clients"></div>
+        <div class="dev-log">
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>yorkie document</h2>
+              <div id="document-holder" class="log-holder"></div>
+            </div>
           </div>
-          <div>
-            <h2>redo stack</h2>
-            <div id="redo-holder" class="ops-holder"></div>
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>operations</h2>
+              <div id="ops-holder" class="log-holder"></div>
+            </div>
+          </div>
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>undo stack</h2>
+              <div id="undo-holder" class="log-holder"></div>
+            </div>
+            <div class="log-holder-wrap">
+              <h2>redo stack</h2>
+              <div id="redo-holder" class="log-holder"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -57,101 +62,13 @@
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
     <script type="module">
+      import devtool from './devtool/object.js';
       const statusHolder = document.getElementById('network-status');
       const onlineClientsHolder = document.getElementById('online-clients');
+      const docHolder = document.getElementById('document-holder');
+      const opsHolder = document.getElementById('ops-holder');
       const undoHolder = document.getElementById('undo-holder');
       const redoHolder = document.getElementById('redo-holder');
-      const opsHolder = document.getElementById('ops-holder');
-      const docHolder = document.getElementById('document-holder');
-
-      function renderOpsHolder(changes, idPrefix) {
-        return changes
-          .map((ops, i) => {
-            const opsStr = ops
-              .map((op) => {
-                if (op.type === 'presence') {
-                  return `<span class="op"><span class="type presence">presence</span>${JSON.stringify(
-                    op.value,
-                  )}</span>`;
-                }
-                let id = op.getExecutedAt()?.toTestString();
-                if (id) {
-                  id = `<span class="timeticket">${id}</span>`;
-                }
-                const opType = op.toTestString().split('.')[1];
-                return `<span class="op">
-                  <span class="type ${opType.toLowerCase()}">${opType}</span>
-                  ${id ? id : ''}
-                  ${op.toTestString()}
-                </span>`;
-              })
-              .join('\n');
-            return `
-              <div class="change">
-                <input type="checkbox" id="${idPrefix}-${i}" />
-                <label for="${idPrefix}-${i}">
-                  <span class="count">${ops.length}</span>
-                  <span class="ops">${opsStr}</span>
-                </label>
-              </div>
-            `;
-          })
-          .reverse()
-          .join('');
-      }
-
-      function printOps(doc) {
-        opsHolder.innerHTML = renderOpsHolder(doc.getOpsForTest(), 'op');
-        undoHolder.innerHTML = renderOpsHolder(
-          doc.getUndoStackForTest(),
-          'undo',
-        );
-        redoHolder.innerHTML = renderOpsHolder(
-          doc.getRedoStackForTest(),
-          'redo',
-        );
-      }
-
-      const displayDocument = (doc) => {
-        const docData = doc.getRoot().toJSForTest();
-        docHolder.innerHTML = displayObject(docData);
-      };
-      function displayObject({ key, value, id }) {
-        const valueHTML = Object.values(value)
-          .map((v) => {
-            return Object.prototype.toString.call(v.value) === '[object Object]'
-              ? displayObject(v)
-              : displayValue(v);
-          })
-          .join('');
-        if (!key) key = 'root';
-        return `
-          <div class="object-key-val">
-              ${displayKey({ key, id })}
-              <div class="object-content">
-                  ${valueHTML}
-              </div>
-          </div>
-          `;
-      }
-      function displayKey({ key, id }) {
-        return `
-          <input type="checkbox" id="${id}" />
-          <label for="${id}">${key}
-              <span class="timeticket">${id}</span>
-          </label>
-          `;
-      }
-      function displayValue({ key, value, id }) {
-        return `
-          <div class="variable-row">
-              <span>${key} : ${JSON.stringify(value)}
-                  <span class="timeticket">${id}</span>
-              </span>
-          </div>
-          `;
-      }
-
       const undoTool = document.querySelector('.toolbar .undo');
       const redoTool = document.querySelector('.toolbar .redo');
       const deleteTool = document.querySelector('.toolbar .delete');
@@ -174,7 +91,6 @@
       function getRandomInt(max) {
         return Math.floor(Math.random() * max);
       }
-
       function getRandomColor() {
         return COLORS[getRandomInt(COLORS.length)];
       }
@@ -206,6 +122,8 @@
           shapesHolder.appendChild(shapeElement);
           shapeElement.addEventListener('pointerdown', (e) => {
             e.stopPropagation();
+            // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
+            // Currently, every movement is being saved in the undo stack.
             const currentSelectedShapeId = doc.getMyPresence().selectedShape;
             isDragging = true;
             if (currentSelectedShapeId === shape.id) return;
@@ -215,7 +133,6 @@
           });
         }
       }
-
       const onCanvasPointerUp = (e, doc) => {
         if (!isDragging) {
           doc.update((root, presence) => {
@@ -240,6 +157,45 @@
           };
         });
       };
+
+      const insertRectangle = (doc) => {
+        const shapeId = Date.now().toString();
+        doc.update((root, presence) => {
+          root.shapes.push({
+            id: shapeId,
+            point: {
+              x: getRandomInt(300),
+              y: getRandomInt(300),
+            },
+            color: getRandomColor(),
+          });
+          presence.set({ selectedShape: shapeId }, { addToHistory: true });
+        });
+      };
+      const deleteRectangle = (doc) => {
+        const selectedShapeId = doc.getMyPresence().selectedShape;
+        if (!selectedShapeId) return;
+        doc.update((root, presence) => {
+          const selectedShape = root.shapes.find(
+            (shape) => shape.id === selectedShapeId,
+          );
+          if (!selectedShape) return;
+          root.shapes.deleteByID(selectedShape.getID());
+          presence.set({ selectedShape: null });
+        });
+      };
+      const setColor = (e, doc) => {
+        if (!e.target.dataset.color) return;
+        const selectedShapeId = doc.getMyPresence().selectedShape;
+        doc.update((root) => {
+          const selectedShape = root.shapes.find(
+            (shape) => shape.id === selectedShapeId,
+          );
+          if (!selectedShape) return;
+          selectedShape.color = e.target.dataset.color;
+        });
+      };
+
       function displayOnlineClients(presences, myClientID) {
         const usernames = [];
         for (const { clientID, presence } of presences) {
@@ -277,78 +233,68 @@
           });
           await client.attach(doc);
 
+          // setup devtool
+          const {
+            displayRootObject,
+            displayOps,
+            displayUndoOps,
+            displayRedoOps,
+          } = devtool(doc, {
+            rootHolder: docHolder,
+            opsHolder: opsHolder,
+            undoOpsHolder: undoHolder,
+            redoOpsHolder: redoHolder,
+          });
+
+          const displayLog = () => {
+            displayRootObject();
+            displayOps();
+            displayUndoOps();
+            displayRedoOps();
+          };
+
+          // 03. subscribe to document changes
+          doc.subscribe((event) => {
+            renderShapes(doc, myClientID);
+            displayLog();
+          });
+
+          // 04. set initial value
+          doc.update((root) => {
+            if (!root.shapes) {
+              root.shapes = [];
+            }
+          });
+          renderShapes(doc, myClientID);
+          displayLog();
+
+          // 05. set event handlers
+          rectangleTool.onclick = () => {
+            insertRectangle(doc);
+          };
+          deleteTool.onclick = () => {
+            deleteRectangle(doc);
+          };
+          colorPicker.onclick = (e) => {
+            setColor(e, doc);
+          };
+          undoTool.onclick = () => {
+            doc.history.undo();
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayUndoOps();
+            displayRedoOps();
+          };
+          redoTool.onclick = () => {
+            doc.history.redo();
+            displayUndoOps();
+            displayRedoOps();
+          };
           shapesHolder.addEventListener('pointerup', (e) => {
             onCanvasPointerUp(e, doc);
           });
           shapesHolder.addEventListener('pointermove', (e) => {
             onCanvasPointerMove(e, doc);
           });
-
-          // 04. subscribe to document changes
-          doc.subscribe((event) => {
-            displayDocument(doc);
-            renderShapes(doc, myClientID);
-            printOps(doc);
-          });
-
-          // 05. set initial value
-          doc.update((root) => {
-            if (!root.shapes) {
-              root.shapes = [];
-            }
-          });
-          displayDocument(doc);
-          renderShapes(doc, myClientID);
-          printOps(doc);
-
-          const insertRectangle = () => {
-            const shapeId = Date.now().toString();
-            doc.update((root, presence) => {
-              root.shapes.push({
-                id: shapeId,
-                point: {
-                  x: getRandomInt(300),
-                  y: getRandomInt(300),
-                },
-                color: getRandomColor(),
-              });
-              presence.set({ selectedShape: shapeId }, { addToHistory: true });
-            });
-          };
-          const deleteRectangle = () => {
-            const selectedShapeId = doc.getMyPresence().selectedShape;
-            if (!selectedShapeId) return;
-            doc.update((root, presence) => {
-              const selectedShape = root.shapes.find(
-                (shape) => shape.id === selectedShapeId,
-              );
-              if (!selectedShape) return;
-              root.shapes.deleteByID(selectedShape.getID());
-              presence.set({ selectedShape: null });
-            });
-          };
-          const setColor = (e) => {
-            if (!e.target.dataset.color) return;
-            const selectedShapeId = doc.getMyPresence().selectedShape;
-            doc.update((root) => {
-              const selectedShape = root.shapes.find(
-                (shape) => shape.id === selectedShapeId,
-              );
-              if (!selectedShape) return;
-              selectedShape.color = e.target.dataset.color;
-            });
-          };
-          rectangleTool.onclick = insertRectangle;
-          deleteTool.onclick = deleteRectangle;
-          colorPicker.onclick = setColor;
-          undoTool.onclick = () => {
-            doc.history.undo();
-            printOps(doc);
-          };
-          redoTool.onclick = () => {
-            doc.history.redo();
-            printOps(doc);
-          };
         } catch (e) {
           console.error(e);
         }

@@ -1,106 +1,32 @@
-.obj-dev-log {
+.whiteboard-example {
   display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-.obj-dev-log h2 {
-  margin: 0;
+.dev-log-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 300px);
 }
-
-.obj-dev-log > div {
-  width: 100%;
+.dev-log {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.dev-log .log-holders {
   padding: 10px;
 }
-
-.object-content {
-  margin-left: 24px;
+.dev-log .log-holders,
+.dev-log .log-holder-wrap,
+.dev-log .log-holder {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
-
-.object-key-val,
-.variable-row {
-  position: relative;
-}
-
-.object-key-val:not(:last-of-type):before,
-.variable-row:not(:last-of-type):before {
-  border: 1px dashed #ddd;
-  border-width: 0 0 0 1px;
-  content: '';
-  position: absolute;
-  bottom: -12px;
-  left: -18px;
-  top: 12px;
-}
-
-.object-key-val:after,
-.variable-row:after {
-  border-bottom: 1px dashed #ddd;
-  border-left: 1px dashed #ddd;
-  border-radius: 0 0 0 4px;
-  border-right: 0 dashed #ddd;
-  border-top: 0 dashed #ddd;
-  content: '';
-  height: 16px;
-  position: absolute;
-  top: 0;
-  width: 16px;
-  height: 32px;
-  top: -16px;
-  left: -18px;
-}
-
-#document-holder {
-  margin-top: 24px;
-}
-
-#document-holder > .object-key-val:after,
-#document-holder > .variable-row:after {
-  content: none;
-}
-
-.variable-row > span,
-.object-key-val > span,
-.variable-row label,
-.object-key-val label {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: inline-block;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0 !important;
-  line-height: 1.72;
-  margin-bottom: 16px;
-  padding: 6px 8px;
-}
-
-.object-key-val label:before {
-  content: '▾';
-  margin-right: 4px;
-}
-
-#document-holder input[type='checkbox']:checked + label:before {
-  content: '▸';
-}
-
-.timeticket {
-  border-radius: 4px;
-  background: #f1f2f3;
-  font-size: 12px;
-  font-weight: 400;
-  padding: 2px 6px;
-  margin-left: 4px;
-  letter-spacing: 1px;
-}
-
-#document-holder input[type='checkbox']:checked ~ .object-content {
-  display: none;
-}
-
-#document-holder input[type='checkbox'] {
-  display: none;
-}
-
-#document-holder label {
-  cursor: pointer;
+.log-holder-wrap h2 {
+  margin: 10px 0;
 }
 
 .canvas {
@@ -183,57 +109,4 @@
 }
 .selection-tools .color:nth-child(8) {
   background: white;
-}
-
-.ops-holder {
-  margin: 10px 0 20px;
-  font-size: 14px;
-  font-weight: 400;
-}
-.ops-holder .change {
-  display: flex;
-  margin-bottom: 3px;
-  border-top: 1px solid #ddd;
-}
-.ops-holder label {
-  position: relative;
-  overflow: hidden;
-  padding-left: 24px;
-  cursor: pointer;
-  line-height: 1.6;
-}
-.ops-holder input[type='checkbox']:checked + label {
-  height: 22px;
-}
-.ops-holder input[type='checkbox'] {
-  display: none;
-}
-.ops-holder .count {
-  position: absolute;
-  left: 0px;
-  display: flex;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  font-size: 13px;
-}
-.ops-holder .op {
-  display: block;
-}
-.ops-holder .op:first-child {
-  display: inline-block;
-}
-.ops-holder .op .type {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: #e6e6fa;
-}
-.ops-holder .op .type.set {
-  background: #cff7cf;
-}
-.ops-holder .op .type.remove {
-  background: #f9c0c8;
-}
-.ops-holder .op .type.add {
-  background: #add8e6;
 }
