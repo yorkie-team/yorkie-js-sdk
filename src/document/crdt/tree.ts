@@ -719,6 +719,7 @@ export class CRDTTree extends CRDTGCElement {
   private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
   private removedNodeMap: Map<string, CRDTTreeNode>;
   private operationLog: Array<InternalOperation>;
+  private trashNode: Map<TimeTicket, Array<CRDTTreeNode>>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
@@ -726,6 +727,7 @@ export class CRDTTree extends CRDTGCElement {
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
     this.removedNodeMap = new Map();
     this.operationLog = [];
+    this.trashNode = new Map<TimeTicket, Array<CRDTTreeNode>>();
 
     this.indexTree.traverse((node) => {
       this.nodeMapByID.put(node.id, node);
