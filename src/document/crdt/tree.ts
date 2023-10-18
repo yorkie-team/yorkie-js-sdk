@@ -966,128 +966,43 @@ export class CRDTTree extends CRDTGCElement {
         }
       });
 
-      // 1-3 remove subtree from its parent
+      // 1-2 remove subtree from its parent
       treeNode.parent!.removeChild(treeNode);
     });
 
+    const latestCreatedAtMap = new Map<string, TimeTicket>();
+
     // 2. restore deleted nodes
     if (!from.equals(to)) {
-      const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
-      const [toParent, toLeft] = this.findNodesAndSplitText(to);
+      const removeds = this.trashNode.get(editedAt);
 
-      this.traverseBetweenNodes(
-        fromParent,
-        fromLeft,
-        toParent,
-        toLeft,
-        (contained) => (node) => {
-          if (contained !== TagContained.All) {
-            return;
+      if (removeds?.length) {
+        // 2. restore removed nodes
+        removeds.forEach((node) => {
+          const createdAt = node.getCreatedAt();
+          const actorID = createdAt.getActorID()!;
+          const latestCreatedAt = latestCreatedAtMap.get(actorID);
+
+          // 2-1. restore lastestCreatedAtMap to protect nodes when redo operation
+          if (!latestCreatedAt) {
+            latestCreatedAtMap.set(actorID, createdAt);
+          } else {
+            createdAt.after(latestCreatedAt) &&
+              latestCreatedAtMap.set(actorID, createdAt);
           }
 
-          if (node.removedAt?.equals(editedAt)) {
-            node.removedAt = undefined;
-            node.updateAncestorsSize();
-            if (this.removedNodeMap.has(node.id.toIDString())) {
-              this.removedNodeMap.delete(node.id.toIDString());
-            }
+          node.removedAt = undefined;
+          node.updateAncestorsSize();
+          if (this.removedNodeMap.has(node.id.toIDString())) {
+            this.removedNodeMap.delete(node.id.toIDString());
           }
-        },
-      );
-    }
-  }
+        });
 
-  private traverseBetweenNodes(
-    fromParent: CRDTTreeNode,
-    fromLeft: CRDTTreeNode,
-    toParent: CRDTTreeNode,
-    toLeft: CRDTTreeNode,
-    callback: (contained: TagContained) => (node: CRDTTreeNode) => void,
-  ) {
-    const fromAncestors = getAncestors(fromLeft);
-    const toAncestors = getAncestors(toLeft);
-    const root = this.indexTree.getRoot();
-
-    if (fromLeft === fromParent && fromAncestors.indexOf(fromParent) === -1) {
-      fromAncestors.push(fromParent);
-    }
-
-    if (toParent === toLeft && toAncestors.indexOf(toParent) === -1) {
-      toAncestors.push(toParent);
-    }
-
-    let lca = findCommonAncestor(fromLeft, toLeft);
-
-    if (!lca) {
-      if (root === fromLeft || root === toLeft) {
-        lca = root;
-      } else {
-        throw new Error('tree is broken');
+        this.trashNode.delete(editedAt);
       }
     }
 
-    const fromAncestorsToLca = fromAncestors.slice(
-      fromAncestors.indexOf(lca) + 1,
-    );
-    const toAncestorsToLca = toAncestors.slice(toAncestors.indexOf(lca) + 1);
-    const lcaAllChildren = lca.allChildren;
-
-    if (fromAncestorsToLca.length && toAncestorsToLca.length) {
-      const startIndex = lcaAllChildren.indexOf(fromAncestorsToLca[0]) + 1;
-      const endIndex = lcaAllChildren.indexOf(toAncestorsToLca[0]);
-
-      for (let i = startIndex; i < endIndex; i++) {
-        const node = lcaAllChildren[i];
-
-        traverseAll(node, callback(TagContained.All));
-      }
-    }
-
-    fromAncestorsToLca.push(fromLeft);
-    toAncestorsToLca.push(toLeft);
-
-    while (fromAncestorsToLca.length) {
-      const parent = fromAncestorsToLca.shift();
-      const child = fromAncestorsToLca[0];
-
-      if (!child) {
-        break;
-      }
-
-      const allChildren = parent!.allChildren;
-      const includeFirst = parent === child;
-      const startIndex = includeFirst ? 0 : allChildren.indexOf(child);
-      for (let i = startIndex; i < allChildren.length; i++) {
-        const node = allChildren[i];
-
-        if (i === startIndex && !includeFirst) {
-          traverseAll(node, callback(TagContained.Opening));
-        } else {
-          traverseAll(node, callback(TagContained.All));
-        }
-      }
-    }
-
-    while (toAncestorsToLca.length) {
-      const parent = toAncestorsToLca.shift();
-      const child = toAncestorsToLca[0];
-
-      if (!child) {
-        break;
-      }
-
-      const allChildren = parent!.allChildren;
-      const endIndex = parent === child ? 0 : allChildren.indexOf(child);
-      for (let i = 0; i <= endIndex; i++) {
-        const node = allChildren[i];
-
-        if (i === endIndex && node.type !== DefaultTextType) {
-          traverseAll(node, callback(TagContained.Closing));
-        } else {
-          traverseAll(node, callback(TagContained.All));
-        }
-      }
-    }
+    return latestCreatedAtMap;
   }
 
   private doEdit(
