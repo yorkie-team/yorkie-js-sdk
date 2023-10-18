@@ -798,7 +798,7 @@ export class CRDTTree extends CRDTGCElement {
     return [parentNode, leftSiblingNode];
   }
 
-  private do<T extends InternalOperation>(
+  private redoOp<T extends InternalOperation>(
     operation: T,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ) {
@@ -818,7 +818,7 @@ export class CRDTTree extends CRDTGCElement {
     }
   }
 
-  private undo<T extends InternalOperation>(operation: T) {
+  private undoOp<T extends InternalOperation>(operation: T) {
     switch (operation.getType()) {
       case InternalOperationType.Edit: {
         return this.undoEdit(operation as unknown as InternalEditOperation);
@@ -850,7 +850,7 @@ export class CRDTTree extends CRDTGCElement {
 
     this.operationLog.splice(upperBoundIndex, 0, operation);
 
-    return operationsToUndo;
+    return operationsToUndo.reverse();
   }
 
   /**
@@ -868,12 +868,10 @@ export class CRDTTree extends CRDTGCElement {
       editedAt,
     );
     const operationsToUndo = this.getOperationsToUndo(operation);
-
-    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
-
+    const latestCreatedAtMapFromUndo = this.undo(operationsToUndo);
     const changes = this.doStyle(operation);
 
-    operationsToUndo.forEach((op) => this.do(op));
+    this.redo(operationsToUndo.reverse(), latestCreatedAtMapFromUndo);
 
     return changes;
   }
@@ -951,11 +949,11 @@ export class CRDTTree extends CRDTGCElement {
   private undoEdit(operation: InternalEditOperation) {
     const from = operation.getFrom();
     const to = operation.getTo();
-    const content = operation.getContents();
+    const contents = operation.getContents();
     const editedAt = operation.getEditedAt();
 
     // 1. remove inserted tree nodes
-    content?.forEach((treeNode) => {
+    contents?.forEach((treeNode) => {
       // 1-1 remove subtree from nodeMapByID and recalculate parent size
       traverse(treeNode, (node) => {
         this.nodeMapByID.remove(node.id);
@@ -1069,6 +1067,7 @@ export class CRDTTree extends CRDTGCElement {
       },
     );
 
+    this.trashNode.set(editedAt, toBeRemoveds);
     for (const node of toBeRemoveds) {
       node.remove(editedAt);
 
@@ -1107,6 +1106,54 @@ export class CRDTTree extends CRDTGCElement {
     return [changes, latestCreatedAtMap];
   }
 
+  private undo(operationsToUndo: Array<InternalOperation>) {
+    const latestCreatedAtMapFromUndo = [...operationsToUndo].reduce(
+      (acc, op): Map<string, TimeTicket> => {
+        const createdAtMap = this.undoOp(op);
+
+        if (!createdAtMap) {
+          return acc;
+        }
+
+        [...createdAtMap].forEach(([actorID, createdAt]) => {
+          const latestCreatedAt = acc.get(actorID);
+          if (!latestCreatedAt) {
+            acc.set(actorID, createdAt);
+          } else {
+            createdAt.after(latestCreatedAt) && acc.set(actorID, createdAt);
+          }
+        });
+
+        return acc;
+      },
+      new Map<string, TimeTicket>(),
+    );
+
+    return latestCreatedAtMapFromUndo;
+  }
+
+  private redo(
+    operationsToRedo: Array<InternalOperation>,
+    latestCreatedAtMapFromUndo: Map<string, TimeTicket>,
+    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ) {
+    latestCreatedAtMapByActor &&
+      [...latestCreatedAtMapByActor].forEach(([actorID, createdAt]) => {
+        const latestCreatedAt = latestCreatedAtMapFromUndo.get(actorID);
+
+        if (!latestCreatedAt) {
+          latestCreatedAtMapFromUndo.set(actorID, createdAt);
+        } else {
+          createdAt.after(latestCreatedAt) &&
+            latestCreatedAtMapFromUndo.set(actorID, createdAt);
+        }
+      });
+
+    operationsToRedo.forEach((op) =>
+      this.redoOp(op, latestCreatedAtMapFromUndo),
+    );
+  }
+
   /**
    * `edit` edits the tree with the given range and content.
    * If the content is undefined, the range will be removed.
@@ -1124,16 +1171,16 @@ export class CRDTTree extends CRDTGCElement {
       editedAt,
     );
     const operationsToUndo = this.getOperationsToUndo(operation);
-
-    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
-
+    const latestCreatedAtMapFromUndo = this.undo(operationsToUndo);
     const [changes, latestCreatedAtMap] = this.doEdit(
       operation,
       latestCreatedAtMapByActor,
     );
 
-    operationsToUndo.forEach((op) =>
-      this.do(op, latestCreatedAtMap.size ? latestCreatedAtMap : undefined),
+    this.redo(
+      operationsToUndo.reverse(),
+      latestCreatedAtMapFromUndo,
+      latestCreatedAtMapByActor,
     );
 
     return [changes, latestCreatedAtMap];
@@ -1339,24 +1386,31 @@ export class CRDTTree extends CRDTGCElement {
       return;
     }
 
+    const toBeRemoveds: Array<CRDTTreeNode> = [];
     // delete nodes between from ~ to
-    this.traverseBetweenNodes(
+    this.traverseInPosRange(
       fromParent,
       fromLeft,
       toParent,
       toLeft,
-      (contained) => (node) => {
-        if (contained !== TagContained.All) {
+      (node, contain) => {
+        if (contain !== TagContained.All) {
           return;
         }
 
         if (!node.isRemoved) {
-          node.remove(editedAt);
+          toBeRemoveds.push(node);
         }
 
         this.removedNodeMap.set(node.id.toIDString(), node);
       },
     );
+
+    if (toBeRemoveds.length) {
+      this.trashNode.set(editedAt, toBeRemoveds);
+
+      toBeRemoveds.forEach((node) => node.remove(editedAt));
+    }
 
     // if contained range, delete nodes from their parent.
     sliceRefs.forEach((node) => {
@@ -1410,14 +1464,11 @@ export class CRDTTree extends CRDTGCElement {
       ticket,
     );
     const operationsToUndo = this.getOperationsToUndo(operation);
+    const latestCreatedAtMapFromUndo = this.undo(operationsToUndo);
 
-    [...operationsToUndo].reverse().forEach((op) => this.undo(op));
-
-    const changes = this.doMove(operation);
-
-    operationsToUndo.forEach((op) => this.do(op));
-
-    return changes;
+    //TODO[JOOHOJANG]: Define & make changes
+    this.doMove(operation);
+    this.redo(operationsToUndo.reverse(), latestCreatedAtMapFromUndo);
   }
 
   /**
