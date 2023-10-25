@@ -134,12 +134,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `updateAncestorsSize` updates the size of the ancestors.
    */
-  updateAncestorsSize(): void {
+  updateAncestorsSize(value?: number): void {
     let parent: T | undefined = this.parent;
     const sign = this.isRemoved ? -1 : 1;
+    const size = value || sign * this.paddedSize;
 
     while (parent) {
-      parent.size += this.paddedSize * sign;
+      parent.size += size;
       parent = parent.parent;
     }
   }

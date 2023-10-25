@@ -215,14 +215,18 @@ class InternalMoveOperation extends InternalOperation {
   private to: CRDTTreePos;
   private gapFrom: CRDTTreePos;
   private gapTo: CRDTTreePos;
-  private slice: Array<CRDTTreeNode>;
+  private preserved: Array<CRDTTreeNode>;
+  private contents: Array<CRDTTreeNode> | undefined;
+  private insert: number;
 
   constructor(
     from: CRDTTreePos,
     to: CRDTTreePos,
     gapFrom: CRDTTreePos,
     gapTo: CRDTTreePos,
-    slice: Array<CRDTTreeNode>,
+    preserved: Array<CRDTTreeNode>,
+    contents: Array<CRDTTreeNode> | undefined,
+    insert: number,
     timeTicket: TimeTicket,
   ) {
     super(timeTicket, InternalOperationType.Style);
@@ -231,7 +235,9 @@ class InternalMoveOperation extends InternalOperation {
     this.to = to;
     this.gapFrom = gapFrom;
     this.gapTo = gapTo;
-    this.slice = slice;
+    this.preserved = preserved;
+    this.contents = contents;
+    this.insert = insert;
   }
 
   /**
@@ -263,10 +269,24 @@ class InternalMoveOperation extends InternalOperation {
   }
 
   /**
-   * `slice` returns slice of moved tree nodes
+   * `preserved` returns nodes to be preserved which made from the range between gapFrom ~ gapTo
    */
-  public getSlice() {
-    return this.slice;
+  public getPreserved() {
+    return this.preserved;
+  }
+
+  /**
+   * `preserved` returns nodes to be preserved which made from the range between gapFrom ~ gapTo
+   */
+  public getContents() {
+    return this.contents;
+  }
+
+  /**
+   * `insert` returns the position inside contents where preserved should be placed
+   */
+  public getInsert() {
+    return this.insert;
   }
 }
 
@@ -511,6 +531,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `insNextID` is the previous node id of this node after the node is split.
    */
   insNextID?: CRDTTreeNodeID;
+
+  /**
+   *
+   */
+  prevParentID?: CRDTTreeNodeID;
 
   _value = '';
 
@@ -951,6 +976,9 @@ export class CRDTTree extends CRDTGCElement {
     const to = operation.getTo();
     const contents = operation.getContents();
     const editedAt = operation.getEditedAt();
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
+    const allChildren = fromParent.allChildren;
+    const latestCreatedAtMap = new Map<string, TimeTicket>();
 
     // 1. remove inserted tree nodes
     contents?.forEach((treeNode) => {
@@ -958,30 +986,52 @@ export class CRDTTree extends CRDTGCElement {
       traverse(treeNode, (node) => {
         this.nodeMapByID.remove(node.id);
 
+        // 1-2 to update parent node's size
         if (!node.isRemoved) {
           node.remove(MaxTimeTicket);
           node.removedAt = undefined;
         }
       });
 
-      // 1-2 remove subtree from its parent
+      // 1-3 remove subtree from its parent
       treeNode.parent!.removeChild(treeNode);
     });
 
-    const latestCreatedAtMap = new Map<string, TimeTicket>();
+    const startIndex =
+      fromParent === fromLeft ? 1 : allChildren.indexOf(fromLeft) + 1;
+    const mergedNodes = [];
 
-    // 2. restore deleted nodes
+    for (let i = startIndex; i < allChildren.length; i++) {
+      const node = allChildren[i];
+
+      if (node.prevParentID) {
+        mergedNodes.push(node);
+      }
+    }
+
+    // 2. move mereged nodes to its original parent
+    if (mergedNodes.length) {
+      const prevParentNode = this.findFloorNode(mergedNodes[0].prevParentID!);
+
+      mergedNodes.forEach((node) => {
+        node.parent?.removeChild(node);
+        node.prevParentID = undefined;
+      });
+
+      prevParentNode?.prepend(...mergedNodes);
+    }
+
+    // 3. restore deleted nodes
     if (!from.equals(to)) {
       const removeds = this.trashNode.get(editedAt);
 
       if (removeds?.length) {
-        // 2. restore removed nodes
         removeds.forEach((node) => {
           const createdAt = node.getCreatedAt();
           const actorID = createdAt.getActorID()!;
           const latestCreatedAt = latestCreatedAtMap.get(actorID);
 
-          // 2-1. restore lastestCreatedAtMap to protect nodes when redo operation
+          // 3-1. restore lastestCreatedAtMap to protect nodes when redo operation
           if (!latestCreatedAt) {
             latestCreatedAtMap.set(actorID, createdAt);
           } else {
@@ -1034,70 +1084,72 @@ export class CRDTTree extends CRDTGCElement {
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
 
-    this.traverseInPosRange(
-      fromParent,
-      fromLeft,
-      toParent,
-      toLeft,
-      (node, contain) => {
-        // If node is a element node and half-contained in the range,
-        // it should not be removed.
+    if (!from.equals(to)) {
+      this.traverseInPosRange(
+        fromParent,
+        fromLeft,
+        toParent,
+        toLeft,
+        (node, contain) => {
+          // If node is a element node and half-contained in the range,
+          // it should not be removed.
 
-        if (!node.isText && contain != TagContained.All) {
-          return;
-        }
-
-        const actorID = node.getCreatedAt().getActorID()!;
-        const latestCreatedAt = latestCreatedAtMapByActor
-          ? latestCreatedAtMapByActor!.has(actorID!)
-            ? latestCreatedAtMapByActor!.get(actorID!)!
-            : InitialTimeTicket
-          : MaxTimeTicket;
-
-        if (node.canDelete(editedAt, latestCreatedAt)) {
-          const latestCreatedAt = latestCreatedAtMap.get(actorID);
-          const createdAt = node.getCreatedAt();
-
-          if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-            latestCreatedAtMap.set(actorID, createdAt);
+          if (!node.isText && contain === TagContained.Closing) {
+            return;
           }
 
-          toBeRemoveds.push(node);
+          const actorID = node.getCreatedAt().getActorID()!;
+          const latestCreatedAt = latestCreatedAtMapByActor
+            ? latestCreatedAtMapByActor!.has(actorID!)
+              ? latestCreatedAtMapByActor!.get(actorID!)!
+              : InitialTimeTicket
+            : MaxTimeTicket;
+
+          if (node.canDelete(editedAt, latestCreatedAt)) {
+            const latestCreatedAt = latestCreatedAtMap.get(actorID);
+            const createdAt = node.getCreatedAt();
+
+            if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+              latestCreatedAtMap.set(actorID, createdAt);
+            }
+
+            toBeRemoveds.push(node);
+          }
+        },
+      );
+
+      this.trashNode.set(editedAt, toBeRemoveds);
+      for (const node of toBeRemoveds) {
+        node.remove(editedAt);
+
+        this.removedNodeMap.set(node.id.toIDString(), node);
+      }
+
+      if (
+        toParent !== fromParent &&
+        toParent.isRemoved &&
+        toParent.removedAt?.equals(editedAt) &&
+        toParent.hasTextChild()
+      ) {
+        const alivedChildrenNodes = toParent.children;
+
+        if (alivedChildrenNodes.length) {
+          alivedChildrenNodes.forEach((node) => {
+            node.prevParentID = node.parent?.id;
+            node.parent?.removeChild(node);
+          });
+
+          this.insertNode(fromParent, fromLeft, alivedChildrenNodes);
         }
-      },
-    );
-
-    this.trashNode.set(editedAt, toBeRemoveds);
-    for (const node of toBeRemoveds) {
-      node.remove(editedAt);
-
-      this.removedNodeMap.set(node.id.toIDString(), node);
+      }
     }
 
     // 03. insert the given node at the given position.
     if (contents?.length) {
-      let leftInChildren = fromLeft; // tree
+      this.insertNode(fromParent, fromLeft, contents);
 
       for (const content of contents!) {
-        // 03-1. insert the content nodes to the tree.
-        if (leftInChildren === fromParent) {
-          // 03-1-1. when there's no leftSibling, then insert content into very front of parent's children List
-          fromParent.insertAt(content, 0);
-        } else {
-          // 03-1-2. insert after leftSibling
-          fromParent.insertAfter(content, leftInChildren);
-        }
-
-        leftInChildren = content;
         traverseAll(content, (node) => {
-          // if insertion happens during concurrent editing and parent node has been removed,
-          // make new nodes as tombstone immediately
-          if (fromParent.isRemoved) {
-            node.remove(editedAt);
-
-            this.removedNodeMap.set(node.id.toIDString(), node);
-          }
-
           this.nodeMapByID.put(node.id, node);
         });
       }
@@ -1220,12 +1272,14 @@ export class CRDTTree extends CRDTGCElement {
   public moveByIndex(
     target: [number, number],
     source: [number, number],
+    contents: Array<CRDTTreeNode> | undefined,
+    insert: number,
     editedAt: TimeTicket,
   ): void {
     const [from, to] = [this.findPos(target[0]), this.findPos(target[1])];
     const [gapFrom, gapTo] = [this.findPos(source[0]), this.findPos(source[1])];
 
-    return this.move([from, to], [gapFrom, gapTo], editedAt);
+    return this.move([from, to], [gapFrom, gapTo], contents, insert, editedAt);
   }
 
   /**
@@ -1268,64 +1322,46 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   private undoMove(operation: InternalMoveOperation) {
-    const from = operation.getFrom();
-    const to = operation.getTo();
     const gapFrom = operation.getGapFrom();
     const editedAt = operation.getEditedAt();
-    const slice = operation.getSlice();
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
-    const [toParent, toLeft] = this.findNodesAndSplitText(to);
+    const preserved = operation.getPreserved();
+    const contents = operation.getContents();
     const [gapFromParent, gapFromLeft] = this.findNodesAndSplitText(gapFrom);
 
-    // remove slice from parent.
-    const sliceToLeft = this.findFloorNode(slice[slice.length - 1].id)!;
-    this.traverseInPosRange(
-      fromParent,
-      fromLeft,
-      fromParent,
-      sliceToLeft,
-      (node) => {
-        if (this.nodeMapByID.get(node.id)) {
-          this.nodeMapByID.remove(node.id);
-        }
-
-        node.remove(editedAt);
-        node.parent?.removeChild(node);
-
-        this.purge(node);
-      },
-    );
-
-    // insert slice into gap
-    let index =
-      gapFromParent === gapFromLeft
-        ? 0
-        : gapFromParent.allChildren.indexOf(gapFromLeft) + 1;
-
-    slice.forEach((node) => {
-      this.nodeMapByID.put(node.id, node);
-
-      gapFromParent.insertAt(node, index);
-      index++;
+    // pop out preserved from it's parent
+    preserved.forEach((node) => {
+      node.updateAncestorsSize(-node.paddedSize);
+      node.parent?.removeChild(node);
     });
 
-    // revive nodes between from ~ to
-    this.traverseInPosRange(
-      fromParent,
-      fromLeft,
-      toParent,
-      toLeft,
-      (node, contain) => {
-        if (!node.isText && contain != TagContained.All) {
-          return;
-        }
+    // remove contents
+    if (contents?.length) {
+      contents.forEach((node) => {
+        traverseAll(node, (node) => {
+          this.nodeMapByID.remove(node.id);
+        });
 
-        if (node.removedAt?.equals(editedAt)) {
+        node.parent?.updateAncestorsSize(-node.size);
+        node.parent?.removeChild(node);
+      });
+    }
+
+    // insert preserved into its original position
+    this.insertNode(gapFromParent, gapFromLeft, preserved);
+
+    // revive nodes between from ~ to
+    const removeds = this.trashNode.get(editedAt);
+
+    if (removeds?.length) {
+      removeds.forEach((node) => {
+        if (node.removedAt) {
           node.removedAt = undefined;
           node.updateAncestorsSize();
         }
-      },
-    );
+      });
+
+      this.trashNode.delete(editedAt);
+    }
   }
 
   private checkRangeType(
@@ -1355,12 +1391,13 @@ export class CRDTTree extends CRDTGCElement {
     const gapFrom = operation.getGapFrom();
     const gapTo = operation.getGapTo();
     const editedAt = operation.getEditedAt();
-    const slice = operation.getSlice();
+    const preserved = operation.getPreserved();
+    const contents = operation.getContents();
+    const insert = operation.getInsert();
     const [fromParent, fromLeft] = this.findNodesAndSplitText(from);
     const [toParent, toLeft] = this.findNodesAndSplitText(to);
     const [gapFromParent, gapFromLeft] = this.findNodesAndSplitText(gapFrom);
     const [gapToParent, gapToLeft] = this.findNodesAndSplitText(gapTo);
-    const sliceRefs = this.createSlice(gapFrom, gapTo);
 
     if (
       this.detectCycle(
@@ -1386,7 +1423,14 @@ export class CRDTTree extends CRDTGCElement {
       return;
     }
 
+    // pop out preserved from its parent
+    preserved.forEach((node) => {
+      node.updateAncestorsSize(-node.paddedSize);
+      node.parent?.removeChild(node);
+    });
+
     const toBeRemoveds: Array<CRDTTreeNode> = [];
+
     // delete nodes between from ~ to
     this.traverseInPosRange(
       fromParent,
@@ -1401,45 +1445,52 @@ export class CRDTTree extends CRDTGCElement {
         if (!node.isRemoved) {
           toBeRemoveds.push(node);
         }
-
-        this.removedNodeMap.set(node.id.toIDString(), node);
       },
     );
 
     if (toBeRemoveds.length) {
       this.trashNode.set(editedAt, toBeRemoveds);
 
-      toBeRemoveds.forEach((node) => node.remove(editedAt));
+      toBeRemoveds.forEach((node) => {
+        node.remove(editedAt);
+        this.removedNodeMap.set(node.id.toIDString(), node);
+      });
     }
 
-    // if contained range, delete nodes from their parent.
-    sliceRefs.forEach((node) => {
-      if (this.removedNodeMap.has(node.id.toIDString())) {
-        this.removedNodeMap.delete(node.id.toIDString());
+    // insert contents
+    if (contents?.length) {
+      this.insertNode(fromParent, fromLeft, contents);
+
+      contents.forEach((node) => {
+        traverseAll(node, (node) => {
+          this.nodeMapByID.put(node.id, node);
+        });
+      });
+    }
+
+    // insert preserved
+    const index = this.toIndex(fromParent, fromLeft) + insert;
+    const [parent, left] = this.findNodesAndSplitText(this.findPos(index));
+
+    this.insertNode(parent, left, preserved);
+  }
+
+  private insertNode(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    nodes: Array<CRDTTreeNode>,
+  ) {
+    let leftInChildren = left;
+
+    for (const node of nodes) {
+      if (parent === leftInChildren) {
+        parent.insertAt(node, 0);
+      } else {
+        parent.insertAfter(node, leftInChildren);
       }
 
-      if (this.nodeMapByID.get(node.id)) {
-        this.nodeMapByID.remove(node.id);
-      }
-
-      if (rangeType === TreeMoveRange.Separated) {
-        node.remove(editedAt);
-      }
-
-      node.parent?.removeChild(node);
-      this.purge(node);
-    });
-
-    // insert slice
-    let index =
-      fromParent === fromLeft
-        ? 0
-        : fromParent.allChildren.indexOf(fromLeft) + 1;
-    slice.forEach((node) => {
-      fromParent.insertAt(node, index);
-      this.nodeMapByID.put(node.id, node);
-      index++;
-    });
+      leftInChildren = node;
+    }
   }
 
   /**
@@ -1448,19 +1499,21 @@ export class CRDTTree extends CRDTGCElement {
   public move(
     target: [CRDTTreePos, CRDTTreePos],
     source: [CRDTTreePos, CRDTTreePos],
+    contents: Array<CRDTTreeNode> | undefined,
+    insert: number,
     ticket: TimeTicket,
   ): void {
     const [from, to] = target;
     const [gapFrom, gapTo] = source;
-    const slice = this.createSlice(gapFrom, gapTo).map((node) =>
-      node.deepcopy(),
-    );
+    const preserved = this.createSlice(gapFrom, gapTo);
     const operation = new InternalMoveOperation(
       from,
       to,
       gapFrom,
       gapTo,
-      slice,
+      preserved,
+      contents,
+      insert,
       ticket,
     );
     const operationsToUndo = this.getOperationsToUndo(operation);
@@ -1685,7 +1738,7 @@ export class CRDTTree extends CRDTGCElement {
   private toTreeNodes(pos: CRDTTreePos) {
     const parentID = pos.getParentID();
     const leftSiblingID = pos.getLeftSiblingID();
-    const parentNode = this.findFloorNode(parentID);
+    let parentNode = this.findFloorNode(parentID);
     let leftSiblingNode = this.findFloorNode(leftSiblingID);
 
     if (!parentNode || !leftSiblingNode) {
@@ -1699,6 +1752,14 @@ export class CRDTTree extends CRDTGCElement {
     ) {
       leftSiblingNode =
         this.findFloorNode(leftSiblingNode.insPrevID) || leftSiblingNode;
+    }
+
+    if (
+      leftSiblingNode.prevParentID &&
+      leftSiblingNode.parent &&
+      leftSiblingNode.parent !== parentNode
+    ) {
+      parentNode = leftSiblingNode.parent;
     }
 
     return [parentNode, leftSiblingNode!];

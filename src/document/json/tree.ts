@@ -329,23 +329,12 @@ export class Tree {
     );
   }
 
-  private editInternal(
-    fromPos: CRDTTreePos,
-    toPos: CRDTTreePos,
-    contents: Array<TreeNode>,
-  ): boolean {
-    if (contents.length !== 0 && contents[0]) {
-      validateTreeNodes(contents);
-      if (contents[0].type !== DefaultTextType) {
-        for (const content of contents) {
-          const { children = [] } = content as ElementNode;
-          validateTreeNodes(children);
-        }
-      }
-    }
+  private makeCRDTNodes(contents: Array<TreeNode> | undefined) {
+    let crdtNodes: Array<CRDTTreeNode> = [];
 
-    const ticket = this.context!.getLastTimeTicket();
-    let crdtNodes = new Array<CRDTTreeNode>();
+    if (!contents) {
+      return [];
+    }
 
     if (contents[0]?.type === DefaultTextType) {
       let compVal = '';
@@ -365,6 +354,27 @@ export class Tree {
         .map((content) => content && createCRDTTreeNode(this.context!, content))
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
+
+    return crdtNodes;
+  }
+
+  private editInternal(
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
+    contents: Array<TreeNode>,
+  ): boolean {
+    if (contents.length !== 0 && contents[0]) {
+      validateTreeNodes(contents);
+      if (contents[0].type !== DefaultTextType) {
+        for (const content of contents) {
+          const { children = [] } = content as ElementNode;
+          validateTreeNodes(children);
+        }
+      }
+    }
+
+    const ticket = this.context!.getLastTimeTicket();
+    const crdtNodes = this.makeCRDTNodes(contents);
 
     const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
@@ -457,6 +467,8 @@ export class Tree {
     toIdx: number,
     gapFromIdx: number,
     gapToIdx: number,
+    insert: number,
+    ...contents: Array<TreeNode>
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -472,9 +484,16 @@ export class Tree {
     ) {
       throw new Error('gap range cannot be overlapped');
     }
+
+    const crdtNodes = this.makeCRDTNodes(contents);
+
     this.tree.move(
       [this.tree.findPos(fromIdx), this.tree.findPos(toIdx)],
       [this.tree.findPos(gapFromIdx), this.tree.findPos(gapToIdx)],
+      crdtNodes.length
+        ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
+        : undefined,
+      insert,
       this.context.issueTimeTicket(),
     );
     return true;
