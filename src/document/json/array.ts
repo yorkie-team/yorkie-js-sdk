@@ -448,7 +448,7 @@ export class ArrayProxy {
         AddOperation.create(
           target.getCreatedAt(),
           prevCreatedAt,
-          primitive,
+          primitive.deepcopy(),
           ticket,
         ),
       );
@@ -462,7 +462,7 @@ export class ArrayProxy {
         AddOperation.create(
           target.getCreatedAt(),
           prevCreatedAt,
-          array,
+          array.deepcopy(),
           ticket,
         ),
       );
@@ -475,7 +475,12 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj, target);
       context.push(
-        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          obj.deepcopy(),
+          ticket,
+        ),
       );
 
       for (const [k, v] of Object.entries(value!)) {
