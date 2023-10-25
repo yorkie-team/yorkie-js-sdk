@@ -155,11 +155,14 @@
           );
           if (!selectedShape) return;
 
-          // TODO(chacha912): Setting it up like this doesn't work as expected when undo
-          selectedShape.point = {
-            x: e.clientX - rectangleSize / 2,
-            y: e.clientY - rectangleSize / 2,
-          };
+          selectedShape.point.x = e.clientX - rectangleSize / 2;
+          selectedShape.point.y = e.clientY - rectangleSize / 2;
+          // TODO(chacha912): we can change the code as follows after
+          // modifying to allow nested objects in the set operation.
+          // selectedShape.point = {
+          //   x: e.clientX - rectangleSize / 2,
+          //   y: e.clientY - rectangleSize / 2,
+          // };
         });
       };
 

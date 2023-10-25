@@ -25,11 +25,9 @@ export abstract class CRDTElement {
   private createdAt: TimeTicket;
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
-  private executedAt: TimeTicket;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
-    this.executedAt = createdAt;
   }
 
   /**
@@ -61,10 +59,16 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `getExecutedAt` returns the execution time of this element.
+   * `getLastExcutedAt` returns the most recent time at which
+   * an operation was executed on this element.
+   * TODO(chacha912): we can replace RGATreeListNode.getPositionedAt with this method.
    */
-  public getExecutedAt(): TimeTicket {
-    return this.executedAt;
+  public getLastExcutedAt(): TimeTicket {
+    if (!this.movedAt) {
+      return this.createdAt;
+    }
+
+    return this.movedAt;
   }
 
   /**
@@ -84,13 +88,6 @@ export abstract class CRDTElement {
    */
   public setRemovedAt(removedAt?: TimeTicket): void {
     this.removedAt = removedAt;
-  }
-
-  /**
-   * `setExecutedAt` sets the execution time of this element.
-   */
-  public setExecutedAt(executedAt: TimeTicket): void {
-    this.executedAt = executedAt;
   }
 
   /**

@@ -106,9 +106,9 @@ export class ElementRHT {
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
-    if (node == null || executedAt.after(node.getValue().getExecutedAt())) {
+    if (node == null || executedAt.after(node.getValue().getLastExcutedAt())) {
       this.nodeMapByKey.set(key, newNode);
-      value.setExecutedAt(executedAt);
+      value.setMovedAt(executedAt);
     }
     return removed;
   }
