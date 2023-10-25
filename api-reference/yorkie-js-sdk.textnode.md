@@ -4,7 +4,7 @@
 
 ## TextNode type
 
-`TextNode` is a node that has a value.
+`TextNode` represents a text node. It has a string value.
 
 **Signature:**
 

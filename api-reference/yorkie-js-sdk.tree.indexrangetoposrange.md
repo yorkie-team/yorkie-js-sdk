@@ -12,7 +12,7 @@
 indexRangeToPosRange(range: [
         number,
         number
-    ]): TreeRangeStruct;
+    ]): TreePosStructRange;
 ```
 
 ## Parameters
@@ -23,5 +23,5 @@ indexRangeToPosRange(range: [
 
 **Returns:**
 
-[TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md)
+[TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md)
 

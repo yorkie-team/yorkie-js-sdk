@@ -66,7 +66,7 @@
 |  [CRDTTreeNodeIDStruct](./yorkie-js-sdk.crdttreenodeidstruct.md) | <code>CRDTTreeNodeIDStruct</code> represents the structure of CRDTTreeNodeID. It is used to serialize and deserialize the CRDTTreeNodeID. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>Document</code>. It can be delivered using <code>Document.subscribe()</code>. |
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) | <code>EditOpInfo</code> represents the information of the edit operation. |
-|  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> is a node that has children. |
+|  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> represents an element node. It has an attributes and children. |
 |  [ErrorFn](./yorkie-js-sdk.errorfn.md) |  |
 |  [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md) | <code>IncreaseOpInfo</code> represents the information of the increase operation. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
@@ -81,14 +81,14 @@
 |  [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md) | <code>RemoveOpInfo</code> represents the information of the remove operation. |
 |  [SetOpInfo](./yorkie-js-sdk.setopinfo.md) | <code>SetOpInfo</code> represents the information of the set operation. |
 |  [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md) | <code>StyleOpInfo</code> represents the information of the style operation. |
-|  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> is a node that has a value. |
+|  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> represents a text node. It has a string value. |
 |  [TextOperationInfo](./yorkie-js-sdk.textoperationinfo.md) | <code>TextOperationInfo</code> represents the OperationInfo for the yorkie.Text. |
 |  [TextPosStruct](./yorkie-js-sdk.textposstruct.md) | <code>TextPosStruct</code> represents the structure of RGATreeSplitPos. It is used to serialize and deserialize the RGATreeSplitPos. |
 |  [TextPosStructRange](./yorkie-js-sdk.textposstructrange.md) | <code>TextPosStructRange</code> represents the structure of RGATreeSplitPosRange. It is used to serialize and deserialize the RGATreeSplitPosRange. |
 |  [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md) | <code>TimeTicketStruct</code> is a structure represents the meta data of the ticket. It is used to serialize and deserialize the ticket. |
 |  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
 |  [TreeOperationInfo](./yorkie-js-sdk.treeoperationinfo.md) | <code>TreeOperationInfo</code> represents the OperationInfo for the yorkie.Tree. |
-|  [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
+|  [TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
 |  [Unsubscribe](./yorkie-js-sdk.unsubscribe.md) |  |
 |  [WrappedElement](./yorkie-js-sdk.wrappedelement.md) | <code>WrappedElement</code> is a wrapper of JSONElement that provides <code>getID()</code>. |
 

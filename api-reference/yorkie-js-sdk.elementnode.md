@@ -4,7 +4,7 @@
 
 ## ElementNode type
 
-`ElementNode` is a node that has children.
+`ElementNode` represents an element node. It has an attributes and children.
 
 **Signature:**
 

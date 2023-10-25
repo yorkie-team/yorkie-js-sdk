@@ -13,5 +13,5 @@ getRootTreeNode(): TreeNode;
 ```
 **Returns:**
 
-TreeNode
+[TreeNode](./yorkie-js-sdk.treenode.md)
 

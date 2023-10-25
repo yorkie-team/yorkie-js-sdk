@@ -22,5 +22,5 @@ export declare interface TreeChange
 |  [to](./yorkie-js-sdk.treechange.to.md) |  | number |  |
 |  [toPath](./yorkie-js-sdk.treechange.topath.md) |  | Array&lt;number&gt; |  |
 |  [type](./yorkie-js-sdk.treechange.type.md) |  | [TreeChangeType](./yorkie-js-sdk.treechangetype.md) |  |
-|  [value?](./yorkie-js-sdk.treechange.value.md) |  | Array&lt;TreeNode&gt; \| { \[key: string\]: any; } | _(Optional)_ |
+|  [value?](./yorkie-js-sdk.treechange.value.md) |  | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; \| { \[key: string\]: any; } | _(Optional)_ |
 

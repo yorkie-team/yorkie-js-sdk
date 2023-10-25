@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-posRangeToIndexRange(range: TreeRangeStruct): [
+posRangeToIndexRange(range: TreePosStructRange): [
         number,
         number
     ];
@@ -19,7 +19,7 @@ posRangeToIndexRange(range: TreeRangeStruct): [
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  range | [TreeRangeStruct](./yorkie-js-sdk.treerangestruct.md) |  |
+|  range | [TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md) |  |
 
 **Returns:**
 
