@@ -37,13 +37,25 @@ import type {
   ElementNode,
   TextNode,
   TreeNode,
-  TreePosStructRange,
   TreeChange,
+  TreeChangeType,
+  TreePosStructRange,
+  CRDTTreeNodeIDStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
-export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
-  from: Array<number>;
-  to: Array<number>;
+/**
+ * NOTE(hackerwins): In normal case, we should define the following types in
+ * json package, because they are directly used by the user. However, we define
+ * them in crdt package to avoid circular dependency between json and crdt.
+ */
+export {
+  TreeNode,
+  ElementNode,
+  TextNode,
+  TreeChange,
+  TreeChangeType,
+  TreePosStructRange,
+  CRDTTreeNodeIDStruct,
 };
 
 /**

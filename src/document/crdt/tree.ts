@@ -42,7 +42,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 export type TreeNode = TextNode | ElementNode;
 
 /**
- * `ElementNode` is a node that has children.
+ * `ElementNode` represents an element node. It has an attributes and children.
  */
 export type ElementNode<A extends Indexable = Indexable> = {
   type: TreeNodeType;
@@ -51,7 +51,7 @@ export type ElementNode<A extends Indexable = Indexable> = {
 };
 
 /**
- * `TextNode` is a node that has a value.
+ * `TextNode` represents a text node. It has a string value.
  */
 export type TextNode = {
   type: typeof DefaultTextType;
