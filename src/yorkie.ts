@@ -75,13 +75,6 @@ export type {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {
-  TreeChange,
-  TreeChangeType,
-  CRDTTreeNodeIDStruct,
-  TreePosStructRange as TreeRangeStruct,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
-
-export {
   Primitive,
   PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
@@ -104,6 +97,10 @@ export {
   TreeNode,
   ElementNode,
   TextNode,
+  TreeChange,
+  TreeChangeType,
+  CRDTTreeNodeIDStruct,
+  TreePosStructRange,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';

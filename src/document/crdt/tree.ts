@@ -25,7 +25,6 @@ import {
   IndexTree,
   TreePos,
   IndexTreeNode,
-  TreeNodeType,
   traverseAll,
   TagContained,
 } from '@yorkie-js-sdk/src/util/index_tree';
@@ -34,16 +33,29 @@ import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import type {
+  DefaultTextType,
+  TreeNodeType,
+} from '@yorkie-js-sdk/src/util/index_tree';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+
+export type TreeNode = TextNode | ElementNode;
 
 /**
- * `TreeNode` represents the JSON representation of a node in the tree.
- * It is used to serialize and deserialize the tree.
+ * `ElementNode` represents an element node. It has an attributes and children.
  */
-export type TreeNode = {
+export type ElementNode<A extends Indexable = Indexable> = {
   type: TreeNodeType;
-  children?: Array<TreeNode>;
-  value?: string;
-  attributes?: { [key: string]: any };
+  attributes?: A;
+  children: Array<TreeNode>;
+};
+
+/**
+ * `TextNode` represents a text node. It has a string value.
+ */
+export type TextNode = {
+  type: typeof DefaultTextType;
+  value: string;
 };
 
 /**
@@ -461,7 +473,7 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
     return {
       type: currentNode.type,
       value: currentNode.value,
-    };
+    } as TextNode;
   }
 
   return {
@@ -498,7 +510,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
       value: currentNode.value,
       size: currentNode.size,
       isRemoved: currentNode.isRemoved,
-    };
+    } as TreeNodeForTest;
   }
 
   return {
