@@ -441,24 +441,24 @@ describe('Tree.move', function () {
     // 02. delete b, c and first paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
-    tree.editByIndex([2, 6], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>d</p></root>`);
-    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
 
-    // const treeNode = tree.toTestTreeNode();
-    // assert.equal(treeNode.size, 4); // root
-    // assert.equal(treeNode.children![0].size, 2); // p
-    // assert.equal(treeNode.children![0].children![0].size, 1); // a
-    // assert.equal(treeNode.children![0].children![1].size, 1); // d
+    tree.editByIndex([2, 6], undefined, issueTime());
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
+    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
+
+    const treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 4); // root
+    assert.equal(treeNode.children![0].size, 2); // p
+    assert.equal(treeNode.children![0].children![0].size, 1); // a
+    assert.equal(treeNode.children![0].children![1].size, 1); // d
 
     // // 03. insert a new text node at the start of the first paragraph.
-    // tree.editByIndex(
-    //   [1, 1],
-    //   [new CRDTTreeNode(issuePos(), 'text', '@')],
-    //   issueTime(),
-    // );
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
+    tree.editByIndex(
+      [1, 1],
+      [new CRDTTreeNode(issuePos(), 'text', '@')],
+      issueTime(),
+    );
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
   });
 
   it.skip('Can merge different levels with edit', function () {
@@ -617,7 +617,7 @@ describe('Tree.move', function () {
     );
     assert.equal(tree.toXML(), /*html*/ `<root><p><b><i>ab</i></b></p></root>`);
 
-    tree.moveByIndex([1, 7], [3, 5], issueTime());
+    tree.moveByIndex([1, 7], [3, 5], undefined, 0, issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
   });
 
@@ -635,7 +635,7 @@ describe('Tree.move', function () {
     );
     assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
 
-    tree.moveByIndex([1, 1], [3, 5], issueTime());
+    tree.moveByIndex([1, 1], [3, 5], undefined, 0, issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
   });
 
@@ -653,7 +653,7 @@ describe('Tree.move', function () {
     );
     assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
 
-    tree.moveByIndex([1, 1], [2, 6], issueTime());
+    tree.moveByIndex([1, 1], [2, 6], undefined, 0, issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p></p></root>`);
   });
 
@@ -672,7 +672,26 @@ describe('Tree.move', function () {
     tree.editByIndex([6, 6], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p><p></p></root>`);
 
-    tree.moveByIndex([1, 1], [2, 8], issueTime());
+    tree.moveByIndex([1, 1], [2, 8], undefined, 0, issueTime());
+    assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p><p></p></p></root>`);
+  });
+
+  it('can move ', function () {
+    const tree = new CRDTTree(
+      new CRDTTreeNode(issuePos(), 'root'),
+      issueTime(),
+    );
+    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex(
+      [3, 3],
+      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
+      issueTime(),
+    );
+    tree.editByIndex([6, 6], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    assert.equal(tree.toXML(), /*html*/ `<root><p></p><p>ab</p><p></p></root>`);
+
+    tree.moveByIndex([1, 1], [2, 8], undefined, 0, issueTime());
     assert.equal(tree.toXML(), /*html*/ `<root><p><p>ab</p><p></p></p></root>`);
   });
 });
