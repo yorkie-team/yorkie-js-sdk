@@ -503,4 +503,47 @@ describe('Object', function () {
       assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
     });
   });
+
+  it.skip(`Should handle case of reverse operations referencing already garbage-collected elements`, async function ({
+    task,
+  }) {
+    interface TestDoc {
+      shape: { color: string };
+    }
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new Document<TestDoc>(docKey);
+    const doc2 = new Document<TestDoc>(docKey);
+
+    const client1 = new Client(testRPCAddr);
+    const client2 = new Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { isRealtimeSync: false });
+    await client2.attach(doc2, { isRealtimeSync: false });
+
+    doc1.update((root) => {
+      root.shape = { color: 'black' };
+    });
+    doc2.update((root) => {
+      root.shape = { color: 'yellow' };
+    });
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+    assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+
+    doc2.update((root) => {
+      root.shape.color = 'red';
+    });
+    await client2.sync();
+    await client1.sync();
+    await client2.sync();
+    assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
+    assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+
+    // TODO(chacha912): fix error that occurs when undoing
+    doc1.history.undo();
+  });
 });
