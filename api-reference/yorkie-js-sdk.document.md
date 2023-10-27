@@ -31,6 +31,7 @@ declare class Document<T, P extends Indexable = Indexable>
 |  --- | --- | --- |
 |  [applyChanges(changes)](./yorkie-js-sdk.document.applychanges.md) |  | <code>applyChanges</code> applies the given changes into this document. |
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
+|  [getGarbageLenFromClone()](./yorkie-js-sdk.document.getgarbagelenfromclone.md) |  | <code>getGarbageLenFromClone</code> returns the length of elements should be purged from clone. |
 |  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
 |  [getPresence(clientID)](./yorkie-js-sdk.document.getpresence.md) |  | <code>getPresence</code> returns the presence of the given clientID. |
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
