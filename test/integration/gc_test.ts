@@ -586,4 +586,27 @@ describe('Garbage Collection', function () {
     await client1.deactivate();
     await client2.deactivate();
   });
+
+  it('Can collect removed elements from both root and clone', async function ({
+    task,
+  }) {
+    type TestDoc = { point: { x: number; y: number } };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    await cli.attach(doc, { isRealtimeSync: false });
+    doc.update((root) => {
+      root.point = { x: 0, y: 0 };
+    });
+    doc.update((root) => {
+      root.point = { x: 1, y: 1 };
+    });
+    doc.update((root) => {
+      root.point = { x: 2, y: 2 };
+    });
+    assert.equal(doc.getGarbageLen(), 6);
+    assert.equal(doc.getGarbageLenFromClone(), 6);
+  });
 });
