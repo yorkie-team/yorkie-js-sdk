@@ -1189,7 +1189,7 @@ describe.sequential('Document', function () {
       delete root.a;
     });
     assert.equal('{}', doc.toSortedJSON());
-    assert.equal(1, doc.getGarbageLen());
+    assert.equal(2, doc.getGarbageLen());
 
     doc.garbageCollect(MaxTimeTicket);
     assert.equal('{}', doc.toSortedJSON());

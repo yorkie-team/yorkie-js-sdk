@@ -68,8 +68,12 @@ export class SetOperation extends Operation {
     }
     const obj = parentObject as CRDTObject;
     const value = this.value.deepcopy();
-    obj.set(this.key, value);
+    const removed = obj.set(this.key, value);
     root.registerElement(value, obj);
+    if (removed) {
+      root.registerRemovedElement(removed);
+    }
+
     return {
       opInfos: [
         {
