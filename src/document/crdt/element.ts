@@ -96,7 +96,7 @@ export abstract class CRDTElement {
   public remove(removedAt?: TimeTicket): boolean {
     if (
       removedAt &&
-      removedAt.after(this.createdAt) &&
+      removedAt.after(this.getLastExcutedAt()) &&
       (!this.removedAt || removedAt.after(this.removedAt))
     ) {
       this.removedAt = removedAt;

@@ -96,11 +96,7 @@ export class ElementRHT {
   ): CRDTElement | undefined {
     let removed;
     const node = this.nodeMapByKey.get(key);
-    if (
-      node != null &&
-      !node.isRemoved() &&
-      node.remove(value.getCreatedAt())
-    ) {
+    if (node != null && !node.isRemoved() && node.remove(executedAt)) {
       removed = node.getValue();
     }
 
