@@ -17,7 +17,6 @@ export default defineConfig({
     },
     environment: 'custom-jsdom',
     globals: true,
-    singleThread: true,
     testTimeout: isCI ? 5000 : Infinity,
   },
   plugins: [tsconfigPaths()],

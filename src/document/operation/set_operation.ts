@@ -85,8 +85,11 @@ export class SetOperation extends Operation {
     const reverseOp = this.getReverseOperation(previousValue);
 
     const value = this.value.deepcopy();
-    obj.set(this.key, value, this.getExecutedAt());
+    const removed = obj.set(this.key, value, this.getExecutedAt());
     root.registerElement(value, obj);
+    if (removed) {
+      root.registerRemovedElement(removed);
+    }
 
     return {
       opInfos: [

@@ -986,6 +986,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getGarbageLenFromClone` returns the length of elements should be purged from clone.
+   */
+  public getGarbageLenFromClone(): number {
+    return this.clone!.root.getGarbageLen();
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this document.
    */
   public toJSON(): string {
