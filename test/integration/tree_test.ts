@@ -963,13 +963,7 @@ describe('Tree.edit', function () {
     );
 
     doc.update((root) => root.t.edit(2, 18));
-    assert.equal(
-      doc.getRoot().t.toXML(),
-      /*html*/ `<doc><p>a</p><p>f</p></doc>`,
-    );
-
-    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
-    // assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
   });
 });
 

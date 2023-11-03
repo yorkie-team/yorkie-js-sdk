@@ -696,6 +696,7 @@ export class CRDTTree extends CRDTGCElement {
     });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
+    const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
 
     this.traverseInPosRange(
@@ -704,10 +705,30 @@ export class CRDTTree extends CRDTGCElement {
       toParent,
       toLeft,
       (node, contain) => {
-        // If node is a element node and half-contained in the range,
-        // it should not be removed.
-        if (!node.isText && contain != TagContained.All) {
+        // NOTE(hackerwins): If the node overlaps as a closing tag with the
+        // range then we need to keep the node.
+        if (!node.isText && contain == TagContained.Closing) {
           return;
+        }
+
+        // NOTE(hackerwins): If the node overlaps as an opening tag with the
+        // range then we need to move the remaining children to fromParent.
+        if (!node.isText && contain == TagContained.Opening) {
+          // TODO(hackerwins): Define more clearly merge-able rules
+          // between two parents. For now, we only merge two parents are
+          // both element nodes having text children.
+          // e.g. <p>a|b</p><p>c|d</p> -> <p>a|d</p>
+          if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
+            return;
+          }
+
+          for (const child of node.children) {
+            if (toBeRemoveds.includes(child)) {
+              continue;
+            }
+
+            toBeMovedToFromParents.push(child);
+          }
         }
 
         const actorID = node.getCreatedAt().getActorID()!;
@@ -732,10 +753,13 @@ export class CRDTTree extends CRDTGCElement {
 
     for (const node of toBeRemoveds) {
       node.remove(editedAt);
-
       if (node.isRemoved) {
         this.removedNodeMap.set(node.id.toIDString(), node);
       }
+    }
+
+    for (const node of toBeMovedToFromParents) {
+      fromParent.append(node);
     }
 
     // 03. insert the given node at the given position.
