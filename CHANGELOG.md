@@ -7,6 +7,52 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.8] - 2023-11-01
+
+### Changed
+* Replace karma with vitest by @blurfx, @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/665
+* Remove vitest single thread config by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/667
+* Publish npm package with provenance by @jongwooo in https://github.com/yorkie-team/yorkie-js-sdk/pull/669
+* Update examples version to v0.4.7 by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/671
+* Update nextjs-scheduler to export static files by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/672
+* Bump browserify-sign from 4.2.1 to 4.2.2 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/678
+* Bump @babel/traverse from 7.22.11 to 7.23.2 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/670
+
+### Removed
+* Remove redundant types from tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/666
+
+### Fixed
+* Fix missing collection of removed elements from the root by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/676
+* Add more GC tests to reflect current server modifications by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/677
+* Fit Next.js example style to the yorkie homepage by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/675
+* Disable jekyll on github actions by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/674
+
+## [0.4.7] - 2023-10-06
+
+### Added
+* Introduce basic architecture to support undo and redo by @hyemmie, @chacha912 and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/650
+* Add Text devtool to CodeMirror example by @chacha912 and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/646
+* Add DisableGC option to document by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/644
+* Add toJS to return TreeNode of Tree by @JOOHOJANG and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/639
+* Add Tree.Edit benchmark and improve performance by @JOOHOJANG and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/641
+* Add simultaneous cursors example and Update examples to v0.4.6 by @YoonKiJin and @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/581
+* Add nextjs-scheduler example by @banma1234 and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/637
+
+### Changed
+* Improve tldraw example performance by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/640
+* Drop node 16 support by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/653
+* Strip internals from package d.ts files by @mojosoeun in https://github.com/yorkie-team/yorkie-js-sdk/pull/596
+* Disable realtime sync in GC test (#656) by @sejongk and @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/656
+
+### Removed
+* Remove unused trie by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/651
+* Remove SelectOpInfo by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/636
+
+### Fixed
+* Support concurrent formatting of Text by @MoonGyu1 in https://github.com/yorkie-team/yorkie-js-sdk/pull/642
+* Recover istanbul-instrumenter-loader to use debugger by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/659
+* Recover Select to prevent unsupported operation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/634
+
 ## [0.4.6] - 2023-08-25
 
 ### Added
@@ -28,7 +74,6 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 * Fix invalid path of style changes by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/632
 
 ### Removed
-
 
 ### Fixed
 * Fix `pathToTreePos` TC by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/571

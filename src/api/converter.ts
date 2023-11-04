@@ -357,6 +357,10 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
     pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
+    const pbCreatedAtMapByActor = pbStyleOperation.getCreatedAtMapByActorMap();
+    for (const [key, value] of styleOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+    }
     const pbAttributes = pbStyleOperation.getAttributesMap();
     for (const [key, value] of styleOperation.getAttributes()) {
       pbAttributes.set(key, value);
@@ -1073,6 +1077,10 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       );
     } else if (pbOperation.hasStyle()) {
       const pbStyleOperation = pbOperation.getStyle();
+      const createdAtMapByActor = new Map();
+      pbStyleOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      });
       const attributes = new Map();
       pbStyleOperation!.getAttributesMap().forEach((value, key) => {
         attributes.set(key, value);
@@ -1081,6 +1089,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
         fromTextNodePos(pbStyleOperation!.getFrom()!),
         fromTextNodePos(pbStyleOperation!.getTo()!),
+        createdAtMapByActor,
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
       );

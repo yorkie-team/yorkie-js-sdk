@@ -25,7 +25,6 @@ import {
   IndexTree,
   TreePos,
   IndexTreeNode,
-  TreeNodeType,
   traverseAll,
   TagContained,
 } from '@yorkie-js-sdk/src/util/index_tree';
@@ -34,16 +33,29 @@ import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import type {
+  DefaultTextType,
+  TreeNodeType,
+} from '@yorkie-js-sdk/src/util/index_tree';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+
+export type TreeNode = TextNode | ElementNode;
 
 /**
- * `TreeNode` represents the JSON representation of a node in the tree.
- * It is used to serialize and deserialize the tree.
+ * `ElementNode` represents an element node. It has an attributes and children.
  */
-export type TreeNode = {
+export type ElementNode<A extends Indexable = Indexable> = {
   type: TreeNodeType;
-  children?: Array<TreeNode>;
-  value?: string;
-  attributes?: { [key: string]: any };
+  attributes?: A;
+  children: Array<TreeNode>;
+};
+
+/**
+ * `TextNode` represents a text node. It has a string value.
+ */
+export type TextNode = {
+  type: typeof DefaultTextType;
+  value: string;
 };
 
 /**
@@ -453,20 +465,20 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
 }
 
 /**
- * toJSON converts the given CRDTNode to JSON.
+ * toTreeNode converts the given CRDTTreeNode to TreeNode.
  */
-function toJSON(node: CRDTTreeNode): TreeNode {
+function toTreeNode(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
     const currentNode = node;
     return {
       type: currentNode.type,
       value: currentNode.value,
-    };
+    } as TextNode;
   }
 
   return {
     type: node.type,
-    children: node.children.map(toJSON),
+    children: node.children.map(toTreeNode),
     attributes: node.attrs
       ? parseObjectValues(node.attrs?.toObject())
       : undefined,
@@ -498,7 +510,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
       value: currentNode.value,
       size: currentNode.size,
       isRemoved: currentNode.isRemoved,
-    };
+    } as TreeNodeForTest;
   }
 
   return {
@@ -679,11 +691,12 @@ export class CRDTTree extends CRDTGCElement {
       toPath: this.toPath(toParent, toLeft),
       actor: editedAt.getActorID()!,
       value: contents?.length
-        ? contents.map((content) => toJSON(content))
+        ? contents.map((content) => toTreeNode(content))
         : undefined,
     });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
+    const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
 
     this.traverseInPosRange(
@@ -692,10 +705,30 @@ export class CRDTTree extends CRDTGCElement {
       toParent,
       toLeft,
       (node, contain) => {
-        // If node is a element node and half-contained in the range,
-        // it should not be removed.
-        if (!node.isText && contain != TagContained.All) {
+        // NOTE(hackerwins): If the node overlaps as a closing tag with the
+        // range then we need to keep the node.
+        if (!node.isText && contain == TagContained.Closing) {
           return;
+        }
+
+        // NOTE(hackerwins): If the node overlaps as an opening tag with the
+        // range then we need to move the remaining children to fromParent.
+        if (!node.isText && contain == TagContained.Opening) {
+          // TODO(hackerwins): Define more clearly merge-able rules
+          // between two parents. For now, we only merge two parents are
+          // both element nodes having text children.
+          // e.g. <p>a|b</p><p>c|d</p> -> <p>a|d</p>
+          if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
+            return;
+          }
+
+          for (const child of node.children) {
+            if (toBeRemoveds.includes(child)) {
+              continue;
+            }
+
+            toBeMovedToFromParents.push(child);
+          }
         }
 
         const actorID = node.getCreatedAt().getActorID()!;
@@ -720,10 +753,13 @@ export class CRDTTree extends CRDTGCElement {
 
     for (const node of toBeRemoveds) {
       node.remove(editedAt);
-
       if (node.isRemoved) {
         this.removedNodeMap.set(node.id.toIDString(), node);
       }
+    }
+
+    for (const node of toBeMovedToFromParents) {
+      fromParent.append(node);
     }
 
     // 03. insert the given node at the given position.
@@ -951,7 +987,14 @@ export class CRDTTree extends CRDTGCElement {
    * `toJSON` returns the JSON encoding of this tree.
    */
   public toJSON(): string {
-    return JSON.stringify(toJSON(this.indexTree.getRoot()));
+    return JSON.stringify(this.getRootTreeNode());
+  }
+
+  /**
+   * `getRootTreeNode` returns the converted value of this tree to TreeNode.
+   */
+  public getRootTreeNode(): TreeNode {
+    return toTreeNode(this.indexTree.getRoot());
   }
 
   /**

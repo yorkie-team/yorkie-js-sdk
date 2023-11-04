@@ -4224,7 +4224,8 @@ proto.yorkie.v1.Operation.Style.toObject = function(includeInstance, msg) {
     from: (f = msg.getFrom()) && proto.yorkie.v1.TextNodePos.toObject(includeInstance, f),
     to: (f = msg.getTo()) && proto.yorkie.v1.TextNodePos.toObject(includeInstance, f),
     attributesMap: (f = msg.getAttributesMap()) ? f.toObject(includeInstance, undefined) : [],
-    executedAt: (f = msg.getExecutedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f)
+    executedAt: (f = msg.getExecutedAt()) && proto.yorkie.v1.TimeTicket.toObject(includeInstance, f),
+    createdAtMapByActorMap: (f = msg.getCreatedAtMapByActorMap()) ? f.toObject(includeInstance, proto.yorkie.v1.TimeTicket.toObject) : []
   };
 
   if (includeInstance) {
@@ -4286,6 +4287,12 @@ proto.yorkie.v1.Operation.Style.deserializeBinaryFromReader = function(msg, read
       var value = new proto.yorkie.v1.TimeTicket;
       reader.readMessage(value,proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader);
       msg.setExecutedAt(value);
+      break;
+    case 6:
+      var value = msg.getCreatedAtMapByActorMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.yorkie.v1.TimeTicket.deserializeBinaryFromReader, "", new proto.yorkie.v1.TimeTicket());
+         });
       break;
     default:
       reader.skipField();
@@ -4351,6 +4358,10 @@ proto.yorkie.v1.Operation.Style.serializeBinaryToWriter = function(message, writ
       f,
       proto.yorkie.v1.TimeTicket.serializeBinaryToWriter
     );
+  }
+  f = message.getCreatedAtMapByActorMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(6, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.yorkie.v1.TimeTicket.serializeBinaryToWriter);
   }
 };
 
@@ -4523,6 +4534,28 @@ proto.yorkie.v1.Operation.Style.prototype.clearExecutedAt = function() {
 proto.yorkie.v1.Operation.Style.prototype.hasExecutedAt = function() {
   return jspb.Message.getField(this, 5) != null;
 };
+
+
+/**
+ * map<string, TimeTicket> created_at_map_by_actor = 6;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>}
+ */
+proto.yorkie.v1.Operation.Style.prototype.getCreatedAtMapByActorMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.yorkie.v1.TimeTicket>} */ (
+      jspb.Message.getMapField(this, 6, opt_noLazyCreate,
+      proto.yorkie.v1.TimeTicket));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.yorkie.v1.Operation.Style} returns this
+ */
+proto.yorkie.v1.Operation.Style.prototype.clearCreatedAtMapByActorMap = function() {
+  this.getCreatedAtMapByActorMap().clear();
+  return this;};
 
 
 

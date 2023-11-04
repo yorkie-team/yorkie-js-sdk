@@ -22,6 +22,7 @@ import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 
@@ -31,18 +32,21 @@ import { Indexable } from '../document';
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
+  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
+    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.attributes = attributes;
   }
 
@@ -53,6 +57,7 @@ export class StyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
@@ -60,6 +65,7 @@ export class StyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
+      maxCreatedAtMapByActor,
       attributes,
       executedAt,
     );
@@ -68,7 +74,7 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): Array<OperationInfo> {
+  public execute<A extends Indexable>(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -77,20 +83,23 @@ export class StyleOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
     const text = parentObject as CRDTText<A>;
-    const changes = text.setStyle(
+    const [, changes] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
+      this.maxCreatedAtMapByActor,
     );
-    return changes.map(({ from, to, value }) => {
-      return {
-        type: 'style',
-        from,
-        to,
-        value,
-        path: root.createPath(this.getParentCreatedAt()),
-      };
-    }) as Array<OperationInfo>;
+    return {
+      opInfos: changes.map(({ from, to, value }) => {
+        return {
+          type: 'style',
+          from,
+          to,
+          value,
+          path: root.createPath(this.getParentCreatedAt()),
+        } as OperationInfo;
+      }),
+    };
   }
 
   /**
@@ -130,5 +139,13 @@ export class StyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes;
+  }
+
+  /**
+   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
+   * by actor for the nodes included in the editing range.
+   */
+  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
+    return this.maxCreatedAtMapByActor;
   }
 }

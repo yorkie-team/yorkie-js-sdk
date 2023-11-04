@@ -21,6 +21,7 @@ import { CRDTTree, CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
@@ -67,7 +68,7 @@ export class TreeStyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -86,16 +87,18 @@ export class TreeStyleOperation extends Operation {
       this.getExecutedAt(),
     );
 
-    return changes.map(({ from, to, value, fromPath }) => {
-      return {
-        type: 'tree-style',
-        from,
-        to,
-        value,
-        fromPath,
-        path: root.createPath(this.getParentCreatedAt()),
-      };
-    }) as Array<OperationInfo>;
+    return {
+      opInfos: changes.map(({ from, to, value, fromPath }) => {
+        return {
+          type: 'tree-style',
+          from,
+          to,
+          value,
+          fromPath,
+          path: root.createPath(this.getParentCreatedAt()),
+        } as OperationInfo;
+      }),
+    };
   }
 
   /**

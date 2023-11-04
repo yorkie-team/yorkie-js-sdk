@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node 🔧
         uses: actions/setup-node@v2
         with:
-          node-version: '16'
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
@@ -33,4 +33,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./ghpages
-          enable_jekyll: true
+          enable_jekyll: false

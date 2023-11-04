@@ -1,22 +1,22 @@
 name: npm-publish
 on:
   release:
-    types: [created]
+    types: [ created ]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout 🛎️
-      uses: actions/checkout@v2
-    - name: Setup Node 🔧
-      uses: actions/setup-node@v2
-      with:
-        node-version: '16'
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
-        registry-url: 'https://registry.npmjs.org'
-    - run: npm install
-    - run: npm run build && npm run publish:prepare
-    - run: cd bundle && npm publish
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+      - name: Setup Node 🔧
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install
+      - run: npm run build && npm run publish:prepare
+      - run: cd bundle && npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

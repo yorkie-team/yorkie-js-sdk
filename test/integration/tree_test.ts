@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import {
   toDocKey,
@@ -23,8 +23,8 @@ import {
 import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 describe('Tree', () => {
-  it('Can be created', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be created', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -67,8 +67,8 @@ describe('Tree', () => {
     });
   });
 
-  it('Can be created from JSON', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be created from JSON', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -100,8 +100,8 @@ describe('Tree', () => {
     });
   });
 
-  it('Can be created from JSON with attrebutes', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be created from JSON with attrebutes', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -127,8 +127,8 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can edit its content', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -186,8 +186,8 @@ describe('Tree', () => {
     });
   });
 
-  it('Can be subscribed by handler', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be subscribed by handler', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -236,8 +236,8 @@ describe('Tree', () => {
     );
   });
 
-  it('Can be subscribed by handler(path)', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be subscribed by handler(path)', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -308,8 +308,8 @@ describe('Tree', () => {
     );
   });
 
-  it('Can edit its content with path', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can edit its content with path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -399,8 +399,8 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content with path 2', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can edit its content with path 2', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -499,7 +499,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can sync its content with other clients', async function () {
+  it('Can sync its content with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -530,11 +530,11 @@ describe('Tree', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<doc><p>hello</p><p>yorkie</p></doc>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Get correct range from index', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Get correct range from index', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -571,8 +571,8 @@ describe('Tree', () => {
     assert.deepEqual(tree.posRangeToIndexRange(range), [5, 7]);
   });
 
-  it('Get correct range from path', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Get correct range from path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -611,8 +611,8 @@ describe('Tree', () => {
 });
 
 describe('Tree.edit', function () {
-  it('Can insert multiple text nodes', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can insert multiple text nodes', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -639,8 +639,8 @@ describe('Tree.edit', function () {
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
   });
 
-  it('Can insert multiple element nodes', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can insert multiple element nodes', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -670,8 +670,10 @@ describe('Tree.edit', function () {
     );
   });
 
-  it('Can edit its content with path when multi tree nodes passed', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can edit its content with path when multi tree nodes passed', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -776,8 +778,8 @@ describe('Tree.edit', function () {
     });
   });
 
-  it('Detecting error for empty text', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Detecting error for empty text', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -804,8 +806,8 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting error for mixed type insertion', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Detecting error for mixed type insertion', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -832,8 +834,8 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [1]', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Detecting correct error order [1]', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -866,8 +868,8 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [2]', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Detecting correct error order [2]', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -894,8 +896,8 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting correct error order [3]', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Detecting correct error order [3]', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -922,8 +924,8 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('delete nodes in a multi-level range test', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('delete nodes in a multi-level range test', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
       root.t = new Tree({
@@ -961,19 +963,13 @@ describe('Tree.edit', function () {
     );
 
     doc.update((root) => root.t.edit(2, 18));
-    assert.equal(
-      doc.getRoot().t.toXML(),
-      /*html*/ `<doc><p>a</p><p>f</p></doc>`,
-    );
-
-    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
-    // assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>af</p></doc>`);
   });
 });
 
 describe('Tree.style', function () {
-  it('Can be inserted with attributes', function () {
-    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(this.test!.title));
+  it('Can be inserted with attributes', function ({ task }) {
+    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(task.name));
     doc.update((root) => {
       root.t = new Tree({
         type: 'doc',
@@ -998,8 +994,8 @@ describe('Tree.style', function () {
     );
   });
 
-  it('Can be edited with index', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be edited with index', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -1044,8 +1040,8 @@ describe('Tree.style', function () {
     });
   });
 
-  it('Can be edited with path', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can be edited with path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -1095,7 +1091,9 @@ describe('Tree.style', function () {
     });
   });
 
-  it('Can sync its content containing attributes with other replicas', async function () {
+  it('Can sync its content containing attributes with other replicas', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1135,11 +1133,11 @@ describe('Tree.style', function () {
         d2.getRoot().t.toXML(),
         /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('style node with element attributes test', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('style node with element attributes test', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -1199,7 +1197,7 @@ describe('Tree.style', function () {
 });
 
 describe('Concurrent editing, overlapping range', () => {
-  it('Can concurrently delete overlapping elements', async function () {
+  it('Can concurrently delete overlapping elements', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1232,10 +1230,10 @@ describe('Concurrent editing, overlapping range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete overlapping text', async function () {
+  it('Can concurrently delete overlapping text', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1260,12 +1258,14 @@ describe('Concurrent editing, overlapping range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 });
 
 describe('Concurrent editing, contained range', () => {
-  it('Can concurrently insert and delete contained elements of the same depth', async function () {
+  it('Can concurrently insert and delete contained elements of the same depth', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1300,10 +1300,12 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently multiple insert and delete contained elements of the same depth', async function () {
+  it('Can concurrently multiple insert and delete contained elements of the same depth', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1347,10 +1349,12 @@ describe('Concurrent editing, contained range', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p></p><p></p><p></p><p></p></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Detecting error when inserting and deleting contained elements at different depths', async function () {
+  it('Detecting error when inserting and deleting contained elements at different depths', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1376,10 +1380,10 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete contained elements', async function () {
+  it('Can concurrently delete contained elements', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1415,10 +1419,12 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert and delete contained text', async function () {
+  it('Can concurrently insert and delete contained text', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1446,10 +1452,10 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete contained text', async function () {
+  it('Can concurrently delete contained text', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1477,10 +1483,12 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert and delete contained text and elements', async function () {
+  it('Can concurrently insert and delete contained text and elements', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1508,10 +1516,12 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete contained text and elements', async function () {
+  it('Can concurrently delete contained text and elements', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1539,12 +1549,14 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 });
 
 describe('Concurrent editing, side by side range', () => {
-  it('Can concurrently insert side by side elements (left)', async function () {
+  it('Can concurrently insert side by side elements (left)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1578,10 +1590,12 @@ describe('Concurrent editing, side by side range', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><i></i><b></b><p></p></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert side by side elements (middle)', async function () {
+  it('Can concurrently insert side by side elements (middle)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1615,10 +1629,12 @@ describe('Concurrent editing, side by side range', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p><i></i><b></b></p></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert side by side elements (right)', async function () {
+  it('Can concurrently insert side by side elements (right)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1652,10 +1668,12 @@ describe('Concurrent editing, side by side range', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p></p><i></i><b></b></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert and delete side by side elements', async function () {
+  it('Can concurrently insert and delete side by side elements', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1686,10 +1704,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete and insert side by side elements', async function () {
+  it('Can concurrently delete and insert side by side elements', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1720,10 +1740,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i></i></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete side by side elements', async function () {
+  it('Can concurrently delete side by side elements', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1760,10 +1782,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can insert text to the same position(left) concurrently', async function () {
+  it('Can insert text to the same position(left) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1786,10 +1810,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can insert text to the same position(middle) concurrently', async function () {
+  it('Can insert text to the same position(middle) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1812,10 +1838,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can insert text content to the same position(right) concurrently', async function () {
+  it('Can insert text content to the same position(right) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1838,10 +1866,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently insert and delete side by side text', async function () {
+  it('Can concurrently insert and delete side by side text', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1866,10 +1896,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12a</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12a</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete and insert side by side text', async function () {
+  it('Can concurrently delete and insert side by side text', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1894,10 +1926,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a34</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a34</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can concurrently delete side by side text blocks', async function () {
+  it('Can concurrently delete side by side text blocks', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1922,10 +1956,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can delete text content at the same position(left) concurrently', async function () {
+  it('Can delete text content at the same position(left) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1948,10 +1984,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>23</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can delete text content at the same position(middle) concurrently', async function () {
+  it('Can delete text content at the same position(middle) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1974,10 +2012,12 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>13</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can delete text content at the same position(right) concurrently', async function () {
+  it('Can delete text content at the same position(right) concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2000,12 +2040,14 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 });
 
 describe('Concurrent editing, complex cases', () => {
-  it('Can delete text content anchored to another concurrently', async function () {
+  it('Can delete text content anchored to another concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2028,10 +2070,10 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can produce complete deletion concurrently', async function () {
+  it('Can produce complete deletion concurrently', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2054,10 +2096,10 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle block delete concurrently', async function () {
+  it('Can handle block delete concurrently', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2082,10 +2124,12 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>3</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle insert within block delete concurrently', async function () {
+  it('Can handle insert within block delete concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2110,10 +2154,12 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1B5</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1B5</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle insert within block delete concurrently [2]', async function () {
+  it('Can handle insert within block delete concurrently [2]', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2145,10 +2191,12 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1abc</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1abc</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle block element insertion within delete [2]', async function () {
+  it('Can handle block element insertion within delete [2]', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2196,10 +2244,12 @@ describe('Concurrent editing, complex cases', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p>cd</p><i>fg</i></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent element insert/ deletion (left)', async function () {
+  it('Can handle concurrent element insert/ deletion (left)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2240,10 +2290,12 @@ describe('Concurrent editing, complex cases', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p>cd</p><i>fg</i></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle concurrent element insert/ deletion (right)', async function () {
+  it('Can handle concurrent element insert/ deletion (right)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2285,10 +2337,12 @@ describe('Concurrent editing, complex cases', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p>cd</p><i>fg</i></r>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle deletion of insertion anchor concurrently', async function () {
+  it('Can handle deletion of insertion anchor concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2312,10 +2366,12 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A2</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A2</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle deletion after insertion concurrently', async function () {
+  it('Can handle deletion after insertion concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2338,10 +2394,12 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('Can handle deletion before insertion concurrently', async function () {
+  it('Can handle deletion before insertion concurrently', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2364,13 +2422,15 @@ describe('Concurrent editing, complex cases', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>A</p></r>`);
-    }, this.test!.title);
+    }, task.name);
   });
 });
 
 describe('testing edge cases', () => {
-  it('Can delete very first text when there is tombstone in front of target text', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can delete very first text when there is tombstone in front of target text', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -2408,8 +2468,10 @@ describe('testing edge cases', () => {
     });
   });
 
-  it('Can delete node when there is more than one text node in front which has size bigger than 1', function () {
-    const key = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+  it('Can delete node when there is more than one text node in front which has size bigger than 1', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
     doc.update((root) => {
@@ -2450,7 +2512,7 @@ describe('testing edge cases', () => {
     });
   });
 
-  it('split link can transmitted through rpc', async function () {
+  it('split link can transmitted through rpc', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2492,10 +2554,10 @@ describe('testing edge cases', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<doc><p>a12321b</p></doc>`,
       );
-    }, this.test!.title);
+    }, task.name);
   });
 
-  it('can calculate size of index tree correctly', async function () {
+  it('can calculate size of index tree correctly', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2527,6 +2589,6 @@ describe('testing edge cases', () => {
       const size = d1.getRoot().t.getIndexTree().getRoot().size;
 
       assert.equal(d2.getRoot().t.getIndexTree().getRoot().size, size);
-    }, this.test!.title);
+    }, task.name);
   });
 });

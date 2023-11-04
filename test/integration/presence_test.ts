@@ -1,6 +1,9 @@
-import { assert } from 'chai';
-import * as sinon from 'sinon';
-import yorkie, { DocEvent, DocEventType } from '@yorkie-js-sdk/src/yorkie';
+import { describe, it, assert, vi, afterEach } from 'vitest';
+import yorkie, {
+  DocEvent,
+  DocEventType,
+  Counter,
+} from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -8,23 +11,23 @@ import {
 import { EventCollector, deepSort } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Presence', function () {
-  it('Can be built from a snapshot', async function () {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('Can be built from a snapshot', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      isRealtimeSync: false,
-    });
+    await c1.attach(doc1, { isRealtimeSync: false });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      isRealtimeSync: false,
-    });
+    await c2.attach(doc2, { isRealtimeSync: false });
 
     const snapshotThreshold = 500;
     for (let i = 0; i < snapshotThreshold; i++) {
@@ -41,13 +44,15 @@ describe('Presence', function () {
     });
   });
 
-  it('Can be set initial value in attach and be removed in detach', async function () {
+  it('Can be set initial value in attach and be removed in detach', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
@@ -74,23 +79,21 @@ describe('Presence', function () {
     assert.isFalse(doc1.hasPresence(c2.getID()!));
   });
 
-  it('Should be initialized as an empty object if no initial value is set during attach', async function () {
+  it('Should be initialized as an empty object if no initial value is set during attach', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      isRealtimeSync: false,
-    });
+    await c1.attach(doc1, { isRealtimeSync: false });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      isRealtimeSync: false,
-    });
+    await c2.attach(doc2, { isRealtimeSync: false });
 
     const emptyObject = {} as PresenceType;
     assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), emptyObject);
@@ -102,7 +105,7 @@ describe('Presence', function () {
     assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), emptyObject);
   });
 
-  it('Should be synced eventually', async function () {
+  it('Should be synced eventually', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -110,20 +113,20 @@ describe('Presence', function () {
     const c1ID = c1.getID()!;
     const c2ID = c2.getID()!;
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const eventCollectorP1 = new EventCollector<DocEvent>();
     const eventCollectorP2 = new EventCollector<DocEvent>();
     type PresenceType = { name: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, { initialPresence: { name: 'a' } });
-    const stub1 = sinon.stub().callsFake((event) => {
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollectorP1.add(event);
     });
     const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
-    const stub2 = sinon.stub().callsFake((event) => {
+    const stub2 = vi.fn().mockImplementation((event) => {
       eventCollectorP2.add(event);
     });
     const unsub2 = doc2.subscribe('presence', stub2);
@@ -173,13 +176,15 @@ describe('Presence', function () {
     unsub2();
   });
 
-  it('Can be updated partially by doc.update function', async function () {
+  it('Can be updated partially by doc.update function', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string; cursor: { x: number; y: number } };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
@@ -207,7 +212,7 @@ describe('Presence', function () {
     });
   });
 
-  it(`Should return only online clients`, async function () {
+  it(`Should return only online clients`, async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -218,7 +223,7 @@ describe('Presence', function () {
     const c2ID = c2.getID()!;
     const c3ID = c3.getID()!;
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string; cursor: { x: number; y: number } };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
@@ -226,7 +231,7 @@ describe('Presence', function () {
     });
 
     const eventCollector = new EventCollector<DocEvent>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event);
     });
     const unsub = doc1.subscribe('presence', stub);
@@ -274,13 +279,15 @@ describe('Presence', function () {
     await c3.deactivate();
   });
 
-  it('Can get presence value using p.get() within doc.update function', async function () {
+  it('Can get presence value using p.get() within doc.update function', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { counter: number };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
@@ -307,7 +314,9 @@ describe('Presence', function () {
 });
 
 describe(`Document.Subscribe('presence')`, function () {
-  it(`Should receive presence-changed event for final presence if there are multiple presence changes within doc.update`, async function () {
+  it(`Should receive presence-changed event for final presence if there are multiple presence changes within doc.update`, async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -315,7 +324,7 @@ describe(`Document.Subscribe('presence')`, function () {
     const c1ID = c1.getID()!;
     const c2ID = c2.getID()!;
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const eventCollectorP1 = new EventCollector<DocEvent>();
     const eventCollectorP2 = new EventCollector<DocEvent>();
     type PresenceType = { name: string; cursor: { x: number; y: number } };
@@ -323,7 +332,7 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.attach(doc1, {
       initialPresence: { name: 'a', cursor: { x: 0, y: 0 } },
     });
-    const stub1 = sinon.stub().callsFake((event) => {
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollectorP1.add(event);
     });
     const unsub1 = doc1.subscribe('presence', stub1);
@@ -332,7 +341,7 @@ describe(`Document.Subscribe('presence')`, function () {
     await c2.attach(doc2, {
       initialPresence: { name: 'b', cursor: { x: 0, y: 0 } },
     });
-    const stub2 = sinon.stub().callsFake((event) => {
+    const stub2 = vi.fn().mockImplementation((event) => {
       eventCollectorP2.add(event);
     });
     const unsub2 = doc2.subscribe('presence', stub2);
@@ -363,7 +372,9 @@ describe(`Document.Subscribe('presence')`, function () {
     unsub2();
   });
 
-  it(`Can receive 'unwatched' event when a client detaches`, async function () {
+  it(`Can receive 'unwatched' event when a client detaches`, async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -371,22 +382,18 @@ describe(`Document.Subscribe('presence')`, function () {
     const c1ID = c1.getID()!;
     const c2ID = c2.getID()!;
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string };
     const eventCollector = new EventCollector<DocEvent>();
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, {
-      initialPresence: { name: 'a' },
-    });
-    const stub1 = sinon.stub().callsFake((event) => {
+    await c1.attach(doc1, { initialPresence: { name: 'a' } });
+    const stub1 = vi.fn().mockImplementation((event) => {
       eventCollector.add(event);
     });
     const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, {
-      initialPresence: { name: 'b' },
-    });
+    await c2.attach(doc2, { initialPresence: { name: 'b' } });
     await eventCollector.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: { name: 'b' } },
@@ -413,7 +420,9 @@ describe(`Document.Subscribe('presence')`, function () {
     unsub1();
   });
 
-  it(`Can receive presence-related event only when using realtime sync`, async function () {
+  it(`Can receive presence-related event only when using realtime sync`, async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -423,14 +432,14 @@ describe(`Document.Subscribe('presence')`, function () {
     const c2ID = c2.getID()!;
     const c3ID = c3.getID()!;
 
-    const docKey = toDocKey(`${this.test!.title}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string; cursor: { x: number; y: number } };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { name: 'a1', cursor: { x: 0, y: 0 } },
     });
     const eventCollector = new EventCollector<DocEvent>();
-    const stub = sinon.stub().callsFake((event) => {
+    const stub = vi.fn().mockImplementation((event) => {
       eventCollector.add(event);
     });
     const unsub = doc1.subscribe('presence', stub);
@@ -537,5 +546,259 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.deactivate();
     await c2.deactivate();
     await c3.deactivate();
+  });
+});
+
+describe('Undo/Redo', function () {
+  it('Can undo/redo with presence', async function ({ task }) {
+    type TestDoc = { counter: Counter };
+    type Presence = { color: string };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc, Presence>(docKey);
+    doc.update((root) => {
+      root.counter = new Counter(yorkie.IntType, 100);
+    }, 'init counter');
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, { initialPresence: { color: 'red' } });
+
+    // 1. Presence update only
+    doc.update((root, presence) => {
+      presence.set({ color: 'blue' }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'blue',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'red',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'blue',
+    });
+
+    // 2. Presence update with root update
+    doc.update((root, presence) => {
+      root.counter.increase(1);
+      presence.set({ color: 'green' }, { addToHistory: true });
+    }, 'increase 1');
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'blue',
+    });
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"counter":101}');
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    await client.deactivate();
+  });
+
+  it('Should not impact undo if presence is not added to history', async function ({
+    task,
+  }) {
+    type Presence = { color: string; cursor: { x: number; y: number } };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{}, Presence>(docKey);
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, {
+      initialPresence: { color: 'red', cursor: { x: 0, y: 0 } },
+    });
+
+    // 1. Setting addToHistory for both color and cursor
+    doc.update((root, presence) => {
+      presence.set(
+        { color: 'blue', cursor: { x: 1, y: 1 } },
+        { addToHistory: true },
+      );
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'blue',
+      cursor: { x: 1, y: 1 },
+    });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+    ]);
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'red',
+      cursor: { x: 0, y: 0 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'blue',
+      cursor: { x: 1, y: 1 },
+    });
+
+    // 2. Setting addToHistory only for the cursor
+    doc.update((root, presence) => {
+      presence.set({ color: 'green' });
+      presence.set({ cursor: { x: 2, y: 2 } }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 2, y: 2 },
+    });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { cursor: { x: 1, y: 1 } },
+        }),
+      ],
+    ]);
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+      cursor: { x: 2, y: 2 },
+    });
+
+    // 3. Not setting addToHistory
+    doc.update((root, presence) => {
+      presence.set({ color: 'black' });
+      presence.set({ cursor: { x: 3, y: 3 } });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 3, y: 3 },
+    });
+    assert.deepEqual(doc.getUndoStackForTest(), [
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { color: 'red', cursor: { x: 0, y: 0 } },
+        }),
+      ],
+      [
+        JSON.stringify({
+          type: 'presence',
+          value: { cursor: { x: 1, y: 1 } },
+        }),
+      ],
+    ]);
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 1, y: 1 },
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'black',
+      cursor: { x: 3, y: 3 },
+    });
+
+    await client.deactivate();
+  });
+
+  it('Should handle undo/redo correctly for multiple changes to a single presence key within update', async function ({
+    task,
+  }) {
+    type Presence = { color: string };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{}, Presence>(docKey);
+
+    const client = new yorkie.Client(testRPCAddr);
+    await client.activate();
+    await client.attach(doc, { initialPresence: { color: 'red' } });
+
+    // 1. When multiple changes are made to the "color" key,
+    // it should revert to the value before doc.update() call.
+    doc.update((root, presence) => {
+      presence.set({ color: 'blue' }, { addToHistory: true });
+      presence.set({ color: 'green' }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'red',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    // 2. `addToHistory` option accumulates for a single key,
+    // applying to the last key only. When set to true for the
+    // last "color" key, it adds the color to the undo stack.
+    doc.update((root, presence) => {
+      presence.set({ color: 'black' });
+      presence.set({ color: 'purple' }, { addToHistory: true });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'purple',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'purple',
+    });
+
+    // 3. When `addToHistory` is false for the last key, it
+    // will not be added to the undo stack. The default value
+    // when the option is not set is false.
+    doc.update((root, presence) => {
+      presence.set({ color: 'yellow' }, { addToHistory: true });
+      presence.set({ color: 'orange' });
+    });
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'orange',
+    });
+
+    doc.history.undo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'green',
+    });
+
+    doc.history.redo();
+    assert.deepEqual(doc.getMyPresence(), {
+      color: 'orange',
+    });
+
+    await client.deactivate();
   });
 });

@@ -56,6 +56,7 @@ import {
   CounterOperationInfo,
   ArrayOperationInfo,
   TreeOperationInfo,
+  Operation,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
@@ -65,6 +66,19 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
+import { History } from '@yorkie-js-sdk/src/document/history';
+
+/**
+ * `DocumentOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface DocumentOptions {
+  /**
+   * `disableGC` disables garbage collection if true.
+   */
+  disableGC?: boolean;
+}
 
 /**
  * `DocumentStatus` represents the status of the document.
@@ -388,6 +402,7 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 export class Document<T, P extends Indexable = Indexable> {
   private key: DocumentKey;
   private status: DocumentStatus;
+  private opts: DocumentOptions;
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
@@ -412,7 +427,25 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private presences: Map<ActorID, P>;
 
-  constructor(key: string) {
+  /**
+   * `history` is exposed to the user to manage undo/redo operations.
+   */
+  public history;
+
+  /**
+   * `internalHistory` is used to manage undo/redo operations internally.
+   */
+  public internalHistory: History<P>;
+
+  /**
+   * `isUpdating` is whether the document is updating by updater or not. It is
+   * used to prevent the updater from calling undo/redo.
+   */
+  private isUpdating: boolean;
+
+  constructor(key: string, opts?: DocumentOptions) {
+    this.opts = opts || {};
+
     this.key = key;
     this.status = DocumentStatus.Detached;
     this.root = CRDTRoot.create();
@@ -427,6 +460,15 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.onlineClients = new Set();
     this.presences = new Map();
+
+    this.isUpdating = false;
+    this.internalHistory = new History();
+    this.history = {
+      canUndo: this.canUndo.bind(this),
+      canRedo: this.canRedo.bind(this),
+      undo: this.undo.bind(this),
+      redo: this.redo.bind(this),
+    };
   }
 
   /**
@@ -440,13 +482,15 @@ export class Document<T, P extends Indexable = Indexable> {
       throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
     }
 
+    // 01. Update the clone object and create a change.
     this.ensureClone();
+    const actorID = this.changeID.getActorID()!;
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(actorID) || ({} as P),
       message,
     );
-    const actorID = this.changeID.getActorID()!;
 
     try {
       const proxy = createJSON<JSONObject<T>>(
@@ -458,6 +502,9 @@ export class Document<T, P extends Indexable = Indexable> {
         this.clone!.presences.set(actorID, {} as P);
       }
 
+      // NOTE(hackerwins): The updater should not be able to call undo/redo.
+      // If the updater calls undo/redo, an error will be thrown.
+      this.isUpdating = true;
       updater(
         proxy,
         new Presence(context, this.clone!.presences.get(actorID)!),
@@ -467,16 +514,31 @@ export class Document<T, P extends Indexable = Indexable> {
       this.clone = undefined;
       logger.error(err);
       throw err;
+    } finally {
+      this.isUpdating = false;
     }
 
+    // 02. Update the root object and presences from changes.
     if (context.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
       const change = context.getChange();
-      const opInfos = change.execute(this.root, this.presences);
+      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      const reversePresence = context.getReversePresence();
+      if (reversePresence) {
+        reverseOps.push({
+          type: 'presence',
+          value: reversePresence,
+        });
+      }
+
       this.localChanges.push(change);
+      if (reverseOps.length > 0) {
+        this.internalHistory.pushUndo(reverseOps);
+      }
+      this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
       if (change.hasOperations()) {
@@ -489,7 +551,6 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
-
       if (change.hasPresenceChange()) {
         this.publish({
           type: DocEventType.PresenceChanged,
@@ -499,7 +560,6 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
-
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
@@ -878,6 +938,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
     );
     return createJSON<T>(context, this.clone!.root.getObject());
   }
@@ -888,6 +949,10 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public garbageCollect(ticket: TimeTicket): number {
+    if (this.opts.disableGC) {
+      return 0;
+    }
+
     if (this.clone) {
       this.clone.root.garbageCollect(ticket);
     }
@@ -910,6 +975,13 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
+  }
+
+  /**
+   * `getGarbageLenFromClone` returns the length of elements should be purged from clone.
+   */
+  public getGarbageLenFromClone(): number {
+    return this.clone!.root.getGarbageLen();
   }
 
   /**
@@ -1014,12 +1086,12 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const opInfos = change.execute(this.root, this.presences);
+      const executionResult = change.execute(this.root, this.presences);
       if (change.hasOperations()) {
         changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
-          operations: opInfos,
+          operations: executionResult.opInfos,
         };
       }
 
@@ -1148,5 +1220,200 @@ export class Document<T, P extends Indexable = Indexable> {
       }
     }
     return presences;
+  }
+
+  /**
+   * `canUndo` returns whether there are any operations to undo.
+   */
+  private canUndo(): boolean {
+    return this.internalHistory.hasUndo() && !this.isUpdating;
+  }
+
+  /**
+   * `canRedo` returns whether there are any operations to redo.
+   */
+  private canRedo(): boolean {
+    return this.internalHistory.hasRedo() && !this.isUpdating;
+  }
+
+  /**
+   * `undo` undoes the last operation executed by the current client.
+   * It does not impact operations made by other clients.
+   */
+  private undo(): void {
+    if (this.isUpdating) {
+      throw new Error('Undo is not allowed during an update');
+    }
+    const undoOps = this.internalHistory.popUndo();
+    if (undoOps === undefined) {
+      throw new Error('There is no operation to be undone');
+    }
+
+    this.ensureClone();
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
+    const context = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+    );
+
+    // apply undo operation in the context to generate a change
+    for (const undoOp of undoOps) {
+      if (!(undoOp instanceof Operation)) {
+        const presence = new Presence<P>(
+          context,
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+        );
+        presence.set(undoOp.value, { addToHistory: true });
+        continue;
+      }
+      const ticket = context.issueTimeTicket();
+      undoOp.setExecutedAt(ticket);
+      context.push(undoOp);
+    }
+
+    const change = context.getChange();
+    try {
+      change.execute(this.clone!.root, this.clone!.presences);
+    } catch (err) {
+      // drop clone because it is contaminated.
+      this.clone = undefined;
+      logger.error(err);
+      throw err;
+    }
+
+    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const reversePresence = context.getReversePresence();
+    if (reversePresence) {
+      reverseOps.push({
+        type: 'presence',
+        value: reversePresence,
+      });
+    }
+    if (reverseOps.length > 0) {
+      this.internalHistory.pushRedo(reverseOps);
+    }
+
+    this.localChanges.push(change);
+    this.changeID = change.getID();
+
+    const actorID = this.changeID.getActorID()!;
+    if (change.hasOperations()) {
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+        },
+      });
+    }
+    if (change.hasPresenceChange()) {
+      this.publish({
+        type: DocEventType.PresenceChanged,
+        value: {
+          clientID: actorID,
+          presence: this.getPresence(actorID)!,
+        },
+      });
+    }
+  }
+
+  /**
+   * `redo` redoes the last operation executed by the current client.
+   * It does not impact operations made by other clients.
+   */
+  private redo(): void {
+    if (this.isUpdating) {
+      throw new Error('Redo is not allowed during an update');
+    }
+
+    const redoOps = this.internalHistory.popRedo();
+    if (redoOps === undefined) {
+      throw new Error('There is no operation to be redone');
+    }
+
+    this.ensureClone();
+    const context = ChangeContext.create<P>(
+      this.changeID.next(),
+      this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+    );
+
+    // apply redo operation in the context to generate a change
+    for (const redoOp of redoOps) {
+      if (!(redoOp instanceof Operation)) {
+        const presence = new Presence<P>(
+          context,
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+        );
+        presence.set(redoOp.value, { addToHistory: true });
+        continue;
+      }
+      const ticket = context.issueTimeTicket();
+      redoOp.setExecutedAt(ticket);
+      context.push(redoOp);
+    }
+
+    const change = context.getChange();
+    try {
+      change.execute(this.clone!.root, this.clone!.presences);
+    } catch (err) {
+      // drop clone because it is contaminated.
+      this.clone = undefined;
+      logger.error(err);
+      throw err;
+    }
+
+    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const reversePresence = context.getReversePresence();
+    if (reversePresence) {
+      reverseOps.push({
+        type: 'presence',
+        value: reversePresence,
+      });
+    }
+    if (reverseOps.length > 0) {
+      this.internalHistory.pushUndo(reverseOps);
+    }
+
+    this.localChanges.push(change);
+    this.changeID = change.getID();
+
+    const actorID = this.changeID.getActorID()!;
+    if (change.hasOperations()) {
+      this.publish({
+        type: DocEventType.LocalChange,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+        },
+      });
+    }
+    if (change.hasPresenceChange()) {
+      this.publish({
+        type: DocEventType.PresenceChanged,
+        value: {
+          clientID: actorID,
+          presence: this.getPresence(actorID)!,
+        },
+      });
+    }
+  }
+
+  /**
+   * `getUndoStackForTest` returns the undo stack for test.
+   */
+  public getUndoStackForTest(): Array<Array<string>> {
+    return this.internalHistory.getUndoStackForTest();
+  }
+
+  /**
+   * `getRedoStackForTest` returns the redo stack for test.
+   */
+  public getRedoStackForTest(): Array<Array<string>> {
+    return this.internalHistory.getRedoStackForTest();
   }
 }

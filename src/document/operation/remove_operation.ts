@@ -20,6 +20,7 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   Operation,
   OperationInfo,
+  ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
@@ -53,7 +54,7 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): Array<OperationInfo> {
+  public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
@@ -66,21 +67,24 @@ export class RemoveOperation extends Operation {
     const elem = obj.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
-    return parentObject instanceof CRDTArray
-      ? [
-          {
-            type: 'remove',
-            path: root.createPath(this.getParentCreatedAt()),
-            index: Number(key),
-          },
-        ]
-      : [
-          {
-            type: 'remove',
-            path: root.createPath(this.getParentCreatedAt()),
-            key,
-          },
-        ];
+    const opInfos: Array<OperationInfo> =
+      parentObject instanceof CRDTArray
+        ? [
+            {
+              type: 'remove',
+              path: root.createPath(this.getParentCreatedAt()),
+              index: Number(key),
+            },
+          ]
+        : [
+            {
+              type: 'remove',
+              path: root.createPath(this.getParentCreatedAt()),
+              key,
+            },
+          ];
+
+    return { opInfos };
   }
 
   /**

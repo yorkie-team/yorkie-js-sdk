@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { describe, it, assert } from 'vitest';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
@@ -43,6 +43,7 @@ const DTP = CRDTTreeNodeID.of(ITT, 0);
 const dummyContext = ChangeContext.create(
   InitialChangeID,
   new CRDTRoot(new CRDTObject(ITT, ElementRHT.create())),
+  {},
 );
 
 /**
@@ -90,7 +91,7 @@ describe('CRDTTreeNode', function () {
 });
 
 // NOTE: To see the XML string as highlighted, install es6-string-html plugin in VSCode.
-describe('CRDTTree', function () {
+describe('CRDTTree.Edit', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
@@ -249,7 +250,7 @@ describe('CRDTTree', function () {
   });
 });
 
-describe.skip('Tree.split', function () {
+describe.skip('CRDTTree.Split', function () {
   it('Can split text nodes', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1     6     11
@@ -416,7 +417,7 @@ describe.skip('Tree.split', function () {
   });
 });
 
-describe('Tree.move', function () {
+describe('CRDTTree.Merge', function () {
   it('Can delete nodes between element nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
@@ -439,27 +440,58 @@ describe('Tree.move', function () {
     );
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
-    // 02. delete b, c and first paragraph.
+    // 02. delete b, c and the second paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
     tree.editByIndex([2, 6], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>d</p></root>`);
-    // TODO(sejongk): Use the below assertion after implementing Tree.Move.
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
 
-    // const treeNode = tree.toTestTreeNode();
-    // assert.equal(treeNode.size, 4); // root
-    // assert.equal(treeNode.children![0].size, 2); // p
-    // assert.equal(treeNode.children![0].children![0].size, 1); // a
-    // assert.equal(treeNode.children![0].children![1].size, 1); // d
+    const node = tree.toTestTreeNode();
+    assert.equal(node.size, 4); // root
+    assert.equal(node.children![0].size, 2); // p
+    assert.equal(node.children![0].children![0].size, 1); // a
+    assert.equal(node.children![0].children![1].size, 1); // d
 
-    // // 03. insert a new text node at the start of the first paragraph.
-    // tree.editByIndex(
-    //   [1, 1],
-    //   [new CRDTTreeNode(issuePos(), 'text', '@')],
-    //   issueTime(),
-    // );
-    // assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
+    // 03. insert a new text node at the start of the first paragraph.
+    tree.editByIndex(
+      [1, 1],
+      [new CRDTTreeNode(issuePos(), 'text', '@')],
+      issueTime(),
+    );
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
+  });
+
+  it('Can delete nodes between elements in different level with edit', function () {
+    // 01. Create a tree with 2 paragraphs.
+    //       0   1   2 3 4    5    6   7 8 9    10
+    // <root> <p> <b> a b </b> </p> <p> c d </p>  </root>
+    const tree = new CRDTTree(
+      new CRDTTreeNode(issuePos(), 'root'),
+      issueTime(),
+    );
+    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
+    tree.editByIndex(
+      [2, 2],
+      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
+      issueTime(),
+    );
+    tree.editByIndex([6, 6], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
+    tree.editByIndex(
+      [7, 7],
+      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
+      issueTime(),
+    );
+    assert.deepEqual(
+      tree.toXML(),
+      /*html*/ `<root><p><b>ab</b></p><p>cd</p></root>`,
+    );
+
+    // 02. delete b, c and second paragraph.
+    //       0   1   2 3 4    5
+    // <root> <p> <b> a d </b> </root>
+    tree.editByIndex([3, 8], undefined, issueTime());
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ad</b></p></root>`);
   });
 
   it.skip('Can merge different levels with edit', function () {
