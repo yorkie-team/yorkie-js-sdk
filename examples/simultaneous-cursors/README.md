@@ -1,4 +1,4 @@
-# Yorkie Quill Example
+# Yorkie Simultaneous-Cursors Example
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/vanilla-quill/" target="_blank">
