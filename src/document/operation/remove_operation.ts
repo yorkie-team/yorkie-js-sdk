@@ -62,15 +62,6 @@ export class RemoveOperation extends Operation {
     source?: OpSource,
   ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-
-    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
-    if (
-      source === OpSource.UndoRedo &&
-      (!parentObject || parentObject.getRemovedAt())
-    ) {
-      return;
-    }
-
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
@@ -79,10 +70,11 @@ export class RemoveOperation extends Operation {
     }
     const obj = parentObject as CRDTContainer;
     const key = obj.subPathOf(this.createdAt);
-    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
+    // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
     if (
       source === OpSource.UndoRedo &&
-      ((obj instanceof CRDTObject && !obj.has(key!)) ||
+      (obj.getRemovedAt() ||
+        (obj instanceof CRDTObject && !obj.has(key!)) ||
         (obj instanceof CRDTArray && !obj.get(this.createdAt)))
     ) {
       return;

@@ -399,8 +399,8 @@ describe('Object', function () {
         shape?: { color: string };
       }
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-      const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
-      const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
 
       const client1 = new Client(testRPCAddr);
       const client2 = new Client(testRPCAddr);
@@ -582,8 +582,12 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
 
-      // TODO(chacha912): fix error that occurs when undoing
+      // TODO(chacha912): fix error that occurs when undoing and make the test pass
       doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc2.toSortedJSON(), '{}');
     });
   });
 });

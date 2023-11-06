@@ -65,15 +65,6 @@ export class SetOperation extends Operation {
     source?: OpSource,
   ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-
-    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
-    if (
-      source === OpSource.UndoRedo &&
-      (!parentObject || parentObject.getRemovedAt())
-    ) {
-      return;
-    }
-
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
@@ -81,6 +72,10 @@ export class SetOperation extends Operation {
       logger.fatal(`fail to execute, only object can execute set`);
     }
     const obj = parentObject as CRDTObject;
+    // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
+    if (source === OpSource.UndoRedo && obj.getRemovedAt()) {
+      return;
+    }
     const previousValue = obj.get(this.key);
     const reverseOp = this.getReverseOperation(previousValue);
 
