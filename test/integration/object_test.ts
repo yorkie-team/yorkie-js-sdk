@@ -587,15 +587,16 @@ describe('Object', function () {
       assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
     });
 
-    it.skip(`Should handle case of reverse operations referencing already garbage-collected elements`, async function ({
+    it(`Should handle case of reverse operations referencing already garbage-collected elements`, async function ({
       task,
     }) {
       interface TestDoc {
         shape: { color: string };
       }
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-      const doc1 = new Document<TestDoc>(docKey);
-      const doc2 = new Document<TestDoc>(docKey);
+      // TODO(chacha912): Remove the disableGC option
+      const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
+      const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
 
       const client1 = new Client(testRPCAddr);
       const client2 = new Client(testRPCAddr);
@@ -626,12 +627,13 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
 
-      // TODO(chacha912): fix error that occurs when undoing and make the test pass
       doc1.history.undo();
-      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
+      assert.equal(doc1.getRedoStackForTest().length, 0);
+      assert.equal(doc1.history.canRedo(), false);
       await client1.sync();
       await client2.sync();
-      assert.equal(doc2.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
     });
   });
 });

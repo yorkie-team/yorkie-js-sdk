@@ -99,6 +99,14 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
+   * `hasByCreatedAt` returns whether the element exists of the given
+   * createdAt or not.
+   */
+  public hasByCreatedAt(createdAt: TimeTicket): boolean {
+    return this.memberNodes.hasByCreatedAt(createdAt);
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this object.
    */
   public toJSON(): string {

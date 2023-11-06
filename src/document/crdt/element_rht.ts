@@ -185,6 +185,17 @@ export class ElementRHT {
   }
 
   /**
+   * `hasByCreatedAt` returns whether the element exists of the given createdAt or not.
+   */
+  public hasByCreatedAt(createdAt: TimeTicket): boolean {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    if (node == null) {
+      return false;
+    }
+    return !node.isRemoved();
+  }
+
+  /**
    * `get` returns the value of the given key.
    */
   public get(key: string): CRDTElement | undefined {
