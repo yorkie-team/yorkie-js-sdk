@@ -83,16 +83,22 @@ const objectDevtool = (
                 op.value,
               )}</span>`;
             }
-            let id = op.getExecutedAt()?.toTestString();
-            if (id) {
-              id = `<span class="timeticket">${id}</span>`;
-            }
             const opType = op.toTestString().split('.')[1];
-            return `<span class="op">
-                    <span class="type ${opType.toLowerCase()}">${opType}</span>
-                    ${id ? id : ''}
-                    ${op.toTestString()}
-                  </span>`;
+            try {
+              const id = op.getExecutedAt()?.toTestString();
+              return `
+                <span class="op">
+                  <span class="type ${opType.toLowerCase()}">${opType}</span>
+                  ${`<span class="timeticket">${id}</span>`}${op.toTestString()}
+                </span>`;
+            } catch (e) {
+              // operation in the undo/redo stack does not yet have "executedAt" set.
+              return `
+                <span class="op">
+                  <span class="type ${opType.toLowerCase()}">${opType}</span>
+                  ${op.toTestString()}
+                </span>`;
+            }
           })
           .join('\n');
         return `
