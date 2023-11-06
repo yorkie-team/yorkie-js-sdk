@@ -336,7 +336,7 @@ describe('Object', function () {
       assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}'); // as-is: {"shape":{"point":{}}}
     });
 
-    it(`Should handle case when it's not possible to perform reverse operation`, async function ({
+    it(`Should handle reverse (set) operation targeting elements deleted by other peers`, async function ({
       task,
     }) {
       // Test scenario:
@@ -378,7 +378,7 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{}');
       assert.equal(doc2.toSortedJSON(), '{}');
 
-      // there is no change because c2 deletes the shape
+      // c2 deleted the shape, so the reverse operation cannot be applied
       doc1.history.undo();
       assert.equal(doc1.toSortedJSON(), '{}');
       assert.equal(doc1.getRedoStackForTest().length, 0);
@@ -386,10 +386,50 @@ describe('Object', function () {
       await client1.sync();
       await client2.sync();
       await client1.sync();
+    });
 
-      doc2.history.undo();
-      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
-      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+    it(`Should handle reverse (remove) operation targeting elements deleted by other peers`, async function ({
+      task,
+    }) {
+      // Test scenario:
+      // c1: create shape
+      // c2: delete shape
+      // c1: undo(no changes as the shape was deleted)
+      interface TestDoc {
+        shape?: { color: string };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
+      const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.shape = { color: 'black' };
+      }, 'init doc');
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      doc2.update((root) => {
+        delete root.shape;
+      }, 'delete shape');
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{}');
+
+      // c2 deleted the shape, so the reverse operation cannot be applied
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc1.getRedoStackForTest().length, 0);
+      assert.equal(doc1.history.canRedo(), false);
       await client1.sync();
       await client2.sync();
       await client1.sync();
@@ -502,48 +542,48 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{"color":"red"}');
       assert.equal(doc2.toSortedJSON(), '{"color":"red"}');
     });
-  });
 
-  it.skip(`Should handle case of reverse operations referencing already garbage-collected elements`, async function ({
-    task,
-  }) {
-    interface TestDoc {
-      shape: { color: string };
-    }
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc1 = new Document<TestDoc>(docKey);
-    const doc2 = new Document<TestDoc>(docKey);
+    it.skip(`Should handle case of reverse operations referencing already garbage-collected elements`, async function ({
+      task,
+    }) {
+      interface TestDoc {
+        shape: { color: string };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
 
-    const client1 = new Client(testRPCAddr);
-    const client2 = new Client(testRPCAddr);
-    await client1.activate();
-    await client2.activate();
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+      await client1.attach(doc1, { isRealtimeSync: false });
+      await client2.attach(doc2, { isRealtimeSync: false });
 
-    doc1.update((root) => {
-      root.shape = { color: 'black' };
+      doc1.update((root) => {
+        root.shape = { color: 'black' };
+      });
+      doc2.update((root) => {
+        root.shape = { color: 'yellow' };
+      });
+      await client1.sync();
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+
+      doc2.update((root) => {
+        root.shape.color = 'red';
+      });
+      await client2.sync();
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+
+      // TODO(chacha912): fix error that occurs when undoing
+      doc1.history.undo();
     });
-    doc2.update((root) => {
-      root.shape = { color: 'yellow' };
-    });
-    await client1.sync();
-    await client2.sync();
-    await client1.sync();
-    assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"yellow"}}');
-    assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"yellow"}}');
-
-    doc2.update((root) => {
-      root.shape.color = 'red';
-    });
-    await client2.sync();
-    await client1.sync();
-    await client2.sync();
-    assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
-    assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
-
-    // TODO(chacha912): fix error that occurs when undoing
-    doc1.history.undo();
   });
 });

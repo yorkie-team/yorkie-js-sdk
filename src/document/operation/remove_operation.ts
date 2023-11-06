@@ -18,6 +18,7 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
+  OpSource,
   Operation,
   OperationInfo,
   ExecutionResult,
@@ -56,8 +57,20 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
+  public execute(
+    root: CRDTRoot,
+    source?: OpSource,
+  ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+
+    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
+    if (
+      source === OpSource.UndoRedo &&
+      (!parentObject || parentObject.getRemovedAt())
+    ) {
+      return;
+    }
+
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
@@ -66,6 +79,14 @@ export class RemoveOperation extends Operation {
     }
     const obj = parentObject as CRDTContainer;
     const key = obj.subPathOf(this.createdAt);
+    // NOTE(chacha912): Handle cases where operations cannot be executed during undo and redo.
+    if (
+      source === OpSource.UndoRedo &&
+      ((obj instanceof CRDTObject && !obj.has(key!)) ||
+        (obj instanceof CRDTArray && !obj.get(this.createdAt)))
+    ) {
+      return;
+    }
     const reverseOp = this.getReverseOperation(obj);
 
     const elem = obj.delete(this.createdAt, this.getExecutedAt());
@@ -97,7 +118,7 @@ export class RemoveOperation extends Operation {
   public getReverseOperation(
     parentObject: CRDTContainer,
   ): Operation | undefined {
-    //TODO(Hyemmie): consider CRDTArray
+    // TODO(Hyemmie): consider CRDTArray
     if (parentObject instanceof CRDTObject) {
       const key = parentObject.subPathOf(this.createdAt);
       if (key !== undefined) {
