@@ -7,6 +7,7 @@ import {
   toDocKey,
   testRPCAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { toStringHistoryOp } from '@yorkie-js-sdk/test/helper/helper';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Object', function () {
@@ -206,6 +207,49 @@ describe('Object', function () {
   });
 
   describe('Undo/Redo', function () {
+    it('can get proper reverse operations', function () {
+      const doc = new Document<{
+        shape: { color: string };
+      }>('test-doc');
+
+      doc.update((root) => {
+        root.shape = { color: 'black' };
+      });
+      assert.equal(doc.toSortedJSON(), '{"shape":{"color":"black"}}');
+      assert.deepEqual(
+        doc.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
+        ['1:00:1.REMOVE.1:00:2', '0:00:0.REMOVE.1:00:1'],
+      );
+
+      doc.history.undo();
+      assert.equal(doc.toSortedJSON(), `{}`);
+      assert.deepEqual(
+        doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp),
+        ['0:00:0.SET.shape={"color":"black"}', '1:00:1.SET.color="black"'],
+      );
+
+      doc.history.redo();
+      assert.equal(doc.toSortedJSON(), '{"shape":{"color":"black"}}');
+      doc.update((root) => {
+        root.shape.color = 'red';
+      });
+      assert.equal(doc.toSortedJSON(), '{"shape":{"color":"red"}}');
+      assert.deepEqual(
+        doc.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
+        ['1:00:1.SET.color="black"'],
+      );
+
+      doc.history.undo();
+      assert.equal(doc.toSortedJSON(), '{"shape":{"color":"black"}}');
+      assert.deepEqual(
+        doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp),
+        ['1:00:1.SET.color="red"'],
+      );
+
+      doc.history.redo();
+      assert.equal(doc.toSortedJSON(), '{"shape":{"color":"red"}}');
+    });
+
     it('Can undo/redo work properly for simple object', function () {
       const doc = new Document<{
         a: number;
