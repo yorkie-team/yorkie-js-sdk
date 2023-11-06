@@ -193,10 +193,14 @@ export abstract class Operation {
   /**
    * `getExecutedAt` returns execution time of this operation.
    */
-  // TODO(Hyemmie): Corner cases need to be considered: undo/redo operations'
-  // `executedAt` could be undefined until they are executed.
   public getExecutedAt(): TimeTicket {
-    return this.executedAt!;
+    // NOTE(chacha912): When an operation is in the undo/redo stack,
+    // it doesn't have an executedAt yet. The executedAt is set when
+    // the operation is executed through undo or redo.
+    if (!this.executedAt) {
+      throw new Error(`executedAt has not been set yet`);
+    }
+    return this.executedAt;
   }
 
   /**
