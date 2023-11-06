@@ -526,7 +526,11 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       const change = context.getChange();
-      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      const { opInfos, reverseOps } = change.execute(
+        this.root,
+        this.presences,
+        OpSource.Local,
+      );
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -1048,7 +1052,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.ensureClone();
     for (const change of changes) {
-      change.execute(this.clone!.root, this.clone!.presences);
+      change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
 
       let changeInfo: ChangeInfo | undefined;
       let presenceEvent:
@@ -1094,7 +1098,11 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const { opInfos } = change.execute(this.root, this.presences);
+      const { opInfos } = change.execute(
+        this.root,
+        this.presences,
+        OpSource.Remote,
+      );
       if (change.hasOperations() && opInfos.length > 0) {
         changeInfo = {
           actor: actorID,

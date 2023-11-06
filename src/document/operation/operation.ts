@@ -21,6 +21,8 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 export enum OpSource {
+  Local = 'local',
+  Remote = 'remote',
   UndoRedo = 'undoredo',
 }
 
