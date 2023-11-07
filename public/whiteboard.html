@@ -51,11 +51,21 @@
           </div>
           <div class="log-holders">
             <div class="log-holder-wrap">
-              <h2>undo stack</h2>
+              <h2>
+                undo stack
+                <span class="stack-count">
+                  [ total: <span id="undo-stack-count"></span> ]</span
+                >
+              </h2>
               <div id="undo-holder" class="log-holder"></div>
             </div>
             <div class="log-holder-wrap">
-              <h2>redo stack</h2>
+              <h2>
+                redo stack
+                <span class="stack-count">
+                  [ total: <span id="redo-stack-count"></span> ]</span
+                >
+              </h2>
               <div id="redo-holder" class="log-holder"></div>
             </div>
           </div>
@@ -72,6 +82,8 @@
       const opsHolder = document.getElementById('ops-holder');
       const undoHolder = document.getElementById('undo-holder');
       const redoHolder = document.getElementById('redo-holder');
+      const undoStackCount = document.getElementById('undo-stack-count');
+      const redoStackCount = document.getElementById('redo-stack-count');
       const undoTool = document.querySelector('.toolbar .undo');
       const redoTool = document.querySelector('.toolbar .redo');
       const deleteTool = document.querySelector('.toolbar .delete');
@@ -228,23 +240,6 @@
           const doc = new yorkie.Document('whiteboard', {
             disableGC: true,
           });
-          doc.subscribe('presence', (event) => {
-            if (event.type === 'presence-changed') {
-              renderShapes(doc, myClientID);
-            }
-            displayOnlineClients(doc.getPresences(), client.getID());
-          });
-          doc.subscribe('my-presence', (event) => {
-            if (event.type === 'presence-changed') {
-              if (event.value.presence?.selectedShape) {
-                selectionTool.style.display = 'flex';
-              } else {
-                selectionTool.style.display = 'none';
-              }
-            }
-          });
-          await client.attach(doc);
-
           // setup devtool
           const {
             displayRootObject,
@@ -263,11 +258,33 @@
             displayOps();
             displayUndoOps();
             displayRedoOps();
+            undoStackCount.textContent = doc.getUndoStackForTest().length;
+            redoStackCount.textContent = doc.getRedoStackForTest().length;
           };
+
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') {
+              renderShapes(doc, myClientID);
+            }
+            displayOnlineClients(doc.getPresences(), client.getID());
+          });
+          doc.subscribe('my-presence', (event) => {
+            if (event.type === 'presence-changed') {
+              if (event.value.presence?.selectedShape) {
+                selectionTool.style.display = 'flex';
+              } else {
+                selectionTool.style.display = 'none';
+              }
+            }
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
+          });
+          await client.attach(doc);
 
           // 03. subscribe to document changes
           doc.subscribe((event) => {
             renderShapes(doc, myClientID);
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
             displayLog();
           });
 
@@ -291,24 +308,20 @@
             setColor(e, doc);
           };
           undoTool.onclick = () => {
-            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            // TODO(chacha912): Activate button only when the undo stack is not empty.
             if (!doc.history.canUndo()) {
               return;
             }
 
             doc.history.undo();
-            displayUndoOps();
-            displayRedoOps();
           };
           redoTool.onclick = () => {
-            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            // TODO(chacha912): Activate button only when the redo stack is not empty.
             if (!doc.history.canRedo()) {
               return;
             }
 
             doc.history.redo();
-            displayUndoOps();
-            displayRedoOps();
           };
           shapesHolder.addEventListener('pointerup', (e) => {
             onCanvasPointerUp(e, doc);

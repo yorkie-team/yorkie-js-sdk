@@ -28,6 +28,10 @@
 .log-holder-wrap h2 {
   margin: 10px 0;
 }
+.log-holder-wrap .stack-count {
+  font-weight: normal;
+  font-size: 14px;
+}
 .dev-log-wrap .network {
   margin-top: 10px;
 }
