@@ -145,16 +145,16 @@
         const id = shape.dataset.id;
         // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
         // Currently, every movement is being saved in the undo stack.
-        const currentSelectedShapeId = doc.getMyPresence().selectedShape;
+        const currentSelectedShapeID = doc.getMyPresence().selectedShape;
         isDragging = true;
-        if (currentSelectedShapeId === id) return;
+        if (currentSelectedShapeID === id) return;
         doc.update((root, presence) => {
           presence.set({ selectedShape: id }, { addToHistory: true });
         });
       };
       const onCanvasPointerUp = (e, doc) => {
-        const selectedShapeId = doc.getMyPresence().selectedShape;
-        if (!isDragging && selectedShapeId) {
+        const selectedShapeID = doc.getMyPresence().selectedShape;
+        if (!isDragging && selectedShapeID) {
           doc.update((root, presence) => {
             presence.set({ selectedShape: null }, { addToHistory: true });
           });
@@ -163,11 +163,11 @@
       };
       const onCanvasPointerMove = (e, doc) => {
         if (!isDragging) return;
-        const selectedShapeId = doc.getMyPresence().selectedShape;
+        const selectedShapeID = doc.getMyPresence().selectedShape;
 
         doc.update((root, presence) => {
           const selectedShape = root.shapes.find(
-            (shape) => shape.id === selectedShapeId,
+            (shape) => shape.id === selectedShapeID,
           );
           if (!selectedShape) return;
 
@@ -183,25 +183,25 @@
       };
 
       const insertRectangle = (doc) => {
-        const shapeId = Date.now().toString();
+        const shapeID = Date.now().toString();
         doc.update((root, presence) => {
           root.shapes.push({
-            id: shapeId,
+            id: shapeID,
             point: {
               x: getRandomInt(300),
               y: getRandomInt(300),
             },
             color: getRandomColor(),
           });
-          presence.set({ selectedShape: shapeId }, { addToHistory: true });
+          presence.set({ selectedShape: shapeID }, { addToHistory: true });
         });
       };
       const deleteRectangle = (doc) => {
-        const selectedShapeId = doc.getMyPresence().selectedShape;
-        if (!selectedShapeId) return;
+        const selectedShapeID = doc.getMyPresence().selectedShape;
+        if (!selectedShapeID) return;
         doc.update((root, presence) => {
           const selectedShape = root.shapes.find(
-            (shape) => shape.id === selectedShapeId,
+            (shape) => shape.id === selectedShapeID,
           );
           if (!selectedShape) return;
           root.shapes.deleteByID(selectedShape.getID());
@@ -210,10 +210,10 @@
       };
       const setColor = (e, doc) => {
         if (!e.target.dataset.color) return;
-        const selectedShapeId = doc.getMyPresence().selectedShape;
+        const selectedShapeID = doc.getMyPresence().selectedShape;
         doc.update((root) => {
           const selectedShape = root.shapes.find(
-            (shape) => shape.id === selectedShapeId,
+            (shape) => shape.id === selectedShapeID,
           );
           if (!selectedShape) return;
           selectedShape.color = e.target.dataset.color;
