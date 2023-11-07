@@ -102,7 +102,7 @@ export class ElementRHT {
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
-    if (node == null || executedAt.after(node.getValue().getLastExcutedAt())) {
+    if (node == null || executedAt.after(node.getValue().getPositionedAt())) {
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
     }

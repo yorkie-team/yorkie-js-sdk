@@ -20,6 +20,11 @@ import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
+/**
+ * `OpSource` represents the source of the operation. It is used to handle
+ * corner cases in the operations created by undo/redo allow the removed
+ * elements when executing them.
+ */
 export enum OpSource {
   Local = 'local',
   Remote = 'remote',
@@ -236,6 +241,6 @@ export abstract class Operation {
    */
   public abstract execute(
     root: CRDTRoot,
-    origin?: OpSource,
+    source?: OpSource,
   ): ExecutionResult | undefined;
 }

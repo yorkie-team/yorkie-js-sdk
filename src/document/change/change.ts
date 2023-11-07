@@ -138,7 +138,7 @@ export class Change<P extends Indexable> {
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
-    origin: OpSource,
+    source: OpSource,
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
@@ -149,10 +149,15 @@ export class Change<P extends Indexable> {
       root.opsForTest.push(this.operations);
     }
     for (const operation of this.operations) {
-      const executionResult = operation.execute(root, origin);
+      const executionResult = operation.execute(root, source);
+      // NOTE(hackerwins): If the element was removed while executing undo/redo,
+      // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;
       const { opInfos, reverseOp } = executionResult;
       changeOpInfos.push(...opInfos);
+
+      // TODO(hackerwins): This condition should be removed after implementing
+      // all reverse operations.
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
       }

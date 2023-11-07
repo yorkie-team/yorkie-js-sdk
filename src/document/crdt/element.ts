@@ -59,11 +59,10 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `getLastExcutedAt` returns the most recent time at which
-   * an operation was executed on this element.
-   * TODO(chacha912): we can replace RGATreeListNode.getPositionedAt with this method.
+   * `getPositionedAt` returns the time of this element when it was positioned
+   * in the document by undo/redo or move operation.
    */
-  public getLastExcutedAt(): TimeTicket {
+  public getPositionedAt(): TimeTicket {
     if (!this.movedAt) {
       return this.createdAt;
     }
@@ -96,7 +95,7 @@ export abstract class CRDTElement {
   public remove(removedAt?: TimeTicket): boolean {
     if (
       removedAt &&
-      removedAt.after(this.getLastExcutedAt()) &&
+      removedAt.after(this.getPositionedAt()) &&
       (!this.removedAt || removedAt.after(this.removedAt))
     ) {
       this.removedAt = removedAt;

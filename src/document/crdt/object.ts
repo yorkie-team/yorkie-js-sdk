@@ -189,7 +189,7 @@ export class CRDTObject extends CRDTContainer {
       clone.memberNodes.set(
         node.getStrKey(),
         node.getValue().deepcopy(),
-        this.getLastExcutedAt(),
+        this.getPositionedAt(),
       );
     }
     clone.remove(this.getRemovedAt());

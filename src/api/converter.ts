@@ -1198,7 +1198,7 @@ function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
   const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.getNodesList()) {
     const value = fromElement(pbRHTNode.getElement()!);
-    rht.set(pbRHTNode.getKey(), value, value.getLastExcutedAt());
+    rht.set(pbRHTNode.getKey(), value, value.getPositionedAt());
   }
 
   const obj = new CRDTObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
