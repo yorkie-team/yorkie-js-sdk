@@ -135,28 +135,30 @@
           shapeElement.setAttribute('data-id', shape.id);
 
           shapesHolder.appendChild(shapeElement);
-
-          // TODO(hackerwins): Use event delegation.
-          shapeElement.addEventListener('pointerdown', (e) => {
-            e.stopPropagation();
-            // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
-            // Currently, every movement is being saved in the undo stack.
-            const currentSelectedShapeId = doc.getMyPresence().selectedShape;
-            isDragging = true;
-            if (currentSelectedShapeId === shape.id) return;
-            doc.update((root, presence) => {
-              presence.set({ selectedShape: shape.id }, { addToHistory: true });
-            });
-          });
         }
       }
+      const onCanvasPointerDown = (e, doc) => {
+        e.stopPropagation();
+
+        const shape = e.target.closest('.shape');
+        if (!shape) return;
+        const id = shape.dataset.id;
+        // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
+        // Currently, every movement is being saved in the undo stack.
+        const currentSelectedShapeId = doc.getMyPresence().selectedShape;
+        isDragging = true;
+        if (currentSelectedShapeId === id) return;
+        doc.update((root, presence) => {
+          presence.set({ selectedShape: id }, { addToHistory: true });
+        });
+      };
       const onCanvasPointerUp = (e, doc) => {
-        if (!isDragging) {
+        const selectedShapeId = doc.getMyPresence().selectedShape;
+        if (!isDragging && selectedShapeId) {
           doc.update((root, presence) => {
             presence.set({ selectedShape: null }, { addToHistory: true });
           });
         }
-        const selectedShapeId = doc.getMyPresence().selectedShape;
         isDragging = false;
       };
       const onCanvasPointerMove = (e, doc) => {
@@ -323,6 +325,9 @@
 
             doc.history.redo();
           };
+          shapesHolder.addEventListener('pointerdown', (e) => {
+            onCanvasPointerDown(e, doc);
+          });
           shapesHolder.addEventListener('pointerup', (e) => {
             onCanvasPointerUp(e, doc);
           });
