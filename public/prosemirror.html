@@ -2,68 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Prosemirror Example</title>
+    <title>ProseMirror Example</title>
     <link rel="stylesheet" href="prosemirror.css" />
     <script src="./yorkie.js"></script>
     <script src="./util.js"></script>
-    <style type="text/css">
-      .username-layer::before {
-        content: '';
-        position: absolute;
-        width: 2px;
-        left: -1px;
-        background-color: currentColor;
-        bottom: -100%;
-        height: 100%;
-      }
-
-      .username-layer.first-top::before {
-        content: '';
-        position: absolute;
-        width: 2px;
-        left: -1px;
-        background-color: currentColor;
-        top: -100%;
-        height: 100%;
-      }
-    </style>
   </head>
-
   <body>
     <div class="layout">
       <div class="application">
         <div class="editor-area">
-          <div id="pm-sub-log" class="sub-log"></div>
-          <div>
-            <h2>Main</h2>
-            <div id="app"></div>
-          </div>
-          <div>
-            <div class="pm">
-              <h2>ProseMirror Doc</h2>
-              <div id="pm-log" class="log-view"></div>
-            </div>
-          </div>
+          <h2>ProseMirror</h2>
+          <div id="app"></div>
         </div>
       </div>
       <div class="log">
-        <div class="tr">
-          <h2>Transaction</h2>
-          <div class="tr-container">
-            <div id="tr-log" class="log-view"></div>
-            <div id="tr-info"></div>
+        <div class="data-container">
+          <div class="data-item tr">
+            <h2>ProseMirror.Transaction</h2>
+            <div class="tr-container">
+              <div id="tr-info"></div>
+              <div id="tr-log" class="log-view"></div>
+            </div>
           </div>
-        </div>
-        <div class="data-view">
-          <div class="tree-view">
-            <div class="yorkie">
-              <h2>Yorkie.IndexTree</h2>
-              <div id="yorkie-log" class="log-view"></div>
-            </div>
-            <div class="list-view">
-              <h2>Yorkie.RGASplit</h2>
-              <div id="yorkie-list-log" class="log-list-view"></div>
-            </div>
+
+          <div class="data-item">
+            <h2>ProseMirror.Doc</h2>
+            <div id="pm-log"></div>
+          </div>
+          <div class="data-item">
+            <h2>Yorkie.Tree</h2>
+            <div id="yorkie-log"></div>
           </div>
         </div>
       </div>
@@ -334,7 +302,7 @@
                   ]),
                 });
               });
-              printLog();
+              paintData();
               return;
             }
 
@@ -358,7 +326,7 @@
                 // 02-1. Backspace: Level delete
                 // TODO(hackerwins): replaceAround replaces the given range with given gap.
                 if (stepType === 'replaceAround') {
-                  root.tree.move(from, to, gapFrom, gapTo);
+                  // root.tree.move(from, to, gapFrom, gapTo);
                   continue;
                 }
 
@@ -370,7 +338,7 @@
                   structure
                 ) {
                   // TODO(hackerwins): Figure out how many depth to split.
-                  root.tree.split(from, 2);
+                  // root.tree.split(from, 2);
                   continue;
                 }
 
@@ -393,7 +361,7 @@
                 ]),
               });
             });
-            printLog();
+            paintData();
           },
         });
 
@@ -443,30 +411,30 @@
             const newState = view.state.apply(transform);
             view.updateState(newState);
           }
-          printLog();
+          paintData();
         });
 
         window.view = view;
         view.focus();
-        printLog();
+        paintData();
       }
 
       document.getElementById('tr-log').onclick = (e) => {
         const index = e.target.getAttribute('data-index');
         if (index) {
-          printTransaction(+index);
+          paintTransaction(+index);
         }
       };
 
-      function printTransaction(index) {
-        const t = transactions[index || 0];
+      function paintTransaction(index) {
+        const transaction = transactions[index || 0];
 
-        if (t) {
-          if (t.type === 'selection') {
+        if (transaction) {
+          if (transaction.type === 'selection') {
             document.getElementById(
               'tr-info',
-            ).innerHTML = `<pre>selection\n${JSON.stringify(
-              t.selection.toJSON(),
+            ).innerHTML = `<pre>selection: ${JSON.stringify(
+              transaction.selection.toJSON(),
               null,
               2,
             )}</pre>`;
@@ -474,32 +442,32 @@
             document.getElementById(
               'tr-info',
             ).innerHTML = `<pre>selection: ${JSON.stringify(
-              t.transaction.curSelection.toJSON(),
+              transaction.transaction.curSelection.toJSON(),
               null,
               2,
-            )}, steps: ${JSON.stringify(t.transaction.steps, null, 2)}
+            )},\nsteps: ${JSON.stringify(
+              transaction.transaction.steps,
+              null,
+              2,
+            )}
           </pre>`;
           }
         }
       }
 
-      function printLog() {
-        // how to show transaction view
+      function paintData() {
         document.getElementById('tr-log').innerHTML = transactions
           .slice(0, 100)
           .map((transaction, index) => {
-            if (transaction.type === 'selection') {
-              return `<span data-index="${index}" class="selection-item" id="${transaction.selection.anchor}">.</span>`;
-            }
-
-            return `<span data-index="${index}" class="tr-item">T</span>`;
+            return transaction.type === 'selection'
+              ? ''
+              : `<span data-index="${index}" class="tr-item">T</span>`;
           })
           .join('');
-        printTransaction();
 
-        printDoc(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
-        printDoc(view.state.doc, 'pm-log');
-        printDocList(doc.getRoot().tree.tree, 'yorkie-list-log');
+        paintTree(view.state.doc, 'pm-log');
+        paintTree(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
+        paintTransaction();
       }
 
       function buildNodes(node, depth, nodes, index) {
@@ -526,57 +494,7 @@
         }
       }
 
-      function printDocList(doc, id) {
-        const head = doc.dummyHead;
-
-        const arr = [];
-        let node = head;
-        while (node) {
-          const nodeType = node.type;
-          const pos = `${node.pos.createdAt.toTestString()}-${node.pos.offset}`;
-          if (nodeType === 'text') {
-            arr.push({
-              type: nodeType,
-              value: node.value,
-              pos,
-              removedAt: node.removedAt,
-            });
-          } else {
-            arr.push({
-              type: nodeType,
-              size: node.size,
-              pos,
-              removedAt: node.removedAt,
-            });
-          }
-
-          node = node.next;
-        }
-
-        const html = arr
-          .map((node) => {
-            const className = node.removedAt ? 'removed' : '';
-
-            if (node.type === 'text') {
-              return `<div class="inline ${className}" data-id="${node.pos}">${
-                node.value === ' ' ? '&nbsp;&nbsp;' : node.value
-              }</div>`;
-            }
-            return `<div class="block ${className}" data-id="${node.pos}">${
-              node.type
-            }${
-              node.size ? `<span class="size">(${node.size})</span>` : ''
-            }</div>`;
-          })
-          .join('');
-
-        document.getElementById(id).innerHTML = html;
-      }
-
-      /**
-       * `printDoc` prints the content of the yorkie.Text.
-       */
-      function printDoc(doc, id) {
+      function paintTree(doc, id) {
         const nodes = [];
         buildNodes(doc, 0, nodes);
 
