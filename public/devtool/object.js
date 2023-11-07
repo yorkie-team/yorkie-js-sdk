@@ -59,6 +59,7 @@ const objectDevtool = (
 
   const displayUndoOps = () => {
     undoOpsHolder.innerHTML = `
+        <div>${doc.getUndoStackForTest().length}</div>
         <div class="devtool-ops-holder">
             ${renderOpsHolder(doc.getUndoStackForTest(), 'undo')}
         </div>
@@ -67,6 +68,7 @@ const objectDevtool = (
 
   const displayRedoOps = () => {
     redoOpsHolder.innerHTML = `
+        <div>${doc.getRedoStackForTest().length}</div>
         <div class="devtool-ops-holder">
             ${renderOpsHolder(doc.getRedoStackForTest(), 'redo')}
         </div>

@@ -123,6 +123,8 @@
           shapeElement.setAttribute('data-id', shape.id);
 
           shapesHolder.appendChild(shapeElement);
+
+          // TODO(hackerwins): Use event delegation.
           shapeElement.addEventListener('pointerdown', (e) => {
             e.stopPropagation();
             // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
@@ -289,12 +291,21 @@
             setColor(e, doc);
           };
           undoTool.onclick = () => {
-            doc.history.undo();
             // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            if (!doc.history.canUndo()) {
+              return;
+            }
+
+            doc.history.undo();
             displayUndoOps();
             displayRedoOps();
           };
           redoTool.onclick = () => {
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            if (!doc.history.canRedo()) {
+              return;
+            }
+
             doc.history.redo();
             displayUndoOps();
             displayRedoOps();
