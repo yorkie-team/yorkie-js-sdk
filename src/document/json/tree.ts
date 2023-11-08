@@ -435,18 +435,6 @@ export class Tree {
   }
 
   /**
-   * `split` splits this tree at the given index.
-   */
-  public split(index: number, depth: number): boolean {
-    if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
-    }
-
-    this.tree.split(index, depth);
-    return true;
-  }
-
-  /**
    * `toXML` returns the XML string of this tree.
    */
   public toXML(): string {

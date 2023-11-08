@@ -808,10 +808,10 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `editByIndex` edits the given range with the given value.
+   * `editT` edits the given range with the given value.
    * This method uses indexes instead of a pair of TreePos for testing.
    */
-  public editByIndex(
+  public editT(
     range: [number, number],
     contents: Array<CRDTTreeNode> | undefined,
     editedAt: TimeTicket,
@@ -819,15 +819,6 @@ export class CRDTTree extends CRDTGCElement {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
     this.edit([fromPos, toPos], contents, editedAt);
-  }
-
-  /**
-   * `split` splits the node at the given index.
-   */
-  public split(index: number, depth = 1): TreePos<CRDTTreeNode> {
-    // TODO(hackerwins, easylogic): Implement this with keeping references in the list.
-    // return this.treeByIndex.split(index, depth);
-    throw new Error(`not implemented, ${index} ${depth}`);
   }
 
   /**

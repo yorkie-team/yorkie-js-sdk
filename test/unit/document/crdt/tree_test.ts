@@ -33,9 +33,9 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 /**
- * `DTP` is a dummy CRDTTreeNodeID for testing.
+ * `idT` is a dummy CRDTTreeNodeID for testing.
  */
-const DTP = CRDTTreeNodeID.of(ITT, 0);
+const idT = CRDTTreeNodeID.of(ITT, 0);
 
 /**
  * `dummyContext` is a helper context that is used for testing.
@@ -47,23 +47,23 @@ const dummyContext = ChangeContext.create(
 );
 
 /**
- * `issuePos` is a helper function that issues a new CRDTTreeNodeID.
+ * `posT` is a helper function that issues a new CRDTTreeNodeID.
  */
-function issuePos(offset = 0): CRDTTreeNodeID {
+function posT(offset = 0): CRDTTreeNodeID {
   return CRDTTreeNodeID.of(dummyContext.issueTimeTicket(), offset);
 }
 
 /**
- * `issueTime` is a helper function that issues a new TimeTicket.
+ * `timeT` is a helper function that issues a new TimeTicket.
  */
-function issueTime(): TimeTicket {
+function timeT(): TimeTicket {
   return dummyContext.issueTimeTicket();
 }
 
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {
-    const node = new CRDTTreeNode(DTP, 'text', 'hello');
-    assert.equal(node.id, DTP);
+    const node = new CRDTTreeNode(idT, 'text', 'hello');
+    assert.equal(node.id, idT);
     assert.equal(node.type, 'text');
     assert.equal(node.value, 'hello');
     assert.equal(node.size, 5);
@@ -72,8 +72,8 @@ describe('CRDTTreeNode', function () {
   });
 
   it('Can be split', function () {
-    const para = new CRDTTreeNode(DTP, 'p', []);
-    para.append(new CRDTTreeNode(DTP, 'text', 'helloyorkie'));
+    const para = new CRDTTreeNode(idT, 'p', []);
+    para.append(new CRDTTreeNode(idT, 'text', 'helloyorkie'));
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
     assert.equal(para.size, 11);
     assert.equal(para.isText, false);
@@ -95,45 +95,37 @@ describe('CRDTTree.Edit', function () {
   it('Can inserts nodes with edit', function () {
     //       0
     // <root> </root>
-    const tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'r'), issueTime());
-    assert.equal(tree.getRoot().size, 0);
-    assert.equal(tree.toXML(), /*html*/ `<r></r>`);
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
+    assert.equal(t.getRoot().size, 0);
+    assert.equal(t.toXML(), /*html*/ `<r></r>`);
 
     //           1
     // <root> <p> </p> </root>
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    assert.equal(tree.toXML(), /*html*/ `<r><p></p></r>`);
-    assert.equal(tree.getRoot().size, 2);
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    assert.equal(t.toXML(), /*html*/ `<r><p></p></r>`);
+    assert.equal(t.getRoot().size, 2);
 
     //           1
     // <root> <p> h e l l o </p> </root>
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'hello')],
-      issueTime(),
-    );
-    assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p></r>`);
-    assert.equal(tree.getRoot().size, 7);
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'hello')], timeT());
+    assert.equal(t.toXML(), /*html*/ `<r><p>hello</p></r>`);
+    assert.equal(t.getRoot().size, 7);
 
     //       0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
     // <root> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </root>
-    const p = new CRDTTreeNode(issuePos(), 'p', []);
-    p.insertAt(new CRDTTreeNode(issuePos(), 'text', 'world'), 0);
-    tree.editByIndex([7, 7], [p], issueTime());
-    assert.equal(tree.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
-    assert.equal(tree.getRoot().size, 14);
+    const p = new CRDTTreeNode(posT(), 'p', []);
+    p.insertAt(new CRDTTreeNode(posT(), 'text', 'world'), 0);
+    t.editT([7, 7], [p], timeT());
+    assert.equal(t.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
+    assert.equal(t.getRoot().size, 14);
 
     //       0   1 2 3 4 5 6 7    8   9 10 11 12 13 14    15
     // <root> <p> h e l l o ! </p> <p> w  o  r  l  d  </p>  </root>
-    tree.editByIndex(
-      [6, 6],
-      [new CRDTTreeNode(issuePos(), 'text', '!')],
-      issueTime(),
-    );
-    assert.equal(tree.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
+    t.editT([6, 6], [new CRDTTreeNode(posT(), 'text', '!')], timeT());
+    assert.equal(t.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
 
     assert.deepEqual(
-      JSON.stringify(tree.toTestTreeNode()),
+      JSON.stringify(t.toTestTreeNode()),
       JSON.stringify({
         type: 'r',
         children: [
@@ -162,34 +154,19 @@ describe('CRDTTree.Edit', function () {
 
     //       0   1 2 3 4 5 6 7 8    9   10 11 12 13 14 15    16
     // <root> <p> h e l l o ~ ! </p> <p>  w  o  r  l  d  </p>  </root>
-    tree.editByIndex(
-      [6, 6],
-      [new CRDTTreeNode(issuePos(), 'text', '~')],
-      issueTime(),
-    );
-    assert.equal(tree.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
+    t.editT([6, 6], [new CRDTTreeNode(posT(), 'text', '~')], timeT());
+    assert.equal(t.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
   });
 
   it('Can delete text nodes with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    tree.editByIndex([4, 4], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [5, 5],
-      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
-      issueTime(),
-    );
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    tree.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], timeT());
+    tree.editT([5, 5], [new CRDTTreeNode(posT(), 'text', 'cd')], timeT());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     let treeNode = tree.toTestTreeNode();
@@ -200,7 +177,7 @@ describe('CRDTTree.Edit', function () {
     // 02. delete b from first paragraph
     //       0   1 2    3   4 5 6    7
     // <root> <p> a </p> <p> c d </p> </root>
-    tree.editByIndex([2, 3], undefined, issueTime());
+    tree.editT([2, 3], undefined, timeT());
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
 
     treeNode = tree.toTestTreeNode();
@@ -210,43 +187,40 @@ describe('CRDTTree.Edit', function () {
   });
 
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
 
-    const pNode = new CRDTTreeNode(issuePos(), 'p');
-    const textNode = new CRDTTreeNode(issuePos(), 'text', 'ab');
+    const pNode = new CRDTTreeNode(posT(), 'p');
+    const textNode = new CRDTTreeNode(posT(), 'text', 'ab');
 
     //       0   1 2 3    4
     // <root> <p> a b </p> </root>
-    tree.editByIndex([0, 0], [pNode], issueTime());
-    tree.editByIndex([1, 1], [textNode], issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
+    t.editT([0, 0], [pNode], timeT());
+    t.editT([1, 1], [textNode], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // Find the closest index.TreePos when leftSiblingNode in crdt.TreePos is removed.
     //       0   1    2
     // <root> <p> </p> </root>
-    tree.editByIndex([1, 3], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
+    t.editT([1, 3], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p></p></root>`);
 
-    let [parent, left] = tree.findNodesAndSplitText(
+    let [parent, left] = t.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
-      issueTime(),
+      timeT(),
     );
-    assert.equal(tree.toIndex(parent, left), 1);
+    assert.equal(t.toIndex(parent, left), 1);
 
     // Find the closest index.TreePos when parentNode in crdt.TreePos is removed.
     //       0
     // <root> </root>
-    tree.editByIndex([0, 2], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root></root>`);
+    t.editT([0, 2], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root></root>`);
 
-    [parent, left] = tree.findNodesAndSplitText(
+    [parent, left] = t.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
-      issueTime(),
+      timeT(),
     );
-    assert.equal(tree.toIndex(parent, left), 0);
+    assert.equal(t.toIndex(parent, left), 0);
   });
 });
 
@@ -255,165 +229,119 @@ describe.skip('CRDTTree.Split', function () {
     // 00. Create a tree with 2 paragraphs.
     //       0   1     6     11
     // <root> <p> hello world  </p> </root>
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'helloworld')],
-      issueTime(),
-    );
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'helloworld')], timeT());
 
     // 01. Split left side of 'helloworld'.
-    tree.split(1, 1);
+    // tree.split(1, 1);
     // TODO(JOOHOJANG): make new helper function when implement Tree.split
     //betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 02. Split right side of 'helloworld'.
-    tree.split(11, 1);
+    // tree.split(11, 1);
     // TODO(JOOHOJANG): make new helper function when implement Tree.split
     //betweenEqual(tree, 1, 11, ['text.helloworld']);
 
     // 03. Split 'helloworld' into 'hello' and 'world'.
-    tree.split(6, 1);
+    // tree.split(6, 1);
     // TODO(JOOHOJANG): make new helper function when implement Tree.split
     //betweenEqual(tree, 1, 11, ['text.hello', 'text.world']);
   });
 
   it('Can split element nodes', function () {
     // 01. Split position 1.
-    let tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    tree.split(1, 2);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
-    assert.equal(tree.getSize(), 6);
+    let t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
+    // tree.split(1, 2);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
+    assert.equal(t.getSize(), 6);
 
     // 02. Split position 2.
     //       0   1 2 3    4
     // <root> <p> a b </p> </root>
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    tree.split(2, 2);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>b</p></root>`);
-    assert.equal(tree.getSize(), 6);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
+    // tree.split(2, 2);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>a</p><p>b</p></root>`);
+    assert.equal(t.getSize(), 6);
 
     // 03. Split position 3.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    tree.split(3, 2);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
-    assert.equal(tree.getSize(), 6);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
+    // tree.split(3, 2);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
+    assert.equal(t.getSize(), 6);
 
     // 04. Split position 3.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
-    tree.split(3, 2);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
-    assert.equal(tree.getSize(), 8);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'cd')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    // tree.split(3, 2);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    assert.equal(t.getSize(), 8);
 
     // 05. Split multiple nodes level 1.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex(
-      [2, 2],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    tree.split(3, 1);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    assert.equal(tree.getSize(), 6);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    // tree.split(3, 1);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    assert.equal(t.getSize(), 6);
 
     // Split multiple nodes level 2.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex(
-      [2, 2],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    tree.split(3, 2);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    // tree.split(3, 2);
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b>a</b><b>b</b></p></root>`,
     );
-    assert.equal(tree.getSize(), 8);
+    assert.equal(t.getSize(), 8);
 
     // Split multiple nodes level 3.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex(
-      [2, 2],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    tree.split(3, 3);
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    // tree.split(3, 3);
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b>a</b></p><p><b>b</b></p></root>`,
     );
-    assert.equal(tree.getSize(), 10);
+    assert.equal(t.getSize(), 10);
   });
 
   it('Can split and merge element nodes by edit', function () {
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'abcd')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
-    assert.equal(tree.getSize(), 6);
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'abcd')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    assert.equal(t.getSize(), 6);
 
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    tree.split(3, 2);
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
-    assert.equal(tree.getSize(), 8);
+    // tree.split(3, 2);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    assert.equal(t.getSize(), 8);
 
-    tree.editByIndex([3, 5], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>abcd</p></root>`);
-    assert.equal(tree.getSize(), 6);
+    t.editT([3, 5], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
+    assert.equal(t.getSize(), 6);
   });
 });
 
@@ -422,215 +350,149 @@ describe('CRDTTree.Merge', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    tree.editByIndex([4, 4], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [5, 5],
-      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    t.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([5, 5], [new CRDTTreeNode(posT(), 'text', 'cd')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     // 02. delete b, c and the second paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
-    tree.editByIndex([2, 6], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ad</p></root>`);
+    t.editT([2, 6], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ad</p></root>`);
 
-    const node = tree.toTestTreeNode();
+    const node = t.toTestTreeNode();
     assert.equal(node.size, 4); // root
     assert.equal(node.children![0].size, 2); // p
     assert.equal(node.children![0].children![0].size, 1); // a
     assert.equal(node.children![0].children![1].size, 1); // d
 
     // 03. insert a new text node at the start of the first paragraph.
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', '@')],
-      issueTime(),
-    );
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>@ad</p></root>`);
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', '@')], timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>@ad</p></root>`);
   });
 
   it('Can delete nodes between elements in different level with edit', function () {
     // 01. Create a tree with 2 paragraphs.
     //       0   1   2 3 4    5    6   7 8 9    10
     // <root> <p> <b> a b </b> </p> <p> c d </p>  </root>
-    const tree = new CRDTTree(
-      new CRDTTreeNode(issuePos(), 'root'),
-      issueTime(),
-    );
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex(
-      [2, 2],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    tree.editByIndex([6, 6], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [7, 7],
-      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
-      issueTime(),
-    );
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    t.editT([6, 6], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([7, 7], [new CRDTTreeNode(posT(), 'text', 'cd')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b>ab</b></p><p>cd</p></root>`,
     );
 
     // 02. delete b, c and second paragraph.
     //       0   1   2 3 4    5
     // <root> <p> <b> a d </b> </root>
-    tree.editByIndex([3, 8], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ad</b></p></root>`);
+    t.editT([3, 8], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ad</b></p></root>`);
   });
 
   it.skip('Can merge different levels with edit', function () {
     // 01. edit between two element nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
-    let tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    let t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([5, 6], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
+    t.editT([5, 6], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
 
     // 02. edit between two element nodes in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([6, 7], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><i>ab</i></p></root>`);
+    t.editT([6, 7], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><i>ab</i></p></root>`);
 
     // 03. edit between text and element node in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([4, 6], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p><b>a</b></p></root>`);
+    t.editT([4, 6], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>a</b></p></root>`);
 
     // 04. edit between text and element node in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([5, 7], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p></root>`);
+    t.editT([5, 7], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // 05. edit between text and element node in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([4, 7], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p></root>`);
+    t.editT([4, 7], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p>a</p></root>`);
 
     // 06. edit between text and element node in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([1, 1], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex([2, 2], [new CRDTTreeNode(issuePos(), 'i')], issueTime());
-    tree.editByIndex(
-      [3, 3],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([2, 2], [new CRDTTreeNode(posT(), 'i')], timeT());
+    t.editT([3, 3], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p><b><i>ab</i></b></p></root>`,
     );
-    tree.editByIndex([3, 7], undefined, issueTime());
-    assert.deepEqual(tree.toXML(), /*html*/ `<root><p></p></root>`);
+    t.editT([3, 7], undefined, timeT());
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p></p></root>`);
 
     // 07. edit between text and element node in same hierarchy.
-    tree = new CRDTTree(new CRDTTreeNode(issuePos(), 'root'), issueTime());
-    tree.editByIndex([0, 0], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex(
-      [1, 1],
-      [new CRDTTreeNode(issuePos(), 'text', 'ab')],
-      issueTime(),
-    );
-    tree.editByIndex([4, 4], [new CRDTTreeNode(issuePos(), 'p')], issueTime());
-    tree.editByIndex([5, 5], [new CRDTTreeNode(issuePos(), 'b')], issueTime());
-    tree.editByIndex(
-      [6, 6],
-      [new CRDTTreeNode(issuePos(), 'text', 'cd')],
-      issueTime(),
-    );
-    tree.editByIndex(
-      [10, 10],
-      [new CRDTTreeNode(issuePos(), 'p')],
-      issueTime(),
-    );
-    tree.editByIndex(
-      [11, 11],
-      [new CRDTTreeNode(issuePos(), 'text', 'ef')],
-      issueTime(),
-    );
+    t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', 'ab')], timeT());
+    t.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([5, 5], [new CRDTTreeNode(posT(), 'b')], timeT());
+    t.editT([6, 6], [new CRDTTreeNode(posT(), 'text', 'cd')], timeT());
+    t.editT([10, 10], [new CRDTTreeNode(posT(), 'p')], timeT());
+    t.editT([11, 11], [new CRDTTreeNode(posT(), 'text', 'ef')], timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p>ab</p><p><b>cd</b></p><p>ef</p></root>`,
     );
-    tree.editByIndex([9, 10], undefined, issueTime());
+    t.editT([9, 10], undefined, timeT());
     assert.deepEqual(
-      tree.toXML(),
+      t.toXML(),
       /*html*/ `<root><p>ab</p><b>cd</b><p>ef</p></root>`,
     );
   });
