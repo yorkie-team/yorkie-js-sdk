@@ -6,16 +6,16 @@ const objectDevtool = (
     const rootObj = doc.getRoot().toJSForTest();
     rootHolder.innerHTML = `
         <div class="devtool-root-holder">
-            ${renderCRDTObject(rootObj)}
+            ${renderContainer(rootObj)}
         </div>
         `;
   };
 
-  const renderCRDTObject = ({ key, value, id }) => {
+  const renderContainer = ({ key, value, id }) => {
     const valueHTML = Object.values(value)
       .map((v) => {
-        return Object.prototype.toString.call(v.value) === '[object Object]'
-          ? renderCRDTObject(v)
+        return v.type === 'YORKIE_OBJECT' || v.type === 'YORKIE_ARRAY'
+          ? renderContainer(v)
           : renderValue(v);
       })
       .join('');

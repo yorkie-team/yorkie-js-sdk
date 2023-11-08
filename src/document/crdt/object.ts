@@ -20,6 +20,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
+import type * as DevTools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,
@@ -127,19 +128,21 @@ export class CRDTObject extends CRDTContainer {
   /**
    * `toJSForTest` returns value with meta data for testing.
    */
-  public toJSForTest(): { id: string; value: any } {
-    const values = {} as any;
+  public toJSForTest(): DevTools.JSONElement {
+    const values: DevTools.ContainerValue = {};
     for (const [key, elem] of this) {
-      const { id, value } = elem.toJSForTest();
+      const { id, value, type } = elem.toJSForTest();
       values[key] = {
         key,
         id,
         value,
+        type,
       };
     }
     return {
       id: this.getCreatedAt().toTestString(),
       value: values,
+      type: 'YORKIE_OBJECT',
     };
   }
 

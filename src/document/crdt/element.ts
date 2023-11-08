@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import type * as DevTools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -114,7 +115,7 @@ export abstract class CRDTElement {
 
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
-  abstract toJSForTest(): { id: string; value: any };
+  abstract toJSForTest(): DevTools.JSONElement;
   abstract deepcopy(): CRDTElement;
 }
 
