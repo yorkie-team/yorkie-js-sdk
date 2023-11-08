@@ -114,17 +114,23 @@
         const shapes = doc.getRoot().shapes;
         if (!shapes) return;
         shapesHolder.innerHTML = '';
+        const { selectedShapeID, movingShapePoint } = doc.getMyPresence();
         for (const shape of shapes) {
           const shapeElement = document.createElement('div');
           shapeElement.className = 'shape';
-          shapeElement.style.transform = `translate(${shape.point.x}px, ${shape.point.y}px)`;
+          let point = shape.point;
+          if (shape.id === selectedShapeID && movingShapePoint) {
+            point = movingShapePoint;
+          }
+          shapeElement.style.transform = `translate(${point.x}px, ${point.y}px)`;
           shapeElement.style.backgroundColor = shape.color;
-          const selectedByMe = doc.getMyPresence().selectedShape === shape.id;
+          const selectedByMe = doc.getMyPresence().selectedShapeID === shape.id;
           const selectedByOthers = doc
             .getPresences()
             .some(
               ({ clientID, presence }) =>
-                presence.selectedShape === shape.id && clientID !== myClientID,
+                presence.selectedShapeID === shape.id &&
+                clientID !== myClientID,
             );
           const selectionColor = selectedByMe
             ? 'blue'
@@ -143,27 +149,40 @@
         const shape = e.target.closest('.shape');
         if (!shape) return;
         const id = shape.dataset.id;
-        // TODO(chacha912): Let's use `doc.history.pause()` once it's implemented.
-        // Currently, every movement is being saved in the undo stack.
-        const currentSelectedShapeID = doc.getMyPresence().selectedShape;
+        const currentSelectedShapeID = doc.getMyPresence().selectedShapeID;
         isDragging = true;
         if (currentSelectedShapeID === id) return;
         doc.update((root, presence) => {
-          presence.set({ selectedShape: id }, { addToHistory: true });
+          presence.set({ selectedShapeID: id }, { addToHistory: true });
         });
       };
       const onCanvasPointerUp = (e, doc) => {
-        const selectedShapeID = doc.getMyPresence().selectedShape;
+        const { selectedShapeID, movingShapePoint } = doc.getMyPresence();
+        // When the shape movement is completed, update from presence to the document
+        if (isDragging && selectedShapeID && movingShapePoint) {
+          doc.update((root, presence) => {
+            const selectedShape = root.shapes.find(
+              (shape) => shape.id === selectedShapeID,
+            );
+            selectedShape.point.x = movingShapePoint.x;
+            selectedShape.point.y = movingShapePoint.y;
+            presence.set({ movingShapePoint: null });
+          });
+        }
+        // If the user clicks on the canvas, deselect the shape.
         if (!isDragging && selectedShapeID) {
           doc.update((root, presence) => {
-            presence.set({ selectedShape: null }, { addToHistory: true });
+            presence.set(
+              { selectedShapeID: null, movingShapePoint: null },
+              { addToHistory: true },
+            );
           });
         }
         isDragging = false;
       };
       const onCanvasPointerMove = (e, doc) => {
         if (!isDragging) return;
-        const selectedShapeID = doc.getMyPresence().selectedShape;
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
 
         doc.update((root, presence) => {
           const selectedShape = root.shapes.find(
@@ -171,14 +190,12 @@
           );
           if (!selectedShape) return;
 
-          selectedShape.point.x = e.clientX - rectangleSize / 2;
-          selectedShape.point.y = e.clientY - rectangleSize / 2;
-          // TODO(chacha912): we can change the code as follows after
-          // modifying to allow nested objects in the set operation.
-          // selectedShape.point = {
-          //   x: e.clientX - rectangleSize / 2,
-          //   y: e.clientY - rectangleSize / 2,
-          // };
+          presence.set({
+            movingShapePoint: {
+              x: e.clientX - rectangleSize / 2,
+              y: e.clientY - rectangleSize / 2,
+            },
+          });
         });
       };
 
@@ -193,11 +210,11 @@
             },
             color: getRandomColor(),
           });
-          presence.set({ selectedShape: shapeID }, { addToHistory: true });
+          presence.set({ selectedShapeID: shapeID }, { addToHistory: true });
         });
       };
       const deleteRectangle = (doc) => {
-        const selectedShapeID = doc.getMyPresence().selectedShape;
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
         if (!selectedShapeID) return;
         doc.update((root, presence) => {
           const selectedShape = root.shapes.find(
@@ -205,12 +222,12 @@
           );
           if (!selectedShape) return;
           root.shapes.deleteByID(selectedShape.getID());
-          presence.set({ selectedShape: null });
+          presence.set({ selectedShapeID: null });
         });
       };
       const setColor = (e, doc) => {
         if (!e.target.dataset.color) return;
-        const selectedShapeID = doc.getMyPresence().selectedShape;
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
         doc.update((root) => {
           const selectedShape = root.shapes.find(
             (shape) => shape.id === selectedShapeID,
@@ -272,7 +289,7 @@
           });
           doc.subscribe('my-presence', (event) => {
             if (event.type === 'presence-changed') {
-              if (event.value.presence?.selectedShape) {
+              if (event.value.presence?.selectedShapeID) {
                 selectionTool.style.display = 'flex';
               } else {
                 selectionTool.style.display = 'none';

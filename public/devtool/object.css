@@ -101,6 +101,7 @@
   display: flex;
   margin-bottom: 3px;
   border-top: 1px solid #ddd;
+  word-break: break-all;
 }
 .devtool-ops-holder label {
   position: relative;
