@@ -546,7 +546,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
-      if (change.hasOperations() && opInfos.length > 0) {
+      if (change.hasOperations()) {
         this.publish({
           type: DocEventType.LocalChange,
           value: {
@@ -1098,16 +1098,16 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const { opInfos } = change.execute(
+      const executionResult = change.execute(
         this.root,
         this.presences,
         OpSource.Remote,
       );
-      if (change.hasOperations() && opInfos.length > 0) {
+      if (change.hasOperations()) {
         changeInfo = {
           actor: actorID,
           message: change.getMessage() || '',
-          operations: opInfos,
+          operations: executionResult.opInfos,
         };
       }
 
@@ -1277,6 +1277,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // apply undo operation in the context to generate a change
     for (const undoOp of undoOps) {
       if (!(undoOp instanceof Operation)) {
+        // apply presence change to the context
         const presence = new Presence<P>(
           context,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
@@ -1290,17 +1291,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    const cloneExecutionResult = change.execute(
-      this.clone!.root,
-      this.clone!.presences,
-      OpSource.UndoRedo,
-    );
-    if (
-      !change.hasPresenceChange() &&
-      cloneExecutionResult.opInfos.length === 0
-    ) {
-      return;
-    }
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const { opInfos, reverseOps } = change.execute(
       this.root,
@@ -1318,11 +1309,18 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushRedo(reverseOps);
     }
 
-    this.localChanges.push(change);
-    this.changeID = change.getID();
+    // NOTE(chacha912): When there is no applied operation or presence
+    // during undo/redo, skip propagating change remotely.
+    if (change.hasPresenceChange() || opInfos.length > 0) {
+      this.localChanges.push(change);
+    }
 
+    this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations() && opInfos.length > 0) {
+    // NOTE(chacha912): Although operations are included in the change, they
+    // may not be executable (e.g., when the target element has been deleted).
+    // So we check opInfos, which represent the actually executed operations.
+    if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {
@@ -1367,6 +1365,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // apply redo operation in the context to generate a change
     for (const redoOp of redoOps) {
       if (!(redoOp instanceof Operation)) {
+        // apply presence change to the context
         const presence = new Presence<P>(
           context,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
@@ -1380,17 +1379,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    const cloneExecutionResult = change.execute(
-      this.clone!.root,
-      this.clone!.presences,
-      OpSource.UndoRedo,
-    );
-    if (
-      !change.hasPresenceChange() &&
-      cloneExecutionResult.opInfos.length === 0
-    ) {
-      return;
-    }
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const { opInfos, reverseOps } = change.execute(
       this.root,
@@ -1408,11 +1397,18 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushUndo(reverseOps);
     }
 
-    this.localChanges.push(change);
-    this.changeID = change.getID();
+    // NOTE(chacha912): When there is no applied operation or presence
+    // during undo/redo, skip propagating change remotely.
+    if (change.hasPresenceChange() || opInfos.length > 0) {
+      this.localChanges.push(change);
+    }
 
+    this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations() && opInfos.length > 0) {
+    // NOTE(chacha912): Although operations are included in the change, they
+    // may not be executable (e.g., when the target element has been deleted).
+    // So we check opInfos, which represent the actually executed operations.
+    if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {
