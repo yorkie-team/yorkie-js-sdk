@@ -110,6 +110,7 @@ export class SetOperation extends Operation {
     if (value !== undefined && !value.isRemoved()) {
       // TODO(chacha912): When the value is an object,
       // it always sets as an empty object from the remote.
+      // (Refer to https://github.com/yorkie-team/yorkie/issues/663)
       reverseOp = SetOperation.create(
         this.key,
         value.deepcopy(),
