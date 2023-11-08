@@ -62,7 +62,7 @@ export class SetOperation extends Operation {
    */
   public execute(
     root: CRDTRoot,
-    source?: OpSource,
+    source: OpSource,
   ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {

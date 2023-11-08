@@ -241,6 +241,6 @@ export abstract class Operation {
    */
   public abstract execute(
     root: CRDTRoot,
-    source?: OpSource,
+    source: OpSource,
   ): ExecutionResult | undefined;
 }
