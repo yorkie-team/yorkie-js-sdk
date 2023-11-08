@@ -323,32 +323,34 @@
                   slice: { content, openStart, openEnd },
                 } = step;
 
-                // 02-1. Backspace: Level delete
+                // 01. Move: level up/down, move left/right.
                 // TODO(hackerwins): replaceAround replaces the given range with given gap.
                 if (stepType === 'replaceAround') {
                   // root.tree.move(from, to, gapFrom, gapTo);
                   continue;
                 }
 
-                // 02-2. Enter Key: Insert Paragraph
+                // 02. Split: split the given range.
                 if (
                   stepType === 'replace' &&
                   openStart &&
                   openEnd &&
                   structure
                 ) {
-                  // TODO(hackerwins): Figure out how many depth to split.
-                  // root.tree.split(from, 2);
+                  root.tree.edit(from, to, docToTreeNode(node.toJSON()), [
+                    openStart,
+                    openEnd,
+                  ]);
                   continue;
                 }
 
-                // 02-1. Delete the given range.
+                // 03. Edit: Delete the given range.
                 if (!content.content.length) {
                   root.tree.edit(from, to);
                   continue;
                 }
 
-                // 03-4. Edit: Insert the given content.
+                // 04. Edit: Replace the given range with the given content.
                 for (const node of content.content) {
                   root.tree.edit(from, to, docToTreeNode(node.toJSON()));
                 }

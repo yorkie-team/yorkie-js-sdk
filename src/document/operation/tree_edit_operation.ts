@@ -85,9 +85,11 @@ export class TreeEditOperation extends Operation {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
     const tree = parentObject as CRDTTree;
+    // TODO(hackerwins): Implement splitLevels.
     const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
+      [0, 0],
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
     );

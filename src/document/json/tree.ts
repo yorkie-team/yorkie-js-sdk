@@ -153,38 +153,37 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
 function validateTextNode(textNode: TextNode): boolean {
   if (!textNode.value.length) {
     throw new Error('text node cannot have empty value');
-  } else {
-    return true;
   }
+
+  return true;
 }
 
 /**
  * `validateTreeNodes` ensures that treeNodes consists of only one type.
  */
 function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
-  if (treeNodes.length) {
-    const firstTreeNodeType = treeNodes[0].type;
-    if (firstTreeNodeType === DefaultTextType) {
-      for (const treeNode of treeNodes) {
-        const { type } = treeNode;
-        if (type !== DefaultTextType) {
-          throw new Error(
-            'element node and text node cannot be passed together',
-          );
-        }
-        validateTextNode(treeNode as TextNode);
+  if (!treeNodes.length) {
+    return true;
+  }
+
+  const firstTreeNodeType = treeNodes[0].type;
+  if (firstTreeNodeType === DefaultTextType) {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type !== DefaultTextType) {
+        throw new Error('element node and text node cannot be passed together');
       }
-    } else {
-      for (const treeNode of treeNodes) {
-        const { type } = treeNode;
-        if (type === DefaultTextType) {
-          throw new Error(
-            'element node and text node cannot be passed together',
-          );
-        }
+      validateTextNode(treeNode as TextNode);
+    }
+  } else {
+    for (const treeNode of treeNodes) {
+      const { type } = treeNode;
+      if (type === DefaultTextType) {
+        throw new Error('element node and text node cannot be passed together');
       }
     }
   }
+
   return true;
 }
 
@@ -363,11 +362,13 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
+    // TODO(hackerwins): Implement splitLevels.
     const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
         : undefined,
+      [0, 0],
       ticket,
     );
 
