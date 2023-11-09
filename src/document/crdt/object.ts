@@ -89,7 +89,24 @@ export class CRDTObject extends CRDTContainer {
    * `get` returns the value of the given key.
    */
   public get(key: string): CRDTElement | undefined {
-    return this.memberNodes.get(key);
+    const node = this.memberNodes.get(key);
+    if (!node) {
+      return;
+    }
+
+    return node.getValue();
+  }
+
+  /**
+   * `getByID` returns the element of the given createAt.
+   */
+  public getByID(createdAt: TimeTicket): CRDTElement | undefined {
+    const node = this.memberNodes.getByID(createdAt);
+    if (!node || node.isRemoved()) {
+      return;
+    }
+
+    return node.getValue();
   }
 
   /**
@@ -97,14 +114,6 @@ export class CRDTObject extends CRDTContainer {
    */
   public has(key: string): boolean {
     return this.memberNodes.has(key);
-  }
-
-  /**
-   * `hasByCreatedAt` returns whether the element exists of the given
-   * createdAt or not.
-   */
-  public hasByCreatedAt(createdAt: TimeTicket): boolean {
-    return this.memberNodes.hasByCreatedAt(createdAt);
   }
 
   /**
@@ -169,7 +178,7 @@ export class CRDTObject extends CRDTContainer {
 
     const json = [];
     for (const key of keys.sort()) {
-      const node = this.memberNodes.get(key);
+      const node = this.memberNodes.get(key)?.getValue();
       json.push(`"${key}":${node!.toSortedJSON()}`);
     }
 

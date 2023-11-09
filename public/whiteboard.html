@@ -116,6 +116,9 @@
         shapesHolder.innerHTML = '';
         const { selectedShapeID, movingShapePoint } = doc.getMyPresence();
         for (const shape of shapes) {
+          // TODO(chacha912): Remove the following condition after implementing the reverse
+          // operation for array.add. Currently, the shape is left as an empty object.
+          if (!shape.id) continue;
           const shapeElement = document.createElement('div');
           shapeElement.className = 'shape';
           let point = shape.point;
@@ -333,6 +336,8 @@
             }
 
             doc.history.undo();
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
           };
           redoTool.onclick = () => {
             // TODO(chacha912): Activate button only when the redo stack is not empty.
@@ -341,6 +346,8 @@
             }
 
             doc.history.redo();
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
           };
           shapesHolder.addEventListener('pointerdown', (e) => {
             onCanvasPointerDown(e, doc);

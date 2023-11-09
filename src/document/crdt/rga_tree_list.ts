@@ -259,15 +259,10 @@ export class RGATreeList {
   }
 
   /**
-   * `get` returns the element of the given creation time.
+   * `getByID` returns the element of the given creation time.
    */
-  public get(createdAt: TimeTicket): CRDTElement | undefined {
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
+  public getByID(createdAt: TimeTicket): RGATreeListNode | undefined {
+    return this.nodeMapByCreatedAt.get(createdAt.toIDString());
   }
 
   /**

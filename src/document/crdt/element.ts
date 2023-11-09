@@ -140,6 +140,10 @@ export abstract class CRDTContainer extends CRDTElement {
   abstract getDescendants(
     callback: (elem: CRDTElement, parent: CRDTContainer) => boolean,
   ): void;
+
+  abstract get(keyOrIndex: string | number): CRDTElement | undefined;
+
+  abstract getByID(createdAt: TimeTicket): CRDTElement | undefined;
 }
 
 /**

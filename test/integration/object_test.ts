@@ -206,6 +206,34 @@ describe('Object', function () {
     }, task.name);
   });
 
+  it('Returns undefined when looking up an element that doesnt exist', function () {
+    const doc = new Document<{
+      shapes: {
+        [key: string]: { color: string; point: { x: number; y: number } };
+      };
+    }>('test-doc');
+    assert.equal('{}', doc.toSortedJSON());
+
+    doc.update((root) => {
+      root.shapes = {
+        circle: { color: 'black', point: { x: 0, y: 0 } },
+      };
+    });
+    assert.equal(
+      '{"shapes":{"circle":{"color":"black","point":{"x":0,"y":0}}}}',
+      doc.toSortedJSON(),
+    );
+
+    doc.update((root) => {
+      delete root.shapes.circle;
+    });
+    assert.equal('{"shapes":{}}', doc.toSortedJSON());
+    assert.isUndefined(doc.getRoot().shapes.circle);
+    assert.isUndefined(doc.getRoot().shapes.circle?.color);
+    assert.isUndefined(doc.getRoot().shapes.circle?.point);
+    assert.isUndefined(doc.getRoot().shapes.circle?.point?.x);
+  });
+
   describe('Undo/Redo', function () {
     it('can get proper reverse operations', function () {
       const doc = new Document<{

@@ -185,26 +185,22 @@ export class ElementRHT {
   }
 
   /**
-   * `hasByCreatedAt` returns whether the element exists of the given createdAt or not.
+   * `getByID` returns the node of the given createdAt.
    */
-  public hasByCreatedAt(createdAt: TimeTicket): boolean {
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (node == null) {
-      return false;
-    }
-    return !node.isRemoved();
+  public getByID(createdAt: TimeTicket): ElementRHTNode | undefined {
+    return this.nodeMapByCreatedAt.get(createdAt.toIDString());
   }
 
   /**
-   * `get` returns the value of the given key.
+   * `get` returns the node of the given key.
    */
-  public get(key: string): CRDTElement | undefined {
+  public get(key: string): ElementRHTNode | undefined {
     const node = this.nodeMapByKey.get(key);
-    if (node == null) {
+    if (!node || node.isRemoved()) {
       return;
     }
 
-    return node.getValue();
+    return node;
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc

@@ -61,27 +61,27 @@ export class RemoveOperation extends Operation {
     root: CRDTRoot,
     source: OpSource,
   ): ExecutionResult | undefined {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    const parentObject = root.findByCreatedAt(
+      this.getParentCreatedAt(),
+    ) as CRDTContainer;
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
     if (!(parentObject instanceof CRDTContainer)) {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }
-    const obj = parentObject as CRDTContainer;
+
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
     if (
       source === OpSource.UndoRedo &&
-      (obj.getRemovedAt() ||
-        (obj instanceof CRDTObject && !obj.hasByCreatedAt(this.createdAt)) ||
-        (obj instanceof CRDTArray && !obj.get(this.createdAt)))
+      (parentObject.getRemovedAt() || !parentObject.getByID(this.createdAt))
     ) {
       return;
     }
-    const key = obj.subPathOf(this.createdAt);
-    const reverseOp = this.getReverseOperation(obj);
+    const key = parentObject.subPathOf(this.createdAt);
+    const reverseOp = this.getReverseOperation(parentObject);
 
-    const elem = obj.delete(this.createdAt, this.getExecutedAt());
+    const elem = parentObject.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
     const opInfos: Array<OperationInfo> =

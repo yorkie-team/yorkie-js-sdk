@@ -93,7 +93,7 @@ describe('ROOT', function () {
     assert.equal(1, arrJs1?.[1]);
     assert.equal(2, arrJs1?.[2]);
 
-    const targetElement = arr.getByIndex(1)!;
+    const targetElement = arr.get(1)!;
     arr.delete(targetElement.getCreatedAt(), change.issueTimeTicket());
     root.registerRemovedElement(targetElement);
     assert.equal('[0,2]', arr.toJSON());

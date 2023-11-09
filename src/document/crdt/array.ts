@@ -76,23 +76,23 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `get` returns the element of the given createAt.
+   * `get` returns the element of the given index.
    */
-  public get(createdAt: TimeTicket): CRDTElement | undefined {
-    const node = this.elements.get(createdAt);
-    if (!node || node.isRemoved()) {
+  public get(index: number): CRDTElement | undefined {
+    const node = this.elements.getByIndex(index);
+    if (!node) {
       return;
     }
 
-    return node;
+    return node.getValue();
   }
 
   /**
-   * `getByIndex` returns the element of the given index.
+   * `getByID` returns the element of the given createAt.
    */
-  public getByIndex(index: number): CRDTElement | undefined {
-    const node = this.elements.getByIndex(index);
-    if (!node) {
+  public getByID(createdAt: TimeTicket): CRDTElement | undefined {
+    const node = this.elements.getByID(createdAt);
+    if (!node || node.isRemoved()) {
       return;
     }
 
@@ -213,7 +213,7 @@ export class CRDTArray extends CRDTContainer {
   public toJSForTest(): DevTools.JSONElement {
     const values: DevTools.ContainerValue = {};
     for (let i = 0; i < this.length; i++) {
-      const { id, value, type } = this.getByIndex(i)!.toJSForTest();
+      const { id, value, type } = this.get(i)!.toJSForTest();
       values[i] = {
         key: String(i),
         id,
