@@ -90,11 +90,7 @@ export class CRDTObject extends CRDTContainer {
    */
   public get(key: string): CRDTElement | undefined {
     const node = this.memberNodes.get(key);
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
+    return node?.getValue();
   }
 
   /**
@@ -102,11 +98,7 @@ export class CRDTObject extends CRDTContainer {
    */
   public getByID(createdAt: TimeTicket): CRDTElement | undefined {
     const node = this.memberNodes.getByID(createdAt);
-    if (!node || node.isRemoved()) {
-      return;
-    }
-
-    return node.getValue();
+    return node?.getValue();
   }
 
   /**

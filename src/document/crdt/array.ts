@@ -80,11 +80,7 @@ export class CRDTArray extends CRDTContainer {
    */
   public get(index: number): CRDTElement | undefined {
     const node = this.elements.getByIndex(index);
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
+    return node?.getValue();
   }
 
   /**
@@ -92,11 +88,7 @@ export class CRDTArray extends CRDTContainer {
    */
   public getByID(createdAt: TimeTicket): CRDTElement | undefined {
     const node = this.elements.getByID(createdAt);
-    if (!node || node.isRemoved()) {
-      return;
-    }
-
-    return node.getValue();
+    return node?.getValue();
   }
 
   /**

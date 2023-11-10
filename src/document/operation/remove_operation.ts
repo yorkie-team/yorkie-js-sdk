@@ -72,9 +72,10 @@ export class RemoveOperation extends Operation {
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
+    const targetElem = parentObject.getByID(this.createdAt);
     if (
       source === OpSource.UndoRedo &&
-      (parentObject.getRemovedAt() || !parentObject.getByID(this.createdAt))
+      (parentObject.getRemovedAt() || !targetElem || targetElem.isRemoved())
     ) {
       return;
     }

@@ -171,7 +171,11 @@ export class ArrayProxy {
           };
         } else if (method === 'getElementByID') {
           return (createdAt: TimeTicket): WrappedElement | undefined => {
-            return toWrappedElement(context, target.getByID(createdAt));
+            const elem = target.getByID(createdAt);
+            if (!elem || elem.isRemoved()) {
+              return;
+            }
+            return toWrappedElement(context, elem);
           };
         } else if (method === 'getElementByIndex') {
           return (index: number): WrappedElement | undefined => {
