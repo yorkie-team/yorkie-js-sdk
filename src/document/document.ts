@@ -546,7 +546,8 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.clearRedo();
       this.changeID = change.getID();
 
-      if (change.hasOperations()) {
+      // 03. Publish the document change event.
+      if (opInfos.length > 0) {
         this.publish({
           type: DocEventType.LocalChange,
           value: {
@@ -1054,7 +1055,6 @@ export class Document<T, P extends Indexable = Indexable> {
     for (const change of changes) {
       change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
 
-      let changeInfo: ChangeInfo | undefined;
       let presenceEvent:
         | WatchedEvent<P>
         | UnwatchedEvent<P>
@@ -1098,27 +1098,24 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const executionResult = change.execute(
+      const { opInfos } = change.execute(
         this.root,
         this.presences,
         OpSource.Remote,
       );
-      if (change.hasOperations()) {
-        changeInfo = {
-          actor: actorID,
-          message: change.getMessage() || '',
-          operations: executionResult.opInfos,
-        };
-      }
 
       // DocEvent should be emitted synchronously with applying changes.
       // This is because 3rd party model should be synced with the Document
       // after RemoteChange event is emitted. If the event is emitted
       // asynchronously, the model can be changed and breaking consistency.
-      if (changeInfo) {
+      if (opInfos.length > 0) {
         this.publish({
           type: DocEventType.RemoteChange,
-          value: changeInfo,
+          value: {
+            actor: actorID,
+            message: change.getMessage() || '',
+            operations: opInfos,
+          },
         });
       }
       if (presenceEvent) {
