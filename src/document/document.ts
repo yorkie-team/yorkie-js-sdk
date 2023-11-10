@@ -543,7 +543,9 @@ export class Document<T, P extends Indexable = Indexable> {
       if (reverseOps.length > 0) {
         this.internalHistory.pushUndo(reverseOps);
       }
-      this.internalHistory.clearRedo();
+      if (opInfos.length > 0) {
+        this.internalHistory.clearRedo();
+      }
       this.changeID = change.getID();
 
       // 03. Publish the document change event.
