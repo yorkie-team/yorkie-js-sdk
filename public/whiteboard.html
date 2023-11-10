@@ -122,6 +122,8 @@
           const shapeElement = document.createElement('div');
           shapeElement.className = 'shape';
           let point = shape.point;
+          // TODO(chacha912): The movement of the peer's rectangle is not rendered.
+          // It can be replaced after implementing `history.pause` and `history.resume`.
           if (shape.id === selectedShapeID && movingShapePoint) {
             point = movingShapePoint;
           }

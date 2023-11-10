@@ -543,6 +543,7 @@ export class Document<T, P extends Indexable = Indexable> {
       if (reverseOps.length > 0) {
         this.internalHistory.pushUndo(reverseOps);
       }
+      // NOTE(chacha912): Clear redo when a new local operation is applied.
       if (opInfos.length > 0) {
         this.internalHistory.clearRedo();
       }
@@ -1308,8 +1309,9 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushRedo(reverseOps);
     }
 
-    // NOTE(chacha912): When there is no applied operation or presence
+    // TODO(chacha912): When there is no applied operation or presence
     // during undo/redo, skip propagating change remotely.
+    // In the database, it may appear as if the client sequence is missing.
     if (change.hasPresenceChange() || opInfos.length > 0) {
       this.localChanges.push(change);
     }
