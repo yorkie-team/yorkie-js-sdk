@@ -16,7 +16,7 @@ export default function SingleAnimation({
       >
         <div className={styles['leftRight' + (timestamp % 3)]}>
           <div className="transform -translate-x-1/2 -translate-y-1/2">
-            <img src={`src/assets/icons/icon_${selectedCursorShape}.svg`} />
+            <img src={`./icons/icon_${selectedCursorShape}.svg`} />
           </div>
         </div>
       </div>

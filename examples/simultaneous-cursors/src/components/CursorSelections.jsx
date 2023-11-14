@@ -20,7 +20,7 @@ const CursorSelections = ({ handleCursorShapeSelect, clientsLength }) => {
                 ? 'cursor-shape-selected'
                 : 'cursor-shape-not-selected'
             }`}
-            src={`src/assets/icons/icon_${shape}.svg`}
+            src={`./icons/icon_${shape}.svg`}
           />
         ))}
       </div>

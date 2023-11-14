@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNodeID,
   CRDTTreeNode,
-  TreePosStructRange,
-  TreeChange,
   CRDTTreePos,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 
@@ -30,35 +27,35 @@ import {
   IndexTree,
   DefaultRootType,
   DefaultTextType,
-  TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
-
-export type TreeNode = TextNode | ElementNode;
-export type TreeChangeWithPath = Omit<TreeChange, 'from' | 'to'> & {
-  from: Array<number>;
-  to: Array<number>;
-};
-
-/**
- * `ElementNode` is a node that has children.
- */
-export type ElementNode<A extends Indexable = Indexable> = {
-  type: TreeNodeType;
-  attributes?: A;
-  children: Array<TreeNode>;
-};
+import type {
+  ElementNode,
+  TextNode,
+  TreeNode,
+  TreeChange,
+  TreeChangeType,
+  TreePosStructRange,
+  CRDTTreeNodeIDStruct,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 
 /**
- * `TextNode` is a node that has a value.
+ * NOTE(hackerwins): In normal case, we should define the following types in
+ * json package, because they are directly used by the user. However, we define
+ * them in crdt package to avoid circular dependency between json and crdt.
  */
-export type TextNode = {
-  type: typeof DefaultTextType;
-  value: string;
+export {
+  TreeNode,
+  ElementNode,
+  TextNode,
+  TreeChange,
+  TreeChangeType,
+  TreePosStructRange,
+  CRDTTreeNodeIDStruct,
 };
 
 /**

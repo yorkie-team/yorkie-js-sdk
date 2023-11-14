@@ -7,6 +7,26 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.8] - 2023-11-01
+
+### Changed
+* Replace karma with vitest by @blurfx, @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/665
+* Remove vitest single thread config by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/667
+* Publish npm package with provenance by @jongwooo in https://github.com/yorkie-team/yorkie-js-sdk/pull/669
+* Update examples version to v0.4.7 by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/671
+* Update nextjs-scheduler to export static files by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/672
+* Bump browserify-sign from 4.2.1 to 4.2.2 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/678
+* Bump @babel/traverse from 7.22.11 to 7.23.2 by @dependabot in https://github.com/yorkie-team/yorkie-js-sdk/pull/670
+
+### Removed
+* Remove redundant types from tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/666
+
+### Fixed
+* Fix missing collection of removed elements from the root by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/676
+* Add more GC tests to reflect current server modifications by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/677
+* Fit Next.js example style to the yorkie homepage by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/675
+* Disable jekyll on github actions by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/674
+
 ## [0.4.7] - 2023-10-06
 
 ### Added
