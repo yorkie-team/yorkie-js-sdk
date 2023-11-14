@@ -26,9 +26,6 @@ const TEMPLATES = FRAMEWORKS.map(
   (f) => (f.variants && f.variants.map((v) => v.name)) || [f.name],
 ).reduce((a, b) => a.concat(b), []);
 
-const apiKeyMessage = 'You can update your API key in .env';
-let apiKey = '';
-
 const defaultTargetDir = 'yorkie-app';
 
 async function init() {
@@ -40,33 +37,12 @@ async function init() {
     targetDir === '.' ? path.basename(path.resolve()) : targetDir;
 
   let result: prompts.Answers<
-    | 'apiKey'
-    | 'projectName'
-    | 'overwrite'
-    | 'packageName'
-    | 'framework'
-    | 'variant'
+    'projectName' | 'overwrite' | 'packageName' | 'framework' | 'variant'
   >;
 
   try {
     result = await prompts(
       [
-        {
-          type: () => {
-            console.log(
-              '\n🔑 To run these examples, you need Yorkie API key.' +
-                '\nGet your API key at https://yorkie.dev/dashboard\n',
-            );
-
-            return 'text';
-          },
-          name: 'apiKey',
-          message: reset('API key:'),
-          initial: apiKeyMessage,
-          onState: ({ value }) => {
-            apiKey = value === apiKeyMessage ? '' : value;
-          },
-        },
         {
           type: argTargetDir ? null : 'text',
           name: 'projectName',
@@ -181,16 +157,23 @@ async function init() {
   };
 
   const files = fs.readdirSync(templateDir);
-  for (const file of files.filter(
-    (f) => f !== '.env' && f !== 'package.json',
-  )) {
+  for (const file of files) {
+    if (file === 'package.json' || file === '.env.production') {
+      continue;
+    }
+
+    if (file === '.env') {
+      const envVariables = fs.readFileSync(file).toString();
+
+      write(
+        file,
+        envVariables.replace('http://localhost:8080', 'https://api.yorkie.dev'),
+      );
+      continue;
+    }
+
     write(file);
   }
-
-  const dotenvPath = path.resolve(fileURLToPath(import.meta.url), '../.env');
-  const dotenvTemplate = fs.readFileSync(dotenvPath).toString();
-
-  write('.env', `${dotenvTemplate.trim()}'${apiKey}'`);
 
   const pkg = JSON.parse(
     fs.readFileSync(path.join(templateDir, `package.json`), 'utf-8'),
@@ -200,8 +183,9 @@ async function init() {
 
   write('package.json', JSON.stringify(pkg, null, 2) + '\n');
 
-  const cdProjectName = path.relative(cwd, root);
   console.log(`\nDone. Now run:\n`);
+
+  const cdProjectName = path.relative(cwd, root);
   if (root !== cwd) {
     console.log(
       `  cd ${
@@ -209,6 +193,7 @@ async function init() {
       }`,
     );
   }
+
   switch (pkgManager) {
     case 'yarn':
       console.log('  yarn');
@@ -219,6 +204,11 @@ async function init() {
       console.log(`  ${pkgManager} run dev`);
       break;
   }
+
+  console.log(
+    '\n🔑 To run these examples, you need Yorkie API key.' +
+      `\nGet your API key at https://yorkie.dev/dashboard and put it in ${cdProjectName}/.env`,
+  );
   console.log();
 }
 
