@@ -550,6 +550,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.changeID = change.getID();
 
       // 03. Publish the document change event.
+      // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
       if (opInfos.length > 0) {
         this.publish({
           type: DocEventType.LocalChange,
@@ -844,6 +845,15 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
+  }
+
+  /**
+   * `getChangeID` returns the change id of this document.
+   *
+   * @internal
+   */
+  public getChangeID(): ChangeID {
+    return this.changeID;
   }
 
   /**
@@ -1311,16 +1321,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // TODO(chacha912): When there is no applied operation or presence
     // during undo/redo, skip propagating change remotely.
-    // In the database, it may appear as if the client sequence is missing.
-    if (change.hasPresenceChange() || opInfos.length > 0) {
-      this.localChanges.push(change);
+    if (!change.hasPresenceChange() && opInfos.length === 0) {
+      return;
     }
 
+    this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    // NOTE(chacha912): Although operations are included in the change, they
-    // may not be executable (e.g., when the target element has been deleted).
-    // So we check opInfos, which represent the actually executed operations.
     if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
@@ -1400,15 +1407,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // NOTE(chacha912): When there is no applied operation or presence
     // during undo/redo, skip propagating change remotely.
-    if (change.hasPresenceChange() || opInfos.length > 0) {
-      this.localChanges.push(change);
+    if (!change.hasPresenceChange() && opInfos.length === 0) {
+      return;
     }
 
+    this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    // NOTE(chacha912): Although operations are included in the change, they
-    // may not be executable (e.g., when the target element has been deleted).
-    // So we check opInfos, which represent the actually executed operations.
     if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
