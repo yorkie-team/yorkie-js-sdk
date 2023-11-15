@@ -9,9 +9,9 @@
 **Signature:**
 
 ```typescript
-getUndoStackForTest(): Array<Array<string>>;
+getUndoStackForTest(): Array<Array<HistoryOperation<P>>>;
 ```
 **Returns:**
 
-Array&lt;Array&lt;string&gt;&gt;
+Array&lt;Array&lt;HistoryOperation&lt;P&gt;&gt;&gt;
 

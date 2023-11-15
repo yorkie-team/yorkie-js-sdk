@@ -23,7 +23,7 @@ export declare class Change<P extends Indexable>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [create({ id, operations, presenceChange, message, })](./yorkie-js-sdk.change.create.md) | <code>static</code> | <code>create</code> creates a new instance of Change. |
-|  [execute(root, presences)](./yorkie-js-sdk.change.execute.md) |  | <code>execute</code> executes the operations of this change to the given root. |
+|  [execute(root, presences, source)](./yorkie-js-sdk.change.execute.md) |  | <code>execute</code> executes the operations of this change to the given root. |
 |  [getID()](./yorkie-js-sdk.change.getid.md) |  | <code>getID</code> returns the ID of this change. |
 |  [getMessage()](./yorkie-js-sdk.change.getmessage.md) |  | <code>getMessage</code> returns the message of this change. |
 |  [getOperations()](./yorkie-js-sdk.change.getoperations.md) |  | <code>getOperations</code> returns the operations of this change. |

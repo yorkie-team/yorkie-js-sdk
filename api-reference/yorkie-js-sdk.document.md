@@ -33,6 +33,7 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
 |  [getGarbageLenFromClone()](./yorkie-js-sdk.document.getgarbagelenfromclone.md) |  | <code>getGarbageLenFromClone</code> returns the length of elements should be purged from clone. |
 |  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
+|  [getOpsForTest()](./yorkie-js-sdk.document.getopsfortest.md) |  | <code>getOpsForTest</code> returns the operations of this document for testing. |
 |  [getPresence(clientID)](./yorkie-js-sdk.document.getpresence.md) |  | <code>getPresence</code> returns the presence of the given clientID. |
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
 |  [getRedoStackForTest()](./yorkie-js-sdk.document.getredostackfortest.md) |  | <code>getRedoStackForTest</code> returns the redo stack for test. |

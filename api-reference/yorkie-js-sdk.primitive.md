@@ -31,6 +31,7 @@ export declare class Primitive
 |  [isSupport(value)](./yorkie-js-sdk.primitive.issupport.md) | <code>static</code> | <code>isSupport</code> check if the given value is supported type. |
 |  [of(value, createdAt)](./yorkie-js-sdk.primitive.of.md) | <code>static</code> | <code>of</code> creates a new instance of Primitive. |
 |  [toBytes()](./yorkie-js-sdk.primitive.tobytes.md) |  | <code>toBytes</code> creates an array representing the value. |
+|  [toJSForTest()](./yorkie-js-sdk.primitive.tojsfortest.md) |  | <code>toJSForTest</code> returns value with meta data for testing. |
 |  [toJSON()](./yorkie-js-sdk.primitive.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of the value. |
 |  [toSortedJSON()](./yorkie-js-sdk.primitive.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of the value. |
 |  [valueFromBytes(primitiveType, bytes)](./yorkie-js-sdk.primitive.valuefrombytes.md) | <code>static</code> | <code>valueFromBytes</code> parses the given bytes into value. |
