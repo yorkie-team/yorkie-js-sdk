@@ -38,7 +38,7 @@ import type {
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import type * as DevTools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 export type TreeNode = TextNode | ElementNode;
 
@@ -970,7 +970,7 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `toJSForTest` returns value with meta data for testing.
    */
-  public toJSForTest(): DevTools.JSONElement {
+  public toJSForTest(): Devtools.JSONElement {
     return {
       id: this.getCreatedAt().toTestString(),
       value: JSON.parse(this.toJSON()),

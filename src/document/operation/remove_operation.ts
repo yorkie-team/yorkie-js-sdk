@@ -80,7 +80,7 @@ export class RemoveOperation extends Operation {
       return;
     }
     const key = parentObject.subPathOf(this.createdAt);
-    const reverseOp = this.getReverseOperation(parentObject);
+    const reverseOp = this.toReverseOperation(parentObject);
 
     const elem = parentObject.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
@@ -106,9 +106,9 @@ export class RemoveOperation extends Operation {
   }
 
   /**
-   * `getReverseOperation` returns the reverse operation of this operation.
+   * `toReverseOperation` returns the reverse operation of this operation.
    */
-  public getReverseOperation(
+  private toReverseOperation(
     parentObject: CRDTContainer,
   ): Operation | undefined {
     // TODO(Hyemmie): consider CRDTArray

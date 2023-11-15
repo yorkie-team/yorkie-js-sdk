@@ -20,7 +20,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
-import * as DevTools from '@yorkie-js-sdk/src/types/devtools_element';
+import * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.
@@ -202,8 +202,8 @@ export class CRDTArray extends CRDTContainer {
   /**
    * `toJSForTest` returns value with meta data for testing.
    */
-  public toJSForTest(): DevTools.JSONElement {
-    const values: DevTools.ContainerValue = {};
+  public toJSForTest(): Devtools.JSONElement {
+    const values: Devtools.ContainerValue = {};
     for (let i = 0; i < this.length; i++) {
       const { id, value, type } = this.get(i)!.toJSForTest();
       values[i] = {
