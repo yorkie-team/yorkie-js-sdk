@@ -77,7 +77,7 @@ export class SetOperation extends Operation {
       return;
     }
     const previousValue = obj.get(this.key);
-    const reverseOp = this.getReverseOperation(previousValue);
+    const reverseOp = this.toReverseOperation(previousValue);
 
     const value = this.value.deepcopy();
     const removed = obj.set(this.key, value, this.getExecutedAt());
@@ -99,9 +99,9 @@ export class SetOperation extends Operation {
   }
 
   /**
-   * `getReverseOperation` returns the reverse operation of this operation.
+   * `toReverseOperation` returns the reverse operation of this operation.
    */
-  public getReverseOperation(value: CRDTElement | undefined): Operation {
+  private toReverseOperation(value: CRDTElement | undefined): Operation {
     let reverseOp: SetOperation | RemoveOperation = RemoveOperation.create(
       this.getParentCreatedAt(),
       this.value.getCreatedAt(),

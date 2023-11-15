@@ -5,7 +5,7 @@ const Cursor = ({ selectedCursorShape, x, y, pointerDown }) => {
   return (
     <>
       <img
-        src={`src/assets/icons/icon_${selectedCursorShape}.svg`}
+        src={`./icons/icon_${selectedCursorShape}.svg`}
         className={`${selectedCursorShape}-cursor`}
         style={{ transform: `translate3d(${x}px, ${y}px, 0)` }}
       />

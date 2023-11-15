@@ -15,7 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import type * as DevTools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -115,7 +115,7 @@ export abstract class CRDTElement {
 
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
-  abstract toJSForTest(): DevTools.JSONElement;
+  abstract toJSForTest(): Devtools.JSONElement;
   abstract deepcopy(): CRDTElement;
 }
 
@@ -141,8 +141,17 @@ export abstract class CRDTContainer extends CRDTElement {
     callback: (elem: CRDTElement, parent: CRDTContainer) => boolean,
   ): void;
 
+  /**
+   * `get` returns the element of the given key or index. This method is called
+   * by users. So it should return undefined if the element is removed.
+   */
   abstract get(keyOrIndex: string | number): CRDTElement | undefined;
 
+  /**
+   * `getByID` returns the element of the given creation time. This method is
+   * called by internal. So it should return the element even if the element is
+   * removed.
+   */
   abstract getByID(createdAt: TimeTicket): CRDTElement | undefined;
 }
 
