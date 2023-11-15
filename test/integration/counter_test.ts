@@ -1,5 +1,6 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
+import { toStringHistoryOp } from '@yorkie-js-sdk/test/helper/helper';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
@@ -147,17 +148,18 @@ describe('Counter', function () {
       root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":1,"longCnt":9223372036854775807}`);
-    assert.equal(
-      JSON.stringify(doc.getUndoStackForTest()),
-      `[["1:00:2.INCREASE.-9223372036854775807","1:00:1.INCREASE.-1.5"]]`,
-    );
+
+    assert.deepEqual(doc.getUndoStackForTest().at(-1)?.map(toStringHistoryOp), [
+      '1:00:2.INCREASE.-9223372036854775807',
+      '1:00:1.INCREASE.-1.5',
+    ]);
 
     doc.history.undo();
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
-    assert.equal(
-      JSON.stringify(doc.getRedoStackForTest()),
-      `[["1:00:1.INCREASE.1.5","1:00:2.INCREASE.9223372036854775807"]]`,
-    );
+    assert.deepEqual(doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp), [
+      '1:00:1.INCREASE.1.5',
+      '1:00:2.INCREASE.9223372036854775807',
+    ]);
   });
 
   it('Can undo/redo for increase operation', async function ({ task }) {

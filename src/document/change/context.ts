@@ -153,7 +153,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
-   * `getReversePresence` returns the reverse presence of this context.
+   * `toReversePresence` returns the reverse presence of this context.
    */
   public getReversePresence() {
     if (this.reversePresenceKeys.size === 0) return undefined;

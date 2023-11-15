@@ -19,6 +19,7 @@ import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 export enum PrimitiveType {
   Null,
@@ -115,6 +116,17 @@ export class Primitive extends CRDTElement {
    */
   public toSortedJSON(): string {
     return this.toJSON();
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: this.value,
+      type: 'YORKIE_PRIMITIVE',
+    };
   }
 
   /**

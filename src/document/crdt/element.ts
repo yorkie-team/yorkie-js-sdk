@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -59,6 +60,18 @@ export abstract class CRDTElement {
   }
 
   /**
+   * `getPositionedAt` returns the time of this element when it was positioned
+   * in the document by undo/redo or move operation.
+   */
+  public getPositionedAt(): TimeTicket {
+    if (!this.movedAt) {
+      return this.createdAt;
+    }
+
+    return this.movedAt;
+  }
+
+  /**
    * `setMovedAt` sets the move time of this element.
    */
   public setMovedAt(movedAt?: TimeTicket): boolean {
@@ -83,7 +96,7 @@ export abstract class CRDTElement {
   public remove(removedAt?: TimeTicket): boolean {
     if (
       removedAt &&
-      removedAt.after(this.createdAt) &&
+      removedAt.after(this.getPositionedAt()) &&
       (!this.removedAt || removedAt.after(this.removedAt))
     ) {
       this.removedAt = removedAt;
@@ -102,6 +115,7 @@ export abstract class CRDTElement {
 
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
+  abstract toJSForTest(): Devtools.JSONElement;
   abstract deepcopy(): CRDTElement;
 }
 
@@ -126,6 +140,19 @@ export abstract class CRDTContainer extends CRDTElement {
   abstract getDescendants(
     callback: (elem: CRDTElement, parent: CRDTContainer) => boolean,
   ): void;
+
+  /**
+   * `get` returns the element of the given key or index. This method is called
+   * by users. So it should return undefined if the element is removed.
+   */
+  abstract get(keyOrIndex: string | number): CRDTElement | undefined;
+
+  /**
+   * `getByID` returns the element of the given creation time. This method is
+   * called by internal. So it should return the element even if the element is
+   * removed.
+   */
+  abstract getByID(createdAt: TimeTicket): CRDTElement | undefined;
 }
 
 /**

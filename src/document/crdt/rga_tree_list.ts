@@ -69,15 +69,11 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
   }
 
   /**
-   * `getPositionedAt` returns time this element was positioned in the array.
+   * `getPositionedAt` returns the time of this element when it was positioned
+   * in the array.
    */
   public getPositionedAt(): TimeTicket {
-    const movedAt = this.value.getMovedAt();
-    if (movedAt) {
-      return movedAt;
-    }
-
-    return this.value.getCreatedAt();
+    return this.value.getPositionedAt();
   }
 
   /**
@@ -263,15 +259,10 @@ export class RGATreeList {
   }
 
   /**
-   * `get` returns the element of the given creation time.
+   * `getByID` returns the element of the given creation time.
    */
-  public get(createdAt: TimeTicket): CRDTElement | undefined {
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
+  public getByID(createdAt: TimeTicket): RGATreeListNode | undefined {
+    return this.nodeMapByCreatedAt.get(createdAt.toIDString());
   }
 
   /**

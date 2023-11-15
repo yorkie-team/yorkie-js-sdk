@@ -16,6 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
+  OpSource,
   Operation,
   OperationInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -137,15 +138,26 @@ export class Change<P extends Indexable> {
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
+    source: OpSource,
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
   } {
     const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
+    if (process.env.NODE_ENV !== 'production' && this.operations.length) {
+      root.opsForTest.push(this.operations);
+    }
     for (const operation of this.operations) {
-      const { opInfos, reverseOp } = operation.execute(root);
+      const executionResult = operation.execute(root, source);
+      // NOTE(hackerwins): If the element was removed while executing undo/redo,
+      // the operation is not executed and executionResult is undefined.
+      if (!executionResult) continue;
+      const { opInfos, reverseOp } = executionResult;
       changeOpInfos.push(...opInfos);
+
+      // TODO(hackerwins): This condition should be removed after implementing
+      // all reverse operations.
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
       }
@@ -161,6 +173,7 @@ export class Change<P extends Indexable> {
         presences.delete(this.id.getActorID()!);
       }
     }
+
     return { opInfos: changeOpInfos, reverseOps };
   }
 

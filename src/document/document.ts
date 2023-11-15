@@ -50,6 +50,7 @@ import {
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
+  OpSource,
   OperationInfo,
   ObjectOperationInfo,
   TextOperationInfo,
@@ -66,7 +67,7 @@ import {
   Presence,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
-import { History } from '@yorkie-js-sdk/src/document/history';
+import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -525,7 +526,11 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       const change = context.getChange();
-      const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+      const { opInfos, reverseOps } = change.execute(
+        this.root,
+        this.presences,
+        OpSource.Local,
+      );
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -538,10 +543,14 @@ export class Document<T, P extends Indexable = Indexable> {
       if (reverseOps.length > 0) {
         this.internalHistory.pushUndo(reverseOps);
       }
-      this.internalHistory.clearRedo();
+      // NOTE(chacha912): Clear redo when a new local operation is applied.
+      if (opInfos.length > 0) {
+        this.internalHistory.clearRedo();
+      }
       this.changeID = change.getID();
 
-      if (change.hasOperations()) {
+      // 03. Publish the document change event.
+      if (opInfos.length > 0) {
         this.publish({
           type: DocEventType.LocalChange,
           value: {
@@ -944,6 +953,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getOpsForTest` returns the operations of this document for testing.
+   */
+  public getOpsForTest() {
+    return this.root.opsForTest;
+  }
+
+  /**
    * `garbageCollect` purges elements that were removed before the given time.
    *
    * @internal
@@ -1040,9 +1056,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.ensureClone();
     for (const change of changes) {
-      change.execute(this.clone!.root, this.clone!.presences);
+      change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
 
-      let changeInfo: ChangeInfo | undefined;
       let presenceEvent:
         | WatchedEvent<P>
         | UnwatchedEvent<P>
@@ -1086,23 +1101,24 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const executionResult = change.execute(this.root, this.presences);
-      if (change.hasOperations()) {
-        changeInfo = {
-          actor: actorID,
-          message: change.getMessage() || '',
-          operations: executionResult.opInfos,
-        };
-      }
+      const { opInfos } = change.execute(
+        this.root,
+        this.presences,
+        OpSource.Remote,
+      );
 
       // DocEvent should be emitted synchronously with applying changes.
       // This is because 3rd party model should be synced with the Document
       // after RemoteChange event is emitted. If the event is emitted
       // asynchronously, the model can be changed and breaking consistency.
-      if (changeInfo) {
+      if (opInfos.length > 0) {
         this.publish({
           type: DocEventType.RemoteChange,
-          value: changeInfo,
+          value: {
+            actor: actorID,
+            message: change.getMessage() || '',
+            operations: opInfos,
+          },
         });
       }
       if (presenceEvent) {
@@ -1261,6 +1277,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // apply undo operation in the context to generate a change
     for (const undoOp of undoOps) {
       if (!(undoOp instanceof Operation)) {
+        // apply presence change to the context
         const presence = new Presence<P>(
           context,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
@@ -1274,16 +1291,13 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    try {
-      change.execute(this.clone!.root, this.clone!.presences);
-    } catch (err) {
-      // drop clone because it is contaminated.
-      this.clone = undefined;
-      logger.error(err);
-      throw err;
-    }
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
-    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const { opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      OpSource.UndoRedo,
+    );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {
       reverseOps.push({
@@ -1295,11 +1309,19 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushRedo(reverseOps);
     }
 
-    this.localChanges.push(change);
-    this.changeID = change.getID();
+    // TODO(chacha912): When there is no applied operation or presence
+    // during undo/redo, skip propagating change remotely.
+    // In the database, it may appear as if the client sequence is missing.
+    if (change.hasPresenceChange() || opInfos.length > 0) {
+      this.localChanges.push(change);
+    }
 
+    this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations()) {
+    // NOTE(chacha912): Although operations are included in the change, they
+    // may not be executable (e.g., when the target element has been deleted).
+    // So we check opInfos, which represent the actually executed operations.
+    if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {
@@ -1344,6 +1366,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // apply redo operation in the context to generate a change
     for (const redoOp of redoOps) {
       if (!(redoOp instanceof Operation)) {
+        // apply presence change to the context
         const presence = new Presence<P>(
           context,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
@@ -1357,16 +1380,13 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const change = context.getChange();
-    try {
-      change.execute(this.clone!.root, this.clone!.presences);
-    } catch (err) {
-      // drop clone because it is contaminated.
-      this.clone = undefined;
-      logger.error(err);
-      throw err;
-    }
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
-    const { opInfos, reverseOps } = change.execute(this.root, this.presences);
+    const { opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      OpSource.UndoRedo,
+    );
     const reversePresence = context.getReversePresence();
     if (reversePresence) {
       reverseOps.push({
@@ -1378,11 +1398,18 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushUndo(reverseOps);
     }
 
-    this.localChanges.push(change);
-    this.changeID = change.getID();
+    // NOTE(chacha912): When there is no applied operation or presence
+    // during undo/redo, skip propagating change remotely.
+    if (change.hasPresenceChange() || opInfos.length > 0) {
+      this.localChanges.push(change);
+    }
 
+    this.changeID = change.getID();
     const actorID = this.changeID.getActorID()!;
-    if (change.hasOperations()) {
+    // NOTE(chacha912): Although operations are included in the change, they
+    // may not be executable (e.g., when the target element has been deleted).
+    // So we check opInfos, which represent the actually executed operations.
+    if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
         value: {
@@ -1406,14 +1433,14 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getUndoStackForTest` returns the undo stack for test.
    */
-  public getUndoStackForTest(): Array<Array<string>> {
+  public getUndoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getUndoStackForTest();
   }
 
   /**
    * `getRedoStackForTest` returns the redo stack for test.
    */
-  public getRedoStackForTest(): Array<Array<string>> {
+  public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getRedoStackForTest();
   }
 }

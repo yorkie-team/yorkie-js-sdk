@@ -20,6 +20,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
+import * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.
@@ -75,27 +76,19 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `get` returns the element of the given createAt.
+   * `get` returns the element of the given index.
    */
-  public get(createdAt: TimeTicket): CRDTElement | undefined {
-    const node = this.elements.get(createdAt);
-    if (!node || node.isRemoved()) {
-      return;
-    }
-
-    return node;
+  public get(index: number): CRDTElement | undefined {
+    const node = this.elements.getByIndex(index);
+    return node?.getValue();
   }
 
   /**
-   * `getByIndex` returns the element of the given index.
+   * `getByID` returns the element of the given createAt.
    */
-  public getByIndex(index: number): CRDTElement | undefined {
-    const node = this.elements.getByIndex(index);
-    if (!node) {
-      return;
-    }
-
-    return node.getValue();
+  public getByID(createdAt: TimeTicket): CRDTElement | undefined {
+    const node = this.elements.getByID(createdAt);
+    return node?.getValue();
   }
 
   /**
@@ -204,6 +197,27 @@ export class CRDTArray extends CRDTContainer {
    */
   public toJS(): any {
     return JSON.parse(this.toJSON());
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    const values: Devtools.ContainerValue = {};
+    for (let i = 0; i < this.length; i++) {
+      const { id, value, type } = this.get(i)!.toJSForTest();
+      values[i] = {
+        key: String(i),
+        id,
+        value,
+        type,
+      };
+    }
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: values,
+      type: 'YORKIE_ARRAY',
+    };
   }
 
   /**

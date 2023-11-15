@@ -171,11 +171,15 @@ export class ArrayProxy {
           };
         } else if (method === 'getElementByID') {
           return (createdAt: TimeTicket): WrappedElement | undefined => {
-            return toWrappedElement(context, target.get(createdAt));
+            const elem = target.getByID(createdAt);
+            if (!elem || elem.isRemoved()) {
+              return;
+            }
+            return toWrappedElement(context, elem);
           };
         } else if (method === 'getElementByIndex') {
           return (index: number): WrappedElement | undefined => {
-            const elem = target.getByIndex(index);
+            const elem = target.get(index);
             return toWrappedElement(context, elem);
           };
         } else if (method === 'getLast') {
@@ -235,10 +239,7 @@ export class ArrayProxy {
             ArrayProxy.moveLastInternal(context, target, id);
           };
         } else if (isNumericString(method)) {
-          return toJSONElement(
-            context,
-            target.getByIndex(Number(method as string)),
-          );
+          return toJSONElement(context, target.get(Number(method as string)));
         } else if (method === 'push') {
           return (value: any): number => {
             return ArrayProxy.pushInternal(context, target, value);
@@ -448,7 +449,7 @@ export class ArrayProxy {
         AddOperation.create(
           target.getCreatedAt(),
           prevCreatedAt,
-          primitive,
+          primitive.deepcopy(),
           ticket,
         ),
       );
@@ -462,7 +463,7 @@ export class ArrayProxy {
         AddOperation.create(
           target.getCreatedAt(),
           prevCreatedAt,
-          array,
+          array.deepcopy(),
           ticket,
         ),
       );
@@ -475,7 +476,12 @@ export class ArrayProxy {
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj, target);
       context.push(
-        AddOperation.create(target.getCreatedAt(), prevCreatedAt, obj, ticket),
+        AddOperation.create(
+          target.getCreatedAt(),
+          prevCreatedAt,
+          obj.deepcopy(),
+          ticket,
+        ),
       );
 
       for (const [k, v] of Object.entries(value!)) {
@@ -578,9 +584,7 @@ export class ArrayProxy {
     }
     if (items) {
       let previousID =
-        from === 0
-          ? target.getHead().getID()
-          : target.getByIndex(from - 1)!.getID();
+        from === 0 ? target.getHead().getID() : target.get(from - 1)!.getID();
       for (const item of items) {
         const newElem = ArrayProxy.insertAfterInternal(
           context,
@@ -622,8 +626,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.getByIndex(i)?.getID() ===
-        (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return true;
       }
@@ -659,8 +662,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.getByIndex(i)?.getID() ===
-        (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return i;
       }
@@ -696,8 +698,7 @@ export class ArrayProxy {
 
     for (let i = from; i > 0; i--) {
       if (
-        target.getByIndex(i)?.getID() ===
-        (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
       ) {
         return i;
       }
