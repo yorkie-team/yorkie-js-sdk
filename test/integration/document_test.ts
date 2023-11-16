@@ -745,7 +745,7 @@ describe('Document', function () {
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
-      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canUndo(), true);
       assert.equal(doc.history.canRedo(), false);
 
       // user increases the counter
@@ -760,7 +760,7 @@ describe('Document', function () {
 
       // user undoes the latest operation
       doc.history.undo();
-      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canUndo(), true);
       assert.equal(doc.history.canRedo(), true);
 
       // user redoes the latest undone operation
@@ -779,7 +779,7 @@ describe('Document', function () {
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
-      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canUndo(), true);
       assert.equal(doc.history.canRedo(), false);
 
       for (let i = 0; i < 5; i++) {
@@ -839,7 +839,7 @@ describe('Document', function () {
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
-      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canUndo(), true);
       assert.equal(doc.history.canRedo(), false);
 
       assert.throws(
@@ -872,7 +872,7 @@ describe('Document', function () {
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":0}');
 
-      assert.equal(doc.history.canUndo(), false);
+      assert.equal(doc.history.canUndo(), true);
       assert.equal(doc.history.canRedo(), false);
 
       for (let i = 0; i < 100; i++) {

@@ -30,6 +30,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -348,6 +349,17 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public toSortedJSON(): string {
     return this.toJSON();
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: JSON.parse(this.toJSON()),
+      type: 'YORKIE_TEXT',
+    };
   }
 
   /**

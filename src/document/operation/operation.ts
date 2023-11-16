@@ -21,6 +21,17 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 
 /**
+ * `OpSource` represents the source of the operation. It is used to handle
+ * corner cases in the operations created by undo/redo allow the removed
+ * elements when executing them.
+ */
+export enum OpSource {
+  Local = 'local',
+  Remote = 'remote',
+  UndoRedo = 'undoredo',
+}
+
+/**
  * `OperationInfo` represents the information of an operation.
  * It is used to inform to the user what kind of operation was executed.
  */
@@ -189,10 +200,14 @@ export abstract class Operation {
   /**
    * `getExecutedAt` returns execution time of this operation.
    */
-  // TODO(Hyemmie): Corner cases need to be considered: undo/redo operations'
-  // `executedAt` could be undefined until they are executed.
   public getExecutedAt(): TimeTicket {
-    return this.executedAt!;
+    // NOTE(chacha912): When an operation is in the undo/redo stack,
+    // it doesn't have an executedAt yet. The executedAt is set when
+    // the operation is executed through undo or redo.
+    if (!this.executedAt) {
+      throw new Error(`executedAt has not been set yet`);
+    }
+    return this.executedAt;
   }
 
   /**
@@ -224,5 +239,8 @@ export abstract class Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public abstract execute(root: CRDTRoot): ExecutionResult;
+  public abstract execute(
+    root: CRDTRoot,
+    source: OpSource,
+  ): ExecutionResult | undefined;
 }

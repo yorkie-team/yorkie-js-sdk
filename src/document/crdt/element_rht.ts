@@ -89,24 +89,22 @@ export class ElementRHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: CRDTElement): CRDTElement | undefined {
+  public set(
+    key: string,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement | undefined {
     let removed;
     const node = this.nodeMapByKey.get(key);
-    if (
-      node != null &&
-      !node.isRemoved() &&
-      node.remove(value.getCreatedAt())
-    ) {
+    if (node != null && !node.isRemoved() && node.remove(executedAt)) {
       removed = node.getValue();
     }
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
-    if (
-      node == null ||
-      value.getCreatedAt().after(node.getValue().getCreatedAt())
-    ) {
+    if (node == null || executedAt.after(node.getValue().getPositionedAt())) {
       this.nodeMapByKey.set(key, newNode);
+      value.setMovedAt(executedAt);
     }
     return removed;
   }
@@ -187,15 +185,22 @@ export class ElementRHT {
   }
 
   /**
-   * `get` returns the value of the given key.
+   * `getByID` returns the node of the given createdAt.
    */
-  public get(key: string): CRDTElement | undefined {
+  public getByID(createdAt: TimeTicket): ElementRHTNode | undefined {
+    return this.nodeMapByCreatedAt.get(createdAt.toIDString());
+  }
+
+  /**
+   * `get` returns the node of the given key.
+   */
+  public get(key: string): ElementRHTNode | undefined {
     const node = this.nodeMapByKey.get(key);
-    if (node == null) {
+    if (!node || node.isRemoved()) {
       return;
     }
 
-    return node.getValue();
+    return node;
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc

@@ -20,6 +20,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,
@@ -59,8 +60,12 @@ export class CRDTObject extends CRDTContainer {
   /**
    * `set` sets the given element of the given key.
    */
-  public set(key: string, value: CRDTElement): CRDTElement | undefined {
-    return this.memberNodes.set(key, value);
+  public set(
+    key: string,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement | undefined {
+    return this.memberNodes.set(key, value, executedAt);
   }
 
   /**
@@ -84,7 +89,16 @@ export class CRDTObject extends CRDTContainer {
    * `get` returns the value of the given key.
    */
   public get(key: string): CRDTElement | undefined {
-    return this.memberNodes.get(key);
+    const node = this.memberNodes.get(key);
+    return node?.getValue();
+  }
+
+  /**
+   * `getByID` returns the element of the given createAt.
+   */
+  public getByID(createdAt: TimeTicket): CRDTElement | undefined {
+    const node = this.memberNodes.getByID(createdAt);
+    return node?.getValue();
   }
 
   /**
@@ -113,6 +127,27 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    const values: Devtools.ContainerValue = {};
+    for (const [key, elem] of this) {
+      const { id, value, type } = elem.toJSForTest();
+      values[key] = {
+        key,
+        id,
+        value,
+        type,
+      };
+    }
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: values,
+      type: 'YORKIE_OBJECT',
+    };
+  }
+
+  /**
    * `getKeys` returns array of keys in this object.
    */
   public getKeys(): Array<string> {
@@ -135,7 +170,7 @@ export class CRDTObject extends CRDTContainer {
 
     const json = [];
     for (const key of keys.sort()) {
-      const node = this.memberNodes.get(key);
+      const node = this.memberNodes.get(key)?.getValue();
       json.push(`"${key}":${node!.toSortedJSON()}`);
     }
 
@@ -155,7 +190,11 @@ export class CRDTObject extends CRDTContainer {
   public deepcopy(): CRDTObject {
     const clone = CRDTObject.create(this.getCreatedAt());
     for (const node of this.memberNodes) {
-      clone.memberNodes.set(node.getStrKey(), node.getValue().deepcopy());
+      clone.memberNodes.set(
+        node.getStrKey(),
+        node.getValue().deepcopy(),
+        this.getPositionedAt(),
+      );
     }
     clone.remove(this.getRemovedAt());
     return clone;

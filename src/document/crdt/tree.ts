@@ -38,7 +38,11 @@ import type {
   TreeNodeType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
+/**
+ * `TreeNode` represents a node in the tree.
+ */
 export type TreeNode = TextNode | ElementNode;
 
 /**
@@ -627,7 +631,7 @@ export class CRDTTree extends CRDTGCElement {
     pos: CRDTTreePos,
     editedAt: TimeTicket,
     /* eslint-disable @typescript-eslint/no-unused-vars */
-    splitLevel: number,
+    splitLevel = 0,
   ): [CRDTTreeNode, CRDTTreeNode] {
     // 01. Find the parent and left sibling node of the given position.
     const [parent, leftSibling] = pos.toTreeNodes(this);
@@ -680,12 +684,8 @@ export class CRDTTree extends CRDTGCElement {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
   ) {
-    const [fromParent, fromLeft] = this.findNodesAndSplit(
-      range[0],
-      editedAt,
-      0,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplit(range[1], editedAt, 0);
+    const [fromParent, fromLeft] = this.findNodesAndSplit(range[0], editedAt);
+    const [toParent, toLeft] = this.findNodesAndSplit(range[1], editedAt);
     const changes: Array<TreeChange> = [];
     changes.push({
       type: TreeChangeType.Style,
@@ -883,7 +883,6 @@ export class CRDTTree extends CRDTGCElement {
     const nodesToBeRemoved = new Set<CRDTTreeNode>();
 
     let count = 0;
-
     for (const [, node] of this.removedNodeMap) {
       if (node.removedAt && ticket.compare(node.removedAt!) >= 0) {
         nodesToBeRemoved.add(node);
@@ -891,12 +890,12 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    [...nodesToBeRemoved].forEach((node) => {
+    for (const node of nodesToBeRemoved) {
       node.parent?.removeChild(node);
       this.nodeMapByID.remove(node.id);
       this.purge(node);
       this.removedNodeMap.delete(node.id.toIDString());
-    });
+    }
 
     return count;
   }
@@ -986,6 +985,17 @@ export class CRDTTree extends CRDTGCElement {
    */
   public toJSON(): string {
     return JSON.stringify(this.getRootTreeNode());
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    return {
+      id: this.getCreatedAt().toTestString(),
+      value: JSON.parse(this.toJSON()),
+      type: 'YORKIE_TREE',
+    };
   }
 
   /**
@@ -1094,12 +1104,8 @@ export class CRDTTree extends CRDTGCElement {
     range: TreePosRange,
     timeTicket: TimeTicket,
   ): [Array<number>, Array<number>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplit(
-      range[0],
-      timeTicket,
-      0,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplit(range[1], timeTicket, 0);
+    const [fromParent, fromLeft] = this.findNodesAndSplit(range[0], timeTicket);
+    const [toParent, toLeft] = this.findNodesAndSplit(range[1], timeTicket);
     return [this.toPath(fromParent, fromLeft), this.toPath(toParent, toLeft)];
   }
 
@@ -1110,12 +1116,8 @@ export class CRDTTree extends CRDTGCElement {
     range: TreePosRange,
     timeTicket: TimeTicket,
   ): [number, number] {
-    const [fromParent, fromLeft] = this.findNodesAndSplit(
-      range[0],
-      timeTicket,
-      0,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplit(range[1], timeTicket, 0);
+    const [fromParent, fromLeft] = this.findNodesAndSplit(range[0], timeTicket);
+    const [toParent, toLeft] = this.findNodesAndSplit(range[1], timeTicket);
     return [this.toIndex(fromParent, fromLeft), this.toIndex(toParent, toLeft)];
   }
 

@@ -18,12 +18,15 @@ import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
+  OpSource,
   Operation,
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -34,7 +37,7 @@ export class RemoveOperation extends Operation {
   constructor(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.createdAt = createdAt;
@@ -46,7 +49,7 @@ export class RemoveOperation extends Operation {
   public static create(
     parentCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): RemoveOperation {
     return new RemoveOperation(parentCreatedAt, createdAt, executedAt);
   }
@@ -54,17 +57,32 @@ export class RemoveOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+  public execute(
+    root: CRDTRoot,
+    source: OpSource,
+  ): ExecutionResult | undefined {
+    const parentObject = root.findByCreatedAt(
+      this.getParentCreatedAt(),
+    ) as CRDTContainer;
     if (!parentObject) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
     if (!(parentObject instanceof CRDTContainer)) {
       logger.fatal(`only object and array can execute remove: ${parentObject}`);
     }
-    const obj = parentObject as CRDTContainer;
-    const key = obj.subPathOf(this.createdAt);
-    const elem = obj.delete(this.createdAt, this.getExecutedAt());
+
+    // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
+    const targetElem = parentObject.getByID(this.createdAt);
+    if (
+      source === OpSource.UndoRedo &&
+      (parentObject.getRemovedAt() || !targetElem || targetElem.isRemoved())
+    ) {
+      return;
+    }
+    const key = parentObject.subPathOf(this.createdAt);
+    const reverseOp = this.toReverseOperation(parentObject);
+
+    const elem = parentObject.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
     const opInfos: Array<OperationInfo> =
@@ -84,7 +102,29 @@ export class RemoveOperation extends Operation {
             },
           ];
 
-    return { opInfos };
+    return { opInfos, reverseOp };
+  }
+
+  /**
+   * `toReverseOperation` returns the reverse operation of this operation.
+   */
+  private toReverseOperation(
+    parentObject: CRDTContainer,
+  ): Operation | undefined {
+    // TODO(Hyemmie): consider CRDTArray
+    if (parentObject instanceof CRDTObject) {
+      const key = parentObject.subPathOf(this.createdAt);
+      if (key !== undefined) {
+        const value = parentObject.get(key);
+        if (value !== undefined) {
+          return SetOperation.create(
+            key,
+            value.deepcopy(),
+            this.getParentCreatedAt(),
+          );
+        }
+      }
+    }
   }
 
   /**
@@ -98,7 +138,7 @@ export class RemoveOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.REMOVE`;
+    return `${this.getParentCreatedAt().toTestString()}.REMOVE.${this.createdAt.toTestString()}`;
   }
 
   /**
