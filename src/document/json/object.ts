@@ -172,7 +172,14 @@ export class ObjectProxy {
         SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
       );
     } else if (Array.isArray(value)) {
-      const array = CRDTArray.create(ticket);
+      const array = CRDTArray.create(
+        ticket,
+        ArrayProxy.buildArray(context, value),
+      );
+      array.getDescendants((elem, parent) => {
+        context.registerElement(elem, parent);
+        return false;
+      });
       setAndRegister(array);
       context.push(
         SetOperation.create(
@@ -182,9 +189,6 @@ export class ObjectProxy {
           ticket,
         ),
       );
-      for (const element of value) {
-        ArrayProxy.pushInternal(context, array, element);
-      }
     } else if (typeof value === 'object') {
       if (value instanceof Text) {
         const text = CRDTText.create(RGATreeSplit.create(), ticket);
@@ -230,7 +234,14 @@ export class ObjectProxy {
         );
         value.initialize(context, tree);
       } else {
-        const obj = CRDTObject.create(ticket);
+        const obj = CRDTObject.create(
+          ticket,
+          ObjectProxy.buildObject(context, value!),
+        );
+        obj.getDescendants((elem, parent) => {
+          context.registerElement(elem, parent);
+          return false;
+        });
         setAndRegister(obj);
         context.push(
           SetOperation.create(
@@ -240,13 +251,47 @@ export class ObjectProxy {
             ticket,
           ),
         );
-        for (const [k, v] of Object.entries(value!)) {
-          ObjectProxy.setInternal(context, obj, k, v);
-        }
       }
     } else {
       logger.fatal(`unsupported type of value: ${typeof value}`);
     }
+  }
+
+  /**
+   * `buildObject` constructs an object where all values from the
+   * user-provided object are transformed into CRDTElements.
+   * This function takes an object and iterates through its values,
+   * converting each value into a corresponding CRDTElement.
+   */
+  public static buildObject(
+    context: ChangeContext,
+    value: object,
+  ): { [key: string]: CRDTElement } {
+    const elementObject: { [key: string]: CRDTElement } = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k.includes('.')) {
+        throw new YorkieError(
+          Code.InvalidObjectKey,
+          `key must not contain the '.'.`,
+        );
+      }
+
+      const ticket = context.issueTimeTicket();
+      let elem: CRDTElement;
+      if (Primitive.isSupport(v)) {
+        elem = Primitive.of(v as PrimitiveValue, ticket);
+      } else if (Array.isArray(v)) {
+        const array = ArrayProxy.buildArray(context, v);
+        elem = CRDTArray.create(ticket, array);
+      } else if (typeof v === 'object') {
+        const object = ObjectProxy.buildObject(context, v);
+        elem = CRDTObject.create(ticket, object);
+      } else {
+        throw new TypeError(`Unsupported type of value: ${typeof value}`);
+      }
+      elementObject[k] = elem;
+    }
+    return elementObject;
   }
 
   /**

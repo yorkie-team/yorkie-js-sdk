@@ -39,8 +39,19 @@ export class CRDTObject extends CRDTContainer {
   /**
    * `create` creates a new instance of CRDTObject.
    */
-  public static create(createdAt: TimeTicket): CRDTObject {
-    return new CRDTObject(createdAt, ElementRHT.create());
+  public static create(
+    createdAt: TimeTicket,
+    value?: { [key: string]: CRDTElement },
+  ): CRDTObject {
+    if (!value) {
+      return new CRDTObject(createdAt, ElementRHT.create());
+    }
+
+    const memberNodes = ElementRHT.create();
+    for (const [k, v] of Object.entries(value)) {
+      memberNodes.set(k, v.deepcopy(), v.getCreatedAt());
+    }
+    return new CRDTObject(createdAt, memberNodes);
   }
 
   /**

@@ -20,7 +20,10 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import {
+  CRDTContainer,
+  CRDTElement,
+} from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
@@ -330,6 +333,31 @@ export class ArrayProxy {
   }
 
   /**
+   * `buildArray` constructs an array of CRDTElements based on the user-provided array.
+   */
+  public static buildArray(
+    context: ChangeContext,
+    value: Array<unknown>,
+  ): Array<CRDTElement> {
+    const elementArray: Array<CRDTElement> = [];
+    for (const v of value) {
+      const ticket = context.issueTimeTicket();
+      let elem: CRDTElement;
+      if (Primitive.isSupport(v)) {
+        elem = Primitive.of(v as PrimitiveValue, ticket);
+      } else if (Array.isArray(v)) {
+        elem = CRDTArray.create(ticket, ArrayProxy.buildArray(context, v));
+      } else if (typeof v === 'object') {
+        elem = CRDTObject.create(ticket, ObjectProxy.buildObject(context, v!));
+      } else {
+        throw new TypeError(`Unsupported type of value: ${typeof value}`);
+      }
+      elementArray.push(elem);
+    }
+    return elementArray;
+  }
+
+  /**
    * `pushInternal` pushes the value to the target array.
    */
   public static pushInternal(
@@ -455,7 +483,10 @@ export class ArrayProxy {
       );
       return primitive;
     } else if (Array.isArray(value)) {
-      const array = CRDTArray.create(ticket);
+      const array = CRDTArray.create(
+        ticket,
+        ArrayProxy.buildArray(context, value),
+      );
       const clone = array.deepcopy();
       target.insertAfter(prevCreatedAt, clone);
       context.registerElement(clone, target);
@@ -467,12 +498,12 @@ export class ArrayProxy {
           ticket,
         ),
       );
-      for (const element of value) {
-        ArrayProxy.pushInternal(context, clone, element);
-      }
       return array;
     } else if (typeof value === 'object') {
-      const obj = CRDTObject.create(ticket);
+      const obj = CRDTObject.create(
+        ticket,
+        ObjectProxy.buildObject(context, value!),
+      );
       target.insertAfter(prevCreatedAt, obj);
       context.registerElement(obj, target);
       context.push(
@@ -483,10 +514,6 @@ export class ArrayProxy {
           ticket,
         ),
       );
-
-      for (const [k, v] of Object.entries(value!)) {
-        ObjectProxy.setInternal(context, obj, k, v);
-      }
       return obj;
     }
 
@@ -579,7 +606,9 @@ export class ArrayProxy {
     for (let i = from; i < to; i++) {
       const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
       if (removed) {
-        removeds.push(toJSONElement(context, removed)!);
+        const removedElem = removed.deepcopy();
+        removedElem.setRemovedAt();
+        removeds.push(toJSONElement(context, removedElem)!);
       }
     }
     if (items) {

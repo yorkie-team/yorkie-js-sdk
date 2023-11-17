@@ -91,7 +91,7 @@ export class AddOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.ADD`;
+    return `${this.getParentCreatedAt().toTestString()}.ADD.${this.value.toJSON()}`;
   }
 
   /**

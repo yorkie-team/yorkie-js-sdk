@@ -246,14 +246,14 @@ describe('Object', function () {
       assert.equal(doc.toSortedJSON(), '{"shape":{"color":"black"}}');
       assert.deepEqual(
         doc.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
-        ['1:00:1.REMOVE.1:00:2', '0:00:0.REMOVE.1:00:1'],
+        ['0:00:0.REMOVE.1:00:1'],
       );
 
       doc.history.undo();
       assert.equal(doc.toSortedJSON(), `{}`);
       assert.deepEqual(
         doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp),
-        ['0:00:0.SET.shape={"color":"black"}', '1:00:1.SET.color="black"'],
+        ['0:00:0.SET.shape={"color":"black"}'],
       );
 
       doc.history.redo();
@@ -363,7 +363,7 @@ describe('Object', function () {
       assertUndoRedo(doc, states);
     });
 
-    it.skip(`Should ensure convergence of peer's document after undoing nested objects`, async function ({
+    it(`Should ensure convergence of peer's document after undoing nested objects`, async function ({
       task,
     }) {
       // Test scenario:
@@ -404,8 +404,7 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
       await client1.sync();
       await client2.sync();
-      // TODO(chacha912): fix test
-      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}'); // as-is: {"shape":{"point":{}}}
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
     });
 
     it(`Should handle reverse (set) operation targeting elements deleted by other peers`, async function ({

@@ -16,7 +16,10 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import {
+  CRDTContainer,
+  CRDTElement,
+} from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
@@ -85,6 +88,12 @@ export class SetOperation extends Operation {
     if (removed) {
       root.registerRemovedElement(removed);
     }
+    if (value instanceof CRDTContainer) {
+      value.getDescendants((elem, parent) => {
+        root.registerElement(elem, parent);
+        return false;
+      });
+    }
 
     return {
       opInfos: [
@@ -108,9 +117,6 @@ export class SetOperation extends Operation {
     );
 
     if (value !== undefined && !value.isRemoved()) {
-      // TODO(chacha912): When the value is an object,
-      // it always sets as an empty object from the remote.
-      // (Refer to https://github.com/yorkie-team/yorkie/issues/663)
       reverseOp = SetOperation.create(
         this.key,
         value.deepcopy(),
