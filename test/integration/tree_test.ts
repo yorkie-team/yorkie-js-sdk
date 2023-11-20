@@ -263,12 +263,12 @@ describe('Tree', () => {
       );
     });
 
-    const actualOperations: Array<TreeEditOpInfo> = [];
+    const actualOps: Array<TreeEditOpInfo> = [];
     doc.subscribe('$.t', (event) => {
       if (event.type === 'local-change') {
         const { operations } = event.value;
 
-        actualOperations.push(
+        actualOps.push(
           ...(operations.filter(
             (op) => op.type === 'tree-edit',
           ) as Array<TreeEditOpInfo>),
@@ -289,7 +289,7 @@ describe('Tree', () => {
     });
 
     assert.deepEqual(
-      actualOperations.map((it) => {
+      actualOps.map((it) => {
         return {
           type: it.type,
           fromPath: it.fromPath,
