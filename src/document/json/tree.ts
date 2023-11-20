@@ -368,7 +368,6 @@ export class Tree {
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
         : undefined,
-      [0, 0],
       ticket,
     );
 

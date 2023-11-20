@@ -630,8 +630,6 @@ export class CRDTTree extends CRDTGCElement {
   public findNodesAndSplit(
     pos: CRDTTreePos,
     editedAt: TimeTicket,
-    /* eslint-disable @typescript-eslint/no-unused-vars */
-    splitLevel = 0,
   ): [CRDTTreeNode, CRDTTreeNode] {
     // 01. Find the parent and left sibling node of the given position.
     const [parent, leftSibling] = pos.toTreeNodes(this);
@@ -719,21 +717,12 @@ export class CRDTTree extends CRDTGCElement {
   public edit(
     range: [CRDTTreePos, CRDTTreePos],
     contents: Array<CRDTTreeNode> | undefined,
-    splitLevels: [number, number],
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. split text nodes at the given range if needed.
-    const [fromParent, fromLeft] = this.findNodesAndSplit(
-      range[0],
-      editedAt,
-      splitLevels[0],
-    );
-    const [toParent, toLeft] = this.findNodesAndSplit(
-      range[1],
-      editedAt,
-      splitLevels[1],
-    );
+    const [fromParent, fromLeft] = this.findNodesAndSplit(range[0], editedAt);
+    const [toParent, toLeft] = this.findNodesAndSplit(range[1], editedAt);
 
     // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
     // range(from, to) into multiple ranges.
@@ -856,12 +845,11 @@ export class CRDTTree extends CRDTGCElement {
   public editT(
     range: [number, number],
     contents: Array<CRDTTreeNode> | undefined,
-    splitLevels: [number, number],
     editedAt: TimeTicket,
   ): void {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit([fromPos, toPos], contents, splitLevels, editedAt);
+    this.edit([fromPos, toPos], contents, editedAt);
   }
 
   /**

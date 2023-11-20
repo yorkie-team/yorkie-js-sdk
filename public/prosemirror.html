@@ -337,10 +337,11 @@
                   openEnd &&
                   structure
                 ) {
-                  root.tree.edit(from, to, docToTreeNode(node.toJSON()), [
-                    openStart,
-                    openEnd,
-                  ]);
+                  // TODO(hackerwins): edit should support openStart and openEnd.
+                  // root.tree.edit(from, to, docToTreeNode(node.toJSON()), [
+                  //   openStart,
+                  //   openEnd,
+                  // ]);
                   continue;
                 }
 

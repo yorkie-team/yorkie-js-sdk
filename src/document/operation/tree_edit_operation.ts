@@ -89,7 +89,6 @@ export class TreeEditOperation extends Operation {
     const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
-      [0, 0],
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
     );
