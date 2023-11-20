@@ -4,6 +4,8 @@
 
 ## TreeNode type
 
+`TreeNode` represents a node in the tree.
+
 **Signature:**
 
 ```typescript

@@ -86,7 +86,7 @@
 |  [TextPosStruct](./yorkie-js-sdk.textposstruct.md) | <code>TextPosStruct</code> represents the structure of RGATreeSplitPos. It is used to serialize and deserialize the RGATreeSplitPos. |
 |  [TextPosStructRange](./yorkie-js-sdk.textposstructrange.md) | <code>TextPosStructRange</code> represents the structure of RGATreeSplitPosRange. It is used to serialize and deserialize the RGATreeSplitPosRange. |
 |  [TimeTicketStruct](./yorkie-js-sdk.timeticketstruct.md) | <code>TimeTicketStruct</code> is a structure represents the meta data of the ticket. It is used to serialize and deserialize the ticket. |
-|  [TreeNode](./yorkie-js-sdk.treenode.md) |  |
+|  [TreeNode](./yorkie-js-sdk.treenode.md) | <code>TreeNode</code> represents a node in the tree. |
 |  [TreeOperationInfo](./yorkie-js-sdk.treeoperationinfo.md) | <code>TreeOperationInfo</code> represents the OperationInfo for the yorkie.Tree. |
 |  [TreePosStructRange](./yorkie-js-sdk.treeposstructrange.md) | <code>TreePosStructRange</code> represents the structure of TreeRange. It is used to serialize and deserialize the TreeRange. |
 |  [Unsubscribe](./yorkie-js-sdk.unsubscribe.md) |  |
