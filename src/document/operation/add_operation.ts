@@ -16,7 +16,10 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import {
+  CRDTContainer,
+  CRDTElement,
+} from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
@@ -69,6 +72,13 @@ export class AddOperation extends Operation {
     const value = this.value.deepcopy();
     array.insertAfter(this.prevCreatedAt, value);
     root.registerElement(value, array);
+    if (value instanceof CRDTContainer) {
+      value.getDescendants((elem, parent) => {
+        root.registerElement(elem, parent);
+        return false;
+      });
+    }
+
     return {
       opInfos: [
         {
