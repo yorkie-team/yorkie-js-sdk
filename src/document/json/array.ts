@@ -20,10 +20,7 @@ import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operatio
 import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import {
-  CRDTContainer,
-  CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import {
@@ -458,12 +455,6 @@ export class ArrayProxy {
     const element = buildCRDTElement(context, value, createdAt);
     target.insertAfter(prevCreatedAt, element);
     context.registerElement(element, target);
-    if (element instanceof CRDTContainer) {
-      element.getDescendants((elem, parent) => {
-        context.registerElement(elem, parent);
-        return false;
-      });
-    }
     context.push(
       AddOperation.create(
         target.getCreatedAt(),

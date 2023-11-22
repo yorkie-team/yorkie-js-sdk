@@ -20,10 +20,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import {
-  CRDTContainer,
-  CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
   toJSONElement,
@@ -154,12 +151,6 @@ export class ObjectProxy {
     context.registerElement(element, target);
     if (removed) {
       context.registerRemovedElement(removed);
-    }
-    if (element instanceof CRDTContainer) {
-      element.getDescendants((elem, parent) => {
-        context.registerElement(elem, parent);
-        return false;
-      });
     }
     context.push(
       SetOperation.create(

@@ -90,15 +90,18 @@ export class SetOperation extends Operation {
 
     const value = this.value.deepcopy();
     const removed = obj.set(this.key, value, this.getExecutedAt());
+    // NOTE(chacha912): When resetting elements with the pre-existing createdAt
+    // during undo/redo, it's essential to handle previously tombstoned elements.
+    // In non-GC languages, there may be a need to execute both deregister and purge.
+    if (
+      source === OpSource.UndoRedo &&
+      root.findByCreatedAt(value.getCreatedAt())
+    ) {
+      root.deregisterElement(value);
+    }
     root.registerElement(value, obj);
     if (removed) {
       root.registerRemovedElement(removed);
-    }
-    if (value instanceof CRDTContainer) {
-      value.getDescendants((elem, parent) => {
-        root.registerElement(elem, parent);
-        return false;
-      });
     }
 
     return {
