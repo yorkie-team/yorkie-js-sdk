@@ -76,8 +76,14 @@ export class SetOperation extends Operation {
     }
     const obj = parentObject as CRDTObject;
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
-    if (source === OpSource.UndoRedo && obj.getRemovedAt()) {
-      return;
+    if (source === OpSource.UndoRedo) {
+      let parent: CRDTContainer | undefined = obj;
+      while (parent) {
+        if (parent.getRemovedAt()) {
+          return;
+        }
+        parent = root.findElementPairByCreatedAt(parent.getCreatedAt())?.parent;
+      }
     }
     const previousValue = obj.get(this.key);
     const reverseOp = this.toReverseOperation(previousValue);

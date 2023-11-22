@@ -72,12 +72,18 @@ export class RemoveOperation extends Operation {
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
-    const targetElem = parentObject.getByID(this.createdAt);
-    if (
-      source === OpSource.UndoRedo &&
-      (parentObject.getRemovedAt() || !targetElem || targetElem.isRemoved())
-    ) {
-      return;
+    if (source === OpSource.UndoRedo) {
+      const targetElem = parentObject.getByID(this.createdAt);
+      if (targetElem?.isRemoved()) {
+        return;
+      }
+      let parent: CRDTContainer | undefined = parentObject;
+      while (parent) {
+        if (parent.getRemovedAt()) {
+          return;
+        }
+        parent = root.findElementPairByCreatedAt(parent.getCreatedAt())?.parent;
+      }
     }
     const key = parentObject.subPathOf(this.createdAt);
     const reverseOp = this.toReverseOperation(parentObject);

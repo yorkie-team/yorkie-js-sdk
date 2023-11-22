@@ -116,6 +116,16 @@ export class CRDTRoot {
   }
 
   /**
+   * `findElementPairByCreatedAt` returns the element and parent pair
+   * of given creation time.
+   */
+  public findElementPairByCreatedAt(
+    createdAt: TimeTicket,
+  ): CRDTElementPair | undefined {
+    return this.elementPairMapByCreatedAt.get(createdAt.toIDString());
+  }
+
+  /**
    * `createSubPaths` creates an array of the sub paths for the given element.
    */
   public createSubPaths(createdAt: TimeTicket): Array<string> {
