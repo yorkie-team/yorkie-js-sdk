@@ -8,9 +8,6 @@ body {
 
 .ProseMirror {
   position: relative;
-}
-
-.ProseMirror {
   word-wrap: break-word;
   white-space: pre-wrap;
   white-space: break-spaces;
@@ -234,6 +231,26 @@ img.ProseMirror-separator {
   animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
 }
 
+.username-layer::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  left: -1px;
+  background-color: currentColor;
+  bottom: -100%;
+  height: 100%;
+}
+
+.username-layer.first-top::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  left: -1px;
+  background-color: currentColor;
+  top: -100%;
+  height: 100%;
+}
+
 @keyframes ProseMirror-cursor-blink {
   to {
     visibility: hidden;
@@ -404,52 +421,28 @@ img.ProseMirror-separator {
 .layout .application > * {
   flex: 1 1 auto;
   min-width: 0;
-  /* width: 50%; */
-  border: 1px solid black;
+  border: 1px solid silver;
   padding: 10px;
   box-sizing: border-box;
 }
 
 .layout .application > .editor-area {
-  display: flex;
   gap: 20px;
   position: relative;
 }
 
-.sub-log {
-  position: absolute;
-  bottom: 0px;
-  right: 0px;
-  left: 0px;
-  height: 100px;
-  background-color: rgb(255, 255, 198);
-}
-
 .layout .application > .editor-area > * {
-  flex: 1 1 auto;
   min-width: 0;
-  /* width: 50%; */
-  /* border: 1px solid black; */
-}
-
-.layout .application > .editor-area > *:not(.sub-log):last-child {
-  width: 40%;
-  flex: none;
 }
 
 #app {
-  border: 1px solid silver;
+  border: 1px solid #c0c0c0;
 }
 
 .layout .log {
-  flex: none;
+  display: flex;
   height: 50%;
   overflow: auto;
-  border-top: 1px solid silver;
-  box-sizing: border-box;
-  padding: 0 10px;
-  display: flex;
-  gap: 10px;
 }
 
 .layout .log > * {
@@ -501,25 +494,7 @@ img.ProseMirror-separator {
   font-size: 0.8em;
 }
 
-#tr-log {
-  display: block;
-  align-items: center;
-  gap: 1px;
-  flex-wrap: wrap;
-}
-
-#tr-log > * {
-  margin-right: 2px;
-  margin-bottom: 2px;
-}
-
-.pm {
-  flex: none !important;
-  min-width: 300px;
-}
-
 .tr {
-  padding: 10px;
   flex: none !important;
   width: 300px;
 }
@@ -535,78 +510,34 @@ img.ProseMirror-separator {
   flex: 1 1 auto;
 }
 
-.tr-container > *:last-child {
-  flex: none;
+.tr-container > *:first-child {
   height: 300px;
-  background-color: yellow;
+  background-color: #ddd;
+  padding: 10px;
   overflow: auto;
-}
-
-.selection-item {
-  display: inline-flex;
-  align-items: center;
-  background-color: red;
-  color: white;
-  line-height: 0px;
-  padding: 4px 4px;
-  border-radius: 3px;
-  box-sizing: border-box;
-  width: 16px;
-  height: 16px;
-  vertical-align: middle;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
 }
 
 .tr-item {
   line-height: 1;
   display: inline-block;
-  padding: 4px 4px;
   border-radius: 3px;
   box-sizing: border-box;
   width: 16px;
   height: 16px;
   text-align: center;
-  background-color: #444;
-  color: white;
+  color: #444;
+  border: 1px solid #444;
   vertical-align: middle;
   cursor: pointer;
 }
 
-.data-view {
+.data-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 
-.tree-view {
-  flex: none;
-  height: 300px;
-  overflow: auto;
-  display: flex;
-}
-
-.yorkie {
-  min-width: 300px;
-}
-
-.list-view {
-  flex: 1 1 auto;
-}
-
-.log-list-view {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.log-list-view .block {
-  border: 1px solid black;
-}
-
-.log-list-view .inline::before {
-  content: attr(data-id);
-  margin-right: 4px;
-  /* background-color: rgba(0, 0, 0, 0.2); */
-  font-size: 0.8em;
-  /* color: white; */
+.data-item {
+  flex-grow: 1;
+  padding: 10px;
+  border-left: 1px solid silver;
 }
