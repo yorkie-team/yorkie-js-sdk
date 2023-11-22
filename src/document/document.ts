@@ -1319,7 +1319,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.internalHistory.pushRedo(reverseOps);
     }
 
-    // TODO(chacha912): When there is no applied operation or presence
+    // NOTE(chacha912): When there is no applied operation or presence
     // during undo/redo, skip propagating change remotely.
     if (!change.hasPresenceChange() && opInfos.length === 0) {
       return;
