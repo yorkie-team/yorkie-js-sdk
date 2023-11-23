@@ -135,6 +135,7 @@ export class Primitive extends CRDTElement {
   public deepcopy(): Primitive {
     const primitive = Primitive.of(this.value, this.getCreatedAt());
     primitive.setMovedAt(this.getMovedAt());
+    primitive.setRemovedAt(this.getRemovedAt());
     return primitive;
   }
 
