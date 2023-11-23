@@ -150,7 +150,7 @@ export function buildCRDTElement(
   } else if (Array.isArray(value)) {
     element = CRDTArray.create(
       createdAt,
-      ArrayProxy.buildArray(context, value),
+      ArrayProxy.buildArrayElements(context, value),
     );
   } else if (typeof value === 'object') {
     if (value instanceof Text) {
@@ -169,7 +169,7 @@ export function buildCRDTElement(
     } else {
       element = CRDTObject.create(
         createdAt,
-        ObjectProxy.buildObject(context, value!),
+        ObjectProxy.buildObjectMembers(context, value!),
       );
     }
   } else {

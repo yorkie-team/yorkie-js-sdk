@@ -326,19 +326,19 @@ export class ArrayProxy {
   }
 
   /**
-   * `buildArray` constructs an array of CRDTElements based on the user-provided array.
+   * `buildArrayElements` constructs array elements based on the user-provided array.
    */
-  public static buildArray(
+  public static buildArrayElements(
     context: ChangeContext,
     value: Array<unknown>,
   ): Array<CRDTElement> {
-    const elementArray: Array<CRDTElement> = [];
+    const elements: Array<CRDTElement> = [];
     for (const v of value) {
       const createdAt = context.issueTimeTicket();
       const elem = buildCRDTElement(context, v, createdAt);
-      elementArray.push(elem);
+      elements.push(elem);
     }
-    return elementArray;
+    return elements;
   }
 
   /**

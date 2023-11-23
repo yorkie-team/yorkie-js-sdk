@@ -16,10 +16,7 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import {
-  CRDTContainer,
-  CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
@@ -67,17 +64,17 @@ export class SetOperation extends Operation {
     root: CRDTRoot,
     source: OpSource,
   ): ExecutionResult | undefined {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (!parentObject) {
+    const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
+    if (!obj) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
-    if (!(parentObject instanceof CRDTObject)) {
+    if (!(obj instanceof CRDTObject)) {
       logger.fatal(`fail to execute, only object can execute set`);
     }
-    const obj = parentObject as CRDTObject;
+
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
     if (source === OpSource.UndoRedo) {
-      let parent: CRDTContainer | undefined = obj;
+      let parent: CRDTElement | undefined = obj;
       while (parent) {
         if (parent.getRemovedAt()) {
           return;

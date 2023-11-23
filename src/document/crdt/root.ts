@@ -171,26 +171,22 @@ export class CRDTRoot {
   public deregisterElement(element: CRDTElement): number {
     let count = 0;
 
-    const callback = (elem: CRDTElement) => {
+    const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.removedElementSetByCreatedAt.delete(createdAt);
       count++;
-    };
-    const deregisterDescendants = (container: CRDTContainer) => {
-      container.getDescendants((elem) => {
-        callback(elem);
-        if (elem instanceof CRDTContainer) {
-          deregisterDescendants(elem);
-        }
-        return false;
-      });
+
+      if (elem instanceof CRDTContainer) {
+        elem.getDescendants((e) => {
+          deregisterElementInternal(e);
+          return false;
+        });
+      }
     };
 
-    callback(element);
-    if (element instanceof CRDTContainer) {
-      deregisterDescendants(element);
-    }
+    deregisterElementInternal(element);
+
     return count;
   }
 

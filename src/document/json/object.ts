@@ -163,16 +163,16 @@ export class ObjectProxy {
   }
 
   /**
-   * `buildObject` constructs an object where all values from the
+   * `buildObjectMembers` constructs an object where all values from the
    * user-provided object are transformed into CRDTElements.
    * This function takes an object and iterates through its values,
    * converting each value into a corresponding CRDTElement.
    */
-  public static buildObject(
+  public static buildObjectMembers(
     context: ChangeContext,
     value: object,
   ): { [key: string]: CRDTElement } {
-    const elementObject: { [key: string]: CRDTElement } = {};
+    const members: { [key: string]: CRDTElement } = {};
     for (const [k, v] of Object.entries(value)) {
       if (k.includes('.')) {
         throw new YorkieError(
@@ -183,9 +183,9 @@ export class ObjectProxy {
 
       const createdAt = context.issueTimeTicket();
       const elem = buildCRDTElement(context, v, createdAt);
-      elementObject[k] = elem;
+      members[k] = elem;
     }
-    return elementObject;
+    return members;
   }
 
   /**
