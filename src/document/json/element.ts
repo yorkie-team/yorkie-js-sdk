@@ -28,14 +28,18 @@ import {
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
 import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 
 import {
   JSONObject,
   createJSONObject,
+  ObjectProxy,
 } from '@yorkie-js-sdk/src/document/json/object';
 import {
   JSONArray,
   createJSONArray,
+  ArrayProxy,
 } from '@yorkie-js-sdk/src/document/json/array';
 import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
@@ -130,4 +134,46 @@ export function toJSONElement(
   }
 
   return wrappedElement;
+}
+
+/**
+ * `buildCRDTElement` constructs a CRDTElement from the given value.
+ */
+export function buildCRDTElement(
+  context: ChangeContext,
+  value: unknown,
+  createdAt: TimeTicket,
+): CRDTElement {
+  let element: CRDTElement;
+  if (Primitive.isSupport(value)) {
+    element = Primitive.of(value as PrimitiveValue, createdAt);
+  } else if (Array.isArray(value)) {
+    element = CRDTArray.create(
+      createdAt,
+      ArrayProxy.buildArrayElements(context, value),
+    );
+  } else if (typeof value === 'object') {
+    if (value instanceof Text) {
+      element = CRDTText.create(RGATreeSplit.create(), createdAt);
+      value.initialize(context, element as CRDTText);
+    } else if (value instanceof Counter) {
+      element = CRDTCounter.create(
+        value.getValueType(),
+        value.getValue(),
+        createdAt,
+      );
+      value.initialize(context, element as CRDTCounter);
+    } else if (value instanceof Tree) {
+      element = CRDTTree.create(value.buildRoot(context), createdAt);
+      value.initialize(context, element as CRDTTree);
+    } else {
+      element = CRDTObject.create(
+        createdAt,
+        ObjectProxy.buildObjectMembers(context, value!),
+      );
+    }
+  } else {
+    throw new TypeError(`Unsupported type of value: ${typeof value}`);
+  }
+  return element;
 }

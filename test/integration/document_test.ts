@@ -158,9 +158,6 @@ describe('Document', function () {
     expectedEventValue = [
       { type: 'set', path: '$', key: 'counter' },
       { type: 'set', path: '$', key: 'todos' },
-      { type: 'add', path: '$.todos', index: 0 },
-      { type: 'add', path: '$.todos', index: 1 },
-      { type: 'add', path: '$.todos', index: 2 },
       { type: 'set', path: '$', key: 'content' },
       {
         type: 'edit',
@@ -173,16 +170,7 @@ describe('Document', function () {
         path: '$.content',
       },
       { type: 'set', path: '$', key: 'obj' },
-      { type: 'set', path: '$.obj', key: 'name' },
-      { type: 'set', path: '$.obj', key: 'age' },
-      { type: 'set', path: '$.obj', key: 'food' },
-      { type: 'add', path: '$.obj.food', index: 0 },
-      { type: 'add', path: '$.obj.food', index: 1 },
       { type: 'set', path: '$.obj', key: 'score' },
-      { type: 'set', path: '$.obj.score', key: 'english' },
-      { type: 'set', path: '$.obj.score', key: 'math' },
-      { type: 'set', path: '$.obj', key: 'score' },
-      { type: 'set', path: '$.obj.score', key: 'science' },
       { type: 'remove', path: '$.obj', key: 'food' },
     ];
     await eventCollectorD1.waitAndVerifyNthEvent(1, {
@@ -277,12 +265,6 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(1, [
       { type: 'set', path: '$', key: 'counter' },
       { type: 'set', path: '$', key: 'todos' },
-      { type: 'add', path: '$.todos', index: 0 },
-      { type: 'add', path: '$.todos', index: 1 },
-    ]);
-    await eventCollectorForTodos.waitAndVerifyNthEvent(1, [
-      { type: 'add', path: '$.todos', index: 0 },
-      { type: 'add', path: '$.todos', index: 1 },
     ]);
 
     d2.update((root) => {
@@ -301,7 +283,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(3, [
       { type: 'add', path: '$.todos', index: 2 },
     ]);
-    await eventCollectorForTodos.waitAndVerifyNthEvent(2, [
+    await eventCollectorForTodos.waitAndVerifyNthEvent(1, [
       { type: 'add', path: '$.todos', index: 2 },
     ]);
 
@@ -312,7 +294,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(4, [
       { type: 'add', path: '$.todos', index: 3 },
     ]);
-    assert.equal(eventCollectorForTodos.getLength(), 2); // No events after unsubscribing `$.todos`
+    assert.equal(eventCollectorForTodos.getLength(), 1); // No events after unsubscribing `$.todos`
 
     unsubCounter();
     d2.update((root) => {
@@ -374,21 +356,7 @@ describe('Document', function () {
     });
     await eventCollector.waitAndVerifyNthEvent(1, [
       { type: 'set', path: '$', key: 'todos' },
-      { type: 'add', path: '$.todos', index: 0 },
-      { type: 'set', path: '$.todos.0', key: 'text' },
-      { type: 'set', path: '$.todos.0', key: 'completed' },
       { type: 'set', path: '$', key: 'obj' },
-      { type: 'set', path: '$.obj', key: 'c1' },
-      { type: 'set', path: '$.obj.c1', key: 'name' },
-      { type: 'set', path: '$.obj.c1', key: 'age' },
-    ]);
-    await eventCollectorForTodos0.waitAndVerifyNthEvent(1, [
-      { type: 'set', path: '$.todos.0', key: 'text' },
-      { type: 'set', path: '$.todos.0', key: 'completed' },
-    ]);
-    await eventCollectorForObjC1.waitAndVerifyNthEvent(1, [
-      { type: 'set', path: '$.obj.c1', key: 'name' },
-      { type: 'set', path: '$.obj.c1', key: 'age' },
     ]);
 
     d2.update((root) => {
@@ -397,7 +365,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(2, [
       { type: 'set', path: '$.obj.c1', key: 'name' },
     ]);
-    await eventCollectorForObjC1.waitAndVerifyNthEvent(2, [
+    await eventCollectorForObjC1.waitAndVerifyNthEvent(1, [
       { type: 'set', path: '$.obj.c1', key: 'name' },
     ]);
 
@@ -407,7 +375,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(3, [
       { type: 'set', path: '$.todos.0', key: 'completed' },
     ]);
-    await eventCollectorForTodos0.waitAndVerifyNthEvent(2, [
+    await eventCollectorForTodos0.waitAndVerifyNthEvent(1, [
       { type: 'set', path: '$.todos.0', key: 'completed' },
     ]);
 
@@ -418,7 +386,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(4, [
       { type: 'set', path: '$.todos.0', key: 'text' },
     ]);
-    assert.equal(eventCollectorForTodos0.getLength(), 2); // No events after unsubscribing `$.todos.0`
+    assert.equal(eventCollectorForTodos0.getLength(), 1); // No events after unsubscribing `$.todos.0`
 
     unsubObj();
     d2.update((root) => {
@@ -427,7 +395,7 @@ describe('Document', function () {
     await eventCollector.waitAndVerifyNthEvent(5, [
       { type: 'set', path: '$.obj.c1', key: 'age' },
     ]);
-    assert.equal(eventCollectorForObjC1.getLength(), 2); // No events after unsubscribing `$.obj.c1`
+    assert.equal(eventCollectorForObjC1.getLength(), 1); // No events after unsubscribing `$.obj.c1`
 
     unsub();
     await c1.detach(d1);

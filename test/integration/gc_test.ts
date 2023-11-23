@@ -1,12 +1,11 @@
 import { describe, it, assert } from 'vitest';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Text, Tree } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { Text } from '@yorkie-js-sdk/src/yorkie';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { IndexTreeNode } from '@yorkie-js-sdk/src/util/index_tree';
 
@@ -608,6 +607,34 @@ describe('Garbage Collection', function () {
     });
     assert.equal(doc.getGarbageLen(), 6);
     assert.equal(doc.getGarbageLenFromClone(), 6);
+  });
+
+  it('Can collect removed elements from both root and clone for nested array', async function ({
+    task,
+  }) {
+    type TestDoc = { list: Array<number | Array<number>> };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    await cli.attach(doc, { isRealtimeSync: false });
+    doc.update((root) => {
+      root.list = [0, 1, 2];
+      root.list.push([3, 4, 5]);
+    });
+    assert.equal('{"list":[0,1,2,[3,4,5]]}', doc.toJSON());
+    doc.update((root) => {
+      delete root.list[1];
+    });
+    assert.equal('{"list":[0,2,[3,4,5]]}', doc.toJSON());
+    doc.update((root) => {
+      delete (root.list[2] as Array<number>)[1];
+    });
+    assert.equal('{"list":[0,2,[3,5]]}', doc.toJSON());
+
+    assert.equal(doc.getGarbageLen(), 2);
+    assert.equal(doc.getGarbageLenFromClone(), 2);
   });
 
   it('Can purges removed elements after peers can not access them', async function ({

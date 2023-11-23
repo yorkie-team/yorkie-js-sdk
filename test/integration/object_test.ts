@@ -246,14 +246,14 @@ describe('Object', function () {
       assert.equal(doc.toSortedJSON(), '{"shape":{"color":"black"}}');
       assert.deepEqual(
         doc.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
-        ['1:00:1.REMOVE.1:00:2', '0:00:0.REMOVE.1:00:1'],
+        ['0:00:0.REMOVE.1:00:1'],
       );
 
       doc.history.undo();
       assert.equal(doc.toSortedJSON(), `{}`);
       assert.deepEqual(
         doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp),
-        ['0:00:0.SET.shape={}', '1:00:1.SET.color="black"'],
+        ['0:00:0.SET.shape={"color":"black"}'],
       );
 
       doc.history.redo();
@@ -363,7 +363,7 @@ describe('Object', function () {
       assertUndoRedo(doc, states);
     });
 
-    it.skip(`Should ensure convergence of peer's document after undoing nested objects`, async function ({
+    it(`Should ensure convergence of peer's document after undoing nested objects`, async function ({
       task,
     }) {
       // Test scenario:
@@ -404,11 +404,10 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
       await client1.sync();
       await client2.sync();
-      // TODO(chacha912): fix test
-      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}'); // as-is: {"shape":{"point":{}}}
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
     });
 
-    it(`Should handle reverse (set) operation targeting elements deleted by other peers`, async function ({
+    it(`Should handle reverse set operation for elements that other peers deleted`, async function ({
       task,
     }) {
       // Test scenario:
@@ -455,12 +454,80 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{}');
       assert.equal(doc1.getRedoStackForTest().length, 0);
       assert.equal(doc1.history.canRedo(), false);
-      await client1.sync();
-      await client2.sync();
-      await client1.sync();
     });
 
-    it(`Should handle reverse (remove) operation targeting elements deleted by other peers`, async function ({
+    it(`Should handle reverse set operation for elements (nested objects) that other peers deleted`, async function ({
+      task,
+    }) {
+      // Test scenario:
+      // c1: create shape
+      // c1: set shape.circle.point to { x: 1, y: 1 }
+      // c2: delete shape
+      // c1: undo(no changes as the shape was deleted)
+      interface TestDoc {
+        shape?: { circle: { point: { x: number; y: number } } };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.shape = { circle: { point: { x: 0, y: 0 } } };
+      });
+      await client1.sync();
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"shape":{"circle":{"point":{"x":0,"y":0}}}}',
+      );
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(
+        doc2.toSortedJSON(),
+        '{"shape":{"circle":{"point":{"x":0,"y":0}}}}',
+      );
+
+      doc1.update((root) => {
+        root.shape!.circle.point = { x: 1, y: 1 };
+      });
+      await client1.sync();
+      await client2.sync();
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"shape":{"circle":{"point":{"x":1,"y":1}}}}',
+      );
+      assert.equal(
+        doc2.toSortedJSON(),
+        '{"shape":{"circle":{"point":{"x":1,"y":1}}}}',
+      );
+      doc2.update((root) => {
+        delete root.shape;
+      }, 'delete shape');
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{}');
+
+      const c1ID = client1.getID()!.slice(-2);
+      assert.deepEqual(
+        doc1.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
+        [`2:${c1ID}:2.SET.point={"x":0,"y":0}`],
+      );
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc2.toSortedJSON(), '{}');
+      assert.equal(doc1.getRedoStackForTest().length, 0);
+      assert.equal(doc1.history.canRedo(), false);
+    });
+
+    it(`Should handle reverse remove operation for elements that other peers deleted`, async function ({
       task,
     }) {
       // Test scenario:
@@ -502,9 +569,147 @@ describe('Object', function () {
       assert.equal(doc1.toSortedJSON(), '{}');
       assert.equal(doc1.getRedoStackForTest().length, 0);
       assert.equal(doc1.history.canRedo(), false);
+    });
+
+    it(`Should handle reverse remove operation for elements (nested objects) that other peers deleted`, async function ({
+      task,
+    }) {
+      // Test scenario:
+      // c1: set shape.circle.point to { x: 0, y: 0 }
+      // c2: delete shape
+      // c1: undo(no changes as the shape was deleted)
+      interface TestDoc {
+        shape?: {
+          circle?: { point?: { x?: number; y?: number }; color?: string };
+        };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      doc1.update((root) => {
+        root.shape = { circle: { color: 'red' } };
+      });
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"circle":{"color":"red"}}}');
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"circle":{"color":"red"}}}');
+
+      doc1.update((root) => {
+        root.shape!.circle!.point = { x: 0, y: 0 };
+      });
+      await client1.sync();
+      await client2.sync();
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"shape":{"circle":{"color":"red","point":{"x":0,"y":0}}}}',
+      );
+      assert.equal(
+        doc2.toSortedJSON(),
+        '{"shape":{"circle":{"color":"red","point":{"x":0,"y":0}}}}',
+      );
+      doc2.update((root) => {
+        delete root.shape;
+      }, 'delete shape');
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{}');
+
+      const c1ID = client1.getID()!.slice(-2);
+      assert.deepEqual(
+        doc1.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
+        [`2:${c1ID}:2.REMOVE.3:${c1ID}:1`],
+      );
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc2.toSortedJSON(), '{}');
+      assert.deepEqual(doc1.getRedoStackForTest().length, 0);
+    });
+
+    it(`Should not propagate changes when there is no applied undo operation`, async function ({
+      task,
+    }) {
+      interface TestDoc {
+        shape?: { color: string };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      let doc1ChangeID = doc1.getChangeID();
+      let doc1Checkpoint = doc1.getCheckpoint();
+      assert.equal(doc1ChangeID.getClientSeq(), 1);
+      assert.equal(doc1Checkpoint.getClientSeq(), 1);
+      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 1);
+
+      doc1.update((root) => {
+        root.shape = { color: 'black' };
+      }, 'init doc');
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
+      doc1ChangeID = doc1.getChangeID();
+      doc1Checkpoint = doc1.getCheckpoint();
+      assert.equal(doc1ChangeID.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 2);
+
+      await client2.attach(doc2, { isRealtimeSync: false });
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      doc2.update((root) => {
+        delete root.shape;
+      }, 'delete shape');
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc2.toSortedJSON(), '{}');
+      doc1ChangeID = doc1.getChangeID();
+      doc1Checkpoint = doc1.getCheckpoint();
+      assert.equal(doc1ChangeID.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+
+      // c2 deleted the shape, so the reverse operation cannot be applied
+      doc1.history.undo();
+      assert.equal(doc1.toSortedJSON(), '{}');
+      assert.equal(doc1.getRedoStackForTest().length, 0);
+      assert.equal(doc1.history.canRedo(), false);
       await client1.sync();
       await client2.sync();
       await client1.sync();
+      // Since there are no applied operations, there should be no change in the sequence.
+      doc1ChangeID = doc1.getChangeID();
+      doc1Checkpoint = doc1.getCheckpoint();
+      assert.equal(doc1ChangeID.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getClientSeq(), 2);
+      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+
+      doc1.update((root) => {
+        root.shape = { color: 'red' };
+      });
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"red"}}');
+      doc1ChangeID = doc1.getChangeID();
+      doc1Checkpoint = doc1.getCheckpoint();
+      assert.equal(doc1ChangeID.getClientSeq(), 3);
+      assert.equal(doc1Checkpoint.getClientSeq(), 3);
+      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 5);
     });
 
     it(`Should not propagate changes when there is no applied undo operation`, async function ({
@@ -738,6 +943,51 @@ describe('Object', function () {
       await client1.sync();
       await client2.sync();
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"red"}}');
+    });
+
+    it(`Should clean up the references to a previously deleted node when the deleted node is restored through undo`, async function ({
+      task,
+    }) {
+      interface TestDoc {
+        shape: { color: string };
+      }
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new Document<TestDoc>(docKey);
+      const doc2 = new Document<TestDoc>(docKey);
+
+      const client1 = new Client(testRPCAddr);
+      const client2 = new Client(testRPCAddr);
+      await client1.activate();
+      await client2.activate();
+
+      await client1.attach(doc1, { isRealtimeSync: false });
+      await client2.attach(doc2, { isRealtimeSync: false });
+
+      doc1.update((root) => {
+        root.shape = { color: 'black' };
+      });
+      await client1.sync();
+      await client2.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      doc2.update((root) => {
+        root.shape = { color: 'yellow' };
+      });
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"yellow"}}');
+
+      doc2.history.undo();
+      await client2.sync();
+      await client1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
+      assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
+
+      // NOTE(chacha912): removedElementSetByCreatedAt should only retain
+      // the entry for `{shape: {color: 'yellow'}}`.
+      assert.equal(doc2.getGarbageLen(), 2);
     });
   });
 });

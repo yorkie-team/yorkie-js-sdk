@@ -169,8 +169,7 @@
             const selectedShape = root.shapes.find(
               (shape) => shape.id === selectedShapeID,
             );
-            selectedShape.point.x = movingShapePoint.x;
-            selectedShape.point.y = movingShapePoint.y;
+            selectedShape.point = movingShapePoint;
             presence.set({ movingShapePoint: null });
           });
         }

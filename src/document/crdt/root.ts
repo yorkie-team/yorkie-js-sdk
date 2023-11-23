@@ -82,18 +82,7 @@ export class CRDTRoot {
     this.removedElementSetByCreatedAt = new Set();
     this.elementHasRemovedNodesSetByCreatedAt = new Set();
     this.opsForTest = [];
-
-    this.elementPairMapByCreatedAt.set(
-      this.rootObject.getCreatedAt().toIDString(),
-      { element: this.rootObject },
-    );
-
-    rootObject.getDescendants(
-      (elem: CRDTElement, parent: CRDTContainer): boolean => {
-        this.registerElement(elem, parent);
-        return false;
-      },
-    );
+    this.registerElement(rootObject, undefined);
   }
 
   /**
@@ -113,6 +102,16 @@ export class CRDTRoot {
     }
 
     return pair.element;
+  }
+
+  /**
+   * `findElementPairByCreatedAt` returns the element and parent pair
+   * of given creation time.
+   */
+  public findElementPairByCreatedAt(
+    createdAt: TimeTicket,
+  ): CRDTElementPair | undefined {
+    return this.elementPairMapByCreatedAt.get(createdAt.toIDString());
   }
 
   /**
@@ -150,23 +149,45 @@ export class CRDTRoot {
   }
 
   /**
-   * `registerElement` registers the given element to hash table.
+   * `registerElement` registers the given element and its descendants to hash table.
    */
-  public registerElement(element: CRDTElement, parent: CRDTContainer): void {
+  public registerElement(element: CRDTElement, parent?: CRDTContainer): void {
     this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
       parent,
       element,
     });
+
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((elem, parent) => {
+        this.registerElement(elem, parent);
+        return false;
+      });
+    }
   }
 
   /**
-   * `deregisterElement` deregister the given element from hash table.
+   * `deregisterElement` deregister the given element and its descendants from hash table.
    */
-  public deregisterElement(element: CRDTElement): void {
-    this.elementPairMapByCreatedAt.delete(element.getCreatedAt().toIDString());
-    this.removedElementSetByCreatedAt.delete(
-      element.getCreatedAt().toIDString(),
-    );
+  public deregisterElement(element: CRDTElement): number {
+    let count = 0;
+
+    const deregisterElementInternal = (elem: CRDTElement) => {
+      const createdAt = elem.getCreatedAt().toIDString();
+      this.elementPairMapByCreatedAt.delete(createdAt);
+      this.removedElementSetByCreatedAt.delete(createdAt);
+      count++;
+
+      if (elem instanceof CRDTContainer) {
+        elem.getDescendants((e) => {
+          deregisterElementInternal(e);
+          return false;
+        });
+      }
+    };
+
+    deregisterElementInternal(element);
+
+    return count;
   }
 
   /**
@@ -253,7 +274,7 @@ export class CRDTRoot {
         ticket.compare(pair.element.getRemovedAt()!) >= 0
       ) {
         pair.parent!.purge(pair.element);
-        count += this.garbageCollectInternal(pair.element);
+        count += this.deregisterElement(pair.element);
       }
     }
 
@@ -268,25 +289,6 @@ export class CRDTRoot {
         );
       }
       count += removedNodeCnt;
-    }
-
-    return count;
-  }
-
-  private garbageCollectInternal(element: CRDTElement): number {
-    let count = 0;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const callback = (elem: CRDTElement, parent?: CRDTContainer): boolean => {
-      this.deregisterElement(elem);
-      count++;
-      return false;
-    };
-
-    callback(element);
-
-    if (element instanceof CRDTContainer) {
-      element.getDescendants(callback);
     }
 
     return count;

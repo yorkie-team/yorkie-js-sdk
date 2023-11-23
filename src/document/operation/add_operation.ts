@@ -69,6 +69,7 @@ export class AddOperation extends Operation {
     const value = this.value.deepcopy();
     array.insertAfter(this.prevCreatedAt, value);
     root.registerElement(value, array);
+
     return {
       opInfos: [
         {
@@ -91,7 +92,7 @@ export class AddOperation extends Operation {
    * `toTestString` returns a string containing the meta data.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.ADD`;
+    return `${this.getParentCreatedAt().toTestString()}.ADD.${this.value.toJSON()}`;
   }
 
   /**

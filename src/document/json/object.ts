@@ -22,20 +22,10 @@ import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_op
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import {
-  Primitive,
-  PrimitiveValue,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
-import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { toJSONElement } from '@yorkie-js-sdk/src/document/json/element';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
+  toJSONElement,
+  buildCRDTElement,
+} from '@yorkie-js-sdk/src/document/json/element';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
@@ -155,103 +145,47 @@ export class ObjectProxy {
       );
     }
 
-    const ticket = context.issueTimeTicket();
-
-    const setAndRegister = function (elem: CRDTElement) {
-      const removed = target.set(key, elem, ticket);
-      context.registerElement(elem, target);
-      if (removed) {
-        context.registerRemovedElement(removed);
-      }
-    };
-
-    if (Primitive.isSupport(value)) {
-      const primitive = Primitive.of(value as PrimitiveValue, ticket);
-      setAndRegister(primitive);
-      context.push(
-        SetOperation.create(
-          key,
-          primitive.deepcopy(),
-          target.getCreatedAt(),
-          ticket,
-        ),
-      );
-    } else if (Array.isArray(value)) {
-      const array = CRDTArray.create(ticket);
-      setAndRegister(array);
-      context.push(
-        SetOperation.create(
-          key,
-          array.deepcopy(),
-          target.getCreatedAt(),
-          ticket,
-        ),
-      );
-      for (const element of value) {
-        ArrayProxy.pushInternal(context, array, element);
-      }
-    } else if (typeof value === 'object') {
-      if (value instanceof Text) {
-        const text = CRDTText.create(RGATreeSplit.create(), ticket);
-        target.set(key, text, ticket);
-        context.registerElement(text, target);
-        context.push(
-          SetOperation.create(
-            key,
-            text.deepcopy(),
-            target.getCreatedAt(),
-            ticket,
-          ),
-        );
-        value.initialize(context, text);
-      } else if (value instanceof Counter) {
-        const counter = CRDTCounter.create(
-          value.getValueType(),
-          value.getValue(),
-          ticket,
-        );
-        target.set(key, counter, ticket);
-        context.registerElement(counter, target);
-        context.push(
-          SetOperation.create(
-            key,
-            counter.deepcopy(),
-            target.getCreatedAt(),
-            ticket,
-          ),
-        );
-        value.initialize(context, counter);
-      } else if (value instanceof Tree) {
-        const tree = CRDTTree.create(value.buildRoot(context), ticket);
-        target.set(key, tree, ticket);
-        context.registerElement(tree, target);
-        context.push(
-          SetOperation.create(
-            key,
-            tree.deepcopy(),
-            target.getCreatedAt(),
-            ticket,
-          ),
-        );
-        value.initialize(context, tree);
-      } else {
-        const obj = CRDTObject.create(ticket);
-        setAndRegister(obj);
-        context.push(
-          SetOperation.create(
-            key,
-            obj.deepcopy(),
-            target.getCreatedAt(),
-            ticket,
-          ),
-        );
-        for (const [k, v] of Object.entries(value!)) {
-          ObjectProxy.setInternal(context, obj, k, v);
-        }
-      }
-    } else {
-      logger.fatal(`unsupported type of value: ${typeof value}`);
+    const createdAt = context.issueTimeTicket();
+    const element = buildCRDTElement(context, value, createdAt);
+    const removed = target.set(key, element, createdAt);
+    context.registerElement(element, target);
+    if (removed) {
+      context.registerRemovedElement(removed);
     }
+    context.push(
+      SetOperation.create(
+        key,
+        element.deepcopy(),
+        target.getCreatedAt(),
+        createdAt,
+      ),
+    );
+  }
+
+  /**
+   * `buildObjectMembers` constructs an object where all values from the
+   * user-provided object are transformed into CRDTElements.
+   * This function takes an object and iterates through its values,
+   * converting each value into a corresponding CRDTElement.
+   */
+  public static buildObjectMembers(
+    context: ChangeContext,
+    value: object,
+  ): { [key: string]: CRDTElement } {
+    const members: { [key: string]: CRDTElement } = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k.includes('.')) {
+        throw new YorkieError(
+          Code.InvalidObjectKey,
+          `key must not contain the '.'.`,
+        );
+      }
+
+      const createdAt = context.issueTimeTicket();
+      const elem = buildCRDTElement(context, v, createdAt);
+      members[k] = elem;
+    }
+    return members;
   }
 
   /**

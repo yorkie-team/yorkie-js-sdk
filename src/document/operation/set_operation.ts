@@ -64,23 +64,38 @@ export class SetOperation extends Operation {
     root: CRDTRoot,
     source: OpSource,
   ): ExecutionResult | undefined {
-    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
-    if (!parentObject) {
+    const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
+    if (!obj) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
-    if (!(parentObject instanceof CRDTObject)) {
+    if (!(obj instanceof CRDTObject)) {
       logger.fatal(`fail to execute, only object can execute set`);
     }
-    const obj = parentObject as CRDTObject;
+
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
-    if (source === OpSource.UndoRedo && obj.getRemovedAt()) {
-      return;
+    if (source === OpSource.UndoRedo) {
+      let parent: CRDTElement | undefined = obj;
+      while (parent) {
+        if (parent.getRemovedAt()) {
+          return;
+        }
+        parent = root.findElementPairByCreatedAt(parent.getCreatedAt())?.parent;
+      }
     }
     const previousValue = obj.get(this.key);
     const reverseOp = this.toReverseOperation(previousValue);
 
     const value = this.value.deepcopy();
     const removed = obj.set(this.key, value, this.getExecutedAt());
+    // NOTE(chacha912): When resetting elements with the pre-existing createdAt
+    // during undo/redo, it's essential to handle previously tombstoned elements.
+    // In non-GC languages, there may be a need to execute both deregister and purge.
+    if (
+      source === OpSource.UndoRedo &&
+      root.findByCreatedAt(value.getCreatedAt())
+    ) {
+      root.deregisterElement(value);
+    }
     root.registerElement(value, obj);
     if (removed) {
       root.registerRemovedElement(removed);
@@ -108,9 +123,6 @@ export class SetOperation extends Operation {
     );
 
     if (value !== undefined && !value.isRemoved()) {
-      // TODO(chacha912): When the value is an object,
-      // it always sets as an empty object from the remote.
-      // (Refer to https://github.com/yorkie-team/yorkie/issues/663)
       reverseOp = SetOperation.create(
         this.key,
         value.deepcopy(),

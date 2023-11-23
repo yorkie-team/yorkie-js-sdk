@@ -23,7 +23,10 @@ import {
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { CRDTContainer } from '@yorkie-js-sdk/src/document/crdt/element';
+import {
+  CRDTContainer,
+  CRDTElement,
+} from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
@@ -61,32 +64,34 @@ export class RemoveOperation extends Operation {
     root: CRDTRoot,
     source: OpSource,
   ): ExecutionResult | undefined {
-    const parentObject = root.findByCreatedAt(
+    const container = root.findByCreatedAt(
       this.getParentCreatedAt(),
     ) as CRDTContainer;
-    if (!parentObject) {
+    if (!container) {
       logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
     }
-    if (!(parentObject instanceof CRDTContainer)) {
-      logger.fatal(`only object and array can execute remove: ${parentObject}`);
+    if (!(container instanceof CRDTContainer)) {
+      logger.fatal(`only object and array can execute remove: ${container}`);
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
-    const targetElem = parentObject.getByID(this.createdAt);
-    if (
-      source === OpSource.UndoRedo &&
-      (parentObject.getRemovedAt() || !targetElem || targetElem.isRemoved())
-    ) {
-      return;
+    if (source === OpSource.UndoRedo) {
+      let parent: CRDTElement | undefined = container.getByID(this.createdAt);
+      while (parent) {
+        if (parent.getRemovedAt()) {
+          return;
+        }
+        parent = root.findElementPairByCreatedAt(parent.getCreatedAt())?.parent;
+      }
     }
-    const key = parentObject.subPathOf(this.createdAt);
-    const reverseOp = this.toReverseOperation(parentObject);
+    const key = container.subPathOf(this.createdAt);
+    const reverseOp = this.toReverseOperation(container);
 
-    const elem = parentObject.delete(this.createdAt, this.getExecutedAt());
+    const elem = container.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
     const opInfos: Array<OperationInfo> =
-      parentObject instanceof CRDTArray
+      container instanceof CRDTArray
         ? [
             {
               type: 'remove',

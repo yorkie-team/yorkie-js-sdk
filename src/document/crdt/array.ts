@@ -39,8 +39,19 @@ export class CRDTArray extends CRDTContainer {
   /**
    * `create` creates a new instance of Array.
    */
-  public static create(createdAt: TimeTicket): CRDTArray {
-    return new CRDTArray(createdAt, RGATreeList.create());
+  public static create(
+    createdAt: TimeTicket,
+    value?: Array<CRDTElement>,
+  ): CRDTArray {
+    if (!value) {
+      return new CRDTArray(createdAt, RGATreeList.create());
+    }
+
+    const elements = RGATreeList.create();
+    for (const v of value) {
+      elements.insertAfter(elements.getLastCreatedAt(), v.deepcopy());
+    }
+    return new CRDTArray(createdAt, elements);
   }
 
   /**

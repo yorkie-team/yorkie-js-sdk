@@ -21,18 +21,14 @@ import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operat
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import {
-  Primitive,
-  PrimitiveValue,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { ObjectProxy } from '@yorkie-js-sdk/src/document/json/object';
+import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import {
   JSONElement,
   WrappedElement,
   toWrappedElement,
   toJSONElement,
+  buildCRDTElement,
 } from '@yorkie-js-sdk/src/document/json/element';
 
 /**
@@ -330,6 +326,22 @@ export class ArrayProxy {
   }
 
   /**
+   * `buildArrayElements` constructs array elements based on the user-provided array.
+   */
+  public static buildArrayElements(
+    context: ChangeContext,
+    value: Array<unknown>,
+  ): Array<CRDTElement> {
+    const elements: Array<CRDTElement> = [];
+    for (const v of value) {
+      const createdAt = context.issueTimeTicket();
+      const elem = buildCRDTElement(context, v, createdAt);
+      elements.push(elem);
+    }
+    return elements;
+  }
+
+  /**
    * `pushInternal` pushes the value to the target array.
    */
   public static pushInternal(
@@ -439,58 +451,19 @@ export class ArrayProxy {
     prevCreatedAt: TimeTicket,
     value: unknown,
   ): CRDTElement {
-    const ticket = context.issueTimeTicket();
-    if (Primitive.isSupport(value)) {
-      const primitive = Primitive.of(value as PrimitiveValue, ticket);
-      const clone = primitive.deepcopy();
-      target.insertAfter(prevCreatedAt, clone);
-      context.registerElement(clone, target);
-      context.push(
-        AddOperation.create(
-          target.getCreatedAt(),
-          prevCreatedAt,
-          primitive.deepcopy(),
-          ticket,
-        ),
-      );
-      return primitive;
-    } else if (Array.isArray(value)) {
-      const array = CRDTArray.create(ticket);
-      const clone = array.deepcopy();
-      target.insertAfter(prevCreatedAt, clone);
-      context.registerElement(clone, target);
-      context.push(
-        AddOperation.create(
-          target.getCreatedAt(),
-          prevCreatedAt,
-          array.deepcopy(),
-          ticket,
-        ),
-      );
-      for (const element of value) {
-        ArrayProxy.pushInternal(context, clone, element);
-      }
-      return array;
-    } else if (typeof value === 'object') {
-      const obj = CRDTObject.create(ticket);
-      target.insertAfter(prevCreatedAt, obj);
-      context.registerElement(obj, target);
-      context.push(
-        AddOperation.create(
-          target.getCreatedAt(),
-          prevCreatedAt,
-          obj.deepcopy(),
-          ticket,
-        ),
-      );
-
-      for (const [k, v] of Object.entries(value!)) {
-        ObjectProxy.setInternal(context, obj, k, v);
-      }
-      return obj;
-    }
-
-    throw new TypeError(`Unsupported type of value: ${typeof value}`);
+    const createdAt = context.issueTimeTicket();
+    const element = buildCRDTElement(context, value, createdAt);
+    target.insertAfter(prevCreatedAt, element);
+    context.registerElement(element, target);
+    context.push(
+      AddOperation.create(
+        target.getCreatedAt(),
+        prevCreatedAt,
+        element.deepcopy(),
+        createdAt,
+      ),
+    );
+    return element;
   }
 
   /**
@@ -579,7 +552,9 @@ export class ArrayProxy {
     for (let i = from; i < to; i++) {
       const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
       if (removed) {
-        removeds.push(toJSONElement(context, removed)!);
+        const removedElem = removed.deepcopy();
+        removedElem.setRemovedAt();
+        removeds.push(toJSONElement(context, removedElem)!);
       }
     }
     if (items) {

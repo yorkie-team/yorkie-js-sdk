@@ -208,9 +208,11 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
   if (element instanceof CRDTObject) {
     pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_OBJECT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
+    pbElementSimple.setValue(objectToBytes(element));
   } else if (element instanceof CRDTArray) {
     pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_ARRAY);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
+    pbElementSimple.setValue(arrayToBytes(element));
   } else if (element instanceof CRDTText) {
     pbElementSimple.setType(PbValueType.VALUE_TYPE_TEXT);
     pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
@@ -835,9 +837,19 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
 function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
   switch (pbElementSimple.getType()) {
     case PbValueType.VALUE_TYPE_JSON_OBJECT:
-      return CRDTObject.create(fromTimeTicket(pbElementSimple.getCreatedAt())!);
+      if (!pbElementSimple.getValue()) {
+        return CRDTObject.create(
+          fromTimeTicket(pbElementSimple.getCreatedAt())!,
+        );
+      }
+      return bytesToObject(pbElementSimple.getValue_asU8());
     case PbValueType.VALUE_TYPE_JSON_ARRAY:
-      return CRDTArray.create(fromTimeTicket(pbElementSimple.getCreatedAt())!);
+      if (!pbElementSimple.getValue()) {
+        return CRDTArray.create(
+          fromTimeTicket(pbElementSimple.getCreatedAt())!,
+        );
+      }
+      return bytesToArray(pbElementSimple.getValue_asU8());
     case PbValueType.VALUE_TYPE_TEXT:
       return CRDTText.create(
         RGATreeSplit.create(),
@@ -1343,7 +1355,7 @@ function bytesToSnapshot<P extends Indexable>(
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
   if (!bytes) {
-    return CRDTObject.create(InitialTimeTicket);
+    throw new Error('bytes is empty');
   }
 
   const pbElement = PbJSONElement.deserializeBinary(bytes);
@@ -1355,6 +1367,25 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
   return toElement(obj).serializeBinary();
+}
+
+/**
+ * `bytesToArray` creates an CRDTArray from the given bytes.
+ */
+function bytesToArray(bytes?: Uint8Array): CRDTArray {
+  if (!bytes) {
+    throw new Error('bytes is empty');
+  }
+
+  const pbElement = PbJSONElement.deserializeBinary(bytes);
+  return fromArray(pbElement.getJsonArray()!);
+}
+
+/**
+ * `arrayToBytes` converts the given CRDTArray to bytes.
+ */
+function arrayToBytes(array: CRDTArray): Uint8Array {
+  return toArray(array).serializeBinary();
 }
 
 /**

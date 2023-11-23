@@ -99,6 +99,9 @@ export abstract class CRDTElement {
       removedAt.after(this.getPositionedAt()) &&
       (!this.removedAt || removedAt.after(this.removedAt))
     ) {
+      // NOTE(chacha912): If it's a CRDTContainer, removedAt is marked only on
+      // the top-level element, without marking all descendant elements. This
+      // enhances the speed of deletion.
       this.removedAt = removedAt;
       return true;
     }
