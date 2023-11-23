@@ -169,7 +169,12 @@ export class ObjectProxy {
       const primitive = Primitive.of(value as PrimitiveValue, ticket);
       setAndRegister(primitive);
       context.push(
-        SetOperation.create(key, primitive, target.getCreatedAt(), ticket),
+        SetOperation.create(
+          key,
+          primitive.deepcopy(),
+          target.getCreatedAt(),
+          ticket,
+        ),
       );
     } else if (Array.isArray(value)) {
       const array = CRDTArray.create(ticket);

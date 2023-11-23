@@ -253,7 +253,7 @@ describe('Object', function () {
       assert.equal(doc.toSortedJSON(), `{}`);
       assert.deepEqual(
         doc.getRedoStackForTest().at(-1)?.map(toStringHistoryOp),
-        ['0:00:0.SET.shape={"color":"black"}', '1:00:1.SET.color="black"'],
+        ['0:00:0.SET.shape={}', '1:00:1.SET.color="black"'],
       );
 
       doc.history.redo();

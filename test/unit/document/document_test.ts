@@ -229,6 +229,27 @@ describe.sequential('Document', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[{"id":1}]}');
   });
 
+  it('splice array with nested object', function () {
+    const doc = new Document<{
+      list: Array<{ point: { x?: number; y?: number } }>;
+    }>('test-doc');
+
+    doc.update((root) => {
+      root.list = [{ point: { x: 0, y: 0 } }, { point: { x: 1, y: 1 } }];
+      delete root.list[1].point.y;
+    });
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"list":[{"point":{"x":0,"y":0}},{"point":{"x":1}}]}',
+    );
+
+    doc.update((root) => {
+      const res = root.list.splice(1, 1);
+      assert.equal(res.toString(), '{"point":{"x":1}}');
+    });
+    assert.equal(doc.toSortedJSON(), '{"list":[{"point":{"x":0,"y":0}}]}');
+  });
+
   describe('should support standard array read-only operations', () => {
     type TestDoc = {
       empty: [];
