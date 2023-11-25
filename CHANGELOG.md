@@ -7,6 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.9] - 2023-11-25
+
+### Added
+* Implement merge elements in `Tree.Edit` by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/681
+* Add README and thumbnail on example 'simultaneous-cursors'by @banma1234 in https://github.com/yorkie-team/yorkie-js-sdk/pull/683
+* Support Undo/Redo for object.set and object.remove operations by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/658
+
+### Changed
+* Refactor ProseMirror example and Tree codes by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/686
+* Enhance Set and Add for representing nested elements by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/691
+
+### Fixed
+* Add missing `removedAt` during Primitive deepcopy by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/692
+* Prevent empty ops are applied during undo/redo by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/687
+
 ## [0.4.8] - 2023-11-01
 
 ### Changed
