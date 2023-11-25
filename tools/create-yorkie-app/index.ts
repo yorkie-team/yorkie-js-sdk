@@ -163,7 +163,9 @@ async function init() {
     }
 
     if (file === '.env') {
-      const envVariables = fs.readFileSync(file).toString();
+      const envVariables = fs
+        .readFileSync(path.join(templateDir, file))
+        .toString();
 
       write(
         file,
