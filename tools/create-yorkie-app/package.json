@@ -1,0 +1,27 @@
+{
+  "name": "create-yorkie-app",
+  "version": "0.4.7",
+  "bin": {
+    "create-yorkie-app": "dist/create-yorkie-app.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "webpack --config ./webpack.config.js && npm run build:copy-assets",
+    "build:copy-assets": "cp -r ../../examples ./dist && cp ./.env  ./dist/.env",
+    "start": "npm run build && node dist/create-yorkie-app.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yorkie-team/yorkie-js-sdk.git"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/minimist": "^1.2.2",
+    "@types/prompts": "^2.4.4",
+    "kolorist": "^1.8.0",
+    "minimist": "^1.2.8",
+    "prompts": "^2.4.2"
+  }
+}
