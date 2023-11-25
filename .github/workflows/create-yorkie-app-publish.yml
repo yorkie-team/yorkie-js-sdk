@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - tools/create-yorkie-app/**
+      - examples/**
 jobs:
   build:
     runs-on: ubuntu-latest
