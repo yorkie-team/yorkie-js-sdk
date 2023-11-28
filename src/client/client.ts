@@ -24,6 +24,9 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
+import { ConnectError, createPromiseClient, PromiseClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { YorkieService } from '../api/yorkie/v1/yorkie_connect'; 
 import {
   ActivateClientRequest,
   DeactivateClientRequest,
@@ -36,7 +39,7 @@ import {
 } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_grpc_web_pb';
+// import { YorkieServiceClient as RPCClient } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_grpc_web_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
@@ -309,7 +312,7 @@ export class Client implements Observable<ClientEvent> {
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
 
-  private rpcClient: RPCClient;
+  private rpcClient: PromiseClient<typeof YorkieService>;
   private eventStream: Observable<ClientEvent>;
   private eventStreamObserver!: Observer<ClientEvent>;
 
@@ -347,7 +350,20 @@ export class Client implements Observable<ClientEvent> {
       );
     }
 
-    this.rpcClient = new RPCClient(rpcAddr, null, rpcOpts);
+    // The transport defines what type of endpoint we're hitting.
+    // In our example we'll be communicating with a Connect endpoint.
+    // If your endpoint only supports gRPC-web, make sure to use
+    // `createGrpcWebTransport` instead.
+    const transport = createConnectTransport({
+      baseUrl: rpcAddr,
+      // skip interceptors for now because they are metric interceptors
+      //interceptors: rpcOpts.unaryInterceptors,
+    });
+
+    // Here we make the client itself, combining the service
+    // definition with the transport.
+    this.rpcClient = createPromiseClient(YorkieService, transport);
+
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -364,32 +380,30 @@ export class Client implements Observable<ClientEvent> {
     }
 
     return new Promise((resolve, reject) => {
-      const req = new ActivateClientRequest();
-      req.setClientKey(this.key);
+      const req = new ActivateClientRequest({
+        clientKey: this.key,
+      });
 
       this.rpcClient.activateClient(
         req,
-        { 'x-shard-key': this.apiKey },
-        async (err, res) => {
-          if (err) {
-            logger.error(`[AC] c:"${this.getKey()}" err :`, err);
-            reject(err);
-            return;
-          }
+        { headers: {"x-shard-key": this.apiKey}},
+      ).then((res) => {
+        this.id = res.clientId;
+        this.status = ClientStatus.Activated;
+        this.runSyncLoop();
 
-          this.id = res.getClientId();
-          this.status = ClientStatus.Activated;
-          this.runSyncLoop();
+        this.eventStreamObserver.next({
+          type: ClientEventType.StatusChanged,
+          value: this.status,
+        });
 
-          this.eventStreamObserver.next({
-            type: ClientEventType.StatusChanged,
-            value: this.status,
-          });
-
-          logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
-          resolve();
-        },
-      );
+        logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
+        resolve();
+      }).catch((err) => {
+        logger.error(`[AC] c:"${this.getKey()}" err :`, err);
+        reject(err);
+        return;
+      });
     });
   }
 
@@ -407,28 +421,25 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DeactivateClientRequest();
-      req.setClientId(this.id!);
+      req.clientId = this.id!;
 
       this.rpcClient.deactivateClient(
         req,
-        { 'x-shard-key': this.apiKey },
-        (err) => {
-          if (err) {
-            logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-            reject(err);
-            return;
-          }
+        { headers: {"x-shard-key": this.apiKey}},
+      ).then((res) => {
+        this.status = ClientStatus.Deactivated;
+        this.eventStreamObserver.next({
+          type: ClientEventType.StatusChanged,
+          value: this.status,
+        });
 
-          this.status = ClientStatus.Deactivated;
-          this.eventStreamObserver.next({
-            type: ClientEventType.StatusChanged,
-            value: this.status,
-          });
-
-          logger.info(`[DC] c"${this.getKey()}" deactivated`);
-          resolve();
-        },
-      );
+        logger.info(`[DC] c"${this.getKey()}" deactivated`);
+        resolve();
+      }).catch((err) => {
+        logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+        reject(err);
+        return;
+      });
     });
   }
 
@@ -459,42 +470,39 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new AttachDocumentRequest();
-      req.setClientId(this.id!);
-      req.setChangePack(converter.toChangePack(doc.createChangePack()));
+      req.clientId = this.id!;
+      req.changePack = converter.toChangePack(doc.createChangePack());
 
       this.rpcClient.attachDocument(
         req,
-        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
-        async (err, res) => {
-          if (err) {
-            logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-            reject(err);
-            return;
+        { headers: {"x-shard-key": `${this.apiKey}/${doc.getKey()}`}},
+      ).then((res) => {
+        const pack = converter.fromChangePack<P>(res.changePack!);
+        doc.applyChangePack(pack);
+        if (doc.getStatus() !== DocumentStatus.Removed) {
+          doc.setStatus(DocumentStatus.Attached);
+          this.attachmentMap.set(
+            doc.getKey(),
+            new Attachment(
+              this.reconnectStreamDelay,
+              doc,
+              res.documentId,
+              isRealtimeSync,
+            ),
+          );
+
+          if (isRealtimeSync) {
+            this.runWatchLoop(doc.getKey());
           }
+        }
 
-          const pack = converter.fromChangePack<P>(res.getChangePack()!);
-          doc.applyChangePack(pack);
-          if (doc.getStatus() !== DocumentStatus.Removed) {
-            doc.setStatus(DocumentStatus.Attached);
-            this.attachmentMap.set(
-              doc.getKey(),
-              new Attachment(
-                this.reconnectStreamDelay,
-                doc,
-                res.getDocumentId(),
-                isRealtimeSync,
-              ),
-            );
-
-            if (isRealtimeSync) {
-              await this.runWatchLoop(doc.getKey());
-            }
-          }
-
-          logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
-          resolve(doc);
-        },
-      );
+        logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
+        resolve(doc);
+      }).catch((err) => {
+        logger.error(`[AD] c:"${this.getKey()}" err :`, err);
+        reject(err);
+        return;
+      });
     });
   }
 
@@ -526,32 +534,29 @@ export class Client implements Observable<ClientEvent> {
 
     return new Promise((resolve, reject) => {
       const req = new DetachDocumentRequest();
-      req.setClientId(this.id!);
-      req.setDocumentId(attachment.docID);
-      req.setChangePack(converter.toChangePack(doc.createChangePack()));
-      req.setRemoveIfNotAttached(options.removeIfNotAttached ?? false);
+      req.clientId = this.id!;
+      req.documentId = attachment.docID;
+      req.changePack = converter.toChangePack(doc.createChangePack());
+      req.removeIfNotAttached = options.removeIfNotAttached ?? false;
 
       this.rpcClient.detachDocument(
         req,
-        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
-        async (err, res) => {
-          if (err) {
-            logger.error(`[DD] c:"${this.getKey()}" err :`, err);
-            reject(err);
-            return;
-          }
+        { headers: {"x-shard-key": `${this.apiKey}/${doc.getKey()}`}},
+      ).then((res) => {
+        const pack = converter.fromChangePack<P>(res.changePack!);
+        doc.applyChangePack(pack);
+        if (doc.getStatus() !== DocumentStatus.Removed) {
+          doc.setStatus(DocumentStatus.Detached);
+        }
+        this.detachInternal(doc.getKey());
 
-          const pack = converter.fromChangePack<P>(res.getChangePack()!);
-          doc.applyChangePack(pack);
-          if (doc.getStatus() !== DocumentStatus.Removed) {
-            doc.setStatus(DocumentStatus.Detached);
-          }
-          this.detachInternal(doc.getKey());
-
-          logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
-          resolve(doc);
-        },
-      );
+        logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
+        resolve(doc);
+      }).catch((err) => {
+        logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+        reject(err);
+        return;
+      });
     });
   }
 
@@ -709,33 +714,27 @@ export class Client implements Observable<ClientEvent> {
     doc.setActor(this.id!);
     return new Promise((resolve, reject) => {
       const req = new RemoveDocumentRequest();
-      req.setClientId(this.id!);
-      req.setDocumentId(attachment.docID);
+      req.clientId = this.id!;
+      req.documentId = attachment.docID;
       const pbChangePack = converter.toChangePack(doc.createChangePack());
-      pbChangePack.setIsRemoved(true);
-      req.setChangePack(pbChangePack);
+      pbChangePack.isRemoved = true;
+      req.changePack = pbChangePack;
 
       this.rpcClient.removeDocument(
         req,
-        { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
-        async (err, res) => {
-          if (err) {
-            logger.error(
-              `[RD] c:"${this.getKey()}" d:"${doc.getKey()}" err :`,
-              err,
-            );
-            reject(err);
-            return;
-          }
+        { headers: {"x-shard-key": `${this.apiKey}/${doc.getKey()}`}},
+      ).then((res) => {
+        const pack = converter.fromChangePack<P>(res.changePack!);
+        doc.applyChangePack(pack);
+        this.detachInternal(doc.getKey());
 
-          const pack = converter.fromChangePack<P>(res.getChangePack()!);
-          doc.applyChangePack(pack);
-          this.detachInternal(doc.getKey());
-
-          logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
-          resolve();
-        },
-      );
+        logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
+        resolve();
+      }).catch((err) => {
+        logger.error(`[RD] c:"${this.getKey()}" err :`, err);
+        reject(err);
+        return;
+      });
     });
   }
 
@@ -832,10 +831,10 @@ export class Client implements Observable<ClientEvent> {
         }
 
         const req = new WatchDocumentRequest();
-        req.setClientId(this.id!);
-        req.setDocumentId(attachment.docID);
+        req.clientId = this.id!;
+        req.documentId = attachment.docID;
         const stream = this.rpcClient.watchDocument(req, {
-          'x-shard-key': `${this.apiKey}/${docKey}`,
+           headers: {"x-shard-key": `${this.apiKey}/${docKey}`}
         });
 
         this.eventStreamObserver.next({
@@ -844,7 +843,7 @@ export class Client implements Observable<ClientEvent> {
         });
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
           const onStreamDisconnect = (): void => {
             this.eventStreamObserver.next({
               type: ClientEventType.StreamConnectionStatusChanged,
@@ -854,12 +853,16 @@ export class Client implements Observable<ClientEvent> {
             onDisconnect();
           };
 
-          stream.on('data', (resp: WatchDocumentResponse) => {
-            this.handleWatchDocumentsResponse(attachment, resp);
-            resolve(stream);
-          });
-          stream.on('end', onStreamDisconnect);
-          stream.on('error', onStreamDisconnect);
+          try {
+            for await (const resp of stream) {
+              this.handleWatchDocumentsResponse(attachment, resp);
+              resolve(stream);
+            }
+          } catch(error) {
+            if(error instanceof ConnectError) {
+              onStreamDisconnect();
+            }
+          }
         });
       },
     );
@@ -870,8 +873,8 @@ export class Client implements Observable<ClientEvent> {
     resp: WatchDocumentResponse,
   ) {
     const docKey = attachment.doc.getKey();
-    if (resp.hasInitialization()) {
-      const clientIDs = resp.getInitialization()!.getClientIdsList();
+    if (resp.body.case === "initialization") {
+      const clientIDs = resp.body.value.clientIds;
       const onlineClients: Set<ActorID> = new Set();
       for (const clientID of clientIDs) {
         onlineClients.add(clientID);
@@ -882,45 +885,45 @@ export class Client implements Observable<ClientEvent> {
         value: attachment.doc.getPresences(),
       });
       return;
-    }
-
-    const pbWatchEvent = resp.getEvent()!;
-    const eventType = pbWatchEvent.getType();
-    const publisher = pbWatchEvent.getPublisher();
-    switch (eventType) {
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_CHANGED:
-        attachment.remoteChangeEventReceived = true;
-        this.eventStreamObserver.next({
-          type: ClientEventType.DocumentChanged,
-          value: [docKey],
-        });
-        break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_WATCHED:
-        attachment.doc.addOnlineClient(publisher);
-        // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
-        // unless we also know their initial presence data at this point.
-        if (attachment.doc.hasPresence(publisher)) {
-          attachment.doc.publish({
-            type: DocEventType.Watched,
-            value: {
-              clientID: publisher,
-              presence: attachment.doc.getPresence(publisher)!,
-            },
+    } else if(resp.body.case === "event") {
+      const pbWatchEvent = resp.body.value;
+      const eventType = pbWatchEvent.type;
+      const publisher = pbWatchEvent.publisher;
+      switch (eventType) {
+        case PbDocEventType.DOCUMENT_CHANGED:
+          attachment.remoteChangeEventReceived = true;
+          this.eventStreamObserver.next({
+            type: ClientEventType.DocumentChanged,
+            value: [docKey],
           });
+          break;
+        case PbDocEventType.DOCUMENT_WATCHED:
+          attachment.doc.addOnlineClient(publisher);
+          // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+          // unless we also know their initial presence data at this point.
+          if (attachment.doc.hasPresence(publisher)) {
+            attachment.doc.publish({
+              type: DocEventType.Watched,
+              value: {
+                clientID: publisher,
+                presence: attachment.doc.getPresence(publisher)!,
+              },
+            });
+          }
+          break;
+        case PbDocEventType.DOCUMENT_UNWATCHED: {
+          const presence = attachment.doc.getPresence(publisher);
+          attachment.doc.removeOnlineClient(publisher);
+          // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+          // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+          if (presence) {
+            attachment.doc.publish({
+              type: DocEventType.Unwatched,
+              value: { clientID: publisher, presence },
+            });
+          }
+          break;
         }
-        break;
-      case PbDocEventType.DOC_EVENT_TYPE_DOCUMENT_UNWATCHED: {
-        const presence = attachment.doc.getPresence(publisher);
-        attachment.doc.removeOnlineClient(publisher);
-        // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
-        // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
-        if (presence) {
-          attachment.doc.publish({
-            type: DocEventType.Unwatched,
-            value: { clientID: publisher, presence },
-          });
-        }
-        break;
       }
     }
   }
@@ -953,56 +956,52 @@ export class Client implements Observable<ClientEvent> {
     const { doc, docID } = attachment;
     return new Promise((resolve, reject) => {
       const req = new PushPullChangesRequest();
-      req.setClientId(this.id!);
-      req.setDocumentId(docID);
+      req.clientId = this.id!;
+      req.documentId = docID;
       const reqPack = doc.createChangePack();
       const localSize = reqPack.getChangeSize();
-      req.setChangePack(converter.toChangePack(reqPack));
-      req.setPushOnly(syncMode === SyncMode.PushOnly);
+      req.changePack = converter.toChangePack(reqPack);
+      req.pushOnly = syncMode === SyncMode.PushOnly;
 
       let isRejected = false;
       this.rpcClient
         .pushPullChanges(
           req,
-          { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
-          (err, res) => {
-            if (err) {
-              logger.error(`[PP] c:"${this.getKey()}" err :`, err);
+          { headers: {"x-shard-key": `${this.apiKey}/${doc.getKey()}`}},
+        ).then((res) => {
+          const respPack = converter.fromChangePack<P>(res.changePack!);
 
-              isRejected = true;
-              reject(err);
-              return;
-            }
+          // (chacha912, hackerwins): If syncLoop already executed with
+          // PushPull, ignore the response when the syncMode is PushOnly.
+          if (respPack.hasChanges() && syncMode === SyncMode.PushOnly) {
+            return;
+          }
 
-            const respPack = converter.fromChangePack<P>(res.getChangePack()!);
+          doc.applyChangePack(respPack);
+          this.eventStreamObserver.next({
+            type: ClientEventType.DocumentSynced,
+            value: DocumentSyncResultType.Synced,
+          });
+          // (chacha912): If a document has been removed, watchStream should
+          // be disconnected to not receive an event for that document.
+          if (doc.getStatus() === DocumentStatus.Removed) {
+            this.detachInternal(doc.getKey());
+          }
 
-            // NOTE(chacha912, hackerwins): If syncLoop already executed with
-            // PushPull, ignore the response when the syncMode is PushOnly.
-            if (respPack.hasChanges() && syncMode === SyncMode.PushOnly) {
-              return;
-            }
+          const docKey = doc.getKey();
+          const remoteSize = respPack.getChangeSize();
+          logger.info(
+            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
+              .getCheckpoint()
+              .toTestString()}`,
+          );
+        }).catch((err) => {
+          logger.error(`[PP] c:"${this.getKey()}" err :`, err);
 
-            doc.applyChangePack(respPack);
-            this.eventStreamObserver.next({
-              type: ClientEventType.DocumentSynced,
-              value: DocumentSyncResultType.Synced,
-            });
-            // NOTE(chacha912): If a document has been removed, watchStream should
-            // be disconnected to not receive an event for that document.
-            if (doc.getStatus() === DocumentStatus.Removed) {
-              this.detachInternal(doc.getKey());
-            }
-
-            const docKey = doc.getKey();
-            const remoteSize = respPack.getChangeSize();
-            logger.info(
-              `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${localSize} pull:${remoteSize} cp:${respPack
-                .getCheckpoint()
-                .toTestString()}`,
-            );
-          },
-        )
-        .on('end', () => {
+          isRejected = true;
+          reject(err);
+          return;
+        }).finally(() => {
           if (isRejected) {
             return;
           }
