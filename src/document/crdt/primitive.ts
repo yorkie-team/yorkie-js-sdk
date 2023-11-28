@@ -18,7 +18,6 @@ import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 export enum PrimitiveType {
@@ -102,13 +101,12 @@ export class Primitive extends CRDTElement {
    * `toJSON` returns the JSON encoding of the value.
    */
   public toJSON(): string {
-    if (this.valueType === PrimitiveType.String) {
-      return `"${escapeString(this.value as string)}"`;
-    }
-
     // TODO(hackerwins): We need to consider the case where the value is
     // a byte array and a date.
-    return `${this.value}`;
+    if (this.valueType === PrimitiveType.Long) {
+      return this.value!.toString();
+    }
+    return JSON.stringify(this.value);
   }
 
   /**

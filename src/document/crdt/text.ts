@@ -28,7 +28,6 @@ import {
   RGATreeSplitPosRange,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
@@ -124,22 +123,21 @@ export class CRDTTextValue {
    * `toJSON` returns the JSON encoding of this value.
    */
   public toJSON(): string {
-    const content = escapeString(this.content);
     const attrsObj = this.attributes.toObject();
     const attrs = [];
-    for (const [key, v] of Object.entries(attrsObj)) {
+    for (const [k, v] of Object.entries(attrsObj)) {
       const value = JSON.parse(v);
-      const item =
-        typeof value === 'string'
-          ? `"${key}":"${escapeString(value)}"`
-          : `"${key}":${String(value)}`;
-      attrs.push(item);
+      attrs.push([k, value]);
     }
     attrs.sort();
-    if (attrs.length === 0) {
-      return `{"val":"${content}"}`;
+
+    if (this.attributes.size() === 0) {
+      return JSON.stringify({ val: this.content });
     }
-    return `{"attrs":{${attrs.join(',')}},"val":"${content}"}`;
+    return JSON.stringify({
+      attrs: Object.fromEntries(attrs),
+      val: this.content,
+    });
   }
 
   /**

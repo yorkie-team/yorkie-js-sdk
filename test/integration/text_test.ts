@@ -707,14 +707,14 @@ describe('peri-text example: text concurrent edit', function () {
       }, `add comment by c1`);
       assert.equal(
         d1.toSortedJSON(),
-        `{"k1":[{"attrs":{"comment":"Alice\\'s comment"},"val":"The fox"},{"val":" jumped."}]}`,
+        `{"k1":[{"attrs":{"comment":"Alice's comment"},"val":"The fox"},{"val":" jumped."}]}`,
       );
       d2.update((root) => {
         root.k1.setStyle(4, 15, { comment: `Bob's comment` });
       }, `add comment by c2`);
       assert.equal(
         d2.toSortedJSON(),
-        `{"k1":[{"val":"The "},{"attrs":{"comment":"Bob\\'s comment"},"val":"fox jumped."}]}`,
+        `{"k1":[{"val":"The "},{"attrs":{"comment":"Bob's comment"},"val":"fox jumped."}]}`,
       );
       await c1.sync();
       await c2.sync();
@@ -723,7 +723,7 @@ describe('peri-text example: text concurrent edit', function () {
       // so it would be better we can keep both comments.
       assert.equal(
         d1.toSortedJSON(),
-        `{"k1":[{"attrs":{"comment":"Alice\\'s comment"},"val":"The "},{"attrs":{"comment":"Bob\\'s comment"},"val":"fox"},{"attrs":{"comment":"Bob\\'s comment"},"val":" jumped."}]}`,
+        `{"k1":[{"attrs":{"comment":"Alice's comment"},"val":"The "},{"attrs":{"comment":"Bob's comment"},"val":"fox"},{"attrs":{"comment":"Bob's comment"},"val":" jumped."}]}`,
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');

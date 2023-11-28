@@ -15,7 +15,6 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -123,11 +122,11 @@ export class RHT {
    * `toJSON` returns the JSON encoding of this hashtable.
    */
   public toJSON(): string {
-    const items = [];
+    const items: Record<string, string> = {};
     for (const [key, node] of this.nodeMapByKey) {
-      items.push(`"${key}":"${escapeString(node.getValue())}"`);
+      items[key] = node.getValue();
     }
-    return `{${items.join(',')}}`;
+    return JSON.stringify(items);
   }
 
   /**
