@@ -131,8 +131,8 @@ export class CRDTTextValue {
       const value = JSON.parse(v);
       const item =
         typeof value === 'string'
-          ? `"${key}":"${escapeString(value)}"`
-          : `"${key}":${String(value)}`;
+          ? `"${escapeString(key)}":"${escapeString(value)}"`
+          : `"${escapeString(key)}":${String(value)}`;
       attrs.push(item);
     }
     attrs.sort();

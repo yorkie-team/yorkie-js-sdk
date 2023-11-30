@@ -1243,6 +1243,15 @@ describe.sequential('Document', function () {
     });
   });
 
+  it('should handle escape string for object keys', function () {
+    const doc = new Document<{ [key: string]: any }>('test-doc');
+    doc.update((root) => (root[`it"s`] = `yorkie`));
+    assert.equal(doc.toSortedJSON(), `{"it\\"s":"yorkie"}`);
+    assert.deepEqual(JSON.parse(doc.toSortedJSON()), {
+      [`it"s`]: `yorkie`,
+    });
+  });
+
   it('escapes string for object', function () {
     const doc = new Document<{ a?: string }>('test-doc');
     doc.update((root) => {

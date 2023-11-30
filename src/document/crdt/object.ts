@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   CRDTContainer,
@@ -125,7 +126,7 @@ export class CRDTObject extends CRDTContainer {
   public toJSON(): string {
     const json = [];
     for (const [key, value] of this) {
-      json.push(`"${key}":${value.toJSON()}`);
+      json.push(`"${escapeString(key)}":${value.toJSON()}`);
     }
     return `{${json.join(',')}}`;
   }
@@ -182,7 +183,7 @@ export class CRDTObject extends CRDTContainer {
     const json = [];
     for (const key of keys.sort()) {
       const node = this.memberNodes.get(key)?.getValue();
-      json.push(`"${key}":${node!.toSortedJSON()}`);
+      json.push(`"${escapeString(key)}":${node!.toSortedJSON()}`);
     }
 
     return `{${json.join(',')}}`;
