@@ -125,7 +125,7 @@ export class RHT {
   public toJSON(): string {
     const items = [];
     for (const [key, node] of this.nodeMapByKey) {
-      items.push(`"${key}":"${escapeString(node.getValue())}"`);
+      items.push(`"${escapeString(key)}":"${escapeString(node.getValue())}"`);
     }
     return `{${items.join(',')}}`;
   }

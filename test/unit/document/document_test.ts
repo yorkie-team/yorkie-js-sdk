@@ -1228,6 +1228,30 @@ describe.sequential('Document', function () {
     assert.equal(0, doc.getGarbageLen());
   });
 
+  it('should handle escape string for strings containing single quotes', function () {
+    const doc = new Document<{ [key: string]: any }>('test-doc');
+    doc.update((root) => (root.str = `I'm yorkie`));
+    assert.equal(doc.toSortedJSON(), `{"str":"I'm yorkie"}`);
+    assert.deepEqual(JSON.parse(doc.toSortedJSON()), {
+      str: `I'm yorkie`,
+    });
+
+    doc.update((root) => (root.str = `I\\'m yorkie`));
+    assert.equal(doc.toSortedJSON(), `{"str":"I\\\\'m yorkie"}`);
+    assert.deepEqual(JSON.parse(doc.toSortedJSON()), {
+      str: `I\\'m yorkie`,
+    });
+  });
+
+  it('should handle escape string for object keys', function () {
+    const doc = new Document<{ [key: string]: any }>('test-doc');
+    doc.update((root) => (root[`it"s`] = `yorkie`));
+    assert.equal(doc.toSortedJSON(), `{"it\\"s":"yorkie"}`);
+    assert.deepEqual(JSON.parse(doc.toSortedJSON()), {
+      [`it"s`]: `yorkie`,
+    });
+  });
+
   it('escapes string for object', function () {
     const doc = new Document<{ a?: string }>('test-doc');
     doc.update((root) => {
