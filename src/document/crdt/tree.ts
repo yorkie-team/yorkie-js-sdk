@@ -720,29 +720,13 @@ export class CRDTTree extends CRDTGCElement {
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
-    // 01. split text nodes at the given range if needed.
+    // 01. find nodes from the given range and split nodes.
     const [fromParent, fromLeft] = this.findNodesAndSplit(range[0], editedAt);
     const [toParent, toLeft] = this.findNodesAndSplit(range[1], editedAt);
-
-    // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
-    // range(from, to) into multiple ranges.
-    const changes: Array<TreeChange> = [];
-    changes.push({
-      type: TreeChangeType.Content,
-      from: this.toIndex(fromParent, fromLeft),
-      to: this.toIndex(toParent, toLeft),
-      fromPath: this.toPath(fromParent, fromLeft),
-      toPath: this.toPath(toParent, toLeft),
-      actor: editedAt.getActorID()!,
-      value: contents?.length
-        ? contents.map((content) => toTreeNode(content))
-        : undefined,
-    });
 
     const toBeRemoveds: Array<CRDTTreeNode> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
-
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -795,6 +779,22 @@ export class CRDTTree extends CRDTGCElement {
       },
     );
 
+    // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
+    // range(from, to) into multiple ranges.
+    const changes: Array<TreeChange> = [];
+    changes.push({
+      type: TreeChangeType.Content,
+      from: this.toIndex(fromParent, fromLeft),
+      to: this.toIndex(toParent, toLeft),
+      fromPath: this.toPath(fromParent, fromLeft),
+      toPath: this.toPath(toParent, toLeft),
+      actor: editedAt.getActorID()!,
+      value: contents?.length
+        ? contents.map((content) => toTreeNode(content))
+        : undefined,
+    });
+
+    // 02. Delete: delete the nodes that are marked as removed.
     for (const node of toBeRemoveds) {
       node.remove(editedAt);
       if (node.isRemoved) {
@@ -802,31 +802,31 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
+    // 03. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
       fromParent.append(node);
     }
 
-    // 03. insert the given node at the given position.
+    // 05. Insert: insert the given nodes at the given position.
     if (contents?.length) {
       let leftInChildren = fromLeft; // tree
 
-      for (const content of contents!) {
-        // 03-1. insert the content nodes to the tree.
+      for (const content of contents) {
+        // 05-1. Insert the content nodes to the tree.
         if (leftInChildren === fromParent) {
-          // 03-1-1. when there's no leftSibling, then insert content into very front of parent's children List
+          // 05-1-1. when there's no leftSibling, then insert content into very front of parent's children.
           fromParent.insertAt(content, 0);
         } else {
-          // 03-1-2. insert after leftSibling
+          // 05-1-2. insert after leftSibling
           fromParent.insertAfter(content, leftInChildren);
         }
 
         leftInChildren = content;
         traverseAll(content, (node) => {
-          // if insertion happens during concurrent editing and parent node has been removed,
-          // make new nodes as tombstone immediately
+          // If insertion happens during concurrent editing and parent node has been removed,
+          // make new nodes as tombstone immediately.
           if (fromParent.isRemoved) {
             node.remove(editedAt);
-
             this.removedNodeMap.set(node.id.toIDString(), node);
           }
 
