@@ -181,17 +181,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `split` splits the node at the given offset.
-   */
-  split(offset: number, absOffset: number): T | undefined {
-    if (this.isText) {
-      return this.splitText(offset, absOffset);
-    }
-
-    return this.splitElement(offset);
-  }
-
-  /**
    * `isRemoved` returns true if the node is removed.
    */
   abstract get isRemoved(): boolean;
@@ -360,8 +349,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `splitElement` splits the given element at the given offset.
    */
-  splitElement(offset: number): T | undefined {
-    const clone = this.clone(offset);
+  splitElement(offset: number, absOffset: number): T | undefined {
+    const clone = this.clone(offset + absOffset);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
 
@@ -752,25 +741,6 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    */
   traverseAll(callback: (node: T) => void): void {
     traverseAll(this.root, callback, 0);
-  }
-
-  /**
-   * `split` splits the node at the given index.
-   */
-  public split(index: number, depth = 1): TreePos<T> {
-    const treePos = findTreePos(this.root, index, true);
-
-    let node: T | undefined = treePos.node;
-    let offset: number = treePos.offset;
-    for (let i = 0; i < depth && node && node !== this.root; i++) {
-      node.split(offset, 0);
-
-      const nextOffset = node.parent!.findOffset(node);
-      offset = offset === 0 ? nextOffset : nextOffset + 1;
-      node = node.parent;
-    }
-
-    return treePos;
   }
 
   /**

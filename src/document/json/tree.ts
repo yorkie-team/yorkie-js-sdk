@@ -329,6 +329,7 @@ export class Tree {
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
     contents: Array<TreeNode>,
+    splitLevel: number = 0,
   ): boolean {
     if (contents.length !== 0 && contents[0]) {
       validateTreeNodes(contents);
@@ -362,12 +363,12 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    // TODO(hackerwins): Implement splitLevels.
     const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
         : undefined,
+      splitLevel,
       ticket,
     );
 
@@ -376,8 +377,9 @@ export class Tree {
         this.tree!.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreatedAtMapByActor,
         crdtNodes.length ? crdtNodes : undefined,
+        0,
+        maxCreatedAtMapByActor,
         ticket,
       ),
     );

@@ -1121,12 +1121,14 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbTreeEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
         createdAtMapByActor.set(key, fromTimeTicket(value));
       });
+      // TODO(hackerwins): Connect splitLevel with protobuf.
       operation = TreeEditOperation.create(
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
-        createdAtMapByActor,
         fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
+        0,
+        createdAtMapByActor,
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasTreeStyle()) {

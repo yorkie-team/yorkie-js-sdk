@@ -35,20 +35,23 @@ export class TreeEditOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
   private contents: Array<CRDTTreeNode> | undefined;
+  private splitLevel: number;
   private maxCreatedAtMapByActor: Map<string, TimeTicket>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     contents: Array<CRDTTreeNode> | undefined,
+    splitLevel: number,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.contents = contents;
+    this.splitLevel = splitLevel;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
@@ -59,16 +62,18 @@ export class TreeEditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     contents: Array<CRDTTreeNode> | undefined,
+    splitLevel: number,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     executedAt: TimeTicket,
   ): TreeEditOperation {
     return new TreeEditOperation(
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       contents,
+      splitLevel,
+      maxCreatedAtMapByActor,
       executedAt,
     );
   }
@@ -85,10 +90,10 @@ export class TreeEditOperation extends Operation {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
     const tree = parentObject as CRDTTree;
-    // TODO(hackerwins): Implement splitLevels.
     const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
+      this.splitLevel,
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
     );
