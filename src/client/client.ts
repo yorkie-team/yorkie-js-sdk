@@ -508,6 +508,9 @@ export class Client implements Observable<ClientEvent> {
    */
   public detach<T, P extends Indexable>(
     doc: Document<T, P>,
+    options: {
+      removeIfNotAttached?: boolean;
+    } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
@@ -526,6 +529,7 @@ export class Client implements Observable<ClientEvent> {
       req.setClientId(this.id!);
       req.setDocumentId(attachment.docID);
       req.setChangePack(converter.toChangePack(doc.createChangePack()));
+      req.setRemoveIfNotAttached(options.removeIfNotAttached ?? false);
 
       this.rpcClient.detachDocument(
         req,
