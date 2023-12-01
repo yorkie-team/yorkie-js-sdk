@@ -11,7 +11,9 @@ To collect garbage things like CRDT tombstones left on the document, all the cha
 **Signature:**
 
 ```typescript
-detach<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
+detach<T, P extends Indexable>(doc: Document<T, P>, options?: {
+        removeIfNotAttached?: boolean;
+    }): Promise<Document<T, P>>;
 ```
 
 ## Parameters
@@ -19,6 +21,7 @@ detach<T, P extends Indexable>(doc: Document<T, P>): Promise<Document<T, P>>;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
+|  options | { removeIfNotAttached?: boolean; } | _(Optional)_ |
 
 **Returns:**
 
