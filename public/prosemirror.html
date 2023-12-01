@@ -334,14 +334,20 @@
                 if (
                   stepType === 'replace' &&
                   openStart &&
-                  openEnd &&
+                  openStart === openEnd &&
                   structure
                 ) {
-                  // TODO(hackerwins): edit should support openStart and openEnd.
-                  // root.tree.edit(from, to, docToTreeNode(node.toJSON()), [
-                  //   openStart,
-                  //   openEnd,
-                  // ]);
+                  // TODO(hackerwins): we need to handle more step cases.
+                  // - 1. openStart and openEnd can be assymetric.
+                  // - 2. content.content could be more than three.
+                  root.tree.edit(
+                    from,
+                    to,
+                    content.content.length == 3
+                      ? docToTreeNode(content.content[1])
+                      : undefined,
+                    openStart,
+                  );
                   continue;
                 }
 
@@ -352,9 +358,11 @@
                 }
 
                 // 04. Edit: Replace the given range with the given content.
-                for (const node of content.content) {
-                  root.tree.edit(from, to, docToTreeNode(node.toJSON()));
-                }
+                root.tree.editBulk(
+                  from,
+                  to,
+                  content.content.map((node) => docToTreeNode(node.toJSON())),
+                );
               }
 
               presence.set({

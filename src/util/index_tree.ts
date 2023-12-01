@@ -350,6 +350,14 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * `splitElement` splits the given element at the given offset.
    */
   splitElement(offset: number, absOffset: number): T | undefined {
+    /**
+     * TODO(hackerwins): Define ID of split node for concurrent editing.
+     * Text has fixed content and its split nodes could have limited offset
+     * range. But element node could have arbitrary children and its split
+     * nodes could have arbitrary offset range. So, id could be duplicated
+     * and its order could be broken when concurrent editing happens.
+     * Currently, we use the similar ID of split element with the split text.
+     */
     const clone = this.clone(offset + absOffset);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();

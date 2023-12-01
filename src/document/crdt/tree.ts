@@ -121,30 +121,27 @@ export class CRDTTreePos {
   public static fromTreePos(pos: TreePos<CRDTTreeNode>): CRDTTreePos {
     const { offset } = pos;
     let { node } = pos;
-    let leftSibling;
+    let leftNode;
 
     if (node.isText) {
       if (node.parent!.children[0] === node && offset === 0) {
-        leftSibling = node.parent!;
+        leftNode = node.parent!;
       } else {
-        leftSibling = node;
+        leftNode = node;
       }
 
       node = node.parent!;
     } else {
       if (offset === 0) {
-        leftSibling = node;
+        leftNode = node;
       } else {
-        leftSibling = node.children[offset - 1];
+        leftNode = node.children[offset - 1];
       }
     }
 
     return CRDTTreePos.of(
       node.id,
-      CRDTTreeNodeID.of(
-        leftSibling.getCreatedAt(),
-        leftSibling.getOffset() + offset,
-      ),
+      CRDTTreeNodeID.of(leftNode.getCreatedAt(), leftNode.getOffset() + offset),
     );
   }
 
@@ -202,7 +199,13 @@ export class CRDTTreePos {
       throw new Error(`cannot find node at ${this}`);
     }
 
+    /**
+     * NOTE(hackerwins): If the left node and the parent node are the same,
+     * it means that the position is the left-most of the parent node.
+     * We need to skip finding the left of the position.
+     */
     if (
+      !leftSiblingID.equals(parentID) &&
       leftSiblingID.getOffset() > 0 &&
       leftSiblingID.getOffset() === leftNode.id.getOffset() &&
       leftNode.insPrevID
@@ -1059,9 +1062,9 @@ export class CRDTTree extends CRDTGCElement {
    */
   public toPath(
     parentNode: CRDTTreeNode,
-    leftSiblingNode: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
   ): Array<number> {
-    const treePos = this.toTreePos(parentNode, leftSiblingNode);
+    const treePos = this.toTreePos(parentNode, leftNode);
     if (!treePos) {
       return [];
     }
@@ -1072,11 +1075,8 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `toIndex` converts the given CRDTTreeNodeID to the index of the tree.
    */
-  public toIndex(
-    parentNode: CRDTTreeNode,
-    leftSiblingNode: CRDTTreeNode,
-  ): number {
-    const treePos = this.toTreePos(parentNode, leftSiblingNode);
+  public toIndex(parentNode: CRDTTreeNode, leftNode: CRDTTreeNode): number {
+    const treePos = this.toTreePos(parentNode, leftNode);
     if (!treePos) {
       return -1;
     }
@@ -1174,9 +1174,9 @@ export class CRDTTree extends CRDTGCElement {
    */
   private toTreePos(
     parentNode: CRDTTreeNode,
-    leftSiblingNode: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
   ): TreePos<CRDTTreeNode> | undefined {
-    if (!parentNode || !leftSiblingNode) {
+    if (!parentNode || !leftNode) {
       return;
     }
 
@@ -1194,19 +1194,19 @@ export class CRDTTree extends CRDTGCElement {
       };
     }
 
-    if (parentNode === leftSiblingNode) {
+    if (parentNode === leftNode) {
       return {
         node: parentNode,
         offset: 0,
       };
     }
 
-    let offset = parentNode.findOffset(leftSiblingNode);
-    if (!leftSiblingNode.isRemoved) {
-      if (leftSiblingNode.isText) {
+    let offset = parentNode.findOffset(leftNode);
+    if (!leftNode.isRemoved) {
+      if (leftNode.isText) {
         return {
-          node: leftSiblingNode,
-          offset: leftSiblingNode.paddedSize,
+          node: leftNode,
+          offset: leftNode.paddedSize,
         };
       }
 
