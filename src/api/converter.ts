@@ -47,9 +47,12 @@ import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
+  RGATreeSplitBoundary,
+  BoundaryType,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
+  StyleOperation as MarkOperation,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
@@ -73,12 +76,16 @@ import {
   TextNode as PbTextNode,
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
+  TextNodeBoundary as PbTextNodeBoundary,
+  BoundaryType as PbBoundaryType,
   TimeTicket as PbTimeTicket,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
   ValueType as PbValueType,
+  MarkOps as PbMarkOps,
+  MarkOp as PbMarkOp,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -122,6 +129,33 @@ function toPresenceChange(
   }
 
   return pbPresenceChange;
+}
+
+/**
+ * `toMarkOps` converts the given model to Protobuf format.
+ */
+function toMarkOps(markOps: Set<MarkOperation>): PbMarkOps {
+  const pbMarkOps = new PbMarkOps();
+  const pbMarkOpsList: Array<PbMarkOp> = [];
+  for (const markOp of markOps) {
+    pbMarkOpsList.push(toMarkOp(markOp));
+  }
+  pbMarkOps.setOperationsList(pbMarkOpsList);
+  return pbMarkOps;
+}
+
+/**
+ * `toMarkOp` converts the given model to Protobuf format.
+ */
+function toMarkOp(markOp: MarkOperation): PbMarkOp {
+  const pbMarkOp = new PbMarkOp();
+  pbMarkOp.setFromboundary(toTextNodeBoundary(markOp.fromBoundary));
+  pbMarkOp.setToboundary(toTextNodeBoundary(markOp.toBoundary));
+  const pbAttributes = pbMarkOp.getAttributesMap();
+  for (const [key, value] of Object.entries(markOp.attributes)) {
+    pbAttributes.set(key, value);
+  }
+  return pbMarkOp;
 }
 
 /**
@@ -260,6 +294,38 @@ function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
 }
 
 /**
+ * `toTextNodeBoundary` converts the given model to Protobuf format.
+ */
+function toTextNodeBoundary(
+  boundary: RGATreeSplitBoundary | undefined,
+): PbTextNodeBoundary {
+  const pbTextNodeBoundary = new PbTextNodeBoundary();
+
+  pbTextNodeBoundary.setCreatedAt(
+    toTimeTicket(boundary?.getID()?.getCreatedAt()),
+  );
+  pbTextNodeBoundary.setOffset(boundary?.getID()?.getOffset() ?? 0);
+
+  switch (boundary?.getType()) {
+    case BoundaryType.Before:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_BEFORE);
+      break;
+    case BoundaryType.After:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_AFTER);
+      break;
+    case BoundaryType.Start:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_START);
+      break;
+    case BoundaryType.End:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_END);
+      break;
+    case BoundaryType.None:
+      pbTextNodeBoundary.setType(PbBoundaryType.BOUNDARY_TYPE_NONE);
+  }
+  return pbTextNodeBoundary;
+}
+
+/**
  * `toTreePos` converts the given model to Protobuf format.
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
@@ -357,8 +423,10 @@ function toOperation(operation: Operation): PbOperation {
     pbStyleOperation.setParentCreatedAt(
       toTimeTicket(styleOperation.getParentCreatedAt()),
     );
-    pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
-    pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
+    pbStyleOperation.setFrom(
+      toTextNodeBoundary(styleOperation.getFromBoundary()),
+    );
+    pbStyleOperation.setTo(toTextNodeBoundary(styleOperation.getToBoundary()));
     const pbCreatedAtMapByActor = pbStyleOperation.getCreatedAtMapByActorMap();
     for (const [key, value] of styleOperation.getMaxCreatedAtMapByActor()) {
       pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
@@ -519,6 +587,14 @@ function toTextNodes(
       pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
     }
 
+    const styleOpsBefore = textNode.getStyleOpsBefore();
+    if (styleOpsBefore) {
+      pbTextNode.setMarkopsbefore(toMarkOps(styleOpsBefore));
+    }
+    const styleOpsAfter = textNode.getStyleOpsAfter();
+    if (styleOpsAfter) {
+      pbTextNode.setMarkopsafter(toMarkOps(styleOpsAfter));
+    }
     pbTextNodes.push(pbTextNode);
   }
 
@@ -899,6 +975,39 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
 }
 
 /**
+ * `fromTextNodeBoundary` converts the given Protobuf format to model format.
+ */
+function fromTextNodeBoundary(
+  pbTextNodeBoundary: PbTextNodeBoundary,
+): RGATreeSplitBoundary {
+  let boundaryType: BoundaryType | undefined;
+
+  switch (pbTextNodeBoundary.getType()) {
+    case PbBoundaryType.BOUNDARY_TYPE_BEFORE:
+      boundaryType = BoundaryType.Before;
+      break;
+    case PbBoundaryType.BOUNDARY_TYPE_AFTER:
+      boundaryType = BoundaryType.After;
+      break;
+    case PbBoundaryType.BOUNDARY_TYPE_START:
+      boundaryType = BoundaryType.Start;
+      break;
+    case PbBoundaryType.BOUNDARY_TYPE_END:
+      boundaryType = BoundaryType.End;
+      break;
+    case PbBoundaryType.BOUNDARY_TYPE_NONE:
+      boundaryType = BoundaryType.None;
+  }
+  return RGATreeSplitBoundary.of(
+    boundaryType,
+    RGATreeSplitNodeID.of(
+      fromTimeTicket(pbTextNodeBoundary.getCreatedAt())!,
+      pbTextNodeBoundary.getOffset(),
+    ),
+  );
+}
+
+/**
  * `fromTextNodeID` converts the given Protobuf format to model format.
  */
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
@@ -906,6 +1015,22 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
     fromTimeTicket(pbTextNodeID.getCreatedAt())!,
     pbTextNodeID.getOffset(),
   );
+}
+
+/**
+ * `fromMarkOp` converts the given Protobuf format to model format.
+ */
+function fromMarkOp(pbMarkOp: PbMarkOp): MarkOperation {
+  const attributes: Record<string, string> = {};
+  pbMarkOp.getAttributesMap().forEach((value, key) => {
+    attributes[key as string] = value;
+  });
+
+  return {
+    fromBoundary: fromTextNodeBoundary(pbMarkOp.getFromboundary()!),
+    toBoundary: fromTextNodeBoundary(pbMarkOp.getToboundary()!),
+    attributes,
+  };
 }
 
 /**
@@ -921,10 +1046,30 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     );
   });
 
-  const textNode = RGATreeSplitNode.create(
-    fromTextNodeID(pbTextNode.getId()!),
-    textValue,
-  );
+  let styleOpsBefore: Set<MarkOperation> | undefined;
+  const markOpsBefore = pbTextNode.getMarkopsbefore()?.getOperationsList();
+  if (markOpsBefore) {
+    styleOpsBefore = new Set();
+    for (const op of markOpsBefore) {
+      styleOpsBefore.add(fromMarkOp(op));
+    }
+  }
+
+  let styleOpsAfter: Set<MarkOperation> | undefined;
+  const markOpsAfter = pbTextNode.getMarkopsafter()?.getOperationsList();
+  if (markOpsAfter) {
+    styleOpsAfter = new Set();
+    for (const op of markOpsAfter) {
+      styleOpsAfter.add(fromMarkOp(op));
+    }
+  }
+
+  const textNode = RGATreeSplitNode.create({
+    id: fromTextNodeID(pbTextNode.getId()!),
+    value: textValue,
+    styleOpsBefore,
+    styleOpsAfter,
+  });
   textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
   return textNode;
 }
@@ -1099,8 +1244,8 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       });
       operation = StyleOperation.create(
         fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbStyleOperation!.getFrom()!),
-        fromTextNodePos(pbStyleOperation!.getTo()!),
+        fromTextNodeBoundary(pbStyleOperation!.getFrom()!),
+        fromTextNodeBoundary(pbStyleOperation!.getTo()!),
         createdAtMapByActor,
         attributes,
         fromTimeTicket(pbStyleOperation!.getExecutedAt())!,

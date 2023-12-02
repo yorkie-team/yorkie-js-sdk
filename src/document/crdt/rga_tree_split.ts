@@ -37,6 +37,14 @@ interface RGATreeSplitValue {
   length: number;
 
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+  setAttr(key: string, content: string, updatedAt: TimeTicket): void;
+}
+
+export interface StyleOperation {
+  fromBoundary: RGATreeSplitBoundary;
+  toBoundary?: RGATreeSplitBoundary;
+  attributes: Record<string, string>;
+  // NOTE(MoonGyu1): May need to introduce TimeTicket to address concurrent cases
 }
 
 /**
@@ -56,6 +64,15 @@ export type RGATreeSplitNodeIDStruct = {
   createdAt: TimeTicketStruct;
   offset: number;
 };
+
+export enum BoundaryType {
+  Before = 'before',
+  After = 'after',
+  Start = 'start',
+  End = 'end',
+  // TODO(MoonGyu1): 'None' type can be deleted after replacing existing logic with mark
+  None = 'none',
+}
 
 /**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
@@ -238,7 +255,57 @@ export class RGATreeSplitPos {
   }
 }
 
+/**
+ * `RGATreeSplitBoundary` is the boundary of the text node.
+ */
+export class RGATreeSplitBoundary {
+  private type: BoundaryType;
+  private id?: RGATreeSplitNodeID;
+
+  constructor(type: BoundaryType, id?: RGATreeSplitNodeID) {
+    this.id = id;
+    this.type = type;
+  }
+
+  /**
+   * `of` creates a instance of RGATreeSplitBoundary.
+   */
+  public static of(
+    type: BoundaryType,
+    id?: RGATreeSplitNodeID,
+  ): RGATreeSplitBoundary {
+    return new RGATreeSplitBoundary(type, id);
+  }
+
+  /**
+   * `getType` returns the type of this RGATreeSplitBoundary.
+   */
+  public getType(): BoundaryType {
+    return this.type;
+  }
+
+  /**
+   * `getID` returns the ID of this RGATreeSplitBoundary.
+   */
+  public getID(): RGATreeSplitNodeID | undefined {
+    return this.id;
+  }
+
+  /**
+   *`toTestString` returns a String containing
+   * the meta data of the boundary for debugging purpose.
+   */
+  public toTestString(): string {
+    return `${this.id?.toTestString()}:${this.type}`;
+  }
+}
+
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
+
+export type RGATreeSplitBoundaryRange = [
+  RGATreeSplitBoundary,
+  RGATreeSplitBoundary,
+];
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -253,21 +320,44 @@ export class RGATreeSplitNode<
   private next?: RGATreeSplitNode<T>;
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
+  private styleOpsBefore?: Set<StyleOperation>;
+  private styleOpsAfter?: Set<StyleOperation>;
 
-  constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
+  constructor({
+    id,
+    value,
+    removedAt,
+    styleOpsBefore,
+    styleOpsAfter,
+  }: {
+    id: RGATreeSplitNodeID;
+    value?: T;
+    removedAt?: TimeTicket;
+    styleOpsBefore?: Set<StyleOperation>;
+    styleOpsAfter?: Set<StyleOperation>;
+  }) {
     super(value!);
     this.id = id;
     this.removedAt = removedAt;
+    this.styleOpsBefore = styleOpsBefore;
+    this.styleOpsAfter = styleOpsAfter;
   }
 
   /**
    * `create` creates a instance of RGATreeSplitNode.
    */
-  public static create<T extends RGATreeSplitValue>(
-    id: RGATreeSplitNodeID,
-    value?: T,
-  ): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(id, value);
+  public static create<T extends RGATreeSplitValue>({
+    id,
+    value,
+    styleOpsBefore,
+    styleOpsAfter,
+  }: {
+    id: RGATreeSplitNodeID;
+    value?: T;
+    styleOpsBefore?: Set<StyleOperation>;
+    styleOpsAfter?: Set<StyleOperation>;
+  }): RGATreeSplitNode<T> {
+    return new RGATreeSplitNode({ id, value, styleOpsBefore, styleOpsAfter });
   }
 
   /**
@@ -356,6 +446,20 @@ export class RGATreeSplitNode<
   }
 
   /**
+   * `getStyleOpsBefore` returns a styleOpsBefore of this node.
+   */
+  public getStyleOpsBefore(): Set<StyleOperation> | undefined {
+    return this.styleOpsBefore;
+  }
+
+  /**
+   * `getStyleOpsAfter` returns a styleOpsAfter of this node.
+   */
+  public getStyleOpsAfter(): Set<StyleOperation> | undefined {
+    return this.styleOpsAfter;
+  }
+
+  /**
    * `setPrev` sets previous node of this node.
    */
   public setPrev(node?: RGATreeSplitNode<T>): void {
@@ -396,6 +500,20 @@ export class RGATreeSplitNode<
   }
 
   /**
+   * `setStyleOpsBefore` sets styleOpsBefore of this node.
+   */
+  public setStyleOpsBefore(operations: Set<StyleOperation>): void {
+    this.styleOpsBefore = operations;
+  }
+
+  /**
+   * `setStyleOpsAfter` sets styleOpsAfter of this node.
+   */
+  public setStyleOpsAfter(operations: Set<StyleOperation>): void {
+    this.styleOpsAfter = operations;
+  }
+
+  /**
    * `hasNext` checks if next node exists.
    */
   public hasNext(): boolean {
@@ -427,11 +545,11 @@ export class RGATreeSplitNode<
    * `split` creates a new split node of the given offset.
    */
   public split(offset: number): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(
-      this.id.split(offset),
-      this.splitValue(offset),
-      this.removedAt,
-    );
+    return new RGATreeSplitNode({
+      id: this.id.split(offset),
+      value: this.splitValue(offset),
+      removedAt: this.removedAt,
+    });
   }
 
   /**
@@ -475,7 +593,11 @@ export class RGATreeSplitNode<
    * `deepcopy` returns a new instance of this RGATreeSplitNode without structural info.
    */
   public deepcopy(): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(this.id, this.value, this.removedAt);
+    return new RGATreeSplitNode({
+      id: this.id,
+      value: this.value,
+      removedAt: this.removedAt,
+    });
   }
 
   /**
@@ -507,7 +629,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private removedNodeMap: Map<string, RGATreeSplitNode<T>>;
 
   constructor() {
-    this.head = RGATreeSplitNode.create(InitialRGATreeSplitNodeID);
+    this.head = RGATreeSplitNode.create({ id: InitialRGATreeSplitNodeID });
     this.treeByIndex = new SplayTree();
     this.treeByID = new LLRBTree(RGATreeSplitNode.createComparator());
     this.removedNodeMap = new Map();
@@ -559,9 +681,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       const inserted = this.insertAfter(
         fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
+        RGATreeSplitNode.create({
+          id: RGATreeSplitNodeID.of(editedAt, 0),
+          value,
+        }),
       );
 
+      const opset = this.findOpsetPreferToLeft(inserted, BoundaryType.Before);
+      const attrs = this.getAttrsFromAnchor(opset);
+      for (const [k, v] of attrs) {
+        value.setAttr(k, v, editedAt);
+      }
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
       } else {
@@ -761,6 +891,70 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     return [node, node.getNext()!];
   }
 
+  // NOTE(MoonGyu1): This logic can be optimized later
+  /**
+   * `findNodeWithSplit` splits and return nodes of the given position.
+   */
+  public splitNodeByBoundary(boundary: RGATreeSplitBoundary): void {
+    const absoluteID = boundary.getID();
+    if (absoluteID?.getCreatedAt()) {
+      const node = this.findFloorNodePreferToLeft(absoluteID);
+      const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
+
+      this.splitNode(node, relativeOffset);
+    }
+  }
+
+  /**
+   * `findOpsetPreferToLeft` find a closest opSet of the given anchor.
+   */
+  public findOpsetPreferToLeft(
+    node: RGATreeSplitNode<T>,
+    type: BoundaryType,
+  ): Set<StyleOperation> {
+    // Find current opSet from given anchor
+    let opSet: Set<StyleOperation> | undefined;
+    if (type === BoundaryType.Before) {
+      opSet = node.getStyleOpsBefore();
+    } else if (type === BoundaryType.After) {
+      opSet = node.getStyleOpsAfter();
+    }
+    // NOTE(MoonGyu1): have to consider Start/End boundary type later
+
+    const currentType = type;
+    let currentNode: RGATreeSplitNode<T> | undefined = node;
+
+    // Traverse the node's anchor to the left to find the closest opSet
+    while (!opSet && currentNode) {
+      if (currentType == BoundaryType.Before) {
+        currentNode = currentNode.getPrev();
+        opSet = currentNode?.getStyleOpsAfter();
+        if (opSet) break;
+        opSet = currentNode?.getStyleOpsBefore();
+      } else if (currentType == BoundaryType.After) {
+        opSet = currentNode?.getStyleOpsBefore();
+      }
+    }
+
+    // If there is no existing opSet, return an empty opSet
+    return opSet ? opSet : new Set();
+  }
+
+  /**
+   * `getAttrsFromAnchor` returns the attributes of the given anchor.
+   */
+  public getAttrsFromAnchor(anchor: Set<StyleOperation>): Map<string, string> {
+    const attrs = new Map<string, string>();
+
+    anchor.forEach((op) => {
+      for (const [key, value] of Object.entries(op.attributes)) {
+        attrs.set(key, value);
+      }
+    });
+
+    return attrs;
+  }
+
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
@@ -802,7 +996,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    */
   public findBetween(
     fromNode: RGATreeSplitNode<T>,
-    toNode: RGATreeSplitNode<T>,
+    toNode: RGATreeSplitNode<T> | undefined,
   ): Array<RGATreeSplitNode<T>> {
     const nodes = [];
 

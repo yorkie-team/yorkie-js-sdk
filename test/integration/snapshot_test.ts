@@ -58,7 +58,9 @@ describe('Snapshot', function () {
     }, task.name);
   });
 
-  it('should handle snapshot for text with attributes', async function ({
+  // TODO(MoonGyu1): Remove skip after applying mark
+  // when creating a snapshot in the Go SDK.
+  it.skip('should handle snapshot for text with attributes', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {

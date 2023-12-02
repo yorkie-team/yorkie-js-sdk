@@ -14,10 +14,6 @@ menu, nav, output, section, summary,
 time, mark, audio, video {
 	margin: 0;
 	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-  vertical-align: baseline;
   box-sizing: border-box;
 }
 ol,
@@ -114,8 +110,6 @@ button {
   width: 30px;
   height: 30px;
 }
-
-/* ============= multi.html ============= */
 
 h2 {
   margin: 1.6em 0 0.4em;

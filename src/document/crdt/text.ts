@@ -23,9 +23,14 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
+  BoundaryType,
   RGATreeSplit,
+  RGATreeSplitBoundary,
+  RGATreeSplitBoundaryRange,
   RGATreeSplitNode,
+  RGATreeSplitPos,
   RGATreeSplitPosRange,
+  StyleOperation,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
@@ -57,6 +62,22 @@ export interface TextValueType<A> {
 interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
   type: TextChangeType;
 }
+
+export type MarkName = string;
+
+export type AttributeSpec = {
+  default?: any;
+  required?: boolean;
+};
+
+export type MarkSpec = {
+  expand: 'before' | 'after' | 'both' | 'none';
+  allowMultiple: boolean;
+  excludes?: Array<string>;
+  attributes?: { [key: string]: AttributeSpec };
+};
+
+export type MarkTypes = Map<MarkName, MarkSpec>;
 
 /**
  * `CRDTTextValue` is a value of Text
@@ -123,9 +144,17 @@ export class CRDTTextValue {
   /**
    * `toJSON` returns the JSON encoding of this value.
    */
-  public toJSON(): string {
+  public toJSON(markAttrs?: Map<string, string>): string {
     const content = escapeString(this.content);
     const attrsObj = this.attributes.toObject();
+
+    // Merge existing attrsObj and markAttrs
+    if (markAttrs) {
+      for (const [key, value] of markAttrs.entries()) {
+        attrsObj[key] = value;
+      }
+    }
+
     const attrs = [];
     for (const [key, v] of Object.entries(attrsObj)) {
       const value = JSON.parse(v);
@@ -163,6 +192,8 @@ export class CRDTTextValue {
  */
 export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
+  // NOTE(MoonGyu1): This anchor can be relocated to better place
+  private lastAnchor?: Set<StyleOperation> | undefined;
 
   constructor(
     rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
@@ -236,40 +267,116 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @internal
    */
   public setStyle(
-    range: RGATreeSplitPosRange,
+    range: RGATreeSplitBoundaryRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
-    // 01. split nodes with from and to
-    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
-    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
-      range[0],
-      editedAt,
-    );
+    const fromBoundary = range[0];
+    const toBoundary = range[1];
+
+    // 01. Split nodes with boundaryRange if it is a remote operation
+    const isRemote = !!latestCreatedAtMapByActor;
+    if (isRemote) {
+      this.rgaTreeSplit.splitNodeByBoundary(toBoundary);
+      this.rgaTreeSplit.splitNodeByBoundary(fromBoundary);
+    }
+
+    // Get fromNode and toNode from boundary
+    const fromNode = this.rgaTreeSplit.findNode(fromBoundary.getID()!);
+    const toNode = toBoundary?.getID()?.getCreatedAt()
+      ? this.rgaTreeSplit.findNode(toBoundary.getID()!)
+      : undefined;
+
+    const changes: Array<TextChange<A>> = [];
+    const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
+    const createdAtMapByActor = new Map<string, TimeTicket>();
 
     // 02. style nodes between from and to
-    const changes: Array<TextChange<A>> = [];
-    const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
-    const createdAtMapByActor = new Map<string, TimeTicket>();
-    const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
+    const fromBoundaryType = fromBoundary.getType();
+    const toBoundaryType = toBoundary.getType();
+    const isMarkType =
+      fromBoundaryType != BoundaryType.None &&
+      toBoundaryType != BoundaryType.None;
 
-    for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID()!;
+    // 02-1. Update styleOpsBefore and styleOpsAfter if it is a bold type
+    if (isMarkType) {
+      // Define new StyleOperation
+      const newOp: StyleOperation = {
+        fromBoundary,
+        toBoundary,
+        attributes,
+      };
 
-      const latestCreatedAt = latestCreatedAtMapByActor?.size
-        ? latestCreatedAtMapByActor!.has(actorID!)
-          ? latestCreatedAtMapByActor!.get(actorID!)!
-          : InitialTimeTicket
-        : MaxTimeTicket;
+      // Get underlying OpSet of fromBoundary and toBoundary
+      const fromOpSet = this.rgaTreeSplit.findOpsetPreferToLeft(
+        fromNode,
+        fromBoundaryType,
+      );
 
-      if (node.canStyle(editedAt, latestCreatedAt)) {
-        const latestCreatedAt = createdAtMapByActor.get(actorID);
-        const createdAt = node.getCreatedAt();
-        if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-          createdAtMapByActor.set(actorID, createdAt);
+      const toOpSet = toNode
+        ? this.rgaTreeSplit.findOpsetPreferToLeft(toNode, toBoundaryType)
+        : this.lastAnchor;
+
+      // Update styleOpsBefore or styleOpsAfter of fromNode
+      fromOpSet.add(newOp);
+
+      if (fromBoundaryType === BoundaryType.Before) {
+        fromNode.setStyleOpsBefore(fromOpSet);
+        toBeStyleds.push(fromNode);
+      } else if (fromBoundaryType === BoundaryType.After) {
+        fromNode.setStyleOpsAfter(fromOpSet);
+      }
+
+      // Add a new StyleOperation to between nodes if it has an opSet
+      let betweenNode = fromNode.getNext();
+      while (betweenNode && betweenNode !== toNode) {
+        if (!betweenNode.isRemoved()) {
+          toBeStyleds.push(betweenNode);
+          const styleOpsBefore = betweenNode.getStyleOpsBefore();
+          const styleOpsAfter = betweenNode.getStyleOpsAfter();
+          if (styleOpsBefore) {
+            styleOpsBefore.add(newOp);
+            betweenNode.setStyleOpsBefore(styleOpsBefore);
+          }
+          if (styleOpsAfter) {
+            styleOpsAfter.add(newOp);
+            betweenNode.setStyleOpsAfter(styleOpsAfter);
+          }
         }
-        toBeStyleds.push(node);
+        betweenNode = betweenNode.getNext();
+      }
+
+      // Update styleOpsBefore or styleOpsAfter of toNode
+      if (toBoundaryType === BoundaryType.Before) {
+        toNode!.setStyleOpsBefore(toOpSet!);
+      } else if (toBoundaryType === BoundaryType.After) {
+        toBeStyleds.push(toNode!);
+        toNode!.setStyleOpsAfter(toOpSet!);
+      } else if (toBoundaryType === BoundaryType.End) {
+        if (!toOpSet) this.lastAnchor = new Set<StyleOperation>();
+      }
+    }
+    // 02-2. Apply the existing logic to style nodes if they are not of a bold type
+    else {
+      const nodes = this.rgaTreeSplit.findBetween(fromNode, toNode);
+
+      for (const node of nodes) {
+        const actorID = node.getCreatedAt().getActorID()!;
+        const latestCreatedAt = latestCreatedAtMapByActor?.size
+          ? latestCreatedAtMapByActor!.has(actorID!)
+            ? latestCreatedAtMapByActor!.get(actorID!)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
+
+        if (node.canStyle(editedAt, latestCreatedAt)) {
+          const latestCreatedAt = createdAtMapByActor.get(actorID);
+          const createdAt = node.getCreatedAt();
+          if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+            createdAtMapByActor.set(actorID, createdAt);
+          }
+          toBeStyleds.push(node);
+        }
       }
     }
 
@@ -291,8 +398,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
         },
       });
 
-      for (const [key, value] of Object.entries(attributes)) {
-        node.getValue().setAttr(key, value, editedAt);
+      if (!isMarkType) {
+        for (const [key, value] of Object.entries(attributes)) {
+          node.getValue().setAttr(key, value, editedAt);
+        }
       }
     }
 
@@ -312,6 +421,66 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     }
 
     return [fromPos, this.rgaTreeSplit.indexToPos(toIdx)];
+  }
+
+  /**
+   * `posRangeToBoundaryRange` returns the boundary range of the given position range.
+   */
+  public posRangeToBoundaryRange(
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
+    editedAt: TimeTicket,
+    expand?: 'before' | 'after' | 'both' | 'none',
+  ): RGATreeSplitBoundaryRange {
+    // Make a RGATreeSplitBoundary if it is a mark type
+    if (expand) {
+      const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(toPos, editedAt);
+      const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+        fromPos,
+        editedAt,
+      );
+
+      let fromNode: RGATreeSplitNode<CRDTTextValue> | undefined = fromRight;
+      let toNode: RGATreeSplitNode<CRDTTextValue> | undefined = toRight;
+
+      if (expand === 'after') {
+        while (fromNode && fromNode.isRemoved() && fromNode != toNode) {
+          fromNode = fromNode.getNext();
+        }
+
+        while (toNode && toNode.isRemoved()) {
+          toNode = toNode.getNext();
+        }
+
+        const fromNodeID = fromNode?.getID();
+        const toNodeID = toNode?.getID();
+
+        // NOTE(MoonGyu1): Need to check if fromNode does not exist
+        const fromBoundaryType = fromNodeID
+          ? BoundaryType.Before
+          : BoundaryType.Start;
+        const toBoundaryType = toNodeID
+          ? BoundaryType.Before
+          : BoundaryType.End;
+
+        return [
+          RGATreeSplitBoundary.of(fromBoundaryType, fromNodeID),
+          RGATreeSplitBoundary.of(toBoundaryType, toNodeID),
+        ];
+      }
+    }
+
+    // Make a RGATreeSplitBoundary without BoundaryType if it is not a mark type
+    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(toPos, editedAt);
+    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+      fromPos,
+      editedAt,
+    );
+
+    return [
+      RGATreeSplitBoundary.of(BoundaryType.None, fromRight.getID()),
+      RGATreeSplitBoundary.of(BoundaryType.None, toRight?.getID()),
+    ];
   }
 
   /**
@@ -335,9 +504,26 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   public toJSON(): string {
     const json = [];
 
+    // Keep current attributes info for applying to current node
+    let currentAttr = new Map<string, string>();
+
     for (const node of this.rgaTreeSplit) {
+      const beforeAnchor = node.getStyleOpsBefore();
+      const afterAnchor = node.getStyleOpsAfter();
+
+      // Update currentAttr by before anchor of node
+      if (beforeAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
+      }
+
+      // Apply currentAttr if node is not removed
       if (!node.isRemoved()) {
-        json.push(node.getValue().toJSON());
+        json.push(node.getValue().toJSON(currentAttr));
+      }
+
+      // Update currentAttr by after anchor of node
+      if (afterAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
       }
     }
 
@@ -374,14 +560,32 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public values(): Array<TextValueType<A>> {
     const values = [];
+    let currentAttr = new Map<string, string>();
 
     for (const node of this.rgaTreeSplit) {
+      const beforeAnchor = node.getStyleOpsBefore();
+      const afterAnchor = node.getStyleOpsAfter();
+
+      if (beforeAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(beforeAnchor);
+      }
+
       if (!node.isRemoved()) {
         const value = node.getValue();
+        const attributes = value.getAttributes();
+        if (currentAttr) {
+          for (const [key, value] of currentAttr.entries()) {
+            attributes[key] = value;
+          }
+        }
         values.push({
-          attributes: parseObjectValues<A>(value.getAttributes()),
+          attributes: parseObjectValues<A>(attributes),
           content: value.getContent(),
         });
+      }
+
+      if (afterAnchor) {
+        currentAttr = this.rgaTreeSplit.getAttrsFromAnchor(afterAnchor);
       }
     }
 

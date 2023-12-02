@@ -1,0 +1,30 @@
+.client-container {
+  display: flex;
+  width: 95%;
+}
+.client-container .ql-toolbar {
+  margin-top: 10px;
+}
+.client-container .ql-container {
+  height: 400px;
+}
+#client-a,
+#client-b {
+  width: 50%;
+  margin: 15px;
+}
+
+.document,
+.document-text {
+  margin: 1rem 0;
+  font-family: monospace;
+  overflow: scroll;
+}
+.document:before {
+  display: block;
+  content: 'document: ';
+}
+.document-text:before {
+  display: block;
+  content: 'text: ';
+}

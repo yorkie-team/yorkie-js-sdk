@@ -17,7 +17,7 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+import { RGATreeSplitBoundary } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import {
   Operation,
@@ -30,22 +30,22 @@ import { Indexable } from '../document';
  *  `StyleOperation` is an operation applies the style of the given range to Text.
  */
 export class StyleOperation extends Operation {
-  private fromPos: RGATreeSplitPos;
-  private toPos: RGATreeSplitPos;
+  private fromBoundary: RGATreeSplitBoundary;
+  private toBoundary: RGATreeSplitBoundary;
   private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitPos,
-    toPos: RGATreeSplitPos,
+    fromBoundary: RGATreeSplitBoundary,
+    toBoundary: RGATreeSplitBoundary,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
-    this.fromPos = fromPos;
-    this.toPos = toPos;
+    this.fromBoundary = fromBoundary;
+    this.toBoundary = toBoundary;
     this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.attributes = attributes;
   }
@@ -55,16 +55,16 @@ export class StyleOperation extends Operation {
    */
   public static create(
     parentCreatedAt: TimeTicket,
-    fromPos: RGATreeSplitPos,
-    toPos: RGATreeSplitPos,
+    fromBoundary: RGATreeSplitBoundary,
+    toBoundary: RGATreeSplitBoundary,
     maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
       parentCreatedAt,
-      fromPos,
-      toPos,
+      fromBoundary,
+      toBoundary,
       maxCreatedAtMapByActor,
       attributes,
       executedAt,
@@ -84,7 +84,7 @@ export class StyleOperation extends Operation {
     }
     const text = parentObject as CRDTText<A>;
     const [, changes] = text.setStyle(
-      [this.fromPos, this.toPos],
+      [this.fromBoundary, this.toBoundary],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
@@ -114,24 +114,24 @@ export class StyleOperation extends Operation {
    */
   public toTestString(): string {
     const parent = this.getParentCreatedAt().toTestString();
-    const fromPos = this.fromPos.toTestString();
-    const toPos = this.toPos.toTestString();
+    const fromPos = this.fromBoundary.toTestString();
+    const toPos = this.toBoundary?.toTestString();
     const attributes = this.attributes;
     return `${parent}.STYL(${fromPos},${toPos},${JSON.stringify(attributes)})`;
   }
 
   /**
-   * `getFromPos` returns the start point of the editing range.
+   * `getFromBoundary` returns the start point of the editing range.
    */
-  public getFromPos(): RGATreeSplitPos {
-    return this.fromPos;
+  public getFromBoundary(): RGATreeSplitBoundary {
+    return this.fromBoundary;
   }
 
   /**
-   * `getToPos` returns the end point of the editing range.
+   * `getToBoundary` returns the end point of the editing range.
    */
-  public getToPos(): RGATreeSplitPos {
-    return this.toPos;
+  public getToBoundary(): RGATreeSplitBoundary | undefined {
+    return this.toBoundary;
   }
 
   /**

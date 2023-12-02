@@ -45,6 +45,7 @@ export type OperationInfo =
 /**
  * `TextOperationInfo` represents the OperationInfo for the yorkie.Text.
  */
+
 export type TextOperationInfo = EditOpInfo | StyleOpInfo;
 
 /**

@@ -22,10 +22,15 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
+  RGATreeSplitBoundaryRange,
   RGATreeSplitPos,
   RGATreeSplitPosRange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
+import {
+  CRDTText,
+  MarkTypes,
+  TextValueType,
+} from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
@@ -51,10 +56,14 @@ export type TextPosStructRange = [TextPosStruct, TextPosStruct];
 export class Text<A extends Indexable = Indexable> {
   private context?: ChangeContext;
   private text?: CRDTText<A>;
+  private markTypes?: MarkTypes;
 
   constructor(context?: ChangeContext, text?: CRDTText<A>) {
     this.context = context;
     this.text = text;
+    // NOTE(MoonGyu1): It can be converted to custom mark types later
+    this.markTypes = new Map();
+    this.markTypes.set('bold', { expand: 'after', allowMultiple: false });
   }
 
   /**
@@ -64,6 +73,9 @@ export class Text<A extends Indexable = Indexable> {
   public initialize(context: ChangeContext, text: CRDTText<A>): void {
     this.context = context;
     this.text = text;
+    // NOTE(MoonGyu1): It can be converted to custom mark types later
+    this.markTypes = new Map();
+    this.markTypes.set('bold', { expand: 'after', allowMultiple: false });
   }
 
   /**
@@ -154,10 +166,10 @@ export class Text<A extends Indexable = Indexable> {
       return false;
     }
 
-    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
+    const posRange = this.text.indexRangeToPosRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
-        `STYL: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} a:${JSON.stringify(
+        `STYL: f:${fromIdx}->${posRange[0].toTestString()}, t:${toIdx}->${posRange[1].toTestString()} a:${JSON.stringify(
           attributes,
         )}`,
       );
@@ -165,21 +177,73 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor] = this.text.setStyle(range, attrs, ticket);
+    let boundaryRange: RGATreeSplitBoundaryRange;
 
-    this.context.push(
-      new StyleOperation(
-        this.text.getCreatedAt(),
-        range[0],
-        range[1],
-        maxCreatedAtMapByActor,
-        new Map(Object.entries(attrs)),
+    for (const [key, value] of Object.entries(attrs)) {
+      if (this.markTypes?.has(key)) {
+        const expand = this.markTypes.get(key)!.expand;
+
+        // Find the boundaryRange if the attributes have the mark type (bold).
+        boundaryRange = this.text.posRangeToBoundaryRange(
+          posRange[0],
+          posRange[1],
+          ticket,
+          expand,
+        );
+
+        // Execute the existing logic
+        const [maxCreatedAtMapByActor] = this.text.setStyle(
+          boundaryRange!,
+          { [key]: value },
+          ticket,
+        );
+
+        this.context.push(
+          new StyleOperation(
+            this.text.getCreatedAt(),
+            boundaryRange![0],
+            boundaryRange![1],
+            maxCreatedAtMapByActor,
+            new Map([[key, value]]),
+            ticket,
+          ),
+        );
+
+        delete attrs[key];
+      }
+    }
+
+    if (Object.entries(attrs).length > 0) {
+      // Find the boundaryRange if the attributes don't have the mark type (bold)
+      boundaryRange = this.text.posRangeToBoundaryRange(
+        posRange[0],
+        posRange[1],
         ticket,
-      ),
-    );
+      );
+
+      // Execute the existing logic
+      const [maxCreatedAtMapByActor] = this.text.setStyle(
+        boundaryRange!,
+        attrs,
+        ticket,
+      );
+
+      this.context.push(
+        new StyleOperation(
+          this.text.getCreatedAt(),
+          boundaryRange![0],
+          boundaryRange![1],
+          maxCreatedAtMapByActor,
+          new Map(Object.entries(attrs)),
+          ticket,
+        ),
+      );
+    }
 
     return true;
   }
+
+  // TODO(MoonGyu1): Peritext 1. Add removeStyle method
 
   /**
    * `indexRangeToPosRange` returns TextRangeStruct of the given index range.
