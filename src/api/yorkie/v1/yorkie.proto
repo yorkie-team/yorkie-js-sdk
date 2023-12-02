@@ -15,109 +15,110 @@
  */
  syntax = "proto3";
 
-package yorkie.v1;
-
-import "yorkie/v1/resources.proto";
-
-option go_package = ".;v1";
-
-option java_multiple_files = true;
-option java_package = "dev.yorkie.api.v1";
-
-// Yorkie is a service that provides a API for SDKs.
-service YorkieService {
-  rpc ActivateClient (ActivateClientRequest) returns (ActivateClientResponse) {}
-  rpc DeactivateClient (DeactivateClientRequest) returns (DeactivateClientResponse) {}
-
-  rpc AttachDocument (AttachDocumentRequest) returns (AttachDocumentResponse) {}
-  rpc DetachDocument (DetachDocumentRequest) returns (DetachDocumentResponse) {}
-  rpc RemoveDocument (RemoveDocumentRequest) returns (RemoveDocumentResponse) {}
-  rpc PushPullChanges (PushPullChangesRequest) returns (PushPullChangesResponse) {}
-
-  rpc WatchDocument (WatchDocumentRequest) returns (stream WatchDocumentResponse) {}
-
-  rpc Broadcast (BroadcastRequest) returns (BroadcastResponse) {}
-}
-
-message ActivateClientRequest {
-  string client_key = 1;
-}
-
-message ActivateClientResponse {
-  string client_id = 1;
-}
-
-message DeactivateClientRequest {
-  string client_id = 1;
-}
-
-message DeactivateClientResponse {
-}
-
-message AttachDocumentRequest {
-  string client_id = 1;
-  ChangePack change_pack = 2;
-}
-
-message AttachDocumentResponse {
-  string document_id = 1;
-  ChangePack change_pack = 2;
-}
-
-message DetachDocumentRequest {
-  string client_id = 1;
-  string document_id = 2;
-  ChangePack change_pack = 3;
-  bool remove_if_not_attached = 4;
-}
-
-message DetachDocumentResponse {
-  ChangePack change_pack = 2;
-}
-
-message WatchDocumentRequest {
-  string client_id = 1;
-  string document_id = 2;
-}
-
-message WatchDocumentResponse {
-  message Initialization {
-    repeated string client_ids = 1;
-  }
-
-  oneof body {
-    Initialization initialization = 1;
-    DocEvent event = 2;
-  }
-}
-
-message RemoveDocumentRequest {
-  string client_id = 1;
-  string document_id = 2;
-  ChangePack change_pack = 3;
-}
-
-message RemoveDocumentResponse {
-  ChangePack change_pack = 1;
-}
-
-message PushPullChangesRequest {
-  string client_id = 1;
-  string document_id = 2;
-  ChangePack change_pack = 3;
-  bool push_only = 4;
-}
-
-message PushPullChangesResponse {
-  ChangePack change_pack = 1;
-}
-
-message BroadcastRequest {
-  string client_id = 1;
-  string document_id = 2;
-  string topic = 3;
-  bytes payload = 4;
-}
-
-message BroadcastResponse {
-}
+ package yorkie.v1;
+ 
+ import "src/api/yorkie/v1/resources.proto";
+ 
+ option go_package = "github.com/yorkie-team/yorkie/api/yorkie/v1;v1";
+ 
+ option java_multiple_files = true;
+ option java_package = "dev.yorkie.api.v1";
+ 
+ // Yorkie is a service that provides a API for SDKs.
+ service YorkieService {
+   rpc ActivateClient (ActivateClientRequest) returns (ActivateClientResponse) {}
+   rpc DeactivateClient (DeactivateClientRequest) returns (DeactivateClientResponse) {}
+ 
+   rpc AttachDocument (AttachDocumentRequest) returns (AttachDocumentResponse) {}
+   rpc DetachDocument (DetachDocumentRequest) returns (DetachDocumentResponse) {}
+   rpc RemoveDocument (RemoveDocumentRequest) returns (RemoveDocumentResponse) {}
+   rpc PushPullChanges (PushPullChangesRequest) returns (PushPullChangesResponse) {}
+ 
+   rpc WatchDocument (WatchDocumentRequest) returns (stream WatchDocumentResponse) {}
+ 
+   rpc Broadcast (BroadcastRequest) returns (BroadcastResponse) {}
+ }
+ 
+ message ActivateClientRequest {
+   string client_key = 1;
+ }
+ 
+ message ActivateClientResponse {
+   string client_id = 1;
+ }
+ 
+ message DeactivateClientRequest {
+   string client_id = 1;
+ }
+ 
+ message DeactivateClientResponse {
+ }
+ 
+ message AttachDocumentRequest {
+   string client_id = 1;
+   ChangePack change_pack = 2;
+ }
+ 
+ message AttachDocumentResponse {
+   string document_id = 1;
+   ChangePack change_pack = 2;
+ }
+ 
+ message DetachDocumentRequest {
+   string client_id = 1;
+   string document_id = 2;
+   ChangePack change_pack = 3;
+   bool remove_if_not_attached = 4;
+ }
+ 
+ message DetachDocumentResponse {
+   ChangePack change_pack = 2;
+ }
+ 
+ message WatchDocumentRequest {
+   string client_id = 1;
+   string document_id = 2;
+ }
+ 
+ message WatchDocumentResponse {
+   message Initialization {
+     repeated string client_ids = 1;
+   }
+ 
+   oneof body {
+     Initialization initialization = 1;
+     DocEvent event = 2;
+   }
+ }
+ 
+ message RemoveDocumentRequest {
+   string client_id = 1;
+   string document_id = 2;
+   ChangePack change_pack = 3;
+ }
+ 
+ message RemoveDocumentResponse {
+   ChangePack change_pack = 1;
+ }
+ 
+ message PushPullChangesRequest {
+   string client_id = 1;
+   string document_id = 2;
+   ChangePack change_pack = 3;
+   bool push_only = 4;
+ }
+ 
+ message PushPullChangesResponse {
+   ChangePack change_pack = 1;
+ }
+ 
+ message BroadcastRequest {
+   string client_id = 1;
+   string document_id = 2;
+   string topic = 3;
+   bytes payload = 4;
+ }
+ 
+ message BroadcastResponse {
+ }
+ 

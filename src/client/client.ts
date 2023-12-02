@@ -426,7 +426,7 @@ export class Client implements Observable<ClientEvent> {
       this.rpcClient.deactivateClient(
         req,
         { headers: {"x-shard-key": this.apiKey}},
-      ).then((res) => {
+      ).then(() => {
         this.status = ClientStatus.Deactivated;
         this.eventStreamObserver.next({
           type: ClientEventType.StatusChanged,
@@ -843,7 +843,7 @@ export class Client implements Observable<ClientEvent> {
         });
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
-        return new Promise(async (resolve) => {
+        return new Promise((resolve, reject) => {
           const onStreamDisconnect = (): void => {
             this.eventStreamObserver.next({
               type: ClientEventType.StreamConnectionStatusChanged,
@@ -853,16 +853,21 @@ export class Client implements Observable<ClientEvent> {
             onDisconnect();
           };
 
-          try {
-            for await (const resp of stream) {
-              this.handleWatchDocumentsResponse(attachment, resp);
-              resolve(stream);
+          const handleStream = async () => {
+            try {
+              for await (const resp of stream) {
+                this.handleWatchDocumentsResponse(attachment, resp);
+              }
+            } catch (error) {
+              if (error instanceof ConnectError) {
+                onStreamDisconnect();
+              } else {
+                reject(error);
+              }
             }
-          } catch(error) {
-            if(error instanceof ConnectError) {
-              onStreamDisconnect();
-            }
-          }
+          };
+
+          handleStream().then(() => resolve(stream));
         });
       },
     );

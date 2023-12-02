@@ -15,7 +15,6 @@
  */
 
 import Long from 'long';
-import * as jspb from 'google-protobuf';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
@@ -1167,7 +1166,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTreePos(pbTreeEditOperation!.from!),
         fromTreePos(pbTreeEditOperation!.to!),
         fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
-        pbTreeEditOperation!.getSplitLevel(),
+        pbTreeEditOperation!.splitLevel,
         createdAtMapByActor,
         fromTimeTicket(pbTreeEditOperation!.executedAt)!,
       );
