@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.10] - 2023-12-04
+
+### Added
+
+* Add create-yorkie-app by @se030, @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/690
+* Implement splitLevel of Tree.Edit by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/704
+* Add `removeIfNotAttached` to `client.detach()` options by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/703
+
+### Fixed
+* Fix reading wrong .env path by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/694
+* Handle escape string for strings containing quotes by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/700
+* Correct typos in the installation command on README.md in the example by @ymw0407 in https://github.com/yorkie-team/yorkie-js-sdk/pull/702
+
 ## [0.4.9] - 2023-11-25
 
 ### Added
