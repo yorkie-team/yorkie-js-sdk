@@ -348,3 +348,49 @@ export namespace PushPullChangesResponse {
   }
 }
 
+export class BroadcastRequest extends jspb.Message {
+  getClientId(): string;
+  setClientId(value: string): BroadcastRequest;
+
+  getDocumentId(): string;
+  setDocumentId(value: string): BroadcastRequest;
+
+  getTopic(): string;
+  setTopic(value: string): BroadcastRequest;
+
+  getPayload(): Uint8Array | string;
+  getPayload_asU8(): Uint8Array;
+  getPayload_asB64(): string;
+  setPayload(value: Uint8Array | string): BroadcastRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BroadcastRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BroadcastRequest): BroadcastRequest.AsObject;
+  static serializeBinaryToWriter(message: BroadcastRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BroadcastRequest;
+  static deserializeBinaryFromReader(message: BroadcastRequest, reader: jspb.BinaryReader): BroadcastRequest;
+}
+
+export namespace BroadcastRequest {
+  export type AsObject = {
+    clientId: string,
+    documentId: string,
+    topic: string,
+    payload: Uint8Array | string,
+  }
+}
+
+export class BroadcastResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BroadcastResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BroadcastResponse): BroadcastResponse.AsObject;
+  static serializeBinaryToWriter(message: BroadcastResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BroadcastResponse;
+  static deserializeBinaryFromReader(message: BroadcastResponse, reader: jspb.BinaryReader): BroadcastResponse;
+}
+
+export namespace BroadcastResponse {
+  export type AsObject = {
+  }
+}
+

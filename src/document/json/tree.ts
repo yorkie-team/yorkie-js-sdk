@@ -329,6 +329,7 @@ export class Tree {
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
     contents: Array<TreeNode>,
+    splitLevel = 0,
   ): boolean {
     if (contents.length !== 0 && contents[0]) {
       validateTreeNodes(contents);
@@ -362,12 +363,12 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    // TODO(hackerwins): Implement splitLevels.
     const [, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
         : undefined,
+      splitLevel,
       ticket,
     );
 
@@ -376,8 +377,9 @@ export class Tree {
         this.tree!.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreatedAtMapByActor,
         crdtNodes.length ? crdtNodes : undefined,
+        splitLevel,
+        maxCreatedAtMapByActor,
         ticket,
       ),
     );
@@ -395,7 +397,8 @@ export class Tree {
   public editByPath(
     fromPath: Array<number>,
     toPath: Array<number>,
-    ...contents: Array<TreeNode>
+    content?: TreeNode,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -410,7 +413,37 @@ export class Tree {
     const fromPos = this.tree.pathToPos(fromPath);
     const toPos = this.tree.pathToPos(toPath);
 
-    return this.editInternal(fromPos, toPos, contents);
+    return this.editInternal(
+      fromPos,
+      toPos,
+      content ? [content] : [],
+      splitLevel,
+    );
+  }
+
+  /**
+   * `editBulkByPath` edits this tree with the given node and path.
+   */
+  public editBulkByPath(
+    fromPath: Array<number>,
+    toPath: Array<number>,
+    contents: Array<TreeNode>,
+    splitLevel = 0,
+  ): boolean {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+    if (fromPath.length !== toPath.length) {
+      throw new Error('path length should be equal');
+    }
+    if (!fromPath.length || !toPath.length) {
+      throw new Error('path should not be empty');
+    }
+
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos(toPath);
+
+    return this.editInternal(fromPos, toPos, contents, splitLevel);
   }
 
   /**
@@ -419,7 +452,8 @@ export class Tree {
   public edit(
     fromIdx: number,
     toIdx: number,
-    ...contents: Array<TreeNode>
+    content?: TreeNode,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -431,7 +465,34 @@ export class Tree {
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
 
-    return this.editInternal(fromPos, toPos, contents);
+    return this.editInternal(
+      fromPos,
+      toPos,
+      content ? [content] : [],
+      splitLevel,
+    );
+  }
+
+  /**
+   * `editBulk` edits this tree with the given nodes.
+   */
+  public editBulk(
+    fromIdx: number,
+    toIdx: number,
+    contents: Array<TreeNode>,
+    splitLevel = 0,
+  ): boolean {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+    if (fromIdx > toIdx) {
+      throw new Error('from should be less than or equal to to');
+    }
+
+    const fromPos = this.tree.findPos(fromIdx);
+    const toPos = this.tree.findPos(toIdx);
+
+    return this.editInternal(fromPos, toPos, contents, splitLevel);
   }
 
   /**

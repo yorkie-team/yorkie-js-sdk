@@ -559,6 +559,9 @@ export namespace Operation {
     clearContentsList(): TreeEdit;
     addContents(value?: TreeNodes, index?: number): TreeNodes;
 
+    getSplitLevel(): number;
+    setSplitLevel(value: number): TreeEdit;
+
     getExecutedAt(): TimeTicket | undefined;
     setExecutedAt(value?: TimeTicket): TreeEdit;
     hasExecutedAt(): boolean;
@@ -579,6 +582,7 @@ export namespace Operation {
       to?: TreePos.AsObject,
       createdAtMapByActorMap: Array<[string, TimeTicket.AsObject]>,
       contentsList: Array<TreeNodes.AsObject>,
+      splitLevel: number,
       executedAt?: TimeTicket.AsObject,
     }
   }
@@ -1564,12 +1568,41 @@ export namespace TimeTicket {
   }
 }
 
+export class DocEventBody extends jspb.Message {
+  getTopic(): string;
+  setTopic(value: string): DocEventBody;
+
+  getPayload(): Uint8Array | string;
+  getPayload_asU8(): Uint8Array;
+  getPayload_asB64(): string;
+  setPayload(value: Uint8Array | string): DocEventBody;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): DocEventBody.AsObject;
+  static toObject(includeInstance: boolean, msg: DocEventBody): DocEventBody.AsObject;
+  static serializeBinaryToWriter(message: DocEventBody, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): DocEventBody;
+  static deserializeBinaryFromReader(message: DocEventBody, reader: jspb.BinaryReader): DocEventBody;
+}
+
+export namespace DocEventBody {
+  export type AsObject = {
+    topic: string,
+    payload: Uint8Array | string,
+  }
+}
+
 export class DocEvent extends jspb.Message {
   getType(): DocEventType;
   setType(value: DocEventType): DocEvent;
 
   getPublisher(): string;
   setPublisher(value: string): DocEvent;
+
+  getBody(): DocEventBody | undefined;
+  setBody(value?: DocEventBody): DocEvent;
+  hasBody(): boolean;
+  clearBody(): DocEvent;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): DocEvent.AsObject;
@@ -1583,6 +1616,7 @@ export namespace DocEvent {
   export type AsObject = {
     type: DocEventType,
     publisher: string,
+    body?: DocEventBody.AsObject,
   }
 }
 
@@ -1606,4 +1640,5 @@ export enum DocEventType {
   DOC_EVENT_TYPE_DOCUMENT_CHANGED = 0,
   DOC_EVENT_TYPE_DOCUMENT_WATCHED = 1,
   DOC_EVENT_TYPE_DOCUMENT_UNWATCHED = 2,
+  DOC_EVENT_TYPE_DOCUMENT_BROADCAST = 3,
 }

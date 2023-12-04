@@ -398,6 +398,8 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.setContentsList(
       toTreeNodesWhenEdit(treeEditOperation.getContents()!),
     );
+    pbTreeEditOperation.setSplitLevel(treeEditOperation.getSplitLevel());
+
     pbTreeEditOperation.setExecutedAt(
       toTimeTicket(treeEditOperation.getExecutedAt()),
     );
@@ -1125,8 +1127,9 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
-        createdAtMapByActor,
         fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
+        pbTreeEditOperation!.getSplitLevel(),
+        createdAtMapByActor,
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );
     } else if (pbOperation.hasTreeStyle()) {

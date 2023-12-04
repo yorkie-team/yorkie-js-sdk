@@ -628,12 +628,10 @@ describe('Tree.edit', function () {
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
 
     doc.update((root) => {
-      root.t.edit(
-        3,
-        3,
+      root.t.editBulk(3, 3, [
         { type: 'text', value: 'c' },
         { type: 'text', value: 'd' },
-      );
+      ]);
     });
 
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
@@ -656,12 +654,10 @@ describe('Tree.edit', function () {
     assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
 
     doc.update((root) => {
-      root.t.edit(
-        4,
-        4,
+      root.t.editBulk(4, 4, [
         { type: 'p', children: [{ type: 'text', value: 'cd' }] },
         { type: 'i', children: [{ type: 'text', value: 'fg' }] },
-      );
+      ]);
     });
 
     assert.equal(
@@ -698,78 +694,84 @@ describe('Tree.edit', function () {
         /*html*/ `<doc><tc><p><tn>ab</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath(
+      root.t.editBulkByPath(
         [0, 0, 0, 1],
         [0, 0, 0, 1],
-        {
-          type: 'text',
-          value: 'X',
-        },
-        {
-          type: 'text',
-          value: 'X',
-        },
+        [
+          {
+            type: 'text',
+            value: 'X',
+          },
+          {
+            type: 'text',
+            value: 'X',
+          },
+        ],
       );
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>aXXb</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath(
+      root.t.editBulkByPath(
         [0, 1],
         [0, 1],
-        {
-          type: 'p',
-          children: [
-            {
-              type: 'tn',
-              children: [
-                { type: 'text', value: 'te' },
-                { type: 'text', value: 'st' },
-              ],
-            },
-          ],
-        },
-        {
-          type: 'p',
-          children: [
-            {
-              type: 'tn',
-              children: [
-                { type: 'text', value: 'te' },
-                { type: 'text', value: 'xt' },
-              ],
-            },
-          ],
-        },
+        [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [
+                  { type: 'text', value: 'te' },
+                  { type: 'text', value: 'st' },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [
+                  { type: 'text', value: 'te' },
+                  { type: 'text', value: 'xt' },
+                ],
+              },
+            ],
+          },
+        ],
       );
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>aXXb</tn></p><p><tn>test</tn></p><p><tn>text</tn></p></tc></doc>`,
       );
 
-      root.t.editByPath(
+      root.t.editBulkByPath(
         [0, 3],
         [0, 3],
-        {
-          type: 'p',
-          children: [
-            {
-              type: 'tn',
-              children: [
-                { type: 'text', value: 'te' },
-                { type: 'text', value: 'st' },
-              ],
-            },
-          ],
-        },
-        {
-          type: 'tn',
-          children: [
-            { type: 'text', value: 'te' },
-            { type: 'text', value: 'xt' },
-          ],
-        },
+        [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [
+                  { type: 'text', value: 'te' },
+                  { type: 'text', value: 'st' },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'tn',
+            children: [
+              { type: 'text', value: 'te' },
+              { type: 'text', value: 'xt' },
+            ],
+          },
+        ],
       );
       assert.equal(
         root.t.toXML(),
@@ -796,12 +798,10 @@ describe('Tree.edit', function () {
 
     assert.Throw(() => {
       doc.update((root) => {
-        root.t.edit(
-          3,
-          3,
+        root.t.editBulk(3, 3, [
           { type: 'text', value: 'c' },
           { type: 'text', value: '' },
-        );
+        ]);
       });
     }, 'text node cannot have empty value');
   });
@@ -824,12 +824,10 @@ describe('Tree.edit', function () {
 
     assert.Throw(() => {
       doc.update((root) => {
-        root.t.edit(
-          3,
-          3,
+        root.t.editBulk(3, 3, [
           { type: 'p', children: [] },
           { type: 'text', value: 'd' },
-        );
+        ]);
       });
     }, 'element node and text node cannot be passed together');
   });
@@ -852,9 +850,7 @@ describe('Tree.edit', function () {
 
     assert.Throw(() => {
       doc.update((root) => {
-        root.t.edit(
-          3,
-          3,
+        root.t.editBulk(3, 3, [
           {
             type: 'p',
             children: [
@@ -863,7 +859,7 @@ describe('Tree.edit', function () {
             ],
           },
           { type: 'text', value: 'd' },
-        );
+        ]);
       });
     }, 'element node and text node cannot be passed together');
   });
@@ -886,12 +882,10 @@ describe('Tree.edit', function () {
 
     assert.Throw(() => {
       doc.update((root) => {
-        root.t.edit(
-          3,
-          3,
+        root.t.editBulk(3, 3, [
           { type: 'p', children: [{ type: 'text', value: 'c' }] },
           { type: 'p', children: [{ type: 'text', value: '' }] },
-        );
+        ]);
       });
     }, 'text node cannot have empty value');
   });
@@ -914,12 +908,10 @@ describe('Tree.edit', function () {
 
     assert.Throw(() => {
       doc.update((root) => {
-        root.t.edit(
-          3,
-          3,
+        root.t.editBulk(3, 3, [
           { type: 'text', value: 'd' },
           { type: 'p', children: [{ type: 'text', value: 'c' }] },
-        );
+        ]);
       });
     }, 'element node and text node cannot be passed together');
   });
@@ -2176,12 +2168,10 @@ describe('Concurrent editing, complex cases', () => {
 
       d1.update((r) => r.t.edit(2, 6));
       d2.update((r) =>
-        r.t.edit(
-          3,
-          3,
+        r.t.editBulk(3, 3, [
           { type: 'text', value: 'a' },
           { type: 'text', value: 'bc' },
-        ),
+        ]),
       );
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12abc345</p></r>`);
@@ -2220,12 +2210,10 @@ describe('Concurrent editing, complex cases', () => {
 
       d1.update((r) => r.t.edit(0, 12));
       d2.update((r) =>
-        r.t.edit(
-          6,
-          6,
+        r.t.editBulk(6, 6, [
           { type: 'p', children: [{ type: 'text', value: 'cd' }] },
           { type: 'i', children: [{ type: 'text', value: 'fg' }] },
-        ),
+        ]),
       );
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(
@@ -2266,12 +2254,10 @@ describe('Concurrent editing, complex cases', () => {
 
       d1.update((r) => r.t.edit(0, 7));
       d2.update((r) =>
-        r.t.edit(
-          0,
-          0,
+        r.t.editBulk(0, 0, [
           { type: 'p', children: [{ type: 'text', value: 'cd' }] },
           { type: 'i', children: [{ type: 'text', value: 'fg' }] },
-        ),
+        ]),
       );
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(
@@ -2312,12 +2298,10 @@ describe('Concurrent editing, complex cases', () => {
 
       d1.update((r) => r.t.edit(0, 7));
       d2.update((r) =>
-        r.t.edit(
-          7,
-          7,
+        r.t.editBulk(7, 7, [
           { type: 'p', children: [{ type: 'text', value: 'cd' }] },
           { type: 'i', children: [{ type: 'text', value: 'fg' }] },
-        ),
+        ]),
       );
 
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
@@ -2589,6 +2573,38 @@ describe('testing edge cases', () => {
       const size = d1.getRoot().t.getIndexTree().getRoot().size;
 
       assert.equal(d2.getRoot().t.getIndexTree().getRoot().size, size);
+    }, task.name);
+  });
+
+  it('can split and merge with empty paragraph', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      d1.update((root) => root.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p></p></doc>`,
+      );
+      d1.update((root) => root.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
 });
