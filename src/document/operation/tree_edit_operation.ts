@@ -102,17 +102,20 @@ export class TreeEditOperation extends Operation {
       root.registerElementHasRemovedNodes(tree);
     }
     return {
-      opInfos: changes.map(({ from, to, value, fromPath, toPath }) => {
-        return {
-          type: 'tree-edit',
-          from,
-          to,
-          value,
-          fromPath,
-          toPath,
-          path: root.createPath(this.getParentCreatedAt()),
-        } as OperationInfo;
-      }),
+      opInfos: changes.map(
+        ({ from, to, value, splitLevel, fromPath, toPath }) => {
+          return {
+            type: 'tree-edit',
+            path: root.createPath(this.getParentCreatedAt()),
+            from,
+            to,
+            value,
+            splitLevel,
+            fromPath,
+            toPath,
+          } as OperationInfo;
+        },
+      ),
     };
   }
 
@@ -159,6 +162,13 @@ export class TreeEditOperation extends Operation {
    */
   public getContents(): Array<CRDTTreeNode> | undefined {
     return this.contents;
+  }
+
+  /**
+   * `getSplitLevel` returns the split level of Edit.
+   */
+  public getSplitLevel(): number {
+    return this.splitLevel;
   }
 
   /**

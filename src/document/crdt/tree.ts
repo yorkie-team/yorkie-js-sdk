@@ -91,6 +91,7 @@ export interface TreeChange {
   fromPath: Array<number>;
   toPath: Array<number>;
   value?: Array<TreeNode> | { [key: string]: any };
+  splitLevel?: number;
 }
 
 /**
@@ -774,9 +775,9 @@ export class CRDTTree extends CRDTGCElement {
           // between two parents. For now, we only merge two parents are
           // both element nodes having text children.
           // e.g. <p>a|b</p><p>c|d</p> -> <p>a|d</p>
-          if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
-            return;
-          }
+          // if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
+          //   return;
+          // }
 
           for (const child of node.children) {
             if (toBeRemoveds.includes(child)) {
@@ -820,6 +821,7 @@ export class CRDTTree extends CRDTGCElement {
       value: contents?.length
         ? contents.map((content) => toTreeNode(content))
         : undefined,
+      splitLevel,
     });
 
     // 02. Delete: delete the nodes that are marked as removed.
@@ -841,7 +843,7 @@ export class CRDTTree extends CRDTGCElement {
       let parent = fromParent;
       let left = fromLeft;
       while (splitCount < splitLevel) {
-        parent.split(this, left === parent ? 0 : left.getOffset() + 1);
+        parent.split(this, parent.findOffset(left) + 1);
         left = parent;
         parent = parent.parent!;
         splitCount++;

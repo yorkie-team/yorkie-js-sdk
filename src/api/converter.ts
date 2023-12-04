@@ -398,6 +398,8 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.setContentsList(
       toTreeNodesWhenEdit(treeEditOperation.getContents()!),
     );
+    pbTreeEditOperation.setSplitLevel(treeEditOperation.getSplitLevel());
+
     pbTreeEditOperation.setExecutedAt(
       toTimeTicket(treeEditOperation.getExecutedAt()),
     );
@@ -1121,13 +1123,12 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
       pbTreeEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
         createdAtMapByActor.set(key, fromTimeTicket(value));
       });
-      // TODO(hackerwins): Connect splitLevel with protobuf.
       operation = TreeEditOperation.create(
         fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
         fromTreePos(pbTreeEditOperation!.getFrom()!),
         fromTreePos(pbTreeEditOperation!.getTo()!),
         fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
-        0,
+        pbTreeEditOperation!.getSplitLevel(),
         createdAtMapByActor,
         fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
       );

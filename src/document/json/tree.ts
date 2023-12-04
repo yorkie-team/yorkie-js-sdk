@@ -329,7 +329,7 @@ export class Tree {
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
     contents: Array<TreeNode>,
-    splitLevel: number = 0,
+    splitLevel = 0,
   ): boolean {
     if (contents.length !== 0 && contents[0]) {
       validateTreeNodes(contents);
@@ -398,7 +398,7 @@ export class Tree {
     fromPath: Array<number>,
     toPath: Array<number>,
     content?: TreeNode,
-    splitLevel: number = 0,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -428,7 +428,7 @@ export class Tree {
     fromPath: Array<number>,
     toPath: Array<number>,
     contents: Array<TreeNode>,
-    splitLevel: number = 0,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -453,7 +453,7 @@ export class Tree {
     fromIdx: number,
     toIdx: number,
     content?: TreeNode,
-    splitLevel: number = 0,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
@@ -480,7 +480,7 @@ export class Tree {
     fromIdx: number,
     toIdx: number,
     contents: Array<TreeNode>,
-    splitLevel: number = 0,
+    splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');

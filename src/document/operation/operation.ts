@@ -119,9 +119,9 @@ export type IncreaseOpInfo = {
  */
 export type EditOpInfo = {
   type: 'edit';
+  path: string;
   from: number;
   to: number;
-  path: string;
   value: {
     attributes: Indexable;
     content: string;
@@ -133,9 +133,9 @@ export type EditOpInfo = {
  */
 export type StyleOpInfo = {
   type: 'style';
+  path: string;
   from: number;
   to: number;
-  path: string;
   value: {
     attributes: Indexable;
   };
@@ -146,12 +146,13 @@ export type StyleOpInfo = {
  */
 export type TreeEditOpInfo = {
   type: 'tree-edit';
+  path: string;
   from: number;
   to: number;
+  value: TreeNode;
+  splitLevel: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value: TreeNode;
-  path: string;
 };
 
 /**
@@ -159,11 +160,11 @@ export type TreeEditOpInfo = {
  */
 export type TreeStyleOpInfo = {
   type: 'tree-style';
+  path: string;
   from: number;
   to: number;
   fromPath: Array<number>;
   value: { [key: string]: any };
-  path: string;
 };
 
 /**

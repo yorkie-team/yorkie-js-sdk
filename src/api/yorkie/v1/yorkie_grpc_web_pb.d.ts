@@ -55,6 +55,13 @@ export class YorkieServiceClient {
     metadata?: grpcWeb.Metadata
   ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
 
+  broadcast(
+    request: yorkie_v1_yorkie_pb.BroadcastRequest,
+    metadata: grpcWeb.Metadata | undefined,
+    callback: (err: grpcWeb.RpcError,
+               response: yorkie_v1_yorkie_pb.BroadcastResponse) => void
+  ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.BroadcastResponse>;
+
 }
 
 export class YorkieServicePromiseClient {
@@ -96,6 +103,11 @@ export class YorkieServicePromiseClient {
     request: yorkie_v1_yorkie_pb.WatchDocumentRequest,
     metadata?: grpcWeb.Metadata
   ): grpcWeb.ClientReadableStream<yorkie_v1_yorkie_pb.WatchDocumentResponse>;
+
+  broadcast(
+    request: yorkie_v1_yorkie_pb.BroadcastRequest,
+    metadata?: grpcWeb.Metadata
+  ): Promise<yorkie_v1_yorkie_pb.BroadcastResponse>;
 
 }
 

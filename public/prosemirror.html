@@ -324,8 +324,8 @@
                 } = step;
 
                 // 01. Move: level up/down, move left/right.
-                // TODO(hackerwins): replaceAround replaces the given range with given gap.
                 if (stepType === 'replaceAround') {
+                  // TODO(hackerwins): replaceAround replaces the given range with given gap.
                   // root.tree.move(from, to, gapFrom, gapTo);
                   continue;
                 }
@@ -348,20 +348,40 @@
                       : undefined,
                     openStart,
                   );
+                  console.log(
+                    `%c local: ${from}-${to}: split(${openStart})`,
+                    'color: green',
+                  );
                   continue;
                 }
 
                 // 03. Edit: Delete the given range.
                 if (!content.content.length) {
                   root.tree.edit(from, to);
+                  console.log(
+                    `%c local: ${from}-${to}: delete)`,
+                    'color: green',
+                  );
                   continue;
                 }
 
                 // 04. Edit: Replace the given range with the given content.
+                //
+                // TODO(hackerwins): We need to handle unary element.
+                // Unary element is a node that has no children. For example, <star></star>.
+                //
+                // TODO(hackerwins): We need to handle select all and replace.
+                // There is an issue when we replace the whole document in ProseMirror.
                 root.tree.editBulk(
                   from,
                   to,
                   content.content.map((node) => docToTreeNode(node.toJSON())),
+                );
+                console.log(
+                  `%c local: ${from}-${to}: ${JSON.stringify(
+                    content.content,
+                  )})`,
+                  'color: green',
                 );
               }
 
@@ -403,13 +423,24 @@
             if (op.type !== 'tree-edit') {
               continue;
             }
-            const { from, to, value: contents } = op;
+            const { from, to, value: contents, splitLevel } = op;
             const transform = view.state.tr;
-            if (contents) {
+            if (splitLevel) {
+              view.selection;
+              transform.split(from, splitLevel);
+              console.log(
+                `%c remote: ${from}-${to}: split(${splitLevel})`,
+                'color: skyblue',
+              );
+            } else if (contents) {
+              console.log(
+                `%c remote: ${from}-${to}: ${JSON.stringify(contents)}`,
+                'color: skyblue',
+              );
               transform.replaceWith(
                 from,
                 to,
-                ...contents.map((content) =>
+                Array.from(contents).map((content) =>
                   Node.fromJSON(mySchema, {
                     type: content.type,
                     text: content.value,
@@ -417,6 +448,7 @@
                 ),
               );
             } else {
+              console.log(`%c remote: ${from}-${to}: delete`, 'color: skyblue');
               transform.replace(from, to);
             }
             const newState = view.state.apply(transform);
