@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-editByPath(fromPath: Array<number>, toPath: Array<number>, ...contents: Array<TreeNode>): boolean;
+editByPath(fromPath: Array<number>, toPath: Array<number>, content?: TreeNode, splitLevel?: number): boolean;
 ```
 
 ## Parameters
@@ -18,7 +18,8 @@ editByPath(fromPath: Array<number>, toPath: Array<number>, ...contents: Array<Tr
 |  --- | --- | --- |
 |  fromPath | Array&lt;number&gt; |  |
 |  toPath | Array&lt;number&gt; |  |
-|  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
+|  content | [TreeNode](./yorkie-js-sdk.treenode.md) | _(Optional)_ |
+|  splitLevel | number | _(Optional)_ |
 
 **Returns:**
 

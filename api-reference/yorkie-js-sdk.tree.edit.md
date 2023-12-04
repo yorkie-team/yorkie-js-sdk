@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-edit(fromIdx: number, toIdx: number, ...contents: Array<TreeNode>): boolean;
+edit(fromIdx: number, toIdx: number, content?: TreeNode, splitLevel?: number): boolean;
 ```
 
 ## Parameters
@@ -18,7 +18,8 @@ edit(fromIdx: number, toIdx: number, ...contents: Array<TreeNode>): boolean;
 |  --- | --- | --- |
 |  fromIdx | number |  |
 |  toIdx | number |  |
-|  contents | Array&lt;[TreeNode](./yorkie-js-sdk.treenode.md)<!-- -->&gt; |  |
+|  content | [TreeNode](./yorkie-js-sdk.treenode.md) | _(Optional)_ |
+|  splitLevel | number | _(Optional)_ |
 
 **Returns:**
 

@@ -11,9 +11,9 @@
 ```typescript
 export declare type EditOpInfo = {
     type: 'edit';
+    path: string;
     from: number;
     to: number;
-    path: string;
     value: {
         attributes: Indexable;
         content: string;

@@ -11,9 +11,9 @@
 ```typescript
 export declare type StyleOpInfo = {
     type: 'style';
+    path: string;
     from: number;
     to: number;
-    path: string;
     value: {
         attributes: Indexable;
     };

@@ -23,8 +23,10 @@ export declare class Tree
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [buildRoot(context)](./yorkie-js-sdk.tree.buildroot.md) |  | <code>buildRoot</code> builds the root of this tree with the given initial root which set by the user. |
-|  [edit(fromIdx, toIdx, contents)](./yorkie-js-sdk.tree.edit.md) |  | <code>edit</code> edits this tree with the given nodes. |
-|  [editByPath(fromPath, toPath, contents)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
+|  [edit(fromIdx, toIdx, content, splitLevel)](./yorkie-js-sdk.tree.edit.md) |  | <code>edit</code> edits this tree with the given nodes. |
+|  [editBulk(fromIdx, toIdx, contents, splitLevel)](./yorkie-js-sdk.tree.editbulk.md) |  | <code>editBulk</code> edits this tree with the given nodes. |
+|  [editBulkByPath(fromPath, toPath, contents, splitLevel)](./yorkie-js-sdk.tree.editbulkbypath.md) |  | <code>editBulkByPath</code> edits this tree with the given node and path. |
+|  [editByPath(fromPath, toPath, content, splitLevel)](./yorkie-js-sdk.tree.editbypath.md) |  | <code>editByPath</code> edits this tree with the given node and path. |
 |  [getID()](./yorkie-js-sdk.tree.getid.md) |  | <code>getID</code> returns the ID of this tree. |
 |  [getIndexTree()](./yorkie-js-sdk.tree.getindextree.md) |  | <code>getIndexTree</code> returns the index tree of this tree. |
 |  [getRootTreeNode()](./yorkie-js-sdk.tree.getroottreenode.md) |  | <code>getRootTreeNode</code> returns TreeNode of this tree. |
