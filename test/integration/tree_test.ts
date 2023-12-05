@@ -2576,7 +2576,43 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can split and merge with empty paragraph', async function ({ task }) {
+  it('can split and merge with empty paragraph: left', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      d1.update((root) => root.t.edit(1, 1, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p></p><p>ab</p></doc>`,
+      );
+      d1.update((root) => root.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('can split and merge with empty paragraph: right', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
