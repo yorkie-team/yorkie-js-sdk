@@ -128,6 +128,13 @@ export class TimeTicket {
   }
 
   /**
+   * `getLamport` returns the lamport.
+   */
+  public getLamport(): Long {
+    return this.lamport;
+  }
+
+  /**
    * `getDelimiter` returns delimiter.
    */
   public getDelimiter(): number {

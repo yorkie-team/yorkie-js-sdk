@@ -509,12 +509,20 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   /**
    * `split` splits the given offset of this node.
    */
-  public split(tree: CRDTTree, offset: number): CRDTTreeNode | undefined {
+  public split(
+    tree: CRDTTree,
+    offset: number,
+    issueTimeTicket?: () => TimeTicket,
+  ): CRDTTreeNode | undefined {
+    const childrenLength = this.children.length;
     const split = this.isText
       ? this.splitText(offset, this.id.getOffset())
       : this.splitElement(offset, this.id.getOffset());
 
     if (split) {
+      if (!this.isText && (offset === 0 || offset === childrenLength)) {
+        split.id = CRDTTreeNodeID.of(issueTimeTicket!(), 0);
+      }
       split.insPrevID = this.id;
       if (this.insNextID) {
         const insNext = tree.findFloorNode(this.insNextID)!;
@@ -744,6 +752,7 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     editedAt: TimeTicket,
+    issueTimeTicket: (() => TimeTicket) | undefined,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. find nodes from the given range and split nodes.
@@ -843,7 +852,7 @@ export class CRDTTree extends CRDTGCElement {
       let parent = fromParent;
       let left = fromLeft;
       while (splitCount < splitLevel) {
-        parent.split(this, parent.findOffset(left) + 1);
+        parent.split(this, parent.findOffset(left) + 1, issueTimeTicket);
         left = parent;
         parent = parent.parent!;
         splitCount++;
@@ -890,10 +899,17 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     editedAt: TimeTicket,
+    issueTimeTicket: () => TimeTicket,
   ): void {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit([fromPos, toPos], contents, splitLevel, editedAt);
+    this.edit(
+      [fromPos, toPos],
+      contents,
+      splitLevel,
+      editedAt,
+      issueTimeTicket,
+    );
   }
 
   /**

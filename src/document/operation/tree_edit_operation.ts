@@ -89,12 +89,26 @@ export class TreeEditOperation extends Operation {
     if (!(parentObject instanceof CRDTTree)) {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
+    const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
     const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
-      this.getExecutedAt(),
+      editedAt,
+      (() => {
+        let delimiter = editedAt.getDelimiter();
+        if (this.contents !== undefined) {
+          delimiter += this.contents.length;
+        }
+        const issueTimeTicket = () =>
+          TimeTicket.of(
+            editedAt.getLamport(),
+            ++delimiter,
+            editedAt.getActorID(),
+          );
+        return issueTimeTicket;
+      })(),
       this.maxCreatedAtMapByActor,
     );
 

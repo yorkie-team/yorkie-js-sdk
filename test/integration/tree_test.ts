@@ -2643,4 +2643,49 @@ describe('testing edge cases', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
+
+  it('can split and merge with empty paragraph and multiple split level: left', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    { type: 'text', value: 'a' },
+                    { type: 'text', value: 'b' },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p>ab</p></p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 2));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p></p></p><p><p>ab</p></p></doc>`,
+      );
+      d1.update((root) => root.t.edit(2, 6));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p>ab</p></p></doc>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
 });
