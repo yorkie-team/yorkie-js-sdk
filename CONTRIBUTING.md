@@ -82,6 +82,34 @@ $ docker pull yorkieteam/yorkie:latest
 $ docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
+To print specific console logs, delete the line `return false` in the `onConsoleLog()` function within [`vitest.config.ts`](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/vitest.config.ts#L16).
+```ts
+export default defineConfig({
+  test: {
+    include: ['**/*_{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    exclude: ['**/bench/*'],
+    coverage: {
+      provider: 'istanbul',
+      reporter: ['lcov', 'text-summary'],
+    },
+    onConsoleLog() {
+      return false; // <<------ delete here.
+    },
+    environment: 'custom-jsdom',
+    globals: true,
+    testTimeout: isCI ? 5000 : Infinity,
+  },
+  plugins: [tsconfigPaths()],
+});
+
+```
+
+To run only specific suites or tests, use `.only` and execute the following command with the path to the desired test file. 
+Refer to [Test Filtering](https://vitest.dev/guide/filtering#selecting-suites-and-tests-to-run) in `vitest` for more details:
+```bash
+$ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
+```
+
 ### Starting co-editing example with CodeMirror
 
 Start MongoDB, Yorkie and Envoy proxy in a terminal session.
