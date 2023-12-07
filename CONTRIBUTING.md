@@ -107,7 +107,7 @@ export default defineConfig({
 To run only specific suites or tests, use `.only` and execute the following command with the path to the desired test file. 
 Refer to [Test Filtering](https://vitest.dev/guide/filtering#selecting-suites-and-tests-to-run) in `vitest` for more details:
 ```bash
-$ npm run test {test file path}
+$ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
 ```
 
 ### Starting co-editing example with CodeMirror
