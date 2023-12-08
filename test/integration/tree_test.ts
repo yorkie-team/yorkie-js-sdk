@@ -2688,4 +2688,49 @@ describe('testing edge cases', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
+
+  it('split at the same offset multiple times', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, { type: 'text', value: 'c' }));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ac</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a</p><p>c</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 7, undefined));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
 });

@@ -494,11 +494,24 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
-   * `clone` clones this node with the given offset.
+   * `cloneText` clones this text node with the given offset.
    */
-  clone(offset: number): CRDTTreeNode {
+  cloneText(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
       CRDTTreeNodeID.of(this.id.getCreatedAt(), offset),
+      this.type,
+      undefined,
+      undefined,
+      this.removedAt,
+    );
+  }
+
+  /**
+   * `cloneElement` clones this element node with the given issueTimeTicket function.
+   */
+  cloneElement(issueTimeTicket: () => TimeTicket): CRDTTreeNode {
+    return new CRDTTreeNode(
+      CRDTTreeNodeID.of(issueTimeTicket(), 0),
       this.type,
       undefined,
       undefined,
@@ -514,15 +527,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     offset: number,
     issueTimeTicket?: () => TimeTicket,
   ): CRDTTreeNode | undefined {
-    const childrenLength = this.children.length;
     const split = this.isText
       ? this.splitText(offset, this.id.getOffset())
-      : this.splitElement(offset, this.id.getOffset());
+      : this.splitElement(offset, issueTimeTicket!);
 
     if (split) {
-      if (!this.isText && (offset === 0 || offset === childrenLength)) {
-        split.id = CRDTTreeNodeID.of(issueTimeTicket!(), 0);
-      }
       split.insPrevID = this.id;
       if (this.insNextID) {
         const insNext = tree.findFloorNode(this.insNextID)!;
