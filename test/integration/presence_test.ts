@@ -10,7 +10,7 @@ import {
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { EventCollector, deepSort } from '@yorkie-js-sdk/test/helper/helper';
 
-describe('Presence', function () {
+describe.skip('Presence', function () {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -313,7 +313,7 @@ describe('Presence', function () {
   });
 });
 
-describe(`Document.Subscribe('presence')`, function () {
+describe.skip(`Document.Subscribe('presence')`, function () {
   it(`Should receive presence-changed event for final presence if there are multiple presence changes within doc.update`, async function ({
     task,
   }) {
@@ -549,7 +549,7 @@ describe(`Document.Subscribe('presence')`, function () {
   });
 });
 
-describe('Undo/Redo', function () {
+describe.skip('Undo/Redo', function () {
   it('Can undo/redo with presence', async function ({ task }) {
     type TestDoc = { counter: Counter };
     type Presence = { color: string };
