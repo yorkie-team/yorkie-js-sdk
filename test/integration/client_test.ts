@@ -219,7 +219,7 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it.skip('Can change realtime sync', async function ({ task }) {
+  it('Can change realtime sync', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();

@@ -20,6 +20,7 @@ export class Attachment<T, P extends Indexable> {
 
   watchStream?: WatchStream;
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
+  watchAbort: AbortController;
 
   constructor(
     reconnectStreamDelay: number,
@@ -33,6 +34,7 @@ export class Attachment<T, P extends Indexable> {
     this.isRealtimeSync = isRealtimeSync;
     this.syncMode = SyncMode.PushPull;
     this.remoteChangeEventReceived = false;
+    this.watchAbort = new AbortController();
   }
 
   /**
@@ -74,7 +76,7 @@ export class Attachment<T, P extends Indexable> {
    * `runWatchLoop` runs the watch loop.
    */
   public async runWatchLoop(
-    watchStreamCreator: (onDisconnect: () => void) => Promise<WatchStream>,
+    watchStreamCreator: (onDisconnect: () => void, abort: AbortController) => Promise<WatchStream>,
   ): Promise<void> {
     const doLoop = async (): Promise<void> => {
       if (this.watchStream) {
@@ -90,7 +92,7 @@ export class Attachment<T, P extends Indexable> {
         this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
       };
 
-      this.watchStream = await watchStreamCreator(onDisconnect);
+      this.watchStream = await watchStreamCreator(onDisconnect, this.watchAbort);
     };
 
     await doLoop();
@@ -100,8 +102,8 @@ export class Attachment<T, P extends Indexable> {
    * `cancelWatchStream` cancels the watch stream.
    */
   public cancelWatchStream(): void {
-    if (this.watchStream) {
-      this.watchStream.cancel();
+    if (this.watchStream && this.watchAbort) {
+      this.watchAbort.abort();
       this.watchStream = undefined;
     }
     clearTimeout(this.watchLoopTimerID);

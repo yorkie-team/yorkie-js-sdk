@@ -822,7 +822,7 @@ export class Client implements Observable<ClientEvent> {
     }
 
     return attachment.runWatchLoop(
-      (onDisconnect: () => void): Promise<WatchStream> => {
+      (onDisconnect: () => void, abort: AbortController): Promise<WatchStream> => {
         if (!this.isActive()) {
           throw new YorkieError(
             Code.ClientNotActive,
@@ -834,7 +834,8 @@ export class Client implements Observable<ClientEvent> {
         req.clientId = this.id!;
         req.documentId = attachment.docID;
         const stream = this.rpcClient.watchDocument(req, {
-           headers: {"x-shard-key": `${this.apiKey}/${docKey}`}
+           headers: {"x-shard-key": `${this.apiKey}/${docKey}`},
+           signal: abort.signal,
         });
 
         this.eventStreamObserver.next({
@@ -857,17 +858,18 @@ export class Client implements Observable<ClientEvent> {
             try {
               for await (const resp of stream) {
                 this.handleWatchDocumentsResponse(attachment, resp);
+                resolve(stream);
               }
-            } catch (error) {
-              if (error instanceof ConnectError) {
+            } catch (err) {
+              if (err instanceof ConnectError) {
                 onStreamDisconnect();
               } else {
-                reject(error);
+                reject(err);
               }
             }
           };
 
-          handleStream().then(() => resolve(stream));
+          handleStream();
         });
       },
     );
