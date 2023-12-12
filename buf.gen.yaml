@@ -1,11 +1,8 @@
-# buf.gen.yaml defines a local generation template.
-# For details, see https://buf.build/docs/configuration/v1/buf-gen-yaml
 version: v1
 plugins:
   - plugin: es
     out: .
     opt: target=js+dts
-  # This will invoke protoc-gen-connect-es
   - plugin: connect-es
     out: .
     opt: 
