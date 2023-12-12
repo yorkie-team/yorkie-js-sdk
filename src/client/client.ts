@@ -25,7 +25,7 @@ import {
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
 import { ConnectError, createPromiseClient, PromiseClient } from "@connectrpc/connect";
-import { createConnectTransport } from "@connectrpc/connect-web";
+import { createGrpcWebTransport } from "@connectrpc/connect-web";
 import { YorkieService } from '../api/yorkie/v1/yorkie_connect'; 
 import {
   ActivateClientRequest,
@@ -354,7 +354,7 @@ export class Client implements Observable<ClientEvent> {
     // In our example we'll be communicating with a Connect endpoint.
     // If your endpoint only supports gRPC-web, make sure to use
     // `createGrpcWebTransport` instead.
-    const transport = createConnectTransport({
+    const transport = createGrpcWebTransport({
       baseUrl: rpcAddr,
       // skip interceptors for now because they are metric interceptors
       //interceptors: rpcOpts.unaryInterceptors,
