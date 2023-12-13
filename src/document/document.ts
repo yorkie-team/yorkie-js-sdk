@@ -68,6 +68,7 @@ import {
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
+import { linkDevtools } from '@yorkie-js-sdk/src/devtools';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -470,6 +471,8 @@ export class Document<T, P extends Indexable = Indexable> {
       undo: this.undo.bind(this),
       redo: this.redo.bind(this),
     };
+
+    linkDevtools(this);
   }
 
   /**
