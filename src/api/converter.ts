@@ -78,23 +78,22 @@ import {
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
   ValueType as PbValueType,
-  JSONElement_Tree,
-  JSONElement_Text,
-  JSONElement_Primitive,
-  JSONElement_Counter,
-  JSONElement_JSONObject,
-  JSONElement_JSONArray,
-  PresenceChange_ChangeType,
-  Operation_Set,
-  Operation_Add,
-  Operation_Move,
-  Operation_Remove,
-  Operation_Edit,
-  Operation_Style,
-  Operation_Increase,
-  Operation_TreeEdit,
-  Operation_TreeStyle,
-  Presence,
+  JSONElement_Tree as PbJSONElement_Tree,
+  JSONElement_Text as PbJSONElement_Text,
+  JSONElement_Primitive as PbJSONElement_Primitive,
+  JSONElement_Counter as PbJSONElement_Counter,
+  JSONElement_JSONObject as PbJSONElement_JSONObject,
+  JSONElement_JSONArray as PbJSONElement_JSONArray,
+  PresenceChange_ChangeType as PbPresenceChange_ChangeType,
+  Operation_Set as PbOperation_Set,
+  Operation_Add as PbOperation_Add,
+  Operation_Move as PbOperation_Move,
+  Operation_Remove as PbOperation_Remove,
+  Operation_Edit as PbOperation_Edit,
+  Operation_Style as PbOperation_Style,
+  Operation_Increase as PbOperation_Increase,
+  Operation_TreeEdit as PbOperation_TreeEdit,
+  Operation_TreeStyle as PbOperation_TreeStyle,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -128,37 +127,40 @@ function toPresence(presence: Indexable): PbPresence {
 function toPresenceChange(
   presenceChange: PresenceChange<Indexable>,
 ): PbPresenceChange {
-  const pbPresenceChange = new PbPresenceChange();
-
   if (presenceChange.type === PresenceChangeType.Put) {
-    pbPresenceChange.type = PresenceChange_ChangeType.PUT;
-    pbPresenceChange.presence = toPresence(presenceChange.presence);
-  } else if (presenceChange.type === PresenceChangeType.Clear) {
-    pbPresenceChange.type = PresenceChange_ChangeType.CLEAR;
+    return new PbPresenceChange({
+      type: PbPresenceChange_ChangeType.PUT,
+      presence: toPresence(presenceChange.presence),
+    });
+  }
+  if (presenceChange.type === PresenceChangeType.Clear) {
+    return new PbPresenceChange({
+      type: PbPresenceChange_ChangeType.CLEAR,
+    });
   }
 
-  return pbPresenceChange;
+  throw new YorkieError(Code.Unimplemented, `unimplemented type`);
 }
 
 /**
  * `toCheckpoint` converts the given model to Protobuf format.
  */
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
-  const pbCheckpoint = new PbCheckpoint();
-  pbCheckpoint.serverSeq = checkpoint.getServerSeqAsString();
-  pbCheckpoint.clientSeq = checkpoint.getClientSeq();
-  return pbCheckpoint;
+  return new PbCheckpoint({
+    serverSeq: checkpoint.getServerSeqAsString(),
+    clientSeq: checkpoint.getClientSeq(),
+  });
 }
 
 /**
  * `toChangeID` converts the given model to Protobuf format.
  */
 function toChangeID(changeID: ChangeID): PbChangeID {
-  const pbChangeID = new PbChangeID();
-  pbChangeID.clientSeq = changeID.getClientSeq();
-  pbChangeID.lamport = changeID.getLamportAsString();
-  pbChangeID.actorId = toUint8Array(changeID.getActorID()!);
-  return pbChangeID;
+  return new PbChangeID({
+    clientSeq: changeID.getClientSeq(),
+    lamport: changeID.getLamportAsString(),
+    actorId: toUint8Array(changeID.getActorID()!),
+  });
 }
 
 /**
@@ -169,11 +171,11 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
     return;
   }
 
-  const pbTimeTicket = new PbTimeTicket();
-  pbTimeTicket.lamport = ticket.getLamportAsString();
-  pbTimeTicket.delimiter = ticket.getDelimiter();
-  pbTimeTicket.actorId = toUint8Array(ticket.getActorID()!);
-  return pbTimeTicket;
+  return new PbTimeTicket({
+    lamport: ticket.getLamportAsString(),
+    delimiter: ticket.getDelimiter(),
+    actorId: toUint8Array(ticket.getActorID()!),
+  });
 }
 
 /**
@@ -220,79 +222,90 @@ function toCounterType(valueType: CounterType): PbValueType {
  * `toElementSimple` converts the given model to Protobuf format.
  */
 function toElementSimple(element: CRDTElement): PbJSONElementSimple {
-  const pbElementSimple = new PbJSONElementSimple();
   if (element instanceof CRDTObject) {
-    pbElementSimple.type = PbValueType.JSON_OBJECT;
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-    pbElementSimple.value = objectToBytes(element);
-  } else if (element instanceof CRDTArray) {
-    pbElementSimple.type = PbValueType.JSON_ARRAY;
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-    pbElementSimple.value = arrayToBytes(element);
-  } else if (element instanceof CRDTText) {
-    pbElementSimple.type = PbValueType.TEXT;
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-  } else if (element instanceof Primitive) {
-    const primitive = element as Primitive;
-    pbElementSimple.type = toValueType(primitive.getType());
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-    pbElementSimple.value = element.toBytes();
-  } else if (element instanceof CRDTCounter) {
-    const counter = element as CRDTCounter;
-    pbElementSimple.type = toCounterType(counter.getType());
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-    pbElementSimple.value = element.toBytes();
-  } else if (element instanceof CRDTTree) {
-    const tree = element as CRDTTree;
-    pbElementSimple.type = PbValueType.TREE;
-    pbElementSimple.createdAt = toTimeTicket(element.getCreatedAt());
-    pbElementSimple.value = treeToBytes(tree);
-  } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+    return new PbJSONElementSimple({
+      type: PbValueType.JSON_OBJECT,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: objectToBytes(element),
+    });
+  }
+  if (element instanceof CRDTArray) {
+    return new PbJSONElementSimple({
+      type: PbValueType.JSON_ARRAY,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: arrayToBytes(element),
+    });
+  }
+  if (element instanceof CRDTText) {
+    return new PbJSONElementSimple({
+      type: PbValueType.TEXT,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+    });
+  }
+  if (element instanceof Primitive) {
+    return new PbJSONElementSimple({
+      type: toValueType(element.getType()),
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: element.toBytes(),
+    });
+  }
+  if (element instanceof CRDTCounter) {
+    return new PbJSONElementSimple({
+      type: toCounterType(element.getType()),
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: element.toBytes(),
+    });
+  }
+  if (element instanceof CRDTTree) {
+    return new PbJSONElementSimple({
+      type: PbValueType.TREE,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: treeToBytes(element),
+    });
   }
 
-  return pbElementSimple;
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
  * `toTextNodeID` converts the given model to Protobuf format.
  */
 function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
-  const pbTextNodeID = new PbTextNodeID();
-  pbTextNodeID.createdAt = toTimeTicket(id.getCreatedAt());
-  pbTextNodeID.offset = id.getOffset();
-  return pbTextNodeID;
+  return new PbTextNodeID({
+    createdAt: toTimeTicket(id.getCreatedAt()),
+    offset: id.getOffset(),
+  });
 }
 
 /**
  * `toTextNodePos` converts the given model to Protobuf format.
  */
 function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
-  const pbTextNodePos = new PbTextNodePos();
-  pbTextNodePos.createdAt = toTimeTicket(pos.getID().getCreatedAt());
-  pbTextNodePos.offset = pos.getID().getOffset();
-  pbTextNodePos.relativeOffset = pos.getRelativeOffset();
-  return pbTextNodePos;
+  return new PbTextNodePos({
+    createdAt: toTimeTicket(pos.getID().getCreatedAt()),
+    offset: pos.getID().getOffset(),
+    relativeOffset: pos.getRelativeOffset(),
+  });
 }
 
 /**
  * `toTreePos` converts the given model to Protobuf format.
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
-  const pbTreePos = new PbTreePos();
-  pbTreePos.parentId = toTreeNodeID(pos.getParentID());
-  pbTreePos.leftSiblingId = toTreeNodeID(pos.getLeftSiblingID());
-  return pbTreePos;
+  return new PbTreePos({
+    parentId: toTreeNodeID(pos.getParentID()),
+    leftSiblingId: toTreeNodeID(pos.getLeftSiblingID()),
+  });
 }
 
 /**
  * `toTreeNodeID` converts the given model to Protobuf format.
  */
 function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
-  const pbTreeNodeID = new PbTreeNodeID();
-  pbTreeNodeID.createdAt = toTimeTicket(treeNodeID.getCreatedAt());
-  pbTreeNodeID.offset = treeNodeID.getOffset();
-  return pbTreeNodeID;
+  return new PbTreeNodeID({
+    createdAt: toTimeTicket(treeNodeID.getCreatedAt()),
+    offset: treeNodeID.getOffset(),
+  });
 }
 
 /**
@@ -303,7 +316,7 @@ function toOperation(operation: Operation): PbOperation {
 
   if (operation instanceof SetOperation) {
     const setOperation = operation as SetOperation;
-    const pbSetOperation = new Operation_Set();
+    const pbSetOperation = new PbOperation_Set();
     pbSetOperation.parentCreatedAt = toTimeTicket(
       setOperation.getParentCreatedAt(),
     );
@@ -314,7 +327,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbSetOperation;
   } else if (operation instanceof AddOperation) {
     const addOperation = operation as AddOperation;
-    const pbAddOperation = new Operation_Add();
+    const pbAddOperation = new PbOperation_Add();
     pbAddOperation.parentCreatedAt = toTimeTicket(
       addOperation.getParentCreatedAt(),
     );
@@ -327,7 +340,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbAddOperation;
   } else if (operation instanceof MoveOperation) {
     const moveOperation = operation as MoveOperation;
-    const pbMoveOperation = new Operation_Move();
+    const pbMoveOperation = new PbOperation_Move();
     pbMoveOperation.parentCreatedAt = toTimeTicket(
       moveOperation.getParentCreatedAt(),
     );
@@ -340,7 +353,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbMoveOperation;
   } else if (operation instanceof RemoveOperation) {
     const removeOperation = operation as RemoveOperation;
-    const pbRemoveOperation = new Operation_Remove();
+    const pbRemoveOperation = new PbOperation_Remove();
     pbRemoveOperation.parentCreatedAt = toTimeTicket(
       removeOperation.getParentCreatedAt(),
     );
@@ -352,7 +365,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbRemoveOperation;
   } else if (operation instanceof EditOperation) {
     const editOperation = operation as EditOperation;
-    const pbEditOperation = new Operation_Edit();
+    const pbEditOperation = new PbOperation_Edit();
     pbEditOperation.parentCreatedAt = toTimeTicket(
       editOperation.getParentCreatedAt(),
     );
@@ -372,7 +385,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
-    const pbStyleOperation = new Operation_Style();
+    const pbStyleOperation = new PbOperation_Style();
     pbStyleOperation.parentCreatedAt = toTimeTicket(
       styleOperation.getParentCreatedAt(),
     );
@@ -391,7 +404,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbStyleOperation;
   } else if (operation instanceof IncreaseOperation) {
     const increaseOperation = operation as IncreaseOperation;
-    const pbIncreaseOperation = new Operation_Increase();
+    const pbIncreaseOperation = new PbOperation_Increase();
     pbIncreaseOperation.parentCreatedAt = toTimeTicket(
       increaseOperation.getParentCreatedAt(),
     );
@@ -403,7 +416,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbIncreaseOperation;
   } else if (operation instanceof TreeEditOperation) {
     const treeEditOperation = operation as TreeEditOperation;
-    const pbTreeEditOperation = new Operation_TreeEdit();
+    const pbTreeEditOperation = new PbOperation_TreeEdit();
     const pbCreatedAtMapByActor = pbTreeEditOperation.createdAtMapByActor;
     for (const [key, value] of treeEditOperation.getMaxCreatedAtMapByActor()) {
       pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
@@ -425,7 +438,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
     const treeStyleOperation = operation as TreeStyleOperation;
-    const pbTreeStyleOperation = new Operation_TreeStyle();
+    const pbTreeStyleOperation = new PbOperation_TreeStyle();
     pbTreeStyleOperation.parentCreatedAt = toTimeTicket(
       treeStyleOperation.getParentCreatedAt(),
     );
@@ -464,9 +477,10 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
  * `toChange` converts the given model to Protobuf format.
  */
 function toChange(change: Change<Indexable>): PbChange {
-  const pbChange = new PbChange();
-  pbChange.id = toChangeID(change.getID());
-  pbChange.message = change.getMessage()!;
+  const pbChange = new PbChange({
+    id: toChangeID(change.getID()!),
+    message: change.getMessage(),
+  });
   if (change.hasOperations()) {
     pbChange.operations = toOperations(change.getOperations());
   }
@@ -493,11 +507,12 @@ function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
 function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
-    const pbRHTNode = new PbRHTNode();
-    pbRHTNode.key = rhtNode.getStrKey();
-    // eslint-disable-next-line
-    pbRHTNode.element = toElement(rhtNode.getValue());
-    pbRHTNodes.push(pbRHTNode);
+    pbRHTNodes.push(
+      new PbRHTNode({
+        key: rhtNode.getStrKey(),
+        element: toElement(rhtNode.getValue()),
+      }),
+    );
   }
 
   return pbRHTNodes;
@@ -509,10 +524,11 @@ function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
 function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
   const pbRGANodes = [];
   for (const rgaTreeListNode of rgaTreeList) {
-    const pbRGANode = new PbRGANode();
-    // eslint-disable-next-line
-    pbRGANode.element = toElement(rgaTreeListNode.getValue());
-    pbRGANodes.push(pbRGANode);
+    pbRGANodes.push(
+      new PbRGANode({
+        element: toElement(rgaTreeListNode.getValue()),
+      }),
+    );
   }
 
   return pbRGANodes;
@@ -552,16 +568,17 @@ function toTextNodes(
  */
 function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
   const pbTreeNodesList: Array<PbTreeNodes> = [];
-
   if (!nodes || !nodes.length) {
     return pbTreeNodesList;
   }
 
-  nodes.forEach((node) => {
-    const pbTreeNodes = new PbTreeNodes();
-    pbTreeNodes.content = toTreeNodes(node);
-    pbTreeNodesList.push(pbTreeNodes);
-  });
+  for (const node of nodes) {
+    pbTreeNodesList.push(
+      new PbTreeNodes({
+        content: toTreeNodes(node),
+      }),
+    );
+  }
 
   return pbTreeNodesList;
 }
@@ -576,9 +593,13 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
 
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
-    const pbTreeNode = new PbTreeNode();
-    pbTreeNode.id = toTreeNodeID(n.id);
-    pbTreeNode.type = n.type;
+    const pbTreeNode = new PbTreeNode({
+      id: toTreeNodeID(n.id),
+      type: n.type,
+      removedAt: toTimeTicket(n.removedAt),
+      depth,
+    });
+
     if (n.isText) {
       pbTreeNode.value = n.value;
     }
@@ -589,16 +610,12 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       pbTreeNode.insNextId = toTreeNodeID(n.insNextID);
     }
 
-    pbTreeNode.removedAt = toTimeTicket(n.removedAt);
-    pbTreeNode.depth = depth;
-
     if (n.attrs) {
-      const pbNodeAttrsMap = pbTreeNode.attributes;
       for (const attr of n.attrs) {
-        const pbNodeAttr = new PbNodeAttr();
-        pbNodeAttr.value = attr.getValue();
-        pbNodeAttr.updatedAt = toTimeTicket(attr.getUpdatedAt());
-        pbNodeAttrsMap[attr.getKey()] = pbNodeAttr;
+        pbTreeNode.attributes[attr.getKey()] = new PbNodeAttr({
+          value: attr.getValue(),
+          updatedAt: toTimeTicket(attr.getUpdatedAt()),
+        });
       }
     }
 
@@ -612,15 +629,14 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
  * `toObject` converts the given model to Protobuf format.
  */
 function toObject(obj: CRDTObject): PbJSONElement {
-  const pbObject = new JSONElement_JSONObject();
-  pbObject.nodes = toRHTNodes(obj.getRHT());
-  pbObject.createdAt = toTimeTicket(obj.getCreatedAt());
-  pbObject.movedAt = toTimeTicket(obj.getMovedAt());
-  pbObject.removedAt = toTimeTicket(obj.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'jsonObject';
-  pbElement.body.value = pbObject;
+  pbElement.body.value = new PbJSONElement_JSONObject({
+    nodes: toRHTNodes(obj.getRHT()),
+    createdAt: toTimeTicket(obj.getCreatedAt()),
+    movedAt: toTimeTicket(obj.getMovedAt()),
+    removedAt: toTimeTicket(obj.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -628,15 +644,14 @@ function toObject(obj: CRDTObject): PbJSONElement {
  * `toArray` converts the given model to Protobuf format.
  */
 function toArray(arr: CRDTArray): PbJSONElement {
-  const pbArray = new JSONElement_JSONArray();
-  pbArray.nodes = toRGANodes(arr.getElements());
-  pbArray.createdAt = toTimeTicket(arr.getCreatedAt());
-  pbArray.movedAt = toTimeTicket(arr.getMovedAt());
-  pbArray.removedAt = toTimeTicket(arr.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'jsonArray';
-  pbElement.body.value = pbArray;
+  pbElement.body.value = new PbJSONElement_JSONArray({
+    nodes: toRGANodes(arr.getElements()),
+    createdAt: toTimeTicket(arr.getCreatedAt()),
+    movedAt: toTimeTicket(arr.getMovedAt()),
+    removedAt: toTimeTicket(arr.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -644,16 +659,15 @@ function toArray(arr: CRDTArray): PbJSONElement {
  * `toPrimitive` converts the given model to Protobuf format.
  */
 function toPrimitive(primitive: Primitive): PbJSONElement {
-  const pbPrimitive = new JSONElement_Primitive();
-  pbPrimitive.type = toValueType(primitive.getType());
-  pbPrimitive.value = primitive.toBytes();
-  pbPrimitive.createdAt = toTimeTicket(primitive.getCreatedAt());
-  pbPrimitive.movedAt = toTimeTicket(primitive.getMovedAt());
-  pbPrimitive.removedAt = toTimeTicket(primitive.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'primitive';
-  pbElement.body.value = pbPrimitive;
+  pbElement.body.value = new PbJSONElement_Primitive({
+    type: toValueType(primitive.getType()),
+    value: primitive.toBytes(),
+    createdAt: toTimeTicket(primitive.getCreatedAt()),
+    movedAt: toTimeTicket(primitive.getMovedAt()),
+    removedAt: toTimeTicket(primitive.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -661,15 +675,14 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
  * `toText` converts the given model to Protobuf format.
  */
 function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
-  const pbText = new JSONElement_Text();
-  pbText.nodes = toTextNodes(text.getRGATreeSplit());
-  pbText.createdAt = toTimeTicket(text.getCreatedAt());
-  pbText.movedAt = toTimeTicket(text.getMovedAt());
-  pbText.removedAt = toTimeTicket(text.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'text';
-  pbElement.body.value = pbText;
+  pbElement.body.value = new PbJSONElement_Text({
+    nodes: toTextNodes(text.getRGATreeSplit()),
+    createdAt: toTimeTicket(text.getCreatedAt()),
+    movedAt: toTimeTicket(text.getMovedAt()),
+    removedAt: toTimeTicket(text.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -677,16 +690,15 @@ function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
  * `toCounter` converts the given model to Protobuf format.
  */
 function toCounter(counter: CRDTCounter): PbJSONElement {
-  const pbCounter = new JSONElement_Counter();
-  pbCounter.type = toCounterType(counter.getType());
-  pbCounter.value = counter.toBytes();
-  pbCounter.createdAt = toTimeTicket(counter.getCreatedAt());
-  pbCounter.movedAt = toTimeTicket(counter.getMovedAt());
-  pbCounter.removedAt = toTimeTicket(counter.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'counter';
-  pbElement.body.value = pbCounter;
+  pbElement.body.value = new PbJSONElement_Counter({
+    type: toCounterType(counter.getType()),
+    value: counter.toBytes(),
+    createdAt: toTimeTicket(counter.getCreatedAt()),
+    movedAt: toTimeTicket(counter.getMovedAt()),
+    removedAt: toTimeTicket(counter.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -694,15 +706,14 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
  * `toTree` converts the given model to Protobuf format.
  */
 function toTree(tree: CRDTTree): PbJSONElement {
-  const pbTree = new JSONElement_Tree();
-  pbTree.nodes = toTreeNodes(tree.getRoot());
-  pbTree.createdAt = toTimeTicket(tree.getCreatedAt());
-  pbTree.movedAt = toTimeTicket(tree.getMovedAt());
-  pbTree.removedAt = toTimeTicket(tree.getRemovedAt());
-
   const pbElement = new PbJSONElement();
   pbElement.body.case = 'tree';
-  pbElement.body.value = pbTree;
+  pbElement.body.value = new PbJSONElement_Tree({
+    nodes: toTreeNodes(tree.getRoot()),
+    createdAt: toTimeTicket(tree.getCreatedAt()),
+    movedAt: toTimeTicket(tree.getMovedAt()),
+    removedAt: toTimeTicket(tree.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -712,33 +723,38 @@ function toTree(tree: CRDTTree): PbJSONElement {
 function toElement(element: CRDTElement): PbJSONElement {
   if (element instanceof CRDTObject) {
     return toObject(element);
-  } else if (element instanceof CRDTArray) {
-    return toArray(element);
-  } else if (element instanceof Primitive) {
-    return toPrimitive(element);
-  } else if (element instanceof CRDTText) {
-    return toText(element);
-  } else if (element instanceof CRDTCounter) {
-    return toCounter(element);
-  } else if (element instanceof CRDTTree) {
-    return toTree(element);
-  } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
+  if (element instanceof CRDTArray) {
+    return toArray(element);
+  }
+  if (element instanceof Primitive) {
+    return toPrimitive(element);
+  }
+  if (element instanceof CRDTText) {
+    return toText(element);
+  }
+  if (element instanceof CRDTCounter) {
+    return toCounter(element);
+  }
+  if (element instanceof CRDTTree) {
+    return toTree(element);
+  }
+
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
  * `toChangePack` converts the given model to Protobuf format.
  */
 function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
-  const pbChangePack = new PbChangePack();
-  pbChangePack.documentKey = pack.getDocumentKey();
-  pbChangePack.checkpoint = toCheckpoint(pack.getCheckpoint());
-  pbChangePack.isRemoved = pack.getIsRemoved();
-  pbChangePack.changes = toChanges(pack.getChanges());
-  pbChangePack.snapshot = pack.getSnapshot()!;
-  pbChangePack.minSyncedTicket = toTimeTicket(pack.getMinSyncedTicket());
-  return pbChangePack;
+  return new PbChangePack({
+    documentKey: pack.getDocumentKey(),
+    checkpoint: toCheckpoint(pack.getCheckpoint()),
+    isRemoved: pack.getIsRemoved(),
+    changes: toChanges(pack.getChanges()),
+    snapshot: pack.getSnapshot(),
+    minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
+  });
 }
 
 /**
@@ -786,27 +802,27 @@ function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
 ): PresenceChange<P> {
   const type = pbPresenceChange.type;
-
-  if (type === PresenceChange_ChangeType.PUT) {
+  if (type === PbPresenceChange_ChangeType.PUT) {
     const presence = fromPresence<P>(pbPresenceChange.presence!);
     return {
       type: PresenceChangeType.Put,
       presence,
     };
-  } else if (type === PresenceChange_ChangeType.CLEAR) {
+  }
+  if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
     };
-  } else {
-    throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
   }
+
+  throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
 }
 
 /**
  * `fromPresences` converts the given Protobuf format to model format.
  */
 function fromPresences<P extends Indexable>(pbPresences: {
-  [key: string]: Presence;
+  [key: string]: PbPresence;
 }): Map<ActorID, P> {
   const presences = new Map<ActorID, P>();
   Object.entries(pbPresences).forEach(([actorID, pbPresence]) => {
@@ -1235,7 +1251,7 @@ function fromChangePack<P extends Indexable>(
 /**
  * `fromObject` converts the given Protobuf format to model format.
  */
-function fromObject(pbObject: JSONElement_JSONObject): CRDTObject {
+function fromObject(pbObject: PbJSONElement_JSONObject): CRDTObject {
   const rht = new ElementRHT();
   for (const pbRHTNode of pbObject.nodes) {
     const value = fromElement(pbRHTNode.element!);
@@ -1251,7 +1267,7 @@ function fromObject(pbObject: JSONElement_JSONObject): CRDTObject {
 /**
  * `fromArray` converts the given Protobuf format to model format.
  */
-function fromArray(pbArray: JSONElement_JSONArray): CRDTArray {
+function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.nodes) {
     // eslint-disable-next-line
@@ -1267,7 +1283,7 @@ function fromArray(pbArray: JSONElement_JSONArray): CRDTArray {
 /**
  * `fromPrimitive` converts the given Protobuf format to model format.
  */
-function fromPrimitive(pbPrimitive: JSONElement_Primitive): Primitive {
+function fromPrimitive(pbPrimitive: PbJSONElement_Primitive): Primitive {
   const primitive = Primitive.of(
     Primitive.valueFromBytes(
       fromValueType(pbPrimitive.type),
@@ -1283,7 +1299,9 @@ function fromPrimitive(pbPrimitive: JSONElement_Primitive): Primitive {
 /**
  * `fromText` converts the given Protobuf format to model format.
  */
-function fromText<A extends Indexable>(pbText: JSONElement_Text): CRDTText<A> {
+function fromText<A extends Indexable>(
+  pbText: PbJSONElement_Text,
+): CRDTText<A> {
   const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
@@ -1305,7 +1323,7 @@ function fromText<A extends Indexable>(pbText: JSONElement_Text): CRDTText<A> {
 /**
  * `fromCounter` converts the given Protobuf format to model format.
  */
-function fromCounter(pbCounter: JSONElement_Counter): CRDTCounter {
+function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   const counter = CRDTCounter.create(
     fromCounterType(pbCounter.type),
     CRDTCounter.valueFromBytes(
@@ -1322,7 +1340,7 @@ function fromCounter(pbCounter: JSONElement_Counter): CRDTCounter {
 /**
  * `fromTree` converts the given Protobuf format to model format.
  */
-function fromTree(pbTree: JSONElement_Tree): CRDTTree {
+function fromTree(pbTree: PbJSONElement_Tree): CRDTTree {
   const root = fromTreeNodes(pbTree.nodes);
   return CRDTTree.create(root!, fromTimeTicket(pbTree.createdAt)!);
 }
@@ -1380,7 +1398,7 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
-  return fromObject(pbElement.body.value! as JSONElement_JSONObject);
+  return fromObject(pbElement.body.value! as PbJSONElement_JSONObject);
 }
 
 /**
@@ -1399,7 +1417,7 @@ function bytesToArray(bytes?: Uint8Array): CRDTArray {
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
-  return fromArray(pbElement.body.value! as JSONElement_JSONArray);
+  return fromArray(pbElement.body.value! as PbJSONElement_JSONArray);
 }
 
 /**
@@ -1418,7 +1436,7 @@ function bytesToTree(bytes?: Uint8Array): CRDTTree {
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
-  return fromTree(pbElement.body.value! as JSONElement_Tree);
+  return fromTree(pbElement.body.value! as PbJSONElement_Tree);
 }
 
 /**
