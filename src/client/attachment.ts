@@ -20,7 +20,7 @@ export class Attachment<T, P extends Indexable> {
 
   watchStream?: WatchStream;
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
-  watchAbort: AbortController;
+  watchAbortController?: AbortController;
 
   constructor(
     reconnectStreamDelay: number,
@@ -34,7 +34,6 @@ export class Attachment<T, P extends Indexable> {
     this.isRealtimeSync = isRealtimeSync;
     this.syncMode = SyncMode.PushPull;
     this.remoteChangeEventReceived = false;
-    this.watchAbort = new AbortController();
   }
 
   /**
@@ -76,7 +75,7 @@ export class Attachment<T, P extends Indexable> {
    * `runWatchLoop` runs the watch loop.
    */
   public async runWatchLoop(
-    watchStreamCreator: (onDisconnect: () => void, abort: AbortController) => Promise<WatchStream>,
+    watchStreamCreator: (onDisconnect: () => void) => Promise<WatchStream>,
   ): Promise<void> {
     const doLoop = async (): Promise<void> => {
       if (this.watchStream) {
@@ -87,12 +86,22 @@ export class Attachment<T, P extends Indexable> {
         this.watchLoopTimerID = undefined;
       }
 
-      const onDisconnect = () => {
-        this.watchStream = undefined;
-        this.watchLoopTimerID = setTimeout(doLoop, this.reconnectStreamDelay);
-      };
-
-      this.watchStream = await watchStreamCreator(onDisconnect, this.watchAbort);
+      try {
+        [this.watchStream, this.watchAbortController] =
+          await watchStreamCreator(() => {
+            this.watchStream = undefined;
+            this.watchAbortController = undefined;
+            this.watchLoopTimerID = setTimeout(
+              doLoop,
+              this.reconnectStreamDelay,
+            );
+          });
+      } catch (err) {
+        // TODO(hackerwins): For now, if the creation of the watch stream fails,
+        // it is considered normal and the watch loop is executed again after a
+        // certain period of time.
+        // In the future, we need to find a better way to handle this.
+      }
     };
 
     await doLoop();
@@ -102,9 +111,10 @@ export class Attachment<T, P extends Indexable> {
    * `cancelWatchStream` cancels the watch stream.
    */
   public cancelWatchStream(): void {
-    if (this.watchStream && this.watchAbort) {
-      this.watchAbort.abort();
+    if (this.watchStream && this.watchAbortController) {
+      this.watchAbortController.abort();
       this.watchStream = undefined;
+      this.watchAbortController = undefined;
     }
     clearTimeout(this.watchLoopTimerID);
     this.watchLoopTimerID = undefined;

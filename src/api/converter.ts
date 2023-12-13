@@ -310,7 +310,7 @@ function toOperation(operation: Operation): PbOperation {
     pbSetOperation.key = setOperation.getKey();
     pbSetOperation.value = toElementSimple(setOperation.getValue());
     pbSetOperation.executedAt = toTimeTicket(setOperation.getExecutedAt());
-    pbOperation.body.case = "set";
+    pbOperation.body.case = 'set';
     pbOperation.body.value = pbSetOperation;
   } else if (operation instanceof AddOperation) {
     const addOperation = operation as AddOperation;
@@ -323,7 +323,7 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbAddOperation.value = toElementSimple(addOperation.getValue());
     pbAddOperation.executedAt = toTimeTicket(addOperation.getExecutedAt());
-    pbOperation.body.case = "add";
+    pbOperation.body.case = 'add';
     pbOperation.body.value = pbAddOperation;
   } else if (operation instanceof MoveOperation) {
     const moveOperation = operation as MoveOperation;
@@ -336,7 +336,7 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbMoveOperation.createdAt = toTimeTicket(moveOperation.getCreatedAt());
     pbMoveOperation.executedAt = toTimeTicket(moveOperation.getExecutedAt());
-    pbOperation.body.case = "move";
+    pbOperation.body.case = 'move';
     pbOperation.body.value = pbMoveOperation;
   } else if (operation instanceof RemoveOperation) {
     const removeOperation = operation as RemoveOperation;
@@ -344,13 +344,11 @@ function toOperation(operation: Operation): PbOperation {
     pbRemoveOperation.parentCreatedAt = toTimeTicket(
       removeOperation.getParentCreatedAt(),
     );
-    pbRemoveOperation.createdAt = toTimeTicket(
-      removeOperation.getCreatedAt(),
-    );
+    pbRemoveOperation.createdAt = toTimeTicket(removeOperation.getCreatedAt());
     pbRemoveOperation.executedAt = toTimeTicket(
       removeOperation.getExecutedAt(),
     );
-    pbOperation.body.case = "remove";
+    pbOperation.body.case = 'remove';
     pbOperation.body.value = pbRemoveOperation;
   } else if (operation instanceof EditOperation) {
     const editOperation = operation as EditOperation;
@@ -358,9 +356,7 @@ function toOperation(operation: Operation): PbOperation {
     pbEditOperation.parentCreatedAt = toTimeTicket(
       editOperation.getParentCreatedAt(),
     );
-    pbEditOperation.from = toTextNodePos(
-      editOperation.getFromPos(),
-    );
+    pbEditOperation.from = toTextNodePos(editOperation.getFromPos());
     pbEditOperation.to = toTextNodePos(editOperation.getToPos());
     const pbCreatedAtMapByActor = pbEditOperation.createdAtMapByActor;
     for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()) {
@@ -372,7 +368,7 @@ function toOperation(operation: Operation): PbOperation {
       pbAttributes[key] = value;
     }
     pbEditOperation.executedAt = toTimeTicket(editOperation.getExecutedAt());
-    pbOperation.body.case = "edit";
+    pbOperation.body.case = 'edit';
     pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
@@ -390,10 +386,8 @@ function toOperation(operation: Operation): PbOperation {
     for (const [key, value] of styleOperation.getAttributes()) {
       pbAttributes[key] = value;
     }
-    pbStyleOperation.executedAt = toTimeTicket(
-      styleOperation.getExecutedAt(),
-    );
-    pbOperation.body.case = "style";
+    pbStyleOperation.executedAt = toTimeTicket(styleOperation.getExecutedAt());
+    pbOperation.body.case = 'style';
     pbOperation.body.value = pbStyleOperation;
   } else if (operation instanceof IncreaseOperation) {
     const increaseOperation = operation as IncreaseOperation;
@@ -405,13 +399,12 @@ function toOperation(operation: Operation): PbOperation {
     pbIncreaseOperation.executedAt = toTimeTicket(
       increaseOperation.getExecutedAt(),
     );
-    pbOperation.body.case = "increase";
+    pbOperation.body.case = 'increase';
     pbOperation.body.value = pbIncreaseOperation;
   } else if (operation instanceof TreeEditOperation) {
     const treeEditOperation = operation as TreeEditOperation;
     const pbTreeEditOperation = new Operation_TreeEdit();
-    const pbCreatedAtMapByActor =
-      pbTreeEditOperation.createdAtMapByActor;
+    const pbCreatedAtMapByActor = pbTreeEditOperation.createdAtMapByActor;
     for (const [key, value] of treeEditOperation.getMaxCreatedAtMapByActor()) {
       pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
     }
@@ -428,7 +421,7 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.executedAt = toTimeTicket(
       treeEditOperation.getExecutedAt(),
     );
-    pbOperation.body.case = "treeEdit";
+    pbOperation.body.case = 'treeEdit';
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
     const treeStyleOperation = operation as TreeStyleOperation;
@@ -447,7 +440,7 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeStyleOperation.executedAt = toTimeTicket(
       treeStyleOperation.getExecutedAt(),
     );
-    pbOperation.body.case = "treeStyle";
+    pbOperation.body.case = 'treeStyle';
     pbOperation.body.value = pbTreeStyleOperation;
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
@@ -626,7 +619,7 @@ function toObject(obj: CRDTObject): PbJSONElement {
   pbObject.removedAt = toTimeTicket(obj.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "jsonObject";
+  pbElement.body.case = 'jsonObject';
   pbElement.body.value = pbObject;
   return pbElement;
 }
@@ -642,7 +635,7 @@ function toArray(arr: CRDTArray): PbJSONElement {
   pbArray.removedAt = toTimeTicket(arr.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "jsonArray";
+  pbElement.body.case = 'jsonArray';
   pbElement.body.value = pbArray;
   return pbElement;
 }
@@ -659,7 +652,7 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
   pbPrimitive.removedAt = toTimeTicket(primitive.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "primitive";
+  pbElement.body.case = 'primitive';
   pbElement.body.value = pbPrimitive;
   return pbElement;
 }
@@ -675,7 +668,7 @@ function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
   pbText.removedAt = toTimeTicket(text.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "text";
+  pbElement.body.case = 'text';
   pbElement.body.value = pbText;
   return pbElement;
 }
@@ -692,7 +685,7 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
   pbCounter.removedAt = toTimeTicket(counter.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "counter"
+  pbElement.body.case = 'counter';
   pbElement.body.value = pbCounter;
   return pbElement;
 }
@@ -708,7 +701,7 @@ function toTree(tree: CRDTTree): PbJSONElement {
   pbTree.removedAt = toTimeTicket(tree.getRemovedAt());
 
   const pbElement = new PbJSONElement();
-  pbElement.body.case = "tree";
+  pbElement.body.case = 'tree';
   pbElement.body.value = pbTree;
   return pbElement;
 }
@@ -812,9 +805,9 @@ function fromPresenceChange<P extends Indexable>(
 /**
  * `fromPresences` converts the given Protobuf format to model format.
  */
-function fromPresences<P extends Indexable>(
-  pbPresences: { [key: string]: Presence },
-): Map<ActorID, P> {
+function fromPresences<P extends Indexable>(pbPresences: {
+  [key: string]: Presence;
+}): Map<ActorID, P> {
   const presences = new Map<ActorID, P>();
   Object.entries(pbPresences).forEach(([actorID, pbPresence]) => {
     presences.set(actorID, fromPresence(pbPresence));
@@ -873,16 +866,12 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
   switch (pbElementSimple.type) {
     case PbValueType.JSON_OBJECT:
       if (!pbElementSimple.value) {
-        return CRDTObject.create(
-          fromTimeTicket(pbElementSimple.createdAt)!,
-        );
+        return CRDTObject.create(fromTimeTicket(pbElementSimple.createdAt)!);
       }
       return bytesToObject(pbElementSimple.value);
     case PbValueType.JSON_ARRAY:
       if (!pbElementSimple.value) {
-        return CRDTArray.create(
-          fromTimeTicket(pbElementSimple.createdAt)!,
-        );
+        return CRDTArray.create(fromTimeTicket(pbElementSimple.createdAt)!);
       }
       return bytesToArray(pbElementSimple.value);
     case PbValueType.TEXT:
@@ -949,11 +938,7 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
   const textValue = CRDTTextValue.create(pbTextNode.value);
   Object.entries(pbTextNode.attributes).forEach(([key, value]) => {
-    textValue.setAttr(
-      key,
-      value.value,
-      fromTimeTicket(value.updatedAt)!,
-    );
+    textValue.setAttr(key, value.value, fromTimeTicket(value.updatedAt)!);
   });
 
   const textNode = RGATreeSplitNode.create(
@@ -1072,7 +1057,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 
   for (const pbOperation of pbOperations) {
     let operation: Operation;
-    if (pbOperation.body.case === "set") {
+    if (pbOperation.body.case === 'set') {
       const pbSetOperation = pbOperation.body.value;
       operation = SetOperation.create(
         pbSetOperation!.key,
@@ -1080,7 +1065,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbSetOperation!.parentCreatedAt)!,
         fromTimeTicket(pbSetOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "add") {
+    } else if (pbOperation.body.case === 'add') {
       const pbAddOperation = pbOperation.body.value;
       operation = AddOperation.create(
         fromTimeTicket(pbAddOperation!.parentCreatedAt)!,
@@ -1088,7 +1073,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromElementSimple(pbAddOperation!.value!),
         fromTimeTicket(pbAddOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "move") {
+    } else if (pbOperation.body.case === 'move') {
       const pbMoveOperation = pbOperation.body.value;
       operation = MoveOperation.create(
         fromTimeTicket(pbMoveOperation!.parentCreatedAt)!,
@@ -1096,14 +1081,14 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         fromTimeTicket(pbMoveOperation!.createdAt)!,
         fromTimeTicket(pbMoveOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "remove") {
+    } else if (pbOperation.body.case === 'remove') {
       const pbRemoveOperation = pbOperation.body.value;
       operation = RemoveOperation.create(
         fromTimeTicket(pbRemoveOperation!.parentCreatedAt)!,
         fromTimeTicket(pbRemoveOperation!.createdAt)!,
         fromTimeTicket(pbRemoveOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "edit") {
+    } else if (pbOperation.body.case === 'edit') {
       const pbEditOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
       Object.entries(pbEditOperation!.createdAtMapByActor).forEach(
@@ -1124,7 +1109,7 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         attributes,
         fromTimeTicket(pbEditOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "style") {
+    } else if (pbOperation.body.case === 'style') {
       const pbStyleOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
       Object.entries(pbStyleOperation!.createdAtMapByActor).forEach(
@@ -1144,23 +1129,24 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         attributes,
         fromTimeTicket(pbStyleOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "select") {
+    } else if (pbOperation.body.case === 'select') {
       // TODO(hackerwins): Select is deprecated.
       continue;
-    } else if (pbOperation.body.case === "increase") {
+    } else if (pbOperation.body.case === 'increase') {
       const pbIncreaseOperation = pbOperation.body.value;
       operation = IncreaseOperation.create(
         fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
         fromElementSimple(pbIncreaseOperation!.value!),
         fromTimeTicket(pbIncreaseOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "treeEdit") {
+    } else if (pbOperation.body.case === 'treeEdit') {
       const pbTreeEditOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
       Object.entries(pbTreeEditOperation!.createdAtMapByActor).forEach(
         ([key, value]) => {
           createdAtMapByActor.set(key, fromTimeTicket(value));
-        });
+        },
+      );
       operation = TreeEditOperation.create(
         fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeEditOperation!.from!),
@@ -1170,14 +1156,15 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
         createdAtMapByActor,
         fromTimeTicket(pbTreeEditOperation!.executedAt)!,
       );
-    } else if (pbOperation.body.case === "treeStyle") {
+    } else if (pbOperation.body.case === 'treeStyle') {
       const pbTreeStyleOperation = pbOperation.body.value;
       const attributes = new Map();
 
       Object.entries(pbTreeStyleOperation!.attributes).forEach(
         ([key, value]) => {
-        attributes.set(key, value);
-      });
+          attributes.set(key, value);
+        },
+      );
       operation = TreeStyleOperation.create(
         fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeStyleOperation!.from!),
@@ -1271,10 +1258,7 @@ function fromArray(pbArray: JSONElement_JSONArray): CRDTArray {
     rgaTreeList.insert(fromElement(pbRGANode.element!));
   }
 
-  const arr = new CRDTArray(
-    fromTimeTicket(pbArray.createdAt)!,
-    rgaTreeList,
-  );
+  const arr = new CRDTArray(fromTimeTicket(pbArray.createdAt)!, rgaTreeList);
   arr.setMovedAt(fromTimeTicket(pbArray.movedAt));
   arr.setRemovedAt(fromTimeTicket(pbArray.removedAt));
   return arr;
@@ -1299,9 +1283,7 @@ function fromPrimitive(pbPrimitive: JSONElement_Primitive): Primitive {
 /**
  * `fromText` converts the given Protobuf format to model format.
  */
-function fromText<A extends Indexable>(
-  pbText: JSONElement_Text,
-): CRDTText<A> {
+function fromText<A extends Indexable>(pbText: JSONElement_Text): CRDTText<A> {
   const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
@@ -1314,10 +1296,7 @@ function fromText<A extends Indexable>(
     }
     prev = current;
   }
-  const text = new CRDTText<A>(
-    rgaTreeSplit,
-    fromTimeTicket(pbText.createdAt)!,
-  );
+  const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
   text.setMovedAt(fromTimeTicket(pbText.movedAt));
   text.setRemovedAt(fromTimeTicket(pbText.removedAt));
   return text;
@@ -1352,17 +1331,17 @@ function fromTree(pbTree: JSONElement_Tree): CRDTTree {
  * `fromElement` converts the given Protobuf format to model format.
  */
 function fromElement(pbElement: PbJSONElement): CRDTElement {
-  if (pbElement.body.case === "jsonObject") {
+  if (pbElement.body.case === 'jsonObject') {
     return fromObject(pbElement.body.value!);
-  } else if (pbElement.body.case === "jsonArray") {
+  } else if (pbElement.body.case === 'jsonArray') {
     return fromArray(pbElement.body.value!);
-  } else if (pbElement.body.case === "primitive") {
+  } else if (pbElement.body.case === 'primitive') {
     return fromPrimitive(pbElement.body.value!);
-  } else if (pbElement.body.case === "text") {
+  } else if (pbElement.body.case === 'text') {
     return fromText(pbElement.body.value!);
-  } else if (pbElement.body.case === "counter") {
+  } else if (pbElement.body.case === 'counter') {
     return fromCounter(pbElement.body.value!);
-  } else if (pbElement.body.case === "tree") {
+  } else if (pbElement.body.case === 'tree') {
     return fromTree(pbElement.body.value!);
   } else {
     throw new YorkieError(Code.Unimplemented, `unimplemented element`);

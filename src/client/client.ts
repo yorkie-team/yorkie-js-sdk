@@ -24,11 +24,7 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import {
-  ConnectError,
-  createPromiseClient,
-  PromiseClient,
-} from '@connectrpc/connect';
+import { createPromiseClient, PromiseClient } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '../api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
@@ -467,24 +463,26 @@ export class Client implements Observable<ClientEvent> {
           headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
         },
       )
-      .then((res) => {
+      .then(async (res) => {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
-        if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.setStatus(DocumentStatus.Attached);
-          this.attachmentMap.set(
-            doc.getKey(),
-            new Attachment(
-              this.reconnectStreamDelay,
-              doc,
-              res.documentId,
-              isRealtimeSync,
-            ),
-          );
+        if (doc.getStatus() === DocumentStatus.Removed) {
+          return doc;
+        }
 
-          if (isRealtimeSync) {
-            this.runWatchLoop(doc.getKey());
-          }
+        doc.setStatus(DocumentStatus.Attached);
+        this.attachmentMap.set(
+          doc.getKey(),
+          new Attachment(
+            this.reconnectStreamDelay,
+            doc,
+            res.documentId,
+            isRealtimeSync,
+          ),
+        );
+
+        if (isRealtimeSync) {
+          await this.runWatchLoop(doc.getKey());
         }
 
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
@@ -814,17 +812,14 @@ export class Client implements Observable<ClientEvent> {
     }
 
     return attachment.runWatchLoop(
-      (
-        onDisconnect: () => void,
-        abort: AbortController,
-      ): Promise<WatchStream> => {
+      (onDisconnect: () => void): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
-          throw new YorkieError(
-            Code.ClientNotActive,
-            `${this.key} is not active`,
+          return Promise.reject(
+            new YorkieError(Code.ClientNotActive, `${this.key} is not active`),
           );
         }
 
+        const ac = new AbortController();
         const stream = this.rpcClient.watchDocument(
           {
             clientId: this.id!,
@@ -832,7 +827,7 @@ export class Client implements Observable<ClientEvent> {
           },
           {
             headers: { 'x-shard-key': `${this.apiKey}/${docKey}` },
-            signal: abort.signal,
+            signal: ac.signal,
           },
         );
 
@@ -848,21 +843,19 @@ export class Client implements Observable<ClientEvent> {
               for await (const resp of stream) {
                 this.handleWatchDocumentsResponse(attachment, resp);
 
-                // TODO(hackerwins): When the first response is received, we need to
+                // NOTE(hackerwins): When the first response is received, we need to
                 // resolve the promise to notify that the watch stream is ready.
                 if (resp.body.case === 'initialization') {
-                  resolve(stream);
+                  resolve([stream, ac]);
                 }
               }
             } catch (err) {
-              if (err instanceof ConnectError) {
-                this.eventStreamObserver.next({
-                  type: ClientEventType.StreamConnectionStatusChanged,
-                  value: StreamConnectionStatus.Disconnected,
-                });
-                logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-                onDisconnect();
-              }
+              this.eventStreamObserver.next({
+                type: ClientEventType.StreamConnectionStatusChanged,
+                value: StreamConnectionStatus.Disconnected,
+              });
+              logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+              onDisconnect();
 
               reject(err);
             }
