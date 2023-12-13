@@ -370,6 +370,7 @@ export class Tree {
         : undefined,
       splitLevel,
       ticket,
+      () => this.context!.issueTimeTicket(),
     );
 
     this.context!.push(

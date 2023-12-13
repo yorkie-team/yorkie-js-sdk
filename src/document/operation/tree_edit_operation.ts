@@ -89,12 +89,33 @@ export class TreeEditOperation extends Operation {
     if (!(parentObject instanceof CRDTTree)) {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
+    const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
     const [changes] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
-      this.getExecutedAt(),
+      editedAt,
+      /**
+       * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
+       * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
+       * incremented by one for each.
+       * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
+       * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
+       */
+      (() => {
+        let delimiter = editedAt.getDelimiter();
+        if (this.contents !== undefined) {
+          delimiter += this.contents.length;
+        }
+        const issueTimeTicket = () =>
+          TimeTicket.of(
+            editedAt.getLamport(),
+            ++delimiter,
+            editedAt.getActorID(),
+          );
+        return issueTimeTicket;
+      })(),
       this.maxCreatedAtMapByActor,
     );
 

@@ -494,9 +494,9 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
-   * `clone` clones this node with the given offset.
+   * `cloneText` clones this text node with the given offset.
    */
-  clone(offset: number): CRDTTreeNode {
+  cloneText(offset: number): CRDTTreeNode {
     return new CRDTTreeNode(
       CRDTTreeNodeID.of(this.id.getCreatedAt(), offset),
       this.type,
@@ -507,12 +507,29 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   }
 
   /**
+   * `cloneElement` clones this element node with the given issueTimeTicket function.
+   */
+  cloneElement(issueTimeTicket: () => TimeTicket): CRDTTreeNode {
+    return new CRDTTreeNode(
+      CRDTTreeNodeID.of(issueTimeTicket(), 0),
+      this.type,
+      undefined,
+      undefined,
+      this.removedAt,
+    );
+  }
+
+  /**
    * `split` splits the given offset of this node.
    */
-  public split(tree: CRDTTree, offset: number): CRDTTreeNode | undefined {
+  public split(
+    tree: CRDTTree,
+    offset: number,
+    issueTimeTicket?: () => TimeTicket,
+  ): CRDTTreeNode | undefined {
     const split = this.isText
       ? this.splitText(offset, this.id.getOffset())
-      : this.splitElement(offset, this.id.getOffset());
+      : this.splitElement(offset, issueTimeTicket!);
 
     if (split) {
       split.insPrevID = this.id;
@@ -744,6 +761,7 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     editedAt: TimeTicket,
+    issueTimeTicket: (() => TimeTicket) | undefined,
     latestCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. find nodes from the given range and split nodes.
@@ -843,7 +861,7 @@ export class CRDTTree extends CRDTGCElement {
       let parent = fromParent;
       let left = fromLeft;
       while (splitCount < splitLevel) {
-        parent.split(this, parent.findOffset(left) + 1);
+        parent.split(this, parent.findOffset(left) + 1, issueTimeTicket);
         left = parent;
         parent = parent.parent!;
         splitCount++;
@@ -890,10 +908,17 @@ export class CRDTTree extends CRDTGCElement {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     editedAt: TimeTicket,
+    issueTimeTicket: () => TimeTicket,
   ): void {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit([fromPos, toPos], contents, splitLevel, editedAt);
+    this.edit(
+      [fromPos, toPos],
+      contents,
+      splitLevel,
+      editedAt,
+      issueTimeTicket,
+    );
   }
 
   /**

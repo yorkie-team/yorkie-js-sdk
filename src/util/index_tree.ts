@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { TimeTicket } from '../yorkie';
+
 /**
  * About `index`, `path`, `size` and `TreePos` in crdt.IndexTree.
  *
@@ -186,9 +188,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   abstract get isRemoved(): boolean;
 
   /**
-   * `clone` clones the node with the given id and value.
+   * `cloneText` clones the text node with the given id and value.
    */
-  abstract clone(offset: number): T;
+  abstract cloneText(offset: number): T;
+
+  /**
+   * `cloneElement` clones the element node with the given issueTimeTicket
+   * function and value.
+   */
+  abstract cloneElement(issueTimeTicket: () => TimeTicket): T;
 
   /**
    * `value` returns the value of the node.
@@ -217,7 +225,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.value = leftValue;
 
-    const rightNode = this.clone(offset + absOffset);
+    const rightNode = this.cloneText(offset + absOffset);
     rightNode.value = rightValue;
 
     this.parent!.insertAfterInternal(rightNode, this as any);
@@ -349,7 +357,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   /**
    * `splitElement` splits the given element at the given offset.
    */
-  splitElement(offset: number, absOffset: number): T | undefined {
+  splitElement(
+    offset: number,
+    issueTimeTicket: () => TimeTicket,
+  ): T | undefined {
     /**
      * TODO(hackerwins): Define ID of split node for concurrent editing.
      * Text has fixed content and its split nodes could have limited offset
@@ -358,7 +369,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
      * and its order could be broken when concurrent editing happens.
      * Currently, we use the similar ID of split element with the split text.
      */
-    const clone = this.clone(offset + absOffset);
+    const clone = this.cloneElement(issueTimeTicket);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
 

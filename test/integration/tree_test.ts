@@ -2576,7 +2576,43 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can split and merge with empty paragraph', async function ({ task }) {
+  it('can split and merge with empty paragraph: left', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      d1.update((root) => root.t.edit(1, 1, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p></p><p>ab</p></doc>`,
+      );
+      d1.update((root) => root.t.edit(1, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('can split and merge with empty paragraph: right', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2604,6 +2640,176 @@ describe('testing edge cases', () => {
 
       await c1.sync();
       await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('can split and merge with empty paragraph and multiple split level: left', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    { type: 'text', value: 'a' },
+                    { type: 'text', value: 'b' },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p>ab</p></p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 2));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p></p></p><p><p>ab</p></p></doc>`,
+      );
+      d1.update((root) => root.t.edit(2, 6));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><p>ab</p></p></doc>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('split at the same offset multiple times', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, { type: 'text', value: 'c' }));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ac</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 2, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>a</p><p>c</p><p>b</p></doc>`,
+      );
+
+      d1.update((root) => root.t.edit(2, 7, undefined));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ab</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('Can concurrently split and insert into original node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+                { type: 'text', value: 'c' },
+                { type: 'text', value: 'd' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => root.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
+      );
+
+      d2.update((root) => root.t.edit(2, 2, { type: 'text', value: 'e' }));
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>aebcd</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it.skip('Can concurrently split and insert into split node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+                { type: 'text', value: 'c' },
+                { type: 'text', value: 'd' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => root.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
+      );
+
+      d2.update((root) => root.t.edit(4, 4, { type: 'text', value: 'e' }));
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>abced</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
