@@ -1,35 +1,18 @@
 version: '3.3'
 
 services:
-  envoy:
-    build:
-      context: ./
-      dockerfile: ./envoy.Dockerfile
-    image: 'grpcweb:envoy'
-    container_name: 'envoy'
-    restart: always
-    ports:
-      - '8080:8080'
-      - '9901:9901'
-    command: ['/etc/envoy/envoy-ci.yaml']
-    depends_on:
-      - yorkie
   yorkie:
     image: 'krapi0314/yorkie:test'
     container_name: 'yorkie'
     command: [
       'server',
-      "--rpc-port",
-      '11101',
-      "--profiling-port",
-      '11102',
       '--mongo-connection-uri',
       'mongodb://mongo:27017',
     ]
     restart: always
     ports:
-      - '11101:11101'
-      - '11102:11102'
+      - '8080:8080'
+      - '8081:8081'
     depends_on:
       - mongo
   mongo:
