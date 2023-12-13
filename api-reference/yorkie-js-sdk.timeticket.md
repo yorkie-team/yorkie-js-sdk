@@ -22,6 +22,7 @@ export declare class TimeTicket
 |  [fromStruct(struct)](./yorkie-js-sdk.timeticket.fromstruct.md) | <code>static</code> | <code>fromStruct</code> creates an instance of Ticket from the struct. |
 |  [getActorID()](./yorkie-js-sdk.timeticket.getactorid.md) |  | <code>getActorID</code> returns actorID. |
 |  [getDelimiter()](./yorkie-js-sdk.timeticket.getdelimiter.md) |  | <code>getDelimiter</code> returns delimiter. |
+|  [getLamport()](./yorkie-js-sdk.timeticket.getlamport.md) |  | <code>getLamport</code> returns the lamport. |
 |  [getLamportAsString()](./yorkie-js-sdk.timeticket.getlamportasstring.md) |  | <code>getLamportAsString</code> returns the lamport string. |
 |  [of(lamport, delimiter, actorID)](./yorkie-js-sdk.timeticket.of.md) | <code>static</code> | <code>of</code> creates an instance of Ticket. |
 |  [setActor(actorID)](./yorkie-js-sdk.timeticket.setactor.md) |  | <code>setActor</code> creates a new instance of Ticket with the given actorID. |
