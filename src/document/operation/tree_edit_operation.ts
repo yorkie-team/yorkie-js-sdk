@@ -96,6 +96,13 @@ export class TreeEditOperation extends Operation {
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
       editedAt,
+      /**
+       * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
+       * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
+       * incremented by one for each.
+       * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
+       * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
+       */
       (() => {
         let delimiter = editedAt.getDelimiter();
         if (this.contents !== undefined) {

@@ -2733,4 +2733,84 @@ describe('testing edge cases', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
+
+  it('Can concurrently split and insert into original node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+                { type: 'text', value: 'c' },
+                { type: 'text', value: 'd' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => root.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
+      );
+
+      d2.update((root) => root.t.edit(2, 2, { type: 'text', value: 'e' }));
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>aebcd</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it.skip('Can concurrently split and insert into split node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'text', value: 'a' },
+                { type: 'text', value: 'b' },
+                { type: 'text', value: 'c' },
+                { type: 'text', value: 'd' },
+              ],
+            },
+          ],
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => root.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
+      );
+
+      d2.update((root) => root.t.edit(4, 4, { type: 'text', value: 'e' }));
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>abced</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
 });
