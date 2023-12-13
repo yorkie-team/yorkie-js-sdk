@@ -15,10 +15,14 @@ services:
     depends_on:
       - yorkie
   yorkie:
-    image: 'yorkieteam/yorkie:latest'
+    image: 'krapi0314/yorkie:test'
     container_name: 'yorkie'
     command: [
       'server',
+      "--rpc-port",
+      '11101',
+      "--profiling-port",
+      '11102',
       '--mongo-connection-uri',
       'mongodb://mongo:27017',
     ]
