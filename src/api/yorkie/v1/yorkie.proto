@@ -17,7 +17,7 @@ syntax = "proto3";
 
 package yorkie.v1;
 
-import "yorkie/v1/resources.proto";
+import "src/api/yorkie/v1/resources.proto";
 
 option go_package = "github.com/yorkie-team/yorkie/api/yorkie/v1;v1";
 
