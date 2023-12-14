@@ -2774,7 +2774,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it.skip('Can concurrently split and insert into split node', async function ({
+  it('Can concurrently split and insert into split node', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
