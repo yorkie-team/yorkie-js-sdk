@@ -687,7 +687,13 @@ export class CRDTTree extends CRDTGCElement {
     const [parent, leftSibling] = pos.toTreeNodes(this);
     let leftNode = leftSibling;
 
-    // 02. Split text node if the left node is a text node.
+    // 02. Determine whether the position is left-most and the exact parent
+    // in the current tree.
+    const isLeftMost = parent === leftNode;
+    const realParent =
+      leftNode.parent && !isLeftMost ? leftNode.parent : parent;
+
+    // 03. Split text node if the left node is a text node.
     if (leftNode.isText) {
       leftNode.split(
         this,
@@ -695,11 +701,11 @@ export class CRDTTree extends CRDTGCElement {
       );
     }
 
-    // 03. Find the appropriate left node. If some nodes are inserted at the
+    // 04. Find the appropriate left node. If some nodes are inserted at the
     // same position concurrently, then we need to find the appropriate left
     // node. This is similar to RGA.
-    const allChildren = parent.allChildren;
-    const index = parent === leftNode ? 0 : allChildren.indexOf(leftNode) + 1;
+    const allChildren = realParent.allChildren;
+    const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
 
     for (let i = index; i < parent.allChildren.length; i++) {
       const next = allChildren[i];
@@ -710,7 +716,7 @@ export class CRDTTree extends CRDTGCElement {
       leftNode = next;
     }
 
-    return [parent, leftNode];
+    return [realParent, leftNode];
   }
 
   /**
