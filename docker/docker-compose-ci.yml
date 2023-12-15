@@ -2,13 +2,9 @@ version: '3.3'
 
 services:
   yorkie:
-    image: 'krapi0314/yorkie:test'
+    image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
-    command: [
-      'server',
-      '--mongo-connection-uri',
-      'mongodb://mongo:27017',
-    ]
+    command: ['server', '--mongo-connection-uri', 'mongodb://mongo:27017']
     restart: always
     ports:
       - '8080:8080'
