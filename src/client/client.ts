@@ -39,14 +39,8 @@ import {
   DocumentKey,
   DocumentStatus,
 } from '@yorkie-js-sdk/src/document/document';
-import {
-  AuthUnaryInterceptor,
-  AuthStreamInterceptor,
-} from '@yorkie-js-sdk/src/client/auth_interceptor';
-import {
-  MetricUnaryInterceptor,
-  MetricStreamInterceptor,
-} from '@yorkie-js-sdk/src/client/metric_interceptor';
+import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
+import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 /**
@@ -326,33 +320,18 @@ export class Client implements Observable<ClientEvent> {
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
 
-    const rpcOpts = {
-      unaryInterceptors: [new MetricUnaryInterceptor()],
-      streamInterceptors: [new MetricStreamInterceptor()],
-    };
-
-    if (opts.apiKey || opts.token) {
-      rpcOpts.unaryInterceptors.push(
-        new AuthUnaryInterceptor(opts.apiKey, opts.token),
-      );
-      rpcOpts.streamInterceptors.push(
-        new AuthStreamInterceptor(opts.apiKey, opts.token),
-      );
-    }
-
-    // The transport defines what type of endpoint we're hitting.
-    // In our example we'll be communicating with a Connect endpoint.
-    // If your endpoint only supports gRPC-web, make sure to use
-    // `createGrpcWebTransport` instead.
-    const transport = createGrpcWebTransport({
-      baseUrl: rpcAddr,
-      // skip interceptors for now because they are metric interceptors
-      //interceptors: rpcOpts.unaryInterceptors,
-    });
-
     // Here we make the client itself, combining the service
     // definition with the transport.
-    this.rpcClient = createPromiseClient(YorkieService, transport);
+    this.rpcClient = createPromiseClient(
+      YorkieService,
+      createGrpcWebTransport({
+        baseUrl: rpcAddr,
+        interceptors: [
+          createAuthInterceptor(opts.apiKey, opts.token),
+          createMetricInterceptor(),
+        ],
+      }),
+    );
 
     this.eventStream = createObservable<ClientEvent>((observer) => {
       this.eventStreamObserver = observer;

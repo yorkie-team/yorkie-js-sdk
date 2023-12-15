@@ -15,35 +15,15 @@
  */
 
 import pkg from '../../package.json';
+import { Interceptor } from '@connectrpc/connect';
 
 /**
- * `MetricUnaryInterceptor` is a unary interceptor to add the yorkie user agent header
- * for each request.
+ * `createMetricInterceptor` creates an interceptor to add the x-yorkie-user-agent header for each
+ * request.
  */
-export class MetricUnaryInterceptor {
-  /**
-   * `intercept` intercepts the request and adds the token to the metadata.
-   */
-  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  public intercept(request: any, invoker: any): any {
-    const metadata = request.getMetadata();
-    metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
-    return invoker(request);
-  }
-}
-
-/**
- * `MetricStreamInterceptor` is a stream interceptor to add the yorkie user agent header
- * for each request.
- */
-export class MetricStreamInterceptor {
-  /**
-   * `intercept` intercepts the request and adds the token to the metadata.
-   */
-  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  public intercept(request: any, invoker: any): any {
-    const metadata = request.getMetadata();
-    metadata['x-yorkie-user-agent'] = pkg.name + '/' + pkg.version;
-    return invoker(request);
-  }
+export function createMetricInterceptor(): Interceptor {
+  return (next) => async (req) => {
+    req.header.set('x-yorkie-user-agent', pkg.name + '/' + pkg.version);
+    return await next(req);
+  };
 }
