@@ -1252,6 +1252,71 @@ describe('Concurrent editing, overlapping range', () => {
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
     }, task.name);
   });
+
+  it('overlapping-merge-and-merge', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(5, 7));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+    }, task.name);
+  });
+
+  it.skip('overlapping-merge-and-delete', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(3, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+    }, task.name);
+  });
 });
 
 describe('Concurrent editing, contained range', () => {
@@ -1541,6 +1606,521 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, task.name);
+  });
+
+  it('contained-split-and-split-at-the-same-position', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(2, 2, undefined, 1));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p></p><p>b</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p></p><p>b</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('contained-split-and-split-at-diffrent-positions-on-the-same-node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'abc' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(3, 3, undefined, 1));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it.skip('contained-split-and-split-at-different-levels', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'p', children: [{ type: 'text', value: 'c' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p><p>c</p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p><p>c</p></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(3, 3, undefined, 1));
+      d2.update((r) => r.t.edit(5, 5, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p><p>c</p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p></p><p><p>c</p></p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p><p><p>c</p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p><p><p>c</p></p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('contained-split-and-insert-into-the-split-position', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(2, 2, { type: 'text', value: 'c' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>acb</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ac</p><p>b</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-split-and-insert-into-original-node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(1, 1, { type: 'text', value: 'c' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>cab</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ca</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ca</p><p>b</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-split-and-insert-into-split-node', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(3, 3, { type: 'text', value: 'c' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-split-and-delete-contents-in-split-node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(2, 3));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p></p></r>`);
+    }, task.name);
+  });
+
+  it.skip('contained-split-and-delete-the-whole-original-and-split-nodes', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(0, 4));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, task.name);
+  });
+
+  it('contained-merge-and-merge', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'a' }] },
+                { type: 'p', children: [{ type: 'text', value: 'b' }] },
+              ],
+            },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p><p>c</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(3, 5));
+      d2.update((r) => r.t.edit(7, 9));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p></p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p>c</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><p>ab</p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><p>ab</p>c</p></r>`);
+    }, task.name);
+  });
+
+  it.skip('contained-merge-and-insert', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(4, 4, { type: 'text', value: 'c' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>cb</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>acb</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>acb</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-merge-and-delete-the-whole', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(0, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, task.name);
+  });
+
+  it.skip('contained-merge-and-delete-contents-in-merged-node', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'bc' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(4, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>c</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-merge-and-delete-sub-range-in-merged-range', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 7));
+      d2.update((r) => r.t.edit(3, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>c</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-merge-and-split-merged-node', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'bc' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(5, 5, undefined, 1));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abc</p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+    }, task.name);
+  });
+
+  it('contained-merge-and-split-at-multi-levels', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'a' }] },
+                { type: 'p', children: [{ type: 'text', value: 'b' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p><p>b</p></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(3, 5));
+      d2.update((r) => r.t.edit(4, 4, undefined, 1));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><p>ab</p></p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p></p><p><p>b</p></p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p></p><p></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>ab</p></p><p></p></r>`,
+      );
     }, task.name);
   });
 });
@@ -2032,6 +2612,286 @@ describe('Concurrent editing, side by side range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12</p></r>`);
+    }, task.name);
+  });
+
+  it('side-by-side-split-and-split', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(6, 6, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it.skip('side-by-side-split-and-insert', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) =>
+        r.t.edit(4, 4, { type: 'p', children: [{ type: 'text', value: 'c' }] }),
+      );
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it.skip('side-by-side-split-and-delete', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      d2.update((r) => r.t.edit(4, 7));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+    }, task.name);
+  });
+
+  it('side-by-side-merge-and-merge', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+            { type: 'p', children: [{ type: 'text', value: 'd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(8, 10));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('side-by-side-merge-and-insert', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) =>
+        r.t.edit(6, 6, { type: 'p', children: [{ type: 'text', value: 'c' }] }),
+      );
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+    }, task.name);
+  });
+
+  it('side-by-side-merge-and-delete', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(6, 9));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p>c</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+    }, task.name);
+  });
+
+  it('side-by-side-merge-and-split', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(8, 8, undefined, 1));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
     }, task.name);
   });
 });
@@ -2730,86 +3590,6 @@ describe('testing edge cases', () => {
 
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
-    }, task.name);
-  });
-
-  it('Can concurrently split and insert into original node', async function ({
-    task,
-  }) {
-    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
-        root.t = new Tree({
-          type: 'doc',
-          children: [
-            {
-              type: 'p',
-              children: [
-                { type: 'text', value: 'a' },
-                { type: 'text', value: 'b' },
-                { type: 'text', value: 'c' },
-                { type: 'text', value: 'd' },
-              ],
-            },
-          ],
-        });
-      });
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
-      await c1.sync();
-      await c2.sync();
-
-      d1.update((root) => root.t.edit(3, 3, undefined, 1));
-      assert.equal(
-        d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
-      );
-
-      d2.update((root) => root.t.edit(2, 2, { type: 'text', value: 'e' }));
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>aebcd</p></doc>`);
-
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
-    }, task.name);
-  });
-
-  it('Can concurrently split and insert into split node', async function ({
-    task,
-  }) {
-    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
-      d1.update((root) => {
-        root.t = new Tree({
-          type: 'doc',
-          children: [
-            {
-              type: 'p',
-              children: [
-                { type: 'text', value: 'a' },
-                { type: 'text', value: 'b' },
-                { type: 'text', value: 'c' },
-                { type: 'text', value: 'd' },
-              ],
-            },
-          ],
-        });
-      });
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>abcd</p></doc>`);
-      await c1.sync();
-      await c2.sync();
-
-      d1.update((root) => root.t.edit(3, 3, undefined, 1));
-      assert.equal(
-        d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
-      );
-
-      d2.update((root) => root.t.edit(4, 4, { type: 'text', value: 'e' }));
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>abced</p></doc>`);
-
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
