@@ -192,7 +192,7 @@ export function useMultiplayerState(roomId: string) {
     // Setup the document's storage and subscriptions
     async function setupDocument() {
       try {
-        // 01. Create client with RPCAddr(envoy) and options with apiKey if provided.
+        // 01. Create client with RPCAddr and options with apiKey if provided.
         //     Then activate client.
         const options: Options = {
           apiKey: import.meta.env.VITE_YORKIE_API_KEY,

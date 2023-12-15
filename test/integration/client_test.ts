@@ -89,31 +89,22 @@ describe.sequential('Client', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      vi.stubGlobal(
-        'XMLHttpRequest',
-        vi.fn(() => ({
-          send: (req: any) => {
-            req.respond(
-              400,
-              { 'Content-Type': 'application/grpc-web-text+proto' },
-              '',
-            );
-          },
-          abort: vi.fn(() => {
-            throw new Error('INVALID_STATE_ERR - 0');
-          }),
-        })),
-      );
+      // Simulate network error with fetch
+      vi.stubGlobal('fetch', () => {
+        return Promise.resolve().then(() => {
+          throw new Error('Failed to fetch');
+        });
+      });
 
       d2.update((root) => {
         root['k1'] = 'v1';
       });
 
       await c2.sync().catch((err) => {
-        assert.equal(err.message, 'INVALID_STATE_ERR - 0');
+        assert.equal(err.message, '[unknown] Failed to fetch');
       });
       await c1.sync().catch((err) => {
-        assert.equal(err.message, 'INVALID_STATE_ERR - 0');
+        assert.equal(err.message, '[unknown] Failed to fetch');
       });
       assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
       assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
@@ -186,21 +177,11 @@ describe.sequential('Client', function () {
     eventCollectorC2.reset();
 
     // Simulate network error
-    vi.stubGlobal(
-      'XMLHttpRequest',
-      vi.fn(() => ({
-        send: (req: any) => {
-          req.respond(
-            400,
-            { 'Content-Type': 'application/grpc-web-text+proto' },
-            '',
-          );
-        },
-        abort: vi.fn(() => {
-          throw new Error('INVALID_STATE_ERR - 0');
-        }),
-      })),
-    );
+    vi.stubGlobal('fetch', () => {
+      return Promise.resolve().then(() => {
+        throw new Error('Failed to fetch');
+      });
+    });
 
     d2.update((root) => {
       root['k1'] = 'v1';
@@ -210,7 +191,7 @@ describe.sequential('Client', function () {
     await eventCollectorC2.waitFor(DocumentSyncResultType.SyncFailed); // c2 should fail to sync
 
     await c1.sync().catch((err) => {
-      assert.equal(err.message, 'INVALID_STATE_ERR - 0'); // c1 should also fail to sync
+      assert.equal(err.message, '[unknown] Failed to fetch'); // c1 should also fail to sync
     });
     await eventCollectorC1.waitFor(DocumentSyncResultType.SyncFailed);
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');

@@ -4,7 +4,7 @@ import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
-export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://localhost:8080';
+export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://127.0.0.1:8080';
 
 export function toDocKey(title: string): string {
   return title

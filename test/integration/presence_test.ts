@@ -114,43 +114,38 @@ describe('Presence', function () {
     const c2ID = c2.getID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const eventCollectorP1 = new EventCollector<DocEvent>();
-    const eventCollectorP2 = new EventCollector<DocEvent>();
-    type PresenceType = { name: string };
-    const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, { initialPresence: { name: 'a' } });
-    const stub1 = vi.fn().mockImplementation((event) => {
-      eventCollectorP1.add(event);
-    });
-    const unsub1 = doc1.subscribe('presence', stub1);
+    const events1 = new EventCollector<DocEvent>();
+    const events2 = new EventCollector<DocEvent>();
 
-    const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
+    const doc1 = new yorkie.Document<{}, { name: string }>(docKey);
+    await c1.attach(doc1, { initialPresence: { name: 'a' } });
+    const unsub1 = doc1.subscribe('presence', (event) => events1.add(event));
+
+    const doc2 = new yorkie.Document<{}, { name: string }>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
-    const stub2 = vi.fn().mockImplementation((event) => {
-      eventCollectorP2.add(event);
-    });
-    const unsub2 = doc2.subscribe('presence', stub2);
-    await eventCollectorP1.waitAndVerifyNthEvent(1, {
+    const unsub2 = doc2.subscribe('presence', (event) => events2.add(event));
+
+    await events1.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: { name: 'b' } },
     });
 
-    doc1.update((root, p) => p.set({ name: 'A' }));
-    doc2.update((root, p) => p.set({ name: 'B' }));
+    doc1.update((r, p) => p.set({ name: 'A' }));
+    doc2.update((r, p) => p.set({ name: 'B' }));
 
-    await eventCollectorP1.waitAndVerifyNthEvent(2, {
+    await events1.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: { name: 'A' } },
     });
-    await eventCollectorP1.waitAndVerifyNthEvent(3, {
+    await events1.waitAndVerifyNthEvent(3, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c2ID, presence: { name: 'B' } },
     });
-    await eventCollectorP2.waitAndVerifyNthEvent(1, {
+    await events2.waitAndVerifyNthEvent(1, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c2ID, presence: { name: 'B' } },
     });
-    await eventCollectorP2.waitAndVerifyNthEvent(2, {
+    await events2.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: { clientID: c1ID, presence: { name: 'A' } },
     });
@@ -423,6 +418,9 @@ describe(`Document.Subscribe('presence')`, function () {
   it(`Can receive presence-related event only when using realtime sync`, async function ({
     task,
   }) {
+    type PresenceType = { name: string; cursor: { x: number; y: number } };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -432,17 +430,12 @@ describe(`Document.Subscribe('presence')`, function () {
     const c2ID = c2.getID()!;
     const c3ID = c3.getID()!;
 
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    type PresenceType = { name: string; cursor: { x: number; y: number } };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { name: 'a1', cursor: { x: 0, y: 0 } },
     });
-    const eventCollector = new EventCollector<DocEvent>();
-    const stub = vi.fn().mockImplementation((event) => {
-      eventCollector.add(event);
-    });
-    const unsub = doc1.subscribe('presence', stub);
+    const events = new EventCollector<DocEvent>();
+    const unsub = doc1.subscribe('presence', (event) => events.add(event));
 
     // 01. c2 attaches doc in realtime sync, and c3 attached doc in manual sync.
     //     c1 receives the watched event from c2.
@@ -455,7 +448,7 @@ describe(`Document.Subscribe('presence')`, function () {
       initialPresence: { name: 'c1', cursor: { x: 0, y: 0 } },
       isRealtimeSync: false,
     });
-    await eventCollector.waitAndVerifyNthEvent(1, {
+    await events.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: {
         clientID: c2ID,
@@ -465,13 +458,9 @@ describe(`Document.Subscribe('presence')`, function () {
 
     // 02. c2 and c3 update the presence.
     //     c1 receives the presence-changed event from c2.
-    doc2.update((_, presence) => {
-      presence.set({ name: 'b2' });
-    });
-    doc3.update((_, presence) => {
-      presence.set({ name: 'c2' });
-    });
-    await eventCollector.waitAndVerifyNthEvent(2, {
+    doc2.update((_, p) => p.set({ name: 'b2' }));
+    doc3.update((_, p) => p.set({ name: 'c2' }));
+    await events.waitAndVerifyNthEvent(2, {
       type: DocEventType.PresenceChanged,
       value: {
         clientID: c2ID,
@@ -481,7 +470,7 @@ describe(`Document.Subscribe('presence')`, function () {
 
     // 03-1. c2 pauses the document, c1 receives an unwatched event from c2.
     await c2.pause(doc2);
-    await eventCollector.waitAndVerifyNthEvent(3, {
+    await events.waitAndVerifyNthEvent(3, {
       type: DocEventType.Unwatched,
       value: {
         clientID: c2ID,
@@ -496,7 +485,7 @@ describe(`Document.Subscribe('presence')`, function () {
     await c3.sync();
     await c1.sync();
     await c3.resume(doc3);
-    await eventCollector.waitAndVerifyNthEvent(4, {
+    await events.waitAndVerifyNthEvent(4, {
       type: DocEventType.Watched,
       value: {
         clientID: c3ID,
@@ -506,13 +495,9 @@ describe(`Document.Subscribe('presence')`, function () {
 
     // 04. c2 and c3 update the presence.
     //     c1 receives the presence-changed event from c3.
-    doc2.update((_, presence) => {
-      presence.set({ name: 'b3' });
-    });
-    doc3.update((_, presence) => {
-      presence.set({ name: 'c3' });
-    });
-    await eventCollector.waitAndVerifyNthEvent(5, {
+    doc2.update((_, p) => p.set({ name: 'b3' }));
+    doc3.update((_, p) => p.set({ name: 'c3' }));
+    await events.waitAndVerifyNthEvent(5, {
       type: DocEventType.PresenceChanged,
       value: {
         clientID: c3ID,
@@ -522,7 +507,7 @@ describe(`Document.Subscribe('presence')`, function () {
 
     // 05-1. c3 pauses the document, c1 receives an unwatched event from c3.
     await c3.pause(doc3);
-    await eventCollector.waitAndVerifyNthEvent(6, {
+    await events.waitAndVerifyNthEvent(6, {
       type: DocEventType.Unwatched,
       value: {
         clientID: c3ID,
@@ -534,7 +519,7 @@ describe(`Document.Subscribe('presence')`, function () {
     await c2.sync();
     await c1.sync();
     await c2.resume(doc2);
-    await eventCollector.waitAndVerifyNthEvent(7, {
+    await events.waitAndVerifyNthEvent(7, {
       type: DocEventType.Watched,
       value: {
         clientID: c2ID,

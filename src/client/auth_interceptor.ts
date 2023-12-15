@@ -14,60 +14,23 @@
  * limitations under the License.
  */
 
-/**
- * `AuthUnaryInterceptor` is a unary interceptor to add the Authorization header for each
- * request.
- */
-export class AuthUnaryInterceptor {
-  private apiKey?: string;
-  private token?: string;
-
-  constructor(apiKey?: string, token?: string) {
-    this.apiKey = apiKey;
-    this.token = token;
-  }
-
-  /**
-   * `intercept` intercepts the request and adds the token to the metadata.
-   */
-  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  public intercept(request: any, invoker: any): any {
-    const metadata = request.getMetadata();
-    if (this.apiKey) {
-      metadata['x-api-key'] = this.apiKey;
-    }
-    if (this.token) {
-      metadata['authorization'] = this.token;
-    }
-    return invoker(request);
-  }
-}
+import { Interceptor } from '@connectrpc/connect';
 
 /**
- * `AuthStreamInterceptor` is a stream interceptor to add the Authorization header for each
+ * `createAuthInterceptor` creates an interceptor to add the Authorization header for each
  * request.
  */
-export class AuthStreamInterceptor {
-  private apiKey?: string;
-  private token?: string;
-
-  constructor(apiKey?: string, token?: string) {
-    this.apiKey = apiKey;
-    this.token = token;
-  }
-
-  /**
-   * `intercept` intercepts the request and adds the token to the metadata.
-   */
-  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-  public intercept(request: any, invoker: any): any {
-    const metadata = request.getMetadata();
-    if (this.apiKey) {
-      metadata['x-api-key'] = this.apiKey;
+export function createAuthInterceptor(
+  apiKey?: string,
+  token?: string,
+): Interceptor {
+  return (next) => async (req) => {
+    if (apiKey) {
+      req.header.set('x-api-key', apiKey);
     }
-    if (this.token) {
-      metadata['authorization'] = this.token;
+    if (token) {
+      req.header.set('authorization', token);
     }
-    return invoker(request);
-  }
+    return await next(req);
+  };
 }

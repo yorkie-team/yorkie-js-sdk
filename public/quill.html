@@ -64,7 +64,7 @@
 
       async function main() {
         try {
-          // 01. create client with RPCAddr(envoy) then activate it.
+          // 01. create client with RPCAddr then activate it.
           const client = new yorkie.Client('http://localhost:8080');
           await client.activate();
           client.subscribe(network.statusListener(networkStatusElem));

@@ -1,0 +1,12 @@
+version: v1
+plugins:
+  - plugin: es
+    out: .
+    opt: 
+    - target=js+dts
+    - js_import_style=legacy_commonjs
+  - plugin: connect-es
+    out: .
+    opt: 
+    - target=js+dts
+    - js_import_style=legacy_commonjs

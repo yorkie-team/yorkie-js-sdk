@@ -61,9 +61,9 @@ $ npm run build:proto
 > Primary "source of truth" location of protobuf message is
 > in [yorkie](https://github.com/yorkie-team/yorkie/tree/main/api). We manage the messages in the repository.
 
-### Testing yorkie-js-sdk with Envoy, Yorkie and MongoDB.
+### Testing yorkie-js-sdk with Yorkie and MongoDB.
 
-Start MongoDB, Yorkie and Envoy proxy in a terminal session.
+Start MongoDB, Yorkie in a terminal session.
 
 ```bash
 $ docker-compose -f docker/docker-compose.yml up --build -d
@@ -112,7 +112,7 @@ $ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
 
 ### Starting co-editing example with CodeMirror
 
-Start MongoDB, Yorkie and Envoy proxy in a terminal session.
+Start MongoDB and Yorkie in a terminal session.
 
 ```bash
 $ docker-compose -f docker/docker-compose.yml up --build -d

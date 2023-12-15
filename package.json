@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "webpack --config ./config/webpack.config.js && npm run api-report && npm run prune",
-    "build:proto": "protoc -I=./src/api --js_out=import_style=commonjs:./src/api --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:./src/api ./src/api/yorkie/v1/*.proto",
+    "build:proto": "npx buf generate",
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "build:examples": "npm run build --workspace examples",
     "build:create-yorkie-app": "npm run build --workspace create-yorkie-app",
@@ -46,6 +46,9 @@
   },
   "homepage": "https://github.com/yorkie-team/yorkie-js-sdk#readme",
   "devDependencies": {
+    "@bufbuild/buf": "^1.28.1",
+    "@bufbuild/protoc-gen-es": "^1.6.0",
+    "@connectrpc/protoc-gen-connect-es": "^1.2.0",
     "@microsoft/api-documenter": "^7.15.1",
     "@microsoft/api-extractor": "^7.19.4",
     "@types/benchmark": "^2.1.1",
@@ -85,8 +88,9 @@
     "yargs": "^17.0.1"
   },
   "dependencies": {
-    "google-protobuf": "^3.19.4",
-    "grpc-web": "^1.3.1",
+    "@bufbuild/protobuf": "^1.6.0",
+    "@connectrpc/connect": "^1.2.0",
+    "@connectrpc/connect-web": "^1.2.0",
     "long": "^5.2.0"
   },
   "husky": {

@@ -118,7 +118,7 @@ export default function App() {
       doc: Document<{ todos: JSONArray<Todo> }>,
       callback: (todos: any) => void,
     ) {
-      // 01. create client with RPCAddr(envoy) then activate it.
+      // 01. create client with RPCAddr then activate it.
       await client.activate();
 
       // 02. attach the document into the client.

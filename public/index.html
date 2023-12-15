@@ -323,7 +323,7 @@
           });
           devtool.setCodeMirror(codemirror);
 
-          // 02-1. create client with RPCAddr(envoy).
+          // 02-1. create client with RPCAddr.
           const client = new yorkie.Client('http://localhost:8080');
           // 02-2. subscribe client event.
           client.subscribe(network.statusListener(statusHolder));

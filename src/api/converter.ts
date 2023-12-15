@@ -15,7 +15,6 @@
  */
 
 import Long from 'long';
-import * as jspb from 'google-protobuf';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
@@ -79,6 +78,22 @@ import {
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
   ValueType as PbValueType,
+  JSONElement_Tree as PbJSONElement_Tree,
+  JSONElement_Text as PbJSONElement_Text,
+  JSONElement_Primitive as PbJSONElement_Primitive,
+  JSONElement_Counter as PbJSONElement_Counter,
+  JSONElement_JSONObject as PbJSONElement_JSONObject,
+  JSONElement_JSONArray as PbJSONElement_JSONArray,
+  PresenceChange_ChangeType as PbPresenceChange_ChangeType,
+  Operation_Set as PbOperation_Set,
+  Operation_Add as PbOperation_Add,
+  Operation_Move as PbOperation_Move,
+  Operation_Remove as PbOperation_Remove,
+  Operation_Edit as PbOperation_Edit,
+  Operation_Style as PbOperation_Style,
+  Operation_Increase as PbOperation_Increase,
+  Operation_TreeEdit as PbOperation_TreeEdit,
+  Operation_TreeStyle as PbOperation_TreeStyle,
 } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
 import {
@@ -99,9 +114,9 @@ import { RHT } from '../document/crdt/rht';
  */
 function toPresence(presence: Indexable): PbPresence {
   const pbPresence = new PbPresence();
-  const pbDataMap = pbPresence.getDataMap();
+  const pbDataMap = pbPresence.data;
   for (const [key, value] of Object.entries(presence)) {
-    pbDataMap.set(key, JSON.stringify(value));
+    pbDataMap[key] = JSON.stringify(value);
   }
   return pbPresence;
 }
@@ -112,37 +127,40 @@ function toPresence(presence: Indexable): PbPresence {
 function toPresenceChange(
   presenceChange: PresenceChange<Indexable>,
 ): PbPresenceChange {
-  const pbPresenceChange = new PbPresenceChange();
-
   if (presenceChange.type === PresenceChangeType.Put) {
-    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_PUT);
-    pbPresenceChange.setPresence(toPresence(presenceChange.presence));
-  } else if (presenceChange.type === PresenceChangeType.Clear) {
-    pbPresenceChange.setType(PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR);
+    return new PbPresenceChange({
+      type: PbPresenceChange_ChangeType.PUT,
+      presence: toPresence(presenceChange.presence),
+    });
+  }
+  if (presenceChange.type === PresenceChangeType.Clear) {
+    return new PbPresenceChange({
+      type: PbPresenceChange_ChangeType.CLEAR,
+    });
   }
 
-  return pbPresenceChange;
+  throw new YorkieError(Code.Unimplemented, `unimplemented type`);
 }
 
 /**
  * `toCheckpoint` converts the given model to Protobuf format.
  */
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
-  const pbCheckpoint = new PbCheckpoint();
-  pbCheckpoint.setServerSeq(checkpoint.getServerSeqAsString());
-  pbCheckpoint.setClientSeq(checkpoint.getClientSeq());
-  return pbCheckpoint;
+  return new PbCheckpoint({
+    serverSeq: checkpoint.getServerSeqAsString(),
+    clientSeq: checkpoint.getClientSeq(),
+  });
 }
 
 /**
  * `toChangeID` converts the given model to Protobuf format.
  */
 function toChangeID(changeID: ChangeID): PbChangeID {
-  const pbChangeID = new PbChangeID();
-  pbChangeID.setClientSeq(changeID.getClientSeq());
-  pbChangeID.setLamport(changeID.getLamportAsString());
-  pbChangeID.setActorId(toUint8Array(changeID.getActorID()!));
-  return pbChangeID;
+  return new PbChangeID({
+    clientSeq: changeID.getClientSeq(),
+    lamport: changeID.getLamportAsString(),
+    actorId: toUint8Array(changeID.getActorID()!),
+  });
 }
 
 /**
@@ -153,11 +171,11 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
     return;
   }
 
-  const pbTimeTicket = new PbTimeTicket();
-  pbTimeTicket.setLamport(ticket.getLamportAsString());
-  pbTimeTicket.setDelimiter(ticket.getDelimiter());
-  pbTimeTicket.setActorId(toUint8Array(ticket.getActorID()!));
-  return pbTimeTicket;
+  return new PbTimeTicket({
+    lamport: ticket.getLamportAsString(),
+    delimiter: ticket.getDelimiter(),
+    actorId: toUint8Array(ticket.getActorID()!),
+  });
 }
 
 /**
@@ -166,21 +184,21 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
 function toValueType(valueType: PrimitiveType): PbValueType {
   switch (valueType) {
     case PrimitiveType.Null:
-      return PbValueType.VALUE_TYPE_NULL;
+      return PbValueType.NULL;
     case PrimitiveType.Boolean:
-      return PbValueType.VALUE_TYPE_BOOLEAN;
+      return PbValueType.BOOLEAN;
     case PrimitiveType.Integer:
-      return PbValueType.VALUE_TYPE_INTEGER;
+      return PbValueType.INTEGER;
     case PrimitiveType.Long:
-      return PbValueType.VALUE_TYPE_LONG;
+      return PbValueType.LONG;
     case PrimitiveType.Double:
-      return PbValueType.VALUE_TYPE_DOUBLE;
+      return PbValueType.DOUBLE;
     case PrimitiveType.String:
-      return PbValueType.VALUE_TYPE_STRING;
+      return PbValueType.STRING;
     case PrimitiveType.Bytes:
-      return PbValueType.VALUE_TYPE_BYTES;
+      return PbValueType.BYTES;
     case PrimitiveType.Date:
-      return PbValueType.VALUE_TYPE_DATE;
+      return PbValueType.DATE;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -192,9 +210,9 @@ function toValueType(valueType: PrimitiveType): PbValueType {
 function toCounterType(valueType: CounterType): PbValueType {
   switch (valueType) {
     case CounterType.IntegerCnt:
-      return PbValueType.VALUE_TYPE_INTEGER_CNT;
+      return PbValueType.INTEGER_CNT;
     case CounterType.LongCnt:
-      return PbValueType.VALUE_TYPE_LONG_CNT;
+      return PbValueType.LONG_CNT;
     default:
       throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
   }
@@ -204,79 +222,90 @@ function toCounterType(valueType: CounterType): PbValueType {
  * `toElementSimple` converts the given model to Protobuf format.
  */
 function toElementSimple(element: CRDTElement): PbJSONElementSimple {
-  const pbElementSimple = new PbJSONElementSimple();
   if (element instanceof CRDTObject) {
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_OBJECT);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-    pbElementSimple.setValue(objectToBytes(element));
-  } else if (element instanceof CRDTArray) {
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_JSON_ARRAY);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-    pbElementSimple.setValue(arrayToBytes(element));
-  } else if (element instanceof CRDTText) {
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_TEXT);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-  } else if (element instanceof Primitive) {
-    const primitive = element as Primitive;
-    pbElementSimple.setType(toValueType(primitive.getType()));
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-    pbElementSimple.setValue(element.toBytes());
-  } else if (element instanceof CRDTCounter) {
-    const counter = element as CRDTCounter;
-    pbElementSimple.setType(toCounterType(counter.getType()));
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-    pbElementSimple.setValue(element.toBytes());
-  } else if (element instanceof CRDTTree) {
-    const tree = element as CRDTTree;
-    pbElementSimple.setType(PbValueType.VALUE_TYPE_TREE);
-    pbElementSimple.setCreatedAt(toTimeTicket(element.getCreatedAt()));
-    pbElementSimple.setValue(treeToBytes(tree));
-  } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+    return new PbJSONElementSimple({
+      type: PbValueType.JSON_OBJECT,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: objectToBytes(element),
+    });
+  }
+  if (element instanceof CRDTArray) {
+    return new PbJSONElementSimple({
+      type: PbValueType.JSON_ARRAY,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: arrayToBytes(element),
+    });
+  }
+  if (element instanceof CRDTText) {
+    return new PbJSONElementSimple({
+      type: PbValueType.TEXT,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+    });
+  }
+  if (element instanceof Primitive) {
+    return new PbJSONElementSimple({
+      type: toValueType(element.getType()),
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: element.toBytes(),
+    });
+  }
+  if (element instanceof CRDTCounter) {
+    return new PbJSONElementSimple({
+      type: toCounterType(element.getType()),
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: element.toBytes(),
+    });
+  }
+  if (element instanceof CRDTTree) {
+    return new PbJSONElementSimple({
+      type: PbValueType.TREE,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: treeToBytes(element),
+    });
   }
 
-  return pbElementSimple;
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
  * `toTextNodeID` converts the given model to Protobuf format.
  */
 function toTextNodeID(id: RGATreeSplitNodeID): PbTextNodeID {
-  const pbTextNodeID = new PbTextNodeID();
-  pbTextNodeID.setCreatedAt(toTimeTicket(id.getCreatedAt()));
-  pbTextNodeID.setOffset(id.getOffset());
-  return pbTextNodeID;
+  return new PbTextNodeID({
+    createdAt: toTimeTicket(id.getCreatedAt()),
+    offset: id.getOffset(),
+  });
 }
 
 /**
  * `toTextNodePos` converts the given model to Protobuf format.
  */
 function toTextNodePos(pos: RGATreeSplitPos): PbTextNodePos {
-  const pbTextNodePos = new PbTextNodePos();
-  pbTextNodePos.setCreatedAt(toTimeTicket(pos.getID().getCreatedAt()));
-  pbTextNodePos.setOffset(pos.getID().getOffset());
-  pbTextNodePos.setRelativeOffset(pos.getRelativeOffset());
-  return pbTextNodePos;
+  return new PbTextNodePos({
+    createdAt: toTimeTicket(pos.getID().getCreatedAt()),
+    offset: pos.getID().getOffset(),
+    relativeOffset: pos.getRelativeOffset(),
+  });
 }
 
 /**
  * `toTreePos` converts the given model to Protobuf format.
  */
 function toTreePos(pos: CRDTTreePos): PbTreePos {
-  const pbTreePos = new PbTreePos();
-  pbTreePos.setParentId(toTreeNodeID(pos.getParentID()));
-  pbTreePos.setLeftSiblingId(toTreeNodeID(pos.getLeftSiblingID()));
-  return pbTreePos;
+  return new PbTreePos({
+    parentId: toTreeNodeID(pos.getParentID()),
+    leftSiblingId: toTreeNodeID(pos.getLeftSiblingID()),
+  });
 }
 
 /**
  * `toTreeNodeID` converts the given model to Protobuf format.
  */
 function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
-  const pbTreeNodeID = new PbTreeNodeID();
-  pbTreeNodeID.setCreatedAt(toTimeTicket(treeNodeID.getCreatedAt()));
-  pbTreeNodeID.setOffset(treeNodeID.getOffset());
-  return pbTreeNodeID;
+  return new PbTreeNodeID({
+    createdAt: toTimeTicket(treeNodeID.getCreatedAt()),
+    offset: treeNodeID.getOffset(),
+  });
 }
 
 /**
@@ -287,141 +316,145 @@ function toOperation(operation: Operation): PbOperation {
 
   if (operation instanceof SetOperation) {
     const setOperation = operation as SetOperation;
-    const pbSetOperation = new PbOperation.Set();
-    pbSetOperation.setParentCreatedAt(
-      toTimeTicket(setOperation.getParentCreatedAt()),
+    const pbSetOperation = new PbOperation_Set();
+    pbSetOperation.parentCreatedAt = toTimeTicket(
+      setOperation.getParentCreatedAt(),
     );
-    pbSetOperation.setKey(setOperation.getKey());
-    pbSetOperation.setValue(toElementSimple(setOperation.getValue()));
-    pbSetOperation.setExecutedAt(toTimeTicket(setOperation.getExecutedAt()));
-    pbOperation.setSet(pbSetOperation);
+    pbSetOperation.key = setOperation.getKey();
+    pbSetOperation.value = toElementSimple(setOperation.getValue());
+    pbSetOperation.executedAt = toTimeTicket(setOperation.getExecutedAt());
+    pbOperation.body.case = 'set';
+    pbOperation.body.value = pbSetOperation;
   } else if (operation instanceof AddOperation) {
     const addOperation = operation as AddOperation;
-    const pbAddOperation = new PbOperation.Add();
-    pbAddOperation.setParentCreatedAt(
-      toTimeTicket(addOperation.getParentCreatedAt()),
+    const pbAddOperation = new PbOperation_Add();
+    pbAddOperation.parentCreatedAt = toTimeTicket(
+      addOperation.getParentCreatedAt(),
     );
-    pbAddOperation.setPrevCreatedAt(
-      toTimeTicket(addOperation.getPrevCreatedAt()),
+    pbAddOperation.prevCreatedAt = toTimeTicket(
+      addOperation.getPrevCreatedAt(),
     );
-    pbAddOperation.setValue(toElementSimple(addOperation.getValue()));
-    pbAddOperation.setExecutedAt(toTimeTicket(addOperation.getExecutedAt()));
-    pbOperation.setAdd(pbAddOperation);
+    pbAddOperation.value = toElementSimple(addOperation.getValue());
+    pbAddOperation.executedAt = toTimeTicket(addOperation.getExecutedAt());
+    pbOperation.body.case = 'add';
+    pbOperation.body.value = pbAddOperation;
   } else if (operation instanceof MoveOperation) {
     const moveOperation = operation as MoveOperation;
-    const pbMoveOperation = new PbOperation.Move();
-    pbMoveOperation.setParentCreatedAt(
-      toTimeTicket(moveOperation.getParentCreatedAt()),
+    const pbMoveOperation = new PbOperation_Move();
+    pbMoveOperation.parentCreatedAt = toTimeTicket(
+      moveOperation.getParentCreatedAt(),
     );
-    pbMoveOperation.setPrevCreatedAt(
-      toTimeTicket(moveOperation.getPrevCreatedAt()),
+    pbMoveOperation.prevCreatedAt = toTimeTicket(
+      moveOperation.getPrevCreatedAt(),
     );
-    pbMoveOperation.setCreatedAt(toTimeTicket(moveOperation.getCreatedAt()));
-    pbMoveOperation.setExecutedAt(toTimeTicket(moveOperation.getExecutedAt()));
-    pbOperation.setMove(pbMoveOperation);
+    pbMoveOperation.createdAt = toTimeTicket(moveOperation.getCreatedAt());
+    pbMoveOperation.executedAt = toTimeTicket(moveOperation.getExecutedAt());
+    pbOperation.body.case = 'move';
+    pbOperation.body.value = pbMoveOperation;
   } else if (operation instanceof RemoveOperation) {
     const removeOperation = operation as RemoveOperation;
-    const pbRemoveOperation = new PbOperation.Remove();
-    pbRemoveOperation.setParentCreatedAt(
-      toTimeTicket(removeOperation.getParentCreatedAt()),
+    const pbRemoveOperation = new PbOperation_Remove();
+    pbRemoveOperation.parentCreatedAt = toTimeTicket(
+      removeOperation.getParentCreatedAt(),
     );
-    pbRemoveOperation.setCreatedAt(
-      toTimeTicket(removeOperation.getCreatedAt()),
+    pbRemoveOperation.createdAt = toTimeTicket(removeOperation.getCreatedAt());
+    pbRemoveOperation.executedAt = toTimeTicket(
+      removeOperation.getExecutedAt(),
     );
-    pbRemoveOperation.setExecutedAt(
-      toTimeTicket(removeOperation.getExecutedAt()),
-    );
-    pbOperation.setRemove(pbRemoveOperation);
+    pbOperation.body.case = 'remove';
+    pbOperation.body.value = pbRemoveOperation;
   } else if (operation instanceof EditOperation) {
     const editOperation = operation as EditOperation;
-    const pbEditOperation = new PbOperation.Edit();
-    pbEditOperation.setParentCreatedAt(
-      toTimeTicket(editOperation.getParentCreatedAt()),
+    const pbEditOperation = new PbOperation_Edit();
+    pbEditOperation.parentCreatedAt = toTimeTicket(
+      editOperation.getParentCreatedAt(),
     );
-    pbEditOperation.setFrom(toTextNodePos(editOperation.getFromPos()));
-    pbEditOperation.setTo(toTextNodePos(editOperation.getToPos()));
-    const pbCreatedAtMapByActor = pbEditOperation.getCreatedAtMapByActorMap();
+    pbEditOperation.from = toTextNodePos(editOperation.getFromPos());
+    pbEditOperation.to = toTextNodePos(editOperation.getToPos());
+    const pbCreatedAtMapByActor = pbEditOperation.createdAtMapByActor;
     for (const [key, value] of editOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
     }
-    pbEditOperation.setContent(editOperation.getContent());
-    const pbAttributes = pbEditOperation.getAttributesMap();
+    pbEditOperation.content = editOperation.getContent();
+    const pbAttributes = pbEditOperation.attributes;
     for (const [key, value] of editOperation.getAttributes()) {
-      pbAttributes.set(key, value);
+      pbAttributes[key] = value;
     }
-    pbEditOperation.setExecutedAt(toTimeTicket(editOperation.getExecutedAt()));
-    pbOperation.setEdit(pbEditOperation);
+    pbEditOperation.executedAt = toTimeTicket(editOperation.getExecutedAt());
+    pbOperation.body.case = 'edit';
+    pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
     const styleOperation = operation as StyleOperation;
-    const pbStyleOperation = new PbOperation.Style();
-    pbStyleOperation.setParentCreatedAt(
-      toTimeTicket(styleOperation.getParentCreatedAt()),
+    const pbStyleOperation = new PbOperation_Style();
+    pbStyleOperation.parentCreatedAt = toTimeTicket(
+      styleOperation.getParentCreatedAt(),
     );
-    pbStyleOperation.setFrom(toTextNodePos(styleOperation.getFromPos()));
-    pbStyleOperation.setTo(toTextNodePos(styleOperation.getToPos()));
-    const pbCreatedAtMapByActor = pbStyleOperation.getCreatedAtMapByActorMap();
+    pbStyleOperation.from = toTextNodePos(styleOperation.getFromPos());
+    pbStyleOperation.to = toTextNodePos(styleOperation.getToPos());
+    const pbCreatedAtMapByActor = pbStyleOperation.createdAtMapByActor;
     for (const [key, value] of styleOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
     }
-    const pbAttributes = pbStyleOperation.getAttributesMap();
+    const pbAttributes = pbStyleOperation.attributes;
     for (const [key, value] of styleOperation.getAttributes()) {
-      pbAttributes.set(key, value);
+      pbAttributes[key] = value;
     }
-    pbStyleOperation.setExecutedAt(
-      toTimeTicket(styleOperation.getExecutedAt()),
-    );
-    pbOperation.setStyle(pbStyleOperation);
+    pbStyleOperation.executedAt = toTimeTicket(styleOperation.getExecutedAt());
+    pbOperation.body.case = 'style';
+    pbOperation.body.value = pbStyleOperation;
   } else if (operation instanceof IncreaseOperation) {
     const increaseOperation = operation as IncreaseOperation;
-    const pbIncreaseOperation = new PbOperation.Increase();
-    pbIncreaseOperation.setParentCreatedAt(
-      toTimeTicket(increaseOperation.getParentCreatedAt()),
+    const pbIncreaseOperation = new PbOperation_Increase();
+    pbIncreaseOperation.parentCreatedAt = toTimeTicket(
+      increaseOperation.getParentCreatedAt(),
     );
-    pbIncreaseOperation.setValue(toElementSimple(increaseOperation.getValue()));
-    pbIncreaseOperation.setExecutedAt(
-      toTimeTicket(increaseOperation.getExecutedAt()),
+    pbIncreaseOperation.value = toElementSimple(increaseOperation.getValue());
+    pbIncreaseOperation.executedAt = toTimeTicket(
+      increaseOperation.getExecutedAt(),
     );
-    pbOperation.setIncrease(pbIncreaseOperation);
+    pbOperation.body.case = 'increase';
+    pbOperation.body.value = pbIncreaseOperation;
   } else if (operation instanceof TreeEditOperation) {
     const treeEditOperation = operation as TreeEditOperation;
-    const pbTreeEditOperation = new PbOperation.TreeEdit();
-    const pbCreatedAtMapByActor =
-      pbTreeEditOperation.getCreatedAtMapByActorMap();
+    const pbTreeEditOperation = new PbOperation_TreeEdit();
+    const pbCreatedAtMapByActor = pbTreeEditOperation.createdAtMapByActor;
     for (const [key, value] of treeEditOperation.getMaxCreatedAtMapByActor()) {
-      pbCreatedAtMapByActor.set(key, toTimeTicket(value)!);
+      pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
     }
-    pbTreeEditOperation.setParentCreatedAt(
-      toTimeTicket(treeEditOperation.getParentCreatedAt()),
+    pbTreeEditOperation.parentCreatedAt = toTimeTicket(
+      treeEditOperation.getParentCreatedAt(),
     );
-    pbTreeEditOperation.setFrom(toTreePos(treeEditOperation.getFromPos()));
-    pbTreeEditOperation.setTo(toTreePos(treeEditOperation.getToPos()));
-    pbTreeEditOperation.setContentsList(
-      toTreeNodesWhenEdit(treeEditOperation.getContents()!),
+    pbTreeEditOperation.from = toTreePos(treeEditOperation.getFromPos());
+    pbTreeEditOperation.to = toTreePos(treeEditOperation.getToPos());
+    pbTreeEditOperation.contents = toTreeNodesWhenEdit(
+      treeEditOperation.getContents()!,
     );
-    pbTreeEditOperation.setSplitLevel(treeEditOperation.getSplitLevel());
+    pbTreeEditOperation.splitLevel = treeEditOperation.getSplitLevel();
 
-    pbTreeEditOperation.setExecutedAt(
-      toTimeTicket(treeEditOperation.getExecutedAt()),
+    pbTreeEditOperation.executedAt = toTimeTicket(
+      treeEditOperation.getExecutedAt(),
     );
-    pbOperation.setTreeEdit(pbTreeEditOperation);
+    pbOperation.body.case = 'treeEdit';
+    pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
     const treeStyleOperation = operation as TreeStyleOperation;
-    const pbTreeStyleOperation = new PbOperation.TreeStyle();
-    pbTreeStyleOperation.setParentCreatedAt(
-      toTimeTicket(treeStyleOperation.getParentCreatedAt()),
+    const pbTreeStyleOperation = new PbOperation_TreeStyle();
+    pbTreeStyleOperation.parentCreatedAt = toTimeTicket(
+      treeStyleOperation.getParentCreatedAt(),
     );
-    pbTreeStyleOperation.setFrom(toTreePos(treeStyleOperation.getFromPos()));
-    pbTreeStyleOperation.setTo(toTreePos(treeStyleOperation.getToPos()));
+    pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
+    pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
 
-    const attributesMap = pbTreeStyleOperation.getAttributesMap();
+    const attributesMap = pbTreeStyleOperation.attributes;
 
     for (const [key, value] of treeStyleOperation.getAttributes()) {
-      attributesMap.set(key, value);
+      attributesMap[key] = value;
     }
-    pbTreeStyleOperation.setExecutedAt(
-      toTimeTicket(treeStyleOperation.getExecutedAt()),
+    pbTreeStyleOperation.executedAt = toTimeTicket(
+      treeStyleOperation.getExecutedAt(),
     );
-    pbOperation.setTreeStyle(pbTreeStyleOperation);
+    pbOperation.body.case = 'treeStyle';
+    pbOperation.body.value = pbTreeStyleOperation;
   } else {
     throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
   }
@@ -444,14 +477,15 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
  * `toChange` converts the given model to Protobuf format.
  */
 function toChange(change: Change<Indexable>): PbChange {
-  const pbChange = new PbChange();
-  pbChange.setId(toChangeID(change.getID()));
-  pbChange.setMessage(change.getMessage()!);
+  const pbChange = new PbChange({
+    id: toChangeID(change.getID()!),
+    message: change.getMessage(),
+  });
   if (change.hasOperations()) {
-    pbChange.setOperationsList(toOperations(change.getOperations()));
+    pbChange.operations = toOperations(change.getOperations());
   }
   if (change.hasPresenceChange()) {
-    pbChange.setPresenceChange(toPresenceChange(change.getPresenceChange()!));
+    pbChange.presenceChange = toPresenceChange(change.getPresenceChange()!);
   }
   return pbChange;
 }
@@ -473,11 +507,12 @@ function toChanges(changes: Array<Change<Indexable>>): Array<PbChange> {
 function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
   const pbRHTNodes = [];
   for (const rhtNode of rht) {
-    const pbRHTNode = new PbRHTNode();
-    pbRHTNode.setKey(rhtNode.getStrKey());
-    // eslint-disable-next-line
-    pbRHTNode.setElement(toElement(rhtNode.getValue()));
-    pbRHTNodes.push(pbRHTNode);
+    pbRHTNodes.push(
+      new PbRHTNode({
+        key: rhtNode.getStrKey(),
+        element: toElement(rhtNode.getValue()),
+      }),
+    );
   }
 
   return pbRHTNodes;
@@ -489,10 +524,11 @@ function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
 function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
   const pbRGANodes = [];
   for (const rgaTreeListNode of rgaTreeList) {
-    const pbRGANode = new PbRGANode();
-    // eslint-disable-next-line
-    pbRGANode.setElement(toElement(rgaTreeListNode.getValue()));
-    pbRGANodes.push(pbRGANode);
+    pbRGANodes.push(
+      new PbRGANode({
+        element: toElement(rgaTreeListNode.getValue()),
+      }),
+    );
   }
 
   return pbRGANodes;
@@ -508,17 +544,17 @@ function toTextNodes(
 
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = new PbTextNode();
-    pbTextNode.setId(toTextNodeID(textNode.getID()));
-    pbTextNode.setValue(textNode.getValue().getContent());
-    pbTextNode.setRemovedAt(toTimeTicket(textNode.getRemovedAt()));
+    pbTextNode.id = toTextNodeID(textNode.getID());
+    pbTextNode.value = textNode.getValue().getContent();
+    pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
 
-    const pbNodeAttrsMap = pbTextNode.getAttributesMap();
+    const pbNodeAttrsMap = pbTextNode.attributes;
     const attrs = textNode.getValue().getAttrs();
     for (const attr of attrs) {
       const pbNodeAttr = new PbNodeAttr();
-      pbNodeAttr.setValue(attr.getValue());
-      pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
-      pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
+      pbNodeAttr.value = attr.getValue();
+      pbNodeAttr.updatedAt = toTimeTicket(attr.getUpdatedAt());
+      pbNodeAttrsMap[attr.getKey()] = pbNodeAttr;
     }
 
     pbTextNodes.push(pbTextNode);
@@ -532,16 +568,17 @@ function toTextNodes(
  */
 function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
   const pbTreeNodesList: Array<PbTreeNodes> = [];
-
   if (!nodes || !nodes.length) {
     return pbTreeNodesList;
   }
 
-  nodes.forEach((node) => {
-    const pbTreeNodes = new PbTreeNodes();
-    pbTreeNodes.setContentList(toTreeNodes(node));
-    pbTreeNodesList.push(pbTreeNodes);
-  });
+  for (const node of nodes) {
+    pbTreeNodesList.push(
+      new PbTreeNodes({
+        content: toTreeNodes(node),
+      }),
+    );
+  }
 
   return pbTreeNodesList;
 }
@@ -556,29 +593,29 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
 
   const pbTreeNodes: Array<PbTreeNode> = [];
   traverse(node, (n, depth) => {
-    const pbTreeNode = new PbTreeNode();
-    pbTreeNode.setId(toTreeNodeID(n.id));
-    pbTreeNode.setType(n.type);
+    const pbTreeNode = new PbTreeNode({
+      id: toTreeNodeID(n.id),
+      type: n.type,
+      removedAt: toTimeTicket(n.removedAt),
+      depth,
+    });
+
     if (n.isText) {
-      pbTreeNode.setValue(n.value);
+      pbTreeNode.value = n.value;
     }
     if (n.insPrevID) {
-      pbTreeNode.setInsPrevId(toTreeNodeID(n.insPrevID));
+      pbTreeNode.insPrevId = toTreeNodeID(n.insPrevID);
     }
     if (n.insNextID) {
-      pbTreeNode.setInsNextId(toTreeNodeID(n.insNextID));
+      pbTreeNode.insNextId = toTreeNodeID(n.insNextID);
     }
 
-    pbTreeNode.setRemovedAt(toTimeTicket(n.removedAt));
-    pbTreeNode.setDepth(depth);
-
     if (n.attrs) {
-      const pbNodeAttrsMap = pbTreeNode.getAttributesMap();
       for (const attr of n.attrs) {
-        const pbNodeAttr = new PbNodeAttr();
-        pbNodeAttr.setValue(attr.getValue());
-        pbNodeAttr.setUpdatedAt(toTimeTicket(attr.getUpdatedAt()));
-        pbNodeAttrsMap.set(attr.getKey(), pbNodeAttr);
+        pbTreeNode.attributes[attr.getKey()] = new PbNodeAttr({
+          value: attr.getValue(),
+          updatedAt: toTimeTicket(attr.getUpdatedAt()),
+        });
       }
     }
 
@@ -592,14 +629,14 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
  * `toObject` converts the given model to Protobuf format.
  */
 function toObject(obj: CRDTObject): PbJSONElement {
-  const pbObject = new PbJSONElement.JSONObject();
-  pbObject.setNodesList(toRHTNodes(obj.getRHT()));
-  pbObject.setCreatedAt(toTimeTicket(obj.getCreatedAt()));
-  pbObject.setMovedAt(toTimeTicket(obj.getMovedAt()));
-  pbObject.setRemovedAt(toTimeTicket(obj.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setJsonObject(pbObject);
+  pbElement.body.case = 'jsonObject';
+  pbElement.body.value = new PbJSONElement_JSONObject({
+    nodes: toRHTNodes(obj.getRHT()),
+    createdAt: toTimeTicket(obj.getCreatedAt()),
+    movedAt: toTimeTicket(obj.getMovedAt()),
+    removedAt: toTimeTicket(obj.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -607,14 +644,14 @@ function toObject(obj: CRDTObject): PbJSONElement {
  * `toArray` converts the given model to Protobuf format.
  */
 function toArray(arr: CRDTArray): PbJSONElement {
-  const pbArray = new PbJSONElement.JSONArray();
-  pbArray.setNodesList(toRGANodes(arr.getElements()));
-  pbArray.setCreatedAt(toTimeTicket(arr.getCreatedAt()));
-  pbArray.setMovedAt(toTimeTicket(arr.getMovedAt()));
-  pbArray.setRemovedAt(toTimeTicket(arr.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setJsonArray(pbArray);
+  pbElement.body.case = 'jsonArray';
+  pbElement.body.value = new PbJSONElement_JSONArray({
+    nodes: toRGANodes(arr.getElements()),
+    createdAt: toTimeTicket(arr.getCreatedAt()),
+    movedAt: toTimeTicket(arr.getMovedAt()),
+    removedAt: toTimeTicket(arr.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -622,15 +659,15 @@ function toArray(arr: CRDTArray): PbJSONElement {
  * `toPrimitive` converts the given model to Protobuf format.
  */
 function toPrimitive(primitive: Primitive): PbJSONElement {
-  const pbPrimitive = new PbJSONElement.Primitive();
-  pbPrimitive.setType(toValueType(primitive.getType()));
-  pbPrimitive.setValue(primitive.toBytes());
-  pbPrimitive.setCreatedAt(toTimeTicket(primitive.getCreatedAt()));
-  pbPrimitive.setMovedAt(toTimeTicket(primitive.getMovedAt()));
-  pbPrimitive.setRemovedAt(toTimeTicket(primitive.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setPrimitive(pbPrimitive);
+  pbElement.body.case = 'primitive';
+  pbElement.body.value = new PbJSONElement_Primitive({
+    type: toValueType(primitive.getType()),
+    value: primitive.toBytes(),
+    createdAt: toTimeTicket(primitive.getCreatedAt()),
+    movedAt: toTimeTicket(primitive.getMovedAt()),
+    removedAt: toTimeTicket(primitive.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -638,14 +675,14 @@ function toPrimitive(primitive: Primitive): PbJSONElement {
  * `toText` converts the given model to Protobuf format.
  */
 function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
-  const pbText = new PbJSONElement.Text();
-  pbText.setNodesList(toTextNodes(text.getRGATreeSplit()));
-  pbText.setCreatedAt(toTimeTicket(text.getCreatedAt()));
-  pbText.setMovedAt(toTimeTicket(text.getMovedAt()));
-  pbText.setRemovedAt(toTimeTicket(text.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setText(pbText);
+  pbElement.body.case = 'text';
+  pbElement.body.value = new PbJSONElement_Text({
+    nodes: toTextNodes(text.getRGATreeSplit()),
+    createdAt: toTimeTicket(text.getCreatedAt()),
+    movedAt: toTimeTicket(text.getMovedAt()),
+    removedAt: toTimeTicket(text.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -653,15 +690,15 @@ function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
  * `toCounter` converts the given model to Protobuf format.
  */
 function toCounter(counter: CRDTCounter): PbJSONElement {
-  const pbCounter = new PbJSONElement.Counter();
-  pbCounter.setType(toCounterType(counter.getType()));
-  pbCounter.setValue(counter.toBytes());
-  pbCounter.setCreatedAt(toTimeTicket(counter.getCreatedAt()));
-  pbCounter.setMovedAt(toTimeTicket(counter.getMovedAt()));
-  pbCounter.setRemovedAt(toTimeTicket(counter.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setCounter(pbCounter);
+  pbElement.body.case = 'counter';
+  pbElement.body.value = new PbJSONElement_Counter({
+    type: toCounterType(counter.getType()),
+    value: counter.toBytes(),
+    createdAt: toTimeTicket(counter.getCreatedAt()),
+    movedAt: toTimeTicket(counter.getMovedAt()),
+    removedAt: toTimeTicket(counter.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -669,14 +706,14 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
  * `toTree` converts the given model to Protobuf format.
  */
 function toTree(tree: CRDTTree): PbJSONElement {
-  const pbTree = new PbJSONElement.Tree();
-  pbTree.setNodesList(toTreeNodes(tree.getRoot()));
-  pbTree.setCreatedAt(toTimeTicket(tree.getCreatedAt()));
-  pbTree.setMovedAt(toTimeTicket(tree.getMovedAt()));
-  pbTree.setRemovedAt(toTimeTicket(tree.getRemovedAt()));
-
   const pbElement = new PbJSONElement();
-  pbElement.setTree(pbTree);
+  pbElement.body.case = 'tree';
+  pbElement.body.value = new PbJSONElement_Tree({
+    nodes: toTreeNodes(tree.getRoot()),
+    createdAt: toTimeTicket(tree.getCreatedAt()),
+    movedAt: toTimeTicket(tree.getMovedAt()),
+    removedAt: toTimeTicket(tree.getRemovedAt()),
+  });
   return pbElement;
 }
 
@@ -686,33 +723,38 @@ function toTree(tree: CRDTTree): PbJSONElement {
 function toElement(element: CRDTElement): PbJSONElement {
   if (element instanceof CRDTObject) {
     return toObject(element);
-  } else if (element instanceof CRDTArray) {
-    return toArray(element);
-  } else if (element instanceof Primitive) {
-    return toPrimitive(element);
-  } else if (element instanceof CRDTText) {
-    return toText(element);
-  } else if (element instanceof CRDTCounter) {
-    return toCounter(element);
-  } else if (element instanceof CRDTTree) {
-    return toTree(element);
-  } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
+  if (element instanceof CRDTArray) {
+    return toArray(element);
+  }
+  if (element instanceof Primitive) {
+    return toPrimitive(element);
+  }
+  if (element instanceof CRDTText) {
+    return toText(element);
+  }
+  if (element instanceof CRDTCounter) {
+    return toCounter(element);
+  }
+  if (element instanceof CRDTTree) {
+    return toTree(element);
+  }
+
+  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
 }
 
 /**
  * `toChangePack` converts the given model to Protobuf format.
  */
 function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
-  const pbChangePack = new PbChangePack();
-  pbChangePack.setDocumentKey(pack.getDocumentKey());
-  pbChangePack.setCheckpoint(toCheckpoint(pack.getCheckpoint()));
-  pbChangePack.setIsRemoved(pack.getIsRemoved());
-  pbChangePack.setChangesList(toChanges(pack.getChanges()));
-  pbChangePack.setSnapshot(pack.getSnapshot()!);
-  pbChangePack.setMinSyncedTicket(toTimeTicket(pack.getMinSyncedTicket()));
-  return pbChangePack;
+  return new PbChangePack({
+    documentKey: pack.getDocumentKey(),
+    checkpoint: toCheckpoint(pack.getCheckpoint()),
+    isRemoved: pack.getIsRemoved(),
+    changes: toChanges(pack.getChanges()),
+    snapshot: pack.getSnapshot(),
+    minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
+  });
 }
 
 /**
@@ -720,9 +762,9 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   return ChangeID.of(
-    pbChangeID.getClientSeq(),
-    Long.fromString(pbChangeID.getLamport(), true),
-    toHexString(pbChangeID.getActorId_asU8()),
+    pbChangeID.clientSeq,
+    Long.fromString(pbChangeID.lamport, true),
+    toHexString(pbChangeID.actorId),
   );
 }
 
@@ -735,9 +777,9 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   }
 
   return TimeTicket.of(
-    Long.fromString(pbTimeTicket.getLamport(), true),
-    pbTimeTicket.getDelimiter(),
-    toHexString(pbTimeTicket.getActorId_asU8()),
+    Long.fromString(pbTimeTicket.lamport, true),
+    pbTimeTicket.delimiter,
+    toHexString(pbTimeTicket.actorId),
   );
 }
 
@@ -746,7 +788,7 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
  */
 function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
   const data: Record<string, string> = {};
-  pbPresence.getDataMap().forEach((value: string, key: string) => {
+  Object.entries(pbPresence.data).forEach(([key, value]) => {
     data[key] = JSON.parse(value);
   });
 
@@ -759,31 +801,31 @@ function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
 function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
 ): PresenceChange<P> {
-  const type = pbPresenceChange.getType();
-
-  if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_PUT) {
-    const presence = fromPresence<P>(pbPresenceChange.getPresence()!);
+  const type = pbPresenceChange.type;
+  if (type === PbPresenceChange_ChangeType.PUT) {
+    const presence = fromPresence<P>(pbPresenceChange.presence!);
     return {
       type: PresenceChangeType.Put,
       presence,
     };
-  } else if (type === PbPresenceChange.ChangeType.CHANGE_TYPE_CLEAR) {
+  }
+  if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
     };
-  } else {
-    throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
   }
+
+  throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
 }
 
 /**
  * `fromPresences` converts the given Protobuf format to model format.
  */
-function fromPresences<P extends Indexable>(
-  pbPresences: jspb.Map<string, PbPresence>,
-): Map<ActorID, P> {
+function fromPresences<P extends Indexable>(pbPresences: {
+  [key: string]: PbPresence;
+}): Map<ActorID, P> {
   const presences = new Map<ActorID, P>();
-  pbPresences.forEach((pbPresence: PbPresence, actorID: string) => {
+  Object.entries(pbPresences).forEach(([actorID, pbPresence]) => {
     presences.set(actorID, fromPresence(pbPresence));
   });
   return presences;
@@ -794,21 +836,21 @@ function fromPresences<P extends Indexable>(
  */
 function fromValueType(pbValueType: PbValueType): PrimitiveType {
   switch (pbValueType) {
-    case PbValueType.VALUE_TYPE_NULL:
+    case PbValueType.NULL:
       return PrimitiveType.Null;
-    case PbValueType.VALUE_TYPE_BOOLEAN:
+    case PbValueType.BOOLEAN:
       return PrimitiveType.Boolean;
-    case PbValueType.VALUE_TYPE_INTEGER:
+    case PbValueType.INTEGER:
       return PrimitiveType.Integer;
-    case PbValueType.VALUE_TYPE_LONG:
+    case PbValueType.LONG:
       return PrimitiveType.Long;
-    case PbValueType.VALUE_TYPE_DOUBLE:
+    case PbValueType.DOUBLE:
       return PrimitiveType.Double;
-    case PbValueType.VALUE_TYPE_STRING:
+    case PbValueType.STRING:
       return PrimitiveType.String;
-    case PbValueType.VALUE_TYPE_BYTES:
+    case PbValueType.BYTES:
       return PrimitiveType.Bytes;
-    case PbValueType.VALUE_TYPE_DATE:
+    case PbValueType.DATE:
       return PrimitiveType.Date;
   }
   throw new YorkieError(
@@ -822,9 +864,9 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
  */
 function fromCounterType(pbValueType: PbValueType): CounterType {
   switch (pbValueType) {
-    case PbValueType.VALUE_TYPE_INTEGER_CNT:
+    case PbValueType.INTEGER_CNT:
       return CounterType.IntegerCnt;
-    case PbValueType.VALUE_TYPE_LONG_CNT:
+    case PbValueType.LONG_CNT:
       return CounterType.LongCnt;
   }
   throw new YorkieError(
@@ -837,52 +879,48 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
  * `fromElementSimple` converts the given Protobuf format to model format.
  */
 function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
-  switch (pbElementSimple.getType()) {
-    case PbValueType.VALUE_TYPE_JSON_OBJECT:
-      if (!pbElementSimple.getValue()) {
-        return CRDTObject.create(
-          fromTimeTicket(pbElementSimple.getCreatedAt())!,
-        );
+  switch (pbElementSimple.type) {
+    case PbValueType.JSON_OBJECT:
+      if (!pbElementSimple.value) {
+        return CRDTObject.create(fromTimeTicket(pbElementSimple.createdAt)!);
       }
-      return bytesToObject(pbElementSimple.getValue_asU8());
-    case PbValueType.VALUE_TYPE_JSON_ARRAY:
-      if (!pbElementSimple.getValue()) {
-        return CRDTArray.create(
-          fromTimeTicket(pbElementSimple.getCreatedAt())!,
-        );
+      return bytesToObject(pbElementSimple.value);
+    case PbValueType.JSON_ARRAY:
+      if (!pbElementSimple.value) {
+        return CRDTArray.create(fromTimeTicket(pbElementSimple.createdAt)!);
       }
-      return bytesToArray(pbElementSimple.getValue_asU8());
-    case PbValueType.VALUE_TYPE_TEXT:
+      return bytesToArray(pbElementSimple.value);
+    case PbValueType.TEXT:
       return CRDTText.create(
         RGATreeSplit.create(),
-        fromTimeTicket(pbElementSimple.getCreatedAt())!,
+        fromTimeTicket(pbElementSimple.createdAt)!,
       );
-    case PbValueType.VALUE_TYPE_TREE:
-      return bytesToTree(pbElementSimple.getValue_asU8())!;
-    case PbValueType.VALUE_TYPE_NULL:
-    case PbValueType.VALUE_TYPE_BOOLEAN:
-    case PbValueType.VALUE_TYPE_INTEGER:
-    case PbValueType.VALUE_TYPE_LONG:
-    case PbValueType.VALUE_TYPE_DOUBLE:
-    case PbValueType.VALUE_TYPE_STRING:
-    case PbValueType.VALUE_TYPE_BYTES:
-    case PbValueType.VALUE_TYPE_DATE:
+    case PbValueType.TREE:
+      return bytesToTree(pbElementSimple.value)!;
+    case PbValueType.NULL:
+    case PbValueType.BOOLEAN:
+    case PbValueType.INTEGER:
+    case PbValueType.LONG:
+    case PbValueType.DOUBLE:
+    case PbValueType.STRING:
+    case PbValueType.BYTES:
+    case PbValueType.DATE:
       return Primitive.of(
         Primitive.valueFromBytes(
-          fromValueType(pbElementSimple.getType()),
-          pbElementSimple.getValue_asU8(),
+          fromValueType(pbElementSimple.type),
+          pbElementSimple.value,
         ),
-        fromTimeTicket(pbElementSimple.getCreatedAt())!,
+        fromTimeTicket(pbElementSimple.createdAt)!,
       );
-    case PbValueType.VALUE_TYPE_INTEGER_CNT:
-    case PbValueType.VALUE_TYPE_LONG_CNT:
+    case PbValueType.INTEGER_CNT:
+    case PbValueType.LONG_CNT:
       return CRDTCounter.create(
-        fromCounterType(pbElementSimple.getType()),
+        fromCounterType(pbElementSimple.type),
         CRDTCounter.valueFromBytes(
-          fromCounterType(pbElementSimple.getType()),
-          pbElementSimple.getValue_asU8(),
+          fromCounterType(pbElementSimple.type),
+          pbElementSimple.value,
         ),
-        fromTimeTicket(pbElementSimple.getCreatedAt())!,
+        fromTimeTicket(pbElementSimple.createdAt)!,
       );
   }
 }
@@ -893,10 +931,10 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
   return RGATreeSplitPos.of(
     RGATreeSplitNodeID.of(
-      fromTimeTicket(pbTextNodePos.getCreatedAt())!,
-      pbTextNodePos.getOffset(),
+      fromTimeTicket(pbTextNodePos.createdAt)!,
+      pbTextNodePos.offset,
     ),
-    pbTextNodePos.getRelativeOffset(),
+    pbTextNodePos.relativeOffset,
   );
 }
 
@@ -905,8 +943,8 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
  */
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
-    fromTimeTicket(pbTextNodeID.getCreatedAt())!,
-    pbTextNodeID.getOffset(),
+    fromTimeTicket(pbTextNodeID.createdAt)!,
+    pbTextNodeID.offset,
   );
 }
 
@@ -914,20 +952,16 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
-  const textValue = CRDTTextValue.create(pbTextNode.getValue());
-  pbTextNode.getAttributesMap().forEach((value, key) => {
-    textValue.setAttr(
-      key,
-      value.getValue(),
-      fromTimeTicket(value.getUpdatedAt())!,
-    );
+  const textValue = CRDTTextValue.create(pbTextNode.value);
+  Object.entries(pbTextNode.attributes).forEach(([key, value]) => {
+    textValue.setAttr(key, value.value, fromTimeTicket(value.updatedAt)!);
   });
 
   const textNode = RGATreeSplitNode.create(
-    fromTextNodeID(pbTextNode.getId()!),
+    fromTextNodeID(pbTextNode.id!),
     textValue,
   );
-  textNode.remove(fromTimeTicket(pbTextNode.getRemovedAt()));
+  textNode.remove(fromTimeTicket(pbTextNode.removedAt));
   return textNode;
 }
 
@@ -936,8 +970,8 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
  */
 function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
   return CRDTTreePos.of(
-    fromTreeNodeID(pbTreePos.getParentId()!),
-    fromTreeNodeID(pbTreePos.getLeftSiblingId()!),
+    fromTreeNodeID(pbTreePos.parentId!),
+    fromTreeNodeID(pbTreePos.leftSiblingId!),
   );
 }
 
@@ -946,8 +980,8 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
  */
 function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
   return CRDTTreeNodeID.of(
-    fromTimeTicket(pbTreeNodeID.getCreatedAt())!,
-    pbTreeNodeID.getOffset(),
+    fromTimeTicket(pbTreeNodeID.createdAt)!,
+    pbTreeNodeID.offset,
   );
 }
 
@@ -963,7 +997,7 @@ function fromTreeNodesWhenEdit(
 
   const treeNodes: Array<CRDTTreeNode> = [];
   pbTreeNodes.forEach((node) => {
-    const treeNode = fromTreeNodes(node.getContentList());
+    const treeNode = fromTreeNodes(node.content);
     treeNodes.push(treeNode!);
   });
 
@@ -989,7 +1023,7 @@ function fromTreeNodes(
   for (let i = nodes.length - 2; i >= 0; i--) {
     let parent: CRDTTreeNode;
     for (let j = i + 1; j < nodes.length; j++) {
-      if (pbTreeNodes[i].getDepth() - 1 === pbTreeNodes[j].getDepth()) {
+      if (pbTreeNodes[i].depth - 1 === pbTreeNodes[j].depth) {
         parent = nodes[j];
         break;
       }
@@ -1006,27 +1040,27 @@ function fromTreeNodes(
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
-  const id = fromTreeNodeID(pbTreeNode.getId()!);
-  const node = CRDTTreeNode.create(id, pbTreeNode.getType());
+  const id = fromTreeNodeID(pbTreeNode.id!);
+  const node = CRDTTreeNode.create(id, pbTreeNode.type);
   if (node.isText) {
-    node.value = pbTreeNode.getValue();
+    node.value = pbTreeNode.value;
   } else {
     const attrs = RHT.create();
-    pbTreeNode.getAttributesMap().forEach((value, key) => {
-      attrs.set(key, value.getValue(), fromTimeTicket(value.getUpdatedAt())!);
+    Object.entries(pbTreeNode.attributes).forEach(([key, value]) => {
+      attrs.set(key, value.value, fromTimeTicket(value.updatedAt)!);
     });
     node.attrs = attrs;
   }
 
-  if (pbTreeNode.hasInsPrevId()) {
-    node.insPrevID = fromTreeNodeID(pbTreeNode.getInsPrevId()!);
+  if (pbTreeNode.insPrevId) {
+    node.insPrevID = fromTreeNodeID(pbTreeNode.insPrevId!);
   }
 
-  if (pbTreeNode.hasInsNextId()) {
-    node.insNextID = fromTreeNodeID(pbTreeNode.getInsNextId()!);
+  if (pbTreeNode.insPrevId) {
+    node.insNextID = fromTreeNodeID(pbTreeNode.insNextId!);
   }
 
-  node.removedAt = fromTimeTicket(pbTreeNode.getRemovedAt());
+  node.removedAt = fromTimeTicket(pbTreeNode.removedAt);
 
   return node;
 }
@@ -1039,112 +1073,120 @@ function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
 
   for (const pbOperation of pbOperations) {
     let operation: Operation;
-    if (pbOperation.hasSet()) {
-      const pbSetOperation = pbOperation.getSet();
+    if (pbOperation.body.case === 'set') {
+      const pbSetOperation = pbOperation.body.value;
       operation = SetOperation.create(
-        pbSetOperation!.getKey(),
-        fromElementSimple(pbSetOperation!.getValue()!),
-        fromTimeTicket(pbSetOperation!.getParentCreatedAt())!,
-        fromTimeTicket(pbSetOperation!.getExecutedAt())!,
+        pbSetOperation!.key,
+        fromElementSimple(pbSetOperation!.value!),
+        fromTimeTicket(pbSetOperation!.parentCreatedAt)!,
+        fromTimeTicket(pbSetOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasAdd()) {
-      const pbAddOperation = pbOperation.getAdd();
+    } else if (pbOperation.body.case === 'add') {
+      const pbAddOperation = pbOperation.body.value;
       operation = AddOperation.create(
-        fromTimeTicket(pbAddOperation!.getParentCreatedAt())!,
-        fromTimeTicket(pbAddOperation!.getPrevCreatedAt())!,
-        fromElementSimple(pbAddOperation!.getValue()!),
-        fromTimeTicket(pbAddOperation!.getExecutedAt())!,
+        fromTimeTicket(pbAddOperation!.parentCreatedAt)!,
+        fromTimeTicket(pbAddOperation!.prevCreatedAt)!,
+        fromElementSimple(pbAddOperation!.value!),
+        fromTimeTicket(pbAddOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasMove()) {
-      const pbMoveOperation = pbOperation.getMove();
+    } else if (pbOperation.body.case === 'move') {
+      const pbMoveOperation = pbOperation.body.value;
       operation = MoveOperation.create(
-        fromTimeTicket(pbMoveOperation!.getParentCreatedAt())!,
-        fromTimeTicket(pbMoveOperation!.getPrevCreatedAt())!,
-        fromTimeTicket(pbMoveOperation!.getCreatedAt())!,
-        fromTimeTicket(pbMoveOperation!.getExecutedAt())!,
+        fromTimeTicket(pbMoveOperation!.parentCreatedAt)!,
+        fromTimeTicket(pbMoveOperation!.prevCreatedAt)!,
+        fromTimeTicket(pbMoveOperation!.createdAt)!,
+        fromTimeTicket(pbMoveOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasRemove()) {
-      const pbRemoveOperation = pbOperation.getRemove();
+    } else if (pbOperation.body.case === 'remove') {
+      const pbRemoveOperation = pbOperation.body.value;
       operation = RemoveOperation.create(
-        fromTimeTicket(pbRemoveOperation!.getParentCreatedAt())!,
-        fromTimeTicket(pbRemoveOperation!.getCreatedAt())!,
-        fromTimeTicket(pbRemoveOperation!.getExecutedAt())!,
+        fromTimeTicket(pbRemoveOperation!.parentCreatedAt)!,
+        fromTimeTicket(pbRemoveOperation!.createdAt)!,
+        fromTimeTicket(pbRemoveOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasEdit()) {
-      const pbEditOperation = pbOperation.getEdit();
+    } else if (pbOperation.body.case === 'edit') {
+      const pbEditOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
-      pbEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      });
+      Object.entries(pbEditOperation!.createdAtMapByActor).forEach(
+        ([key, value]) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        },
+      );
       const attributes = new Map();
-      pbEditOperation!.getAttributesMap().forEach((value, key) => {
+      Object.entries(pbEditOperation!.attributes).forEach(([key, value]) => {
         attributes.set(key, value);
       });
       operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbEditOperation!.getFrom()!),
-        fromTextNodePos(pbEditOperation!.getTo()!),
+        fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
+        fromTextNodePos(pbEditOperation!.from!),
+        fromTextNodePos(pbEditOperation!.to!),
         createdAtMapByActor,
-        pbEditOperation!.getContent(),
+        pbEditOperation!.content,
         attributes,
-        fromTimeTicket(pbEditOperation!.getExecutedAt())!,
+        fromTimeTicket(pbEditOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasStyle()) {
-      const pbStyleOperation = pbOperation.getStyle();
+    } else if (pbOperation.body.case === 'style') {
+      const pbStyleOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
-      pbStyleOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      });
+      Object.entries(pbStyleOperation!.createdAtMapByActor).forEach(
+        ([key, value]) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        },
+      );
       const attributes = new Map();
-      pbStyleOperation!.getAttributesMap().forEach((value, key) => {
+      Object.entries(pbStyleOperation!.attributes).forEach(([key, value]) => {
         attributes.set(key, value);
       });
       operation = StyleOperation.create(
-        fromTimeTicket(pbStyleOperation!.getParentCreatedAt())!,
-        fromTextNodePos(pbStyleOperation!.getFrom()!),
-        fromTextNodePos(pbStyleOperation!.getTo()!),
+        fromTimeTicket(pbStyleOperation!.parentCreatedAt)!,
+        fromTextNodePos(pbStyleOperation!.from!),
+        fromTextNodePos(pbStyleOperation!.to!),
         createdAtMapByActor,
         attributes,
-        fromTimeTicket(pbStyleOperation!.getExecutedAt())!,
+        fromTimeTicket(pbStyleOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasSelect()) {
+    } else if (pbOperation.body.case === 'select') {
       // TODO(hackerwins): Select is deprecated.
       continue;
-    } else if (pbOperation.hasIncrease()) {
-      const pbIncreaseOperation = pbOperation.getIncrease();
+    } else if (pbOperation.body.case === 'increase') {
+      const pbIncreaseOperation = pbOperation.body.value;
       operation = IncreaseOperation.create(
-        fromTimeTicket(pbIncreaseOperation!.getParentCreatedAt())!,
-        fromElementSimple(pbIncreaseOperation!.getValue()!),
-        fromTimeTicket(pbIncreaseOperation!.getExecutedAt())!,
+        fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
+        fromElementSimple(pbIncreaseOperation!.value!),
+        fromTimeTicket(pbIncreaseOperation!.executedAt)!,
       );
-    } else if (pbOperation.hasTreeEdit()) {
-      const pbTreeEditOperation = pbOperation.getTreeEdit();
+    } else if (pbOperation.body.case === 'treeEdit') {
+      const pbTreeEditOperation = pbOperation.body.value;
       const createdAtMapByActor = new Map();
-      pbTreeEditOperation!.getCreatedAtMapByActorMap().forEach((value, key) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      });
-      operation = TreeEditOperation.create(
-        fromTimeTicket(pbTreeEditOperation!.getParentCreatedAt())!,
-        fromTreePos(pbTreeEditOperation!.getFrom()!),
-        fromTreePos(pbTreeEditOperation!.getTo()!),
-        fromTreeNodesWhenEdit(pbTreeEditOperation!.getContentsList()),
-        pbTreeEditOperation!.getSplitLevel(),
-        createdAtMapByActor,
-        fromTimeTicket(pbTreeEditOperation!.getExecutedAt())!,
+      Object.entries(pbTreeEditOperation!.createdAtMapByActor).forEach(
+        ([key, value]) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        },
       );
-    } else if (pbOperation.hasTreeStyle()) {
-      const pbTreeStyleOperation = pbOperation.getTreeStyle();
+      operation = TreeEditOperation.create(
+        fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
+        fromTreePos(pbTreeEditOperation!.from!),
+        fromTreePos(pbTreeEditOperation!.to!),
+        fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
+        pbTreeEditOperation!.splitLevel,
+        createdAtMapByActor,
+        fromTimeTicket(pbTreeEditOperation!.executedAt)!,
+      );
+    } else if (pbOperation.body.case === 'treeStyle') {
+      const pbTreeStyleOperation = pbOperation.body.value;
       const attributes = new Map();
 
-      pbTreeStyleOperation!.getAttributesMap().forEach((value, key) => {
-        attributes.set(key, value);
-      });
+      Object.entries(pbTreeStyleOperation!.attributes).forEach(
+        ([key, value]) => {
+          attributes.set(key, value);
+        },
+      );
       operation = TreeStyleOperation.create(
-        fromTimeTicket(pbTreeStyleOperation!.getParentCreatedAt())!,
-        fromTreePos(pbTreeStyleOperation!.getFrom()!),
-        fromTreePos(pbTreeStyleOperation!.getTo()!),
+        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+        fromTreePos(pbTreeStyleOperation!.from!),
+        fromTreePos(pbTreeStyleOperation!.to!),
         attributes,
-        fromTimeTicket(pbTreeStyleOperation!.getExecutedAt())!,
+        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );
     } else {
       throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
@@ -1167,12 +1209,12 @@ function fromChanges<P extends Indexable>(
   for (const pbChange of pbChanges) {
     changes.push(
       Change.create({
-        id: fromChangeID(pbChange.getId()!),
-        operations: fromOperations(pbChange.getOperationsList()),
-        presenceChange: pbChange.hasPresenceChange()
-          ? fromPresenceChange(pbChange.getPresenceChange()!)
+        id: fromChangeID(pbChange.id!),
+        operations: fromOperations(pbChange.operations),
+        presenceChange: pbChange.presenceChange
+          ? fromPresenceChange(pbChange.presenceChange!)
           : undefined,
-        message: pbChange.getMessage(),
+        message: pbChange.message,
       }),
     );
   }
@@ -1185,8 +1227,8 @@ function fromChanges<P extends Indexable>(
  */
 function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
   return Checkpoint.of(
-    Long.fromString(pbCheckpoint.getServerSeq(), true),
-    pbCheckpoint.getClientSeq(),
+    Long.fromString(pbCheckpoint.serverSeq, true),
+    pbCheckpoint.clientSeq,
   );
 }
 
@@ -1197,63 +1239,60 @@ function fromChangePack<P extends Indexable>(
   pbPack: PbChangePack,
 ): ChangePack<P> {
   return ChangePack.create<P>(
-    pbPack.getDocumentKey()!,
-    fromCheckpoint(pbPack.getCheckpoint()!),
-    pbPack.getIsRemoved(),
-    fromChanges(pbPack.getChangesList()),
-    pbPack.getSnapshot_asU8(),
-    fromTimeTicket(pbPack.getMinSyncedTicket()),
+    pbPack.documentKey!,
+    fromCheckpoint(pbPack.checkpoint!),
+    pbPack.isRemoved,
+    fromChanges(pbPack.changes),
+    pbPack.snapshot,
+    fromTimeTicket(pbPack.minSyncedTicket),
   );
 }
 
 /**
  * `fromObject` converts the given Protobuf format to model format.
  */
-function fromObject(pbObject: PbJSONElement.JSONObject): CRDTObject {
+function fromObject(pbObject: PbJSONElement_JSONObject): CRDTObject {
   const rht = new ElementRHT();
-  for (const pbRHTNode of pbObject.getNodesList()) {
-    const value = fromElement(pbRHTNode.getElement()!);
-    rht.set(pbRHTNode.getKey(), value, value.getPositionedAt());
+  for (const pbRHTNode of pbObject.nodes) {
+    const value = fromElement(pbRHTNode.element!);
+    rht.set(pbRHTNode.key, value, value.getPositionedAt());
   }
 
-  const obj = new CRDTObject(fromTimeTicket(pbObject.getCreatedAt())!, rht);
-  obj.setMovedAt(fromTimeTicket(pbObject.getMovedAt()));
-  obj.setRemovedAt(fromTimeTicket(pbObject.getRemovedAt()));
+  const obj = new CRDTObject(fromTimeTicket(pbObject.createdAt)!, rht);
+  obj.setMovedAt(fromTimeTicket(pbObject.movedAt));
+  obj.setRemovedAt(fromTimeTicket(pbObject.removedAt));
   return obj;
 }
 
 /**
  * `fromArray` converts the given Protobuf format to model format.
  */
-function fromArray(pbArray: PbJSONElement.JSONArray): CRDTArray {
+function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   const rgaTreeList = new RGATreeList();
-  for (const pbRGANode of pbArray.getNodesList()) {
+  for (const pbRGANode of pbArray.nodes) {
     // eslint-disable-next-line
-    rgaTreeList.insert(fromElement(pbRGANode.getElement()!));
+    rgaTreeList.insert(fromElement(pbRGANode.element!));
   }
 
-  const arr = new CRDTArray(
-    fromTimeTicket(pbArray.getCreatedAt())!,
-    rgaTreeList,
-  );
-  arr.setMovedAt(fromTimeTicket(pbArray.getMovedAt()));
-  arr.setRemovedAt(fromTimeTicket(pbArray.getRemovedAt()));
+  const arr = new CRDTArray(fromTimeTicket(pbArray.createdAt)!, rgaTreeList);
+  arr.setMovedAt(fromTimeTicket(pbArray.movedAt));
+  arr.setRemovedAt(fromTimeTicket(pbArray.removedAt));
   return arr;
 }
 
 /**
  * `fromPrimitive` converts the given Protobuf format to model format.
  */
-function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
+function fromPrimitive(pbPrimitive: PbJSONElement_Primitive): Primitive {
   const primitive = Primitive.of(
     Primitive.valueFromBytes(
-      fromValueType(pbPrimitive.getType()),
-      pbPrimitive.getValue_asU8(),
+      fromValueType(pbPrimitive.type),
+      pbPrimitive.value,
     ),
-    fromTimeTicket(pbPrimitive.getCreatedAt())!,
+    fromTimeTicket(pbPrimitive.createdAt)!,
   );
-  primitive.setMovedAt(fromTimeTicket(pbPrimitive.getMovedAt()));
-  primitive.setRemovedAt(fromTimeTicket(pbPrimitive.getRemovedAt()));
+  primitive.setMovedAt(fromTimeTicket(pbPrimitive.movedAt));
+  primitive.setRemovedAt(fromTimeTicket(pbPrimitive.removedAt));
   return primitive;
 }
 
@@ -1261,70 +1300,67 @@ function fromPrimitive(pbPrimitive: PbJSONElement.Primitive): Primitive {
  * `fromText` converts the given Protobuf format to model format.
  */
 function fromText<A extends Indexable>(
-  pbText: PbJSONElement.Text,
+  pbText: PbJSONElement_Text,
 ): CRDTText<A> {
   const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
   let prev = rgaTreeSplit.getHead();
-  for (const pbNode of pbText.getNodesList()) {
+  for (const pbNode of pbText.nodes) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
-    if (pbNode.hasInsPrevId()) {
+    if (pbNode.insPrevId) {
       current.setInsPrev(
-        rgaTreeSplit.findNode(fromTextNodeID(pbNode.getInsPrevId()!)),
+        rgaTreeSplit.findNode(fromTextNodeID(pbNode.insPrevId!)),
       );
     }
     prev = current;
   }
-  const text = new CRDTText<A>(
-    rgaTreeSplit,
-    fromTimeTicket(pbText.getCreatedAt())!,
-  );
-  text.setMovedAt(fromTimeTicket(pbText.getMovedAt()));
-  text.setRemovedAt(fromTimeTicket(pbText.getRemovedAt()));
+  const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
+  text.setMovedAt(fromTimeTicket(pbText.movedAt));
+  text.setRemovedAt(fromTimeTicket(pbText.removedAt));
   return text;
 }
 
 /**
  * `fromCounter` converts the given Protobuf format to model format.
  */
-function fromCounter(pbCounter: PbJSONElement.Counter): CRDTCounter {
+function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   const counter = CRDTCounter.create(
-    fromCounterType(pbCounter.getType()),
+    fromCounterType(pbCounter.type),
     CRDTCounter.valueFromBytes(
-      fromCounterType(pbCounter.getType()),
-      pbCounter.getValue_asU8(),
+      fromCounterType(pbCounter.type),
+      pbCounter.value,
     ),
-    fromTimeTicket(pbCounter.getCreatedAt())!,
+    fromTimeTicket(pbCounter.createdAt)!,
   );
-  counter.setMovedAt(fromTimeTicket(pbCounter.getMovedAt()));
-  counter.setRemovedAt(fromTimeTicket(pbCounter.getRemovedAt()));
+  counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
+  counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
   return counter;
 }
 
 /**
  * `fromTree` converts the given Protobuf format to model format.
  */
-function fromTree(pbTree: PbJSONElement.Tree): CRDTTree {
-  const root = fromTreeNodes(pbTree.getNodesList());
-  return CRDTTree.create(root!, fromTimeTicket(pbTree.getCreatedAt())!);
+function fromTree(pbTree: PbJSONElement_Tree): CRDTTree {
+  const root = fromTreeNodes(pbTree.nodes);
+  return CRDTTree.create(root!, fromTimeTicket(pbTree.createdAt)!);
 }
 
 /**
  * `fromElement` converts the given Protobuf format to model format.
  */
 function fromElement(pbElement: PbJSONElement): CRDTElement {
-  if (pbElement.hasJsonObject()) {
-    return fromObject(pbElement.getJsonObject()!);
-  } else if (pbElement.hasJsonArray()) {
-    return fromArray(pbElement.getJsonArray()!);
-  } else if (pbElement.hasPrimitive()) {
-    return fromPrimitive(pbElement.getPrimitive()!);
-  } else if (pbElement.hasText()) {
-    return fromText(pbElement.getText()!);
-  } else if (pbElement.hasCounter()) {
-    return fromCounter(pbElement.getCounter()!);
-  } else if (pbElement.hasTree()) {
-    return fromTree(pbElement.getTree()!);
+  if (pbElement.body.case === 'jsonObject') {
+    return fromObject(pbElement.body.value!);
+  } else if (pbElement.body.case === 'jsonArray') {
+    return fromArray(pbElement.body.value!);
+  } else if (pbElement.body.case === 'primitive') {
+    return fromPrimitive(pbElement.body.value!);
+  } else if (pbElement.body.case === 'text') {
+    return fromText(pbElement.body.value!);
+  } else if (pbElement.body.case === 'counter') {
+    return fromCounter(pbElement.body.value!);
+  } else if (pbElement.body.case === 'tree') {
+    return fromTree(pbElement.body.value!);
   } else {
     throw new YorkieError(Code.Unimplemented, `unimplemented element`);
   }
@@ -1346,10 +1382,10 @@ function bytesToSnapshot<P extends Indexable>(
     };
   }
 
-  const snapshot = PbSnapshot.deserializeBinary(bytes);
+  const snapshot = PbSnapshot.fromBinary(bytes);
   return {
-    root: fromElement(snapshot.getRoot()!) as CRDTObject,
-    presences: fromPresences<P>(snapshot.getPresencesMap()),
+    root: fromElement(snapshot.root!) as CRDTObject,
+    presences: fromPresences<P>(snapshot.presences),
   };
 }
 
@@ -1361,15 +1397,15 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
     throw new Error('bytes is empty');
   }
 
-  const pbElement = PbJSONElement.deserializeBinary(bytes);
-  return fromObject(pbElement.getJsonObject()!);
+  const pbElement = PbJSONElement.fromBinary(bytes);
+  return fromObject(pbElement.body.value! as PbJSONElement_JSONObject);
 }
 
 /**
  * `objectToBytes` converts the given JSONObject to byte array.
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
-  return toElement(obj).serializeBinary();
+  return toElement(obj).toBinary();
 }
 
 /**
@@ -1380,15 +1416,15 @@ function bytesToArray(bytes?: Uint8Array): CRDTArray {
     throw new Error('bytes is empty');
   }
 
-  const pbElement = PbJSONElement.deserializeBinary(bytes);
-  return fromArray(pbElement.getJsonArray()!);
+  const pbElement = PbJSONElement.fromBinary(bytes);
+  return fromArray(pbElement.body.value! as PbJSONElement_JSONArray);
 }
 
 /**
  * `arrayToBytes` converts the given CRDTArray to bytes.
  */
 function arrayToBytes(array: CRDTArray): Uint8Array {
-  return toArray(array).serializeBinary();
+  return toArray(array).toBinary();
 }
 
 /**
@@ -1399,15 +1435,15 @@ function bytesToTree(bytes?: Uint8Array): CRDTTree {
     throw new Error('bytes is empty');
   }
 
-  const pbElement = PbJSONElement.deserializeBinary(bytes);
-  return fromTree(pbElement.getTree()!);
+  const pbElement = PbJSONElement.fromBinary(bytes);
+  return fromTree(pbElement.body.value! as PbJSONElement_Tree);
 }
 
 /**
  * `treeToBytes` converts the given tree to bytes.
  */
 function treeToBytes(tree: CRDTTree): Uint8Array {
-  return toTree(tree).serializeBinary();
+  return toTree(tree).toBinary();
 }
 
 /**
