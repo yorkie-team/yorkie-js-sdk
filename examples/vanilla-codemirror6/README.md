@@ -10,7 +10,7 @@
 
 ## How to run demo
 
-At project root, run below command to start Yorkie and Envoy proxy.
+At project root, run below command to start Yorkie.
 
 ```bash
 $ docker-compose -f docker/docker-compose.yml up --build -d

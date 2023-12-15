@@ -8,20 +8,6 @@ The Yorkie JavaScript SDK implements the client-side libraries.
 
 To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/js-sdk
 
-## How yorkie-js-sdk works
-
-yorkie-js-sdk uses gRPC-web for communicating with Yorkie Server built on gRPC.
-
-```
- +--Browser--+           +--Envoy---------+         +--Yorkie-----+
- |           |           |                |         |             |
- | gRPC-web  <- HTTP1.1 -> gRPC-web proxy <- HTTP2 -> gRPC server |
- |           |           |                |         |             |
- +-----------+           +----------------+         +-------------+
-```
-
-For more details: https://grpc.io/blog/state-of-grpc-web/
-
 ## Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
