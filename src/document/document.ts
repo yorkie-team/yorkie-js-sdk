@@ -858,8 +858,6 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `hasLocalChanges` returns whether this document has local changes or not.
-   *
-   * @internal
    */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
@@ -910,8 +908,6 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `getKey` returns the key of this document.
-   *
-   * @internal
    */
   public getKey(): string {
     return this.key;
@@ -928,8 +924,6 @@ export class Document<T, P extends Indexable = Indexable> {
 
   /**
    * `getStatus` returns the status of this document.
-   *
-   * @internal
    */
   public getStatus(): DocumentStatus {
     return this.status;
