@@ -32,14 +32,17 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [applyChanges(changes)](./yorkie-js-sdk.document.applychanges.md) |  | <code>applyChanges</code> applies the given changes into this document. |
 |  [applySnapshot(serverSeq, snapshot)](./yorkie-js-sdk.document.applysnapshot.md) |  | <code>applySnapshot</code> applies the given snapshot into this document. |
 |  [getGarbageLenFromClone()](./yorkie-js-sdk.document.getgarbagelenfromclone.md) |  | <code>getGarbageLenFromClone</code> returns the length of elements should be purged from clone. |
+|  [getKey()](./yorkie-js-sdk.document.getkey.md) |  | <code>getKey</code> returns the key of this document. |
 |  [getMyPresence()](./yorkie-js-sdk.document.getmypresence.md) |  | <code>getMyPresence</code> returns the presence of the current client. |
 |  [getOpsForTest()](./yorkie-js-sdk.document.getopsfortest.md) |  | <code>getOpsForTest</code> returns the operations of this document for testing. |
 |  [getPresence(clientID)](./yorkie-js-sdk.document.getpresence.md) |  | <code>getPresence</code> returns the presence of the given clientID. |
 |  [getPresences()](./yorkie-js-sdk.document.getpresences.md) |  | <code>getPresences</code> returns the presences of online clients. |
 |  [getRedoStackForTest()](./yorkie-js-sdk.document.getredostackfortest.md) |  | <code>getRedoStackForTest</code> returns the redo stack for test. |
 |  [getRoot()](./yorkie-js-sdk.document.getroot.md) |  | <code>getRoot</code> returns a new proxy of cloned root. |
+|  [getStatus()](./yorkie-js-sdk.document.getstatus.md) |  | <code>getStatus</code> returns the status of this document. |
 |  [getUndoStackForTest()](./yorkie-js-sdk.document.getundostackfortest.md) |  | <code>getUndoStackForTest</code> returns the undo stack for test. |
 |  [getValueByPath(path)](./yorkie-js-sdk.document.getvaluebypath.md) |  | <code>getValueByPath</code> returns the JSONElement corresponding to the given path. |
+|  [hasLocalChanges()](./yorkie-js-sdk.document.haslocalchanges.md) |  | <code>hasLocalChanges</code> returns whether this document has local changes or not. |
 |  [publish(event)](./yorkie-js-sdk.document.publish.md) |  | <code>publish</code> triggers an event in this document, which can be received by callback functions from document.subscribe(). |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.document.subscribe.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the document is changed. |
 |  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_1.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the clients watching the document establishe or update its presence. |
