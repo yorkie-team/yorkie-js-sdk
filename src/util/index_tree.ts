@@ -506,12 +506,16 @@ export enum TagContained {
   Opening = 'Opening',
   // Closing represents that only the closing tag is selected.
   Closing = 'Closing',
+  // Text represents that the text node is selected.
+  Text = 'Text',
+  // None represents that neither the opening or closing tag is selected.
+  None = 'None',
 }
 
 /**
  * `nodesBetween` iterates the nodes between the given range.
  * If the given range is collapsed, the callback is not called.
- * It traverses the tree with postorder traversal.
+ * It traverses the tree with preorder traversal.
  * NOTE(sejongk): Nodes should not be removed in callback, because it leads wrong behaviors.
  */
 function nodesBetween<T extends IndexTreeNode<T>>(
@@ -546,25 +550,36 @@ function nodesBetween<T extends IndexTreeNode<T>>(
       const fromChild = child.isText ? from - pos : from - pos - 1;
       const toChild = child.isText ? to - pos : to - pos - 1;
 
-      nodesBetween(
-        child,
-        Math.max(0, fromChild),
-        Math.min(toChild, child.size),
-        callback,
-      );
-
       // If the range spans outside the child,
       // the callback is called with the child.
+      let contain = TagContained.None;
       if (fromChild < 0 || toChild > child.size || child.isText) {
-        let contain: TagContained;
-        if ((fromChild < 0 && toChild > child.size) || child.isText) {
+        if (child.isText) {
+          contain = TagContained.Text;
+        } else if (fromChild < 0 && toChild > child.size) {
           contain = TagContained.All;
         } else if (fromChild < 0) {
           contain = TagContained.Opening;
         } else {
           contain = TagContained.Closing;
         }
+      }
+
+      if (
+        contain === TagContained.Text ||
+        contain === TagContained.All ||
+        contain === TagContained.Opening
+      ) {
         callback(child, contain);
+      }
+      nodesBetween(
+        child,
+        Math.max(0, fromChild),
+        Math.min(toChild, child.size),
+        callback,
+      );
+      if (contain === TagContained.All || contain === TagContained.Closing) {
+        callback(child, TagContained.Closing);
       }
     }
     pos += child.paddedSize;

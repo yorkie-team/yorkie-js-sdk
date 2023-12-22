@@ -143,18 +143,19 @@ describe('IndexTree', function () {
     });
 
     nodesBetweenEqual(tree, 2, 11, [
-      'text.b:All',
+      'text.b:Text',
       'p:Closing',
-      'text.cde:All',
       'p:All',
-      'text.fg:All',
+      'text.cde:Text',
+      'p:Closing',
       'p:Opening',
+      'text.fg:Text',
     ]);
     nodesBetweenEqual(tree, 2, 6, [
-      'text.b:All',
+      'text.b:Text',
       'p:Closing',
-      'text.cde:All',
       'p:Opening',
+      'text.cde:Text',
     ]);
     nodesBetweenEqual(tree, 0, 1, ['p:Opening']);
     nodesBetweenEqual(tree, 3, 4, ['p:Closing']);
