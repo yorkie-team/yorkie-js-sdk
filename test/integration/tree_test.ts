@@ -21,6 +21,7 @@ import {
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Document } from '@yorkie-js-sdk/src/document/document';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -2828,31 +2829,7 @@ describe('TreeChange Generation', () => {
       await c1.sync();
       await c2.sync();
 
-      const actualOperations1: Array<TreeEditOpInfo> = [];
-      d1.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations1.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
-
-      const actualOperations2: Array<TreeEditOpInfo> = [];
-      d2.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations2.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
+      const [ops1, ops2] = subscribeDocs(d1, d2);
 
       d1.update((root) => root.t.edit(0, 4));
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
@@ -2866,7 +2843,7 @@ describe('TreeChange Generation', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
 
       assert.deepEqual(
-        actualOperations1.map((it) => {
+        ops1.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -2885,7 +2862,7 @@ describe('TreeChange Generation', () => {
       );
 
       assert.deepEqual(
-        actualOperations2.map((it) => {
+        ops2.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -2923,31 +2900,7 @@ describe('TreeChange Generation', () => {
       await c1.sync();
       await c2.sync();
 
-      const actualOperations1: Array<TreeEditOpInfo> = [];
-      d1.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations1.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
-
-      const actualOperations2: Array<TreeEditOpInfo> = [];
-      d2.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations2.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
+      const [ops1, ops2] = subscribeDocs(d1, d2);
 
       d1.update((root) => root.t.edit(1, 3));
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p></p></doc>`);
@@ -2961,7 +2914,7 @@ describe('TreeChange Generation', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
 
       assert.deepEqual(
-        actualOperations1.map((it) => {
+        ops1.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -2986,7 +2939,7 @@ describe('TreeChange Generation', () => {
       );
 
       assert.deepEqual(
-        actualOperations2.map((it) => {
+        ops2.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -3032,31 +2985,7 @@ describe('TreeChange Generation', () => {
       await c1.sync();
       await c2.sync();
 
-      const actualOperations1: Array<TreeEditOpInfo> = [];
-      d1.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations1.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
-
-      const actualOperations2: Array<TreeEditOpInfo> = [];
-      d2.subscribe('$.t', (event) => {
-        if (event.type === 'local-change' || event.type === 'remote-change') {
-          const { operations } = event.value;
-
-          actualOperations2.push(
-            ...(operations.filter(
-              (op) => op.type === 'tree-edit',
-            ) as Array<TreeEditOpInfo>),
-          );
-        }
-      });
+      const [ops1, ops2] = subscribeDocs(d1, d2);
 
       d1.update((root) => root.t.edit(0, 4));
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
@@ -3070,7 +2999,7 @@ describe('TreeChange Generation', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
 
       assert.deepEqual(
-        actualOperations1.map((it) => {
+        ops1.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -3089,7 +3018,7 @@ describe('TreeChange Generation', () => {
       );
 
       assert.deepEqual(
-        actualOperations2.map((it) => {
+        ops2.map((it) => {
           return {
             type: it.type,
             from: it.from,
@@ -3114,4 +3043,115 @@ describe('TreeChange Generation', () => {
       );
     }, task.name);
   });
+
+  it('Concurrent delete with contents and insert', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'a' }] }],
+        });
+        assert.equal(root.t.toXML(), /*html*/ `<doc><p>a</p></doc>`);
+      });
+      await c1.sync();
+      await c2.sync();
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      d1.update((root) => root.t.edit(1, 2, { type: 'text', value: 'b' }));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>b</p></doc>`);
+
+      d2.update((root) => root.t.edit(2, 2, { type: 'text', value: 'c' }));
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>ac</p></doc>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+
+      assert.deepEqual(
+        ops1.map((it) => {
+          return {
+            type: it.type,
+            from: it.from,
+            to: it.to,
+            value: it.value,
+          };
+        }),
+        [
+          {
+            type: 'tree-edit',
+            from: 1,
+            to: 2,
+            value: [{ type: 'text', value: 'b' }],
+          } as any,
+          {
+            type: 'tree-edit',
+            from: 2,
+            to: 2,
+            value: [{ type: 'text', value: 'c' }],
+          } as any,
+        ],
+      );
+
+      assert.deepEqual(
+        ops2.map((it) => {
+          return {
+            type: it.type,
+            from: it.from,
+            to: it.to,
+            value: it.value,
+          };
+        }),
+        [
+          {
+            type: 'tree-edit',
+            from: 2,
+            to: 2,
+            value: [{ type: 'text', value: 'c' }],
+          } as any,
+          {
+            type: 'tree-edit',
+            from: 1,
+            to: 2,
+            value: [{ type: 'text', value: 'b' }],
+          } as any,
+        ],
+      );
+    }, task.name);
+  });
 });
+
+function subscribeDocs(
+  d1: Document<{ t: Tree }>,
+  d2: Document<{ t: Tree }>,
+): [Array<TreeEditOpInfo>, Array<TreeEditOpInfo>] {
+  const ops1: Array<TreeEditOpInfo> = [];
+  const ops2: Array<TreeEditOpInfo> = [];
+
+  d1.subscribe('$.t', (event) => {
+    if (event.type === 'local-change' || event.type === 'remote-change') {
+      const { operations } = event.value;
+
+      ops1.push(
+        ...(operations.filter(
+          (op) => op.type === 'tree-edit',
+        ) as Array<TreeEditOpInfo>),
+      );
+    }
+  });
+
+  d2.subscribe('$.t', (event) => {
+    if (event.type === 'local-change' || event.type === 'remote-change') {
+      const { operations } = event.value;
+
+      ops2.push(
+        ...(operations.filter(
+          (op) => op.type === 'tree-edit',
+        ) as Array<TreeEditOpInfo>),
+      );
+    }
+  });
+
+  return [ops1, ops2];
+}

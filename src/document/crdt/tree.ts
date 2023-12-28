@@ -928,15 +928,20 @@ export class CRDTTree extends CRDTGCElement {
         }
       }
       if (aliveContents.length) {
-        changes.push({
-          type: TreeChangeType.Content,
-          from: fromIdx,
-          to: fromIdx,
-          fromPath,
-          toPath: fromPath,
-          actor: editedAt.getActorID()!,
-          value: aliveContents.map((content) => toTreeNode(content)),
-        });
+        const value = aliveContents.map((content) => toTreeNode(content));
+        if (changes.length && changes[changes.length - 1].from === fromIdx) {
+          changes[changes.length - 1].value = value;
+        } else {
+          changes.push({
+            type: TreeChangeType.Content,
+            from: fromIdx,
+            to: fromIdx,
+            fromPath,
+            toPath: fromPath,
+            actor: editedAt.getActorID()!,
+            value,
+          });
+        }
       }
     }
 
@@ -1299,14 +1304,18 @@ export class CRDTTree extends CRDTGCElement {
   ): Array<TreeChange> {
     const changes: Array<TreeChange> = [];
     const ranges: Array<Array<TreeNodeTag>> = [];
-    let range: Array<TreeNodeTag> = [];
 
     // Generate ranges by accumulating consecutive nodes in preorder.
+    let start = null;
+    let end = null;
     for (let i = 0; i < candidates.length; i++) {
       const cur = candidates[i];
       const next = candidates[i + 1];
+      if (!start) {
+        start = cur;
+      }
+      end = cur;
 
-      range.push(cur);
       const preOrderRight = this.findPreOrderRight(cur);
       if (
         !preOrderRight ||
@@ -1314,15 +1323,17 @@ export class CRDTTree extends CRDTGCElement {
         preOrderRight[0] !== next[0] ||
         preOrderRight[1] !== next[1]
       ) {
-        ranges.push(range);
-        range = [];
+        ranges.push([start, end]);
+        start = null;
+        end = null;
       }
     }
 
     // Convert each range to a deletion change.
     for (const range of ranges) {
-      const [fromLeft, fromLeftTag] = this.findPreOrderLeft(range[0]);
-      const [toLeft, toLeftTag] = range[range.length - 1];
+      const [start, end] = range;
+      const [fromLeft, fromLeftTag] = this.findPreOrderLeft(start);
+      const [toLeft, toLeftTag] = end;
       const fromParent =
         fromLeftTag === TagContained.Opening ? fromLeft : fromLeft.parent!;
       const toParent =
