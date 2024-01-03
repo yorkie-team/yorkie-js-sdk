@@ -239,6 +239,7 @@ export class CRDTRoot {
     ).sort();
 
     for (const createdAt of sortedRemovedElementSetByCreatedAt) {
+      if (seen.has(createdAt)) continue;
       seen.add(createdAt);
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (pair.element instanceof CRDTContainer) {
