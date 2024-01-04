@@ -36,6 +36,7 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type {
   DefaultTextType,
   TreeNodeType,
+  TreeToken,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
@@ -93,11 +94,6 @@ export interface TreeChange {
   value?: Array<TreeNode> | { [key: string]: any };
   splitLevel?: number;
 }
-
-/**
- * `TreeToken` represents a token in XML-like string.
- */
-export type TreeToken = [CRDTTreeNode, TokenType];
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
@@ -752,17 +748,23 @@ export class CRDTTree extends CRDTGCElement {
       value: attributes ? parseObjectValues(attributes) : undefined,
     });
 
-    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
-      if (!node.isRemoved && !node.isText && attributes) {
-        if (!node.attrs) {
-          node.attrs = new RHT();
-        }
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      ([node]) => {
+        if (!node.isRemoved && !node.isText && attributes) {
+          if (!node.attrs) {
+            node.attrs = new RHT();
+          }
 
-        for (const [key, value] of Object.entries(attributes)) {
-          node.attrs.set(key, value, editedAt);
+          for (const [key, value] of Object.entries(attributes)) {
+            node.attrs.set(key, value, editedAt);
+          }
         }
-      }
-    });
+      },
+    );
 
     return changes;
   }
@@ -789,8 +791,8 @@ export class CRDTTree extends CRDTGCElement {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
 
-    const toBeRemovedNodes: Array<CRDTTreeNode> = [];
-    const toBeRemovedTokens: Array<TreeToken> = [];
+    const nodesToBeRemoved: Array<CRDTTreeNode> = [];
+    const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
     this.traverseInPosRange(
@@ -798,7 +800,7 @@ export class CRDTTree extends CRDTGCElement {
       fromLeft,
       toParent,
       toLeft,
-      (node, tokenType, ended) => {
+      ([node, tokenType], ended) => {
         // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
         if (tokenType === TokenType.Start && !ended) {
@@ -826,7 +828,7 @@ export class CRDTTree extends CRDTGCElement {
         // be removed, then this node should be removed.
         if (
           node.canDelete(editedAt, latestCreatedAt) ||
-          toBeRemovedNodes.includes(node.parent!)
+          nodesToBeRemoved.includes(node.parent!)
         ) {
           const latestCreatedAt = latestCreatedAtMap.get(actorID);
           const createdAt = node.getCreatedAt();
@@ -838,9 +840,9 @@ export class CRDTTree extends CRDTGCElement {
           // NOTE(hackerwins): If the node overlaps as an end token with the
           // range then we need to keep the node.
           if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
-            toBeRemovedNodes.push(node);
+            nodesToBeRemoved.push(node);
           }
-          toBeRemovedTokens.push([node, tokenType]);
+          tokensToBeRemoved.push([node, tokenType]);
         }
       },
     );
@@ -848,12 +850,12 @@ export class CRDTTree extends CRDTGCElement {
     // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
     // range(from, to) into multiple ranges.
     const changes: Array<TreeChange> = this.makeDeletionChanges(
-      toBeRemovedTokens,
+      tokensToBeRemoved,
       editedAt,
     );
 
     // 02. Delete: delete the nodes that are marked as removed.
-    for (const node of toBeRemovedNodes) {
+    for (const node of nodesToBeRemoved) {
       node.remove(editedAt);
       if (node.isRemoved) {
         this.removedNodeMap.set(node.id.toIDString(), node);
@@ -1229,15 +1231,11 @@ export class CRDTTree extends CRDTGCElement {
     fromLeft: CRDTTreeNode,
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
-    callback: (
-      node: CRDTTreeNode,
-      tokenType: TokenType,
-      ended: boolean,
-    ) => void,
+    callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const toIdx = this.toIndex(toParent, toLeft);
-    return this.indexTree.tokenBetween(fromIdx, toIdx, callback);
+    return this.indexTree.tokensBetween(fromIdx, toIdx, callback);
   }
 
   /**
@@ -1294,11 +1292,11 @@ export class CRDTTree extends CRDTGCElement {
    * `makeDeletionChanges` converts nodes to be deleted to deletion changes.
    */
   private makeDeletionChanges(
-    candidates: Array<TreeToken>,
+    candidates: Array<TreeToken<CRDTTreeNode>>,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     const changes: Array<TreeChange> = [];
-    const ranges: Array<Array<TreeToken>> = [];
+    const ranges: Array<Array<TreeToken<CRDTTreeNode>>> = [];
 
     // Generate ranges by accumulating consecutive nodes.
     let start = null;
@@ -1359,7 +1357,10 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `findRightToken` returns the token to the right of the given token in the tree.
    */
-  private findRightToken([node, tokenType]: TreeToken): TreeToken {
+  private findRightToken([
+    node,
+    tokenType,
+  ]: TreeToken<CRDTTreeNode>): TreeToken<CRDTTreeNode> {
     if (tokenType === TokenType.Start) {
       const children = node.allChildren;
       if (children.length > 0) {
@@ -1384,7 +1385,10 @@ export class CRDTTree extends CRDTGCElement {
   /**
    * `findLeftToken` returns the token to the left of the given token in the tree.
    */
-  private findLeftToken([node, tokenType]: TreeToken): TreeToken {
+  private findLeftToken([
+    node,
+    tokenType,
+  ]: TreeToken<CRDTTreeNode>): TreeToken<CRDTTreeNode> {
     if (tokenType === TokenType.End) {
       const children = node.allChildren;
       if (children.length > 0) {

@@ -34,18 +34,18 @@ function toDiagnostic(node: CRDTTreeNode): string {
 }
 
 /**
- * `betweenEqual` is a helper function that checks the nodes between the given
+ * `tokensBetweenEqual` is a helper function that checks the tokens between the given
  * indexes.
  */
-function tokenBetweenEqual(
+function tokensBetweenEqual(
   tree: IndexTree<CRDTTreeNode>,
   from: number,
   to: number,
   expected: Array<string>,
 ) {
   const actual: Array<string> = [];
-  tree.tokenBetween(from, to, (node, contain) => {
-    actual.push(`${toDiagnostic(node)}:${contain}`);
+  tree.tokensBetween(from, to, ([node, tokenType]) => {
+    actual.push(`${toDiagnostic(node)}:${tokenType}`);
     return true;
   });
   assert.deepEqual(actual, expected);
@@ -124,7 +124,7 @@ describe('IndexTree', function () {
     assert.equal(findCommonAncestor(nodeAB, nodeCD)!.type, 'p');
   });
 
-  it('Can traverse nodes between two given positions', function () {
+  it('Can traverse tokens between two given positions', function () {
     //       0   1 2 3    4   5 6 7 8    9   10 11 12   13
     // <root> <p> a b </p> <p> c d e </p> <p>  f  g  </p>  </root>
     const tree = buildIndexTree({
@@ -142,7 +142,7 @@ describe('IndexTree', function () {
       ],
     });
 
-    tokenBetweenEqual(tree, 2, 11, [
+    tokensBetweenEqual(tree, 2, 11, [
       'text.b:Text',
       'p:End',
       'p:Start',
@@ -151,15 +151,15 @@ describe('IndexTree', function () {
       'p:Start',
       'text.fg:Text',
     ]);
-    tokenBetweenEqual(tree, 2, 6, [
+    tokensBetweenEqual(tree, 2, 6, [
       'text.b:Text',
       'p:End',
       'p:Start',
       'text.cde:Text',
     ]);
-    tokenBetweenEqual(tree, 0, 1, ['p:Start']);
-    tokenBetweenEqual(tree, 3, 4, ['p:End']);
-    tokenBetweenEqual(tree, 3, 5, ['p:End', 'p:Start']);
+    tokensBetweenEqual(tree, 0, 1, ['p:Start']);
+    tokensBetweenEqual(tree, 3, 4, ['p:End']);
+    tokensBetweenEqual(tree, 3, 5, ['p:End', 'p:Start']);
   });
 
   it('Can convert index to pos', function () {

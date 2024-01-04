@@ -509,16 +509,21 @@ export enum TokenType {
 }
 
 /**
- * `tokenBetween` iterates the tokens between the given range.
+ * `TreeToken` represents a token in XML-like string.
+ */
+export type TreeToken<T> = [T, TokenType];
+
+/**
+ * `tokensBetween` iterates the tokens between the given range.
  * If the given range is collapsed, the callback is not called.
  * It traverses the tree based on the concept of token.
  * NOTE(sejongk): Nodes should not be removed in callback, because it leads wrong behaviors.
  */
-function tokenBetween<T extends IndexTreeNode<T>>(
+function tokensBetween<T extends IndexTreeNode<T>>(
   root: T,
   from: number,
   to: number,
-  callback: (node: T, tokenType: TokenType, ended: boolean) => void,
+  callback: (token: TreeToken<T>, ended: boolean) => void,
 ) {
   if (from > to) {
     throw new Error(`from is greater than to: ${from} > ${to}`);
@@ -552,19 +557,18 @@ function tokenBetween<T extends IndexTreeNode<T>>(
       const endContained = !child.isText && toChild > child.size;
       if (child.isText || startContained) {
         callback(
-          child,
-          child.isText ? TokenType.Text : TokenType.Start,
+          [child, child.isText ? TokenType.Text : TokenType.Start],
           endContained,
         );
       }
-      tokenBetween(
+      tokensBetween(
         child,
         Math.max(0, fromChild),
         Math.min(toChild, child.size),
         callback,
       );
       if (endContained) {
-        callback(child, TokenType.End, endContained);
+        callback([child, TokenType.End], endContained);
       }
     }
     pos += child.paddedSize;
@@ -738,14 +742,14 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `nodeBetween` returns the nodes between the given range.
+   * `tokensBetween` returns the tokens between the given range.
    */
-  tokenBetween(
+  tokensBetween(
     from: number,
     to: number,
-    callback: (node: T, tokenType: TokenType, ended: boolean) => void,
+    callback: (token: TreeToken<T>, ended: boolean) => void,
   ): void {
-    tokenBetween<T>(this.root, from, to, callback);
+    tokensBetween<T>(this.root, from, to, callback);
   }
 
   /**
