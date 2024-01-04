@@ -234,20 +234,12 @@ export class CRDTRoot {
   public getGarbageLen(): number {
     let count = 0;
     const seen = new Set<string>();
-    const sortedRemovedElementSetByCreatedAt = Array.from(
-      this.removedElementSetByCreatedAt,
-    ).sort();
 
-    for (const createdAt of sortedRemovedElementSetByCreatedAt) {
-      if (seen.has(createdAt)) continue;
+    for (const createdAt of this.removedElementSetByCreatedAt) {
       seen.add(createdAt);
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (pair.element instanceof CRDTContainer) {
         pair.element.getDescendants((el) => {
-          const idString = el.getCreatedAt().toIDString();
-          if (seen.has(idString)) {
-            return true;
-          }
           seen.add(el.getCreatedAt().toIDString());
           return false;
         });
