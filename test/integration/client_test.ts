@@ -219,7 +219,7 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can change realtime sync', async function ({ task }) {
+  it('Can change realtime sync (pause/resume)', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -249,6 +249,7 @@ describe.sequential('Client', function () {
     });
     const unsub1 = c2.subscribe(stub);
     await c2.resume(d2);
+    await eventCollector.waitFor(ClientEventType.DocumentSynced); // sync occurs when resuming
 
     eventCollector.reset();
     d1.update((root) => {
@@ -276,7 +277,71 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can change sync mode in manual sync', async function ({ task }) {
+  it('Should apply previous changes when resuming document', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ version: string }>(docKey);
+    const d2 = new yorkie.Document<{ version: string }>(docKey);
+
+    const eventCollector = new EventCollector();
+    const stub = vi.fn().mockImplementation((event) => {
+      eventCollector.add(event.type);
+    });
+    const unsub1 = c2.subscribe(stub);
+
+    // 01. c2 attach the doc with realtime sync mode at first.
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2);
+    d1.update((root) => {
+      root.version = 'v1';
+    });
+    await c1.sync();
+    assert.equal(d1.toSortedJSON(), `{"version":"v1"}`, 'd1');
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
+
+    // 02. c2 pauses realtime sync mode. So, c2 doesn't get the changes of c1.
+    await c2.pause(d2);
+    d1.update((root) => {
+      root.version = 'v2';
+    });
+    await c1.sync();
+    assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
+
+    // 03. c2 resumes realtime sync mode.
+    // c2 should be able to apply changes made to the document while c2 is not in realtime sync.
+    eventCollector.reset();
+    await c2.resume(d2);
+
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
+
+    // 04. c2 should automatically synchronize changes.
+    eventCollector.reset();
+    d1.update((root) => {
+      root.version = 'v3';
+    });
+    await c1.sync();
+
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d1.toSortedJSON(), `{"version":"v3"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v3"}`, 'd2');
+    unsub1();
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Can change sync mode in manual sync (SyncMode.PushOnly)', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);
@@ -335,7 +400,9 @@ describe.sequential('Client', function () {
     await c3.deactivate();
   });
 
-  it('Can change sync mode in realtime sync', async function ({ task }) {
+  it('Can change sync mode in realtime sync (pauseRemoteChanges/resumeRemoteChanges)', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     const c3 = new yorkie.Client(testRPCAddr);

@@ -615,6 +615,11 @@ export class Client implements Observable<ClientEvent> {
     }
 
     if (isRealtimeSync) {
+      // NOTE(hackerwins): In manual mode, the client does not receive change events
+      // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
+      // to sync the local and remote changes. This has limitations in that unnecessary
+      // syncs occur if the client and server do not have any changes.
+      attachment.remoteChangeEventReceived = true;
       await this.runWatchLoop(doc.getKey());
       return doc;
     }
