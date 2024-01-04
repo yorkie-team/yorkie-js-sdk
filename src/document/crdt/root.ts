@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import {
   InitialTimeTicket,
@@ -170,25 +169,26 @@ export class CRDTRoot {
    * `deregisterElement` deregister the given element and its descendants from hash table.
    */
   public deregisterElement(element: CRDTElement): number {
-    let count = 0;
+    const seen = new Set<string>();
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
-      this.elementPairMapByCreatedAt.delete(createdAt);
-      this.removedElementSetByCreatedAt.delete(createdAt);
-      count++;
-
-      if (elem instanceof CRDTContainer) {
-        elem.getDescendants((e) => {
-          deregisterElementInternal(e);
-          return false;
-        });
+      if (!seen.has(createdAt)) {
+        this.elementPairMapByCreatedAt.delete(createdAt);
+        this.removedElementSetByCreatedAt.delete(createdAt);
+        seen.add(elem.getCreatedAt().toIDString());
       }
     };
 
     deregisterElementInternal(element);
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((e) => {
+        deregisterElementInternal(e);
+        return false;
+      });
+    }
 
-    return count;
+    return seen.size;
   }
 
   /**

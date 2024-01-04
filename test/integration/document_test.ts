@@ -15,6 +15,7 @@ import {
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { MaxTimeTicket } from '@yorkie-js-sdk/src//document/time/ticket';
 
 describe('Document', function () {
   afterEach(() => {
@@ -930,5 +931,18 @@ describe('Document', function () {
       }
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
     });
+  });
+
+  it.only('Deregister must not deregister same element twice in nested object', async function ({ task }) {
+    type TestDoc = { shape?: { point?: { x?: number; y?: number } } };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+
+    doc.update((root) => {
+      root.shape = { point: { x: 0, y: 0 } };
+      delete root.shape;
+    });
+    assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 4); // The number of GC nodes must also be 4. (It's 6 for now.)
   });
 });
