@@ -114,7 +114,7 @@ describe('Garbage Collection', function () {
     assert.equal(root, clone);
   });
 
-  it('getGarbageLen should equal the actual number of elements garbage-collected', async function ({ task }) {
+  it('getGarbageLen should return the actual number of elements garbage-collected', async function ({ task }) {
     type TestDoc = { point?: { x?: number; y?: number } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
