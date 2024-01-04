@@ -169,15 +169,13 @@ export class CRDTRoot {
    * `deregisterElement` deregister the given element and its descendants from hash table.
    */
   public deregisterElement(element: CRDTElement): number {
-    const seen = new Set<string>();
+    let count = 0;
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
-      if (!seen.has(createdAt)) {
-        this.elementPairMapByCreatedAt.delete(createdAt);
-        this.removedElementSetByCreatedAt.delete(createdAt);
-        seen.add(elem.getCreatedAt().toIDString());
-      }
+      this.elementPairMapByCreatedAt.delete(createdAt);
+      this.removedElementSetByCreatedAt.delete(createdAt);
+      count++;
     };
 
     deregisterElementInternal(element);
@@ -188,7 +186,7 @@ export class CRDTRoot {
       });
     }
 
-    return seen.size;
+    return count;
   }
 
   /**
