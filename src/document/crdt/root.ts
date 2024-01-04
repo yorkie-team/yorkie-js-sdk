@@ -176,16 +176,15 @@ export class CRDTRoot {
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.removedElementSetByCreatedAt.delete(createdAt);
       count++;
-
-      if (elem instanceof CRDTContainer) {
-        elem.getDescendants((e) => {
-          deregisterElementInternal(e);
-          return false;
-        });
-      }
     };
 
     deregisterElementInternal(element);
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((e) => {
+        deregisterElementInternal(e);
+        return false;
+      });
+    }
 
     return count;
   }
