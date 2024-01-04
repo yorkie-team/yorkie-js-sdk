@@ -15,7 +15,6 @@ import {
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src//document/time/ticket';
 
 describe('Document', function () {
   afterEach(() => {
