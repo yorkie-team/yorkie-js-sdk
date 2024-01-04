@@ -615,12 +615,10 @@ export class Client implements Observable<ClientEvent> {
     }
 
     if (isRealtimeSync) {
-      // NOTE(chacha912): When re-establishing real-time sync, there might have been
-      // changes while the connection was off. Therefore, syncing needs to be performed
-      // once. Currently, if syncing is called here, it overlaps with `syncInternal`,
-      // causing the issue of the response being applied twice. (Ref: issues#603)
-      // Therefore, we set `remoteChangeEventReceived` to true, allowing syncing to
-      // occur in `syncInternal`.
+      // NOTE(hackerwins): In manual mode, the client does not receive change events
+      // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
+      // to sync the local and remote changes. This has limitations in that unnecessary
+      // syncs occur if the client and server do not have any changes.
       attachment.remoteChangeEventReceived = true;
       await this.runWatchLoop(doc.getKey());
       return doc;
