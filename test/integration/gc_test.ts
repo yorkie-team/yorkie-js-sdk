@@ -682,6 +682,7 @@ describe('Garbage Collection', function () {
     await client1.deactivate();
     await client2.deactivate();
   });
+
   it('garbage collection test for nested object', async function ({ task }) {
     type TestDoc = { shape?: { point?: { x?: number; y?: number } } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
