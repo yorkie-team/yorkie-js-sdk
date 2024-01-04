@@ -148,12 +148,13 @@ describe('Garbage Collection', function () {
     await client2.sync();
     await client1.sync();
 
-    assert.equal(doc1.getGarbageLen(), 3); // point, x, y, x
-    assert.equal(doc2.getGarbageLen(), 3); // x, point, x, y
+    const gcNodeLen = 3;
+    assert.equal(doc1.getGarbageLen(), gcNodeLen); // point, x, y, x
+    assert.equal(doc2.getGarbageLen(), gcNodeLen); // x, point, x, y
 
     // Actual garbage-collected nodes
-    assert.equal(doc1.garbageCollect(MaxTimeTicket), 3); // point, x, y
-    assert.equal(doc2.garbageCollect(MaxTimeTicket), 3); // point, x, y
+    assert.equal(doc1.garbageCollect(MaxTimeTicket), gcNodeLen); // point, x, y
+    assert.equal(doc2.garbageCollect(MaxTimeTicket), gcNodeLen); // point, x, y
 
     await client1.deactivate();
     await client2.deactivate();
