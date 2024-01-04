@@ -498,31 +498,27 @@ function ancestorOf<T extends IndexTreeNode<T>>(ancestor: T, node: T): boolean {
   return false;
 }
 
-// TagContained represents whether the opening or closing tag of a element is selected.
-export enum TagContained {
-  // All represents that both opening and closing tag of a element are selected.
-  All = 'All',
-  // Opening represents that only the opening tag is selected.
-  Opening = 'Opening',
-  // Closing represents that only the closing tag is selected.
-  Closing = 'Closing',
-  // Text represents that the text node is selected.
+// TokenType represents the type of the selected token.
+export enum TokenType {
+  // Start represents that the start token type.
+  Start = 'Start',
+  // End represents that the end token type.
+  End = 'End',
+  // Text represents that the text token type.
   Text = 'Text',
-  // None represents that neither the opening or closing tag is selected.
-  None = 'None',
 }
 
 /**
- * `nodesBetween` iterates the nodes between the given range.
+ * `tokenBetween` iterates the tokens between the given range.
  * If the given range is collapsed, the callback is not called.
- * It traverses the tree with preorder traversal.
+ * It traverses the tree based on the concept of token.
  * NOTE(sejongk): Nodes should not be removed in callback, because it leads wrong behaviors.
  */
-function nodesBetween<T extends IndexTreeNode<T>>(
+function tokenBetween<T extends IndexTreeNode<T>>(
   root: T,
   from: number,
   to: number,
-  callback: (node: T, contain: TagContained) => void,
+  callback: (node: T, tokenType: TokenType, ended: boolean) => void,
 ) {
   if (from > to) {
     throw new Error(`from is greater than to: ${from} > ${to}`);
@@ -552,34 +548,23 @@ function nodesBetween<T extends IndexTreeNode<T>>(
 
       // If the range spans outside the child,
       // the callback is called with the child.
-      let contain = TagContained.None;
-      if (fromChild < 0 || toChild > child.size || child.isText) {
-        if (child.isText) {
-          contain = TagContained.Text;
-        } else if (fromChild < 0 && toChild > child.size) {
-          contain = TagContained.All;
-        } else if (fromChild < 0) {
-          contain = TagContained.Opening;
-        } else {
-          contain = TagContained.Closing;
-        }
+      const startContained = !child.isText && fromChild < 0;
+      const endContained = !child.isText && toChild > child.size;
+      if (child.isText || startContained) {
+        callback(
+          child,
+          child.isText ? TokenType.Text : TokenType.Start,
+          endContained,
+        );
       }
-
-      if (
-        contain === TagContained.Text ||
-        contain === TagContained.All ||
-        contain === TagContained.Opening
-      ) {
-        callback(child, contain);
-      }
-      nodesBetween(
+      tokenBetween(
         child,
         Math.max(0, fromChild),
         Math.min(toChild, child.size),
         callback,
       );
-      if (contain === TagContained.All || contain === TagContained.Closing) {
-        callback(child, TagContained.Closing);
+      if (endContained) {
+        callback(child, TokenType.End, endContained);
       }
     }
     pos += child.paddedSize;
@@ -755,12 +740,12 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   /**
    * `nodeBetween` returns the nodes between the given range.
    */
-  nodesBetween(
+  tokenBetween(
     from: number,
     to: number,
-    callback: (node: T, contain: TagContained) => void,
+    callback: (node: T, tokenType: TokenType, ended: boolean) => void,
   ): void {
-    nodesBetween<T>(this.root, from, to, callback);
+    tokenBetween<T>(this.root, from, to, callback);
   }
 
   /**

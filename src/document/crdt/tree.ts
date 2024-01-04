@@ -26,7 +26,7 @@ import {
   TreePos,
   IndexTreeNode,
   traverseAll,
-  TagContained,
+  TokenType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -95,9 +95,9 @@ export interface TreeChange {
 }
 
 /**
- * `TreeNodeTag` represents a pair of CRDTTreeNode and TagContained.
+ * `TreeToken` represents a token in XML-like string.
  */
-export type TreeNodeTag = [CRDTTreeNode, TagContained];
+export type TreeToken = [CRDTTreeNode, TokenType];
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
@@ -716,7 +716,7 @@ export class CRDTTree extends CRDTGCElement {
     const allChildren = realParent.allChildren;
     const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
 
-    for (let i = index; i < parent.allChildren.length; i++) {
+    for (let i = index; i < allChildren.length; i++) {
       const next = allChildren[i];
       if (!next.id.getCreatedAt().after(editedAt)) {
         break;
@@ -789,8 +789,8 @@ export class CRDTTree extends CRDTGCElement {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
 
-    const toBeRemoveds: Array<CRDTTreeNode> = [];
-    const toBeRemovedsWithTag: Array<TreeNodeTag> = [];
+    const toBeRemovedNodes: Array<CRDTTreeNode> = [];
+    const toBeRemovedTokens: Array<TreeToken> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
     this.traverseInPosRange(
@@ -798,10 +798,10 @@ export class CRDTTree extends CRDTGCElement {
       fromLeft,
       toParent,
       toLeft,
-      (node, contain) => {
-        // NOTE(hackerwins): If the node overlaps as an opening tag with the
+      (node, tokenType, ended) => {
+        // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
-        if (contain === TagContained.Opening) {
+        if (tokenType === TokenType.Start && !ended) {
           // TODO(hackerwins): Define more clearly merge-able rules
           // between two parents. For now, we only merge two parents are
           // both element nodes having text children.
@@ -826,7 +826,7 @@ export class CRDTTree extends CRDTGCElement {
         // be removed, then this node should be removed.
         if (
           node.canDelete(editedAt, latestCreatedAt) ||
-          toBeRemoveds.includes(node.parent!)
+          toBeRemovedNodes.includes(node.parent!)
         ) {
           const latestCreatedAt = latestCreatedAtMap.get(actorID);
           const createdAt = node.getCreatedAt();
@@ -835,21 +835,12 @@ export class CRDTTree extends CRDTGCElement {
             latestCreatedAtMap.set(actorID, createdAt);
           }
 
-          // NOTE(hackerwins): If the node overlaps as a closing tag with the
+          // NOTE(hackerwins): If the node overlaps as an end token with the
           // range then we need to keep the node.
-          if (
-            contain === TagContained.Text ||
-            contain === TagContained.All ||
-            contain === TagContained.Opening
-          ) {
-            toBeRemoveds.push(node);
+          if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
+            toBeRemovedNodes.push(node);
           }
-          // NOTE (sejongk): This stores nodes along with their corresponding tags
-          // (Opening/Closing/Text) that are going to be removed in pre-order.
-          toBeRemovedsWithTag.push([
-            node,
-            contain === TagContained.All ? TagContained.Opening : contain,
-          ]);
+          toBeRemovedTokens.push([node, tokenType]);
         }
       },
     );
@@ -857,12 +848,12 @@ export class CRDTTree extends CRDTGCElement {
     // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
     // range(from, to) into multiple ranges.
     const changes: Array<TreeChange> = this.makeDeletionChanges(
-      toBeRemovedsWithTag,
+      toBeRemovedTokens,
       editedAt,
     );
 
     // 02. Delete: delete the nodes that are marked as removed.
-    for (const node of toBeRemoveds) {
+    for (const node of toBeRemovedNodes) {
       node.remove(editedAt);
       if (node.isRemoved) {
         this.removedNodeMap.set(node.id.toIDString(), node);
@@ -1238,11 +1229,15 @@ export class CRDTTree extends CRDTGCElement {
     fromLeft: CRDTTreeNode,
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
-    callback: (node: CRDTTreeNode, contain: TagContained) => void,
+    callback: (
+      node: CRDTTreeNode,
+      tokenType: TokenType,
+      ended: boolean,
+    ) => void,
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const toIdx = this.toIndex(toParent, toLeft);
-    return this.indexTree.nodesBetween(fromIdx, toIdx, callback);
+    return this.indexTree.tokenBetween(fromIdx, toIdx, callback);
   }
 
   /**
@@ -1299,13 +1294,13 @@ export class CRDTTree extends CRDTGCElement {
    * `makeDeletionChanges` converts nodes to be deleted to deletion changes.
    */
   private makeDeletionChanges(
-    candidates: Array<TreeNodeTag>,
+    candidates: Array<TreeToken>,
     editedAt: TimeTicket,
   ): Array<TreeChange> {
     const changes: Array<TreeChange> = [];
-    const ranges: Array<Array<TreeNodeTag>> = [];
+    const ranges: Array<Array<TreeToken>> = [];
 
-    // Generate ranges by accumulating consecutive nodes in preorder.
+    // Generate ranges by accumulating consecutive nodes.
     let start = null;
     let end = null;
     for (let i = 0; i < candidates.length; i++) {
@@ -1316,12 +1311,12 @@ export class CRDTTree extends CRDTGCElement {
       }
       end = cur;
 
-      const preOrderRight = this.findPreOrderRight(cur);
+      const rightToken = this.findRightToken(cur);
       if (
-        !preOrderRight ||
+        !rightToken ||
         !next ||
-        preOrderRight[0] !== next[0] ||
-        preOrderRight[1] !== next[1]
+        rightToken[0] !== next[0] ||
+        rightToken[1] !== next[1]
       ) {
         ranges.push([start, end]);
         start = null;
@@ -1332,12 +1327,12 @@ export class CRDTTree extends CRDTGCElement {
     // Convert each range to a deletion change.
     for (const range of ranges) {
       const [start, end] = range;
-      const [fromLeft, fromLeftTag] = this.findPreOrderLeft(start);
-      const [toLeft, toLeftTag] = end;
+      const [fromLeft, fromLeftTokenType] = this.findLeftToken(start);
+      const [toLeft, toLeftTokenType] = end;
       const fromParent =
-        fromLeftTag === TagContained.Opening ? fromLeft : fromLeft.parent!;
+        fromLeftTokenType === TokenType.Start ? fromLeft : fromLeft.parent!;
       const toParent =
-        toLeftTag === TagContained.Opening ? toLeft : toLeft.parent!;
+        toLeftTokenType === TokenType.Start ? toLeft : toLeft.parent!;
 
       const fromIdx = this.toIndex(fromParent, fromLeft);
       const toIdx = this.toIndex(toParent, toLeft);
@@ -1362,55 +1357,50 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `findPreOrderRight` returns the node to the right of the given node in preorder.
-   * The preorder traversal includes both living nodes and tombstones.
+   * `findRightToken` returns the token to the right of the given token in the tree.
    */
-  private findPreOrderRight([node, tag]: TreeNodeTag): TreeNodeTag {
-    if (tag === TagContained.Opening) {
+  private findRightToken([node, tokenType]: TreeToken): TreeToken {
+    if (tokenType === TokenType.Start) {
       const children = node.allChildren;
       if (children.length > 0) {
         return [
           children[0],
-          children[0].isText ? TagContained.Text : TagContained.Opening,
+          children[0].isText ? TokenType.Text : TokenType.Start,
         ];
       }
-      return [node, TagContained.Closing];
+      return [node, TokenType.End];
     } else {
       const parent = node.parent!;
       const siblings = parent.allChildren;
       const offset = siblings.indexOf(node);
       if (parent && offset === siblings.length - 1) {
-        return [parent, TagContained.Closing];
+        return [parent, TokenType.End];
       }
       const next = siblings[offset + 1];
-      return [next, next.isText ? TagContained.Text : TagContained.Opening];
+      return [next, next.isText ? TokenType.Text : TokenType.Start];
     }
   }
 
   /**
-   * `findPreOrderLeft` returns the node to the left of the given node in preorder.
-   * The preorder traversal includes both living nodes and tombstones.
+   * `findLeftToken` returns the token to the left of the given token in the tree.
    */
-  private findPreOrderLeft([node, tag]: TreeNodeTag): TreeNodeTag {
-    if (tag === TagContained.Closing) {
+  private findLeftToken([node, tokenType]: TreeToken): TreeToken {
+    if (tokenType === TokenType.End) {
       const children = node.allChildren;
       if (children.length > 0) {
         const lastChild = children[children.length - 1];
-        return [
-          lastChild,
-          lastChild.isText ? TagContained.Text : TagContained.Closing,
-        ];
+        return [lastChild, lastChild.isText ? TokenType.Text : TokenType.End];
       }
-      return [node, TagContained.Opening];
+      return [node, TokenType.Start];
     } else {
       const parent = node.parent!;
       const siblings = parent.allChildren;
       const offset = siblings.indexOf(node);
       if (parent && offset === 0) {
-        return [parent, TagContained.Opening];
+        return [parent, TokenType.Start];
       }
       const prev = siblings[offset - 1];
-      return [prev, prev.isText ? TagContained.Text : TagContained.Closing];
+      return [prev, prev.isText ? TokenType.Text : TokenType.End];
     }
   }
 }

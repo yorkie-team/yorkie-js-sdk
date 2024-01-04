@@ -37,14 +37,14 @@ function toDiagnostic(node: CRDTTreeNode): string {
  * `betweenEqual` is a helper function that checks the nodes between the given
  * indexes.
  */
-function nodesBetweenEqual(
+function tokenBetweenEqual(
   tree: IndexTree<CRDTTreeNode>,
   from: number,
   to: number,
   expected: Array<string>,
 ) {
   const actual: Array<string> = [];
-  tree.nodesBetween(from, to, (node, contain) => {
+  tree.tokenBetween(from, to, (node, contain) => {
     actual.push(`${toDiagnostic(node)}:${contain}`);
     return true;
   });
@@ -142,24 +142,24 @@ describe('IndexTree', function () {
       ],
     });
 
-    nodesBetweenEqual(tree, 2, 11, [
+    tokenBetweenEqual(tree, 2, 11, [
       'text.b:Text',
-      'p:Closing',
-      'p:All',
+      'p:End',
+      'p:Start',
       'text.cde:Text',
-      'p:Closing',
-      'p:Opening',
+      'p:End',
+      'p:Start',
       'text.fg:Text',
     ]);
-    nodesBetweenEqual(tree, 2, 6, [
+    tokenBetweenEqual(tree, 2, 6, [
       'text.b:Text',
-      'p:Closing',
-      'p:Opening',
+      'p:End',
+      'p:Start',
       'text.cde:Text',
     ]);
-    nodesBetweenEqual(tree, 0, 1, ['p:Opening']);
-    nodesBetweenEqual(tree, 3, 4, ['p:Closing']);
-    nodesBetweenEqual(tree, 3, 5, ['p:Closing', 'p:Opening']);
+    tokenBetweenEqual(tree, 0, 1, ['p:Start']);
+    tokenBetweenEqual(tree, 3, 4, ['p:End']);
+    tokenBetweenEqual(tree, 3, 5, ['p:End', 'p:Start']);
   });
 
   it('Can convert index to pos', function () {
