@@ -114,6 +114,52 @@ describe('Garbage Collection', function () {
     assert.equal(root, clone);
   });
 
+  it('getGarbageLen should return the actual number of elements garbage-collected', async function ({ task }) {
+    type TestDoc = { point?: { x?: number; y?: number } };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+
+    await client1.activate();
+    await client2.activate();
+
+    // 1. initial state
+    await client1.attach(doc1, { isRealtimeSync: false });
+    doc1.update((root) => (root.point = { x: 0, y: 0 }));
+    await client1.sync();
+    await client2.attach(doc2, { isRealtimeSync: false });
+
+    // 2. client1 updates doc
+    doc1.update((root) => {
+      delete root.point;
+    });
+    assert.equal(doc1.getGarbageLen(), 3); // point, x, y
+
+    // 3. client2 updates doc
+    doc2.update((root) => {
+      delete root.point?.x;
+    });
+    assert.equal(doc2.getGarbageLen(), 1); // x
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+
+    const gcNodeLen = 3; // point, x, y
+    assert.equal(doc1.getGarbageLen(), gcNodeLen);
+    assert.equal(doc2.getGarbageLen(), gcNodeLen);
+
+    // Actual garbage-collected nodes
+    assert.equal(doc1.garbageCollect(MaxTimeTicket), gcNodeLen);
+    assert.equal(doc2.garbageCollect(MaxTimeTicket), gcNodeLen);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
+
   it('text garbage collection test', function () {
     const doc = new yorkie.Document<{ text: Text }>('test-doc');
     doc.update((root) => (root.text = new Text()));

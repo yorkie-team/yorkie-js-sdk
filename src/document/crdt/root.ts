@@ -233,17 +233,20 @@ export class CRDTRoot {
    */
   public getGarbageLen(): number {
     let count = 0;
+    const seen = new Set<string>();
 
     for (const createdAt of this.removedElementSetByCreatedAt) {
-      count++;
+      seen.add(createdAt);
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (pair.element instanceof CRDTContainer) {
-        pair.element.getDescendants(() => {
-          count++;
+        pair.element.getDescendants((el) => {
+          seen.add(el.getCreatedAt().toIDString());
           return false;
         });
       }
     }
+
+    count += seen.size;
 
     for (const createdAt of this.elementHasRemovedNodesSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
