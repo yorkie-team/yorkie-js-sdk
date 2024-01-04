@@ -115,47 +115,6 @@ describe('Garbage Collection', function () {
   });
 
   it('garbage collection test4', async function ({ task }) {
-    type TestDoc = { point?: { x?: number } };
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
-
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
-
-    await client1.activate();
-    await client2.activate();
-
-    await client1.attach(doc1, { isRealtimeSync: false });
-    doc1.update((root) => (root.point = { x: 0 }));
-    await client1.sync();
-    await client2.attach(doc2, { isRealtimeSync: false });
-
-    doc1.update((root) => {
-      delete root.point;
-    });
-    assert.equal(doc1.getGarbageLen(), 2);
-
-    doc2.update((root) => {
-      delete root.point?.x;
-    });
-    assert.equal(doc2.getGarbageLen(), 1);
-
-    await client1.sync();
-    await client2.sync();
-    await client1.sync();
-
-    assert.equal(doc1.getGarbageLen(), 2);
-    assert.equal(doc2.getGarbageLen(), 2);
-
-    assert.equal(doc1.garbageCollect(MaxTimeTicket), 2);
-    assert.equal(doc2.garbageCollect(MaxTimeTicket), 2);
-
-    await client1.deactivate();
-    await client2.deactivate();
-  });
-
-  it('garbage collection test5', async function ({ task }) {
     type TestDoc = { point?: { x?: number; y?: number } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
