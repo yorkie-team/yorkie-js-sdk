@@ -933,7 +933,7 @@ describe('Document', function () {
     });
   });
 
-  it.only('deregisterElement must not deregister same element twice in nested object', async function ({ task }) {
+  it('deregisterElement must not deregister same element twice in nested object', async function ({ task }) {
     type TestDoc = { shape?: { point?: { x?: number; y?: number } } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
