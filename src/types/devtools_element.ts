@@ -31,8 +31,9 @@ export type ElementType =
   | 'YORKIE_TREE';
 
 export type JSONElement = {
-  id: string;
   key?: string;
+  path?: string;
   value: ElementValue;
   type: ElementType;
+  createdAt: string;
 };

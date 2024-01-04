@@ -144,16 +144,16 @@ export class CRDTObject extends CRDTContainer {
   public toJSForTest(): Devtools.JSONElement {
     const values: Devtools.ContainerValue = {};
     for (const [key, elem] of this) {
-      const { id, value, type } = elem.toJSForTest();
+      const { createdAt, value, type } = elem.toJSForTest();
       values[key] = {
         key,
-        id,
+        createdAt,
         value,
         type,
       };
     }
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: values,
       type: 'YORKIE_OBJECT',
     };

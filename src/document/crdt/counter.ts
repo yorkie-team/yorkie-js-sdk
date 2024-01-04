@@ -125,7 +125,7 @@ export class CRDTCounter extends CRDTElement {
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: this.value,
       type: 'YORKIE_COUNTER',
     };

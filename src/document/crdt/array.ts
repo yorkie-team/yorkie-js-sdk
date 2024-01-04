@@ -216,16 +216,16 @@ export class CRDTArray extends CRDTContainer {
   public toJSForTest(): Devtools.JSONElement {
     const values: Devtools.ContainerValue = {};
     for (let i = 0; i < this.length; i++) {
-      const { id, value, type } = this.get(i)!.toJSForTest();
+      const { createdAt, value, type } = this.get(i)!.toJSForTest();
       values[i] = {
         key: String(i),
-        id,
+        createdAt,
         value,
         type,
       };
     }
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: values,
       type: 'YORKIE_ARRAY',
     };

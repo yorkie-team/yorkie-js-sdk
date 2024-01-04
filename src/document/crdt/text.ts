@@ -356,7 +356,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: JSON.parse(this.toJSON()),
       type: 'YORKIE_TEXT',
     };

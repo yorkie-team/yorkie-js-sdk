@@ -26,6 +26,7 @@ import {
   toJSONElement,
   buildCRDTElement,
 } from '@yorkie-js-sdk/src/document/json/element';
+import * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
@@ -46,6 +47,7 @@ export type JSONObject<T> = {
    * `toJS` returns the JSON object of this object.
    */
   toJS?(): T;
+  toJSForTest?(): Devtools.JSONElement;
 } & T;
 
 /**

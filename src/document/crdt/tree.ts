@@ -350,6 +350,14 @@ export class CRDTTreeNodeID {
   public toIDString(): string {
     return `${this.createdAt.toIDString()}:${this.offset}`;
   }
+
+  /**
+   * `toTestString` returns a string containing the meta data of the ticket
+   * for debugging purpose.
+   */
+  public toTestString(): string {
+    return `${this.createdAt.toTestString()}:${this.offset}`;
+  }
 }
 
 /**
@@ -1091,7 +1099,7 @@ export class CRDTTree extends CRDTGCElement {
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: JSON.parse(this.toJSON()),
       type: 'YORKIE_TREE',
     };
