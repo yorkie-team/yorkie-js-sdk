@@ -26,7 +26,7 @@ import {
   TreePos,
   IndexTreeNode,
   traverseAll,
-  TagContained,
+  TokenType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
 import { ActorID } from './../time/actor_id';
@@ -36,6 +36,7 @@ import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type {
   DefaultTextType,
   TreeNodeType,
+  TreeToken,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
@@ -489,7 +490,11 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     }
 
     if (alived) {
-      this.updateAncestorsSize();
+      if (!this.parent!.removedAt) {
+        this.updateAncestorsSize();
+      } else {
+        this.parent!.size -= this.paddedSize;
+      }
     }
   }
 
@@ -707,7 +712,7 @@ export class CRDTTree extends CRDTGCElement {
     const allChildren = realParent.allChildren;
     const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
 
-    for (let i = index; i < parent.allChildren.length; i++) {
+    for (let i = index; i < allChildren.length; i++) {
       const next = allChildren[i];
       if (!next.id.getCreatedAt().after(editedAt)) {
         break;
@@ -743,17 +748,23 @@ export class CRDTTree extends CRDTGCElement {
       value: attributes ? parseObjectValues(attributes) : undefined,
     });
 
-    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (node) => {
-      if (!node.isRemoved && !node.isText && attributes) {
-        if (!node.attrs) {
-          node.attrs = new RHT();
-        }
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      ([node]) => {
+        if (!node.isRemoved && !node.isText && attributes) {
+          if (!node.attrs) {
+            node.attrs = new RHT();
+          }
 
-        for (const [key, value] of Object.entries(attributes)) {
-          node.attrs.set(key, value, editedAt);
+          for (const [key, value] of Object.entries(attributes)) {
+            node.attrs.set(key, value, editedAt);
+          }
         }
-      }
-    });
+      },
+    );
 
     return changes;
   }
@@ -777,7 +788,11 @@ export class CRDTTree extends CRDTGCElement {
     );
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
-    const toBeRemoveds: Array<CRDTTreeNode> = [];
+    const fromIdx = this.toIndex(fromParent, fromLeft);
+    const fromPath = this.toPath(fromParent, fromLeft);
+
+    const nodesToBeRemoved: Array<CRDTTreeNode> = [];
+    const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
     const latestCreatedAtMap = new Map<string, TimeTicket>();
     this.traverseInPosRange(
@@ -785,16 +800,10 @@ export class CRDTTree extends CRDTGCElement {
       fromLeft,
       toParent,
       toLeft,
-      (node, contain) => {
-        // NOTE(hackerwins): If the node overlaps as a closing tag with the
-        // range then we need to keep the node.
-        if (!node.isText && contain == TagContained.Closing) {
-          return;
-        }
-
-        // NOTE(hackerwins): If the node overlaps as an opening tag with the
+      ([node, tokenType], ended) => {
+        // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
-        if (!node.isText && contain == TagContained.Opening) {
+        if (tokenType === TokenType.Start && !ended) {
           // TODO(hackerwins): Define more clearly merge-able rules
           // between two parents. For now, we only merge two parents are
           // both element nodes having text children.
@@ -804,10 +813,6 @@ export class CRDTTree extends CRDTGCElement {
           // }
 
           for (const child of node.children) {
-            if (toBeRemoveds.includes(child)) {
-              continue;
-            }
-
             toBeMovedToFromParents.push(child);
           }
         }
@@ -819,7 +824,12 @@ export class CRDTTree extends CRDTGCElement {
             : InitialTimeTicket
           : MaxTimeTicket;
 
-        if (node.canDelete(editedAt, latestCreatedAt)) {
+        // NOTE(sejongk): If the node is removable or its parent is going to
+        // be removed, then this node should be removed.
+        if (
+          node.canDelete(editedAt, latestCreatedAt) ||
+          nodesToBeRemoved.includes(node.parent!)
+        ) {
           const latestCreatedAt = latestCreatedAtMap.get(actorID);
           const createdAt = node.getCreatedAt();
 
@@ -827,29 +837,25 @@ export class CRDTTree extends CRDTGCElement {
             latestCreatedAtMap.set(actorID, createdAt);
           }
 
-          toBeRemoveds.push(node);
+          // NOTE(hackerwins): If the node overlaps as an end token with the
+          // range then we need to keep the node.
+          if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
+            nodesToBeRemoved.push(node);
+          }
+          tokensToBeRemoved.push([node, tokenType]);
         }
       },
     );
 
-    // TODO(hackerwins): If concurrent deletion happens, we need to seperate the
+    // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
     // range(from, to) into multiple ranges.
-    const changes: Array<TreeChange> = [];
-    changes.push({
-      type: TreeChangeType.Content,
-      from: this.toIndex(fromParent, fromLeft),
-      to: this.toIndex(toParent, toLeft),
-      fromPath: this.toPath(fromParent, fromLeft),
-      toPath: this.toPath(toParent, toLeft),
-      actor: editedAt.getActorID()!,
-      value: contents?.length
-        ? contents.map((content) => toTreeNode(content))
-        : undefined,
-      splitLevel,
-    });
+    const changes: Array<TreeChange> = this.makeDeletionChanges(
+      tokensToBeRemoved,
+      editedAt,
+    );
 
     // 02. Delete: delete the nodes that are marked as removed.
-    for (const node of toBeRemoveds) {
+    for (const node of nodesToBeRemoved) {
       node.remove(editedAt);
       if (node.isRemoved) {
         this.removedNodeMap.set(node.id.toIDString(), node);
@@ -858,7 +864,9 @@ export class CRDTTree extends CRDTGCElement {
 
     // 03. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
-      fromParent.append(node);
+      if (!node.removedAt) {
+        fromParent.append(node);
+      }
     }
 
     // 04. Split: split the element nodes for the given split level.
@@ -872,12 +880,20 @@ export class CRDTTree extends CRDTGCElement {
         parent = parent.parent!;
         splitCount++;
       }
+      changes.push({
+        type: TreeChangeType.Content,
+        from: fromIdx,
+        to: fromIdx,
+        fromPath,
+        toPath: fromPath,
+        actor: editedAt.getActorID()!,
+      });
     }
 
     // 05. Insert: insert the given nodes at the given position.
     if (contents?.length) {
+      const aliveContents: Array<CRDTTreeNode> = [];
       let leftInChildren = fromLeft; // tree
-
       for (const content of contents) {
         // 05-1. Insert the content nodes to the tree.
         if (leftInChildren === fromParent) {
@@ -899,6 +915,26 @@ export class CRDTTree extends CRDTGCElement {
 
           this.nodeMapByID.put(node.id, node);
         });
+
+        if (!content.isRemoved) {
+          aliveContents.push(content);
+        }
+      }
+      if (aliveContents.length) {
+        const value = aliveContents.map((content) => toTreeNode(content));
+        if (changes.length && changes[changes.length - 1].from === fromIdx) {
+          changes[changes.length - 1].value = value;
+        } else {
+          changes.push({
+            type: TreeChangeType.Content,
+            from: fromIdx,
+            to: fromIdx,
+            fromPath,
+            toPath: fromPath,
+            actor: editedAt.getActorID()!,
+            value,
+          });
+        }
       }
     }
 
@@ -1195,11 +1231,11 @@ export class CRDTTree extends CRDTGCElement {
     fromLeft: CRDTTreeNode,
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
-    callback: (node: CRDTTreeNode, contain: TagContained) => void,
+    callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const toIdx = this.toIndex(toParent, toLeft);
-    return this.indexTree.nodesBetween(fromIdx, toIdx, callback);
+    return this.indexTree.tokensBetween(fromIdx, toIdx, callback);
   }
 
   /**
@@ -1250,5 +1286,128 @@ export class CRDTTree extends CRDTGCElement {
       node: parentNode,
       offset,
     };
+  }
+
+  /**
+   * `makeDeletionChanges` converts nodes to be deleted to deletion changes.
+   */
+  private makeDeletionChanges(
+    candidates: Array<TreeToken<CRDTTreeNode>>,
+    editedAt: TimeTicket,
+  ): Array<TreeChange> {
+    const changes: Array<TreeChange> = [];
+    const ranges: Array<Array<TreeToken<CRDTTreeNode>>> = [];
+
+    // Generate ranges by accumulating consecutive nodes.
+    let start = null;
+    let end = null;
+    for (let i = 0; i < candidates.length; i++) {
+      const cur = candidates[i];
+      const next = candidates[i + 1];
+      if (!start) {
+        start = cur;
+      }
+      end = cur;
+
+      const rightToken = this.findRightToken(cur);
+      if (
+        !rightToken ||
+        !next ||
+        rightToken[0] !== next[0] ||
+        rightToken[1] !== next[1]
+      ) {
+        ranges.push([start, end]);
+        start = null;
+        end = null;
+      }
+    }
+
+    // Convert each range to a deletion change.
+    for (const range of ranges) {
+      const [start, end] = range;
+      const [fromLeft, fromLeftTokenType] = this.findLeftToken(start);
+      const [toLeft, toLeftTokenType] = end;
+      const fromParent =
+        fromLeftTokenType === TokenType.Start ? fromLeft : fromLeft.parent!;
+      const toParent =
+        toLeftTokenType === TokenType.Start ? toLeft : toLeft.parent!;
+
+      const fromIdx = this.toIndex(fromParent, fromLeft);
+      const toIdx = this.toIndex(toParent, toLeft);
+      if (fromIdx < toIdx) {
+        // When the range is overlapped with the previous one, compact them.
+        if (changes.length > 0 && fromIdx === changes[changes.length - 1].to) {
+          changes[changes.length - 1].to = toIdx;
+          changes[changes.length - 1].toPath = this.toPath(toParent, toLeft);
+        } else {
+          changes.push({
+            type: TreeChangeType.Content,
+            from: fromIdx,
+            to: toIdx,
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID()!,
+          });
+        }
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * `findRightToken` returns the token to the right of the given token in the tree.
+   */
+  private findRightToken([
+    node,
+    tokenType,
+  ]: TreeToken<CRDTTreeNode>): TreeToken<CRDTTreeNode> {
+    if (tokenType === TokenType.Start) {
+      const children = node.allChildren;
+      if (children.length > 0) {
+        return [
+          children[0],
+          children[0].isText ? TokenType.Text : TokenType.Start,
+        ];
+      }
+      return [node, TokenType.End];
+    }
+
+    const parent = node.parent!;
+    const siblings = parent.allChildren;
+    const offset = siblings.indexOf(node);
+    if (parent && offset === siblings.length - 1) {
+      return [parent, TokenType.End];
+    }
+
+    const next = siblings[offset + 1];
+    return [next, next.isText ? TokenType.Text : TokenType.Start];
+  }
+
+  /**
+   * `findLeftToken` returns the token to the left of the given token in the tree.
+   */
+  private findLeftToken([
+    node,
+    tokenType,
+  ]: TreeToken<CRDTTreeNode>): TreeToken<CRDTTreeNode> {
+    if (tokenType === TokenType.End) {
+      const children = node.allChildren;
+      if (children.length > 0) {
+        const lastChild = children[children.length - 1];
+        return [lastChild, lastChild.isText ? TokenType.Text : TokenType.End];
+      }
+
+      return [node, TokenType.Start];
+    }
+
+    const parent = node.parent!;
+    const siblings = parent.allChildren;
+    const offset = siblings.indexOf(node);
+    if (parent && offset === 0) {
+      return [parent, TokenType.Start];
+    }
+
+    const prev = siblings[offset - 1];
+    return [prev, prev.isText ? TokenType.Text : TokenType.End];
   }
 }
