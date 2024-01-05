@@ -32,7 +32,6 @@ export type ElementType =
 
 export type JSONElement = {
   key?: string;
-  path?: string;
   value: ElementValue;
   type: ElementType;
   createdAt: string;

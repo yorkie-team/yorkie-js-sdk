@@ -1,5 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
-/* eslint-disable @typescript-eslint/naming-convention */
 import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
@@ -48,48 +46,43 @@ export function setupDevtools<T, P extends Indexable>(
     });
   });
 
-  // Devtools cannot be used in production environments or when run outside of a browser context
-  if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
-    window.addEventListener('message', (event: MessageEvent<unknown>) => {
-      if (
-        (event.data as Record<string, unknown>)?.source !==
-        'yorkie-devtools-panel'
-      ) {
-        return;
-      }
+  window.addEventListener('message', (event: MessageEvent<unknown>) => {
+    if (
+      (event.data as Record<string, unknown>)?.source !==
+      'yorkie-devtools-panel'
+    ) {
+      return;
+    }
 
-      const message = event.data as DevTools.FullPanelToSDKMessage;
-      switch (message.msg) {
-        case 'devtools::connect':
+    const message = event.data as DevTools.FullPanelToSDKMessage;
+    switch (message.msg) {
+      case 'devtools::connect':
+        sendToPanel({
+          msg: 'doc::available',
+          docKey: doc.getKey(),
+        });
+        break;
+      case 'devtools::subscribe':
+        sendToPanel({
+          msg: 'doc::sync::full',
+          docKey: doc.getKey(),
+          root: doc.getRoot().toJSForTest!(),
+          clients: doc.getPresences(),
+          nodeDetail: null,
+        });
+        break;
+      case 'devtools::node::detail':
+        if (message.data.type === 'YORKIE_TREE') {
+          const elem = doc.getValueByPath(message.data.path) as any;
           sendToPanel({
-            msg: 'doc::available',
+            msg: 'doc::sync::partial',
             docKey: doc.getKey(),
+            nodeDetail: getNewCRDTTree(elem?.tree?.getRoot()),
           });
-          break;
-        case 'devtools::subscribe':
-          sendToPanel({
-            msg: 'doc::sync::full',
-            docKey: doc.getKey(),
-            root: doc.getRoot().toJSForTest!(),
-            clients: doc.getPresences(),
-            nodeDetail: null,
-          });
-          break;
-        case 'devtools::node::detail':
-          const { path, type } = message.data;
-          const elem = doc.getValueByPath(path) as any;
-          if (type === 'YORKIE_TREE') {
-            sendToPanel({
-              msg: 'doc::sync::partial',
-              docKey: doc.getKey(),
-              nodeDetail: getNewCRDTTree(elem?.tree?.getRoot()),
-            });
-          }
-        default:
-          break;
-      }
-    });
-  }
+        }
+        break;
+    }
+  });
 }
 
 function getNewCRDTTree(node: any, parent = null, depth = 0) {

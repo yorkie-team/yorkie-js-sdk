@@ -10,9 +10,13 @@
     "test": "plasmo test"
   },
   "dependencies": {
+    "classnames": "^2.3.2",
     "plasmo": "0.84.0",
+    "prism-react-renderer": "^2.3.1",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-arborist": "^3.4.0",
+    "react-dom": "18.2.0",
+    "use-resize-observer": "^9.1.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",

@@ -11,7 +11,7 @@ const objectDevtool = (
         `;
   };
 
-  const renderContainer = ({ key, value, id }) => {
+  const renderContainer = ({ key, value, createdAt }) => {
     const valueHTML = Object.values(value)
       .map((v) => {
         return v.type === 'YORKIE_OBJECT' || v.type === 'YORKIE_ARRAY'
@@ -22,7 +22,7 @@ const objectDevtool = (
     if (key === undefined) key = 'root';
     return `
         <div class="object-key-val">
-            ${renderKey({ key, id })}
+            ${renderKey({ key, createdAt })}
             <div class="object-content">
                 ${valueHTML}
             </div>
@@ -30,20 +30,20 @@ const objectDevtool = (
         `;
   };
 
-  const renderKey = ({ key, id }) => {
+  const renderKey = ({ key, createdAt }) => {
     return `
-        <input type="checkbox" id="${id}" />
-        <label for="${id}">${key}
-            <span class="timeticket">${id}</span>
+        <input type="checkbox" id="${createdAt}" />
+        <label for="${createdAt}">${key}
+            <span class="timeticket">${createdAt}</span>
         </label>
         `;
   };
 
-  const renderValue = ({ key, value, id }) => {
+  const renderValue = ({ key, value, createdAt }) => {
     return `
         <div class="object-val">
             <span>${key} : ${JSON.stringify(value)}
-                <span class="timeticket">${id}</span>
+                <span class="timeticket">${createdAt}</span>
             </span>
         </div>
         `;

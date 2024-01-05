@@ -47,6 +47,10 @@ export type JSONObject<T> = {
    * `toJS` returns the JSON object of this object.
    */
   toJS?(): T;
+
+  /**
+   * `toJSForTest` returns the JSON object of this object for debugging.
+   */
   toJSForTest?(): Devtools.JSONElement;
 } & T;
 
