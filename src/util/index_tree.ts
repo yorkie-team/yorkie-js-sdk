@@ -498,23 +498,37 @@ function ancestorOf<T extends IndexTreeNode<T>>(ancestor: T, node: T): boolean {
   return false;
 }
 
-// TokenType represents the type of the selected token.
+/**
+ * `TokenType` represents the type of token in XML representation.
+ */
 export enum TokenType {
-  // Start represents that the start token type.
+  /**
+   * `Start` represents that the start token type.
+   */
   Start = 'Start',
-  // End represents that the end token type.
+
+  /**
+   * `End` represents that the end token type.
+   */
   End = 'End',
-  // Text represents that the text token type.
+
+  /**
+   * `Text` represents that the text token type.
+   */
   Text = 'Text',
 }
 
 /**
- * `TreeToken` represents a token in XML-like string.
+ * `TreeToken` represents the token of the tree in XML representation.
  */
 export type TreeToken<T> = [T, TokenType];
 
 /**
  * `tokensBetween` iterates the tokens between the given range.
+ *
+ * For example, if the tree is <p><i>abc</i></p>, the tokens are
+ * [p, Start], [i, Start], [abc, Text], [i, End], [p, End].
+ *
  * If the given range is collapsed, the callback is not called.
  * It traverses the tree based on the concept of token.
  * NOTE(sejongk): Nodes should not be removed in callback, because it leads wrong behaviors.

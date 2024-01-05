@@ -1370,16 +1370,17 @@ export class CRDTTree extends CRDTGCElement {
         ];
       }
       return [node, TokenType.End];
-    } else {
-      const parent = node.parent!;
-      const siblings = parent.allChildren;
-      const offset = siblings.indexOf(node);
-      if (parent && offset === siblings.length - 1) {
-        return [parent, TokenType.End];
-      }
-      const next = siblings[offset + 1];
-      return [next, next.isText ? TokenType.Text : TokenType.Start];
     }
+
+    const parent = node.parent!;
+    const siblings = parent.allChildren;
+    const offset = siblings.indexOf(node);
+    if (parent && offset === siblings.length - 1) {
+      return [parent, TokenType.End];
+    }
+
+    const next = siblings[offset + 1];
+    return [next, next.isText ? TokenType.Text : TokenType.Start];
   }
 
   /**
@@ -1395,16 +1396,18 @@ export class CRDTTree extends CRDTGCElement {
         const lastChild = children[children.length - 1];
         return [lastChild, lastChild.isText ? TokenType.Text : TokenType.End];
       }
+
       return [node, TokenType.Start];
-    } else {
-      const parent = node.parent!;
-      const siblings = parent.allChildren;
-      const offset = siblings.indexOf(node);
-      if (parent && offset === 0) {
-        return [parent, TokenType.Start];
-      }
-      const prev = siblings[offset - 1];
-      return [prev, prev.isText ? TokenType.Text : TokenType.End];
     }
+
+    const parent = node.parent!;
+    const siblings = parent.allChildren;
+    const offset = siblings.indexOf(node);
+    if (parent && offset === 0) {
+      return [parent, TokenType.Start];
+    }
+
+    const prev = siblings[offset - 1];
+    return [prev, prev.isText ? TokenType.Text : TokenType.End];
   }
 }
