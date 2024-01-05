@@ -13,12 +13,11 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
     ...message,
     source: 'yorkie-devtools-sdk',
   };
-  console.log('🚀 sdk ---> panel', fullMsg);
 
   window.postMessage(fullMsg, '*');
 }
 
-export function linkDevtools<T, P extends Indexable>(
+export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
   // Devtools cannot be used in production environments or when run outside of a browser context
@@ -48,4 +47,36 @@ export function linkDevtools<T, P extends Indexable>(
       event,
     });
   });
+
+  // Devtools cannot be used in production environments or when run outside of a browser context
+  if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+    window.addEventListener('message', (event: MessageEvent<unknown>) => {
+      if (
+        (event.data as Record<string, unknown>)?.source !==
+        'yorkie-devtools-panel'
+      ) {
+        return;
+      }
+
+      const message = event.data as DevTools.FullPanelToSDKMessage;
+      switch (message.msg) {
+        case 'devtools::connect':
+          sendToPanel({
+            msg: 'doc::available',
+            docKey: doc.getKey(),
+          });
+          break;
+        case 'devtools::subscribe':
+          sendToPanel({
+            msg: 'doc::sync::full',
+            docKey: doc.getKey(),
+            root: doc.getRoot().toJSForTest!(),
+            clients: doc.getPresences(),
+          });
+          break;
+        default:
+          break;
+      }
+    });
+  }
 }
