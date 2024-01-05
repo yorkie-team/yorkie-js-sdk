@@ -72,11 +72,47 @@ export function setupDevtools<T, P extends Indexable>(
             docKey: doc.getKey(),
             root: doc.getRoot().toJSForTest!(),
             clients: doc.getPresences(),
+            nodeDetail: null,
           });
           break;
+        case 'devtools::node::detail':
+          const { path, type } = message.data;
+          const elem = doc.getValueByPath(path) as any;
+          if (type === 'YORKIE_TREE') {
+            sendToPanel({
+              msg: 'doc::sync::partial',
+              docKey: doc.getKey(),
+              nodeDetail: getNewCRDTTree(elem?.tree?.getRoot()),
+            });
+          }
         default:
           break;
       }
     });
   }
+}
+
+function getNewCRDTTree(node: any, parent = null, depth = 0) {
+  if (!node) return null;
+  const currentNode = {
+    type: node.type,
+    parent,
+    size: node.size,
+    id: node.id.toTestString(),
+    removedAt: node.removedAt?.toTestString(),
+    insPrev: node.insPrevID?.toTestString(),
+    insNext: node.insNextID?.toTestString(),
+    value: node.isText ? node.value : undefined,
+    isRemoved: node.isRemoved,
+    children: [] as any,
+    depth,
+  };
+
+  const children = node.children;
+  for (let i = 0; i < children.length; i++) {
+    currentNode.children.push(
+      getNewCRDTTree(children[i], currentNode.id, depth + 1),
+    );
+  }
+  return currentNode;
 }

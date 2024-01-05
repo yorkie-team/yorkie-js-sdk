@@ -3,6 +3,13 @@ export type PanelToSDKMessage =
   | {
       msg: 'devtools::subscribe';
       docKey: string;
+    }
+  | {
+      msg: 'devtools::node::detail';
+      data: {
+        path: string;
+        type: string;
+      };
     };
 
 export type SDKToPanelMessage =
@@ -19,13 +26,15 @@ export type SDKToPanelMessage =
       docKey: string;
       root: any;
       clients: any;
+      nodeDetail: any;
     }
   | {
       msg: 'doc::sync::partial';
       docKey: string;
+      event?: any;
       root?: any;
       clients?: any;
-      event?: any;
+      nodeDetail?: any;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {
