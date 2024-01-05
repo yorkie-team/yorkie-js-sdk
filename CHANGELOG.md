@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.12] - 2024-01-05
+
+### Added
+* Add concurrent editing test cases in Tree by @sejongk in https://github.com/yorkie-team/yorkie-js-sdk/pull/710
+
+### Fixed
+* Generate correct TreeChange in concurrent edits by @sejongk in https://github.com/yorkie-team/yorkie-js-sdk/pull/712
+* Add forced sync when switching to realtime mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/713
+* Fix `getGarbageLen` to retrun correct size by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/714
+* Prevent deregisterElement from deregistering twice in nested object by @justiceHui in https://github.com/yorkie-team/yorkie-js-sdk/pull/716
+
 ## [0.4.11] - 2023-12-18
 
 ### Added
