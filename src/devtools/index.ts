@@ -1,6 +1,9 @@
 import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
+/**
+ * sendToPanel sends a message to the devtools panel.
+ */
 function sendToPanel(message: DevTools.SDKToPanelMessage): void {
   // Devtools cannot be used in production environments or when run outside of a browser context
   if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
@@ -15,6 +18,9 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
   window.postMessage(fullMsg, '*');
 }
 
+/**
+ * setupDevtools sets up the devtools panel.
+ */
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
@@ -85,6 +91,9 @@ export function setupDevtools<T, P extends Indexable>(
   });
 }
 
+/**
+ * getNewCRDTTree returns a new CRDT tree.
+ */
 function getNewCRDTTree(node: any, parent = null, depth = 0) {
   if (!node) return null;
   const currentNode = {
