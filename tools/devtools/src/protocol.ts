@@ -40,7 +40,6 @@ export type SDKToPanelMessage =
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {
   source: 'yorkie-devtools-panel';
-  tabId: number;
 };
 
 export type FullSDKToPanelMessage = SDKToPanelMessage & {

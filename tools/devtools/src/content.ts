@@ -1,15 +1,22 @@
 import type { FullSDKToPanelMessage } from './protocol';
 
+let panelPort = null;
 window.addEventListener('message', (event) => {
   const message = event.data as Record<string, unknown>;
   if (message?.source === 'yorkie-devtools-sdk') {
-    console.log('💌 msg from sdk', message);
-    // Relay messages from the yorkie sdk to the panel
-    chrome.runtime.sendMessage(message as FullSDKToPanelMessage);
+    if (!panelPort) return;
+    // console.log('💌 msg from sdk', message);
+    panelPort.postMessage(message as FullSDKToPanelMessage);
   }
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  console.log('💌 msg from devtools', message);
-  window.postMessage(message, '*');
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'yorkie-devtools-panel') {
+    return;
+  }
+  panelPort = port;
+  panelPort.onMessage.addListener((message) => {
+    // console.log('📝 msg from devtools', message);
+    window.postMessage(message, '*');
+  });
 });

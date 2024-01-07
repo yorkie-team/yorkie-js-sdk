@@ -8,7 +8,8 @@ import {
   useState,
 } from 'react';
 
-import type { PanelToSDKMessage, SDKToPanelMessage } from '../../protocol';
+import type { SDKToPanelMessage } from '../../protocol';
+import { onPortMessage, sendMessageToTab } from '../../port';
 
 type CurrentSourceContext = {
   currentDocKey: string | null;
@@ -34,17 +35,6 @@ const InitialRoot = [
   },
 ];
 
-export const sendMessageToTabs = async (message: PanelToSDKMessage) => {
-  const [tab] = await chrome.tabs.query({
-    active: true,
-  });
-  await chrome.tabs.sendMessage(tab.id, {
-    ...message,
-    source: 'yorkie-devtools-panel',
-    tabId: tab.id,
-  });
-};
-
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string | null>(null);
   const [root, setRoot] = useState(InitialRoot);
@@ -56,21 +46,16 @@ export function YorkieSourceProvider({ children }: Props) {
     [currentDocKey, setCurrentDocKey, root, presences, nodeDetail],
   );
 
-  const handleMessage = useCallback((message: SDKToPanelMessage) => {
-    console.log('✅ sdk --> content --> panel', message);
+  const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
     switch (message.msg) {
       case 'doc::available':
-        console.log('🎃doc available');
         setCurrentDocKey(message.docKey);
-        sendMessageToTabs({
+        sendMessageToTab({
           msg: 'devtools::subscribe',
           docKey: message.docKey,
         });
         break;
-      case 'doc::unavailable':
-        break;
       case 'doc::sync::full':
-        console.log('🎃full update');
         setRoot([
           { ...message.root, key: RootKey, id: RootPath, path: RootPath },
         ]);
@@ -83,7 +68,6 @@ export function YorkieSourceProvider({ children }: Props) {
         );
         break;
       case 'doc::sync::partial':
-        console.log('🎃partial update');
         if (message.root) {
           setRoot([
             { ...message.root, key: RootKey, id: RootPath, path: RootPath },
@@ -99,20 +83,17 @@ export function YorkieSourceProvider({ children }: Props) {
           );
         }
         if (message.nodeDetail) {
-          console.log('🎃partial update', message.nodeDetail);
           setNodeDetail(message.nodeDetail);
         }
-        break;
-      default:
         break;
     }
   }, []);
 
   useEffect(() => {
-    sendMessageToTabs({ msg: 'devtools::connect' });
-    chrome.runtime.onMessage.addListener(handleMessage);
+    sendMessageToTab({ msg: 'devtools::connect' });
+    onPortMessage.addListener(handleSDKMessage);
     return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
+      onPortMessage.removeListener(handleSDKMessage);
     };
   }, []);
 

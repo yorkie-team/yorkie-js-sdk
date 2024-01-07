@@ -4,7 +4,8 @@ import { Tree as ArboristTree } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
 import { useYorkieSeletedDataContext } from '../contexts/YorkieSeletedData';
-import { sendMessageToTabs } from '../contexts/YorkieSource';
+import { sendMessageToTab } from '../../port';
+
 import {
   ArrayIcon,
   CounterIcon,
@@ -15,8 +16,8 @@ import {
   UserIcon,
 } from '../icons';
 
-const ROW_HEIGHT = 42;
-const ROW_INDENT = 22;
+const RowHeight = 42;
+const RowIndent = 22;
 
 const TypeIcon = ({ type }) => {
   switch (type) {
@@ -99,7 +100,7 @@ function RootNodeRenderer(props) {
   useEffect(() => {
     if (selectedNode?.id === props.node.data.id) {
       setSelectedNode(props.node.data);
-      sendMessageToTabs({
+      sendMessageToTab({
         msg: 'devtools::node::detail',
         data: {
           path: props.node.data.path,
@@ -207,8 +208,8 @@ export function PresenceTree({ data }) {
         data={data}
         className="arborist-tree"
         rowClassName="arborist-tree-row"
-        indent={ROW_INDENT}
-        rowHeight={ROW_HEIGHT}
+        indent={RowIndent}
+        rowHeight={RowHeight}
         height={height}
         width={width}
         childrenAccessor={presenceChildAccessor}
@@ -227,8 +228,8 @@ export function RootTree({ data }) {
         data={data}
         className="arborist-tree"
         rowClassName="arborist-tree-row"
-        indent={ROW_INDENT}
-        rowHeight={ROW_HEIGHT}
+        indent={RowIndent}
+        rowHeight={RowHeight}
         height={height}
         width={width}
         childrenAccessor={rootChildAccessor}
