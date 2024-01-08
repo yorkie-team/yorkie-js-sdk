@@ -1318,6 +1318,41 @@ describe('Concurrent editing, overlapping range', () => {
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
     }, task.name);
   });
+
+  it.skip('overlapping-merge-and-delete2', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'bcde' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>bcde</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>bcde</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4));
+      d2.update((r) => r.t.edit(4, 6));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abcde</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>de</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ade</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ade</p></r>`);
+    }, task.name);
+  });
 });
 
 describe('Concurrent editing, contained range', () => {
@@ -1870,7 +1905,7 @@ describe('Concurrent editing, contained range', () => {
     }, task.name);
   });
 
-  it('contained-merge-and-merge', async function ({ task }) {
+  it('contained-merge-and-merge1', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1914,6 +1949,42 @@ describe('Concurrent editing, contained range', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p><p>ab</p>c</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><p>ab</p>c</p></r>`);
+    }, task.name);
+  });
+
+  it.skip('contained-merge-and-merge2', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 7));
+      d2.update((r) => r.t.edit(5, 7));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>bc</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>ac</p></r>`);
     }, task.name);
   });
 
