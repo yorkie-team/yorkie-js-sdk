@@ -1290,7 +1290,9 @@ describe('Concurrent editing, overlapping range', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete', async function ({ task }) {
+  it.skip('overlapping-merge-and-delete-element-node', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1319,7 +1321,7 @@ describe('Concurrent editing, overlapping range', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete2', async function ({ task }) {
+  it.skip('overlapping-merge-and-delete-text-nodes', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1905,7 +1907,9 @@ describe('Concurrent editing, contained range', () => {
     }, task.name);
   });
 
-  it('contained-merge-and-merge1', async function ({ task }) {
+  it('contained-merge-and-merge-at-different-levels', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -1952,7 +1956,9 @@ describe('Concurrent editing, contained range', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-merge2', async function ({ task }) {
+  it.skip('contained-merge-and-merge-at-the-same-level', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
