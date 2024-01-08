@@ -1,12 +1,17 @@
 import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
+let isDevtoolsConnected = false;
+
 /**
- * sendToPanel sends a message to the devtools panel.
+ * `sendToPanel` sends a message to the devtools panel.
  */
 function sendToPanel(message: DevTools.SDKToPanelMessage): void {
   // Devtools cannot be used in production environments or when run outside of a browser context
   if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
+    return;
+  }
+  if (!isDevtoolsConnected) {
     return;
   }
 
@@ -14,12 +19,12 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
     ...message,
     source: 'yorkie-devtools-sdk',
   };
-
   window.postMessage(fullMsg, '*');
 }
 
 /**
- * setupDevtools sets up the devtools panel.
+ * `setupDevtools` configures the devtools panel, notifying it of document changes
+ * and providing requested information.
  */
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
@@ -63,6 +68,7 @@ export function setupDevtools<T, P extends Indexable>(
     const message = event.data as DevTools.FullPanelToSDKMessage;
     switch (message.msg) {
       case 'devtools::connect':
+        isDevtoolsConnected = true;
         sendToPanel({
           msg: 'doc::available',
           docKey: doc.getKey(),

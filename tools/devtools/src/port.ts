@@ -2,11 +2,16 @@ import type { PanelToSDKMessage } from './protocol';
 
 const DevPanel = 'yorkie-devtools-panel';
 const tabID = chrome.devtools.inspectedWindow.tabId;
+
+// `tabs.connect()` creates a reusable channel for long-term message passing between
+// an extension page and a content script. This port can be used for communication with the
+// inspected window of a Devtools extension.
+// For more details: https://developer.chrome.com/docs/extensions/develop/concepts/messaging#connect
 const port = chrome.tabs.connect(tabID, {
   name: DevPanel,
 });
 
-export const sendMessageToTab = (message: PanelToSDKMessage) => {
+export const sendToSDK = (message: PanelToSDKMessage) => {
   port.postMessage({
     ...message,
     source: DevPanel,

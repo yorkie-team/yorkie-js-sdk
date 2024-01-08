@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import type { SDKToPanelMessage } from '../../protocol';
-import { onPortMessage, sendMessageToTab } from '../../port';
+import { onPortMessage, sendToSDK } from '../../port';
 
 type CurrentSourceContext = {
   currentDocKey: string | null;
@@ -50,7 +50,7 @@ export function YorkieSourceProvider({ children }: Props) {
     switch (message.msg) {
       case 'doc::available':
         setCurrentDocKey(message.docKey);
-        sendMessageToTab({
+        sendToSDK({
           msg: 'devtools::subscribe',
           docKey: message.docKey,
         });
@@ -90,7 +90,7 @@ export function YorkieSourceProvider({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    sendMessageToTab({ msg: 'devtools::connect' });
+    sendToSDK({ msg: 'devtools::connect' });
     onPortMessage.addListener(handleSDKMessage);
     return () => {
       onPortMessage.removeListener(handleSDKMessage);
