@@ -7,6 +7,9 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Fixed
+* Fix invalid tree conversion by @hackerwins, @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/719
+
 ## [0.4.12] - 2024-01-05
 
 ### Added
