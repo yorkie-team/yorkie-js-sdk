@@ -1053,11 +1053,11 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   }
 
   if (pbTreeNode.insPrevId) {
-    node.insPrevID = fromTreeNodeID(pbTreeNode.insPrevId!);
+    node.insPrevID = fromTreeNodeID(pbTreeNode.insPrevId);
   }
 
-  if (pbTreeNode.insPrevId) {
-    node.insNextID = fromTreeNodeID(pbTreeNode.insNextId!);
+  if (pbTreeNode.insNextId) {
+    node.insNextID = fromTreeNodeID(pbTreeNode.insNextId);
   }
 
   node.removedAt = fromTimeTicket(pbTreeNode.removedAt);
