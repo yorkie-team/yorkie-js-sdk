@@ -534,7 +534,7 @@ describe('Tree', () => {
     }, task.name);
   });
 
-  it('Get correct range from index', function ({ task }) {
+  it('Should return correct range from index', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -572,7 +572,7 @@ describe('Tree', () => {
     assert.deepEqual(tree.posRangeToIndexRange(range), [5, 7]);
   });
 
-  it('Get correct range from path', function ({ task }) {
+  it('Should return correct range from path', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -781,7 +781,7 @@ describe('Tree.edit', function () {
     });
   });
 
-  it('Detecting error for empty text', function ({ task }) {
+  it('Should detect error for empty text', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -807,7 +807,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting error for mixed type insertion', function ({ task }) {
+  it('Should detect error for mixed type insertion', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -833,7 +833,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [1]', function ({ task }) {
+  it('Should detect correct error order [1]', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -865,7 +865,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('Detecting correct error order [2]', function ({ task }) {
+  it('Should detect correct error order [2]', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -891,7 +891,7 @@ describe('Tree.edit', function () {
     }, 'text node cannot have empty value');
   });
 
-  it('Detecting correct error order [3]', function ({ task }) {
+  it('Should detect correct error order [3]', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -917,7 +917,7 @@ describe('Tree.edit', function () {
     }, 'element node and text node cannot be passed together');
   });
 
-  it('delete nodes in a multi-level range test', function ({ task }) {
+  it('Can delete nodes in a multi-level range', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
     doc.update((root) => {
@@ -1129,7 +1129,7 @@ describe('Tree.style', function () {
     }, task.name);
   });
 
-  it('style node with element attributes test', function ({ task }) {
+  it('Can style node with element attributes test', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -1189,7 +1189,7 @@ describe('Tree.style', function () {
   });
 });
 
-describe('Concurrent editing, overlapping range', () => {
+describe('Tree.edit(concurrent overlapping range)', () => {
   it('Can concurrently delete overlapping elements', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -1357,7 +1357,7 @@ describe('Concurrent editing, overlapping range', () => {
   });
 });
 
-describe('Concurrent editing, contained range', () => {
+describe('Tree.edit(concurrent, contained range)', () => {
   it('Can concurrently insert and delete contained elements of the same depth', async function ({
     task,
   }) {
@@ -2203,7 +2203,7 @@ describe('Concurrent editing, contained range', () => {
   });
 });
 
-describe('Concurrent editing, side by side range', () => {
+describe('Tree.edit(concurrent, side by side range)', () => {
   it('Can concurrently insert side by side elements (left)', async function ({
     task,
   }) {
@@ -2974,7 +2974,7 @@ describe('Concurrent editing, side by side range', () => {
   });
 });
 
-describe('Concurrent editing, complex cases', () => {
+describe('Tree.edit(concurrent, complex cases)', () => {
   it('Can delete text content anchored to another concurrently', async function ({
     task,
   }) {
@@ -3348,7 +3348,7 @@ describe('Concurrent editing, complex cases', () => {
   });
 });
 
-describe('testing edge cases', () => {
+describe('Tree(edge cases)', () => {
   it('Can delete very first text when there is tombstone in front of target text', function ({
     task,
   }) {
@@ -3434,7 +3434,7 @@ describe('testing edge cases', () => {
     });
   });
 
-  it('split link can transmitted through rpc', async function ({ task }) {
+  it('Can split link can transmitted through rpc', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3479,7 +3479,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can calculate size of index tree correctly', async function ({ task }) {
+  it('Can calculate size of index tree correctly', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3514,7 +3514,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can split and merge with empty paragraph: left', async function ({
+  it('Can split and merge with empty paragraph: left', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3548,7 +3548,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can split and merge with empty paragraph: right', async function ({
+  it('Can split and merge with empty paragraph: right', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3582,7 +3582,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('can split and merge with empty paragraph and multiple split level: left', async function ({
+  it('Can split and merge with empty paragraph and multiple split level: left', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3627,7 +3627,7 @@ describe('testing edge cases', () => {
     }, task.name);
   });
 
-  it('split at the same offset multiple times', async function ({ task }) {
+  it('Can split at the same offset multiple times', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3673,7 +3673,7 @@ describe('testing edge cases', () => {
   });
 });
 
-describe('TreeChange Generation', () => {
+describe('TreeChange', () => {
   it('Concurrent delete and delete', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
