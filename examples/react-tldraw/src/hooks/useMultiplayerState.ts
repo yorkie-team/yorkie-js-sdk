@@ -153,6 +153,18 @@ export function useMultiplayerState(roomId: string) {
     false,
   );
 
+  const onUndo = () => {
+    if (doc.history.canUndo()) {
+      doc.history.undo();
+    }
+  }
+
+  const onRedo = () => {
+    if (doc.history.canRedo()) {
+      doc.history.redo();
+    }
+  }
+
   // Document Changes --------
 
   useEffect(() => {
@@ -253,7 +265,8 @@ export function useMultiplayerState(roomId: string) {
 
         // 04. Subscribe document event and handle changes.
         doc.subscribe((event) => {
-          if (event.type === 'remote-change') {
+          const acceptTypeList = ['remote-change', 'local-change']
+          if (acceptTypeList.includes(event.type)) {
             handleChanges();
           }
         });
@@ -292,7 +305,9 @@ export function useMultiplayerState(roomId: string) {
   return {
     onMount,
     onChangePage,
-    loading,
     onChangePresence,
+    onUndo,
+    onRedo,
+    loading,
   };
 }
