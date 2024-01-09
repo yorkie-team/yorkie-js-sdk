@@ -1,33 +1,18 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+# Yorkie Devtools
 
-## Getting Started
+Yorkie Devtools is a Chrome extension designed to assist in debugging Yorkie.
 
-First, run the development server:
+<img src="https://github.com/yorkie-team/yorkie-js-sdk/assets/81357083/0de1231b-32dc-48c1-ab19-31625cd8e86d" width="660" alt="Yorkie Devtools" />
 
-```bash
-pnpm dev
-# or
-npm run dev
-```
+## Installation
 
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
+Note: Installation instructions are coming soon.
 
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
+## Development
 
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
+To start developing with Yorkie Devtools, follow these steps:
 
-## Making production build
-
-Run the following:
-
-```bash
-pnpm build
-# or
-npm run build
-```
-
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
-
-## Submit to the webstores
-
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+1. Run `pnpm dev` or `npm run dev` from this directory.
+2. Open your Chrome browser and go to [chrome://extensions](chrome://extensions).
+3. Enable "Developer mode."
+4. Click on "Load unpacked" and select the output directory `dist/chrome-mv3-dev` (which includes the `manifest.json` file).
