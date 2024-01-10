@@ -1,13 +1,12 @@
 import { PresenceTree } from '../components/Tree';
 import { JSONDetail } from '../components/Detail';
-import { useYorkieSeletedDataContext } from '../contexts/YorkieSeletedData';
-import { useYorkieSourceContext } from '../contexts/YorkieSource';
+import { useSeletedPresence } from '../contexts/SeletedPresence';
+import { usePresences } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 export function Presence() {
-  const { presences } = useYorkieSourceContext();
-  const { selectedPresence, setSelectedPresence } =
-    useYorkieSeletedDataContext();
+  const presences = usePresences();
+  const [selectedPresence, setSelectedPresence] = useSeletedPresence();
 
   return (
     <div className="yorkie-presence content-wrap">

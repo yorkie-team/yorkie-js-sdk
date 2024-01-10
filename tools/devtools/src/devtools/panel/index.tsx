@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 
-import { YorkieSeletedDataProvider } from '../contexts/YorkieSeletedData';
+import { SeleteNodeProvider } from '../contexts/SeletedNode';
+import { SeletedPresenceProvider } from '../contexts/SeletedPresence';
 import { YorkieSourceProvider } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
@@ -8,8 +9,12 @@ import { Presence } from '../tabs/Presence';
 const Panel = () => {
   return (
     <div className="yorkie-devtools">
-      <Document />
-      <Presence />
+      <SeleteNodeProvider>
+        <Document />
+      </SeleteNodeProvider>
+      <SeletedPresenceProvider>
+        <Presence />
+      </SeletedPresenceProvider>
     </div>
   );
 };
@@ -17,9 +22,7 @@ const Panel = () => {
 function PanelApp() {
   return (
     <YorkieSourceProvider>
-      <YorkieSeletedDataProvider>
-        <Panel />
-      </YorkieSeletedDataProvider>
+      <Panel />
     </YorkieSourceProvider>
   );
 }

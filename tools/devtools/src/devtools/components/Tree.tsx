@@ -3,7 +3,8 @@ import { useEffect } from 'react';
 import { Tree as ArboristTree } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
-import { useYorkieSeletedDataContext } from '../contexts/YorkieSeletedData';
+import { useSeletedNode } from '../contexts/SeletedNode';
+import { useSeletedPresence } from '../contexts/SeletedPresence';
 import type { PresenceTreeNode, RootTreeNode } from '../contexts/YorkieSource';
 import { sendToSDK } from '../../port';
 
@@ -43,18 +44,22 @@ const TypeIcon = ({ type }) => {
 
 function RootNodeRenderer(props) {
   const type = props.node.data.type.split('YORKIE_')[1].toLowerCase();
-  const { selectedNode, setSelectedNode } = useYorkieSeletedDataContext();
+  const [selectedNode, setSelectedNode] = useSeletedNode();
 
   useEffect(() => {
     if (selectedNode?.id === props.node.data.id) {
+      // NOTE(chacha912): When the document changes, also update the currently selected node.
       setSelectedNode(props.node.data);
-      sendToSDK({
-        msg: 'devtools::node::detail',
-        data: {
-          path: props.node.data.path,
-          type: props.node.data.type,
-        },
-      });
+
+      if (props.node.data.type === 'YORKIE_TREE') {
+        sendToSDK({
+          msg: 'devtools::node::detail',
+          data: {
+            path: props.node.data.path,
+            type: props.node.data.type,
+          },
+        });
+      }
     }
   }, [props.node.data]);
 
@@ -63,7 +68,7 @@ function RootNodeRenderer(props) {
     case 'YORKIE_ARRAY':
       return (
         <div
-          {...props}
+          style={props.style}
           onClick={() => props.node.toggle()}
           className="tree-wrap"
         >
@@ -85,8 +90,13 @@ function RootNodeRenderer(props) {
     default:
       return (
         <div
-          {...props}
-          onClick={() => setSelectedNode(props.node.data)}
+          style={props.style}
+          onClick={() => {
+            if (props.node.data?.id === selectedNode?.id) {
+              return;
+            }
+            setSelectedNode(props.node.data);
+          }}
           className="tree-wrap"
         >
           <span
@@ -111,11 +121,11 @@ function RootNodeRenderer(props) {
 }
 
 function PresenceNodeRenderer(props) {
-  const { selectedPresence, setSelectedPresence } =
-    useYorkieSeletedDataContext();
+  const [selectedPresence, setSelectedPresence] = useSeletedPresence();
 
   useEffect(() => {
     if (selectedPresence?.id === props.node.data.id) {
+      //NOTE(chacha912): When the presence changes, also update the currently selected presence.
       setSelectedPresence(props.node.data);
     }
   }, [props.node.data]);
@@ -124,7 +134,7 @@ function PresenceNodeRenderer(props) {
     case 'USER':
       return (
         <div
-          {...props}
+          style={props.style}
           onClick={() => props.node.toggle()}
           className="tree-wrap"
         >
@@ -140,8 +150,13 @@ function PresenceNodeRenderer(props) {
     case 'JSON':
       return (
         <div
-          {...props}
-          onClick={() => setSelectedPresence(props.node.data)}
+          style={props.style}
+          onClick={() => {
+            if (props.node.data?.id === selectedPresence?.id) {
+              return;
+            }
+            setSelectedPresence(props.node.data);
+          }}
           className="tree-wrap"
         >
           <span

@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from 'react';
 
@@ -13,15 +12,10 @@ import type {
   ElementValue,
   Json,
   SDKToPanelMessage,
+  TreeNodeInfo,
 } from '../../protocol';
 import { onPortMessage, sendToSDK } from '../../port';
 
-type CurrentSourceContext = {
-  currentDocKey: string | null;
-  root: Array<RootTreeNode>;
-  presences: Array<PresenceTreeNode>;
-  nodeDetail: any;
-};
 export type RootTreeNode = {
   id: string;
   path: string;
@@ -44,7 +38,13 @@ export type PresenceTreeNode =
       isLastChild: boolean;
       type: 'JSON';
     };
-const YorkieSourceContext = createContext<CurrentSourceContext | null>(null);
+
+const DocKeyContext = createContext<string | null>(null);
+const RootContext = createContext<Array<RootTreeNode> | null>(null);
+const PresencesContext = createContext<Array<PresenceTreeNode> | null>(null);
+const NodeDetailContext = createContext<{ nodeDetail: TreeNodeInfo } | null>(
+  null,
+);
 
 type Props = {
   children?: ReactNode;
@@ -63,15 +63,10 @@ const InitialRoot: Array<RootTreeNode> = [
 ];
 
 export function YorkieSourceProvider({ children }: Props) {
-  const [currentDocKey, setCurrentDocKey] = useState<string | null>(null);
+  const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [root, setRoot] = useState(InitialRoot);
   const [presences, setPresences] = useState<Array<PresenceTreeNode>>([]);
-  const [nodeDetail, setNodeDetail] = useState(null);
-
-  const value = useMemo(
-    () => ({ currentDocKey, setCurrentDocKey, root, presences, nodeDetail }),
-    [currentDocKey, setCurrentDocKey, root, presences, nodeDetail],
-  );
+  const [nodeDetail, setNodeDetail] = useState({ nodeDetail: null });
 
   const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
     switch (message.msg) {
@@ -111,7 +106,7 @@ export function YorkieSourceProvider({ children }: Props) {
         }
         break;
       case 'doc::node::detail':
-        setNodeDetail(message.node);
+        setNodeDetail({ nodeDetail: message.node });
         break;
     }
   }, []);
@@ -125,18 +120,50 @@ export function YorkieSourceProvider({ children }: Props) {
   }, []);
 
   return (
-    <YorkieSourceContext.Provider value={value}>
-      {children}
-    </YorkieSourceContext.Provider>
+    <DocKeyContext.Provider value={currentDocKey}>
+      <RootContext.Provider value={root}>
+        <PresencesContext.Provider value={presences}>
+          <NodeDetailContext.Provider value={nodeDetail}>
+            {children}
+          </NodeDetailContext.Provider>
+        </PresencesContext.Provider>
+      </RootContext.Provider>
+    </DocKeyContext.Provider>
   );
 }
 
-export function useYorkieSourceContext() {
-  const context = useContext(YorkieSourceContext);
-  if (context === null) {
+export function useCurrentDocKey() {
+  const value = useContext(DocKeyContext);
+  if (value === null) {
     throw new Error(
-      'Please use a <YorkieSourceProvider> up the component tree to use useYorkieSourceContext()',
+      'useCurrentDocKey should be used within YorkieSourceProvider',
     );
   }
-  return context;
+  return value;
+}
+
+export function useDocumentRoot() {
+  const value = useContext(RootContext);
+  if (value === null) {
+    throw new Error(
+      'useDocumentRoot should be used within YorkieSourceProvider',
+    );
+  }
+  return value;
+}
+
+export function usePresences() {
+  const value = useContext(PresencesContext);
+  if (value === null) {
+    throw new Error('usePresences should be used within YorkieSourceProvider');
+  }
+  return value;
+}
+
+export function useNodeDetail() {
+  const value = useContext(NodeDetailContext);
+  if (value === null) {
+    throw new Error('useNodeDetail should be used within YorkieSourceProvider');
+  }
+  return value;
 }

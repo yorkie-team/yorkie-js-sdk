@@ -1,12 +1,18 @@
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
-import { useYorkieSeletedDataContext } from '../contexts/YorkieSeletedData';
-import { useYorkieSourceContext } from '../contexts/YorkieSource';
+import { useSeletedNode } from '../contexts/SeletedNode';
+import {
+  useCurrentDocKey,
+  useDocumentRoot,
+  useNodeDetail,
+} from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 export function Document() {
-  const { currentDocKey, root, nodeDetail } = useYorkieSourceContext();
-  const { selectedNode, setSelectedNode } = useYorkieSeletedDataContext();
+  const currentDocKey = useCurrentDocKey();
+  const root = useDocumentRoot();
+  const { nodeDetail } = useNodeDetail();
+  const [selectedNode, setSelectedNode] = useSeletedNode();
 
   return (
     <div className="yorkie-root content-wrap">
