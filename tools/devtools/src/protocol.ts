@@ -60,6 +60,9 @@ export type SDKToPanelMessage =
       root?: JSONElement;
       clients?: Clients;
     }
+  /**
+   * Sent detailed information for the node corresponding to the given path.
+   */
   | {
       msg: 'doc::node::detail';
       node: TreeNodeInfo;
