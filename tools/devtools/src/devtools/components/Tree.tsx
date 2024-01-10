@@ -4,6 +4,7 @@ import { Tree as ArboristTree } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
 import { useYorkieSeletedDataContext } from '../contexts/YorkieSeletedData';
+import type { PresenceTreeNode, RootTreeNode } from '../contexts/YorkieSource';
 import { sendToSDK } from '../../port';
 
 import {
@@ -39,59 +40,6 @@ const TypeIcon = ({ type }) => {
       return null;
   }
 };
-
-function PresenceNodeRenderer(props) {
-  const { selectedPresence, setSelectedPresence } =
-    useYorkieSeletedDataContext();
-
-  useEffect(() => {
-    if (selectedPresence?.id === props.node.data.id) {
-      setSelectedPresence(props.node.data);
-    }
-  }, [props.node.data]);
-
-  switch (props.node.data.type) {
-    case 'USER':
-      return (
-        <div
-          {...props}
-          onClick={() => props.node.toggle()}
-          className="tree-wrap"
-        >
-          <span className="tree-item">
-            <span className="arrow-icon">{props.node.isOpen ? '▾' : '▸'}</span>
-            <span className={classNames('icon', 'user')}>
-              <TypeIcon type="USER" />
-            </span>
-            {props.node.data.clientID}
-          </span>
-        </div>
-      );
-    case 'JSON':
-      return (
-        <div
-          {...props}
-          onClick={() => setSelectedPresence(props.node.data)}
-          className="tree-wrap"
-        >
-          <span
-            className={classNames(
-              'tree-item',
-              props.node.data.isLastChild && 'last-child',
-              selectedPresence?.id === props.node.data.id && 'is-selected',
-            )}
-          >
-            {props.node.data.key} :&nbsp;
-            <span className="tree-value">
-              {JSON.stringify(props.node.data.value)}
-            </span>
-          </span>
-        </div>
-      );
-    default:
-      return null;
-  }
-}
 
 function RootNodeRenderer(props) {
   const type = props.node.data.type.split('YORKIE_')[1].toLowerCase();
@@ -162,24 +110,69 @@ function RootNodeRenderer(props) {
   }
 }
 
-function presenceChildAccessor(node) {
-  if (!node.presence) return null;
-  const length = Object.keys(node.presence).length;
-  return Object.entries(node.presence).map(([key, value], i) => ({
-    key,
-    value,
-    id: `${node.clientID}-${key}`,
-    type: 'JSON',
-    isLastChild: i === length - 1,
-  }));
+function PresenceNodeRenderer(props) {
+  const { selectedPresence, setSelectedPresence } =
+    useYorkieSeletedDataContext();
+
+  useEffect(() => {
+    if (selectedPresence?.id === props.node.data.id) {
+      setSelectedPresence(props.node.data);
+    }
+  }, [props.node.data]);
+
+  switch (props.node.data.type) {
+    case 'USER':
+      return (
+        <div
+          {...props}
+          onClick={() => props.node.toggle()}
+          className="tree-wrap"
+        >
+          <span className="tree-item">
+            <span className="arrow-icon">{props.node.isOpen ? '▾' : '▸'}</span>
+            <span className={classNames('icon', 'user')}>
+              <TypeIcon type="USER" />
+            </span>
+            {props.node.data.clientID}
+          </span>
+        </div>
+      );
+    case 'JSON':
+      return (
+        <div
+          {...props}
+          onClick={() => setSelectedPresence(props.node.data)}
+          className="tree-wrap"
+        >
+          <span
+            className={classNames(
+              'tree-item',
+              props.node.data.isLastChild && 'last-child',
+              selectedPresence?.id === props.node.data.id && 'is-selected',
+            )}
+          >
+            {props.node.data.key} :&nbsp;
+            <span className="tree-value">
+              {JSON.stringify(props.node.data.value)}
+            </span>
+          </span>
+        </div>
+      );
+    default:
+      return null;
+  }
 }
 
-function rootChildAccessor(node) {
+/**
+ * `rootChildAccessor` returns the children of the document node.
+ */
+function rootChildAccessor(node: RootTreeNode): Array<RootTreeNode> {
   if (!(node.type === 'YORKIE_OBJECT' || node.type === 'YORKIE_ARRAY')) {
     return null;
   }
-  const length = Object.keys(node.value).length;
-  const res = Object.entries(node.value).map(([_, v]: any, i) => {
+  const children = Object.values(node.value);
+  const length = children.length;
+  const res = children.map((v, i) => {
     const path = `${node.path}.${v.key}`;
     if (v.type === 'YORKIE_OBJECT' || v.type === 'YORKIE_ARRAY') {
       return {
@@ -200,6 +193,28 @@ function rootChildAccessor(node) {
   return res;
 }
 
+/**
+ * `presenceChildAccessor` returns the children of the presence node.
+ */
+function presenceChildAccessor(
+  node: PresenceTreeNode,
+): Array<PresenceTreeNode> {
+  if (node.type !== 'USER') return null;
+  const length = Object.keys(node.presence).length;
+  return Object.keys(node.presence)
+    .sort()
+    .map((key, i) => ({
+      key,
+      value: node.presence[key],
+      id: `${node.clientID}-${key}`,
+      type: 'JSON',
+      isLastChild: i === length - 1,
+    }));
+}
+
+/**
+ * `PresenceTree` renders the presences of the document.
+ */
 export function PresenceTree({ data }) {
   const { ref, width, height } = useResizeObserver();
   return (
@@ -220,6 +235,9 @@ export function PresenceTree({ data }) {
   );
 }
 
+/**
+ * `RootTree` renders the root object of the document.
+ */
 export function RootTree({ data }) {
   const { ref, width, height } = useResizeObserver();
   return (

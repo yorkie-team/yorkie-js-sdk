@@ -1246,6 +1246,31 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getSelfForTest` returns the client that has attached this document.
+   *
+   * @internal
+   */
+  public getSelfForTest() {
+    return {
+      clientID: this.getChangeID().getActorID()!,
+      presence: this.getMyPresence(),
+    };
+  }
+
+  /**
+   * `getOthersForTest` returns all the other clients in online, sorted by clientID.
+   *
+   * @internal
+   */
+  public getOthersForTest() {
+    const myClientID = this.getChangeID().getActorID()!;
+
+    return this.getPresences()
+      .filter((a) => a.clientID !== myClientID)
+      .sort((a, b) => (a.clientID > b.clientID ? 1 : -1));
+  }
+
+  /**
    * `canUndo` returns whether there are any operations to undo.
    */
   private canUndo(): boolean {

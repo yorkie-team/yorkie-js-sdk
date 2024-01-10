@@ -1,4 +1,4 @@
-import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
+import { Document, Indexable, Tree } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
 let isDevtoolsConnected = false;
@@ -43,7 +43,7 @@ export function setupDevtools<T, P extends Indexable>(
     sendToPanel({
       msg: 'doc::sync::partial',
       docKey: doc.getKey(),
-      clients: doc.getPresences(),
+      clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
       event,
     });
   });
@@ -79,48 +79,19 @@ export function setupDevtools<T, P extends Indexable>(
           msg: 'doc::sync::full',
           docKey: doc.getKey(),
           root: doc.getRoot().toJSForTest!(),
-          clients: doc.getPresences(),
-          nodeDetail: null,
+          clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
         });
         break;
       case 'devtools::node::detail':
         if (message.data.type === 'YORKIE_TREE') {
-          const elem = doc.getValueByPath(message.data.path) as any;
           sendToPanel({
-            msg: 'doc::sync::partial',
-            docKey: doc.getKey(),
-            nodeDetail: getNewCRDTTree(elem?.tree?.getRoot()),
+            msg: 'doc::node::detail',
+            node: (
+              doc.getValueByPath(message.data.path) as Tree
+            )?.toJSInfoForTest(),
           });
         }
         break;
     }
   });
-}
-
-/**
- * getNewCRDTTree returns a new CRDT tree.
- */
-function getNewCRDTTree(node: any, parent = null, depth = 0) {
-  if (!node) return null;
-  const currentNode = {
-    type: node.type,
-    parent,
-    size: node.size,
-    id: node.id.toTestString(),
-    removedAt: node.removedAt?.toTestString(),
-    insPrev: node.insPrevID?.toTestString(),
-    insNext: node.insNextID?.toTestString(),
-    value: node.isText ? node.value : undefined,
-    isRemoved: node.isRemoved,
-    children: [] as any,
-    depth,
-  };
-
-  const children = node.children;
-  for (let i = 0; i < children.length; i++) {
-    currentNode.children.push(
-      getNewCRDTTree(children[i], currentNode.id, depth + 1),
-    );
-  }
-  return currentNode;
 }

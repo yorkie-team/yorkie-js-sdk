@@ -15,7 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.

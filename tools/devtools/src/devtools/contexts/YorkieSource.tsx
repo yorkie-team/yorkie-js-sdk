@@ -8,15 +8,42 @@ import {
   useState,
 } from 'react';
 
-import type { SDKToPanelMessage } from '../../protocol';
+import type {
+  ElementType,
+  ElementValue,
+  Json,
+  SDKToPanelMessage,
+} from '../../protocol';
 import { onPortMessage, sendToSDK } from '../../port';
 
 type CurrentSourceContext = {
   currentDocKey: string | null;
-  root: any;
-  presences: any;
+  root: Array<RootTreeNode>;
+  presences: Array<PresenceTreeNode>;
   nodeDetail: any;
 };
+export type RootTreeNode = {
+  id: string;
+  path: string;
+  key: string;
+  createdAt: string;
+  value: ElementValue;
+  type: ElementType;
+};
+export type PresenceTreeNode =
+  | {
+      clientID: string;
+      presence: Json;
+      id: string;
+      type: 'USER';
+    }
+  | {
+      id: string;
+      key: string;
+      value: Json;
+      isLastChild: boolean;
+      type: 'JSON';
+    };
 const YorkieSourceContext = createContext<CurrentSourceContext | null>(null);
 
 type Props = {
@@ -24,7 +51,7 @@ type Props = {
 };
 const RootPath = '$';
 const RootKey = 'root';
-const InitialRoot = [
+const InitialRoot: Array<RootTreeNode> = [
   {
     id: RootPath,
     path: RootPath,
@@ -38,7 +65,7 @@ const InitialRoot = [
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string | null>(null);
   const [root, setRoot] = useState(InitialRoot);
-  const [presences, setPresences] = useState([]);
+  const [presences, setPresences] = useState<Array<PresenceTreeNode>>([]);
   const [nodeDetail, setNodeDetail] = useState(null);
 
   const value = useMemo(
@@ -82,9 +109,9 @@ export function YorkieSourceProvider({ children }: Props) {
             })),
           );
         }
-        if (message.nodeDetail) {
-          setNodeDetail(message.nodeDetail);
-        }
+        break;
+      case 'doc::node::detail':
+        setNodeDetail(message.node);
         break;
     }
   }, []);

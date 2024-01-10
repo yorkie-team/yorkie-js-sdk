@@ -36,3 +36,22 @@ export type JSONElement = {
   type: ElementType;
   createdAt: string;
 };
+
+export type Clients = Array<{
+  clientID: string;
+  presence: Json;
+}>;
+
+export type TreeNodeInfo = {
+  id: string;
+  type: string;
+  parent?: string;
+  size: number;
+  value?: string;
+  removedAt?: string;
+  isRemoved: boolean;
+  insPrev?: string;
+  insNext?: string;
+  children: Array<TreeNodeInfo>;
+  depth: number;
+};

@@ -1,3 +1,6 @@
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+
 /**
  * Definition of all messages the Devtools panel can send to the SDK.
  */
@@ -42,9 +45,8 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      root: any;
-      clients: any;
-      nodeDetail: any;
+      root: Devtools.JSONElement;
+      clients: Devtools.Clients;
     }
   /**
    * Sent whenever the document is updated.
@@ -52,10 +54,13 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      event?: any;
-      root?: any;
-      clients?: any;
-      nodeDetail?: any;
+      event?: DocEvent;
+      root?: Devtools.JSONElement;
+      clients?: Devtools.Clients;
+    }
+  | {
+      msg: 'doc::node::detail';
+      node: Devtools.TreeNodeInfo;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

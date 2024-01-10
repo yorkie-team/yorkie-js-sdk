@@ -1,6 +1,7 @@
 // TODO(chacha912): This code is a copy from src/devtools/protocol.ts.
 // It is intended to be used by importing it from yorkie-js-sdk when
 // it is structured as a monorepo.
+import type { DocEvent, PrimitiveValue } from 'yorkie-js-sdk';
 
 /**
  * Definition of all messages the Devtools panel can send to the SDK.
@@ -46,9 +47,8 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      root: any;
-      clients: any;
-      nodeDetail: any;
+      root: JSONElement;
+      clients: Clients;
     }
   /**
    * Sent whenever the document is updated.
@@ -56,10 +56,13 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      event?: any;
-      root?: any;
-      clients?: any;
-      nodeDetail?: any;
+      event?: DocEvent;
+      root?: JSONElement;
+      clients?: Clients;
+    }
+  | {
+      msg: 'doc::node::detail';
+      node: TreeNodeInfo;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {
@@ -68,4 +71,58 @@ export type FullPanelToSDKMessage = PanelToSDKMessage & {
 
 export type FullSDKToPanelMessage = SDKToPanelMessage & {
   source: 'yorkie-devtools-sdk';
+};
+
+// ================================================
+
+export type Json =
+  | string
+  | number
+  | boolean
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  | null
+  | { [key: string]: Json }
+  | Array<Json>;
+
+export type ContainerValue = {
+  [key: string]: JSONElement;
+};
+
+export type ElementValue =
+  | PrimitiveValue
+  | ContainerValue // Array | Object
+  | Json; // Text | Tree
+
+export type ElementType =
+  | 'YORKIE_PRIMITIVE'
+  | 'YORKIE_COUNTER'
+  | 'YORKIE_OBJECT'
+  | 'YORKIE_ARRAY'
+  | 'YORKIE_TEXT'
+  | 'YORKIE_TREE';
+
+export type JSONElement = {
+  key: string;
+  value: ElementValue;
+  type: ElementType;
+  createdAt: string;
+};
+
+export type Clients = Array<{
+  clientID: string;
+  presence: Json;
+}>;
+
+export type TreeNodeInfo = {
+  id: string;
+  type: string;
+  parent?: string;
+  size: number;
+  value?: string;
+  removedAt?: string;
+  isRemoved: boolean;
+  insPrev?: string;
+  insNext?: string;
+  children: Array<TreeNodeInfo>;
+  depth: number;
 };

@@ -21,7 +21,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,

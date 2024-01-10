@@ -26,7 +26,7 @@ import {
   toJSONElement,
   buildCRDTElement,
 } from '@yorkie-js-sdk/src/document/json/element';
-import * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
+import * as Devtools from '@yorkie-js-sdk/src/types/devtools';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time
