@@ -11,14 +11,14 @@ import { CloseIcon } from '../icons';
 export function Document() {
   const currentDocKey = useCurrentDocKey();
   const root = useDocumentRoot();
-  const { nodeDetail } = useNodeDetail();
+  const nodeDetail = useNodeDetail();
   const [selectedNode, setSelectedNode] = useSeletedNode();
 
   return (
     <div className="yorkie-root content-wrap">
       <div className="title">{currentDocKey || 'Document'}</div>
       <div className="content">
-        <RootTree data={root} />
+        <RootTree root={root} />
         {selectedNode && (
           <div className="selected-content">
             <div className="selected-title">

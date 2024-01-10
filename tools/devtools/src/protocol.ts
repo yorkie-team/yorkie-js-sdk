@@ -48,7 +48,7 @@ export type SDKToPanelMessage =
       msg: 'doc::sync::full';
       docKey: string;
       root: JSONElement;
-      clients: Clients;
+      clients: Array<Client>;
     }
   /**
    * Sent whenever the document is updated.
@@ -58,7 +58,7 @@ export type SDKToPanelMessage =
       docKey: string;
       event?: DocEvent;
       root?: JSONElement;
-      clients?: Clients;
+      clients?: Array<Client>;
     }
   /**
    * Sent detailed information for the node corresponding to the given path.
@@ -111,10 +111,10 @@ export type JSONElement = {
   createdAt: string;
 };
 
-export type Clients = Array<{
+export type Client = {
   clientID: string;
   presence: Json;
-}>;
+};
 
 export type TreeNodeInfo = {
   id: string;

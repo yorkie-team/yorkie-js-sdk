@@ -52,7 +52,7 @@ export function setupDevtools<T, P extends Indexable>(
     sendToPanel({
       msg: 'doc::sync::partial',
       docKey: doc.getKey(),
-      root: doc.getRoot().toJSForTest!(),
+      root: doc.toJSForTest(),
       event,
     });
   });
@@ -78,7 +78,7 @@ export function setupDevtools<T, P extends Indexable>(
         sendToPanel({
           msg: 'doc::sync::full',
           docKey: doc.getKey(),
-          root: doc.getRoot().toJSForTest!(),
+          root: doc.toJSForTest(),
           clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
         });
         break;

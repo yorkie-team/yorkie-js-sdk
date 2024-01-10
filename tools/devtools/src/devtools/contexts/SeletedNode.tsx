@@ -19,7 +19,7 @@ export function SeleteNodeProvider({ children }: Props) {
 
 export function useSeletedNode() {
   const value = useContext(SelectedNodeContext);
-  if (value === null) {
+  if (value === undefined) {
     throw new Error('useSeletedNode should be used within SeleteNodeProvider');
   }
   return value;

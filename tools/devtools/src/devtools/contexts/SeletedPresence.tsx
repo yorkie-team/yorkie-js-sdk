@@ -21,7 +21,7 @@ export function SeletedPresenceProvider({ children }: Props) {
 
 export function useSeletedPresence() {
   const value = useContext(SelectedPresenceContext);
-  if (value === null) {
+  if (value === undefined) {
     throw new Error(
       'useSeletedPresence should be used within SeletedPresenceProvider',
     );

@@ -12,7 +12,7 @@ export function Presence() {
     <div className="yorkie-presence content-wrap">
       <div className="title">Presence</div>
       <div className="content">
-        <PresenceTree data={presences} />
+        <PresenceTree presences={presences} />
         {selectedPresence && (
           <div className="selected-content">
             <div className="selected-title">

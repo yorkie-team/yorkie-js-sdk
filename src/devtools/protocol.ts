@@ -46,7 +46,7 @@ export type SDKToPanelMessage =
       msg: 'doc::sync::full';
       docKey: string;
       root: Devtools.JSONElement;
-      clients: Devtools.Clients;
+      clients: Array<Devtools.Client>;
     }
   /**
    * Sent whenever the document is updated.
@@ -56,7 +56,7 @@ export type SDKToPanelMessage =
       docKey: string;
       event?: DocEvent;
       root?: Devtools.JSONElement;
-      clients?: Devtools.Clients;
+      clients?: Array<Devtools.Client>;
     }
   /**
    * Sent detailed information for the node corresponding to the given path.

@@ -69,6 +69,7 @@ import {
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
+import * as Devtools from '@yorkie-js-sdk/src/types/devtools';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1019,6 +1020,16 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public toSortedJSON(): string {
     return this.root.toSortedJSON();
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    return {
+      ...this.getRoot().toJSForTest!(),
+      key: 'root',
+    };
   }
 
   /**

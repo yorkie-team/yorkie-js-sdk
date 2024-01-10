@@ -37,10 +37,10 @@ export type JSONElement = {
   createdAt: string;
 };
 
-export type Clients = Array<{
+export type Client = {
   clientID: string;
   presence: Json;
-}>;
+};
 
 export type TreeNodeInfo = {
   id: string;

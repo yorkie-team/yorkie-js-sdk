@@ -1,12 +1,19 @@
 import classNames from 'classnames';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Tree as ArboristTree } from 'react-arborist';
+import type { NodeRendererProps } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
 import { useSeletedNode } from '../contexts/SeletedNode';
 import { useSeletedPresence } from '../contexts/SeletedPresence';
-import type { PresenceTreeNode, RootTreeNode } from '../contexts/YorkieSource';
 import { sendToSDK } from '../../port';
+import type {
+  Client,
+  JSONElement,
+  ElementValue,
+  ElementType,
+  Json,
+} from '../../protocol';
 
 import {
   ArrayIcon,
@@ -18,6 +25,32 @@ import {
   UserIcon,
 } from '../icons';
 
+type RootTreeNode = {
+  id: string;
+  path: string;
+  key: string;
+  createdAt: string;
+  value: ElementValue;
+  type: ElementType;
+  isLastChild?: boolean;
+};
+
+type UserNode = {
+  clientID: string;
+  presence: Json;
+  id: string;
+  type: 'USER';
+};
+type PresenceJsonNode = {
+  id: string;
+  key: string;
+  value: Json;
+  isLastChild: boolean;
+  type: 'JSON';
+};
+type PresenceTreeNode = UserNode | PresenceJsonNode;
+
+const RootPath = '$';
 const RowHeight = 42;
 const RowIndent = 22;
 
@@ -42,7 +75,10 @@ const TypeIcon = ({ type }) => {
   }
 };
 
-function RootNodeRenderer(props) {
+/**
+ * `RootNodeRenderer` handles the rendering of root nodes
+ */
+function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
   const type = props.node.data.type.split('YORKIE_')[1].toLowerCase();
   const [selectedNode, setSelectedNode] = useSeletedNode();
 
@@ -120,7 +156,10 @@ function RootNodeRenderer(props) {
   }
 }
 
-function PresenceNodeRenderer(props) {
+/**
+ * `PresenceNodeRenderer` handles the rendering of presence nodes
+ */
+function PresenceNodeRenderer(props: NodeRendererProps<PresenceTreeNode>) {
   const [selectedPresence, setSelectedPresence] = useSeletedPresence();
 
   useEffect(() => {
@@ -185,7 +224,7 @@ function rootChildAccessor(node: RootTreeNode): Array<RootTreeNode> {
   if (!(node.type === 'YORKIE_OBJECT' || node.type === 'YORKIE_ARRAY')) {
     return null;
   }
-  const children = Object.values(node.value);
+  const children = Object.values(node.value) as Array<JSONElement>;
   const length = children.length;
   const res = children.map((v, i) => {
     const path = `${node.path}.${v.key}`;
@@ -213,7 +252,7 @@ function rootChildAccessor(node: RootTreeNode): Array<RootTreeNode> {
  */
 function presenceChildAccessor(
   node: PresenceTreeNode,
-): Array<PresenceTreeNode> {
+): Array<PresenceJsonNode> {
   if (node.type !== 'USER') return null;
   const length = Object.keys(node.presence).length;
   return Object.keys(node.presence)
@@ -230,8 +269,17 @@ function presenceChildAccessor(
 /**
  * `PresenceTree` renders the presences of the document.
  */
-export function PresenceTree({ data }) {
+export function PresenceTree({ presences }: { presences: Array<Client> }) {
   const { ref, width, height } = useResizeObserver();
+  const data = useMemo(() => {
+    const presenceNodes: Array<PresenceTreeNode> = presences.map((client) => ({
+      ...client,
+      id: client.clientID,
+      type: 'USER',
+    }));
+    return presenceNodes;
+  }, [presences]);
+
   return (
     <div ref={ref} className="arborist-tree-container">
       <ArboristTree
@@ -253,8 +301,15 @@ export function PresenceTree({ data }) {
 /**
  * `RootTree` renders the root object of the document.
  */
-export function RootTree({ data }) {
+export function RootTree({ root }: { root: JSONElement }) {
   const { ref, width, height } = useResizeObserver();
+  const data = useMemo(() => {
+    const rootNode: Array<RootTreeNode> = root
+      ? [{ ...root, id: RootPath, path: RootPath }]
+      : [];
+    return rootNode;
+  }, [root]);
+
   return (
     <div ref={ref} className="arborist-tree-container">
       <ArboristTree
