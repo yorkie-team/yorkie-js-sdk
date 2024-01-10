@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
+import type { PresenceTreeNode } from '../components/Tree';
 
-type SelectedPresenceContext = any;
+type SelectedPresenceContext = [
+  PresenceTreeNode,
+  (node: PresenceTreeNode) => void,
+];
 const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
   null,
 );

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
+import type { RootTreeNode } from '../components/Tree';
 
-type SelectedNodeContext = any;
+type SelectedNodeContext = [RootTreeNode, (node: RootTreeNode) => void];
 const SelectedNodeContext = createContext<SelectedNodeContext | null>(null);
 
 type Props = {

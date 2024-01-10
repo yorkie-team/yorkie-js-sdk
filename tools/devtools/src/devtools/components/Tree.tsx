@@ -25,7 +25,7 @@ import {
   UserIcon,
 } from '../icons';
 
-type RootTreeNode = {
+export type RootTreeNode = {
   id: string;
   path: string;
   key: string;
@@ -48,7 +48,7 @@ type PresenceJsonNode = {
   isLastChild: boolean;
   type: 'JSON';
 };
-type PresenceTreeNode = UserNode | PresenceJsonNode;
+export type PresenceTreeNode = UserNode | PresenceJsonNode;
 
 const RootPath = '$';
 const RowHeight = 42;

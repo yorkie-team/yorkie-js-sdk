@@ -1,16 +1,23 @@
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import { Code } from './Code';
+import type { RootTreeNode } from './Tree';
 import { CodeIcon, GraphIcon } from '../icons';
+import type { TreeNodeInfo } from '../../protocol';
 
-export function JSONDetail({ json }) {
-  return <Code code={json} language="json" withLineNumbers />;
-}
+type FlatTreeNodeInfo = TreeNodeInfo & {
+  depth: number;
+  childIndex: number;
+};
 
-const TreeNode = ({ node }) => {
+function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
   if (node.type === 'text') {
-    const depth = node.index === 0 ? node.depth : 0;
+    // NOTE(chacha912): The 'depth' variable is used for styling purposes.
+    // For 'text' nodes, when they are not the first child node, 'depth' is
+    // set to 0 to ensure they are displayed on the same line.
+    const depth = node.childIndex === 0 ? node.depth : 0;
+
     return (
       <div
         className={classNames('tree-node', 'text')}
@@ -35,25 +42,32 @@ const TreeNode = ({ node }) => {
       </span>
     </div>
   );
-};
+}
 
-const TreeGraph = ({ tree }) => {
-  const flattenTreeWithDepth = (node, depth = 0, i = 0) => {
-    const flattenedNode = { ...node, depth, index: i };
-
-    const children = (node.children || []).flatMap((child, i) =>
-      flattenTreeWithDepth(child, depth + 1, i),
-    );
-
-    return [flattenedNode, ...children];
-  };
+function TreeGraph({ tree }: { tree: TreeNodeInfo }) {
+  const flattenTreeWithDepth = useCallback(
+    (node: TreeNodeInfo, depth = 0, i = 0): Array<FlatTreeNodeInfo> => {
+      const nodeWithDepth = { ...node, depth, childIndex: i };
+      const children = (node.children || []).flatMap((child, i) =>
+        flattenTreeWithDepth(child, depth + 1, i),
+      );
+      return [nodeWithDepth, ...children];
+    },
+    [],
+  );
 
   return flattenTreeWithDepth(tree).map((node) => (
     <TreeNode key={node.id} node={node} />
   ));
-};
+}
 
-export function TreeDetail({ node, tree }) {
+export function TreeDetail({
+  node,
+  tree,
+}: {
+  node: RootTreeNode;
+  tree: TreeNodeInfo;
+}) {
   const [viewType, setViewType] = useState<'json' | 'graph'>('json');
 
   return (
@@ -88,4 +102,8 @@ export function TreeDetail({ node, tree }) {
       {viewType === 'graph' && tree && <TreeGraph tree={tree} />}
     </div>
   );
+}
+
+export function JSONDetail({ json }: { json: string }) {
+  return <Code code={json} language="json" withLineNumbers />;
 }
