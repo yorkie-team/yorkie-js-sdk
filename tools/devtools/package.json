@@ -6,7 +6,7 @@
   "homepage": "https://yorkie.dev/",
   "scripts": {
     "dev": "plasmo dev --build-path=dist",
-    "build": "plasmo build --build-path=dist",
+    "build": "plasmo build --build-path=dist --zip",
     "test": "plasmo test"
   },
   "dependencies": {
