@@ -36,6 +36,40 @@
   --purple-light: #a385fb;
 }
 
+.yorkie-devtools-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 30%;
+  height: 100vh;
+  color: var(--gray-900);
+  line-height: 1.4;
+}
+
+.yorkie-devtools-empty .empty-title {
+  font-size: 1.4em;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.yorkie-devtools-empty .empty-desc {
+  color: var(--gray-600);
+}
+
+.yorkie-devtools-empty .reload-btn {
+  margin-top: 20px;
+  padding: 6px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.yorkie-devtools-empty .reload-btn:hover {
+  background: var(--gray-200);
+}
+
 .yorkie-devtools {
   display: flex;
   flex-direction: row;

@@ -17,7 +17,13 @@ chrome.runtime.onConnect.addListener((port) => {
     return;
   }
   panelPort = port;
-  panelPort.onMessage.addListener((message) => {
+  const handleMessage = (message) => {
     window.postMessage(message, '*');
+  };
+
+  port.onMessage.addListener(handleMessage);
+  port.onDisconnect.addListener(() => {
+    panelPort.onMessage.removeListener(handleMessage);
+    panelPort = null;
   });
 });

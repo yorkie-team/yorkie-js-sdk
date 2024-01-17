@@ -2,13 +2,12 @@ function Popup() {
   return (
     <div
       style={{
-        padding: '20px',
+        padding: '10px',
+        width: '280px',
+        color: '#333',
       }}
     >
-      <h2>Yorkie Devtools</h2>
-      <a href="https://yorkie.dev" target="_blank">
-        Yorkie
-      </a>
+      Please open the developer tools, and "🐶 Yorkie" tab will be shown.
     </div>
   );
 }
