@@ -7,12 +7,12 @@ const tabID = chrome.devtools.inspectedWindow.tabId;
 // an extension page and a content script. This port can be used for communication with the
 // inspected window of a Devtools extension.
 // For more details: https://developer.chrome.com/docs/extensions/develop/concepts/messaging#connect
-let port: chrome.runtime.Port | null = null;
+let port: chrome.runtime.Port;
 port = chrome.tabs.connect(tabID, {
   name: DevPanel,
 });
 port.onDisconnect.addListener(() => {
-  port = null;
+  port = undefined;
 });
 
 export const sendToSDK = (message: PanelToSDKMessage) => {
