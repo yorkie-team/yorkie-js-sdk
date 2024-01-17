@@ -28,8 +28,8 @@
     "typescript": "5.2.2"
   },
   "manifest": {
-    "host_permissions": [
-      "<all_urls>"
+    "permissions": [
+      "activeTab"
     ]
   }
 }
