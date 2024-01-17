@@ -12,7 +12,7 @@ Note: Installation instructions are coming soon.
 
 To start developing with Yorkie Devtools, follow these steps:
 
-1. Run `npm run dev` from this directory.
+1. Run `npm run build` from this directory.
 2. Open your Chrome browser and go to [chrome://extensions](chrome://extensions).
 3. Enable "Developer mode."
-4. Click on "Load unpacked" and select the output directory `dist/chrome-mv3-dev` (which includes the `manifest.json` file).
+4. Click on "Load unpacked" and select the output directory `dist/chrome-mv3-prod`.
