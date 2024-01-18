@@ -49,9 +49,9 @@ $ npm install
 $ npm run build
 ```
 
-For generating proto messages and the service client stub classes with protoc and the protoc-gen-grpc-web.
+To generate proto messages, we use protoc-gen-connect-es, which is a code generator plugin for Protocol Buffer compilers, like buf and protoc. It generates both clients and server definitions from Protocol Buffer schema.
 
-How to install protoc-gen-grpc-web: https://github.com/grpc/grpc-web#code-generator-plugin
+For more details, see [@connectrpc/protoc-gen-connect-es](https://github.com/connectrpc/connect-es/tree/main/packages/protoc-gen-connect-es).
 
 ```bash
 # generate proto messages and the service client stub classes
@@ -83,6 +83,7 @@ $ docker-compose -f docker/docker-compose.yml up --build -d
 ```
 
 To print specific console logs, delete the line `return false` in the `onConsoleLog()` function within [`vitest.config.ts`](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/vitest.config.ts#L16).
+
 ```ts
 export default defineConfig({
   test: {
@@ -101,11 +102,11 @@ export default defineConfig({
   },
   plugins: [tsconfigPaths()],
 });
-
 ```
 
-To run only specific suites or tests, use `.only` and execute the following command with the path to the desired test file. 
+To run only specific suites or tests, use `.only` and execute the following command with the path to the desired test file.
 Refer to [Test Filtering](https://vitest.dev/guide/filtering#selecting-suites-and-tests-to-run) in `vitest` for more details:
+
 ```bash
 $ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
 ```
