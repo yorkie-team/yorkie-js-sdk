@@ -1,8 +1,12 @@
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
-// NOTE(chacha912): Json type is used to represent CRDTText and CRDTTree value.
-// In the dev tool, display value as the result of toJSON for CRDTText and CRDTTree.
+/**
+ * TODO(hackerwins): We need to add description for each type.
+ *
+ * NOTE(chacha912): Json type is used to represent CRDTText and CRDTTree value.
+ * In devtools, display value as the result of toJSON for CRDTText and CRDTTree.
+ */
 export type Json =
   | string
   | number

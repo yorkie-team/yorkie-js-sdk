@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Document, Indexable, Tree } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
@@ -12,11 +28,13 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
     return;
   }
 
-  const fullMsg = {
-    ...message,
-    source: 'yorkie-devtools-sdk',
-  };
-  window.postMessage(fullMsg, '*');
+  window.postMessage(
+    {
+      source: 'yorkie-devtools-sdk',
+      ...message,
+    },
+    '*',
+  );
 }
 
 /**
@@ -42,6 +60,8 @@ function startSync<T, P extends Indexable>(doc: Document<T, P>): void {
   });
 
   const unsubDocEvent = doc.subscribe((event) => {
+    // TODO(hackerwins): For now, we send the full document on any change.
+    // In the future, we should send only the changed part.
     sendToPanel({
       msg: 'doc::sync::partial',
       docKey: doc.getKey(),
@@ -67,13 +87,14 @@ function stopSync(docKey: string): void {
 }
 
 /**
- * `setupDevtools` configures the devtools panel, notifying it of document changes
- * and providing requested information.
+ * `setupDevtools` sets up the devtools integration. It sends messages to the
+ * devtools panel when a document is available, when a document is subscribed,
+ * and when a document is changed.
  */
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
-  // Devtools cannot be used in production environments or when run outside of a browser context
+  // NOTE(hackerwins): For production builds, or when running in Node.js, do nothing.
   if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
     return;
   }

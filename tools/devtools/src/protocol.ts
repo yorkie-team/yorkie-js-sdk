@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-// TODO(chacha912): This code is a copy from src/devtools/protocol.ts.
-// It is intended to be used by importing it from yorkie-js-sdk when
-// it is structured as a monorepo.
+/**
+ * TODO(chacha912): This code is a copy from src/devtools/protocol.ts.
+ * It is intended to be used by importing it from yorkie-js-sdk when
+ * it is structured as a monorepo.
+ */
 import type { DocEvent, PrimitiveValue } from 'yorkie-js-sdk';
 
 /**
@@ -96,8 +98,11 @@ export type FullSDKToPanelMessage = SDKToPanelMessage & {
   source: 'yorkie-devtools-sdk';
 };
 
-// ================================================
-
+/**
+ * TODO(chacha912): This code is a copy from src/types/devtools.ts.
+ * It is intended to be used by importing it from yorkie-js-sdk when
+ * it is structured as a monorepo.
+ */
 export type Json =
   | string
   | number

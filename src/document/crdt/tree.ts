@@ -1115,14 +1115,14 @@ export class CRDTTree extends CRDTGCElement {
   public toJSInfoForTest(): Devtools.TreeNodeInfo {
     const rootNode = this.indexTree.getRoot();
 
-    const getTreeNodeInfo = (
+    const toTreeNodeInfo = (
       node: CRDTTreeNode,
-      parent: string | undefined = undefined,
+      parentID: string | undefined = undefined,
       depth = 0,
     ): Devtools.TreeNodeInfo => {
       const nodeInfo: Devtools.TreeNodeInfo = {
         type: node.type,
-        parent,
+        parent: parentID,
         size: node.size,
         id: node.id.toTestString(),
         removedAt: node.removedAt?.toTestString(),
@@ -1135,12 +1135,13 @@ export class CRDTTree extends CRDTGCElement {
       };
 
       for (const child of node.children) {
-        nodeInfo.children.push(getTreeNodeInfo(child, nodeInfo.id, depth + 1));
+        nodeInfo.children.push(toTreeNodeInfo(child, nodeInfo.id, depth + 1));
       }
+
       return nodeInfo;
     };
 
-    return getTreeNodeInfo(rootNode);
+    return toTreeNodeInfo(rootNode);
   }
 
   /**
