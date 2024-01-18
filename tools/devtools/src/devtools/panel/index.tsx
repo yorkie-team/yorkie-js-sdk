@@ -18,7 +18,7 @@ const Panel = () => {
         <p className="empty-title">Yorkie is not found in this page.</p>
         <p className="empty-desc">
           If this seems wrong, try reloading the page.
-          <br /> Requires a development build of yorkie-js-sdk v0.4.14 or newer.
+          <br /> Requires a development build of yorkie-js-sdk v0.4.13 or newer.
         </p>
         <button
           className="reload-btn"
