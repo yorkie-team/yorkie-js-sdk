@@ -12,6 +12,10 @@ export type PanelToSDKMessage =
    */
   | { msg: 'devtools::connect' }
   /**
+   * Sent when the panel is not available.
+   */
+  | { msg: 'devtools::disconnect' }
+  /**
    * Informs the SDK that the panel is interested in receiving the "event" for the document,
    * starting with the initial "full sync" event.
    */

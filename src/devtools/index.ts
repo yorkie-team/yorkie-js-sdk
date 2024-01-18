@@ -2,15 +2,12 @@ import { Document, Indexable, Tree } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 
 let isDevtoolsConnected = false;
+const unsubsByDocKey = new Map<string, Array<() => void>>();
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
  */
 function sendToPanel(message: DevTools.SDKToPanelMessage): void {
-  // Devtools cannot be used in production environments or when run outside of a browser context
-  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
-    return;
-  }
   if (!isDevtoolsConnected) {
     return;
   }
@@ -20,6 +17,53 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
     source: 'yorkie-devtools-sdk',
   };
   window.postMessage(fullMsg, '*');
+}
+
+/**
+ * `startSync` subscribes to a document and sends messages to a panel accordingly.
+ * Initially sends a "full sync" message and later sends "partial sync" messages
+ * on document changes.
+ */
+function startSync<T, P extends Indexable>(doc: Document<T, P>): void {
+  sendToPanel({
+    msg: 'doc::sync::full',
+    docKey: doc.getKey(),
+    root: doc.toJSForTest(),
+    clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
+  });
+
+  const unsubPresenceEvent = doc.subscribe('presence', (event) => {
+    sendToPanel({
+      msg: 'doc::sync::partial',
+      docKey: doc.getKey(),
+      clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
+      event,
+    });
+  });
+
+  const unsubDocEvent = doc.subscribe((event) => {
+    sendToPanel({
+      msg: 'doc::sync::partial',
+      docKey: doc.getKey(),
+      root: doc.toJSForTest(),
+      event,
+    });
+  });
+
+  unsubsByDocKey.set(doc.getKey(), [unsubPresenceEvent, unsubDocEvent]);
+}
+
+/**
+ * `stopSync` cancels all subscriptions to a document.
+ */
+function stopSync(docKey: string): void {
+  const unsubs = unsubsByDocKey.get(docKey);
+  if (!unsubs) return;
+
+  unsubsByDocKey.delete(docKey);
+  for (const unsub of unsubs) {
+    unsub();
+  }
 }
 
 /**
@@ -39,24 +83,6 @@ export function setupDevtools<T, P extends Indexable>(
     docKey: doc.getKey(),
   });
 
-  doc.subscribe('presence', (event) => {
-    sendToPanel({
-      msg: 'doc::sync::partial',
-      docKey: doc.getKey(),
-      clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
-      event,
-    });
-  });
-
-  doc.subscribe((event) => {
-    sendToPanel({
-      msg: 'doc::sync::partial',
-      docKey: doc.getKey(),
-      root: doc.toJSForTest(),
-      event,
-    });
-  });
-
   window.addEventListener('message', (event: MessageEvent<unknown>) => {
     if (
       (event.data as Record<string, unknown>)?.source !==
@@ -74,13 +100,12 @@ export function setupDevtools<T, P extends Indexable>(
           docKey: doc.getKey(),
         });
         break;
+      case 'devtools::disconnect':
+        isDevtoolsConnected = false;
+        stopSync(doc.getKey());
+        break;
       case 'devtools::subscribe':
-        sendToPanel({
-          msg: 'doc::sync::full',
-          docKey: doc.getKey(),
-          root: doc.toJSForTest(),
-          clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
-        });
+        startSync(doc);
         break;
       case 'devtools::node::detail':
         if (message.data.type === 'YORKIE_TREE') {

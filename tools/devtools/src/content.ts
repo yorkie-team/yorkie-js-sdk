@@ -25,5 +25,9 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => {
     panelPort.onMessage.removeListener(handleMessage);
     panelPort = null;
+    window.postMessage({
+      source: 'yorkie-devtools-panel',
+      msg: 'devtools::disconnect',
+    });
   });
 });
