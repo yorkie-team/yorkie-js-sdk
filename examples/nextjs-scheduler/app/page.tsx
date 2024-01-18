@@ -124,7 +124,7 @@ export default function Editor() {
       }, 'create default content if not exists');
 
       // 04. subscribe doc's change event from local and remote.
-      doc.subscribe((event) => {
+      doc.subscribe(() => {
         callback(doc.getRoot().content);
       });
 
