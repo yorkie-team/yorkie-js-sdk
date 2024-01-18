@@ -629,18 +629,21 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1);
+    await c1.attach(d1, { isRealtimeSync: false });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2);
+    await c2.attach(d2, { isRealtimeSync: false });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 detaches d2.
     await c1.remove(d1);
     await c2.detach(d2);
+
+    await c1.sync();
+    await c2.sync();
 
     assert.equal(d1.getStatus(), DocumentStatus.Removed);
     assert.equal(d2.getStatus(), DocumentStatus.Removed);
@@ -660,18 +663,22 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1);
+    await c1.attach(d1, { isRealtimeSync: false });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2);
+    await c2.attach(d2, { isRealtimeSync: false });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 removes d2.
     await c1.remove(d1);
     await c2.remove(d2);
+
+    await c1.sync();
+    await c2.sync();
+
     assert.equal(d1.getStatus(), DocumentStatus.Removed);
     assert.equal(d2.getStatus(), DocumentStatus.Removed);
 

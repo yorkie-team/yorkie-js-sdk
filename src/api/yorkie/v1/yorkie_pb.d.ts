@@ -244,6 +244,11 @@ export declare class WatchDocumentRequest extends Message<WatchDocumentRequest> 
   clientId: string;
 
   /**
+   * @generated from field: string document_key = 3;
+   */
+  documentKey: string;
+
+  /**
    * @generated from field: string document_id = 2;
    */
   documentId: string;
@@ -452,6 +457,11 @@ export declare class BroadcastRequest extends Message<BroadcastRequest> {
    * @generated from field: string client_id = 1;
    */
   clientId: string;
+
+  /**
+   * @generated from field: string document_key = 5;
+   */
+  documentKey: string;
 
   /**
    * @generated from field: string document_id = 2;

@@ -807,6 +807,7 @@ export class Client implements Observable<ClientEvent> {
         const stream = this.rpcClient.watchDocument(
           {
             clientId: this.id!,
+            documentKey: docKey,
             documentId: attachment.docID,
           },
           {

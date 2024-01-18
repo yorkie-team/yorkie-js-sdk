@@ -114,6 +114,7 @@ const WatchDocumentRequest = proto3.makeMessageType(
   "yorkie.v1.WatchDocumentRequest",
   () => [
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "document_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
@@ -192,6 +193,7 @@ const BroadcastRequest = proto3.makeMessageType(
   "yorkie.v1.BroadcastRequest",
   () => [
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "document_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
