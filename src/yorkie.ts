@@ -20,6 +20,7 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 export {
   Client,
@@ -105,6 +106,16 @@ export {
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
+
+export {
+  EventSourceDevPanel,
+  EventSourceSDK,
+  PanelToSDKMessage,
+  SDKToPanelMessage,
+  FullPanelToSDKMessage,
+  FullSDKToPanelMessage,
+} from '@yorkie-js-sdk/src/devtools/protocol';
+export type { Devtools };
 
 /**
  * The top-level yorkie namespace with additional properties.
