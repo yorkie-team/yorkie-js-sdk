@@ -7,17 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.13] - 2024-01-19
+
 ### Added
 
 - Implement devtools chrome extension by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/717
 
 ### Changed
 
+- Reflect interface changes of server DB sharding by @sejongk in https://github.com/yorkie-team/yorkie-js-sdk/pull/726
 - Complement concurrent editing test cases in Tree by @sejongk in https://github.com/yorkie-team/yorkie-js-sdk/pull/721
+- Export devtools type by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/730
+- Update examples version to v0.4.12 by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/722
 
 ### Fixed
 
-- Fix invalid tree conversion by @hackerwins, @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/719
+- Fix multiple versions of prosemirror-model were loaded by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/728
+- Fix invalid tree conversion by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/719
 
 ## [0.4.12] - 2024-01-05
 
