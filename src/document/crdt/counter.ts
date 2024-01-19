@@ -23,7 +23,7 @@ import {
   PrimitiveType,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 export enum CounterType {
   IntegerCnt,
@@ -125,7 +125,7 @@ export class CRDTCounter extends CRDTElement {
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: this.value,
       type: 'YORKIE_COUNTER',
     };

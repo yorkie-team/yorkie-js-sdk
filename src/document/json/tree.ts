@@ -42,6 +42,7 @@ import type {
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in
@@ -516,6 +517,19 @@ export class Tree {
     }
 
     return this.tree.toJSON();
+  }
+
+  /**
+   * `toJSInfoForTest` returns detailed TreeNode information for use in Devtools.
+   *
+   * @internal
+   */
+  public toJSInfoForTest(): Devtools.TreeNodeInfo {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.toJSInfoForTest();
   }
 
   /**

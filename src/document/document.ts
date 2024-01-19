@@ -68,6 +68,8 @@ import {
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
+import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -470,6 +472,8 @@ export class Document<T, P extends Indexable = Indexable> {
       undo: this.undo.bind(this),
       redo: this.redo.bind(this),
     };
+
+    setupDevtools(this);
   }
 
   /**
@@ -1019,6 +1023,16 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    return {
+      ...this.getRoot().toJSForTest!(),
+      key: 'root',
+    };
+  }
+
+  /**
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
@@ -1240,6 +1254,31 @@ export class Document<T, P extends Indexable = Indexable> {
       }
     }
     return presences;
+  }
+
+  /**
+   * `getSelfForTest` returns the client that has attached this document.
+   *
+   * @internal
+   */
+  public getSelfForTest() {
+    return {
+      clientID: this.getChangeID().getActorID()!,
+      presence: this.getMyPresence(),
+    };
+  }
+
+  /**
+   * `getOthersForTest` returns all the other clients in online, sorted by clientID.
+   *
+   * @internal
+   */
+  public getOthersForTest() {
+    const myClientID = this.getChangeID().getActorID()!;
+
+    return this.getPresences()
+      .filter((a) => a.clientID !== myClientID)
+      .sort((a, b) => (a.clientID > b.clientID ? 1 : -1));
   }
 
   /**

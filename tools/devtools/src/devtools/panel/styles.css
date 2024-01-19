@@ -1,0 +1,337 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --gray-900: #332e2b;
+  --gray-800: #514c49;
+  --gray-700: #6e6966;
+  --gray-600: #807b78;
+  --gray-500: #a6a19e;
+  --gray-400: #c2bdba;
+  --gray-300: #e2dedb;
+  --gray-200: #efeceb;
+  --gray-100: #f5f3f1;
+  --gray-50: #faf8f6;
+  --gray-000: #fefdfb;
+  --orange-dark: #f27b2f;
+  --orange-0: #fc8539;
+  --orange-light: #fda36a;
+  --yellow-dark: #f5b103;
+  --yellow-0: #fdc433;
+  --yellow-light: #fed366;
+  --green-dark: #10b266;
+  --green-0: #23c176;
+  --green-light: #5ad198;
+  --blue-dark: #208aed;
+  --blue-0: #3c9af1;
+  --blue-light: #6db4f5;
+  --red-dark: #e93d47;
+  --red-0: #f44954;
+  --red-light: #f7777e;
+  --purple-dark: #764af3;
+  --purple-0: #855cf9;
+  --purple-light: #a385fb;
+}
+
+.yorkie-devtools-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 30%;
+  height: 100vh;
+  color: var(--gray-900);
+  line-height: 1.4;
+}
+
+.yorkie-devtools-empty .empty-title {
+  font-size: 1.4em;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.yorkie-devtools-empty .empty-desc {
+  color: var(--gray-600);
+}
+
+.yorkie-devtools-empty .reload-btn {
+  margin-top: 20px;
+  padding: 6px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.yorkie-devtools-empty .reload-btn:hover {
+  background: var(--gray-200);
+}
+
+.yorkie-devtools {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100vh;
+}
+
+.content-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 6px 10px;
+}
+
+.yorkie-root {
+  width: 60%;
+  border-right: 1px solid var(--gray-300);
+}
+
+.yorkie-presence {
+  width: 40%;
+}
+
+.content-wrap .title {
+  margin: 6px 0 14px;
+  font-weight: 500;
+}
+
+.content-wrap .content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.arborist-tree-container {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.arborist-tree {
+  font-size: 11px;
+  font-family: menlo, monospace;
+  color: #444;
+  white-space: nowrap;
+}
+
+.arborist-tree-row .tree-item {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  margin-bottom: 16px;
+  padding: 6px 8px;
+  max-width: 100%;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.arborist-tree-row .tree-item:hover {
+  background: var(--gray-50);
+}
+
+.arborist-tree-row .tree-item:after {
+  border: 1px dashed var(--gray-300);
+  border-radius: 0 0 0 4px;
+  border-width: 0 0 1px 1px;
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 26px;
+  top: -14px;
+  left: -18px;
+}
+
+.arborist-tree-row .tree-item:before {
+  border: 1px dashed var(--gray-300);
+  border-width: 0 0 0 1px;
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: -18px;
+  top: 12px;
+}
+
+.arborist-tree-row .tree-item.last-child:before {
+  display: none;
+}
+
+.arborist-tree .tree-item.is-selected {
+  background: var(--gray-100);
+}
+
+.arborist-tree-row .tree-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--gray-600);
+}
+
+.arborist-tree .timeticket {
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: var(--gray-100);
+  border-radius: 4px;
+  font-size: 90%;
+}
+
+.arborist-tree .icon {
+  margin-right: 6px;
+  height: 16px;
+}
+.arborist-tree .icon.object {
+  color: var(--yellow-light);
+}
+.arborist-tree .icon.array {
+  color: var(--green-light);
+}
+.arborist-tree .icon.primitive {
+  color: var(--gray-400);
+}
+.arborist-tree .icon.text {
+  color: var(--blue-light);
+}
+.arborist-tree .icon.tree {
+  color: var(--purple-light);
+}
+.arborist-tree .icon.counter {
+  color: var(--red-light);
+}
+.arborist-tree .icon.user {
+  color: var(--orange-light);
+}
+.arborist-tree .arrow-icon {
+  margin-right: 4px;
+}
+
+.selected-content {
+  height: 66%;
+  border-top: 1px solid var(--gray-300);
+  display: flex;
+  flex-direction: column;
+}
+
+.selected-view {
+  flex: 1;
+  min-height: 0;
+}
+
+.selected-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+  font-weight: 500;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gray-300);
+  margin-bottom: 6px;
+}
+
+.selected-close-btn {
+  border: none;
+  background: none;
+  width: 16px;
+  height: 16px;
+  color: var(--gray-300);
+  cursor: pointer;
+}
+
+.selected-close-btn:hover {
+  color: var(--gray-500);
+}
+
+.selected-view-tabmenu {
+  position: absolute;
+  right: 0;
+  display: flex;
+  margin-right: 14px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.selected-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-right: 1px solid var(--gray-300);
+  background: none;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  color: var(--gray-300);
+}
+
+.selected-view-btn:last-child {
+  border-right: none;
+}
+
+.selected-view-btn:hover {
+  color: var(--gray-500);
+}
+
+.selected-view-btn.is-selected {
+  background: var(--gray-300);
+  color: var(--gray-500);
+}
+
+.selected-view-tab {
+  height: 100%;
+  position: relative;
+  overflow: scroll;
+  white-space: nowrap;
+}
+
+.prism-code {
+  font-family: menlo, monospace;
+  font-size: 0.5em;
+  height: 100%;
+  overflow: auto;
+}
+
+.tree-node {
+  margin-left: calc(16px * var(--depth));
+  margin-bottom: 2px;
+  font-family: menlo, monospace;
+  color: #444;
+  font-size: 0.9em;
+}
+
+.tree-node.text {
+  display: inline-block;
+}
+
+.tree-node .node-item {
+  display: inline-flex;
+  flex-direction: column;
+  padding: 2px 4px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tree-node .node-item:hover {
+  background: var(--gray-300) !important;
+}
+
+.tree-node.is-selected .node-item {
+  background: var(--gray-600) !important;
+  color: var(--gray-50);
+}
+
+.tree-node.text .node-item {
+  background: var(--gray-100);
+}
+
+.tree-node span {
+  padding: 2px;
+}
+
+.tree-node .timeticket {
+  border-top: 1px solid var(--gray-300);
+  font-size: 9px;
+}

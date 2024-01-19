@@ -1,0 +1,41 @@
+.prism-code .token {
+  white-space: pre;
+}
+.prism-code .string {
+  word-break: break-all;
+}
+.prism-code .class-name {
+  color: var(--purple-dark);
+}
+.prism-code .parameter,
+.prism-code .plain,
+.prism-code .property {
+  color: var(--gray-900);
+}
+
+.prism-code .line-number {
+  padding: 0 16px;
+}
+.prism-code .line-number {
+  line-height: 2;
+  font-weight: 400;
+  color: var(--gray-500);
+  text-align: right;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.prism-code .line-content {
+  line-height: 1.72;
+  font-weight: 400;
+}
+.prism-code.language-json .token.property {
+  color: var(--blue-dark);
+}
+.prism-code.language-json .token.number {
+  color: var(--orange-dark);
+}
+.prism-code.language-bash {
+  padding: 0 24px;
+}

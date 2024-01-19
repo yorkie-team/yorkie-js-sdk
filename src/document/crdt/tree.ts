@@ -39,7 +39,7 @@ import type {
   TreeToken,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools_element';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -349,6 +349,14 @@ export class CRDTTreeNodeID {
    */
   public toIDString(): string {
     return `${this.createdAt.toIDString()}:${this.offset}`;
+  }
+
+  /**
+   * `toTestString` returns a string containing the meta data of the ticket
+   * for debugging purpose.
+   */
+  public toTestString(): string {
+    return `${this.createdAt.toTestString()}:${this.offset}`;
   }
 }
 
@@ -1088,13 +1096,52 @@ export class CRDTTree extends CRDTGCElement {
 
   /**
    * `toJSForTest` returns value with meta data for testing.
+   *
+   * @internal
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      id: this.getCreatedAt().toTestString(),
+      createdAt: this.getCreatedAt().toTestString(),
       value: JSON.parse(this.toJSON()),
       type: 'YORKIE_TREE',
     };
+  }
+
+  /**
+   * `toJSInfoForTest` returns detailed TreeNode information for use in Devtools.
+   *
+   * @internal
+   */
+  public toJSInfoForTest(): Devtools.TreeNodeInfo {
+    const rootNode = this.indexTree.getRoot();
+
+    const toTreeNodeInfo = (
+      node: CRDTTreeNode,
+      parentID: string | undefined = undefined,
+      depth = 0,
+    ): Devtools.TreeNodeInfo => {
+      const nodeInfo: Devtools.TreeNodeInfo = {
+        type: node.type,
+        parent: parentID,
+        size: node.size,
+        id: node.id.toTestString(),
+        removedAt: node.removedAt?.toTestString(),
+        insPrev: node.insPrevID?.toTestString(),
+        insNext: node.insNextID?.toTestString(),
+        value: node.isText ? node.value : undefined,
+        isRemoved: node.isRemoved,
+        children: [] as Array<Devtools.TreeNodeInfo>,
+        depth,
+      };
+
+      for (const child of node.children) {
+        nodeInfo.children.push(toTreeNodeInfo(child, nodeInfo.id, depth + 1));
+      }
+
+      return nodeInfo;
+    };
+
+    return toTreeNodeInfo(rootNode);
   }
 
   /**
