@@ -1,12 +1,10 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.4.13-rc",
+  "version": "0.4.13-rc2",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yorkie-team/yorkie-js-sdk.git"
