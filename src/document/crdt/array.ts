@@ -20,7 +20,7 @@ import {
   CRDTElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
-import * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.

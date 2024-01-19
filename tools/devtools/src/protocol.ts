@@ -22,6 +22,18 @@
 import type { DocEvent, PrimitiveValue } from 'yorkie-js-sdk';
 
 /**
+ * `EventSourceDevPanel` is the name of the source representing messages
+ *  from the Devtools panel.
+ */
+export const EventSourceDevPanel = 'yorkie-devtools-panel';
+
+/**
+ * `EventSourceSDK` is the name of the source representing messages
+ * from the SDK.
+ */
+export const EventSourceSDK = 'yorkie-devtools-sdk';
+
+/**
  * Definition of all messages the Devtools panel can send to the SDK.
  */
 export type PanelToSDKMessage =
@@ -103,6 +115,12 @@ export type FullSDKToPanelMessage = SDKToPanelMessage & {
  * It is intended to be used by importing it from yorkie-js-sdk when
  * it is structured as a monorepo.
  */
+
+/**
+ * `Json` represents a JSON value.
+ *
+ * TODO(hackerwins): We need to replace `Indexable` with `Json`.
+ */
 export type Json =
   | string
   | number
@@ -112,16 +130,25 @@ export type Json =
   | { [key: string]: Json }
   | Array<Json>;
 
-export type ContainerValue = {
-  [key: string]: JSONElement;
+/**
+ * `Client` represents a client value in devtools.
+ */
+export type Client = {
+  clientID: string;
+  presence: Json;
 };
 
-export type ElementValue =
-  | PrimitiveValue
-  | ContainerValue // Array | Object
-  | Json; // Text | Tree
+/**
+ * `JSONElement` represents the result of `Element.toJSForTest()`.
+ */
+export type JSONElement = {
+  type: JSONElementType;
+  key?: string;
+  value: JSONElementValue;
+  createdAt: string;
+};
 
-export type ElementType =
+type JSONElementType =
   | 'YORKIE_PRIMITIVE'
   | 'YORKIE_COUNTER'
   | 'YORKIE_OBJECT'
@@ -129,18 +156,28 @@ export type ElementType =
   | 'YORKIE_TEXT'
   | 'YORKIE_TREE';
 
-export type JSONElement = {
-  key: string;
-  value: ElementValue;
-  type: ElementType;
-  createdAt: string;
+/**
+ * `ElementValue` represents the result of `Element.toJSForTest()`.
+ *
+ * NOTE(chacha912): Json type is used to represent the result of
+ * `Text.toJSForTest()` and `Tree.toJSForTest()`.
+ */
+type JSONElementValue =
+  | PrimitiveValue
+  | ContainerValue // Array | Object
+  | Json; // Text | Tree
+
+/**
+ * `ContainerValue` represents the result of `Array.toJSForTest()` and
+ * `Object.toJSForTest()`.
+ */
+export type ContainerValue = {
+  [key: string]: JSONElement;
 };
 
-export type Client = {
-  clientID: string;
-  presence: Json;
-};
-
+/**
+ * `TreeNodeInfo` represents the tree node information in devtools.
+ */
 export type TreeNodeInfo = {
   id: string;
   type: string;

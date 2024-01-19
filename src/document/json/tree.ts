@@ -42,7 +42,7 @@ import type {
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in

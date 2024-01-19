@@ -15,8 +15,8 @@
  */
 
 import type { PanelToSDKMessage } from './protocol';
+import { EventSourceDevPanel } from './protocol';
 
-const DevPanel = 'yorkie-devtools-panel';
 const tabID = chrome.devtools.inspectedWindow.tabId;
 
 // `tabs.connect()` creates a reusable channel for long-term message passing between
@@ -25,7 +25,7 @@ const tabID = chrome.devtools.inspectedWindow.tabId;
 // For more details: https://developer.chrome.com/docs/extensions/develop/concepts/messaging#connect
 let port: chrome.runtime.Port;
 port = chrome.tabs.connect(tabID, {
-  name: DevPanel,
+  name: EventSourceDevPanel,
 });
 port.onDisconnect.addListener(() => {
   port = undefined;
@@ -34,15 +34,17 @@ port.onDisconnect.addListener(() => {
 export const sendToSDK = (message: PanelToSDKMessage) => {
   if (!port) return;
   port.postMessage({
+    source: EventSourceDevPanel,
     ...message,
-    source: DevPanel,
   });
 };
 
 export const onPortMessage = port.onMessage;
 
-// The inspected window was reloaded, so we should reload the panel.
+// TODO(chacha912): The inspected window was reloaded, so we should reload the panel.
 // Ideally, we should reconnect instead of performing a full reload.
+// TODO(hackerwins): We need to ensure that this event listener should be
+// removed later.
 chrome.tabs.onUpdated.addListener((id, { status }) => {
   if (status === 'complete' && tabID === id) {
     window.location.reload();

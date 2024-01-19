@@ -87,6 +87,7 @@ export {
 export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
 export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
+export { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 export {
   Text,
   TextPosStruct,

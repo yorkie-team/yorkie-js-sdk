@@ -16,6 +16,7 @@
 
 import { Document, Indexable, Tree } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
+import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 
 let isDevtoolsConnected = false;
 const unsubsByDocKey = new Map<string, Array<() => void>>();
@@ -30,7 +31,7 @@ function sendToPanel(message: DevTools.SDKToPanelMessage): void {
 
   window.postMessage(
     {
-      source: 'yorkie-devtools-sdk',
+      source: EventSourceSDK,
       ...message,
     },
     '*',
@@ -104,40 +105,42 @@ export function setupDevtools<T, P extends Indexable>(
     docKey: doc.getKey(),
   });
 
-  window.addEventListener('message', (event: MessageEvent<unknown>) => {
-    if (
-      (event.data as Record<string, unknown>)?.source !==
-      'yorkie-devtools-panel'
-    ) {
-      return;
-    }
+  // TODO(hackerwins): We need to ensure that this event listener should be
+  // removed later.
+  window.addEventListener(
+    'message',
+    (event: MessageEvent<DevTools.FullPanelToSDKMessage>) => {
+      if (event.data?.source !== EventSourceDevPanel) {
+        return;
+      }
 
-    const message = event.data as DevTools.FullPanelToSDKMessage;
-    switch (message.msg) {
-      case 'devtools::connect':
-        isDevtoolsConnected = true;
-        sendToPanel({
-          msg: 'doc::available',
-          docKey: doc.getKey(),
-        });
-        break;
-      case 'devtools::disconnect':
-        isDevtoolsConnected = false;
-        stopSync(doc.getKey());
-        break;
-      case 'devtools::subscribe':
-        startSync(doc);
-        break;
-      case 'devtools::node::detail':
-        if (message.data.type === 'YORKIE_TREE') {
+      const message = event.data;
+      switch (message.msg) {
+        case 'devtools::connect':
+          isDevtoolsConnected = true;
           sendToPanel({
-            msg: 'doc::node::detail',
-            node: (
-              doc.getValueByPath(message.data.path) as Tree
-            )?.toJSInfoForTest(),
+            msg: 'doc::available',
+            docKey: doc.getKey(),
           });
-        }
-        break;
-    }
-  });
+          break;
+        case 'devtools::disconnect':
+          isDevtoolsConnected = false;
+          stopSync(doc.getKey());
+          break;
+        case 'devtools::subscribe':
+          startSync(doc);
+          break;
+        case 'devtools::node::detail':
+          if (message.data.type === 'YORKIE_TREE') {
+            sendToPanel({
+              msg: 'doc::node::detail',
+              node: (
+                doc.getValueByPath(message.data.path) as Tree
+              )?.toJSInfoForTest(),
+            });
+          }
+          break;
+      }
+    },
+  );
 }

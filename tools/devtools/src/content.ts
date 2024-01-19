@@ -15,21 +15,26 @@
  */
 
 import type { FullSDKToPanelMessage } from './protocol';
+import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 
 let panelPort = null;
 
 // Relay messages received from the SDK to the Devtools panel.
+// TODO(hackerwins): We need to ensure that this event listener should be
+// removed later.
 window.addEventListener('message', (event) => {
   const message = event.data as Record<string, unknown>;
-  if (message?.source === 'yorkie-devtools-sdk') {
+  if (message?.source === EventSourceSDK) {
     if (!panelPort) return;
     panelPort.postMessage(message as FullSDKToPanelMessage);
   }
 });
 
 // Relay messages received from the Devtools panel to the SDK.
+// TODO(hackerwins): We need to ensure that this event listener should be
+// removed later.
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'yorkie-devtools-panel') {
+  if (port.name !== EventSourceDevPanel) {
     return;
   }
   panelPort = port;
@@ -42,7 +47,7 @@ chrome.runtime.onConnect.addListener((port) => {
     panelPort.onMessage.removeListener(handleMessage);
     panelPort = null;
     window.postMessage({
-      source: 'yorkie-devtools-panel',
+      source: EventSourceDevPanel,
       msg: 'devtools::disconnect',
     });
   });

@@ -14,8 +14,20 @@
  * limitations under the License.
  */
 
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+
+/**
+ * `EventSourceDevPanel` is the name of the source representing messages
+ *  from the Devtools panel.
+ */
+export const EventSourceDevPanel = 'yorkie-devtools-panel';
+
+/**
+ * `EventSourceSDK` is the name of the source representing messages
+ * from the SDK.
+ */
+export const EventSourceSDK = 'yorkie-devtools-sdk';
 
 /**
  * PanelToSDKMessage is a message sent from the Devtools panel to the SDK.

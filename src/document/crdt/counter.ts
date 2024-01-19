@@ -23,7 +23,7 @@ import {
   PrimitiveType,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 export enum CounterType {
   IntegerCnt,

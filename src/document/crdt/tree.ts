@@ -39,7 +39,7 @@ import type {
   TreeToken,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `TreeNode` represents a node in the tree.

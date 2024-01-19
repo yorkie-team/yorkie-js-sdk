@@ -30,7 +30,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
-import type * as Devtools from '@yorkie-js-sdk/src/types/devtools';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `TextChangeType` is the type of TextChange.
