@@ -388,6 +388,7 @@ export class Client implements Observable<ClientEvent> {
     return this.rpcClient
       .deactivateClient(
         {
+          clientKey: this.key!,
           clientId: this.id!,
         },
         { headers: { 'x-shard-key': this.apiKey } },
@@ -435,6 +436,7 @@ export class Client implements Observable<ClientEvent> {
     return this.rpcClient
       .attachDocument(
         {
+          clientKey: this.key!,
           clientId: this.id!,
           changePack: converter.toChangePack(doc.createChangePack()),
         },
@@ -502,6 +504,7 @@ export class Client implements Observable<ClientEvent> {
     return this.rpcClient
       .detachDocument(
         {
+          clientKey: this.key!,
           clientId: this.id!,
           documentId: attachment.docID,
           changePack: converter.toChangePack(doc.createChangePack()),
@@ -691,6 +694,7 @@ export class Client implements Observable<ClientEvent> {
     return this.rpcClient
       .removeDocument(
         {
+          clientKey: this.key!,
           clientId: this.id!,
           documentId: attachment.docID,
           changePack: pbChangePack,
@@ -806,6 +810,7 @@ export class Client implements Observable<ClientEvent> {
         const ac = new AbortController();
         const stream = this.rpcClient.watchDocument(
           {
+            clientKey: this.key!,
             clientId: this.id!,
             documentKey: docKey,
             documentId: attachment.docID,
@@ -943,6 +948,7 @@ export class Client implements Observable<ClientEvent> {
     return this.rpcClient
       .pushPullChanges(
         {
+          clientKey: this.key!,
           clientId: this.id!,
           documentId: docID,
           changePack: converter.toChangePack(reqPack),

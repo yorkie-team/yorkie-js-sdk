@@ -75,6 +75,11 @@ export declare class ActivateClientResponse extends Message<ActivateClientRespon
  */
 export declare class DeactivateClientRequest extends Message<DeactivateClientRequest> {
   /**
+   * @generated from field: string client_key = 2;
+   */
+  clientKey: string;
+
+  /**
    * @generated from field: string client_id = 1;
    */
   clientId: string;
@@ -117,6 +122,11 @@ export declare class DeactivateClientResponse extends Message<DeactivateClientRe
  * @generated from message yorkie.v1.AttachDocumentRequest
  */
 export declare class AttachDocumentRequest extends Message<AttachDocumentRequest> {
+  /**
+   * @generated from field: string client_key = 3;
+   */
+  clientKey: string;
+
   /**
    * @generated from field: string client_id = 1;
    */
@@ -175,6 +185,11 @@ export declare class AttachDocumentResponse extends Message<AttachDocumentRespon
  * @generated from message yorkie.v1.DetachDocumentRequest
  */
 export declare class DetachDocumentRequest extends Message<DetachDocumentRequest> {
+  /**
+   * @generated from field: string client_key = 5;
+   */
+  clientKey: string;
+
   /**
    * @generated from field: string client_id = 1;
    */
@@ -238,6 +253,11 @@ export declare class DetachDocumentResponse extends Message<DetachDocumentRespon
  * @generated from message yorkie.v1.WatchDocumentRequest
  */
 export declare class WatchDocumentRequest extends Message<WatchDocumentRequest> {
+  /**
+   * @generated from field: string client_key = 4;
+   */
+  clientKey: string;
+
   /**
    * @generated from field: string client_id = 1;
    */
@@ -333,6 +353,11 @@ export declare class WatchDocumentResponse_Initialization extends Message<WatchD
  */
 export declare class RemoveDocumentRequest extends Message<RemoveDocumentRequest> {
   /**
+   * @generated from field: string client_key = 4;
+   */
+  clientKey: string;
+
+  /**
    * @generated from field: string client_id = 1;
    */
   clientId: string;
@@ -390,6 +415,11 @@ export declare class RemoveDocumentResponse extends Message<RemoveDocumentRespon
  * @generated from message yorkie.v1.PushPullChangesRequest
  */
 export declare class PushPullChangesRequest extends Message<PushPullChangesRequest> {
+  /**
+   * @generated from field: string client_key = 5;
+   */
+  clientKey: string;
+
   /**
    * @generated from field: string client_id = 1;
    */
@@ -453,6 +483,11 @@ export declare class PushPullChangesResponse extends Message<PushPullChangesResp
  * @generated from message yorkie.v1.BroadcastRequest
  */
 export declare class BroadcastRequest extends Message<BroadcastRequest> {
+  /**
+   * @generated from field: string client_key = 6;
+   */
+  clientKey: string;
+
   /**
    * @generated from field: string client_id = 1;
    */
