@@ -49,6 +49,7 @@ declare class Document<T, P extends Indexable = Indexable>
 |  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_2.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the current client establishes or updates its presence. |
 |  [subscribe(type, next, error, complete)](./yorkie-js-sdk.document.subscribe_3.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the client establishes or terminates a connection, or updates its presence. |
 |  [subscribe(targetPath, next, error, complete)](./yorkie-js-sdk.document.subscribe_4.md) |  | <code>subscribe</code> registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change. |
+|  [toJSForTest()](./yorkie-js-sdk.document.tojsfortest.md) |  | <code>toJSForTest</code> returns value with meta data for testing. |
 |  [toJSON()](./yorkie-js-sdk.document.tojson.md) |  | <code>toJSON</code> returns the JSON encoding of this document. |
 |  [toSortedJSON()](./yorkie-js-sdk.document.tosortedjson.md) |  | <code>toSortedJSON</code> returns the sorted JSON encoding of this document. |
 |  [update(updater, message)](./yorkie-js-sdk.document.update.md) |  | <code>update</code> executes the given updater to update this document. |

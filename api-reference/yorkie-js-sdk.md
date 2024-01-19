@@ -63,6 +63,7 @@
 |  [ClientEvent](./yorkie-js-sdk.clientevent.md) | <code>ClientEvent</code> is an event that occurs in <code>Client</code>. It can be delivered using <code>Client.subscribe()</code>. |
 |  [CompleteFn](./yorkie-js-sdk.completefn.md) |  |
 |  [CounterOperationInfo](./yorkie-js-sdk.counteroperationinfo.md) | <code>CounterOperationInfo</code> represents the OperationInfo for the yorkie.Counter. |
+|  [CounterValue](./yorkie-js-sdk.countervalue.md) |  |
 |  [CRDTTreeNodeIDStruct](./yorkie-js-sdk.crdttreenodeidstruct.md) | <code>CRDTTreeNodeIDStruct</code> represents the structure of CRDTTreeNodeID. It is used to serialize and deserialize the CRDTTreeNodeID. |
 |  [DocEvent](./yorkie-js-sdk.docevent.md) | <code>DocEvent</code> is an event that occurs in <code>Document</code>. It can be delivered using <code>Document.subscribe()</code>. |
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) | <code>EditOpInfo</code> represents the information of the edit operation. |
