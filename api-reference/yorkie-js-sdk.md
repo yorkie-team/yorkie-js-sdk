@@ -46,11 +46,19 @@
 |  [StreamConnectionStatusChangedEvent](./yorkie-js-sdk.streamconnectionstatuschangedevent.md) | <code>StreamConnectionStatusChangedEvent</code> is an event that occurs when the client's stream connection state changes. |
 |  [TreeChange](./yorkie-js-sdk.treechange.md) | <code>TreeChange</code> represents the change in the tree. |
 
+## Namespaces
+
+|  Namespace | Description |
+|  --- | --- |
+|  [Devtools](./yorkie-js-sdk.devtools.md) |  |
+
 ## Variables
 
 |  Variable | Description |
 |  --- | --- |
 |  [converter](./yorkie-js-sdk.converter.md) | <code>converter</code> is a converter that converts the given model to protobuf format. is also used to convert models to bytes and vice versa. |
+|  [EventSourceDevPanel](./yorkie-js-sdk.eventsourcedevpanel.md) | <code>EventSourceDevPanel</code> is the name of the source representing messages from the Devtools panel. |
+|  [EventSourceSDK](./yorkie-js-sdk.eventsourcesdk.md) | <code>EventSourceSDK</code> is the name of the source representing messages from the SDK. |
 |  [yorkie](./yorkie-js-sdk.yorkie.md) | <p>The top-level yorkie namespace with additional properties.</p><p>In production, this will be called exactly once and the result assigned to the <code>yorkie</code> global.</p><p>e.g) <code>new yorkie.Client(...);</code></p> |
 
 ## Type Aliases
@@ -69,6 +77,8 @@
 |  [EditOpInfo](./yorkie-js-sdk.editopinfo.md) | <code>EditOpInfo</code> represents the information of the edit operation. |
 |  [ElementNode](./yorkie-js-sdk.elementnode.md) | <code>ElementNode</code> represents an element node. It has an attributes and children. |
 |  [ErrorFn](./yorkie-js-sdk.errorfn.md) |  |
+|  [FullPanelToSDKMessage](./yorkie-js-sdk.fullpaneltosdkmessage.md) |  |
+|  [FullSDKToPanelMessage](./yorkie-js-sdk.fullsdktopanelmessage.md) |  |
 |  [IncreaseOpInfo](./yorkie-js-sdk.increaseopinfo.md) | <code>IncreaseOpInfo</code> represents the information of the increase operation. |
 |  [Indexable](./yorkie-js-sdk.indexable.md) | Indexable key, value |
 |  [JSONArray](./yorkie-js-sdk.jsonarray.md) | <code>JSONArray</code> represents JSON array, but unlike regular JSON, it has time tickets created by a logical clock to resolve conflicts. |
@@ -78,8 +88,10 @@
 |  [NextFn](./yorkie-js-sdk.nextfn.md) |  |
 |  [ObjectOperationInfo](./yorkie-js-sdk.objectoperationinfo.md) | <code>ObjectOperationInfo</code> represents the OperationInfo for the JSONObject. |
 |  [OperationInfo](./yorkie-js-sdk.operationinfo.md) | <code>OperationInfo</code> represents the information of an operation. It is used to inform to the user what kind of operation was executed. |
+|  [PanelToSDKMessage](./yorkie-js-sdk.paneltosdkmessage.md) | PanelToSDKMessage is a message sent from the Devtools panel to the SDK. |
 |  [PrimitiveValue](./yorkie-js-sdk.primitivevalue.md) | <code>PrimitiveValue</code> represents a value of primitive type. Only values of type included in <code>PrimitiveValue</code> can be set to the document. |
 |  [RemoveOpInfo](./yorkie-js-sdk.removeopinfo.md) | <code>RemoveOpInfo</code> represents the information of the remove operation. |
+|  [SDKToPanelMessage](./yorkie-js-sdk.sdktopanelmessage.md) | Definition of all messages the SDK can send to the Devtools panel. |
 |  [SetOpInfo](./yorkie-js-sdk.setopinfo.md) | <code>SetOpInfo</code> represents the information of the set operation. |
 |  [StyleOpInfo](./yorkie-js-sdk.styleopinfo.md) | <code>StyleOpInfo</code> represents the information of the style operation. |
 |  [TextNode](./yorkie-js-sdk.textnode.md) | <code>TextNode</code> represents a text node. It has a string value. |
