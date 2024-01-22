@@ -20,9 +20,9 @@ import { useState, useCallback } from 'react';
 import { Code } from './Code';
 import type { RootTreeNode } from './Tree';
 import { CodeIcon, GraphIcon } from '../icons';
-import type { TreeNodeInfo } from '../../protocol';
+import type { Devtools } from 'yorkie-js-sdk';
 
-type FlatTreeNodeInfo = TreeNodeInfo & {
+type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
   depth: number;
   childIndex: number;
 };
@@ -60,9 +60,13 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
   );
 }
 
-function TreeGraph({ tree }: { tree: TreeNodeInfo }) {
+function TreeGraph({ tree }: { tree: Devtools.TreeNodeInfo }) {
   const flattenTreeWithDepth = useCallback(
-    (node: TreeNodeInfo, depth = 0, i = 0): Array<FlatTreeNodeInfo> => {
+    (
+      node: Devtools.TreeNodeInfo,
+      depth = 0,
+      i = 0,
+    ): Array<FlatTreeNodeInfo> => {
       const nodeWithDepth = { ...node, depth, childIndex: i };
       const children = (node.children || []).flatMap((child, i) =>
         flattenTreeWithDepth(child, depth + 1, i),
@@ -82,7 +86,7 @@ export function TreeDetail({
   tree,
 }: {
   node: RootTreeNode;
-  tree: TreeNodeInfo;
+  tree: Devtools.TreeNodeInfo;
 }) {
   const [viewType, setViewType] = useState<'json' | 'graph'>('json');
 

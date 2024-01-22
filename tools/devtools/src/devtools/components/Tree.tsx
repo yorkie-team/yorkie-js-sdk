@@ -23,13 +23,7 @@ import useResizeObserver from 'use-resize-observer';
 import { useSeletedNode } from '../contexts/SeletedNode';
 import { useSeletedPresence } from '../contexts/SeletedPresence';
 import { sendToSDK } from '../../port';
-import type {
-  Client,
-  JSONElement,
-  ElementValue,
-  ElementType,
-  Json,
-} from '../../protocol';
+import type { Devtools } from 'yorkie-js-sdk';
 
 import {
   ArrayIcon,
@@ -41,26 +35,20 @@ import {
   UserIcon,
 } from '../icons';
 
-export type RootTreeNode = {
+export type RootTreeNode = Devtools.JSONElement & {
   id: string;
   path: string;
-  key: string;
-  createdAt: string;
-  value: ElementValue;
-  type: ElementType;
   isLastChild?: boolean;
 };
 
-type UserNode = {
-  clientID: string;
-  presence: Json;
+type UserNode = Devtools.Client & {
   id: string;
   type: 'USER';
 };
 type PresenceJsonNode = {
   id: string;
   key: string;
-  value: Json;
+  value: Devtools.Json;
   isLastChild: boolean;
   type: 'JSON';
 };
@@ -240,7 +228,7 @@ function rootChildAccessor(node: RootTreeNode): Array<RootTreeNode> {
   if (!(node.type === 'YORKIE_OBJECT' || node.type === 'YORKIE_ARRAY')) {
     return null;
   }
-  const children = Object.values(node.value) as Array<JSONElement>;
+  const children = Object.values(node.value) as Array<Devtools.JSONElement>;
   const length = children.length;
   const res = children.map((v, i) => {
     const path = `${node.path}.${v.key}`;
@@ -285,7 +273,11 @@ function presenceChildAccessor(
 /**
  * `PresenceTree` renders the presences of the document.
  */
-export function PresenceTree({ presences }: { presences: Array<Client> }) {
+export function PresenceTree({
+  presences,
+}: {
+  presences: Array<Devtools.Client>;
+}) {
   const { ref, width, height } = useResizeObserver();
   const data = useMemo(() => {
     const presenceNodes: Array<PresenceTreeNode> = presences.map((client) => ({
@@ -317,7 +309,7 @@ export function PresenceTree({ presences }: { presences: Array<Client> }) {
 /**
  * `RootTree` renders the root object of the document.
  */
-export function RootTree({ root }: { root: JSONElement }) {
+export function RootTree({ root }: { root: Devtools.JSONElement }) {
   const { ref, width, height } = useResizeObserver();
   const data = useMemo(() => {
     const rootNode: Array<RootTreeNode> = root

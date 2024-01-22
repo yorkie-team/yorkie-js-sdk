@@ -23,18 +23,13 @@ import {
   useState,
 } from 'react';
 
-import type {
-  JSONElement,
-  Client,
-  SDKToPanelMessage,
-  TreeNodeInfo,
-} from '../../protocol';
+import type { Devtools, SDKToPanelMessage } from 'yorkie-js-sdk';
 import { onPortMessage, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string | null>(null);
-const RootContext = createContext<JSONElement | null>(null);
-const PresencesContext = createContext<Array<Client> | null>(null);
-const NodeDetailContext = createContext<TreeNodeInfo | null>(null);
+const RootContext = createContext<Devtools.JSONElement | null>(null);
+const PresencesContext = createContext<Array<Devtools.Client> | null>(null);
+const NodeDetailContext = createContext<Devtools.TreeNodeInfo | null>(null);
 
 type Props = {
   children?: ReactNode;
@@ -42,8 +37,8 @@ type Props = {
 
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
-  const [root, setRoot] = useState<JSONElement>(null);
-  const [presences, setPresences] = useState<Array<Client>>([]);
+  const [root, setRoot] = useState<Devtools.JSONElement>(null);
+  const [presences, setPresences] = useState<Array<Devtools.Client>>([]);
   const [nodeDetail, setNodeDetail] = useState(null);
 
   const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
