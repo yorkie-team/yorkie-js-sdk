@@ -24,7 +24,7 @@ import {
 } from 'react';
 
 import type { Devtools, SDKToPanelMessage } from 'yorkie-js-sdk';
-import { onPortMessage, sendToSDK } from '../../port';
+import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string | null>(null);
 const RootContext = createContext<Devtools.JSONElement | null>(null);
@@ -43,6 +43,10 @@ export function YorkieSourceProvider({ children }: Props) {
 
   const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
     switch (message.msg) {
+      case 'refresh-devtools':
+        setCurrentDocKey('');
+        sendToSDK({ msg: 'devtools::connect' });
+        break;
       case 'doc::available':
         setCurrentDocKey(message.docKey);
         sendToSDK({
@@ -68,11 +72,23 @@ export function YorkieSourceProvider({ children }: Props) {
     }
   }, []);
 
+  const handlePortDisconnect = useCallback(() => {
+    setCurrentDocKey('');
+  }, []);
+
   useEffect(() => {
-    sendToSDK({ msg: 'devtools::connect' });
-    onPortMessage.addListener(handleSDKMessage);
+    connectPort(handleSDKMessage, handlePortDisconnect);
+
+    const tabID = chrome.devtools.inspectedWindow.tabId;
+    const handleInspectedTabUpdate = (id, { status }) => {
+      // NOTE(chacha912): The inspected window is reloaded, so we should reconnect the port.
+      if (status === 'complete' && tabID === id) {
+        connectPort(handleSDKMessage, handlePortDisconnect);
+      }
+    };
+    chrome.tabs.onUpdated.addListener(handleInspectedTabUpdate);
     return () => {
-      onPortMessage.removeListener(handleSDKMessage);
+      chrome.tabs.onUpdated.removeListener(handleInspectedTabUpdate);
     };
   }, []);
 

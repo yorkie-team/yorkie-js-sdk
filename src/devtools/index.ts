@@ -24,8 +24,11 @@ const unsubsByDocKey = new Map<string, Array<() => void>>();
 /**
  * `sendToPanel` sends a message to the devtools panel.
  */
-function sendToPanel(message: DevTools.SDKToPanelMessage): void {
-  if (!isDevtoolsConnected) {
+function sendToPanel(
+  message: DevTools.SDKToPanelMessage,
+  options?: { force: boolean },
+): void {
+  if (!(options?.force || isDevtoolsConnected)) {
     return;
   }
 
@@ -100,10 +103,13 @@ export function setupDevtools<T, P extends Indexable>(
     return;
   }
 
-  sendToPanel({
-    msg: 'doc::available',
-    docKey: doc.getKey(),
-  });
+  // NOTE(chacha912): Send initial message, in case the devtool panel is already open.
+  sendToPanel(
+    {
+      msg: 'refresh-devtools',
+    },
+    { force: true },
+  );
 
   // TODO(hackerwins): We need to ensure that this event listener should be
   // removed later.

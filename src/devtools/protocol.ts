@@ -67,6 +67,14 @@ export type PanelToSDKMessage =
  */
 export type SDKToPanelMessage =
   /**
+   * Sent when the dev panel is already opened and listened,
+   * before the sdk is loaded. If the panel receives this message,
+   * it will replay its initial "connect" message.
+   */
+  | {
+      msg: 'refresh-devtools';
+    }
+  /**
    * Sent when the document is available for the panel to watch.
    */
   | {
