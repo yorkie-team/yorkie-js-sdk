@@ -2,11 +2,11 @@
 
 Yorkie Devtools is a Chrome extension designed to assist in debugging Yorkie.
 
-<img src="https://github.com/yorkie-team/yorkie-js-sdk/assets/81357083/0de1231b-32dc-48c1-ab19-31625cd8e86d" width="660" alt="Yorkie Devtools" />
+<img src="https://github.com/yorkie-team/yorkie-js-sdk/assets/81357083/a6a4888c-8ebd-426d-8fb6-c61ff6712b93" width="660" alt="Yorkie Devtools" />
 
 ## Installation
 
-Download the extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/yorkie-devtools/djhcelgbkggnbipeccnnbafbnljoikkc), and you will see the `🐶 Yorkie` tab in Chrome Developer Tools.
+Download the extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/yorkie-devtools/djhcelgbkggnbipeccnnbafbnljoikkc), and you will see the `Yorkie 🐾` tab in Chrome Developer Tools.
 
 > Please note that this requires a **development** build of `yorkie-js-sdk` version 0.4.13 or newer.
 
