@@ -11,9 +11,17 @@ Definition of all messages the SDK can send to the Devtools panel.
 ```typescript
 export declare type SDKToPanelMessage = 
 /**
-* Sent when the document is available for the panel to watch.
+* Sent when the dev panel is already opened and listened,
+* before the sdk is loaded. If the panel receives this message,
+* it will replay its initial "connect" message.
 */
 {
+    msg: 'refresh-devtools';
+}
+/**
+* Sent when the document is available for the panel to watch.
+*/
+ | {
     msg: 'doc::available';
     docKey: string;
 }
