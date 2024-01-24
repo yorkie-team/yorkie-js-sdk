@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import type { PanelToSDKMessage } from './protocol';
-import { EventSourceDevPanel } from './protocol';
+import { EventSourceDevPanel } from 'yorkie-js-sdk';
+import type { PanelToSDKMessage } from 'yorkie-js-sdk';
 
 const tabID = chrome.devtools.inspectedWindow.tabId;
 
@@ -24,12 +24,21 @@ const tabID = chrome.devtools.inspectedWindow.tabId;
 // inspected window of a Devtools extension.
 // For more details: https://developer.chrome.com/docs/extensions/develop/concepts/messaging#connect
 let port: chrome.runtime.Port;
-port = chrome.tabs.connect(tabID, {
-  name: EventSourceDevPanel,
-});
-port.onDisconnect.addListener(() => {
-  port = undefined;
-});
+export const connectPort = (onMessage, onDisconnect) => {
+  port = chrome.tabs.connect(tabID, {
+    name: EventSourceDevPanel,
+  });
+
+  port.onMessage.addListener(onMessage);
+  port.onDisconnect.addListener(() => {
+    port.onMessage.removeListener(onMessage);
+    onDisconnect();
+    port = undefined;
+  });
+
+  sendToSDK({ msg: 'devtools::connect' });
+  return port;
+};
 
 export const sendToSDK = (message: PanelToSDKMessage) => {
   if (!port) return;
@@ -38,15 +47,3 @@ export const sendToSDK = (message: PanelToSDKMessage) => {
     ...message,
   });
 };
-
-export const onPortMessage = port.onMessage;
-
-// TODO(chacha912): The inspected window was reloaded, so we should reload the panel.
-// Ideally, we should reconnect instead of performing a full reload.
-// TODO(hackerwins): We need to ensure that this event listener should be
-// removed later.
-chrome.tabs.onUpdated.addListener((id, { status }) => {
-  if (status === 'complete' && tabID === id) {
-    window.location.reload();
-  }
-});

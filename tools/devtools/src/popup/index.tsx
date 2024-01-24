@@ -23,7 +23,7 @@ function Popup() {
         color: '#333',
       }}
     >
-      Please open the developer tools, and "🐶 Yorkie" tab will be shown.
+      Please open the developer tools, and "Yorkie 🐾" tab will be shown.
     </div>
   );
 }
