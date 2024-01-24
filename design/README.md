@@ -2,6 +2,8 @@
 
 ## Contents
 
+- [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
+
 ## Maintaining the Document
 
 For significant scope and complex new features, it is recommended to write a
