@@ -107,6 +107,9 @@ export {
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
 
+export type { LogLevel } from '@yorkie-js-sdk/src/util/logger';
+export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
+
 export {
   EventSourceDevPanel,
   EventSourceSDK,
