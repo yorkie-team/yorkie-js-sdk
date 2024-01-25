@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Added
+
+- Add design document for devtools extension by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/735
+- Export LogLevel and setLogLevel @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/737
+
+### Fixed
+
+- Follow up work after devtools mvp by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/734
+- Fix invalid TreeChanges in concurrent Tree.Style by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/738
+
 ## [0.4.13] - 2024-01-19
 
 ### Added
