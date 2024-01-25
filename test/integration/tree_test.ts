@@ -20,7 +20,10 @@ import {
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  TreeEditOpInfo,
+  TreeStyleOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 
 describe('Tree', () => {
@@ -1119,12 +1122,12 @@ describe('Tree.style', function () {
 
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+        /*html*/ `<doc><p bold="true" italic="true">hello</p></doc>`,
       );
 
       assert.equal(
         d2.getRoot().t.toXML(),
-        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+        /*html*/ `<doc><p bold="true" italic="true">hello</p></doc>`,
       );
     }, task.name);
   });
@@ -1162,28 +1165,28 @@ describe('Tree.style', function () {
       root.t.style(3, 4, { color: 'red' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red">ab</p><p>cd</p></doc>`,
+        /*html*/ `<doc><p color="red" weight="bold">ab</p><p>cd</p></doc>`,
       );
 
       // style attributes with the whole
       root.t.style(0, 4, { size: 'small' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small">ab</p><p>cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" weight="bold">ab</p><p>cd</p></doc>`,
       );
 
       // 02. style attributes to elements.
       root.t.style(0, 5, { style: 'italic' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" style="italic" weight="bold">ab</p><p style="italic">cd</p></doc>`,
       );
 
       // 03. Ignore styling attributes to text nodes.
       root.t.style(1, 3, { bold: 'true' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" style="italic" weight="bold">ab</p><p style="italic">cd</p></doc>`,
       );
     });
   });
@@ -3977,14 +3980,85 @@ describe('TreeChange', () => {
       );
     }, task.name);
   });
+
+  it('Concurrent delete and style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'root',
+          children: [
+            { type: 't', attributes: { id: '1', value: 'init' }, children: [] },
+            { type: 't', attributes: { id: '2', value: 'init' }, children: [] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<root><t id="1" value="init"></t><t id="2" value="init"></t></root>`,
+      );
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      d1.update((root) => root.t.styleByPath([0], { value: 'changed' }));
+      d2.update((root) => root.t.editByPath([0], [1]));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<root><t id="2" value="init"></t></root>`,
+      );
+
+      assert.deepEqual(
+        ops1.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [
+          {
+            type: 'tree-style',
+            from: 0,
+            to: 1,
+            value: { value: 'changed' },
+          } as any,
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 2,
+            value: undefined,
+          } as any,
+        ],
+      );
+
+      assert.deepEqual(
+        ops2.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 2,
+            value: undefined,
+          } as any,
+        ],
+      );
+    }, task.name);
+  });
 });
 
 function subscribeDocs(
   d1: Document<{ t: Tree }>,
   d2: Document<{ t: Tree }>,
-): [Array<TreeEditOpInfo>, Array<TreeEditOpInfo>] {
-  const ops1: Array<TreeEditOpInfo> = [];
-  const ops2: Array<TreeEditOpInfo> = [];
+): [
+  Array<TreeEditOpInfo | TreeStyleOpInfo>,
+  Array<TreeEditOpInfo | TreeStyleOpInfo>,
+] {
+  const ops1: Array<TreeEditOpInfo | TreeStyleOpInfo> = [];
+  const ops2: Array<TreeEditOpInfo | TreeStyleOpInfo> = [];
 
   d1.subscribe('$.t', (event) => {
     if (event.type === 'local-change' || event.type === 'remote-change') {
@@ -3992,8 +4066,8 @@ function subscribeDocs(
 
       ops1.push(
         ...(operations.filter(
-          (op) => op.type === 'tree-edit',
-        ) as Array<TreeEditOpInfo>),
+          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
+        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
       );
     }
   });
@@ -4004,8 +4078,8 @@ function subscribeDocs(
 
       ops2.push(
         ...(operations.filter(
-          (op) => op.type === 'tree-edit',
-        ) as Array<TreeEditOpInfo>),
+          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
+        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
       );
     }
   });

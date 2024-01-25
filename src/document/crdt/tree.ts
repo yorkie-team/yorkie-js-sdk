@@ -745,17 +745,9 @@ export class CRDTTree extends CRDTGCElement {
       editedAt,
     );
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
-    const changes: Array<TreeChange> = [];
-    changes.push({
-      type: TreeChangeType.Style,
-      from: this.toIndex(fromParent, fromLeft),
-      to: this.toIndex(toParent, toLeft),
-      fromPath: this.toPath(fromParent, fromLeft),
-      toPath: this.toPath(toParent, toLeft),
-      actor: editedAt.getActorID()!,
-      value: attributes ? parseObjectValues(attributes) : undefined,
-    });
 
+    const changes: Array<TreeChange> = [];
+    const value = attributes ? parseObjectValues(attributes) : undefined;
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -770,6 +762,16 @@ export class CRDTTree extends CRDTGCElement {
           for (const [key, value] of Object.entries(attributes)) {
             node.attrs.set(key, value, editedAt);
           }
+
+          changes.push({
+            type: TreeChangeType.Style,
+            from: this.toIndex(fromParent, fromLeft),
+            to: this.toIndex(toParent, toLeft),
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID()!,
+            value,
+          });
         }
       },
     );

@@ -138,9 +138,11 @@ export class RHT {
       return '';
     }
 
-    return ` ${[...this.nodeMapByKey]
-      .map(([k, v]) => `${k}="${JSON.parse(v.getValue())}"`)
-      .join(' ')}`;
+    const attrs = [...this.nodeMapByKey]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => `${k}="${JSON.parse(v.getValue())}"`);
+
+    return ` ${attrs.join(' ')}`;
   }
 
   /**
