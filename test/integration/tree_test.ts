@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, assert, vi } from 'vitest';
+import { describe, it, assert } from 'vitest';
 import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import {
   toDocKey,
@@ -644,14 +644,13 @@ describe('Tree', () => {
       assert.deepEqual(d1.getRoot().t.posRangeToIndexRange(selection), [2, 2]);
 
       const eventCollector = new EventCollector<{ type: DocEventType }>();
-      const stub = vi.fn().mockImplementation((event) => {
+      const unsub = d1.subscribe((event) => {
         assert.deepEqual(
           d1.getRoot().t.posRangeToIndexRange(selection),
           [2, 2],
         );
         eventCollector.add({ type: event.type });
       });
-      d1.subscribe(stub);
       d2.update((root) => {
         root.t.edit(2, 2, { type: 'text', value: 'b' });
       });
@@ -670,6 +669,7 @@ describe('Tree', () => {
       await eventCollector.waitAndVerifyNthEvent(1, {
         type: DocEventType.RemoteChange,
       });
+      unsub();
     }, task.name);
   });
 });

@@ -613,10 +613,7 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToIndexRange(
-      posRange,
-      this.context.getLastTimeTicket(),
-    );
+    return this.tree.posRangeToIndexRange(posRange);
   }
 
   /**
@@ -636,9 +633,6 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToPathRange(
-      posRange,
-      this.context.getLastTimeTicket(),
-    );
+    return this.tree.posRangeToPathRange(posRange);
   }
 }
