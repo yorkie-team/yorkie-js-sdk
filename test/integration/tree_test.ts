@@ -20,11 +20,12 @@ import {
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
 import {
   TreeEditOpInfo,
   TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -611,6 +612,65 @@ describe('Tree', () => {
 
     range = tree.pathRangeToPosRange([[0], [1]]);
     assert.deepEqual(tree.posRangeToPathRange(range), [[0], [1]]);
+  });
+
+  it('Should return correct range from index within doc.subscribe', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      d1.update((root, presence) => {
+        root.t.edit(1, 1, { type: 'text', value: 'a' });
+        const posSelection = root.t.indexRangeToPosRange([2, 2]);
+        presence.set({ selection: posSelection });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ahello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>ahello</p></doc>`);
+      const { selection } = d1.getMyPresence();
+      assert.deepEqual(d1.getRoot().t.posRangeToIndexRange(selection), [2, 2]);
+
+      const eventCollector = new EventCollector<{ type: DocEventType }>();
+      const unsub = d1.subscribe((event) => {
+        assert.deepEqual(
+          d1.getRoot().t.posRangeToIndexRange(selection),
+          [2, 2],
+        );
+        eventCollector.add({ type: event.type });
+      });
+      d2.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: 'b' });
+      });
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>abhello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p>abhello</p></doc>`,
+      );
+
+      await eventCollector.waitAndVerifyNthEvent(1, {
+        type: DocEventType.RemoteChange,
+      });
+      unsub();
+    }, task.name);
   });
 });
 
