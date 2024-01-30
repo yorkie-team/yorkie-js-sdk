@@ -9,6 +9,11 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [0.4.14] - 2024-01-29
 
+### Fixed
+
+- Fix invalid sync when editing multiple cursors in CodeMirror6 by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/743
+- Fix incorrect index returned when using posRangeToIndexRange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/742
+
 ### Added
 
 - Export LogLevel and setLogLevel @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/737
