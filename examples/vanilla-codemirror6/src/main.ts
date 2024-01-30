@@ -86,10 +86,13 @@ async function main() {
         if (tr.annotation(Transaction.remote)) {
           continue;
         }
+        let adj = 0;
         tr.changes.iterChanges((fromA, toA, _, __, inserted) => {
+          const insertText = inserted.toJSON().join('\n');
           doc.update((root) => {
-            root.content.edit(fromA, toA, inserted.toJSON().join('\n'));
+            root.content.edit(fromA + adj, toA + adj, insertText);
           }, `update content byA ${client.getID()}`);
+          adj += insertText.length - (toA - fromA);
         });
       }
     }
