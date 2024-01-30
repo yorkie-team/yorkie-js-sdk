@@ -691,6 +691,9 @@ export class CRDTTree extends CRDTGCElement {
    * The ids of the given `pos` are the ids of the node in the CRDT perspective.
    * This is different from `TreePos` which is a position of the tree in the
    * physical perspective.
+   *
+   * If `editedAt` is given, then it is used to find the appropriate left node
+   * for concurrent insertion.
    */
   public findNodesAndSplitText(
     pos: CRDTTreePos,
