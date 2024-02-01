@@ -198,6 +198,13 @@ export const InitialTimeTicket = new TimeTicket(
   InitialDelimiter,
   InitialActorID,
 );
+
+export const nextTimeTicket = new TimeTicket(
+  Long.fromNumber(1),
+  InitialDelimiter,
+  InitialActorID,
+);
+
 export const MaxTimeTicket = new TimeTicket(
   MaxLamport,
   MaxDelemiter,

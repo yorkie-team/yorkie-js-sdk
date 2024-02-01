@@ -16,7 +16,10 @@
 
 import { describe, it, assert } from 'vitest';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
-import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import {
+  InitialTimeTicket,
+  nextTimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('RHT', function () {
@@ -37,6 +40,24 @@ describe('RHT', function () {
 
     const notExistsValue = rht.get(notExistsKey);
     assert.equal(notExistsValue, undefined);
+  });
+
+  it('should handle remove', function () {
+    const testKey = 'test-key';
+    const testValue = 'test-value';
+
+    const rht = RHT.create();
+
+    assert.equal(rht.toJSON(), '{}');
+    rht.set(testKey, testValue, InitialTimeTicket);
+
+    const actualValue = rht.get(testKey);
+    assert.equal(actualValue, testValue);
+    assert.equal(rht.size(), 1);
+
+    rht.remove(testKey, nextTimeTicket);
+    assert.equal(rht.has(testKey), false);
+    assert.equal(rht.size(), 0);
   });
 
   it('should return undefined when a key does not exist', function () {
