@@ -20,105 +20,33 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
-export {
-  Client,
-  ClientEvent,
-  ClientStatus,
-  SyncMode,
-  StreamConnectionStatus,
-  DocumentSyncResultType,
-  ClientEventType,
-  StatusChangedEvent,
-  DocumentChangedEvent,
-  StreamConnectionStatusChangedEvent,
-  DocumentSyncedEvent,
-  ClientOptions,
-} from '@yorkie-js-sdk/src/client/client';
-export {
-  DocEventType,
-  SnapshotEvent,
-  LocalChangeEvent,
-  RemoteChangeEvent,
-  Indexable,
-  DocEvent,
-  Document,
-  ChangeInfo,
-} from '@yorkie-js-sdk/src/document/document';
-export {
-  Observer,
-  Observable,
-  NextFn,
-  ErrorFn,
-  CompleteFn,
-  Unsubscribe,
-} from '@yorkie-js-sdk/src/util/observable';
-export {
-  TimeTicket,
-  TimeTicketStruct,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-export type {
-  OperationInfo,
-  TextOperationInfo,
-  CounterOperationInfo,
-  ArrayOperationInfo,
-  ObjectOperationInfo,
-  TreeOperationInfo,
-  AddOpInfo,
-  IncreaseOpInfo,
-  RemoveOpInfo,
-  SetOpInfo,
-  MoveOpInfo,
-  EditOpInfo,
-  StyleOpInfo,
-} from '@yorkie-js-sdk/src/document/operation/operation';
+export * from '@yorkie-js-sdk/src/client/client';
+export * from '@yorkie-js-sdk/src/document/document';
+export * from '@yorkie-js-sdk/src/util/observable';
+export * from '@yorkie-js-sdk/src/document/time/ticket';
+export * from '@yorkie-js-sdk/src/document/time/actor_id';
+export * from '@yorkie-js-sdk/src/document/operation/operation';
 
-export {
-  Primitive,
-  PrimitiveValue,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
+export * from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
-export {
-  WrappedElement,
-  JSONElement,
-} from '@yorkie-js-sdk/src/document/json/element';
-export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
-export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
-export {
-  Text,
-  TextPosStruct,
-  TextPosStructRange,
-} from '@yorkie-js-sdk/src/document/json/text';
-export {
-  Tree,
-  TreeNode,
-  ElementNode,
-  TextNode,
-  TreeChange,
-  TreeChangeType,
-  CRDTTreeNodeIDStruct,
-  TreePosStructRange,
-} from '@yorkie-js-sdk/src/document/json/tree';
-export { Change } from '@yorkie-js-sdk/src/document/change/change';
-export { converter } from '@yorkie-js-sdk/src/api/converter';
+export * from '@yorkie-js-sdk/src/document/json/element';
+export * from '@yorkie-js-sdk/src/document/json/object';
+export * from '@yorkie-js-sdk/src/document/json/array';
+export * from '@yorkie-js-sdk/src/document/json/counter';
+export * from '@yorkie-js-sdk/src/document/crdt/counter';
+export * from '@yorkie-js-sdk/src/document/json/text';
+export * from '@yorkie-js-sdk/src/document/json/tree';
+export * from '@yorkie-js-sdk/src/document/change/change';
+export * from '@yorkie-js-sdk/src/api/converter';
 
-export type { LogLevel } from '@yorkie-js-sdk/src/util/logger';
-export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
+export * from '@yorkie-js-sdk/src/util/logger';
+export * from '@yorkie-js-sdk/src/util/logger';
 
-export {
-  EventSourceDevPanel,
-  EventSourceSDK,
-  PanelToSDKMessage,
-  SDKToPanelMessage,
-  FullPanelToSDKMessage,
-  FullSDKToPanelMessage,
-} from '@yorkie-js-sdk/src/devtools/protocol';
-export type { Devtools };
+export * from '@yorkie-js-sdk/src/devtools/protocol';
+export { Devtools };
 
 /**
  * The top-level yorkie namespace with additional properties.

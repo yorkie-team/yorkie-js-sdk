@@ -13,11 +13,10 @@ massive base64 string to be written to the multiplayer storage.
 It's recommended to use a storage bucket based solution, such as
 Amazon AWS S3.
 */
-
 export default function App() {
   const fileSystemEvents = useFileSystem();
   const { ...events } = useMultiplayerState(
-    `tldraw-${(new Date()).toISOString().substring(0, 10).replace(/-/g, '')}`
+    `tldraw-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
   );
   const component = { Cursor: CustomCursor };
 

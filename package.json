@@ -9,7 +9,13 @@
     "create": "pnpm --filter=create-yorkie-app",
     "devtools": "pnpm --filter=yorkie-devtools",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
-    "react-tldraw": "pnpm --filter=react-tldraw"
+    "react-tldraw": "pnpm --filter=react-tldraw",
+    "profile-stack": "pnpm --filter=profile-stack",
+    "react-todomvc": "pnpm --filter=react-todomvc",
+    "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",
+    "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
+    "vanilla-quill": "pnpm --filter=vanilla-quill",
+    "vuejs-kanban": "pnpm --filter=vuejs-kanban"
   },
   "keywords": [],
   "author": "ChaCha",

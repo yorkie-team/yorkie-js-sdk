@@ -14,7 +14,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@yorkie-js-sdk/src/*": ["../../packages/sdk/src/*"]
+    }
   },
   "include": ["src"]
 }

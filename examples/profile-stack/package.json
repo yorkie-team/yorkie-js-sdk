@@ -12,6 +12,6 @@
     "vite": "^5.0.12"
   },
   "dependencies": {
-    "yorkie-js-sdk": "^0.4.13"
+    "yorkie-js-sdk": "workspace:*"
   }
 }

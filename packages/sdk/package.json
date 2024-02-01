@@ -3,7 +3,6 @@
   "version": "0.4.15-rc",
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
-  "typings": "./dist/yorkie-js-sdk.d.ts",
   "publishConfig": {
     "access": "public",
     "main": "./dist/yorkie-js-sdk.js",
@@ -15,7 +14,7 @@
   "scripts": {
     "build": "webpack --config ./config/webpack.config.js && npm run api-report",
     "build:proto": "npx buf generate",
-    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
+    "build:docs": "pnpm run predoc && api-documenter markdown --input temp --output docs",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "//prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
