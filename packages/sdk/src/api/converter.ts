@@ -43,7 +43,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { CRDTTreePos } from './../document/crdt/tree';
+import { CRDTTreePos } from '../document/crdt/tree';
 import {
   RGATreeSplit,
   RGATreeSplitNode,

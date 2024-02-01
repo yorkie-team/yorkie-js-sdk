@@ -16,7 +16,7 @@
 
 const path = require('path');
 const webpack = require('webpack');
-const pkg = require('../package.json');
+const pkg = require('../../../package.json');
 const CopyPlugin = require('copy-webpack-plugin');
 
 const date = new Date().toISOString().replace(/:\d+\.\d+Z$/, 'Z');
@@ -81,22 +81,22 @@ module.exports = {
     new webpack.BannerPlugin({
       banner,
     }),
-    // TODO(chacha912): When we exposed the converter, the resources_pb.d.ts
-    // was not in the lib, so we got a compile error. For now, we bypass it by
-    // directly copying the file. Let's delete this later when we know a more correct fix.
-    new CopyPlugin({
-      patterns: [
-        {
-          from: path.resolve(
-            __dirname,
-            '../src/api/yorkie/v1/resources_pb.d.ts',
-          ),
-          to: path.resolve(
-            __dirname,
-            '../lib/src/api/yorkie/v1/resources_pb.d.ts',
-          ),
-        },
-      ],
-    }),
+    // // TODO(chacha912): When we exposed the converter, the resources_pb.d.ts
+    // // was not in the lib, so we got a compile error. For now, we bypass it by
+    // // directly copying the file. Let's delete this later when we know a more correct fix.
+    // new CopyPlugin({
+    //   patterns: [
+    //     {
+    //       from: path.resolve(
+    //         __dirname,
+    //         '../src/api/yorkie/v1/resources_pb.ts',
+    //       ),
+    //       to: path.resolve(
+    //         __dirname,
+    //         '../lib/src/api/yorkie/v1/resources_pb.ts',
+    //       ),
+    //     },
+    //   ],
+    // }),
   ],
 };

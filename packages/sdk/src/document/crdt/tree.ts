@@ -29,7 +29,7 @@ import {
   TokenType,
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { RHT } from './rht';
-import { ActorID } from './../time/actor_id';
+import { ActorID } from '../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
