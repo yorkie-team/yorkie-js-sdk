@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-static of(lamport: Long, delimiter: number, actorID?: string): TimeTicket;
+static of(lamport: Long, delimiter: number, actorID: string): TimeTicket;
 ```
 
 ## Parameters
@@ -18,7 +18,7 @@ static of(lamport: Long, delimiter: number, actorID?: string): TimeTicket;
 |  --- | --- | --- |
 |  lamport | Long |  |
 |  delimiter | number |  |
-|  actorID | string | _(Optional)_ |
+|  actorID | string |  |
 
 **Returns:**
 

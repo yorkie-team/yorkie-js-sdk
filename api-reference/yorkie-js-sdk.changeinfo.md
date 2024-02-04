@@ -16,7 +16,7 @@ export declare interface ChangeInfo<T = OperationInfo>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [actor](./yorkie-js-sdk.changeinfo.actor.md) |  | [ActorID](./yorkie-js-sdk.actorid.md) \| undefined |  |
+|  [actor](./yorkie-js-sdk.changeinfo.actor.md) |  | [ActorID](./yorkie-js-sdk.actorid.md) |  |
 |  [message](./yorkie-js-sdk.changeinfo.message.md) |  | string |  |
 |  [operations](./yorkie-js-sdk.changeinfo.operations.md) |  | Array&lt;T&gt; |  |
 

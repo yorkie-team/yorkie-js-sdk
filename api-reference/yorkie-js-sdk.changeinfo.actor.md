@@ -7,5 +7,5 @@
 **Signature:**
 
 ```typescript
-actor: ActorID | undefined;
+actor: ActorID;
 ```

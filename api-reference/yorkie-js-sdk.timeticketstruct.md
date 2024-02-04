@@ -12,7 +12,7 @@
 export declare type TimeTicketStruct = {
     lamport: string;
     delimiter: number;
-    actorID: ActorID | undefined;
+    actorID: ActorID;
 };
 ```
 **References:** [ActorID](./yorkie-js-sdk.actorid.md)

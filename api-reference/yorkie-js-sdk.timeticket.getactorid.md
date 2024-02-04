@@ -9,9 +9,9 @@
 **Signature:**
 
 ```typescript
-getActorID(): string | undefined;
+getActorID(): string;
 ```
 **Returns:**
 
-string \| undefined
+string
 
