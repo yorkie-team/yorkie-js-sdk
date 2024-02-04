@@ -31,9 +31,9 @@ export class ChangeID {
   private serverSeq?: Long;
 
   private lamport: Long;
-  private actor?: ActorID;
+  private actor: ActorID;
 
-  constructor(clientSeq: number, lamport: Long, actor?: ActorID) {
+  constructor(clientSeq: number, lamport: Long, actor: ActorID) {
     this.clientSeq = clientSeq;
     this.lamport = lamport;
     this.actor = actor;
@@ -42,11 +42,7 @@ export class ChangeID {
   /**
    * `of` creates a new instance of ChangeID.
    */
-  public static of(
-    clientSeq: number,
-    lamport: Long,
-    actor?: ActorID,
-  ): ChangeID {
+  public static of(clientSeq: number, lamport: Long, actor: ActorID): ChangeID {
     return new ChangeID(clientSeq, lamport, actor);
   }
 
@@ -108,7 +104,7 @@ export class ChangeID {
   /**
    * `getActorID` returns the actor of this ID.
    */
-  public getActorID(): string | undefined {
+  public getActorID(): string {
     return this.actor;
   }
 
@@ -116,10 +112,7 @@ export class ChangeID {
    * `toTestString` returns a string containing the meta data of this ID.
    */
   public toTestString(): string {
-    if (!this.actor) {
-      return `${this.lamport.toString()}:nil:${this.clientSeq}`;
-    }
-    return `${this.lamport.toString()}:${this.actor.substring(22, 24)}:${
+    return `${this.lamport.toString()}:${this.actor.slice(-2)}:${
       this.clientSeq
     }`;
   }
