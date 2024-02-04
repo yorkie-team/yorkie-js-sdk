@@ -159,7 +159,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
   return new PbChangeID({
     clientSeq: changeID.getClientSeq(),
     lamport: changeID.getLamportAsString(),
-    actorId: toUint8Array(changeID.getActorID()!),
+    actorId: toUint8Array(changeID.getActorID()),
   });
 }
 
@@ -174,7 +174,7 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   return new PbTimeTicket({
     lamport: ticket.getLamportAsString(),
     delimiter: ticket.getDelimiter(),
-    actorId: toUint8Array(ticket.getActorID()!),
+    actorId: toUint8Array(ticket.getActorID()),
   });
 }
 
@@ -478,7 +478,7 @@ function toOperations(operations: Array<Operation>): Array<PbOperation> {
  */
 function toChange(change: Change<Indexable>): PbChange {
   const pbChange = new PbChange({
-    id: toChangeID(change.getID()!),
+    id: toChangeID(change.getID()),
     message: change.getMessage(),
   });
   if (change.hasOperations()) {

@@ -774,7 +774,7 @@ export class CRDTTree extends CRDTGCElement {
             to: this.toIndex(toParent, toLeft),
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
             value,
           });
         }
@@ -832,10 +832,10 @@ export class CRDTTree extends CRDTGCElement {
           }
         }
 
-        const actorID = node.getCreatedAt().getActorID()!;
+        const actorID = node.getCreatedAt().getActorID();
         const latestCreatedAt = latestCreatedAtMapByActor
-          ? latestCreatedAtMapByActor!.has(actorID!)
-            ? latestCreatedAtMapByActor!.get(actorID!)!
+          ? latestCreatedAtMapByActor!.has(actorID)
+            ? latestCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
           : MaxTimeTicket;
 
@@ -901,7 +901,7 @@ export class CRDTTree extends CRDTGCElement {
         to: fromIdx,
         fromPath,
         toPath: fromPath,
-        actor: editedAt.getActorID()!,
+        actor: editedAt.getActorID(),
       });
     }
 
@@ -946,7 +946,7 @@ export class CRDTTree extends CRDTGCElement {
             to: fromIdx,
             fromPath,
             toPath: fromPath,
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
             value,
           });
         }
@@ -1390,7 +1390,7 @@ export class CRDTTree extends CRDTGCElement {
             to: toIdx,
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
           });
         }
       }

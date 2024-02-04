@@ -255,11 +255,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID()!;
+      const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = latestCreatedAtMapByActor?.size
-        ? latestCreatedAtMapByActor!.has(actorID!)
-          ? latestCreatedAtMapByActor!.get(actorID!)!
+        ? latestCreatedAtMapByActor!.has(actorID)
+          ? latestCreatedAtMapByActor!.get(actorID)!
           : InitialTimeTicket
         : MaxTimeTicket;
 
@@ -283,7 +283,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       );
       changes.push({
         type: TextChangeType.Style,
-        actor: editedAt.getActorID()!,
+        actor: editedAt.getActorID(),
         from: fromIdx,
         to: toIdx,
         value: {

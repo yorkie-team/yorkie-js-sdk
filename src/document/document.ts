@@ -193,7 +193,7 @@ export interface SnapshotEvent extends BaseDocEvent {
 export interface ChangeInfo<T = OperationInfo> {
   message: string;
   operations: Array<T>;
-  actor: ActorID | undefined;
+  actor: ActorID;
 }
 
 /**
@@ -489,7 +489,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 01. Update the clone object and create a change.
     this.ensureClone();
-    const actorID = this.changeID.getActorID()!;
+    const actorID = this.changeID.getActorID();
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
@@ -955,7 +955,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
     return createJSON<T>(context, this.clone!.root.getObject());
   }
@@ -1081,7 +1081,7 @@ export class Document<T, P extends Indexable = Indexable> {
         | UnwatchedEvent<P>
         | PresenceChangedEvent<P>
         | undefined;
-      const actorID = change.getID().getActorID()!;
+      const actorID = change.getID().getActorID();
       if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
         const presenceChange = change.getPresenceChange()!;
         switch (presenceChange.type) {
@@ -1216,7 +1216,7 @@ export class Document<T, P extends Indexable = Indexable> {
       return {} as P;
     }
 
-    const p = this.presences.get(this.changeID.getActorID()!)!;
+    const p = this.presences.get(this.changeID.getActorID())!;
     return deepcopy(p);
   }
 
@@ -1263,7 +1263,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getSelfForTest() {
     return {
-      clientID: this.getChangeID().getActorID()!,
+      clientID: this.getChangeID().getActorID(),
       presence: this.getMyPresence(),
     };
   }
@@ -1274,7 +1274,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public getOthersForTest() {
-    const myClientID = this.getChangeID().getActorID()!;
+    const myClientID = this.getChangeID().getActorID();
 
     return this.getPresences()
       .filter((a) => a.clientID !== myClientID)
@@ -1314,7 +1314,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
 
     // apply undo operation in the context to generate a change
@@ -1323,7 +1323,7 @@ export class Document<T, P extends Indexable = Indexable> {
         // apply presence change to the context
         const presence = new Presence<P>(
           context,
-          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
         );
         presence.set(undoOp.value, { addToHistory: true });
         continue;
@@ -1360,7 +1360,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.localChanges.push(change);
     this.changeID = change.getID();
-    const actorID = this.changeID.getActorID()!;
+    const actorID = this.changeID.getActorID();
     if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
@@ -1400,7 +1400,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const context = ChangeContext.create<P>(
       this.changeID.next(),
       this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()!) || ({} as P),
+      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
 
     // apply redo operation in the context to generate a change
@@ -1409,7 +1409,7 @@ export class Document<T, P extends Indexable = Indexable> {
         // apply presence change to the context
         const presence = new Presence<P>(
           context,
-          deepcopy(this.clone!.presences.get(this.changeID.getActorID()!)!),
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
         );
         presence.set(redoOp.value, { addToHistory: true });
         continue;
@@ -1446,7 +1446,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.localChanges.push(change);
     this.changeID = change.getID();
-    const actorID = this.changeID.getActorID()!;
+    const actorID = this.changeID.getActorID();
     if (opInfos.length > 0) {
       this.publish({
         type: DocEventType.LocalChange,
