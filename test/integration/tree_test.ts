@@ -1050,6 +1050,41 @@ describe('Tree.style', function () {
     );
   });
 
+  it('Can be deleted with attributesToRemove', function ({ task }) {
+    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(task.name));
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span bold="true">hello</span></p></doc>`,
+    );
+
+    doc.update((root) => {
+      root.t.removeStyle(1, 8, ['bold']);
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>hello</span></p></doc>`,
+    );
+  });
+
   it('Can be edited with index', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);

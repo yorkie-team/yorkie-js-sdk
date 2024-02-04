@@ -199,9 +199,9 @@ export const InitialTimeTicket = new TimeTicket(
   InitialActorID,
 );
 
-export const nextTimeTicket = new TimeTicket(
+export const NextTimeTicket = new TimeTicket(
   Long.fromNumber(1),
-  InitialDelimiter,
+  InitialDelimiter + 1,
   InitialActorID,
 );
 

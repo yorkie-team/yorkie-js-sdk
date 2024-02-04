@@ -18,7 +18,7 @@ import { describe, it, assert } from 'vitest';
 import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 import {
   InitialTimeTicket,
-  nextTimeTicket,
+  NextTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
@@ -55,7 +55,7 @@ describe('RHT', function () {
     assert.equal(actualValue, testValue);
     assert.equal(rht.size(), 1);
 
-    rht.remove(testKey, nextTimeTicket);
+    rht.remove(testKey, NextTimeTicket);
     assert.equal(rht.has(testKey), false);
     assert.equal(rht.size(), 0);
   });
