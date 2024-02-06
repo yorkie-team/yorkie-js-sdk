@@ -15,7 +15,7 @@
     "build": "webpack --config ./config/webpack.config.js",
     "build:proto": "npx buf generate",
     "build:docs": "typedoc",
-    "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
+    "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find ../../examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "dev": "webpack serve --config config/webpack.dev.config.js",
