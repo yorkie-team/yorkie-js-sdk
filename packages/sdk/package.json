@@ -12,7 +12,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config ./config/webpack.config.js && npm run api-report",
+    "build": "webpack --config ./config/webpack.config.js && pnpm run api-report && pnpm run prune",
     "build:proto": "npx buf generate",
     "build:docs": "pnpm run predoc && api-documenter markdown --input temp --output docs",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
@@ -25,7 +25,7 @@
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "ts-patch install && npm run build",
+    "prepare": "ts-patch install && pnpm run build",
     "benchmark": "ts-node-script ./test/bench",
     "publish:prepare": "mkdir -p bundle && cp -r dist package.json README.md LICENSE CHANGELOG.md bundle && cp package.publish.json bundle/package.json",
     "profile:bundle": "webpack --config ./config/webpack.dev.config.js --profile"
@@ -64,6 +64,7 @@
     "@vitest/coverage-v8": "^1.2.2",
     "@webpack-cli/serve": "^1.6.0",
     "benchmark": "^2.1.4",
+    "chai": "^5.0.3",
     "copy-webpack-plugin": "^11.0.0",
     "eslint": "^8.19.0",
     "eslint-plugin-jsdoc": "^39.3.3",
