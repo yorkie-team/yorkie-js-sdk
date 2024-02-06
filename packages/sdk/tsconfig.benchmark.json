@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "paths": {
+      "@yorkie-js-sdk/src/*": ["src/*"],
+      "@yorkie-js-sdk/test/*": ["test/*"],
+      "test/*": ["test/*"]
+    }
+  },
+  "ts-node": {}
+}
