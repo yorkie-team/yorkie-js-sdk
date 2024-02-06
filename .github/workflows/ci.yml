@@ -17,31 +17,33 @@ jobs:
         node-version: [18.x]
     steps:
       - uses: actions/checkout@v2
-
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
 
-      - run: npm install
-      - run: npm run lint
-      - run: npm run build
-      - run: npm run build:examples
+      - run: pnpm install
+      - run: pnpm sdk lint
+      - run: pnpm sdk build
+      - run: pnpm build:examples
       - run: docker-compose -f docker/docker-compose-ci.yml up --build -d
-      - run: npm run test:ci
+      - run: pnpm sdk test:ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
-          file: ./coverage/lcov.info
+          file: ./packages/sdk/coverage/lcov.info
 
       - name: Run benchmark
-        run: npm run benchmark | tee output.txt
+        run: pnpm sdk benchmark | tee ./packages/sdk/output.txt
       # Download previous benchmark result from cache (if exists)
       - name: Download previous benchmark data
         uses: actions/cache@v1
         with:
-          path: ./cache
+          path: ./packages/sdk/cache
           key: ${{ runner.os }}-benchmark
       # Run `github-action-benchmark` action
       - name: Store benchmark result
@@ -51,9 +53,9 @@ jobs:
           # What benchmark tool the output.txt came from
           tool: 'benchmarkjs'
           # Where the output from the benchmark tool is stored
-          output-file-path: output.txt
+          output-file-path: ./packages/sdk/output.txt
           # Where the previous data file is stored
-          external-data-json-path: ./cache/benchmark-data.json
+          external-data-json-path: ./packages/sdk/cache/benchmark-data.json
           # Workflow will fail when an alert happens
           fail-on-alert: false
           # GitHub API token to make a commit comment

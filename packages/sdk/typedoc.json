@@ -1,0 +1,17 @@
+{
+  "entryPoints": ["src/yorkie.ts"],
+  "out": "./docs",
+  "entryDocument": "index.md",
+  "exclude": [
+    "**/node_modules/**",
+    "**/test/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.json"
+  ],
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "allReflectionsHaveOwnDocument": true,
+  "objectLiteralTypeDeclarationStyle": "list",
+  "plugin": ["typedoc-plugin-markdown"]
+}

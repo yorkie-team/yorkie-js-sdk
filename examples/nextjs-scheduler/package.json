@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 5173 & open http://localhost:5173/yorkie-js-sdk/examples/nextjs-scheduler",
     "build": "next build",
+    "build:examples": "next build",
     "start": "next start",
     "lint": "next lint"
   },

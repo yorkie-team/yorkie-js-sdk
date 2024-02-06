@@ -11,26 +11,27 @@ jobs:
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v2.3.1
-
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
       - name: Setup Node 🔧
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: package-lock.json
 
       - name: Install and Build 🔧
         run: |
-          npm install
-          npm run build
-          npm run predoc
-          npm run build:docs
-          npm run build:examples
-          npm run build:ghpages
+          pnpm install
+          pnpm sdk build
+          pnpm sdk build:docs
+          pnpm build:examples
+          pnpm sdk build:ghpages
 
       - name: Deploy 🚀
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./ghpages
+          publish_dir: ./packages/sdk/ghpages
           enable_jekyll: false
