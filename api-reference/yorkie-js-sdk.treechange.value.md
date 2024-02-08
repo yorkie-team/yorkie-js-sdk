@@ -9,5 +9,5 @@
 ```typescript
 value?: Array<TreeNode> | {
         [key: string]: any;
-    };
+    } | Array<string>;
 ```
