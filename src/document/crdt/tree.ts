@@ -79,6 +79,7 @@ export type TreeNodeForTest = TreeNode & {
 export enum TreeChangeType {
   Content = 'content',
   Style = 'style',
+  RemoveStyle = 'removeStyle',
 }
 
 /**
@@ -91,7 +92,7 @@ export interface TreeChange {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value?: Array<TreeNode> | { [key: string]: any };
+  value?: Array<TreeNode> | { [key: string]: any } | Array<string>;
   splitLevel?: number;
 }
 
@@ -775,6 +776,53 @@ export class CRDTTree extends CRDTGCElement {
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
             actor: editedAt.getActorID(),
+            value,
+          });
+        }
+      },
+    );
+
+    return changes;
+  }
+
+  /**
+   * `removeStyle` removes the given attributes of the given range.
+   */
+  public removeStyle(
+    range: [CRDTTreePos, CRDTTreePos],
+    attributesToRemove: Array<string>,
+    editedAt: TimeTicket,
+  ) {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+      range[0],
+      editedAt,
+    );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+
+    const changes: Array<TreeChange> = [];
+    const value = attributesToRemove ? attributesToRemove : undefined;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      ([node]) => {
+        if (!node.isRemoved && !node.isText && attributesToRemove) {
+          if (!node.attrs) {
+            node.attrs = new RHT();
+          }
+
+          for (const value of attributesToRemove) {
+            node.attrs.remove(value, editedAt);
+          }
+
+          changes.push({
+            type: TreeChangeType.RemoveStyle,
+            from: this.toIndex(fromParent, fromLeft),
+            to: this.toIndex(toParent, toLeft),
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID()!,
             value,
           });
         }
