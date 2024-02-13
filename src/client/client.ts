@@ -38,10 +38,14 @@ import {
   Document,
   DocumentKey,
   DocumentStatus,
+  InitializedEvent,
+  UnwatchedEvent,
+  WatchedEvent,
 } from '@yorkie-js-sdk/src/document/document';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `SyncMode` is the mode of synchronization. It is used to determine
@@ -863,10 +867,24 @@ export class Client implements Observable<ClientEvent> {
         onlineClients.add(clientID);
       }
       attachment.doc.setOnlineClients(onlineClients);
-      attachment.doc.publish({
+
+      const event: InitializedEvent<P> = {
         type: DocEventType.Initialized,
         value: attachment.doc.getPresences(),
-      });
+      };
+      attachment.doc.publish(event);
+
+      // Publish the devtools event.
+      const changeInfoForTest: Devtools.ChangeInfo = [
+        {
+          op: 'initialized',
+          type: 'local-presence',
+          event,
+          snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
+          clientID: this.id!,
+        },
+      ];
+      attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
       return;
     } else if (resp.body.case === 'event') {
       const pbWatchEvent = resp.body.value;
@@ -885,14 +903,28 @@ export class Client implements Observable<ClientEvent> {
           // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
           // unless we also know their initial presence data at this point.
           if (attachment.doc.hasPresence(publisher)) {
-            attachment.doc.publish({
+            const event: WatchedEvent<P> = {
               type: DocEventType.Watched,
               value: {
                 clientID: publisher,
                 presence: attachment.doc.getPresence(publisher)!,
               },
-            });
+            };
+            attachment.doc.publish(event);
+
+            // Publish the devtools event.
+            const changeInfoForTest: Devtools.ChangeInfo = [
+              {
+                op: 'watched',
+                type: 'remote-presence',
+                event,
+                snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
+                clientID: this.id!,
+              },
+            ];
+            attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
           }
+
           break;
         case PbDocEventType.DOCUMENT_UNWATCHED: {
           const presence = attachment.doc.getPresence(publisher);
@@ -900,10 +932,23 @@ export class Client implements Observable<ClientEvent> {
           // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
           // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
           if (presence) {
-            attachment.doc.publish({
+            const event: UnwatchedEvent<P> = {
               type: DocEventType.Unwatched,
               value: { clientID: publisher, presence },
-            });
+            };
+            attachment.doc.publish(event);
+
+            // Publish the devtools event.
+            const changeInfoForTest: Devtools.ChangeInfo = [
+              {
+                op: 'unwatched',
+                type: 'remote-presence',
+                event,
+                snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
+                clientID: this.id!,
+              },
+            ];
+            attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
           }
           break;
         }

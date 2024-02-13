@@ -22,13 +22,15 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { DocEventType, Indexable } from '@yorkie-js-sdk/src/document/document';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
   PresenceChange,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -142,9 +144,11 @@ export class Change<P extends Indexable> {
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
+    opInfosForTest: Array<Devtools.OpInfo>;
   } {
     const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
+    const opInfosForTest: Array<Devtools.OpInfo> = [];
     if (process.env.NODE_ENV !== 'production' && this.operations.length) {
       root.opsForTest.push(this.operations);
     }
@@ -161,6 +165,28 @@ export class Change<P extends Indexable> {
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
       }
+
+      const snapshot = converter.snapshotToBytes({
+        root: root.getObject().deepcopy(),
+        presences,
+      });
+      opInfosForTest.push({
+        op: operation.toTestString(),
+        type: `${source === OpSource.Remote ? 'remote' : 'local'}-document`,
+        event: {
+          type:
+            source === OpSource.Remote
+              ? DocEventType.RemoteChange
+              : DocEventType.LocalChange,
+          value: {
+            actor: this.getID().getActorID(),
+            message: this.getMessage() || '',
+            operations: opInfos,
+          },
+        },
+        snapshot: converter.bytesToHex(snapshot),
+        clientID: this.getID().getActorID(),
+      });
     }
 
     if (this.presenceChange) {
@@ -174,7 +200,11 @@ export class Change<P extends Indexable> {
       }
     }
 
-    return { opInfos: changeOpInfos, reverseOps };
+    return {
+      opInfos: changeOpInfos,
+      reverseOps,
+      opInfosForTest,
+    };
   }
 
   /**

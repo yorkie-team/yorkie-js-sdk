@@ -15,6 +15,7 @@
  */
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
@@ -93,3 +94,26 @@ export type TreeNodeInfo = {
   children: Array<TreeNodeInfo>;
   depth: number;
 };
+
+/**
+ * `OpInfo` represents the operation information in devtools.
+ */
+export type OpInfo = {
+  // NOTE(chacha912): `op` represents the result of `toTestString` for the operation.
+  op: string;
+  type:
+    | 'local-document'
+    | 'remote-document'
+    | 'local-presence'
+    | 'remote-presence';
+  event: DocEvent;
+  // NOTE(chacha912): `clientID` is the client that is currently attaching the document.
+  // It is used to build the document from the snapshot.
+  clientID: string;
+  snapshot: string;
+};
+
+/**
+ * `ChangeInfo` represents the change information in devtools.
+ */
+export type ChangeInfo = Array<OpInfo>;

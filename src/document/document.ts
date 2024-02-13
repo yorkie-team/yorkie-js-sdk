@@ -145,6 +145,11 @@ export enum DocEventType {
    * `PresenceChanged` means that the presences of the client has updated.
    */
   PresenceChanged = 'presence-changed',
+
+  /**
+   * `Devtools` means that the event is for devtools.
+   */
+  Devtools = 'devtools',
 }
 
 /**
@@ -160,7 +165,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | InitializedEvent<P>
   | WatchedEvent<P>
   | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>;
+  | PresenceChangedEvent<P>
+  | DevtoolsEvent;
 
 /**
  * @internal
@@ -249,6 +255,15 @@ export interface PresenceChangedEvent<P extends Indexable>
   extends BaseDocEvent {
   type: DocEventType.PresenceChanged;
   value: { clientID: ActorID; presence: P };
+}
+
+/**
+ * `DevtoolsEvent` is an event used to subscribe to changes in the document
+ * from the Devtools.
+ */
+export interface DevtoolsEvent extends BaseDocEvent {
+  type: DocEventType.Devtools;
+  value: Array<Devtools.ChangeInfo>;
 }
 
 /**
@@ -446,6 +461,12 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private isUpdating: boolean;
 
+  /**
+   * `changesForTest` stores all changes in the document for displaying the changes
+   * history in Devtools. Later, external storage such as IndexedDB will be used.
+   */
+  public changesForTest: Array<Devtools.ChangeInfo>;
+
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
 
@@ -473,7 +494,29 @@ export class Document<T, P extends Indexable = Indexable> {
       redo: this.redo.bind(this),
     };
 
+    this.changesForTest = [];
     setupDevtools(this);
+  }
+
+  /**
+   * `createFromSnapshot` creates a new instance of Document from the given snapshot.
+   */
+  static createFromSnapshot<T, P extends Indexable>(
+    key: string,
+    snapshot: Uint8Array,
+    opts?: DocumentOptions,
+  ): Document<T, P> {
+    const doc = new Document<T, P>(key, opts);
+    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
+    doc.root = new CRDTRoot(root);
+    doc.presences = presences;
+
+    const onlineClients: Set<ActorID> = new Set();
+    for (const [clientID] of presences) {
+      onlineClients.add(clientID);
+    }
+    doc.setOnlineClients(onlineClients);
+    return doc;
   }
 
   /**
@@ -530,7 +573,7 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       const change = context.getChange();
-      const { opInfos, reverseOps } = change.execute(
+      const { opInfos, reverseOps, opInfosForTest } = change.execute(
         this.root,
         this.presences,
         OpSource.Local,
@@ -574,6 +617,29 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
+
+      // 04. Publish the devtools event.
+      const changeInfoForTest: Devtools.ChangeInfo = [];
+      if (change.hasOperations()) {
+        changeInfoForTest.push(...opInfosForTest);
+      }
+      if (change.hasPresenceChange()) {
+        changeInfoForTest.push({
+          op: DocEventType.PresenceChanged,
+          type: 'local-presence',
+          event: {
+            type: DocEventType.PresenceChanged,
+            value: {
+              clientID: actorID,
+              presence: this.getPresence(actorID)!,
+            },
+          },
+          snapshot: converter.bytesToHex(this.toSnapshot()),
+          clientID: actorID,
+        });
+      }
+      this.publishDevtoolsEvent([changeInfoForTest]);
+
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
@@ -720,10 +786,9 @@ export class Document<T, P extends Indexable = Indexable> {
       return this.eventStream.subscribe(
         (event) => {
           if (
-            event.type === DocEventType.Initialized ||
-            event.type === DocEventType.Watched ||
-            event.type === DocEventType.Unwatched ||
-            event.type === DocEventType.PresenceChanged
+            event.type !== DocEventType.Snapshot &&
+            event.type !== DocEventType.LocalChange &&
+            event.type !== DocEventType.RemoteChange
           ) {
             return;
           }
@@ -761,10 +826,9 @@ export class Document<T, P extends Indexable = Indexable> {
       return this.eventStream.subscribe(
         (event) => {
           if (
-            event.type === DocEventType.Initialized ||
-            event.type === DocEventType.Watched ||
-            event.type === DocEventType.Unwatched ||
-            event.type === DocEventType.PresenceChanged
+            event.type !== DocEventType.Snapshot &&
+            event.type !== DocEventType.LocalChange &&
+            event.type !== DocEventType.RemoteChange
           ) {
             return;
           }
@@ -779,6 +843,18 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `subscribeForTest` is used to subscribe to DevtoolsEvent.
+   */
+  public subscribeForTest(next: NextFn<DevtoolsEvent>): Unsubscribe {
+    return this.eventStream.subscribe((event) => {
+      if (event.type !== DocEventType.Devtools) {
+        return;
+      }
+      next(event);
+    });
+  }
+
+  /**
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
@@ -786,6 +862,21 @@ export class Document<T, P extends Indexable = Indexable> {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(event);
     }
+  }
+
+  /**
+   * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
+   */
+  public publishDevtoolsEvent(changes: Array<Devtools.ChangeInfo>) {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    this.changesForTest.push(...changes);
+    this.publish({
+      type: DocEventType.Devtools,
+      value: changes,
+    });
   }
 
   private isSameElementOrChildOf(elem: string, parent: string): boolean {
@@ -1009,6 +1100,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getChangesForTest` returns all changes in the document.
+   */
+  public getChangesForTest(): Array<Devtools.ChangeInfo> {
+    return this.changesForTest;
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this document.
    */
   public toJSON(): string {
@@ -1033,6 +1131,21 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `toSnapshot` returns the snapshot of this document.
+   */
+  public toSnapshot(): Uint8Array {
+    const presences = new Map();
+    for (const { clientID, presence } of this.getPresences()) {
+      presences.set(clientID, presence);
+    }
+
+    return converter.snapshotToBytes({
+      root: this.root.getObject().deepcopy(),
+      presences: deepcopy(presences),
+    });
+  }
+
+  /**
    * `applySnapshot` applies the given snapshot into this document.
    */
   public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
@@ -1048,6 +1161,21 @@ export class Document<T, P extends Indexable = Indexable> {
       type: DocEventType.Snapshot,
       value: snapshot,
     });
+
+    // Publish the devtools event.
+    const changeInfoForTest: Devtools.ChangeInfo = [
+      {
+        op: 'snapshot',
+        type: 'remote-document',
+        event: {
+          type: DocEventType.Snapshot,
+          value: snapshot,
+        },
+        snapshot: converter.bytesToHex(this.toSnapshot()),
+        clientID: this.changeID.getActorID(),
+      },
+    ];
+    this.publishDevtoolsEvent([changeInfoForTest]);
   }
 
   /**
@@ -1073,7 +1201,9 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     this.ensureClone();
+    const changeInfosForTest: Array<Devtools.ChangeInfo> = [];
     for (const change of changes) {
+      const changeInfoForTest: Devtools.ChangeInfo = [];
       change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
 
       let presenceEvent:
@@ -1119,7 +1249,7 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const { opInfos } = change.execute(
+      const { opInfos, opInfosForTest } = change.execute(
         this.root,
         this.presences,
         OpSource.Remote,
@@ -1144,7 +1274,24 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+
+      changeInfoForTest.push(...opInfosForTest);
+      if (presenceEvent) {
+        changeInfoForTest.push({
+          op: presenceEvent.type,
+          type: 'remote-presence',
+          event: presenceEvent,
+          snapshot: converter.bytesToHex(this.toSnapshot()),
+          clientID: this.changeID.getActorID(),
+        });
+      }
+      if (changeInfoForTest.length > 0) {
+        changeInfosForTest.push(changeInfoForTest);
+      }
     }
+
+    // Publish the devtools event.
+    this.publishDevtoolsEvent(changeInfosForTest);
 
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
