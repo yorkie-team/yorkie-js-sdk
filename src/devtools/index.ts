@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Document, Indexable, Tree } from '@yorkie-js-sdk/src/yorkie';
+import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 
@@ -50,31 +50,18 @@ function startSync<T, P extends Indexable>(doc: Document<T, P>): void {
   sendToPanel({
     msg: 'doc::sync::full',
     docKey: doc.getKey(),
-    root: doc.toJSForTest(),
-    clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
+    changes: doc.getChangesForTest(),
   });
 
-  const unsubPresenceEvent = doc.subscribe('presence', (event) => {
+  const unsub = doc.subscribeForTest((event) => {
     sendToPanel({
       msg: 'doc::sync::partial',
       docKey: doc.getKey(),
-      clients: [doc.getSelfForTest(), ...doc.getOthersForTest()],
-      event,
+      changes: event.value,
     });
   });
 
-  const unsubDocEvent = doc.subscribe((event) => {
-    // TODO(hackerwins): For now, we send the full document on any change.
-    // In the future, we should send only the changed part.
-    sendToPanel({
-      msg: 'doc::sync::partial',
-      docKey: doc.getKey(),
-      root: doc.toJSForTest(),
-      event,
-    });
-  });
-
-  unsubsByDocKey.set(doc.getKey(), [unsubPresenceEvent, unsubDocEvent]);
+  unsubsByDocKey.set(doc.getKey(), [unsub]);
 }
 
 /**
@@ -135,16 +122,6 @@ export function setupDevtools<T, P extends Indexable>(
           break;
         case 'devtools::subscribe':
           startSync(doc);
-          break;
-        case 'devtools::node::detail':
-          if (message.data.type === 'YORKIE_TREE') {
-            sendToPanel({
-              msg: 'doc::node::detail',
-              node: (
-                doc.getValueByPath(message.data.path) as Tree
-              )?.toJSInfoForTest(),
-            });
-          }
           break;
       }
     },
