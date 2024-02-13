@@ -110,6 +110,9 @@ export function setupDevtools<T, P extends Indexable>(
       const message = event.data;
       switch (message.msg) {
         case 'devtools::connect':
+          if (isDevtoolsConnected) {
+            break;
+          }
           isDevtoolsConnected = true;
           sendToPanel({
             msg: 'doc::available',

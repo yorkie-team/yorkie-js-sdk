@@ -72,9 +72,67 @@
 
 .yorkie-devtools {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   width: 100%;
   height: 100vh;
+}
+
+.devtools-history {
+  width: 100%;
+  max-height: 40%;
+}
+
+.devtools-history-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-history-btn {
+  margin-left: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.toggle-history-btn:hover {
+  background: var(--gray-200);
+}
+
+.devtools-history-buttons button {
+  background-color: var(--gray-400);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 3px;
+  font-size: 10px;
+}
+
+.devtools-history-buttons button:hover {
+  background-color: var(--gray-500);
+}
+
+.devtools-change-wrap {
+  overflow-y: auto;
+}
+
+.devtools-data {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--gray-300);
 }
 
 .content-wrap {
@@ -251,6 +309,7 @@
   border: 1px solid var(--gray-300);
   border-radius: 4px;
   overflow: hidden;
+  z-index: 2;
 }
 
 .selected-view-btn {
@@ -294,6 +353,7 @@
 }
 
 .tree-node {
+  position: relative;
   margin-left: calc(16px * var(--depth));
   margin-bottom: 2px;
   font-family: menlo, monospace;
@@ -316,6 +376,22 @@
 
 .tree-node .node-item:hover {
   background: var(--gray-300) !important;
+}
+
+.tree-node .node-item:hover + .node-tooltip {
+  display: block;
+}
+
+.tree-node .node-tooltip {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: var(--gray-000);
+  padding: 2px 4px;
+  border: 2px solid var(--gray-300);
+  border-radius: 4px;
+  z-index: 1;
+  display: none;
 }
 
 .tree-node.is-selected .node-item {

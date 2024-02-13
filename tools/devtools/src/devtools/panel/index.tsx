@@ -28,6 +28,7 @@ import {
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
+import { History } from '../tabs/History';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
@@ -70,12 +71,15 @@ const Panel = () => {
 
   return (
     <div className="yorkie-devtools">
-      <SelectedNodeProvider>
-        <Document />
-      </SelectedNodeProvider>
-      <SelectedPresenceProvider>
-        <Presence />
-      </SelectedPresenceProvider>
+      <History />
+      <div className="devtools-data">
+        <SelectedNodeProvider>
+          <Document />
+        </SelectedNodeProvider>
+        <SelectedPresenceProvider>
+          <Presence />
+        </SelectedPresenceProvider>
+      </div>
     </div>
   );
 };
