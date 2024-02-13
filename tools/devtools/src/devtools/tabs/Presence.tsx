@@ -14,15 +14,44 @@
  * limitations under the License.
  */
 
+import { useEffect, useState } from 'react';
 import { PresenceTree } from '../components/Tree';
 import { JSONDetail } from '../components/Detail';
 import { useSeletedPresence } from '../contexts/SeletedPresence';
-import { usePresences } from '../contexts/YorkieSource';
+import { useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 export function Presence() {
-  const presences = usePresences();
+  const [doc] = useYorkieDoc();
   const [selectedPresence, setSelectedPresence] = useSeletedPresence();
+  const [presences, setPresences] = useState([]);
+  useEffect(() => {
+    if (!doc) return;
+    // TODO(chacha912): Enhance to prevent updates when there are no changes in the presences.
+    const rawPresences = doc.getPresences();
+    if (rawPresences.length === 0) return;
+    const myClientID = doc.getChangeID().getActorID();
+    const others = rawPresences
+      .filter((a) => a.clientID !== myClientID)
+      .sort((a, b) => (a.clientID > b.clientID ? 1 : -1));
+    const me = rawPresences.find((a) => a.clientID === myClientID);
+    setPresences([me, ...others]);
+
+    //NOTE(chacha912): When the presence changes, also update the currently selected presence.
+    if (!selectedPresence) return;
+    const [actorID, key] = selectedPresence.id.split('-');
+    const selectedPresenceValue = rawPresences.find(
+      (a) => a.clientID === actorID,
+    )?.presence;
+    if (!selectedPresenceValue) {
+      setSelectedPresence(null);
+      return;
+    }
+    setSelectedPresence((prev) => ({
+      ...prev,
+      value: selectedPresenceValue[key],
+    }));
+  }, [doc]);
 
   return (
     <div className="yorkie-presence content-wrap">

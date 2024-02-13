@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useState } from 'react';
-import type { PresenceTreeNode } from '../components/Tree';
+import type { PresenceJsonNode } from '../components/Tree';
 
 type SelectedPresenceContext = [
-  PresenceTreeNode,
-  (node: PresenceTreeNode) => void,
+  PresenceJsonNode,
+  Dispatch<SetStateAction<PresenceJsonNode>>,
 ];
 const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
   null,

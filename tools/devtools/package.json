@@ -17,7 +17,7 @@
     "react-arborist": "^3.4.0",
     "react-dom": "18.2.0",
     "use-resize-observer": "^9.1.0",
-    "yorkie-js-sdk": "0.4.13"
+    "yorkie-js-sdk": "github:chacha912/yorkie-js-sdk#devtools-mvp-2"
   },
   "devDependencies": {
     "@types/chrome": "0.0.251",

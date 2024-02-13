@@ -15,18 +15,38 @@
  */
 
 import { createRoot } from 'react-dom/client';
+import { useEffect } from 'react';
+import yorkie, { converter } from 'yorkie-js-sdk';
 
 import { SeleteNodeProvider } from '../contexts/SeletedNode';
 import { SeletedPresenceProvider } from '../contexts/SeletedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
+  useYorkieChanges,
+  useYorkieDoc,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
+  const changes = useYorkieChanges();
+  const [, setDoc] = useYorkieDoc();
+
+  useEffect(() => {
+    if (changes.length > 0) {
+      // NOTE(chacha912): Build the document of the last operation in the last change.
+      const selected = changes.at(-1).at(-1);
+      const snapshot = converter.hexToBytes(selected.snapshot);
+      const doc = yorkie.Document.createFromSnapshot(currentDocKey, snapshot);
+      if (selected.clientID !== '000000000000000000000000') {
+        doc.setActor(selected.clientID);
+        doc.setStatus('attached');
+      }
+      setDoc(doc);
+    }
+  }, [changes]);
 
   if (!currentDocKey) {
     return (

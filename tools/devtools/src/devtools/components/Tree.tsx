@@ -15,14 +15,13 @@
  */
 
 import classNames from 'classnames';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Tree as ArboristTree } from 'react-arborist';
 import type { NodeRendererProps } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
 import { useSeletedNode } from '../contexts/SeletedNode';
 import { useSeletedPresence } from '../contexts/SeletedPresence';
-import { sendToSDK } from '../../port';
 import type { Devtools } from 'yorkie-js-sdk';
 
 import {
@@ -41,11 +40,11 @@ export type RootTreeNode = Devtools.JSONElement & {
   isLastChild?: boolean;
 };
 
-type UserNode = Devtools.Client & {
+export type UserNode = Devtools.Client & {
   id: string;
   type: 'USER';
 };
-type PresenceJsonNode = {
+export type PresenceJsonNode = {
   id: string;
   key: string;
   value: Devtools.Json;
@@ -85,23 +84,6 @@ const TypeIcon = ({ type }) => {
 function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
   const type = props.node.data.type.split('YORKIE_')[1].toLowerCase();
   const [selectedNode, setSelectedNode] = useSeletedNode();
-
-  useEffect(() => {
-    if (selectedNode?.id === props.node.data.id) {
-      // NOTE(chacha912): When the document changes, also update the currently selected node.
-      setSelectedNode(props.node.data);
-
-      if (props.node.data.type === 'YORKIE_TREE') {
-        sendToSDK({
-          msg: 'devtools::node::detail',
-          data: {
-            path: props.node.data.path,
-            type: props.node.data.type,
-          },
-        });
-      }
-    }
-  }, [props.node.data]);
 
   switch (props.node.data.type) {
     case 'YORKIE_OBJECT':
@@ -166,13 +148,6 @@ function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
 function PresenceNodeRenderer(props: NodeRendererProps<PresenceTreeNode>) {
   const [selectedPresence, setSelectedPresence] = useSeletedPresence();
 
-  useEffect(() => {
-    if (selectedPresence?.id === props.node.data.id) {
-      //NOTE(chacha912): When the presence changes, also update the currently selected presence.
-      setSelectedPresence(props.node.data);
-    }
-  }, [props.node.data]);
-
   switch (props.node.data.type) {
     case 'USER':
       return (
@@ -198,7 +173,7 @@ function PresenceNodeRenderer(props: NodeRendererProps<PresenceTreeNode>) {
             if (props.node.data?.id === selectedPresence?.id) {
               return;
             }
-            setSelectedPresence(props.node.data);
+            setSelectedPresence(props.node.data as PresenceJsonNode);
           }}
           className="tree-wrap"
         >

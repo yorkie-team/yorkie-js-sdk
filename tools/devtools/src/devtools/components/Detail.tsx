@@ -125,5 +125,5 @@ export function TreeDetail({
 }
 
 export function JSONDetail({ json }: { json: string }) {
-  return <Code code={json} language="json" withLineNumbers />;
+  return <Code code={json ?? ''} language="json" withLineNumbers />;
 }

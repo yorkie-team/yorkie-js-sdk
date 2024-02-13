@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useState } from 'react';
 import type { RootTreeNode } from '../components/Tree';
 
-type SelectedNodeContext = [RootTreeNode, (node: RootTreeNode) => void];
+type SelectedNodeContext = [
+  RootTreeNode,
+  Dispatch<SetStateAction<RootTreeNode>>,
+];
 const SelectedNodeContext = createContext<SelectedNodeContext | null>(null);
 
 type Props = {
