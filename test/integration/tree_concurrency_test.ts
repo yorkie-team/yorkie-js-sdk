@@ -21,9 +21,25 @@ import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/inte
 import { Tree } from '@yorkie-js-sdk/src/yorkie';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
-interface testResult {
-  flag: boolean;
-  resultDesc: string;
+function parseSimpleXML(s: string): Array<string> {
+  const res: Array<string> = [];
+  for (let i = 0; i < s.length; i++) {
+    let now = '';
+    if (s[i] === '<') {
+      while (i < s.length && s[i] !== '>') {
+        now += s[i++];
+      }
+      now += s[i];
+    } else {
+      now += s[i];
+    }
+    res.push(now);
+  }
+  return res;
+}
+
+class TestResult {
+  constructor(public flag: boolean, public resultDesc: string) {}
 }
 
 enum RangeSelector {
@@ -32,6 +48,8 @@ enum RangeSelector {
   RangeMiddle,
   RangeBack,
   RangeAll,
+  RangeOneQuarter,
+  RangeThreeQuarter,
 }
 
 interface RangeType {
@@ -56,6 +74,10 @@ function getRange(
   user: number,
 ): RangeType {
   const selectedRange = ranges.ranges[user];
+
+  const q1 = (selectedRange.from + selectedRange.mid + 1) >> 1; // Math.floor(x/2)
+  const q3 = (selectedRange.mid + selectedRange.to) >> 1;
+
   switch (selector) {
     case RangeSelector.RangeFront:
       return { from: selectedRange.from, to: selectedRange.from };
@@ -65,6 +87,10 @@ function getRange(
       return { from: selectedRange.to, to: selectedRange.to };
     case RangeSelector.RangeAll:
       return { from: selectedRange.from, to: selectedRange.to };
+    case RangeSelector.RangeOneQuarter:
+      return { from: q1, to: q1 };
+    case RangeSelector.RangeThreeQuarter:
+      return { from: q3, to: q3 };
     default:
       return { from: -1, to: -1 };
   }
@@ -84,6 +110,17 @@ function makeTwoRanges(
   return { ranges: [range0, range1], desc };
 }
 
+function getMergeRange(xml: string, interval: RangeType): RangeType {
+  const content = parseSimpleXML(xml);
+  let st = -1,
+    ed = -1;
+  for (let i = interval.from + 1; i <= interval.to; i++) {
+    if (st === -1 && content[i].startsWith('</')) st = i - 1;
+    if (content[i].startsWith('<') && !content[i].startsWith('</')) ed = i;
+  }
+  return { from: st, to: ed };
+}
+
 enum StyleOpCode {
   StyleUndefined,
   StyleRemove,
@@ -93,6 +130,8 @@ enum StyleOpCode {
 enum EditOpCode {
   EditUndefined,
   EditUpdate,
+  MergeUpdate,
+  SplitUpdate,
 }
 
 interface OperationInterface {
@@ -125,7 +164,13 @@ class StyleOperationType implements OperationInterface {
     const interval = getRange(ranges, this.selector, user);
     const { from, to } = interval;
 
-    // TODO: implement me
+    doc.update((root) => {
+      if (this.op === StyleOpCode.StyleRemove) {
+        // TODO: removeStyle
+      } else if (this.op === StyleOpCode.StyleSet) {
+        // TODO: style
+      }
+    });
   }
 }
 
@@ -150,7 +195,22 @@ class EditOperationType implements OperationInterface {
     const interval = getRange(ranges, this.selector, user);
     const { from, to } = interval;
 
-    // TODO: implement me
+    doc.update((root) => {
+      if (this.op === EditOpCode.EditUpdate) {
+        root.t.edit(from, to, this.content, this.splitLevel);
+      } else if (this.op === EditOpCode.MergeUpdate) {
+        const mergeInterval = getMergeRange(root.t.toXML(), interval);
+        const st = mergeInterval.from,
+          ed = mergeInterval.to;
+        if (st !== -1 && ed !== -1 && st < ed) {
+          root.t.edit(st, ed, this.content, this.splitLevel);
+        }
+      } else if (this.op === EditOpCode.SplitUpdate) {
+        assert.notEqual(0, this.splitLevel);
+        assert.equal(from, to);
+        root.t.edit(from, to, this.content, this.splitLevel);
+      }
+    });
   }
 }
 
