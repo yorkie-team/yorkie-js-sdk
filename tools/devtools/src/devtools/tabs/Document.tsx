@@ -18,14 +18,14 @@ import { useEffect, useState } from 'react';
 import { Primitive } from 'yorkie-js-sdk';
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
-import { useSeletedNode } from '../contexts/SeletedNode';
+import { useSelectedNode } from '../contexts/SelectedNode';
 import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 export function Document() {
   const currentDocKey = useCurrentDocKey();
   const [doc] = useYorkieDoc();
-  const [selectedNode, setSelectedNode] = useSeletedNode();
+  const [selectedNode, setSelectedNode] = useSelectedNode();
   const [root, setRoot] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
 

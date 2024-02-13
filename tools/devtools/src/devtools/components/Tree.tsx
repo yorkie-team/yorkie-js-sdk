@@ -20,8 +20,8 @@ import { Tree as ArboristTree } from 'react-arborist';
 import type { NodeRendererProps } from 'react-arborist';
 import useResizeObserver from 'use-resize-observer';
 
-import { useSeletedNode } from '../contexts/SeletedNode';
-import { useSeletedPresence } from '../contexts/SeletedPresence';
+import { useSelectedNode } from '../contexts/SelectedNode';
+import { useSelectedPresence } from '../contexts/SelectedPresence';
 import type { Devtools } from 'yorkie-js-sdk';
 
 import {
@@ -83,7 +83,7 @@ const TypeIcon = ({ type }) => {
  */
 function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
   const type = props.node.data.type.split('YORKIE_')[1].toLowerCase();
-  const [selectedNode, setSelectedNode] = useSeletedNode();
+  const [selectedNode, setSelectedNode] = useSelectedNode();
 
   switch (props.node.data.type) {
     case 'YORKIE_OBJECT':
@@ -146,7 +146,7 @@ function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
  * `PresenceNodeRenderer` handles the rendering of presence nodes
  */
 function PresenceNodeRenderer(props: NodeRendererProps<PresenceTreeNode>) {
-  const [selectedPresence, setSelectedPresence] = useSeletedPresence();
+  const [selectedPresence, setSelectedPresence] = useSelectedPresence();
 
   switch (props.node.data.type) {
     case 'USER':

@@ -16,31 +16,35 @@
 
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useState } from 'react';
-import type { RootTreeNode } from '../components/Tree';
+import type { PresenceJsonNode } from '../components/Tree';
 
-type SelectedNodeContext = [
-  RootTreeNode,
-  Dispatch<SetStateAction<RootTreeNode>>,
+type SelectedPresenceContext = [
+  PresenceJsonNode,
+  Dispatch<SetStateAction<PresenceJsonNode>>,
 ];
-const SelectedNodeContext = createContext<SelectedNodeContext | null>(null);
+const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
+  null,
+);
 
 type Props = {
   children?: ReactNode;
 };
-export function SeleteNodeProvider({ children }: Props) {
-  const selectedNodeState = useState(null);
+export function SelectedPresenceProvider({ children }: Props) {
+  const selectedPresenceState = useState(null);
 
   return (
-    <SelectedNodeContext.Provider value={selectedNodeState}>
+    <SelectedPresenceContext.Provider value={selectedPresenceState}>
       {children}
-    </SelectedNodeContext.Provider>
+    </SelectedPresenceContext.Provider>
   );
 }
 
-export function useSeletedNode() {
-  const value = useContext(SelectedNodeContext);
+export function useSelectedPresence() {
+  const value = useContext(SelectedPresenceContext);
   if (value === undefined) {
-    throw new Error('useSeletedNode should be used within SeleteNodeProvider');
+    throw new Error(
+      'useSelectedPresence should be used within SelectedPresenceProvider',
+    );
   }
   return value;
 }

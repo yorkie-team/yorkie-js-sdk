@@ -18,8 +18,8 @@ import { createRoot } from 'react-dom/client';
 import { useEffect } from 'react';
 import yorkie, { converter } from 'yorkie-js-sdk';
 
-import { SeleteNodeProvider } from '../contexts/SeletedNode';
-import { SeletedPresenceProvider } from '../contexts/SeletedPresence';
+import { SelectedNodeProvider } from '../contexts/SelectedNode';
+import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
@@ -70,12 +70,12 @@ const Panel = () => {
 
   return (
     <div className="yorkie-devtools">
-      <SeleteNodeProvider>
+      <SelectedNodeProvider>
         <Document />
-      </SeleteNodeProvider>
-      <SeletedPresenceProvider>
+      </SelectedNodeProvider>
+      <SelectedPresenceProvider>
         <Presence />
-      </SeletedPresenceProvider>
+      </SelectedPresenceProvider>
     </div>
   );
 };

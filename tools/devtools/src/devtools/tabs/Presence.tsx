@@ -17,13 +17,13 @@
 import { useEffect, useState } from 'react';
 import { PresenceTree } from '../components/Tree';
 import { JSONDetail } from '../components/Detail';
-import { useSeletedPresence } from '../contexts/SeletedPresence';
+import { useSelectedPresence } from '../contexts/SelectedPresence';
 import { useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 export function Presence() {
   const [doc] = useYorkieDoc();
-  const [selectedPresence, setSelectedPresence] = useSeletedPresence();
+  const [selectedPresence, setSelectedPresence] = useSelectedPresence();
   const [presences, setPresences] = useState([]);
   useEffect(() => {
     if (!doc) return;
