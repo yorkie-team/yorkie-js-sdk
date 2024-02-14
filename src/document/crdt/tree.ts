@@ -357,7 +357,7 @@ export class CRDTTreeNodeID {
    * for debugging purpose.
    */
   public toTestString(): string {
-    return `${this.createdAt.toTestString()}:${this.offset}`;
+    return `${this.createdAt.toTestString()}/${this.offset}`;
   }
 }
 
