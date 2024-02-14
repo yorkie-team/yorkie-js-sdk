@@ -166,8 +166,11 @@ class StyleOperationType implements OperationInterface {
     doc.update((root) => {
       if (this.op === StyleOpCode.StyleRemove) {
         // TODO: removeStyle
+        // root.t.removeStyle(from, to, [this.key]);
       } else if (this.op === StyleOpCode.StyleSet) {
-        // TODO: style
+        const attr: { [key: string]: any } = {};
+        attr[this.key] = this.value;
+        root.t.style(from, to, attr);
       }
     });
   }
