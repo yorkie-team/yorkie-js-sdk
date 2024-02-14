@@ -17,6 +17,7 @@
 import { createRoot } from 'react-dom/client';
 import { useEffect } from 'react';
 import yorkie, { converter } from 'yorkie-js-sdk';
+import { useResizable } from 'react-resizable-layout';
 
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
 import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
@@ -29,11 +30,28 @@ import {
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
 import { History } from '../tabs/History';
+import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
   const changes = useYorkieChanges();
   const [, setDoc] = useYorkieDoc();
+  const {
+    isDragging: isHistoryDragging,
+    position: historyH,
+    separatorProps: historySeparatorProps,
+  } = useResizable({
+    axis: 'y',
+    initial: 40,
+  });
+  const {
+    isDragging: isDocumentDragging,
+    position: documentW,
+    separatorProps: documentSeparatorProps,
+  } = useResizable({
+    axis: 'x',
+    initial: 300,
+  });
 
   useEffect(() => {
     if (changes.length > 0) {
@@ -71,11 +89,20 @@ const Panel = () => {
 
   return (
     <div className="yorkie-devtools">
-      <History />
+      <History style={{ height: historyH }} />
+      <Separator
+        dir={'horizontal'}
+        isDragging={isHistoryDragging}
+        {...historySeparatorProps}
+      />
       <div className="devtools-data">
         <SelectedNodeProvider>
-          <Document />
+          <Document style={{ width: documentW }} />
         </SelectedNodeProvider>
+        <Separator
+          isDragging={isDocumentDragging}
+          {...documentSeparatorProps}
+        />
         <SelectedPresenceProvider>
           <Presence />
         </SelectedPresenceProvider>

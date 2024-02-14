@@ -22,7 +22,7 @@ import { useSelectedNode } from '../contexts/SelectedNode';
 import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
-export function Document() {
+export function Document({ style }) {
   const currentDocKey = useCurrentDocKey();
   const [doc] = useYorkieDoc();
   const [selectedNode, setSelectedNode] = useSelectedNode();
@@ -57,7 +57,7 @@ export function Document() {
   }, [selectedNode]);
 
   return (
-    <div className="yorkie-root content-wrap">
+    <div className="yorkie-root content-wrap" style={{ ...style }}>
       <div className="title">{currentDocKey || 'Document'}</div>
       <div className="content">
         <RootTree root={root} />

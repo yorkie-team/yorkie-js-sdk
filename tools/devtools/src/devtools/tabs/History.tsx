@@ -23,7 +23,7 @@ import { CursorIcon, DocumentIcon } from '../icons';
 
 const SLIDER_MARK_WIDTH = 24;
 
-export function History() {
+export function History({ style }) {
   const changes = useYorkieChanges();
   const [, setDoc] = useYorkieDoc();
   const [openHistory, setOpenHistory] = useState(false);
@@ -90,7 +90,14 @@ export function History() {
   }, [changes]);
 
   return (
-    <div className="devtools-history">
+    <div
+      className="devtools-history"
+      style={{
+        minHeight: openHistory ? 80 : 40,
+        maxHeight: openHistory ? '90%' : 40,
+        ...style,
+      }}
+    >
       <div className="content-wrap">
         <div className="devtools-history-toolbar">
           <span className="title">

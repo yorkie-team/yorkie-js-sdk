@@ -79,7 +79,6 @@
 
 .devtools-history {
   width: 100%;
-  max-height: 40%;
 }
 
 .devtools-history-toolbar {
@@ -140,15 +139,18 @@
   flex-direction: column;
   height: 100%;
   padding: 6px 10px;
+  overflow: auto;
 }
 
 .yorkie-root {
+  min-width: 10%;
+  max-width: 90%;
   width: 60%;
   border-right: 1px solid var(--gray-300);
 }
 
 .yorkie-presence {
-  width: 40%;
+  flex: 1;
 }
 
 .content-wrap .title {
@@ -410,4 +412,23 @@
 .tree-node .timeticket {
   border-top: 1px solid var(--gray-300);
   font-size: 9px;
+}
+
+/* resizable */
+.separator {
+  flex-shrink: 0;
+  width: 6px;
+  background-color: var(--gray-100);
+  cursor: col-resize;
+}
+
+.separator.separator-dragging,
+.separator:hover {
+  background-color: var(--gray-300);
+}
+
+.separator.separator-horizontal {
+  height: 6px;
+  width: 100%;
+  cursor: row-resize;
 }
