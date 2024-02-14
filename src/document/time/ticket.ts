@@ -36,7 +36,7 @@ export const TicketComparator: Comparator<TimeTicket> = (
 export type TimeTicketStruct = {
   lamport: string;
   delimiter: number;
-  actorID: ActorID | undefined;
+  actorID: ActorID;
 };
 
 /**
@@ -48,10 +48,10 @@ export type TimeTicketStruct = {
 export class TimeTicket {
   private lamport: Long;
   private delimiter: number;
-  private actorID?: ActorID;
+  private actorID: ActorID;
 
   /** @hideconstructor */
-  constructor(lamport: Long, delimiter: number, actorID?: string) {
+  constructor(lamport: Long, delimiter: number, actorID: string) {
     this.lamport = lamport;
     this.delimiter = delimiter;
     this.actorID = actorID;
@@ -63,7 +63,7 @@ export class TimeTicket {
   public static of(
     lamport: Long,
     delimiter: number,
-    actorID?: string,
+    actorID: string,
   ): TimeTicket {
     return new TimeTicket(lamport, delimiter, actorID);
   }
@@ -83,9 +83,6 @@ export class TimeTicket {
    * `toIDString` returns the lamport string for this Ticket.
    */
   public toIDString(): string {
-    if (!this.actorID) {
-      return `${this.lamport.toString()}:nil:${this.delimiter}`;
-    }
     return `${this.lamport.toString()}:${this.actorID}:${this.delimiter}`;
   }
 
@@ -105,9 +102,6 @@ export class TimeTicket {
    * for debugging purpose.
    */
   public toTestString(): string {
-    if (!this.actorID) {
-      return `${this.lamport.toString()}:nil:${this.delimiter}`;
-    }
     return `${this.lamport.toString()}:${this.actorID.slice(-2)}:${
       this.delimiter
     }`;
@@ -144,7 +138,7 @@ export class TimeTicket {
   /**
    * `getActorID` returns actorID.
    */
-  public getActorID(): string | undefined {
+  public getActorID(): string {
     return this.actorID;
   }
 
@@ -174,7 +168,7 @@ export class TimeTicket {
       return -1;
     }
 
-    const compare = this.actorID!.localeCompare(other.actorID!);
+    const compare = this.actorID.localeCompare(other.actorID);
     if (compare !== 0) {
       return compare;
     }
@@ -198,6 +192,13 @@ export const InitialTimeTicket = new TimeTicket(
   InitialDelimiter,
   InitialActorID,
 );
+
+export const NextTimeTicket = new TimeTicket(
+  Long.fromNumber(1),
+  InitialDelimiter + 1,
+  InitialActorID,
+);
+
 export const MaxTimeTicket = new TimeTicket(
   MaxLamport,
   MaxDelemiter,

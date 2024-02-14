@@ -24,18 +24,30 @@ export class RHTNode {
   private key: string;
   private value: string;
   private updatedAt: TimeTicket;
+  private _isRemoved: boolean;
 
-  constructor(key: string, value: string, updatedAt: TimeTicket) {
+  constructor(
+    key: string,
+    value: string,
+    updatedAt: TimeTicket,
+    isRemoved: boolean,
+  ) {
     this.key = key;
     this.value = value;
     this.updatedAt = updatedAt;
+    this._isRemoved = isRemoved;
   }
 
   /**
    * `of` creates a new instance of RHTNode.
    */
-  public static of(key: string, value: string, createdAt: TimeTicket): RHTNode {
-    return new RHTNode(key, value, createdAt);
+  public static of(
+    key: string,
+    value: string,
+    createdAt: TimeTicket,
+    isRemoved: boolean,
+  ): RHTNode {
+    return new RHTNode(key, value, createdAt, isRemoved);
   }
 
   /**
@@ -53,10 +65,17 @@ export class RHTNode {
   }
 
   /**
-   * `getUpdatedAt `returns updated time of node.
+   * `getUpdatedAt` returns updated time of node.
    */
   public getUpdatedAt(): TimeTicket {
     return this.updatedAt;
+  }
+
+  /**
+   * `isRemoved` returns whether the node has been removed or not.
+   */
+  public isRemoved(): boolean {
+    return this._isRemoved;
   }
 }
 
@@ -66,9 +85,11 @@ export class RHTNode {
  */
 export class RHT {
   private nodeMapByKey: Map<string, RHTNode>;
+  private numberOfRemovedElement: number;
 
   constructor() {
     this.nodeMapByKey = new Map();
+    this.numberOfRemovedElement = 0;
   }
 
   /**
@@ -85,16 +106,55 @@ export class RHT {
     const prev = this.nodeMapByKey.get(key);
 
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-      const node = RHTNode.of(key, value, executedAt);
+      if (prev !== undefined && !prev.isRemoved()) {
+        this.numberOfRemovedElement -= 1;
+      }
+      const node = RHTNode.of(key, value, executedAt, false);
       this.nodeMapByKey.set(key, node);
     }
+  }
+
+  /**
+   * `remove` removes the Element of the given key.
+   */
+  public remove(key: string, executedAt: TimeTicket): string {
+    const prev = this.nodeMapByKey.get(key);
+
+    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
+      if (prev === undefined) {
+        this.numberOfRemovedElement += 1;
+        const node = RHTNode.of(key, '', executedAt, true);
+        this.nodeMapByKey.set(key, node);
+
+        return '';
+      }
+
+      const alreadyRemoved = prev.isRemoved();
+      if (!alreadyRemoved) {
+        this.numberOfRemovedElement += 1;
+      }
+      const node = RHTNode.of(key, prev.getValue(), executedAt, true);
+      this.nodeMapByKey.set(key, node);
+
+      if (alreadyRemoved) {
+        return '';
+      }
+
+      return prev.getValue();
+    }
+
+    return '';
   }
 
   /**
    * `has` returns whether the element exists of the given key or not.
    */
   public has(key: string): boolean {
-    return this.nodeMapByKey.has(key);
+    if (this.nodeMapByKey.has(key)) {
+      const node = this.nodeMapByKey.get(key);
+      return node !== undefined && !node.isRemoved();
+    }
+    return false;
   }
 
   /**
@@ -123,9 +183,15 @@ export class RHT {
    * `toJSON` returns the JSON encoding of this hashtable.
    */
   public toJSON(): string {
+    if (!this.size()) {
+      return '{}';
+    }
+
     const items = [];
     for (const [key, node] of this.nodeMapByKey) {
-      items.push(`"${escapeString(key)}":"${escapeString(node.getValue())}"`);
+      if (!node.isRemoved()) {
+        items.push(`"${escapeString(key)}":"${escapeString(node.getValue())}"`);
+      }
     }
     return `{${items.join(',')}}`;
   }
@@ -139,6 +205,7 @@ export class RHT {
     }
 
     const attrs = [...this.nodeMapByKey]
+      .filter(([, v]) => v instanceof RHTNode && !v.isRemoved())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([k, v]) => `${k}="${JSON.parse(v.getValue())}"`);
 
@@ -149,7 +216,7 @@ export class RHT {
    * `size` returns the size of RHT
    */
   public size(): number {
-    return this.nodeMapByKey.size;
+    return this.nodeMapByKey.size - this.numberOfRemovedElement;
   }
 
   /**
@@ -158,7 +225,9 @@ export class RHT {
   public toObject(): Record<string, string> {
     const obj: Record<string, string> = {};
     for (const [key, node] of this.nodeMapByKey) {
-      obj[key] = node.getValue();
+      if (!node.isRemoved()) {
+        obj[key] = node.getValue();
+      }
     }
 
     return obj;

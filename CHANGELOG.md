@@ -7,15 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.14] - 2024-01-29
+
+### Fixed
+
+- Fix invalid sync when editing multiple cursors in CodeMirror6 by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/743
+- Fix incorrect index returned when using posRangeToIndexRange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/742
+
 ### Added
 
-- Add design document for devtools extension by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/735
 - Export LogLevel and setLogLevel @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/737
+- Add design document for devtools extension by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/735
 
 ### Fixed
 
 - Follow up work after devtools mvp by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/734
 - Fix invalid TreeChanges in concurrent Tree.Style by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/738
+- Restore interface changes due to server DB sharding by @sejongk https://github.com/yorkie-team/yorkie-js-sdk/pull/740
 
 ## [0.4.13] - 2024-01-19
 

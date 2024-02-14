@@ -17,7 +17,11 @@
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTTree, CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
+import {
+  CRDTTree,
+  CRDTTreePos,
+  TreeChange,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,
@@ -32,18 +36,21 @@ export class TreeStyleOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
   private attributes: Map<string, string>;
+  private attributesToRemove: Array<string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
     attributes: Map<string, string>,
+    attributesToRemove: Array<string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.attributes = attributes;
+    this.attributesToRemove = attributesToRemove;
   }
 
   /**
@@ -61,6 +68,27 @@ export class TreeStyleOperation extends Operation {
       fromPos,
       toPos,
       attributes,
+      new Array<string>(),
+      executedAt,
+    );
+  }
+
+  /**
+   * `createTreeRemoveStyleOperation` creates a new instance of TreeStyleOperation for style deletion.
+   */
+  public static createTreeRemoveStyleOperation(
+    parentCreatedAt: TimeTicket,
+    fromPos: CRDTTreePos,
+    toPos: CRDTTreePos,
+    attributesToRemove: Array<string>,
+    executedAt: TimeTicket,
+  ): TreeStyleOperation {
+    return new TreeStyleOperation(
+      parentCreatedAt,
+      fromPos,
+      toPos,
+      new Map(),
+      attributesToRemove,
       executedAt,
     );
   }
@@ -76,16 +104,26 @@ export class TreeStyleOperation extends Operation {
     if (!(parentObject instanceof CRDTTree)) {
       logger.fatal(`fail to execute, only Tree can execute edit`);
     }
-
-    const attributes: { [key: string]: any } = {};
-    [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
-
     const tree = parentObject as CRDTTree;
-    const changes = tree.style(
-      [this.fromPos, this.toPos],
-      attributes,
-      this.getExecutedAt(),
-    );
+    let changes: Array<TreeChange>;
+    if (this.attributes.size) {
+      const attributes: { [key: string]: any } = {};
+      [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
+
+      changes = tree.style(
+        [this.fromPos, this.toPos],
+        attributes,
+        this.getExecutedAt(),
+      );
+    } else {
+      const attributesToRemove = this.attributesToRemove;
+
+      changes = tree.removeStyle(
+        [this.fromPos, this.toPos],
+        attributesToRemove,
+        this.getExecutedAt(),
+      );
+    }
 
     return {
       opInfos: changes.map(({ from, to, value, fromPath }) => {
@@ -148,5 +186,12 @@ export class TreeStyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes!;
+  }
+
+  /**
+   * `getAttributesToRemove` returns the attributes of Style to remove.
+   */
+  public getAttributesToRemove(): Array<string> {
+    return this.attributesToRemove;
   }
 }

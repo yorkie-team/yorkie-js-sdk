@@ -79,6 +79,7 @@ export type TreeNodeForTest = TreeNode & {
 export enum TreeChangeType {
   Content = 'content',
   Style = 'style',
+  RemoveStyle = 'removeStyle',
 }
 
 /**
@@ -91,7 +92,7 @@ export interface TreeChange {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value?: Array<TreeNode> | { [key: string]: any };
+  value?: Array<TreeNode> | { [key: string]: any } | Array<string>;
   splitLevel?: number;
 }
 
@@ -691,10 +692,13 @@ export class CRDTTree extends CRDTGCElement {
    * The ids of the given `pos` are the ids of the node in the CRDT perspective.
    * This is different from `TreePos` which is a position of the tree in the
    * physical perspective.
+   *
+   * If `editedAt` is given, then it is used to find the appropriate left node
+   * for concurrent insertion.
    */
   public findNodesAndSplitText(
     pos: CRDTTreePos,
-    editedAt: TimeTicket,
+    editedAt?: TimeTicket,
   ): [CRDTTreeNode, CRDTTreeNode] {
     // 01. Find the parent and left sibling node of the given position.
     const [parent, leftSibling] = pos.toTreeNodes(this);
@@ -717,16 +721,18 @@ export class CRDTTree extends CRDTGCElement {
     // 04. Find the appropriate left node. If some nodes are inserted at the
     // same position concurrently, then we need to find the appropriate left
     // node. This is similar to RGA.
-    const allChildren = realParent.allChildren;
-    const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
+    if (editedAt) {
+      const allChildren = realParent.allChildren;
+      const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
 
-    for (let i = index; i < allChildren.length; i++) {
-      const next = allChildren[i];
-      if (!next.id.getCreatedAt().after(editedAt)) {
-        break;
+      for (let i = index; i < allChildren.length; i++) {
+        const next = allChildren[i];
+        if (!next.id.getCreatedAt().after(editedAt)) {
+          break;
+        }
+
+        leftNode = next;
       }
-
-      leftNode = next;
     }
 
     return [realParent, leftNode];
@@ -765,6 +771,53 @@ export class CRDTTree extends CRDTGCElement {
 
           changes.push({
             type: TreeChangeType.Style,
+            from: this.toIndex(fromParent, fromLeft),
+            to: this.toIndex(toParent, toLeft),
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID(),
+            value,
+          });
+        }
+      },
+    );
+
+    return changes;
+  }
+
+  /**
+   * `removeStyle` removes the given attributes of the given range.
+   */
+  public removeStyle(
+    range: [CRDTTreePos, CRDTTreePos],
+    attributesToRemove: Array<string>,
+    editedAt: TimeTicket,
+  ) {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+      range[0],
+      editedAt,
+    );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+
+    const changes: Array<TreeChange> = [];
+    const value = attributesToRemove ? attributesToRemove : undefined;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      ([node]) => {
+        if (!node.isRemoved && !node.isText && attributesToRemove) {
+          if (!node.attrs) {
+            node.attrs = new RHT();
+          }
+
+          for (const value of attributesToRemove) {
+            node.attrs.remove(value, editedAt);
+          }
+
+          changes.push({
+            type: TreeChangeType.RemoveStyle,
             from: this.toIndex(fromParent, fromLeft),
             to: this.toIndex(toParent, toLeft),
             fromPath: this.toPath(fromParent, fromLeft),
@@ -827,10 +880,10 @@ export class CRDTTree extends CRDTGCElement {
           }
         }
 
-        const actorID = node.getCreatedAt().getActorID()!;
+        const actorID = node.getCreatedAt().getActorID();
         const latestCreatedAt = latestCreatedAtMapByActor
-          ? latestCreatedAtMapByActor!.has(actorID!)
-            ? latestCreatedAtMapByActor!.get(actorID!)!
+          ? latestCreatedAtMapByActor!.has(actorID)
+            ? latestCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
           : MaxTimeTicket;
 
@@ -896,7 +949,7 @@ export class CRDTTree extends CRDTGCElement {
         to: fromIdx,
         fromPath,
         toPath: fromPath,
-        actor: editedAt.getActorID()!,
+        actor: editedAt.getActorID(),
       });
     }
 
@@ -941,7 +994,7 @@ export class CRDTTree extends CRDTGCElement {
             to: fromIdx,
             fromPath,
             toPath: fromPath,
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
             value,
           });
         }
@@ -1247,28 +1300,18 @@ export class CRDTTree extends CRDTGCElement {
    */
   public posRangeToPathRange(
     range: TreePosRange,
-    timeTicket: TimeTicket,
   ): [Array<number>, Array<number>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      timeTicket,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
     return [this.toPath(fromParent, fromLeft), this.toPath(toParent, toLeft)];
   }
 
   /**
    * `posRangeToIndexRange` converts the given position range to the path range.
    */
-  public posRangeToIndexRange(
-    range: TreePosRange,
-    timeTicket: TimeTicket,
-  ): [number, number] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      timeTicket,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], timeTicket);
+  public posRangeToIndexRange(range: TreePosRange): [number, number] {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
     return [this.toIndex(fromParent, fromLeft), this.toIndex(toParent, toLeft)];
   }
 
@@ -1395,7 +1438,7 @@ export class CRDTTree extends CRDTGCElement {
             to: toIdx,
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
           });
         }
       }

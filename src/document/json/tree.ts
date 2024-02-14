@@ -326,6 +326,39 @@ export class Tree {
     );
   }
 
+  /**
+   * `removeStyle` removes the attributes to the elements of the given range.
+   */
+  public removeStyle(
+    fromIdx: number,
+    toIdx: number,
+    attributesToRemove: Array<string>,
+  ) {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    if (fromIdx > toIdx) {
+      throw new Error('from should be less than or equal to to');
+    }
+
+    const fromPos = this.tree.findPos(fromIdx);
+    const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.issueTimeTicket();
+
+    this.tree!.removeStyle([fromPos, toPos], attributesToRemove, ticket);
+
+    this.context.push(
+      TreeStyleOperation.createTreeRemoveStyleOperation(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        attributesToRemove,
+        ticket,
+      ),
+    );
+  }
+
   private editInternal(
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
@@ -613,10 +646,7 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToIndexRange(
-      posRange,
-      this.context.getLastTimeTicket(),
-    );
+    return this.tree.posRangeToIndexRange(posRange);
   }
 
   /**
@@ -636,9 +666,6 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToPathRange(
-      posRange,
-      this.context.getLastTimeTicket(),
-    );
+    return this.tree.posRangeToPathRange(posRange);
   }
 }
