@@ -16,6 +16,7 @@
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
@@ -79,7 +80,7 @@ export type ContainerValue = {
 };
 
 /**
- * `TreeNodeInfo` represents the tree node information in devtools.
+ * `TreeNodeInfo` represents the crdt tree node information in devtools.
  */
 export type TreeNodeInfo = {
   id: string;
@@ -92,7 +93,11 @@ export type TreeNodeInfo = {
   insPrev?: string;
   insNext?: string;
   children: Array<TreeNodeInfo>;
+  attributes?: object; // TODO(chacha912): Specify the type accurately.
   depth: number;
+  index?: number;
+  path?: Array<number>;
+  pos?: CRDTTreePosStruct;
 };
 
 /**
