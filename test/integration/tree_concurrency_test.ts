@@ -29,17 +29,16 @@ function parseSimpleXML(s: string): Array<string> {
       while (i < s.length && s[i] !== '>') {
         now += s[i++];
       }
-      now += s[i];
-    } else {
-      now += s[i];
     }
+    now += s[i];
     res.push(now);
   }
   return res;
 }
 
-class TestResult {
-  constructor(public flag: boolean, public resultDesc: string) {}
+interface TestResult {
+  flag: boolean;
+  resultDesc: string;
 }
 
 enum RangeSelector {
@@ -178,7 +177,7 @@ class EditOperationType implements OperationInterface {
   constructor(
     private selector: RangeSelector,
     private op: EditOpCode,
-    private content: TreeNode,
+    private content: TreeNode | undefined,
     private splitLevel: number,
     private desc: string,
   ) {}
@@ -248,6 +247,9 @@ describe('Tree.concurrency', () => {
     rangesArr.forEach((ranges) => {
       opArr1.forEach((op1) => {
         opArr2.forEach((op2) => {
+          const desc = `${testDesc}-${
+            ranges.desc
+          }(${op1.getDesc()},${op2.getDesc()})`;
           const testResult = getTestResult(ranges, op1, op2);
           it.skipIf(testResult)('', () => {
             // Do sth
@@ -256,7 +258,7 @@ describe('Tree.concurrency', () => {
       });
     });
   }
-  describe('concurrently-edit-edit', () => {
+  describe('concurrently-edit-edit-test', () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -267,10 +269,435 @@ describe('Tree.concurrency', () => {
     });
     const initialXML = `<root><p>abc</p><p>def</p><p>ghi</p></root>`;
 
-    // Define range & edit operations
-    // RunTestConcurrency();
+    const textNode1: TreeNode = { type: 'text', value: 'A' };
+    const textNode2: TreeNode = { type: 'text', value: 'B' };
+    const elementNode1: TreeNode = { type: 'b', children: [] };
+    const elementNode2: TreeNode = { type: 'i', children: [] };
+
+    const rangesArr = [
+      // intersect-element: <p>abc</p><p>def</p> - <p>def</p><p>ghi</p>
+      makeTwoRanges(0, 5, 10, 5, 10, 15, `intersect-element`),
+      // intersect-text: ab - bc
+      makeTwoRanges(1, 2, 3, 2, 3, 4, `intersect-text`),
+      // contain-element: <p>abc</p><p>def</p><p>ghi</p> - <p>def</p>
+      makeTwoRanges(0, 5, 15, 5, 5, 10, `contain-element`),
+      // contain-text: abc - b
+      makeTwoRanges(1, 2, 4, 2, 2, 3, `contain-text`),
+      // contain-mixed-type: <p>abc</p><p>def</p><p>ghi</p> - def
+      makeTwoRanges(0, 5, 15, 6, 7, 9, `contain-mixed-type`),
+      // side-by-side-element: <p>abc</p> - <p>def</p>
+      makeTwoRanges(0, 5, 5, 5, 5, 10, `side-by-side-element`),
+      // side-by-side-text: a - bc
+      makeTwoRanges(1, 1, 2, 2, 3, 4, `side-by-side-text`),
+      // equal-element: <p>abc</p><p>def</p> - <p>abc</p><p>def</p>
+      makeTwoRanges(0, 5, 10, 0, 5, 10, `equal-element`),
+      // equal-text: abc - abc
+      makeTwoRanges(1, 2, 4, 1, 2, 4, `equal-text`),
+    ];
+
+    const editOperations1: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        textNode1,
+        0,
+        `insertTextFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        textNode1,
+        0,
+        `insertTextMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        textNode1,
+        0,
+        `insertTextBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        textNode1,
+        0,
+        `replaceText`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        elementNode1,
+        0,
+        `insertElementFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        elementNode1,
+        0,
+        `insertElementMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        elementNode1,
+        0,
+        `insertElementBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        elementNode1,
+        0,
+        `replaceElement`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        undefined,
+        0,
+        `delete`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.MergeUpdate,
+        undefined,
+        0,
+        `merge`,
+      ),
+    ];
+
+    const editOperations2: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        textNode2,
+        0,
+        `insertTextFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        textNode2,
+        0,
+        `insertTextMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        textNode2,
+        0,
+        `insertTextBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        textNode2,
+        0,
+        `replaceText`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        elementNode2,
+        0,
+        `insertElementFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        elementNode2,
+        0,
+        `insertElementMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        elementNode2,
+        0,
+        `insertElementBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        elementNode2,
+        0,
+        `replaceElement`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        undefined,
+        0,
+        `delete`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.MergeUpdate,
+        undefined,
+        0,
+        `merge`,
+      ),
+    ];
+
+    RunTestConcurrency(
+      'concurrently-edit-edit-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      editOperations1,
+      editOperations2,
+    );
   });
-  describe('concurrently-style-style', () => {
+  describe('concurrently-split-split-test', () => {
+    const initialTree = new Tree({
+      type: 'r',
+      children: [
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+                    { type: 'p', children: [{ type: 'text', value: 'efgh' }] },
+                  ],
+                },
+                { type: 'p', children: [{ type: 'text', value: 'ijkl' }] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const initialXML = `<root><p><p><p><p>abcd</p><p>efgh</p></p><p>ijkl</p></p></p></root>`;
+
+    const rangesArr = [
+      // equal-single-element: <p>abcd</p>
+      makeTwoRanges(3, 6, 9, 3, 6, 9, `equal-single`),
+      // equal-multiple-element: <p>abcd</p><p>efgh</p>
+      makeTwoRanges(3, 9, 15, 3, 9, 15, `equal-multiple`),
+      // A contains B same level: <p>abcd</p><p>efgh</p> - <p>efgh</p>
+      makeTwoRanges(3, 9, 15, 9, 12, 15, `A contains B same level`),
+      // A contains B multiple level: <p><p>abcd</p><p>efgh</p></p><p>ijkl</p> - <p>efgh</p>
+      makeTwoRanges(2, 16, 22, 9, 12, 15, `A contains B multiple level`),
+      // side by side
+      makeTwoRanges(3, 6, 9, 9, 12, 15, `B is next to A`),
+    ];
+
+    const splitOperations: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-front-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeOneQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-one-quarter-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeThreeQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-three-quarter-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-back-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.SplitUpdate,
+        undefined,
+        2,
+        `split-front-2`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeOneQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        2,
+        `split-one-quarter-2`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeThreeQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        2,
+        `split-three-quarter-2`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.SplitUpdate,
+        undefined,
+        2,
+        `split-back-2`,
+      ),
+    ];
+
+    RunTestConcurrency(
+      'concurrently-split-split-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      splitOperations,
+      splitOperations,
+    );
+  });
+  describe('concurrently-split-edit-test', () => {
+    const initialTree = new Tree({
+      type: 'r',
+      children: [
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'abcd' }],
+                  attributes: { italic: 'true' },
+                },
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'efgh' }],
+                  attributes: { italic: 'true' },
+                },
+              ],
+            },
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ijkl' }],
+              attributes: { italic: true },
+            },
+          ],
+        },
+      ],
+    });
+    const initialXML = `<root><p><p italic="true"><p italic="true">abcd</p><p italic="true">efgh</p></p><p italic="true">ijkl</p></p></root>`;
+    const content: TreeNode = { type: 'i', children: [] };
+
+    const rangesArr = [
+      // equal: <p>ab'cd</p>
+      makeTwoRanges(2, 5, 8, 2, 5, 8, `equal`),
+      // A contains B: <p>ab'cd</p> - bc
+      makeTwoRanges(2, 5, 8, 4, 5, 6, `A contains B`),
+      // B contains A: <p>ab'cd</p> - <p>abcd</p><p>efgh</p>
+      makeTwoRanges(2, 5, 8, 2, 8, 14, `B contains A`),
+      // left node(text): <p>ab'cd</p> - ab
+      makeTwoRanges(2, 5, 8, 3, 4, 5, `left node(text)`),
+      // right node(text): <p>ab'cd</p> - cd
+      makeTwoRanges(2, 5, 8, 5, 6, 7, `right node(text)`),
+      // left node(element): <p>abcd</p>'<p>efgh</p> - <p>abcd</p>
+      makeTwoRanges(2, 8, 14, 2, 5, 8, `left node(element)`),
+      // right node(element): <p>abcd</p>'<p>efgh</p> - <p>efgh</p>
+      makeTwoRanges(2, 8, 14, 8, 11, 14, `right node(element)`),
+      // A -> B: <p>ab'cd</p> - <p>efgh</p>
+      makeTwoRanges(2, 5, 8, 8, 11, 14, `A -> B`),
+      // B -> A: <p>ef'gh</p> - <p>abcd</p>
+      makeTwoRanges(8, 11, 14, 2, 5, 8, `B -> A`),
+    ];
+
+    const splitOperations: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.SplitUpdate,
+        undefined,
+        2,
+        `split-2`,
+      ),
+    ];
+
+    const editOperations: Array<OperationInterface> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `replace`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        undefined,
+        0,
+        `delete`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.MergeUpdate,
+        undefined,
+        0,
+        `merge`,
+      ),
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleSet,
+        'bold',
+        'aa',
+        `style`,
+      ),
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleRemove,
+        'italic',
+        '',
+        `remove-style`,
+      ),
+    ];
+
+    RunTestConcurrency(
+      'concurrently-split-edit-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      splitOperations,
+      editOperations,
+    );
+  });
+  describe('concurrently-style-style-test', () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -339,7 +766,7 @@ describe('Tree.concurrency', () => {
 
     // Define range & style operations
     RunTestConcurrency(
-      '',
+      'concurrently-style-style-test',
       initialTree,
       initialXML,
       rangesArr,
@@ -347,18 +774,120 @@ describe('Tree.concurrency', () => {
       styleOperations,
     );
   });
-  describe('concurrently-edit-style', () => {
+  describe('concurrently-edit-style-test', () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
-        { type: 'p', children: [{ type: 'text', value: 'a' }] },
-        { type: 'p', children: [{ type: 'text', value: 'b' }] },
-        { type: 'p', children: [{ type: 'text', value: 'c' }] },
+        {
+          type: 'p',
+          children: [{ type: 'text', value: 'a' }],
+          attributes: { color: 'red' },
+        },
+        {
+          type: 'p',
+          children: [{ type: 'text', value: 'b' }],
+          attributes: { color: 'red' },
+        },
+        {
+          type: 'p',
+          children: [{ type: 'text', value: 'c' }],
+          attributes: { color: 'red' },
+        },
       ],
     });
     const initialXML = `<root><p>a</p><p>b</p><p>c</p></root>`;
+    const content: TreeNode = {
+      type: 'p',
+      children: [{ type: 'text', value: 'd' }],
+      attributes: { italic: 'true' },
+    };
 
-    // Define range & edit,style operations
-    // RunTestConcurrency();
+    const rangesArr = [
+      // equal: <p>b</p> - <p>b</p>
+      makeTwoRanges(3, 3, 6, 3, -1, 6, `equal`),
+      // equal multiple: <p>a</p><p>b</p><p>c</p> - <p>a</p><p>b</p><p>c</p>
+      makeTwoRanges(0, 3, 9, 0, 3, 9, `equal multiple`),
+      // A contains B: <p>a</p><p>b</p><p>c</p> - <p>b</p>
+      makeTwoRanges(0, 3, 9, 3, -1, 6, `A contains B`),
+      // B contains A: <p>b</p> - <p>a</p><p>b</p><p>c</p>
+      makeTwoRanges(3, 3, 6, 0, -1, 9, `B contains A`),
+      // intersect: <p>a</p><p>b</p> - <p>b</p><p>c</p>
+      makeTwoRanges(0, 3, 6, 3, -1, 9, `intersect`),
+      // A -> B: <p>a</p> - <p>b</p>
+      makeTwoRanges(0, 3, 3, 3, -1, 6, `A -> B`),
+      // B -> A: <p>b</p> - <p>a</p>
+      makeTwoRanges(3, 3, 6, 0, -1, 3, `B -> A`),
+    ];
+
+    const editOperations: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        'insertFront',
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        'insertMiddle',
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        'insertBack',
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        undefined,
+        0,
+        'delete',
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        'replace',
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.MergeUpdate,
+        undefined,
+        0,
+        'merge',
+      ),
+    ];
+
+    const styleOperations: Array<StyleOperationType> = [
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleRemove,
+        'color',
+        '',
+        'remove-bold',
+      ),
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleSet,
+        'bold',
+        'aa',
+        'set-bold-aa',
+      ),
+    ];
+
+    RunTestConcurrency(
+      'concurrently-edit-style-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      editOperations,
+      styleOperations,
+    );
   });
 });
