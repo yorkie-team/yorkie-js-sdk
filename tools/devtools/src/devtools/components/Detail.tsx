@@ -20,42 +20,65 @@ import { useState, useCallback } from 'react';
 import { Code } from './Code';
 import type { RootTreeNode } from './Tree';
 import { CodeIcon, GraphIcon } from '../icons';
-import type { Devtools } from 'yorkie-js-sdk';
+import type { Devtools, CRDTTreeNodeIDStruct } from 'yorkie-js-sdk';
 
 type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
   depth: number;
   childIndex: number;
 };
 
-function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
-  if (node.type === 'text') {
-    // NOTE(chacha912): The 'depth' variable is used for styling purposes.
-    // For 'text' nodes, when they are not the first child node, 'depth' is
-    // set to 0 to ensure they are displayed on the same line.
-    const depth = node.childIndex === 0 ? node.depth : 0;
+const nodeIDToString = (id: CRDTTreeNodeIDStruct) => {
+  const {
+    createdAt: { actorID, lamport, delimiter },
+    offset,
+  } = id;
+  return `${lamport}:${actorID.slice(-2)}:${delimiter}/${offset}`;
+};
 
-    return (
-      <div
-        className={classNames('tree-node', 'text')}
-        style={{ '--depth': depth } as any}
-      >
-        <span className="node-item">
-          <span>{node.value}</span>
-          <span className="timeticket">{node.id}</span>
-        </span>
-      </div>
-    );
-  }
+function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
+  // NOTE(chacha912): The 'depth' variable is used for styling purposes.
+  // For 'text' nodes, when they are not the first child node, 'depth' is
+  // set to 0 to ensure they are displayed on the same line.
+  const depth =
+    node.type === 'text'
+      ? node.childIndex === 0
+        ? node.depth
+        : 0
+      : node.depth;
 
   return (
     <div
-      className={classNames('tree-node')}
-      style={{ '--depth': node.depth } as any}
+      className={classNames('tree-node', node.type === 'text' && 'text')}
+      style={{ '--depth': depth } as any}
     >
       <span className="node-item">
-        <span>{node.type}</span>
+        <span>{node.type === 'text' ? node.value : node.type}</span>
         <span className="timeticket">{node.id}</span>
       </span>
+      <div className="node-tooltip">
+        <div>
+          <span className="title">index: </span>
+          <span className="desc">{node.index}</span>
+        </div>
+        <div>
+          <span className="title">path: </span>
+          <span className="desc">{JSON.stringify(node.path)}</span>
+        </div>
+        <div>
+          <span className="title">pos: </span>
+          <span className="desc">
+            {node.pos &&
+              `[${nodeIDToString(node.pos.parentID)},
+            ${nodeIDToString(node.pos.leftSiblingID)}]`}
+          </span>
+        </div>
+        {node.type !== 'text' && (
+          <div>
+            <span className="title">attrs: </span>
+            <span className="desc">{JSON.stringify(node.attributes)}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
