@@ -207,9 +207,9 @@ export class RHT {
     const attrs = [...this.nodeMapByKey]
       .filter(([, v]) => v instanceof RHTNode && !v.isRemoved())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([k, v]) => `${k}="${JSON.parse(v.getValue())}"`);
+      .map(([k, v]) => `${k}="${v.getValue()}"`);
 
-    return ` ${attrs.join(' ')}`;
+    return `${attrs.join(' ')}`;
   }
 
   /**
