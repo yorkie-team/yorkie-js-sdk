@@ -292,23 +292,14 @@ async function RunTestConcurrency(
           op2,
           desc,
         );
-        if (result.after[0] === result.after[1]) {
-          test(desc, () => {
-            console.log(`before d1: ${result.before[0]}`);
-            console.log(`before d2: ${result.before[1]}`);
-            console.log(`after d1: ${result.after[0]}`);
-            console.log(`after d2: ${result.after[1]}`);
-            assert.equal(result.after[0], result.after[1]);
-          });
-        } else {
-          test.skip(desc, () => {
-            console.log(`before d1: ${result.before[0]}`);
-            console.log(`before d2: ${result.before[1]}`);
-            console.log(`after d1: ${result.after[0]}`);
-            console.log(`after d2: ${result.after[1]}`);
-            assert.equal(result.after[0], result.after[1]);
-          });
-        }
+        const skip = false; // result.after[0] !== result.after[1];
+        test.skipIf(skip)(desc, () => {
+          console.log(`before d1: ${result.before[0]}`);
+          console.log(`before d2: ${result.before[1]}`);
+          console.log(`after d1: ${result.after[0]}`);
+          console.log(`after d2: ${result.after[1]}`);
+          assert.equal(result.after[0], result.after[1]);
+        });
       }
     }
   }
@@ -627,25 +618,25 @@ describe('Tree.concurrency', () => {
                 {
                   type: 'p',
                   children: [{ type: 'text', value: 'abcd' }],
-                  attributes: { italic: 'true' },
+                  attributes: { italic: 'a' },
                 },
                 {
                   type: 'p',
                   children: [{ type: 'text', value: 'efgh' }],
-                  attributes: { italic: 'true' },
+                  attributes: { italic: 'a' },
                 },
               ],
             },
             {
               type: 'p',
               children: [{ type: 'text', value: 'ijkl' }],
-              attributes: { italic: true },
+              attributes: { italic: 'a' },
             },
           ],
         },
       ],
     });
-    const initialXML = `<r><p><p><p italic="true">abcd</p><p italic="true">efgh</p></p><p italic="true">ijkl</p></p></r>`;
+    const initialXML = `<r><p><p><p italic="a">abcd</p><p italic="a">efgh</p></p><p italic="a">ijkl</p></p></r>`;
     const content: TreeNode = { type: 'i', children: [] };
 
     const rangesArr = [

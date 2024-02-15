@@ -26,6 +26,7 @@ import {
   NextTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
+import {stringifyObjectValues} from "@yorkie-js-sdk/src/util/object";
 
 function createDummyContext() {
   return ChangeContext.create(
@@ -38,24 +39,30 @@ function createDummyContext() {
 class TestInfo {
   constructor(
     public desc: string,
-    public insertKey: Array<string>,
-    public insertVal: Array<string>,
-    public deleteKey: Array<string>,
-    public deleteVal: Array<string>,
+    public insert: Indexable,
+    public erase: Indexable,
     public expectXML: string,
     public expectSize: number,
   ) {}
 }
 
 function run(rht: RHT, info: TestInfo, ctx: ChangeContext) {
-  for (let i = 0; i < info.insertKey.length; i++) {
-    rht.set(info.insertKey[i], info.insertVal[i], ctx.issueTimeTicket());
+  const insertAttrs = stringifyObjectValues(info.insert);
+  const deleteAttrs = stringifyObjectValues(info.erase);
+
+  for (const [key, value] of Object.entries(insertAttrs)) {
+    rht.set(key, value, ctx.issueTimeTicket());
   }
-  for (let i = 0; i < info.deleteKey.length; i++) {
-    const elem = rht.remove(info.deleteKey[i], ctx.issueTimeTicket());
-    assert.equal(elem, info.deleteVal[i]);
+  for (const [key, value] of Object.entries(deleteAttrs)) {
+    const elem = rht.remove(key, ctx.issueTimeTicket());
+    if (value === `""`) assert.equal(elem, '');
+    else assert.equal(elem, value);
   }
-  assert.equal(rht.toXML(), info.expectXML);
+  if (info.expectXML) {
+    assert.equal(rht.toXML(), ' ' + info.expectXML);
+  } else {
+    assert.equal(rht.toXML(), info.expectXML);
+  }
   assert.equal(rht.size(), info.expectSize);
 }
 
@@ -64,28 +71,22 @@ describe('RHT', function () {
     const tests: Array<TestInfo> = [
       {
         desc: `1. empty hash table`,
-        insertKey: [],
-        insertVal: [],
-        deleteKey: [],
-        deleteVal: [],
+        insert: {},
+        erase: {},
         expectXML: ``,
         expectSize: 0,
       },
       {
         desc: `2. only one element`,
-        insertKey: ['hello'],
-        insertVal: ['world'],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { hello: 'world' },
+        erase: {},
         expectXML: `hello="world"`,
         expectSize: 1,
       },
       {
         desc: `3. non-empty hash table`,
-        insertKey: ['hi'],
-        insertVal: ['test'],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { hi: 'test' },
+        erase: {},
         expectXML: `hello="world" hi="test"`,
         expectSize: 2,
       },
@@ -99,26 +100,20 @@ describe('RHT', function () {
   });
 
   describe('set-test', function () {
-    const key1 = 'key1',
-      val1 = 'value1',
-      key2 = 'key2',
+    const val1 = 'value1',
       val2 = 'value2';
     const tests: Array<TestInfo> = [
       {
         desc: `1. set elements`,
-        insertKey: [key1, key2],
-        insertVal: [val1, val2],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { key1: val1, key2: val2 },
+        erase: {},
         expectXML: `key1="value1" key2="value2"`,
         expectSize: 2,
       },
       {
         desc: `2. change elements`,
-        insertKey: [key1, key2],
-        insertVal: [val2, val1],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { key1: val2, key2: val1 },
+        erase: {},
         expectXML: `key1="value2" key2="value1"`,
         expectSize: 2,
       },
@@ -132,73 +127,57 @@ describe('RHT', function () {
   });
 
   describe('remove-test', function () {
-    const key1 = 'key1',
-      val1 = 'value1',
+    const val1 = 'value1',
       val11 = 'value11',
-      key2 = 'key2',
       val2 = 'value2',
       val22 = 'value22';
     const tests: Array<TestInfo> = [
       {
         desc: `1. set elements`,
-        insertKey: [key1, key2],
-        insertVal: [val1, val2],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { key1: val1, key2: val2 },
+        erase: {},
         expectXML: `key1="value1" key2="value2"`,
         expectSize: 2,
       },
       {
         desc: `2. remove element`,
-        insertKey: [],
-        insertVal: [],
-        deleteKey: [key1],
-        deleteVal: [val1],
+        insert: {},
+        erase: { key1: val1 },
         expectXML: `key2="value2"`,
         expectSize: 1,
       },
       {
         desc: `3. set after remove`,
-        insertKey: [key1],
-        insertVal: [val11],
-        deleteKey: [],
-        deleteVal: [],
+        insert: { key1: val11 },
+        erase: {},
         expectXML: `key1="value11" key2="value2"`,
         expectSize: 2,
       },
       {
         desc: `4. remove element`,
-        insertKey: [key2],
-        insertVal: [val22],
-        deleteKey: [key1],
-        deleteVal: [val11],
+        insert: { key2: val22 },
+        erase: { key1: val11 },
         expectXML: `key2="value22"`,
         expectSize: 1,
       },
       {
         desc: `5. remove element again`,
-        insertKey: [],
-        insertVal: [],
-        deleteKey: [key1],
-        deleteVal: [''],
+        insert: {},
+        erase: { key1: '' },
         expectXML: `key2="value22"`,
         expectSize: 1,
       },
       {
         desc: `6. remove element(cleared)`,
-        insertKey: [],
-        insertVal: [],
-        deleteKey: [key2],
-        deleteVal: [val22],
+        insert: {},
+        erase: { key2: val22 },
         expectXML: ``,
         expectSize: 0,
       },
       {
         desc: `7. remove not exist key`,
-        insertKey: [],
-        insertVal: [],
-        deleteKey: [`not-exist-key`],
-        deleteVal: [``],
+        insert: {},
+        erase: { not_exist_key: '' },
         expectXML: ``,
         expectSize: 0,
       },

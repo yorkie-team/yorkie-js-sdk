@@ -613,7 +613,7 @@ export function toXML(node: CRDTTreeNode): string {
     return currentNode.value;
   }
 
-  return `<${node.type}${' ' + node.attrs?.toXML() || ''}>${node.children
+  return `<${node.type}${node.attrs?.toXML() || ''}>${node.children
     .map((child) => toXML(child))
     .join('')}</${node.type}>`;
 }
