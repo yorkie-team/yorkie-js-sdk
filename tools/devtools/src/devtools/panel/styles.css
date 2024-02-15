@@ -361,6 +361,7 @@
   font-family: menlo, monospace;
   color: #444;
   font-size: 0.9em;
+  cursor: pointer;
 }
 
 .tree-node.text {
@@ -373,14 +374,13 @@
   padding: 2px 4px;
   border: 1px solid var(--gray-300);
   border-radius: 4px;
-  cursor: pointer;
 }
 
-.tree-node .node-item:hover {
+.tree-node:hover .node-item {
   background: var(--gray-300) !important;
 }
 
-.tree-node .node-item:hover + .node-tooltip {
+.tree-node:hover .node-tooltip {
   display: block;
 }
 
