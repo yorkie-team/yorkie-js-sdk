@@ -156,11 +156,11 @@ export class TreeEditOperation extends Operation {
     const fromPos = `${this.fromPos
       .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getLeftSiblingID().getOffset()}`;
+      .toTestString()}/${this.fromPos.getLeftSiblingID().getOffset()}`;
     const toPos = `${this.toPos
       .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getLeftSiblingID().getOffset()}`;
+      .toTestString()}/${this.toPos.getLeftSiblingID().getOffset()}`;
     const contents = this.contents || [];
     return `${parent}.EDIT(${fromPos},${toPos},${contents
       .map((v) => toXML(v))
