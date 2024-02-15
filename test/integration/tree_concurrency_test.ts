@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-import { assert, describe, it } from 'vitest';
+import { assert, describe, it, test } from 'vitest';
 import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { Document } from '@yorkie-js-sdk/src/document/document';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { Tree } from '@yorkie-js-sdk/src/yorkie';
+import {
+  testRPCAddr,
+  toDocKey,
+} from '@yorkie-js-sdk/test/integration/integration_helper';
+import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 function parseSimpleXML(s: string): Array<string> {
@@ -37,8 +40,8 @@ function parseSimpleXML(s: string): Array<string> {
 }
 
 interface TestResult {
-  flag: boolean;
-  resultDesc: string;
+  before: [string, string];
+  after: [string, string];
 }
 
 enum RangeSelector {
@@ -165,8 +168,7 @@ class StyleOperationType implements OperationInterface {
 
     doc.update((root) => {
       if (this.op === StyleOpCode.StyleRemove) {
-        // TODO: removeStyle
-        // root.t.removeStyle(from, to, [this.key]);
+        root.t.removeStyle(from, to, [this.key]);
       } else if (this.op === StyleOpCode.StyleSet) {
         const attr: { [key: string]: any } = {};
         attr[this.key] = this.value;
@@ -216,61 +218,113 @@ class EditOperationType implements OperationInterface {
   }
 }
 
-describe('Tree.concurrency', () => {
-  function RunTestConcurrency(
-    testDesc: string,
-    initialState: any,
-    initialXML: any,
-    rangesArr: Array<TwoRangesType>,
-    opArr1: Array<OperationInterface>,
-    opArr2: Array<OperationInterface>,
-  ) {
-    const getTestResult = async function (
-      ranges: TwoRangesType,
-      op1: OperationInterface,
-      op2: OperationInterface,
-    ) {
-      return await withTwoClientsAndDocuments<{ t: Tree }>(
-        async (c1, d1, c2, d2) => {
-          d1.update((root) => {
-            root.t = initialState;
-          });
-          await c1.sync();
-          await c2.sync();
-          assert.equal(d1.getRoot().t.toXML(), /*html*/ initialXML);
-          assert.equal(d2.getRoot().t.toXML(), /*html*/ initialXML);
+async function RunTest(
+  initialState: Tree,
+  initialXML: string,
+  ranges: TwoRangesType,
+  op1: OperationInterface,
+  op2: OperationInterface,
+  desc: string,
+): Promise<TestResult> {
+  const docKey = `${toDocKey(desc)}-${new Date().getTime()}`;
+  const c1 = new yorkie.Client(testRPCAddr);
+  const c2 = new yorkie.Client(testRPCAddr);
+  await c1.activate();
+  await c2.activate();
 
-          op1.run(d1, 0, ranges);
-          op2.run(d2, 1, ranges);
-        },
-        testDesc,
-      );
-    };
+  const d1 = new yorkie.Document<{ t: Tree }>(docKey);
+  const d2 = new yorkie.Document<{ t: Tree }>(docKey);
+  await c1.attach(d1, { isRealtimeSync: false });
+  await c2.attach(d2, { isRealtimeSync: false });
 
-    rangesArr.forEach((ranges) => {
-      opArr1.forEach((op1) => {
-        opArr2.forEach((op2) => {
-          const desc = `${testDesc}-${
-            ranges.desc
-          }(${op1.getDesc()},${op2.getDesc()})`;
-          const testResult = getTestResult(ranges, op1, op2);
-          it.skipIf(testResult)('', () => {
-            // Do sth
+  d1.update((root) => {
+    root.t = initialState;
+  });
+  await c1.sync();
+  await c2.sync();
+  console.log(desc);
+  assert.equal(d1.getRoot().t.toXML(), initialXML);
+  assert.equal(d2.getRoot().t.toXML(), initialXML);
+
+  op1.run(d1, 0, ranges);
+  op2.run(d2, 0, ranges);
+
+  const before1 = d1.getRoot().t.toXML();
+  const before2 = d2.getRoot().t.toXML();
+
+  // save own changes and get previous changes
+  await c1.sync();
+  await c2.sync();
+
+  // get last client changes
+  await c1.sync();
+  await c2.sync();
+
+  const after1 = d1.getRoot().t.toXML();
+  const after2 = d2.getRoot().t.toXML();
+
+  await c1.detach(d1);
+  await c2.detach(d2);
+  await c1.deactivate();
+  await c2.deactivate();
+
+  return { before: [before1, before2], after: [after1, after2] };
+}
+async function RunTestConcurrency(
+  testDesc: string,
+  initialState: any,
+  initialXML: any,
+  rangesArr: Array<TwoRangesType>,
+  opArr1: Array<OperationInterface>,
+  opArr2: Array<OperationInterface>,
+) {
+  for (const ranges of rangesArr) {
+    for (const op1 of opArr1) {
+      for (const op2 of opArr2) {
+        const desc = `${testDesc}-${
+          ranges.desc
+        }(${op1.getDesc()},${op2.getDesc()})`;
+        const result = await RunTest(
+          initialState,
+          initialXML,
+          ranges,
+          op1,
+          op2,
+          desc,
+        );
+        if (result.after[0] === result.after[1]) {
+          test(desc, () => {
+            console.log(`before d1: ${result.before[0]}`);
+            console.log(`before d2: ${result.before[1]}`);
+            console.log(`after d1: ${result.after[0]}`);
+            console.log(`after d2: ${result.after[1]}`);
+            assert.equal(result.after[0], result.after[1]);
           });
-        });
-      });
-    });
+        } else {
+          test.skip(desc, () => {
+            console.log(`before d1: ${result.before[0]}`);
+            console.log(`before d2: ${result.before[1]}`);
+            console.log(`after d1: ${result.after[0]}`);
+            console.log(`after d2: ${result.after[1]}`);
+            assert.equal(result.after[0], result.after[1]);
+          });
+        }
+      }
+    }
   }
-  describe('concurrently-edit-edit-test', () => {
+}
+
+describe('Tree.concurrency', () => {
+  describe('concurrently-edit-edit-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
         { type: 'p', children: [{ type: 'text', value: 'abc' }] },
-        { type: 'p', children: [{ type: 'text', value: 'edf' }] },
+        { type: 'p', children: [{ type: 'text', value: 'def' }] },
         { type: 'p', children: [{ type: 'text', value: 'ghi' }] },
       ],
     });
-    const initialXML = `<root><p>abc</p><p>def</p><p>ghi</p></root>`;
+    const initialXML = `<r><p>abc</p><p>def</p><p>ghi</p></r>`;
 
     const textNode1: TreeNode = { type: 'text', value: 'A' };
     const textNode2: TreeNode = { type: 'text', value: 'B' };
@@ -444,7 +498,7 @@ describe('Tree.concurrency', () => {
       ),
     ];
 
-    RunTestConcurrency(
+    await RunTestConcurrency(
       'concurrently-edit-edit-test',
       initialTree,
       initialXML,
@@ -453,7 +507,7 @@ describe('Tree.concurrency', () => {
       editOperations2,
     );
   });
-  describe('concurrently-split-split-test', () => {
+  describe('concurrently-split-split-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -477,7 +531,7 @@ describe('Tree.concurrency', () => {
         },
       ],
     });
-    const initialXML = `<root><p><p><p><p>abcd</p><p>efgh</p></p><p>ijkl</p></p></p></root>`;
+    const initialXML = `<r><p><p><p><p>abcd</p><p>efgh</p></p><p>ijkl</p></p></p></r>`;
 
     const rangesArr = [
       // equal-single-element: <p>abcd</p>
@@ -551,7 +605,7 @@ describe('Tree.concurrency', () => {
       ),
     ];
 
-    RunTestConcurrency(
+    await RunTestConcurrency(
       'concurrently-split-split-test',
       initialTree,
       initialXML,
@@ -560,7 +614,7 @@ describe('Tree.concurrency', () => {
       splitOperations,
     );
   });
-  describe('concurrently-split-edit-test', () => {
+  describe('concurrently-split-edit-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -591,7 +645,7 @@ describe('Tree.concurrency', () => {
         },
       ],
     });
-    const initialXML = `<root><p><p italic="true"><p italic="true">abcd</p><p italic="true">efgh</p></p><p italic="true">ijkl</p></p></root>`;
+    const initialXML = `<r><p><p><p italic="true">abcd</p><p italic="true">efgh</p></p><p italic="true">ijkl</p></p></r>`;
     const content: TreeNode = { type: 'i', children: [] };
 
     const rangesArr = [
@@ -691,7 +745,7 @@ describe('Tree.concurrency', () => {
       ),
     ];
 
-    RunTestConcurrency(
+    await RunTestConcurrency(
       'concurrently-split-edit-test',
       initialTree,
       initialXML,
@@ -700,7 +754,7 @@ describe('Tree.concurrency', () => {
       editOperations,
     );
   });
-  describe('concurrently-style-style-test', () => {
+  describe('concurrently-style-style-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -709,7 +763,7 @@ describe('Tree.concurrency', () => {
         { type: 'p', children: [{ type: 'text', value: 'c' }] },
       ],
     });
-    const initialXML = `<root><p>a</p><p>b</p><p>c</p></root>`;
+    const initialXML = `<r><p>a</p><p>b</p><p>c</p></r>`;
 
     const rangesArr = [
       // equal: <p>b</p> - <p>b</p>
@@ -768,7 +822,7 @@ describe('Tree.concurrency', () => {
     ];
 
     // Define range & style operations
-    RunTestConcurrency(
+    await RunTestConcurrency(
       'concurrently-style-style-test',
       initialTree,
       initialXML,
@@ -777,7 +831,7 @@ describe('Tree.concurrency', () => {
       styleOperations,
     );
   });
-  describe('concurrently-edit-style-test', () => {
+  describe('concurrently-edit-style-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -798,7 +852,7 @@ describe('Tree.concurrency', () => {
         },
       ],
     });
-    const initialXML = `<root><p>a</p><p>b</p><p>c</p></root>`;
+    const initialXML = `<r><p color="red">a</p><p color="red">b</p><p color="red">c</p></r>`;
     const content: TreeNode = {
       type: 'p',
       children: [{ type: 'text', value: 'd' }],
@@ -884,7 +938,7 @@ describe('Tree.concurrency', () => {
       ),
     ];
 
-    RunTestConcurrency(
+    await RunTestConcurrency(
       'concurrently-edit-style-test',
       initialTree,
       initialXML,

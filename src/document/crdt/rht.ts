@@ -106,7 +106,7 @@ export class RHT {
     const prev = this.nodeMapByKey.get(key);
 
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-      if (prev !== undefined && !prev.isRemoved()) {
+      if (prev !== undefined && prev.isRemoved()) {
         this.numberOfRemovedElement -= 1;
       }
       const node = RHTNode.of(key, value, executedAt, false);
@@ -236,6 +236,7 @@ export class RHT {
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<RHTNode> {
     for (const [, node] of this.nodeMapByKey) {
+      if (node.isRemoved()) continue;
       yield node as RHTNode;
     }
   }
