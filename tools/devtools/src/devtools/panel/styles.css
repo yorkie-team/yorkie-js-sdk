@@ -41,19 +41,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 2em;
   height: 100vh;
   color: var(--gray-900);
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .yorkie-devtools-empty .empty-title {
   font-size: 1.4em;
   font-weight: 500;
-  margin-bottom: 10px;
+  margin-bottom: 1em;
 }
 
 .yorkie-devtools-empty .empty-desc {
   color: var(--gray-600);
+  text-align: center;
 }
 
 .yorkie-devtools-empty .reload-btn {
