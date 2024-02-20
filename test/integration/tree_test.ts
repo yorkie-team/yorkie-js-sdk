@@ -26,7 +26,6 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { Indexable, OperationInfo } from 'yorkie-js-sdk';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
