@@ -1333,6 +1333,152 @@ describe('Tree.style', function () {
       );
     });
   });
+
+  it('Should return correct range path within doc.subscribe', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'c',
+              children: [
+                {
+                  type: 'u',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [
+                        {
+                          type: 'n',
+                          children: [],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'c',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'n',
+                      children: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+      );
+
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 0], [1, 0, 0, 0], {
+          type: 'text',
+          value: '1',
+        }),
+      );
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 1], {
+          type: 'text',
+          value: '2',
+        }),
+      );
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 2], {
+          type: 'text',
+          value: '3',
+        }),
+      );
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>123</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>123</n></p></c></r>`,
+      );
+
+      d1.update((r) =>
+        r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 1], {
+          type: 'text',
+          value: 'abcdefgh',
+        }),
+      );
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcdefgh23</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcdefgh23</n></p></c></r>`,
+      );
+
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 5], [1, 0, 0, 5], {
+          type: 'text',
+          value: '4',
+        }),
+      );
+      d2.update((r) => r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 7]));
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 6], {
+          type: 'text',
+          value: '5',
+        }),
+      );
+      await c2.sync();
+      await c1.sync();
+
+      const eventCollector = new EventCollector<{ type: DocEventType }>();
+      const unsub = d2.subscribe((event) => {
+        const { fromPath, toPath } = event.value.operations[0];
+        console.log(event.value.operations[0]);
+        assert.deepEqual(fromPath, [1, 0, 0, 7]); // fromPath should be [1,0,0,7] (same as in the remote change)
+        assert.deepEqual(toPath, [1, 0, 0, 8]);
+        eventCollector.add({ type: event.type });
+      });
+
+      d2.update((r) => r.t.editByPath([1, 0, 0, 7], [1, 0, 0, 8]));
+
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcd45gh23</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcd45gh23</n></p></c></r>`,
+      );
+
+      await eventCollector.waitAndVerifyNthEvent(1, {
+        type: DocEventType.LocalChange,
+      });
+      unsub();
+    }, task.name);
+  });
 });
 
 describe('Tree.edit(concurrent overlapping range)', () => {
