@@ -26,6 +26,7 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { Indexable, OperationInfo } from 'yorkie-js-sdk';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -1453,11 +1454,14 @@ describe('Tree.style', function () {
 
       const eventCollector = new EventCollector<{ type: DocEventType }>();
       const unsub = d2.subscribe((event) => {
-        const { fromPath, toPath } = event.value.operations[0];
-        console.log(event.value.operations[0]);
-        assert.deepEqual(fromPath, [1, 0, 0, 7]); // fromPath should be [1,0,0,7] (same as in the remote change)
-        assert.deepEqual(toPath, [1, 0, 0, 8]);
-        eventCollector.add({ type: event.type });
+        if (event.type === 'local-change' || event.type === 'remote-change') {
+          const operation = event.value.operations[0] as TreeEditOpInfo;
+          const { fromPath, toPath } = operation;
+          console.log(event.value.operations[0]);
+          assert.deepEqual(fromPath, [1, 0, 0, 7]); // fromPath should be [1,0,0,7] (same as in the remote change)
+          assert.deepEqual(toPath, [1, 0, 0, 8]);
+          eventCollector.add({ type: event.type });
+        }
       });
 
       d2.update((r) => r.t.editByPath([1, 0, 0, 7], [1, 0, 0, 8]));
