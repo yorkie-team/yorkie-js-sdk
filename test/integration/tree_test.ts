@@ -1456,8 +1456,7 @@ describe('Tree.style', function () {
         if (event.type === 'local-change' || event.type === 'remote-change') {
           const operation = event.value.operations[0] as TreeEditOpInfo;
           const { fromPath, toPath } = operation;
-          console.log(event.value.operations[0]);
-          assert.deepEqual(fromPath, [1, 0, 0, 7]); // fromPath should be [1,0,0,7] (same as in the remote change)
+          assert.deepEqual(fromPath, [1, 0, 0, 7]);
           assert.deepEqual(toPath, [1, 0, 0, 8]);
           eventCollector.add({ type: event.type });
         }
