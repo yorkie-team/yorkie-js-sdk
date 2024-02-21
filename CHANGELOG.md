@@ -7,12 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [0.4.14] - 2024-01-29
+### Added
+
+- Implement Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/745
+
+### Changed
+
+- Change actorID to be non-optional by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/747
 
 ### Fixed
 
+- Fix incorrect calculation in indexTree.treePosToPath operation by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/751
 - Fix invalid sync when editing multiple cursors in CodeMirror6 by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/743
 - Fix incorrect index returned when using posRangeToIndexRange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/742
+
+## [0.4.14] - 2024-01-29
 
 ### Added
 
