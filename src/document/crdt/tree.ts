@@ -833,53 +833,6 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `removeStyle` removes the given attributes of the given range.
-   */
-  public removeStyle(
-    range: [CRDTTreePos, CRDTTreePos],
-    attributesToRemove: Array<string>,
-    editedAt: TimeTicket,
-  ) {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
-      range[0],
-      editedAt,
-    );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
-
-    const changes: Array<TreeChange> = [];
-    const value = attributesToRemove ? attributesToRemove : undefined;
-    this.traverseInPosRange(
-      fromParent,
-      fromLeft,
-      toParent,
-      toLeft,
-      ([node]) => {
-        if (!node.isRemoved && !node.isText && attributesToRemove) {
-          if (!node.attrs) {
-            node.attrs = new RHT();
-          }
-
-          for (const value of attributesToRemove) {
-            node.attrs.remove(value, editedAt);
-          }
-
-          changes.push({
-            type: TreeChangeType.RemoveStyle,
-            from: this.toIndex(fromParent, fromLeft),
-            to: this.toIndex(toParent, toLeft),
-            fromPath: this.toPath(fromParent, fromLeft),
-            toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
-            value,
-          });
-        }
-      },
-    );
-
-    return changes;
-  }
-
-  /**
    * `edit` edits the tree with the given range and content.
    * If the content is undefined, the range will be removed.
    */
