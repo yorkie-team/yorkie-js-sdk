@@ -15,7 +15,10 @@
  */
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import type { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+import type {
+  DocEventType,
+  DocumentStatus,
+} from '@yorkie-js-sdk/src/document/document';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import type { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import type { PresenceChangeType } from '@yorkie-js-sdk/src/document/presence/presence';
@@ -133,10 +136,10 @@ export type ChangesChangePack = BaseHistoryChangePack & {
   payload: {
     changeID: string;
     message?: string;
-    operations?: string;
+    operations?: Array<string>;
     presenceChange?: {
       type: PresenceChangeType;
-      presence: Json;
+      presence?: Json;
     };
   };
 };
@@ -144,10 +147,6 @@ export type ChangesChangePack = BaseHistoryChangePack & {
 export enum WatchStreamType {
   Initialization = 'initialization',
   DocEvent = 'doc-event',
-}
-export enum WatchDocEventType {
-  Watched = 'watched',
-  Unwatched = 'unwatched',
 }
 export type WatchStreamChangePack = BaseHistoryChangePack & {
   type: HistoryChangePackType.WatchStream;
@@ -159,7 +158,7 @@ export type WatchStreamChangePack = BaseHistoryChangePack & {
     | {
         type: WatchStreamType.DocEvent;
         value: {
-          type: WatchDocEventType;
+          type: DocEventType.Watched | DocEventType.Unwatched;
           publisher: string;
         };
       };

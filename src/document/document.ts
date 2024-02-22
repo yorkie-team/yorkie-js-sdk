@@ -263,7 +263,7 @@ export interface PresenceChangedEvent<P extends Indexable>
  */
 export interface DevtoolsEvent extends BaseDocEvent {
   type: DocEventType.Devtools;
-  value: Array<Devtools.ChangeInfo>;
+  value: Array<Devtools.HistoryChangePack>;
 }
 
 /**
@@ -462,10 +462,11 @@ export class Document<T, P extends Indexable = Indexable> {
   private isUpdating: boolean;
 
   /**
-   * `changesForTest` stores all changes in the document for displaying the changes
-   * history in Devtools. Later, external storage such as IndexedDB will be used.
+   * `historyChanges` stores all changes in the document for replaying
+   * (time-traveling feature) in Devtools. Later, external storage such as
+   * IndexedDB will be used.
    */
-  public changesForTest: Array<Devtools.ChangeInfo>;
+  public historyChanges: Array<Devtools.HistoryChangePack>;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -494,7 +495,7 @@ export class Document<T, P extends Indexable = Indexable> {
       redo: this.redo.bind(this),
     };
 
-    this.changesForTest = [];
+    this.historyChanges = [];
     setupDevtools(this);
   }
 
@@ -573,7 +574,7 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       const change = context.getChange();
-      const { opInfos, reverseOps, opInfosForTest } = change.execute(
+      const { opInfos, reverseOps } = change.execute(
         this.root,
         this.presences,
         OpSource.Local,
@@ -619,26 +620,21 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       // 04. Publish the devtools event.
-      const changeInfoForTest: Devtools.ChangeInfo = [];
-      if (change.hasOperations()) {
-        changeInfoForTest.push(...opInfosForTest);
-      }
-      if (change.hasPresenceChange()) {
-        changeInfoForTest.push({
-          op: DocEventType.PresenceChanged,
-          type: 'local-presence',
-          event: {
-            type: DocEventType.PresenceChanged,
-            value: {
-              clientID: actorID,
-              presence: this.getPresence(actorID)!,
-            },
-          },
-          snapshot: converter.bytesToHex(this.toSnapshot()),
-          clientID: actorID,
-        });
-      }
-      this.publishDevtoolsEvent([changeInfoForTest]);
+      const historyChanges: Array<Devtools.HistoryChangePack> = [];
+      historyChanges.push({
+        // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
+        source: OpSource.Local,
+        type: Devtools.HistoryChangePackType.Changes,
+        payload: {
+          changeID: change.getID().toTestString(), // TODO(chacha912): Convert the protobuf value to a string instead of using toTestString.
+          message: change.getMessage(),
+          operations: change.getOperations().map(
+            (op) => converter.bytesToHex(converter.toOperation(op).toBinary()), // TODO(chacha912): Compare if directly using JSON.stringify on the byte array is better.
+          ),
+          presenceChange: change.getPresenceChange(),
+        },
+      });
+      this.publishDevtoolsEvent(historyChanges);
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
@@ -867,12 +863,12 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
    */
-  public publishDevtoolsEvent(changes: Array<Devtools.ChangeInfo>) {
+  public publishDevtoolsEvent(changes: Array<Devtools.HistoryChangePack>) {
     if (process.env.NODE_ENV === 'production') {
       return;
     }
 
-    this.changesForTest.push(...changes);
+    this.historyChanges.push(...changes);
     this.publish({
       type: DocEventType.Devtools,
       value: changes,
@@ -905,7 +901,7 @@ export class Document<T, P extends Indexable = Indexable> {
         pack.getSnapshot(),
       );
     } else if (pack.hasChanges()) {
-      this.applyChanges(pack.getChanges());
+      this.applyChanges(pack.getChanges(), OpSource.Remote);
     }
 
     // 02. Remove local changes applied to server.
@@ -1100,10 +1096,10 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getChangesForTest` returns all changes in the document.
+   * `getHistoryChanges` returns history changes of this document.
    */
-  public getChangesForTest(): Array<Devtools.ChangeInfo> {
-    return this.changesForTest;
+  public getHistoryChanges(): Array<Devtools.HistoryChangePack> {
+    return this.historyChanges;
   }
 
   /**
@@ -1163,25 +1159,21 @@ export class Document<T, P extends Indexable = Indexable> {
     });
 
     // Publish the devtools event.
-    const changeInfoForTest: Devtools.ChangeInfo = [
+    this.publishDevtoolsEvent([
       {
-        op: 'snapshot',
-        type: 'remote-document',
-        event: {
-          type: DocEventType.Snapshot,
-          value: snapshot,
+        source: OpSource.Remote,
+        type: Devtools.HistoryChangePackType.Snapshot,
+        payload: {
+          snapshot: converter.bytesToHex(snapshot),
         },
-        snapshot: converter.bytesToHex(this.toSnapshot()),
-        clientID: this.changeID.getActorID(),
       },
-    ];
-    this.publishDevtoolsEvent([changeInfoForTest]);
+    ]);
   }
 
   /**
    * `applyChanges` applies the given changes into this document.
    */
-  public applyChanges(changes: Array<Change<P>>): void {
+  public applyChanges(changes: Array<Change<P>>, source: OpSource): void {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
@@ -1201,10 +1193,9 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     this.ensureClone();
-    const changeInfosForTest: Array<Devtools.ChangeInfo> = [];
+    const historyChanges: Array<Devtools.HistoryChangePack> = [];
     for (const change of changes) {
-      const changeInfoForTest: Devtools.ChangeInfo = [];
-      change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
+      change.execute(this.clone!.root, this.clone!.presences, source);
 
       let presenceEvent:
         | WatchedEvent<P>
@@ -1249,11 +1240,7 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      const { opInfos, opInfosForTest } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Remote,
-      );
+      const { opInfos } = change.execute(this.root, this.presences, source);
 
       // DocEvent should be emitted synchronously with applying changes.
       // This is because 3rd party model should be synced with the Document
@@ -1261,7 +1248,10 @@ export class Document<T, P extends Indexable = Indexable> {
       // asynchronously, the model can be changed and breaking consistency.
       if (opInfos.length > 0) {
         this.publish({
-          type: DocEventType.RemoteChange,
+          type:
+            source === OpSource.Remote
+              ? DocEventType.RemoteChange
+              : DocEventType.LocalChange,
           value: {
             actor: actorID,
             message: change.getMessage() || '',
@@ -1275,23 +1265,24 @@ export class Document<T, P extends Indexable = Indexable> {
 
       this.changeID = this.changeID.syncLamport(change.getID().getLamport());
 
-      changeInfoForTest.push(...opInfosForTest);
-      if (presenceEvent) {
-        changeInfoForTest.push({
-          op: presenceEvent.type,
-          type: 'remote-presence',
-          event: presenceEvent,
-          snapshot: converter.bytesToHex(this.toSnapshot()),
-          clientID: this.changeID.getActorID(),
-        });
-      }
-      if (changeInfoForTest.length > 0) {
-        changeInfosForTest.push(changeInfoForTest);
-      }
+      historyChanges.push({
+        source,
+        type: Devtools.HistoryChangePackType.Changes,
+        payload: {
+          changeID: change.getID().toTestString(),
+          message: change.getMessage(),
+          operations: change
+            .getOperations()
+            .map((op) =>
+              converter.bytesToHex(converter.toOperation(op).toBinary()),
+            ),
+          presenceChange: change.getPresenceChange(),
+        },
+      });
     }
 
     // Publish the devtools event.
-    this.publishDevtoolsEvent(changeInfosForTest);
+    this.publishDevtoolsEvent(historyChanges);
 
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(

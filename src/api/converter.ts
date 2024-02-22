@@ -1525,4 +1525,5 @@ export const converter = {
   hexToBytes,
   toHexString,
   toUint8Array,
+  toOperation,
 };

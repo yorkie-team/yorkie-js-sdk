@@ -76,7 +76,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      changes: Array<Devtools.ChangeInfo>;
+      changes: Array<Devtools.HistoryChangePack>;
     }
   /**
    * Sent whenever the document is updated.
@@ -84,7 +84,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      changes: Array<Devtools.ChangeInfo>;
+      changes: Array<Devtools.HistoryChangePack>;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

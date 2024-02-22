@@ -50,7 +50,7 @@ function startSync<T, P extends Indexable>(doc: Document<T, P>): void {
   sendToPanel({
     msg: 'doc::sync::full',
     docKey: doc.getKey(),
-    changes: doc.getChangesForTest(),
+    changes: doc.getHistoryChanges(),
   });
 
   const unsub = doc.subscribeForTest((event) => {

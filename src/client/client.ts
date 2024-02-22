@@ -45,6 +45,7 @@ import {
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
@@ -468,6 +469,17 @@ export class Client implements Observable<ClientEvent> {
           await this.runWatchLoop(doc.getKey());
         }
 
+        doc.publishDevtoolsEvent([
+          {
+            source: OpSource.Local,
+            type: Devtools.HistoryChangePackType.DocStatus,
+            payload: {
+              type: DocumentStatus.Attached,
+              value: { actorID: this.id! },
+            },
+          },
+        ]);
+
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
         return doc;
       })
@@ -522,6 +534,15 @@ export class Client implements Observable<ClientEvent> {
           doc.setStatus(DocumentStatus.Detached);
         }
         this.detachInternal(doc.getKey());
+        doc.publishDevtoolsEvent([
+          {
+            source: OpSource.Local,
+            type: Devtools.HistoryChangePackType.DocStatus,
+            payload: {
+              type: DocumentStatus.Detached,
+            },
+          },
+        ]);
 
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
@@ -875,16 +896,16 @@ export class Client implements Observable<ClientEvent> {
       attachment.doc.publish(event);
 
       // Publish the devtools event.
-      const changeInfoForTest: Devtools.ChangeInfo = [
+      attachment.doc.publishDevtoolsEvent([
         {
-          op: 'initialized',
-          type: 'local-presence',
-          event,
-          snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
-          clientID: this.id!,
+          source: OpSource.Local,
+          type: Devtools.HistoryChangePackType.WatchStream,
+          payload: {
+            type: Devtools.WatchStreamType.Initialization,
+            value: { clientIDs },
+          },
         },
-      ];
-      attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
+      ]);
       return;
     } else if (resp.body.case === 'event') {
       const pbWatchEvent = resp.body.value;
@@ -913,16 +934,19 @@ export class Client implements Observable<ClientEvent> {
             attachment.doc.publish(event);
 
             // Publish the devtools event.
-            const changeInfoForTest: Devtools.ChangeInfo = [
+            attachment.doc.publishDevtoolsEvent([
               {
-                op: 'watched',
-                type: 'remote-presence',
-                event,
-                snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
-                clientID: this.id!,
+                source: OpSource.Remote,
+                type: Devtools.HistoryChangePackType.WatchStream,
+                payload: {
+                  type: Devtools.WatchStreamType.DocEvent,
+                  value: {
+                    type: DocEventType.Watched,
+                    publisher,
+                  },
+                },
               },
-            ];
-            attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
+            ]);
           }
 
           break;
@@ -939,16 +963,19 @@ export class Client implements Observable<ClientEvent> {
             attachment.doc.publish(event);
 
             // Publish the devtools event.
-            const changeInfoForTest: Devtools.ChangeInfo = [
+            attachment.doc.publishDevtoolsEvent([
               {
-                op: 'unwatched',
-                type: 'remote-presence',
-                event,
-                snapshot: converter.bytesToHex(attachment.doc.toSnapshot()),
-                clientID: this.id!,
+                source: OpSource.Remote,
+                type: Devtools.HistoryChangePackType.WatchStream,
+                payload: {
+                  type: Devtools.WatchStreamType.DocEvent,
+                  value: {
+                    type: DocEventType.Unwatched,
+                    publisher,
+                  },
+                },
               },
-            ];
-            attachment.doc.publishDevtoolsEvent([changeInfoForTest]);
+            ]);
           }
           break;
         }
