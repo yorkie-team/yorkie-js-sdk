@@ -4306,19 +4306,30 @@ describe('TreeChange', () => {
 
       assert.deepEqual(
         ops1.map((it) => {
-          return { type: it.type, from: it.from, to: it.to, value: it.value };
+          return {
+            type: it.type,
+            from: it.from,
+            to: it.to,
+            value: it.value,
+            fromPath: it.fromPath,
+            toPath: (it as any).toPath,
+          };
         }),
         [
           {
             type: 'tree-style',
             from: 0,
             to: 1,
+            fromPath: [0],
+            toPath: undefined,
             value: { value: 'changed' },
           } as any,
           {
             type: 'tree-edit',
             from: 0,
             to: 2,
+            fromPath: [0],
+            toPath: [1],
             value: undefined,
           } as any,
         ],
@@ -4326,13 +4337,22 @@ describe('TreeChange', () => {
 
       assert.deepEqual(
         ops2.map((it) => {
-          return { type: it.type, from: it.from, to: it.to, value: it.value };
+          return {
+            type: it.type,
+            from: it.from,
+            to: it.to,
+            value: it.value,
+            fromPath: it.fromPath,
+            toPath: (it as any).toPath,
+          };
         }),
         [
           {
             type: 'tree-edit',
             from: 0,
             to: 2,
+            fromPath: [0],
+            toPath: [1],
             value: undefined,
           } as any,
         ],
