@@ -285,6 +285,7 @@ const Operation_TreeStyle = proto3.makeMessageType(
     { no: 3, name: "to", kind: "message", T: TreePos },
     { no: 4, name: "attributes", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
     { no: 5, name: "executed_at", kind: "message", T: TimeTicket },
+    { no: 6, name: "attributes_to_remove", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ],
   {localName: "Operation_TreeStyle"},
 );

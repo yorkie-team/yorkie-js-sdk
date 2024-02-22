@@ -192,6 +192,6 @@ export class TreeStyleOperation extends Operation {
    * `getAttributesToRemove` returns the attributes of Style to remove.
    */
   public getAttributesToRemove(): Array<string> {
-    return this.attributesToRemove;
+    return this.attributesToRemove!;
   }
 }
