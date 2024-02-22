@@ -523,8 +523,6 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       undefined,
       undefined,
       this.removedAt,
-      this.insPrevID,
-      this.insNextID,
     );
   }
 
