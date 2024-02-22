@@ -416,11 +416,15 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
     opts?: string | Array<CRDTTreeNode>,
     attributes?: RHT,
     removedAt?: TimeTicket,
+    insPrevID?: CRDTTreeNodeID,
+    insNextID?: CRDTTreeNodeID,
   ) {
     super(type);
     this.id = id;
     this.removedAt = removedAt;
     attributes && (this.attrs = attributes);
+    this.insPrevID = insPrevID;
+    this.insNextID = insNextID;
 
     if (typeof opts === 'string') {
       this.value = opts;
@@ -455,6 +459,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       childClone.parent = clone;
       return childClone;
     });
+    clone.insPrevID = this.insPrevID;
+    clone.insNextID = this.insNextID;
     return clone;
   }
 
@@ -517,6 +523,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       undefined,
       undefined,
       this.removedAt,
+      this.insPrevID,
+      this.insNextID,
     );
   }
 
