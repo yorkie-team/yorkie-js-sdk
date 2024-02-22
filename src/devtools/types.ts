@@ -15,8 +15,10 @@
  */
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+import type { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
+import type { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
+import type { PresenceChangeType } from '@yorkie-js-sdk/src/document/presence/presence';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 /**
@@ -101,24 +103,76 @@ export type TreeNodeInfo = {
 };
 
 /**
- * `OpInfo` represents the operation information in devtools.
+ * `HistoryChangePack` represents a unit where changes can occur in the document.
+ * It is used for document replay purposes.
  */
-export type OpInfo = {
-  // NOTE(chacha912): `op` represents the result of `toTestString` for the operation.
-  op: string;
-  type:
-    | 'local-document'
-    | 'remote-document'
-    | 'local-presence'
-    | 'remote-presence';
-  event: DocEvent;
-  // NOTE(chacha912): `clientID` is the client that is currently attaching the document.
-  // It is used to build the document from the snapshot.
-  clientID: string;
-  snapshot: string;
+export type HistoryChangePack =
+  | SnapshotChangePack
+  | ChangesChangePack
+  | WatchStreamChangePack
+  | DocStatusChangePack;
+
+type BaseHistoryChangePack = {
+  source: OpSource;
 };
 
-/**
- * `ChangeInfo` represents the change information in devtools.
- */
-export type ChangeInfo = Array<OpInfo>;
+export enum HistoryChangePackType {
+  Snapshot = 'snapshot',
+  Changes = 'changes',
+  WatchStream = 'watch-stream',
+  DocStatus = 'doc-status',
+}
+
+export type SnapshotChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Snapshot;
+  payload: { snapshot: string };
+};
+
+export type ChangesChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Changes;
+  payload: {
+    changeID: string;
+    message?: string;
+    operations?: string;
+    presenceChange?: {
+      type: PresenceChangeType;
+      presence: Json;
+    };
+  };
+};
+
+export enum WatchStreamType {
+  Initialization = 'initialization',
+  DocEvent = 'doc-event',
+}
+export enum WatchDocEventType {
+  Watched = 'watched',
+  Unwatched = 'unwatched',
+}
+export type WatchStreamChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.WatchStream;
+  payload:
+    | {
+        type: WatchStreamType.Initialization;
+        value: { clientIDs: Array<string> };
+      }
+    | {
+        type: WatchStreamType.DocEvent;
+        value: {
+          type: WatchDocEventType;
+          publisher: string;
+        };
+      };
+};
+
+export type DocStatusChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.DocStatus;
+  payload:
+    | {
+        type: DocumentStatus.Attached;
+        value: { actorID: string };
+      }
+    | {
+        type: DocumentStatus.Detached;
+      };
+};
