@@ -39,11 +39,16 @@ export function YorkieSourceProvider({ children }: Props) {
   const [doc, setDoc] = useState(null);
   const [changes, setChanges] = useState<Array<Devtools.ChangeInfo>>([]);
 
+  const resetDocument = () => {
+    setCurrentDocKey('');
+    setChanges([]);
+    setDoc(null);
+  };
+
   const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
     switch (message.msg) {
       case 'refresh-devtools':
-        setCurrentDocKey('');
-        setChanges([]);
+        resetDocument();
         sendToSDK({ msg: 'devtools::connect' });
         break;
       case 'doc::available':
@@ -66,8 +71,8 @@ export function YorkieSourceProvider({ children }: Props) {
   }, []);
 
   const handlePortDisconnect = useCallback(() => {
-    setCurrentDocKey('');
-  }, []);
+    resetDocument();
+  }, [resetDocument]);
 
   useEffect(() => {
     connectPort(handleSDKMessage, handlePortDisconnect);
