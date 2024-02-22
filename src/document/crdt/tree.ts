@@ -775,6 +775,53 @@ export class CRDTTree extends CRDTGCElement {
             to: this.toIndex(toParent, toLeft),
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID(),
+            value,
+          });
+        }
+      },
+    );
+
+    return changes;
+  }
+
+  /**
+   * `removeStyle` removes the given attributes of the given range.
+   */
+  public removeStyle(
+    range: [CRDTTreePos, CRDTTreePos],
+    attributesToRemove: Array<string>,
+    editedAt: TimeTicket,
+  ) {
+    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+      range[0],
+      editedAt,
+    );
+    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+
+    const changes: Array<TreeChange> = [];
+    const value = attributesToRemove ? attributesToRemove : undefined;
+    this.traverseInPosRange(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      ([node]) => {
+        if (!node.isRemoved && !node.isText && attributesToRemove) {
+          if (!node.attrs) {
+            node.attrs = new RHT();
+          }
+
+          for (const value of attributesToRemove) {
+            node.attrs.remove(value, editedAt);
+          }
+
+          changes.push({
+            type: TreeChangeType.RemoveStyle,
+            from: this.toIndex(fromParent, fromLeft),
+            to: this.toIndex(toParent, toLeft),
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
             actor: editedAt.getActorID()!,
             value,
           });
@@ -880,10 +927,10 @@ export class CRDTTree extends CRDTGCElement {
           }
         }
 
-        const actorID = node.getCreatedAt().getActorID()!;
+        const actorID = node.getCreatedAt().getActorID();
         const latestCreatedAt = latestCreatedAtMapByActor
-          ? latestCreatedAtMapByActor!.has(actorID!)
-            ? latestCreatedAtMapByActor!.get(actorID!)!
+          ? latestCreatedAtMapByActor!.has(actorID)
+            ? latestCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
           : MaxTimeTicket;
 
@@ -949,7 +996,7 @@ export class CRDTTree extends CRDTGCElement {
         to: fromIdx,
         fromPath,
         toPath: fromPath,
-        actor: editedAt.getActorID()!,
+        actor: editedAt.getActorID(),
       });
     }
 
@@ -994,7 +1041,7 @@ export class CRDTTree extends CRDTGCElement {
             to: fromIdx,
             fromPath,
             toPath: fromPath,
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
             value,
           });
         }
@@ -1438,7 +1485,7 @@ export class CRDTTree extends CRDTGCElement {
             to: toIdx,
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
+            actor: editedAt.getActorID(),
           });
         }
       }

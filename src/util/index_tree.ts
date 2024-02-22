@@ -252,10 +252,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `hasTextChild` returns true if the node has an text child.
+   * `hasTextChild` returns true if the node's children consist of only text children.
    */
   hasTextChild(): boolean {
-    return this.children.some((child) => child.isText);
+    return (
+      this.children.length > 0 && this.children.every((child) => child.isText)
+    );
   }
 
   /**
@@ -804,8 +806,16 @@ export class IndexTree<T extends IndexTreeNode<T>> {
         node.parent! as T,
         offset,
       );
-      node = node.parent!;
       path.push(sizeOfLeftSiblings + treePos.offset);
+      node = node.parent!;
+    } else if (node.hasTextChild()) {
+      // TODO(hackerwins): The function does not consider the situation 
+      // where Element and Text nodes are mixed in the Element's Children.
+      const sizeOfLeftSiblings = addSizeOfLeftSiblings(
+        node! as T,
+        treePos.offset,
+      );
+      path.push(sizeOfLeftSiblings);
     } else {
       path.push(treePos.offset);
     }

@@ -566,7 +566,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         changes[changes.length - 1].value = value;
       } else {
         changes.push({
-          actor: editedAt.getActorID()!,
+          actor: editedAt.getActorID(),
           from: idx,
           to: idx,
           value,
@@ -902,8 +902,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       const actorID = node.getCreatedAt().getActorID();
 
       const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor!.has(actorID!)
-          ? latestCreatedAtMapByActor!.get(actorID!)
+        ? latestCreatedAtMapByActor!.has(actorID)
+          ? latestCreatedAtMapByActor!.get(actorID)
           : InitialTimeTicket
         : MaxTimeTicket;
 
@@ -960,7 +960,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
       if (fromIdx < toIdx) {
         changes.push({
-          actor: editedAt.getActorID()!,
+          actor: editedAt.getActorID(),
           from: fromIdx,
           to: toIdx,
         });

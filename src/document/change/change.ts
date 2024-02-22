@@ -166,11 +166,11 @@ export class Change<P extends Indexable> {
     if (this.presenceChange) {
       if (this.presenceChange.type === PresenceChangeType.Put) {
         presences.set(
-          this.id.getActorID()!,
+          this.id.getActorID(),
           deepcopy(this.presenceChange.presence),
         );
       } else {
-        presences.delete(this.id.getActorID()!);
+        presences.delete(this.id.getActorID());
       }
     }
 
