@@ -868,9 +868,9 @@ export class Document<T, P extends Indexable = Indexable> {
    * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
    */
   public publishDevtoolsEvent(changes: Array<Devtools.ChangeInfo>) {
-    if (process.env.NODE_ENV === 'production') {
-      return;
-    }
+    // if (process.env.NODE_ENV === 'production') {
+    //   return;
+    // }
 
     this.changesForTest.push(...changes);
     this.publish({
