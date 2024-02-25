@@ -16,51 +16,44 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Slider from 'rc-slider';
-import yorkie, { converter } from 'yorkie-js-sdk';
-import { useYorkieChanges, useYorkieDoc } from '../contexts/YorkieSource';
+import { useYorkieChanges } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 
 const SLIDER_MARK_WIDTH = 24;
 
-export function History({ style }) {
+export function History({ style, selectedChangeInfo, setSelectedChangeInfo }) {
   const changes = useYorkieChanges();
-  const [, setDoc] = useYorkieDoc();
+
   const [openHistory, setOpenHistory] = useState(false);
-  const [selectedChangeIndex, setSelectedChangeIndex] = useState(null);
   const [selectedChange, setSelectedChange] = useState([]);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
 
   const handleSliderChange = (value) => {
-    setSelectedChangeIndex(value);
-    const selected = changes[value].at(-1);
-    const snapshot = converter.hexToBytes(selected.snapshot);
-    const doc = yorkie.Document.createFromSnapshot('dockey', snapshot);
-    if (selected.clientID !== '000000000000000000000000') {
-      doc.setActor(selected.clientID);
-      doc.setStatus('attached');
-    }
-    setDoc(doc);
+    setSelectedChangeInfo({
+      index: value,
+      isLast: value === changes.length - 1,
+    });
   };
 
   useEffect(() => {
-    if (!openHistory || selectedChangeIndex === null) return;
+    if (!openHistory || selectedChangeInfo.index === null) return;
     if (scrollRef.current) {
       scrollRef.current.scrollLeft =
-        selectedChangeIndex * SLIDER_MARK_WIDTH -
+        selectedChangeInfo.index * SLIDER_MARK_WIDTH -
         scrollRef.current.clientWidth / 2;
     }
 
     setSelectedChange(
-      changes[selectedChangeIndex].map(({ event, op }) => {
+      changes[selectedChangeInfo.index].map(({ event, op }) => {
         return {
           event: event.type === 'snapshot' ? { type: event.type } : event,
           op,
         };
       }),
     );
-  }, [openHistory, selectedChangeIndex]);
+  }, [openHistory, selectedChangeInfo]);
 
   useEffect(() => {
     if (!openHistory || changes.length === 0) return;
@@ -83,11 +76,6 @@ export function History({ style }) {
     }
     setSliderMarks(marks);
   }, [openHistory, changes]);
-
-  useEffect(() => {
-    if (changes.length === 0) return;
-    setSelectedChangeIndex(changes.length - 1);
-  }, [changes]);
 
   return (
     <div
@@ -116,15 +104,20 @@ export function History({ style }) {
               <span className="devtools-history-buttons">
                 <button
                   onClick={() => {
-                    setSelectedChangeIndex(0);
+                    setSelectedChangeInfo({
+                      index: 0,
+                      isLast: changes.length === 1,
+                    });
                   }}
                 >
                   ⇤
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndex((prev) => {
-                      return prev === 0 ? 0 : prev - 1;
+                    setSelectedChangeInfo((prev) => {
+                      return prev.index === 0
+                        ? prev
+                        : { index: prev.index - 1, isLast: false };
                     });
                   }}
                 >
@@ -132,8 +125,10 @@ export function History({ style }) {
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndex((prev) => {
-                      return prev === changes.length - 1 ? prev : prev + 1;
+                    setSelectedChangeInfo((prev) => {
+                      return prev.index === changes.length - 1
+                        ? prev
+                        : { index: prev.index + 1, isLast: false };
                     });
                   }}
                 >
@@ -141,7 +136,10 @@ export function History({ style }) {
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndex(changes.length - 1);
+                    setSelectedChangeInfo({
+                      index: changes.length - 1,
+                      isLast: true,
+                    });
                   }}
                 >
                   ⇥
@@ -161,7 +159,7 @@ export function History({ style }) {
                 min={0}
                 marks={sliderMarks}
                 max={changes.length - 1}
-                value={selectedChangeIndex}
+                value={selectedChangeInfo.index}
                 step={1}
                 onChange={handleSliderChange}
                 style={{

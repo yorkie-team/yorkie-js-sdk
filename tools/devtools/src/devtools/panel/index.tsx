@@ -15,7 +15,7 @@
  */
 
 import { createRoot } from 'react-dom/client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import yorkie, { converter } from 'yorkie-js-sdk';
 import { useResizable } from 'react-resizable-layout';
 
@@ -36,6 +36,10 @@ const Panel = () => {
   const currentDocKey = useCurrentDocKey();
   const changes = useYorkieChanges();
   const [, setDoc] = useYorkieDoc();
+  const [selectedChangeInfo, setSelectedChangeInfo] = useState({
+    index: null,
+    isLast: true,
+  });
   const {
     isDragging: isHistoryDragging,
     position: historyH,
@@ -54,9 +58,17 @@ const Panel = () => {
   });
 
   useEffect(() => {
-    if (changes.length > 0) {
-      // NOTE(chacha912): Build the document of the last operation in the last change.
-      const selected = changes.at(-1).at(-1);
+    if (changes.length > 0 && selectedChangeInfo.isLast) {
+      setSelectedChangeInfo({
+        index: changes.length - 1,
+        isLast: true,
+      });
+    }
+  }, [changes]);
+
+  useEffect(() => {
+    if (selectedChangeInfo.index !== null) {
+      const selected = changes[selectedChangeInfo.index].at(-1);
       const snapshot = converter.hexToBytes(selected.snapshot);
       const doc = yorkie.Document.createFromSnapshot(currentDocKey, snapshot);
       if (selected.clientID !== '000000000000000000000000') {
@@ -65,7 +77,7 @@ const Panel = () => {
       }
       setDoc(doc);
     }
-  }, [changes]);
+  }, [selectedChangeInfo]);
 
   if (!currentDocKey) {
     return (
@@ -91,7 +103,11 @@ const Panel = () => {
 
   return (
     <div className="yorkie-devtools">
-      <History style={{ height: historyH }} />
+      <History
+        style={{ height: historyH }}
+        selectedChangeInfo={selectedChangeInfo}
+        setSelectedChangeInfo={setSelectedChangeInfo}
+      />
       <Separator
         dir={'horizontal'}
         isDragging={isHistoryDragging}

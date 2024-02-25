@@ -111,7 +111,7 @@ export function TreeDetail({
   node: RootTreeNode;
   tree: Devtools.TreeNodeInfo;
 }) {
-  const [viewType, setViewType] = useState<'json' | 'graph'>('json');
+  const [viewType, setViewType] = useState<'json' | 'graph'>('graph');
 
   return (
     <div className="selected-view-tab">
