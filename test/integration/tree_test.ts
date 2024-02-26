@@ -1483,7 +1483,7 @@ describe('Tree.style', function () {
     }, task.name);
   });
 
-  it('Should return correct range path with client reload case', async function ({ task }) {
+  it('Can handle client reload case', async function ({ task }) {
     type TestDoc = { t: Tree; num: number };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
