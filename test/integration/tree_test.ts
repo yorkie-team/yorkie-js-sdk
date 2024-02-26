@@ -1719,7 +1719,6 @@ describe('Tree.style', function () {
       /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카2 네이3</n></p></c></r>`,
     );
 
-    // debugger;
     d3.update((r) => {
       r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 3]);
     });
