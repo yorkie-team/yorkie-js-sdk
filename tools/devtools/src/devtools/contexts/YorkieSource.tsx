@@ -50,14 +50,16 @@ export function applyHistoryChangePack(
   doc,
   changePack: Devtools.HistoryChangePack,
 ) {
+  let result;
   switch (changePack.type) {
     case Devtools.HistoryChangePackType.Snapshot:
       const { snapshot, serverSeq } = changePack.payload;
-      doc.applySnapshot(
+      result = doc.applySnapshot(
         Long.fromString(serverSeq),
         converter.hexToBytes(snapshot),
       );
       return {
+        event: result.event,
         changePack: { type: changePack.type },
       };
     case Devtools.HistoryChangePackType.Changes:
@@ -71,8 +73,9 @@ export function applyHistoryChangePack(
         presenceChange: presenceChange as any,
         message,
       });
-      doc.applyChanges([change], changePack.source);
+      result = doc.applyChange(change, changePack.source);
       return {
+        event: result.event,
         changePack: {
           type: changePack.type,
           payload: {
@@ -90,13 +93,15 @@ export function applyHistoryChangePack(
         },
       };
     case Devtools.HistoryChangePackType.WatchStream:
-      doc.applyWatchStreamEvent(changePack.payload);
+      result = doc.applyWatchStreamEvent(changePack.payload);
       return {
+        event: result.event,
         changePack: { type: changePack.type, payload: changePack.payload },
       };
     case Devtools.HistoryChangePackType.DocStatus:
-      doc.applyDocStatus(changePack.payload);
+      result = doc.applyDocStatus(changePack.payload);
       return {
+        event: result.event,
         changePack: { type: changePack.type, payload: changePack.payload },
       };
   }

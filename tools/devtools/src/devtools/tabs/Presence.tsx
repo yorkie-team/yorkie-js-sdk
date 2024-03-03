@@ -29,7 +29,12 @@ export function Presence() {
     if (!doc) return;
     // TODO(chacha912): Enhance to prevent updates when there are no changes in the presences.
     const rawPresences = doc.getPresences();
-    if (rawPresences.length === 0) return;
+
+    if (rawPresences.length === 0) {
+      setPresences([]);
+      setSelectedPresence(null);
+      return;
+    }
     const myClientID = doc.getChangeID().getActorID();
     const others = rawPresences
       .filter((a) => a.clientID !== myClientID)
