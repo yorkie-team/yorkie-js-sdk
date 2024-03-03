@@ -1079,135 +1079,138 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
 }
 
 /**
+ * `fromOperation` converts the given Protobuf format to model format.
+ */
+function fromOperation(pbOperation: PbOperation): Operation | undefined {
+  if (pbOperation.body.case === 'set') {
+    const pbSetOperation = pbOperation.body.value;
+    return SetOperation.create(
+      pbSetOperation!.key,
+      fromElementSimple(pbSetOperation!.value!),
+      fromTimeTicket(pbSetOperation!.parentCreatedAt)!,
+      fromTimeTicket(pbSetOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'add') {
+    const pbAddOperation = pbOperation.body.value;
+    return AddOperation.create(
+      fromTimeTicket(pbAddOperation!.parentCreatedAt)!,
+      fromTimeTicket(pbAddOperation!.prevCreatedAt)!,
+      fromElementSimple(pbAddOperation!.value!),
+      fromTimeTicket(pbAddOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'move') {
+    const pbMoveOperation = pbOperation.body.value;
+    return MoveOperation.create(
+      fromTimeTicket(pbMoveOperation!.parentCreatedAt)!,
+      fromTimeTicket(pbMoveOperation!.prevCreatedAt)!,
+      fromTimeTicket(pbMoveOperation!.createdAt)!,
+      fromTimeTicket(pbMoveOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'remove') {
+    const pbRemoveOperation = pbOperation.body.value;
+    return RemoveOperation.create(
+      fromTimeTicket(pbRemoveOperation!.parentCreatedAt)!,
+      fromTimeTicket(pbRemoveOperation!.createdAt)!,
+      fromTimeTicket(pbRemoveOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'edit') {
+    const pbEditOperation = pbOperation.body.value;
+    const createdAtMapByActor = new Map();
+    Object.entries(pbEditOperation!.createdAtMapByActor).forEach(
+      ([key, value]) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      },
+    );
+    const attributes = new Map();
+    Object.entries(pbEditOperation!.attributes).forEach(([key, value]) => {
+      attributes.set(key, value);
+    });
+    return EditOperation.create(
+      fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
+      fromTextNodePos(pbEditOperation!.from!),
+      fromTextNodePos(pbEditOperation!.to!),
+      createdAtMapByActor,
+      pbEditOperation!.content,
+      attributes,
+      fromTimeTicket(pbEditOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'style') {
+    const pbStyleOperation = pbOperation.body.value;
+    const createdAtMapByActor = new Map();
+    Object.entries(pbStyleOperation!.createdAtMapByActor).forEach(
+      ([key, value]) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      },
+    );
+    const attributes = new Map();
+    Object.entries(pbStyleOperation!.attributes).forEach(([key, value]) => {
+      attributes.set(key, value);
+    });
+    return StyleOperation.create(
+      fromTimeTicket(pbStyleOperation!.parentCreatedAt)!,
+      fromTextNodePos(pbStyleOperation!.from!),
+      fromTextNodePos(pbStyleOperation!.to!),
+      createdAtMapByActor,
+      attributes,
+      fromTimeTicket(pbStyleOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'select') {
+    // TODO(hackerwins): Select is deprecated.
+    return;
+  } else if (pbOperation.body.case === 'increase') {
+    const pbIncreaseOperation = pbOperation.body.value;
+    return IncreaseOperation.create(
+      fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
+      fromElementSimple(pbIncreaseOperation!.value!),
+      fromTimeTicket(pbIncreaseOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'treeEdit') {
+    const pbTreeEditOperation = pbOperation.body.value;
+    const createdAtMapByActor = new Map();
+    Object.entries(pbTreeEditOperation!.createdAtMapByActor).forEach(
+      ([key, value]) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      },
+    );
+    return TreeEditOperation.create(
+      fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
+      fromTreePos(pbTreeEditOperation!.from!),
+      fromTreePos(pbTreeEditOperation!.to!),
+      fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
+      pbTreeEditOperation!.splitLevel,
+      createdAtMapByActor,
+      fromTimeTicket(pbTreeEditOperation!.executedAt)!,
+    );
+  } else if (pbOperation.body.case === 'treeStyle') {
+    const pbTreeStyleOperation = pbOperation.body.value;
+    const attributes = new Map();
+
+    Object.entries(pbTreeStyleOperation!.attributes).forEach(([key, value]) => {
+      attributes.set(key, value);
+    });
+    return TreeStyleOperation.create(
+      fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+      fromTreePos(pbTreeStyleOperation!.from!),
+      fromTreePos(pbTreeStyleOperation!.to!),
+      attributes,
+      fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
+    );
+  } else {
+    throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
+  }
+}
+
+/**
  * `fromOperations` converts the given Protobuf format to model format.
  */
 function fromOperations(pbOperations: Array<PbOperation>): Array<Operation> {
   const operations = [];
-
   for (const pbOperation of pbOperations) {
-    let operation: Operation;
-    if (pbOperation.body.case === 'set') {
-      const pbSetOperation = pbOperation.body.value;
-      operation = SetOperation.create(
-        pbSetOperation!.key,
-        fromElementSimple(pbSetOperation!.value!),
-        fromTimeTicket(pbSetOperation!.parentCreatedAt)!,
-        fromTimeTicket(pbSetOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'add') {
-      const pbAddOperation = pbOperation.body.value;
-      operation = AddOperation.create(
-        fromTimeTicket(pbAddOperation!.parentCreatedAt)!,
-        fromTimeTicket(pbAddOperation!.prevCreatedAt)!,
-        fromElementSimple(pbAddOperation!.value!),
-        fromTimeTicket(pbAddOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'move') {
-      const pbMoveOperation = pbOperation.body.value;
-      operation = MoveOperation.create(
-        fromTimeTicket(pbMoveOperation!.parentCreatedAt)!,
-        fromTimeTicket(pbMoveOperation!.prevCreatedAt)!,
-        fromTimeTicket(pbMoveOperation!.createdAt)!,
-        fromTimeTicket(pbMoveOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'remove') {
-      const pbRemoveOperation = pbOperation.body.value;
-      operation = RemoveOperation.create(
-        fromTimeTicket(pbRemoveOperation!.parentCreatedAt)!,
-        fromTimeTicket(pbRemoveOperation!.createdAt)!,
-        fromTimeTicket(pbRemoveOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'edit') {
-      const pbEditOperation = pbOperation.body.value;
-      const createdAtMapByActor = new Map();
-      Object.entries(pbEditOperation!.createdAtMapByActor).forEach(
-        ([key, value]) => {
-          createdAtMapByActor.set(key, fromTimeTicket(value));
-        },
-      );
-      const attributes = new Map();
-      Object.entries(pbEditOperation!.attributes).forEach(([key, value]) => {
-        attributes.set(key, value);
-      });
-      operation = EditOperation.create(
-        fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
-        fromTextNodePos(pbEditOperation!.from!),
-        fromTextNodePos(pbEditOperation!.to!),
-        createdAtMapByActor,
-        pbEditOperation!.content,
-        attributes,
-        fromTimeTicket(pbEditOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'style') {
-      const pbStyleOperation = pbOperation.body.value;
-      const createdAtMapByActor = new Map();
-      Object.entries(pbStyleOperation!.createdAtMapByActor).forEach(
-        ([key, value]) => {
-          createdAtMapByActor.set(key, fromTimeTicket(value));
-        },
-      );
-      const attributes = new Map();
-      Object.entries(pbStyleOperation!.attributes).forEach(([key, value]) => {
-        attributes.set(key, value);
-      });
-      operation = StyleOperation.create(
-        fromTimeTicket(pbStyleOperation!.parentCreatedAt)!,
-        fromTextNodePos(pbStyleOperation!.from!),
-        fromTextNodePos(pbStyleOperation!.to!),
-        createdAtMapByActor,
-        attributes,
-        fromTimeTicket(pbStyleOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'select') {
-      // TODO(hackerwins): Select is deprecated.
-      continue;
-    } else if (pbOperation.body.case === 'increase') {
-      const pbIncreaseOperation = pbOperation.body.value;
-      operation = IncreaseOperation.create(
-        fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
-        fromElementSimple(pbIncreaseOperation!.value!),
-        fromTimeTicket(pbIncreaseOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'treeEdit') {
-      const pbTreeEditOperation = pbOperation.body.value;
-      const createdAtMapByActor = new Map();
-      Object.entries(pbTreeEditOperation!.createdAtMapByActor).forEach(
-        ([key, value]) => {
-          createdAtMapByActor.set(key, fromTimeTicket(value));
-        },
-      );
-      operation = TreeEditOperation.create(
-        fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeEditOperation!.from!),
-        fromTreePos(pbTreeEditOperation!.to!),
-        fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
-        pbTreeEditOperation!.splitLevel,
-        createdAtMapByActor,
-        fromTimeTicket(pbTreeEditOperation!.executedAt)!,
-      );
-    } else if (pbOperation.body.case === 'treeStyle') {
-      const pbTreeStyleOperation = pbOperation.body.value;
-      const attributes = new Map();
-
-      Object.entries(pbTreeStyleOperation!.attributes).forEach(
-        ([key, value]) => {
-          attributes.set(key, value);
-        },
-      );
-      operation = TreeStyleOperation.create(
-        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeStyleOperation!.from!),
-        fromTreePos(pbTreeStyleOperation!.to!),
-        attributes,
-        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-      );
-    } else {
-      throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
+    const operation = fromOperation(pbOperation);
+    if (operation) {
+      operations.push(operation);
     }
-
-    operations.push(operation);
   }
-
   return operations;
 }
 
@@ -1509,6 +1512,22 @@ function toUint8Array(hex: string): Uint8Array {
 }
 
 /**
+ * `bytesToChangeID` creates a ChangeID from the given bytes.
+ */
+function bytesToChangeID(bytes: Uint8Array): ChangeID {
+  const pbChangeID = PbChangeID.fromBinary(bytes);
+  return fromChangeID(pbChangeID);
+}
+
+/**
+ * `bytesToOperation` creates an Operation from the given bytes.
+ */
+function bytesToOperation(bytes: Uint8Array): Operation {
+  const pbOperation = PbOperation.fromBinary(bytes);
+  return fromOperation(pbOperation)!;
+}
+
+/**
  * `converter` is a converter that converts the given model to protobuf format.
  * is also used to convert models to bytes and vice versa.
  */
@@ -1528,4 +1547,6 @@ export const converter = {
   toOperation,
   toChangeID,
   PbChangeID,
+  bytesToChangeID,
+  bytesToOperation,
 };
