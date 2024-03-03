@@ -1526,4 +1526,6 @@ export const converter = {
   toHexString,
   toUint8Array,
   toOperation,
+  toChangeID,
+  PbChangeID,
 };

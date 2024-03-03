@@ -411,6 +411,33 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   Depth
 >;
 
+export enum WatchStreamType {
+  Initialization = 'initialization',
+  DocEvent = 'doc-event',
+}
+
+export type WatchStreamEvent =
+  | {
+      type: WatchStreamType.Initialization;
+      value: { clientIDs: Array<string> };
+    }
+  | {
+      type: WatchStreamType.DocEvent;
+      value: {
+        type: DocEventType.Watched | DocEventType.Unwatched;
+        publisher: string;
+      };
+    };
+
+export type DocStatusEvent =
+  | {
+      type: DocumentStatus.Attached;
+      value: { actorID: string };
+    }
+  | {
+      type: DocumentStatus.Detached;
+    };
+
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
@@ -626,7 +653,9 @@ export class Document<T, P extends Indexable = Indexable> {
         source: OpSource.Local,
         type: Devtools.HistoryChangePackType.Changes,
         payload: {
-          changeID: change.getID().toTestString(), // TODO(chacha912): Convert the protobuf value to a string instead of using toTestString.
+          changeID: converter.bytesToHex(
+            converter.toChangeID(change.getID()).toBinary(),
+          ),
           message: change.getMessage(),
           operations: change.getOperations().map(
             (op) => converter.bytesToHex(converter.toOperation(op).toBinary()), // TODO(chacha912): Compare if directly using JSON.stringify on the byte array is better.
@@ -1165,6 +1194,7 @@ export class Document<T, P extends Indexable = Indexable> {
         type: Devtools.HistoryChangePackType.Snapshot,
         payload: {
           snapshot: converter.bytesToHex(snapshot),
+          serverSeq: serverSeq.toString(),
         },
       },
     ]);
@@ -1269,7 +1299,9 @@ export class Document<T, P extends Indexable = Indexable> {
         source,
         type: Devtools.HistoryChangePackType.Changes,
         payload: {
-          changeID: change.getID().toTestString(),
+          changeID: converter.bytesToHex(
+            converter.toChangeID(change.getID()).toBinary(),
+          ),
           message: change.getMessage(),
           operations: change
             .getOperations()
@@ -1291,6 +1323,102 @@ export class Document<T, P extends Indexable = Indexable> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
+  }
+
+  /**
+   * `applyWatchStreamEvent` applies the given watch stream event into this document.
+   */
+  public applyWatchStreamEvent(event: WatchStreamEvent): void {
+    if (event.type === WatchStreamType.Initialization) {
+      const { clientIDs } = event.value;
+      const onlineClients: Set<ActorID> = new Set();
+      for (const clientID of clientIDs) {
+        onlineClients.add(clientID);
+      }
+      this.setOnlineClients(onlineClients);
+
+      const docEvent: InitializedEvent<P> = {
+        type: DocEventType.Initialized,
+        value: this.getPresences(),
+      };
+      this.publish(docEvent);
+
+      // Publish the devtools event.
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Local,
+          type: Devtools.HistoryChangePackType.WatchStream,
+          payload: {
+            type: WatchStreamType.Initialization,
+            value: { clientIDs },
+          },
+        },
+      ]);
+      return;
+    } else if (event.type === WatchStreamType.DocEvent) {
+      const { type, publisher } = event.value;
+      if (type === DocEventType.Watched) {
+        this.addOnlineClient(publisher);
+        // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+        // unless we also know their initial presence data at this point.
+        if (this.hasPresence(publisher)) {
+          const event: WatchedEvent<P> = {
+            type: DocEventType.Watched,
+            value: {
+              clientID: publisher,
+              presence: this.getPresence(publisher)!,
+            },
+          };
+          this.publish(event);
+        }
+      } else if (type === DocEventType.Unwatched) {
+        const presence = this.getPresence(publisher);
+        this.removeOnlineClient(publisher);
+        // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+        // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+        if (presence) {
+          const event: UnwatchedEvent<P> = {
+            type: DocEventType.Unwatched,
+            value: { clientID: publisher, presence },
+          };
+          this.publish(event);
+        }
+      }
+
+      // Publish the devtools event.
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Remote,
+          type: Devtools.HistoryChangePackType.WatchStream,
+          payload: {
+            type: WatchStreamType.DocEvent,
+            value: {
+              type,
+              publisher,
+            },
+          },
+        },
+      ]);
+    }
+  }
+
+  /**
+   * `applyDocStatus` applies the document status into this document.
+   */
+  public applyDocStatus(event: DocStatusEvent): void {
+    if (event.type === DocumentStatus.Attached) {
+      this.setStatus(DocumentStatus.Attached);
+      this.setActor(event.value.actorID);
+    } else if (event.type === DocumentStatus.Detached) {
+      this.setStatus(DocumentStatus.Detached);
+    }
+    this.publishDevtoolsEvent([
+      {
+        source: OpSource.Local,
+        type: Devtools.HistoryChangePackType.DocStatus,
+        payload: event,
+      },
+    ]);
   }
 
   /**

@@ -16,8 +16,8 @@
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import type {
-  DocEventType,
-  DocumentStatus,
+  WatchStreamEvent,
+  DocStatusEvent,
 } from '@yorkie-js-sdk/src/document/document';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import type { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
@@ -128,7 +128,7 @@ export enum HistoryChangePackType {
 
 export type SnapshotChangePack = BaseHistoryChangePack & {
   type: HistoryChangePackType.Snapshot;
-  payload: { snapshot: string };
+  payload: { snapshot: string; serverSeq: string };
 };
 
 export type ChangesChangePack = BaseHistoryChangePack & {
@@ -144,34 +144,12 @@ export type ChangesChangePack = BaseHistoryChangePack & {
   };
 };
 
-export enum WatchStreamType {
-  Initialization = 'initialization',
-  DocEvent = 'doc-event',
-}
 export type WatchStreamChangePack = BaseHistoryChangePack & {
   type: HistoryChangePackType.WatchStream;
-  payload:
-    | {
-        type: WatchStreamType.Initialization;
-        value: { clientIDs: Array<string> };
-      }
-    | {
-        type: WatchStreamType.DocEvent;
-        value: {
-          type: DocEventType.Watched | DocEventType.Unwatched;
-          publisher: string;
-        };
-      };
+  payload: WatchStreamEvent;
 };
 
 export type DocStatusChangePack = BaseHistoryChangePack & {
   type: HistoryChangePackType.DocStatus;
-  payload:
-    | {
-        type: DocumentStatus.Attached;
-        value: { actorID: string };
-      }
-    | {
-        type: DocumentStatus.Detached;
-      };
+  payload: DocStatusEvent;
 };

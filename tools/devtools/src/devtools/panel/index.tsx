@@ -16,7 +16,7 @@
 
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
-import yorkie, { converter } from 'yorkie-js-sdk';
+import yorkie from 'yorkie-js-sdk';
 import { useResizable } from 'react-resizable-layout';
 
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
@@ -26,6 +26,7 @@ import {
   useCurrentDocKey,
   useYorkieChanges,
   useYorkieDoc,
+  applyHistoryChangePack,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
@@ -36,10 +37,11 @@ const Panel = () => {
   const currentDocKey = useCurrentDocKey();
   const changes = useYorkieChanges();
   const [, setDoc] = useYorkieDoc();
-  const [selectedChangeInfo, setSelectedChangeInfo] = useState({
+  const [selectedChangeIndexInfo, setSelectedChangeIndexInfo] = useState({
     index: null,
     isLast: true,
   });
+  const [selectedChangeInfo, setSelectedChangeInfo] = useState(null);
   const {
     isDragging: isHistoryDragging,
     position: historyH,
@@ -58,8 +60,8 @@ const Panel = () => {
   });
 
   useEffect(() => {
-    if (changes.length > 0 && selectedChangeInfo.isLast) {
-      setSelectedChangeInfo({
+    if (changes.length > 0 && selectedChangeIndexInfo.isLast) {
+      setSelectedChangeIndexInfo({
         index: changes.length - 1,
         isLast: true,
       });
@@ -67,17 +69,18 @@ const Panel = () => {
   }, [changes]);
 
   useEffect(() => {
-    if (selectedChangeInfo.index !== null) {
-      const selected = changes[selectedChangeInfo.index].at(-1);
-      const snapshot = converter.hexToBytes(selected.snapshot);
-      const doc = yorkie.Document.createFromSnapshot(currentDocKey, snapshot);
-      if (selected.clientID !== '000000000000000000000000') {
-        doc.setActor(selected.clientID);
-        doc.setStatus('attached');
-      }
-      setDoc(doc);
+    if (selectedChangeIndexInfo.index === null) return;
+    const doc = new yorkie.Document(currentDocKey);
+    for (let i = 0; i < selectedChangeIndexInfo.index; i++) {
+      applyHistoryChangePack(doc, changes[i]);
     }
-  }, [selectedChangeInfo]);
+
+    const change = changes[selectedChangeIndexInfo.index];
+    const info = applyHistoryChangePack(doc, change);
+
+    setDoc(doc);
+    setSelectedChangeInfo(info);
+  }, [selectedChangeIndexInfo]);
 
   if (!currentDocKey) {
     return (
@@ -106,7 +109,8 @@ const Panel = () => {
       <History
         style={{ height: historyH }}
         selectedChangeInfo={selectedChangeInfo}
-        setSelectedChangeInfo={setSelectedChangeInfo}
+        selectedChangeIndexInfo={selectedChangeIndexInfo}
+        setSelectedChangeIndexInfo={setSelectedChangeIndexInfo}
       />
       <Separator
         dir={'horizontal'}

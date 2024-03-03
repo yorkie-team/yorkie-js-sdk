@@ -37,7 +37,7 @@ export function Presence() {
     const me = rawPresences.find((a) => a.clientID === myClientID);
     setPresences([me, ...others]);
 
-    //NOTE(chacha912): When the presence changes, also update the currently selected presence.
+    // NOTE(chacha912): When the presence changes, also update the currently selected presence.
     if (!selectedPresence) return;
     const [actorID, key] = selectedPresence.id.split('-');
     const selectedPresenceValue = rawPresences.find(
