@@ -20,7 +20,7 @@ import { Text } from '@yorkie-js-sdk/src/document/json/text';
 import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import Long from 'long';
 
 export {
@@ -121,7 +121,7 @@ export {
   FullPanelToSDKMessage,
   FullSDKToPanelMessage,
 } from '@yorkie-js-sdk/src/devtools/protocol';
-export type { Devtools };
+export { Devtools };
 
 /**
  * The top-level yorkie namespace with additional properties.
