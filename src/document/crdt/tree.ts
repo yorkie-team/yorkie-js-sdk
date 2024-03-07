@@ -455,6 +455,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       childClone.parent = clone;
       return childClone;
     });
+    clone.insPrevID = this.insPrevID;
+    clone.insNextID = this.insNextID;
     return clone;
   }
 
