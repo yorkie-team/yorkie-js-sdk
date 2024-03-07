@@ -1514,12 +1514,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getMyPresence` returns the presence of the current client.
    */
   public getMyPresence(): P {
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
     if (this.status !== DocumentStatus.Attached) {
       return {} as P;
     }
 
     const p = this.presences.get(this.changeID.getActorID())!;
-    return deepcopy(p);
+    return p ? deepcopy(p) : ({} as P);
   }
 
   /**
