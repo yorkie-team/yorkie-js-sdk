@@ -28,26 +28,13 @@ export function Presence() {
   useEffect(() => {
     if (!doc) return;
     // TODO(chacha912): Enhance to prevent updates when there are no changes in the presences.
-    const rawPresences = doc.getPresences();
-
-    if (rawPresences.length === 0) {
-      setPresences([]);
-      setSelectedPresence(null);
-      return;
-    }
-    const myClientID = doc.getChangeID().getActorID();
-    const others = rawPresences
-      .filter((a) => a.clientID !== myClientID)
-      .sort((a, b) => (a.clientID > b.clientID ? 1 : -1));
-    const me = rawPresences.find((a) => a.clientID === myClientID);
-    setPresences([me, ...others]);
+    const presences = [doc.getSelfForTest(), ...doc.getOthersForTest()];
+    setPresences(presences);
 
     // NOTE(chacha912): When the presence changes, also update the currently selected presence.
     if (!selectedPresence) return;
     const [actorID, key] = selectedPresence.id.split('-');
-    const selectedPresenceValue = rawPresences.find(
-      (a) => a.clientID === actorID,
-    )?.presence;
+    const selectedPresenceValue = doc.getPresence(actorID)?.presence;
     if (!selectedPresenceValue) {
       setSelectedPresence(null);
       return;
