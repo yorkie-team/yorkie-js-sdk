@@ -6,6 +6,7 @@ import yorkie, {
   DocumentSyncResultType,
   DocEventType,
   ClientEventType,
+  Tree,
 } from '@yorkie-js-sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
 import {
@@ -544,5 +545,88 @@ describe.sequential('Client', function () {
     assert.equal(d1.getRoot().counter.getValue(), 2);
 
     await c1.deactivate();
+  });
+
+  it('Should prevent remote changes in push-only mode', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ tree: Tree }>(docKey);
+    const d2 = new yorkie.Document<{ tree: Tree }>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    const eventCollectorD1 = new EventCollector();
+    const eventCollectorD2 = new EventCollector();
+    const unsub1 = d1.subscribe((event) => {
+      eventCollectorD1.add(event.type);
+    });
+    const unsub2 = d2.subscribe((event) => {
+      eventCollectorD2.add(event.type);
+    });
+
+    d1.update((root) => {
+      root.tree = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: '12' }],
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: '34' }],
+          },
+        ],
+      });
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(1, DocEventType.RemoteChange);
+
+    assert.equal(d1.getRoot().tree.toXML(), '<doc><p>12</p><p>34</p></doc>');
+    assert.equal(d2.getRoot().tree.toXML(), '<doc><p>12</p><p>34</p></doc>');
+
+    d1.update((root: any) => {
+      root.tree.edit(2, 2, { type: 'text', value: 'a' });
+    });
+    await c1.sync();
+
+    // Simulate the situation in the runSyncLoop where a pushpull request has been sent
+    // but a response has not yet been received.
+    c2.sync();
+
+    // In push-only mode, remote-change events should not occur.
+    c2.pauseRemoteChanges(d2);
+    let remoteChangeOccured = false;
+    const unsub3 = d2.subscribe((event) => {
+      if (event.type === DocEventType.RemoteChange) {
+        remoteChangeOccured = true;
+      }
+    });
+    await new Promise((res) => {
+      // TODO(chacha912): We need to clean up this later because it is non-deterministic.
+      setTimeout(res, 100); // Keep the push-only state.
+    });
+    unsub3();
+    assert.isFalse(remoteChangeOccured);
+
+    c2.resumeRemoteChanges(d2);
+
+    d2.update((root: any) => {
+      root.tree.edit(2, 2, { type: 'text', value: 'b' });
+    });
+    await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
+
+    assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+    assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+
+    unsub1();
+    unsub2();
+    await c1.deactivate();
+    await c2.deactivate();
   });
 });
