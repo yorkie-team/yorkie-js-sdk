@@ -58,7 +58,7 @@ export function History({
       let type = 'document';
       if (
         change.type === Devtools.HistoryChangePackType.WatchStream ||
-        (change.type === Devtools.HistoryChangePackType.Changes &&
+        (change.type === Devtools.HistoryChangePackType.Change &&
           change.payload.operations?.length === 0 &&
           change.payload.presenceChange)
       ) {

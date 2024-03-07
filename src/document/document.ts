@@ -416,7 +416,7 @@ export enum WatchStreamType {
   DocEvent = 'doc-event',
 }
 
-export type WatchStreamEvent =
+export type WatchStreamPayload =
   | {
       type: WatchStreamType.Initialization;
       value: { clientIDs: Array<string> };
@@ -429,13 +429,16 @@ export type WatchStreamEvent =
       };
     };
 
-export type DocStatusEvent =
+export type DocStatusPayload =
   | {
       type: DocumentStatus.Attached;
       value: { actorID: string };
     }
   | {
       type: DocumentStatus.Detached;
+    }
+  | {
+      type: DocumentStatus.Removed;
     };
 
 /**
@@ -651,7 +654,7 @@ export class Document<T, P extends Indexable = Indexable> {
       historyChanges.push({
         // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
         source: OpSource.Local,
-        type: Devtools.HistoryChangePackType.Changes,
+        type: Devtools.HistoryChangePackType.Change,
         payload: {
           changeID: converter.bytesToHex(
             converter.toChangeID(change.getID()).toBinary(),
@@ -950,7 +953,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
-      this.setStatus(DocumentStatus.Removed);
+      this.applyDocStatus({ type: DocumentStatus.Removed });
     }
 
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -1329,7 +1332,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.publishDevtoolsEvent([
       {
         source,
-        type: Devtools.HistoryChangePackType.Changes,
+        type: Devtools.HistoryChangePackType.Change,
         payload: {
           changeID: converter.bytesToHex(
             converter.toChangeID(change.getID()).toBinary(),
@@ -1349,13 +1352,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyWatchStreamEvent` applies the given watch stream event into this document.
+   * `applyWatchStream` applies the given watch stream payload into this document.
    */
-  public applyWatchStreamEvent(event: WatchStreamEvent): {
+  public applyWatchStream(payload: WatchStreamPayload): {
     event: Array<DocEvent<P>>;
   } {
-    if (event.type === WatchStreamType.Initialization) {
-      const { clientIDs } = event.value;
+    if (payload.type === WatchStreamType.Initialization) {
+      const { clientIDs } = payload.value;
       const onlineClients: Set<ActorID> = new Set();
       for (const clientID of clientIDs) {
         onlineClients.add(clientID);
@@ -1373,16 +1376,13 @@ export class Document<T, P extends Indexable = Indexable> {
         {
           source: OpSource.Local,
           type: Devtools.HistoryChangePackType.WatchStream,
-          payload: {
-            type: WatchStreamType.Initialization,
-            value: { clientIDs },
-          },
+          payload,
         },
       ]);
       return { event: [docEvent] };
     }
 
-    const { type, publisher } = event.value;
+    const { type, publisher } = payload.value;
     let docEvent: WatchedEvent<P> | UnwatchedEvent<P> | undefined;
     if (type === DocEventType.Watched) {
       this.addOnlineClient(publisher);
@@ -1419,13 +1419,7 @@ export class Document<T, P extends Indexable = Indexable> {
       {
         source: OpSource.Remote,
         type: Devtools.HistoryChangePackType.WatchStream,
-        payload: {
-          type: WatchStreamType.DocEvent,
-          value: {
-            type,
-            publisher,
-          },
-        },
+        payload,
       },
     ]);
 
@@ -1435,20 +1429,28 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyDocStatus` applies the document status into this document.
    */
-  public applyDocStatus(event: DocStatusEvent): {
+  public applyDocStatus(payload: DocStatusPayload): {
     event: Array<DocEvent<P>>;
   } {
-    if (event.type === DocumentStatus.Attached) {
+    if (payload.type === DocumentStatus.Attached) {
       this.setStatus(DocumentStatus.Attached);
-      this.setActor(event.value.actorID);
-    } else if (event.type === DocumentStatus.Detached) {
+      this.setActor(payload.value.actorID);
+    } else if (payload.type === DocumentStatus.Detached) {
       this.setStatus(DocumentStatus.Detached);
+      // TODO(chacha912): Reset the actor to the initial actor.
+    } else if (payload.type === DocumentStatus.Removed) {
+      this.setStatus(DocumentStatus.Removed);
     }
+
+    // Publish the devtools event.
     this.publishDevtoolsEvent([
       {
-        source: OpSource.Local,
+        source:
+          payload.type === DocumentStatus.Removed
+            ? OpSource.Remote
+            : OpSource.Local,
         type: Devtools.HistoryChangePackType.DocStatus,
-        payload: event,
+        payload,
       },
     ]);
 

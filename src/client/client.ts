@@ -43,8 +43,6 @@ import {
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
-import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `SyncMode` is the mode of synchronization. It is used to determine
@@ -526,15 +524,6 @@ export class Client implements Observable<ClientEvent> {
           });
         }
         this.detachInternal(doc.getKey());
-        doc.publishDevtoolsEvent([
-          {
-            source: OpSource.Local,
-            type: Devtools.HistoryChangePackType.DocStatus,
-            payload: {
-              type: DocumentStatus.Detached,
-            },
-          },
-        ]);
 
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
@@ -873,7 +862,7 @@ export class Client implements Observable<ClientEvent> {
     resp: WatchDocumentResponse,
   ) {
     if (resp.body.case === 'initialization') {
-      attachment.doc.applyWatchStreamEvent({
+      attachment.doc.applyWatchStream({
         type: WatchStreamType.Initialization,
         value: { clientIDs: resp.body.value.clientIds },
       });
@@ -891,13 +880,13 @@ export class Client implements Observable<ClientEvent> {
           });
           break;
         case PbDocEventType.DOCUMENT_WATCHED:
-          attachment.doc.applyWatchStreamEvent({
+          attachment.doc.applyWatchStream({
             type: WatchStreamType.DocEvent,
             value: { type: DocEventType.Watched, publisher },
           });
           break;
         case PbDocEventType.DOCUMENT_UNWATCHED: {
-          attachment.doc.applyWatchStreamEvent({
+          attachment.doc.applyWatchStream({
             type: WatchStreamType.DocEvent,
             value: { type: DocEventType.Unwatched, publisher },
           });

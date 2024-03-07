@@ -62,7 +62,7 @@ export function applyHistoryChangePack(
         event: result.event,
         changePack: { type: changePack.type },
       };
-    case Devtools.HistoryChangePackType.Changes:
+    case Devtools.HistoryChangePackType.Change:
       const { changeID, operations, presenceChange, message } =
         changePack.payload;
       const change = Change.create({
@@ -93,7 +93,7 @@ export function applyHistoryChangePack(
         },
       };
     case Devtools.HistoryChangePackType.WatchStream:
-      result = doc.applyWatchStreamEvent(changePack.payload);
+      result = doc.applyWatchStream(changePack.payload);
       return {
         event: result.event,
         changePack: { type: changePack.type, payload: changePack.payload },
