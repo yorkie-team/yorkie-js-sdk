@@ -608,6 +608,7 @@ describe.sequential('Client', function () {
       }
     });
     await new Promise((res) => {
+      // TODO(chacha912): We need to clean up this later because it is non-deterministic.
       setTimeout(res, 100); // Keep the push-only state.
     });
     unsub3();
