@@ -939,9 +939,12 @@ export class Client implements Observable<ClientEvent> {
       .then((res) => {
         const respPack = converter.fromChangePack<P>(res.changePack!);
 
-        // (chacha912, hackerwins): If syncLoop already executed with
+        // NOTE(chacha912, hackerwins): If syncLoop already executed with
         // PushPull, ignore the response when the syncMode is PushOnly.
-        if (respPack.hasChanges() && syncMode === SyncMode.PushOnly) {
+        if (
+          respPack.hasChanges() &&
+          attachment.syncMode === SyncMode.PushOnly
+        ) {
           return doc;
         }
 
@@ -950,7 +953,7 @@ export class Client implements Observable<ClientEvent> {
           type: ClientEventType.DocumentSynced,
           value: DocumentSyncResultType.Synced,
         });
-        // (chacha912): If a document has been removed, watchStream should
+        // NOTE(chacha912): If a document has been removed, watchStream should
         // be disconnected to not receive an event for that document.
         if (doc.getStatus() === DocumentStatus.Removed) {
           this.detachInternal(doc.getKey());
