@@ -1334,6 +1334,42 @@ describe('Tree.style', function () {
     });
   });
 
+  it('Can sync its content with remove style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'hello' }],
+              attributes: { italic: 'true' },
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.removeStyle(0, 1, ['italic']);
+      });
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+    }, task.name);
+  });
+
   it('Should return correct range path within doc.subscribe', async function ({
     task,
   }) {
