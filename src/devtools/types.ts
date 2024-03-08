@@ -24,6 +24,15 @@ import type { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import type { PresenceChangeType } from '@yorkie-js-sdk/src/document/presence/presence';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
+// `DevtoolsEnvironment` specifies the environment for devtools.
+export type DevtoolsEnvironment =
+  // Disable devtools completely
+  | 'disabled'
+  // Run devtools only in development environment
+  | 'development'
+  // Run devtools in both development and production environments
+  | 'production';
+
 /**
  * `Json` represents a JSON value.
  *

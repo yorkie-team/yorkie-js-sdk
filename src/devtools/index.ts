@@ -16,10 +16,44 @@
 
 import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import type * as DevTools from './protocol';
+import type { DevtoolsEnvironment } from './types';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 
 let isDevtoolsConnected = false;
 const unsubsByDocKey = new Map<string, Array<() => void>>();
+
+/**
+ * `isValidDevtoolsEnvironment` checks whether the environment is valid for enabling devtools.
+ */
+export function isValidDevtoolsEnvironment(
+  devtoolsEnvironment: DevtoolsEnvironment,
+): boolean {
+  // NOTE(chacha912): Disable devtools when running in Node.js.
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  if (devtoolsEnvironment === 'disabled') {
+    return false;
+  }
+  if (
+    devtoolsEnvironment === 'development' &&
+    process.env.NODE_ENV !== 'development'
+  ) {
+    return false;
+  }
+  if (
+    devtoolsEnvironment === 'production' &&
+    !(
+      process.env.NODE_ENV === 'production' ||
+      process.env.NODE_ENV === 'development'
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
@@ -85,8 +119,7 @@ function stopSync(docKey: string): void {
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
-  // NOTE(hackerwins): For production builds, or when running in Node.js, do nothing.
-  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') {
+  if (!isValidDevtoolsEnvironment(doc.getDevtoolsEnvironmentOption())) {
     return;
   }
 

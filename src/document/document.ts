@@ -68,7 +68,10 @@ import {
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
-import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
+import {
+  setupDevtools,
+  isValidDevtoolsEnvironment,
+} from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
@@ -81,6 +84,12 @@ export interface DocumentOptions {
    * `disableGC` disables garbage collection if true.
    */
   disableGC?: boolean;
+
+  /**
+   * `devtoolsEnvironment` specifies the environment for devtools.
+   * Default value is `development`.
+   */
+  devtoolsEnvironment?: Devtools.DevtoolsEnvironment;
 }
 
 /**
@@ -650,23 +659,26 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       // 04. Publish the devtools event.
-      const historyChanges: Array<Devtools.HistoryChangePack> = [];
-      historyChanges.push({
-        // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
-        source: OpSource.Local,
-        type: Devtools.HistoryChangePackType.Change,
-        payload: {
-          changeID: converter.bytesToHex(
-            converter.toChangeID(change.getID()).toBinary(),
-          ),
-          message: change.getMessage(),
-          operations: change.getOperations().map(
-            (op) => converter.bytesToHex(converter.toOperation(op).toBinary()), // TODO(chacha912): Compare if directly using JSON.stringify on the byte array is better.
-          ),
-          presenceChange: change.getPresenceChange(),
-        },
-      });
-      this.publishDevtoolsEvent(historyChanges);
+      if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+        const historyChanges: Array<Devtools.HistoryChangePack> = [];
+        historyChanges.push({
+          // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
+          source: OpSource.Local,
+          type: Devtools.HistoryChangePackType.Change,
+          payload: {
+            changeID: converter.bytesToHex(
+              converter.toChangeID(change.getID()).toBinary(),
+            ),
+            message: change.getMessage(),
+            operations: change.getOperations().map(
+              (op) =>
+                converter.bytesToHex(converter.toOperation(op).toBinary()), // TODO(chacha912): Compare if directly using JSON.stringify on the byte array is better.
+            ),
+            presenceChange: change.getPresenceChange(),
+          },
+        });
+        this.publishDevtoolsEvent(historyChanges);
+      }
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
@@ -896,10 +908,6 @@ export class Document<T, P extends Indexable = Indexable> {
    * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
    */
   public publishDevtoolsEvent(changes: Array<Devtools.HistoryChangePack>) {
-    if (process.env.NODE_ENV === 'production') {
-      return;
-    }
-
     this.historyChanges.push(...changes);
     this.publish({
       type: DocEventType.Devtools,
@@ -1027,6 +1035,13 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = this.changeID.setActor(actorID);
 
     // TODO also apply into root.
+  }
+
+  /**
+   * `getDevtoolsEnvironmentOption` returns the environment option for devtools.
+   */
+  public getDevtoolsEnvironmentOption(): Devtools.DevtoolsEnvironment {
+    return this.opts.devtoolsEnvironment || 'development';
   }
 
   /**
@@ -1195,16 +1210,18 @@ export class Document<T, P extends Indexable = Indexable> {
     this.publish(snapshotEvent);
 
     // Publish the devtools event.
-    this.publishDevtoolsEvent([
-      {
-        source: OpSource.Remote,
-        type: Devtools.HistoryChangePackType.Snapshot,
-        payload: {
-          snapshot: converter.bytesToHex(snapshot),
-          serverSeq: serverSeq.toString(),
+    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Remote,
+          type: Devtools.HistoryChangePackType.Snapshot,
+          payload: {
+            snapshot: converter.bytesToHex(snapshot),
+            serverSeq: serverSeq.toString(),
+          },
         },
-      },
-    ]);
+      ]);
+    }
 
     return { event: [snapshotEvent] };
   }
@@ -1329,24 +1346,26 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = this.changeID.syncLamport(change.getID().getLamport());
 
     // Publish the devtools event.
-    this.publishDevtoolsEvent([
-      {
-        source,
-        type: Devtools.HistoryChangePackType.Change,
-        payload: {
-          changeID: converter.bytesToHex(
-            converter.toChangeID(change.getID()).toBinary(),
-          ),
-          message: change.getMessage(),
-          operations: change
-            .getOperations()
-            .map((op) =>
-              converter.bytesToHex(converter.toOperation(op).toBinary()),
+    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      this.publishDevtoolsEvent([
+        {
+          source,
+          type: Devtools.HistoryChangePackType.Change,
+          payload: {
+            changeID: converter.bytesToHex(
+              converter.toChangeID(change.getID()).toBinary(),
             ),
-          presenceChange: change.getPresenceChange(),
+            message: change.getMessage(),
+            operations: change
+              .getOperations()
+              .map((op) =>
+                converter.bytesToHex(converter.toOperation(op).toBinary()),
+              ),
+            presenceChange: change.getPresenceChange(),
+          },
         },
-      },
-    ]);
+      ]);
+    }
 
     return { event: events };
   }
@@ -1372,13 +1391,15 @@ export class Document<T, P extends Indexable = Indexable> {
       this.publish(docEvent);
 
       // Publish the devtools event.
-      this.publishDevtoolsEvent([
-        {
-          source: OpSource.Local,
-          type: Devtools.HistoryChangePackType.WatchStream,
-          payload,
-        },
-      ]);
+      if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+        this.publishDevtoolsEvent([
+          {
+            source: OpSource.Local,
+            type: Devtools.HistoryChangePackType.WatchStream,
+            payload,
+          },
+        ]);
+      }
       return { event: [docEvent] };
     }
 
@@ -1415,13 +1436,15 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     // Publish the devtools event.
-    this.publishDevtoolsEvent([
-      {
-        source: OpSource.Remote,
-        type: Devtools.HistoryChangePackType.WatchStream,
-        payload,
-      },
-    ]);
+    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Remote,
+          type: Devtools.HistoryChangePackType.WatchStream,
+          payload,
+        },
+      ]);
+    }
 
     return { event: docEvent ? [docEvent] : [] };
   }
@@ -1443,16 +1466,18 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     // Publish the devtools event.
-    this.publishDevtoolsEvent([
-      {
-        source:
-          payload.type === DocumentStatus.Removed
-            ? OpSource.Remote
-            : OpSource.Local,
-        type: Devtools.HistoryChangePackType.DocStatus,
-        payload,
-      },
-    ]);
+    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      this.publishDevtoolsEvent([
+        {
+          source:
+            payload.type === DocumentStatus.Removed
+              ? OpSource.Remote
+              : OpSource.Local,
+          type: Devtools.HistoryChangePackType.DocStatus,
+          payload,
+        },
+      ]);
+    }
 
     return { event: [] };
   }
