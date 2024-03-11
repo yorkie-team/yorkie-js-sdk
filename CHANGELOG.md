@@ -7,6 +7,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.15] - 2024-03-11
+
 ### Added
 
 - Implement Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/745
@@ -17,9 +19,11 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ### Fixed
 
-- Fix incorrect calculation in indexTree.treePosToPath operation by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/751
 - Fix invalid sync when editing multiple cursors in CodeMirror6 by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/743
 - Fix incorrect index returned when using posRangeToIndexRange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/742
+- Fix incorrect calculation in `indexTree.treePosToPath` operation by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/751
+- Fix errors when editing Tree due to missing insPrevID in CRDTTree by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/756
+- Prevent remote-change events from occurring in push-only mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/759
 
 ## [0.4.14] - 2024-01-29
 
