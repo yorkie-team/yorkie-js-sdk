@@ -134,7 +134,7 @@ export function YorkieSourceProvider({ children }: Props) {
         });
         break;
       case 'doc::sync::full':
-        // TODO(chacha912): Notify the user that they need to use Yorkie-JS-SDK version 0.4.15 or newer.
+        // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
         if (message.changes === undefined) break;
         setHistoryChanges(message.changes);
         break;

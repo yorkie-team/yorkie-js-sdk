@@ -268,7 +268,7 @@ export interface PresenceChangedEvent<P extends Indexable>
 
 /**
  * `DevtoolsEvent` is an event used to subscribe to changes in the document
- * from the Devtools.
+ * for the Devtools.
  */
 export interface DevtoolsEvent extends BaseDocEvent {
   type: DocEventType.Devtools;
@@ -539,27 +539,6 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `createFromSnapshot` creates a new instance of Document from the given snapshot.
-   */
-  static createFromSnapshot<T, P extends Indexable>(
-    key: string,
-    snapshot: Uint8Array,
-    opts?: DocumentOptions,
-  ): Document<T, P> {
-    const doc = new Document<T, P>(key, opts);
-    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
-    doc.root = new CRDTRoot(root);
-    doc.presences = presences;
-
-    const onlineClients: Set<ActorID> = new Set();
-    for (const [clientID] of presences) {
-      onlineClients.add(clientID);
-    }
-    doc.setOnlineClients(onlineClients);
-    return doc;
-  }
-
-  /**
    * `update` executes the given updater to update this document.
    */
   public update(
@@ -660,24 +639,25 @@ export class Document<T, P extends Indexable = Indexable> {
 
       // 04. Publish the devtools event.
       if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
-        const historyChanges: Array<Devtools.HistoryChangePack> = [];
-        historyChanges.push({
+        this.publishDevtoolsEvent([
           // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
-          source: OpSource.Local,
-          type: Devtools.HistoryChangePackType.Change,
-          payload: {
-            changeID: converter.bytesToHex(
-              converter.toChangeID(change.getID()).toBinary(),
-            ),
-            message: change.getMessage(),
-            operations: change.getOperations().map(
-              (op) =>
-                converter.bytesToHex(converter.toOperation(op).toBinary()), // TODO(chacha912): Compare if directly using JSON.stringify on the byte array is better.
-            ),
-            presenceChange: change.getPresenceChange(),
+          {
+            source: OpSource.Local,
+            type: Devtools.HistoryChangePackType.Change,
+            payload: {
+              changeID: converter.bytesToHex(
+                converter.toChangeID(change.getID()).toBinary(),
+              ),
+              message: change.getMessage(),
+              operations: change
+                .getOperations()
+                .map((op) =>
+                  converter.bytesToHex(converter.toOperation(op).toBinary()),
+                ),
+              presenceChange: change.getPresenceChange(),
+            },
           },
-        });
-        this.publishDevtoolsEvent(historyChanges);
+        ]);
       }
 
       if (logger.isEnabled(LogLevel.Trivial)) {
@@ -1171,21 +1151,6 @@ export class Document<T, P extends Indexable = Indexable> {
       ...this.getRoot().toJSForTest!(),
       key: 'root',
     };
-  }
-
-  /**
-   * `toSnapshot` returns the snapshot of this document.
-   */
-  public toSnapshot(): Uint8Array {
-    const presences = new Map();
-    for (const { clientID, presence } of this.getPresences()) {
-      presences.set(clientID, presence);
-    }
-
-    return converter.snapshotToBytes({
-      root: this.root.getObject().deepcopy(),
-      presences: deepcopy(presences),
-    });
   }
 
   /**

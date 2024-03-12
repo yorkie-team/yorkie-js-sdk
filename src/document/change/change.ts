@@ -174,10 +174,7 @@ export class Change<P extends Indexable> {
       }
     }
 
-    return {
-      opInfos: changeOpInfos,
-      reverseOps,
-    };
+    return { opInfos: changeOpInfos, reverseOps };
   }
 
   /**

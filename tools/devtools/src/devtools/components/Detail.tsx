@@ -27,6 +27,9 @@ type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
   childIndex: number;
 };
 
+/**
+ * `nodeIDToString` converts the given CRDTTreeNodeIDStruct to a simple string.
+ */
 const nodeIDToString = (id: CRDTTreeNodeIDStruct) => {
   const {
     createdAt: { actorID, lamport, delimiter },

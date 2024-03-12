@@ -122,19 +122,6 @@ function toPresence(presence: Indexable): PbPresence {
 }
 
 /**
- * `toPresences` converts the given model to Protobuf format.
- */
-function toPresences<P extends Indexable>(
-  presences: Map<ActorID, P>,
-): { [key: string]: PbPresence } {
-  const pbPresences: { [key: string]: PbPresence } = {};
-  for (const [actorID, presence] of presences) {
-    pbPresences[actorID] = toPresence(presence);
-  }
-  return pbPresences;
-}
-
-/**
  * `toPresenceChange` converts the given model to Protobuf format.
  */
 function toPresenceChange(
@@ -1406,19 +1393,6 @@ function bytesToSnapshot<P extends Indexable>(
 }
 
 /**
- * `snapshotToBytes` converts the given Snapshot to bytes.
- */
-function snapshotToBytes<P extends Indexable>(snapshot: {
-  root: CRDTObject;
-  presences: Map<ActorID, P>;
-}): Uint8Array {
-  const pbSnapshot = new PbSnapshot();
-  pbSnapshot.root = toElement(snapshot.root);
-  pbSnapshot.presences = toPresences(snapshot.presences);
-  return pbSnapshot.toBinary();
-}
-
-/**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
@@ -1539,7 +1513,6 @@ export const converter = {
   objectToBytes,
   bytesToObject,
   bytesToSnapshot,
-  snapshotToBytes,
   bytesToHex,
   hexToBytes,
   toHexString,
