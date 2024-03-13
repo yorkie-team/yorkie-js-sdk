@@ -15,13 +15,7 @@
  */
 
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import type {
-  WatchStreamPayload,
-  DocStatusPayload,
-} from '@yorkie-js-sdk/src/document/document';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
-import type { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
-import type { PresenceChangeType } from '@yorkie-js-sdk/src/document/presence/presence';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 // `DevtoolsEnvironment` specifies the environment for devtools.
@@ -112,53 +106,4 @@ export type TreeNodeInfo = {
   index?: number;
   path?: Array<number>;
   pos?: CRDTTreePosStruct;
-};
-
-/**
- * `HistoryChangePack` represents a unit where changes can occur in the document.
- * It is used for document replay purposes.
- */
-export type HistoryChangePack =
-  | SnapshotChangePack
-  | ChangeChangePack
-  | WatchStreamChangePack
-  | DocStatusChangePack;
-
-type BaseHistoryChangePack = {
-  source: OpSource;
-};
-
-export enum HistoryChangePackType {
-  Snapshot = 'snapshot',
-  Change = 'change',
-  WatchStream = 'watch-stream',
-  DocStatus = 'doc-status',
-}
-
-export type SnapshotChangePack = BaseHistoryChangePack & {
-  type: HistoryChangePackType.Snapshot;
-  payload: { snapshot: string; serverSeq: string };
-};
-
-export type ChangeChangePack = BaseHistoryChangePack & {
-  type: HistoryChangePackType.Change;
-  payload: {
-    changeID: string;
-    message?: string;
-    operations?: Array<string>;
-    presenceChange?: {
-      type: PresenceChangeType;
-      presence?: Json;
-    };
-  };
-};
-
-export type WatchStreamChangePack = BaseHistoryChangePack & {
-  type: HistoryChangePackType.WatchStream;
-  payload: WatchStreamPayload;
-};
-
-export type DocStatusChangePack = BaseHistoryChangePack & {
-  type: HistoryChangePackType.DocStatus;
-  payload: DocStatusPayload;
 };

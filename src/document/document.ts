@@ -272,7 +272,7 @@ export interface PresenceChangedEvent<P extends Indexable>
  */
 export interface DevtoolsEvent extends BaseDocEvent {
   type: DocEventType.Devtools;
-  value: Array<Devtools.HistoryChangePack>;
+  value: Array<HistoryChangePack>;
 }
 
 /**
@@ -420,6 +420,57 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   Depth
 >;
 
+/**
+ * `HistoryChangePack` represents a unit where changes can occur in the document.
+ * It is used for document replay purposes.
+ */
+export type HistoryChangePack =
+  | SnapshotChangePack
+  | ChangeChangePack
+  | WatchStreamChangePack
+  | DocStatusChangePack;
+
+type BaseHistoryChangePack = {
+  source: OpSource;
+};
+
+export enum HistoryChangePackType {
+  Snapshot = 'snapshot',
+  Change = 'change',
+  WatchStream = 'watch-stream',
+  DocStatus = 'doc-status',
+}
+
+export type SnapshotChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Snapshot;
+  payload: { snapshot: string; serverSeq: string };
+};
+
+export type ChangeChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Change;
+  payload: ChangePayload;
+};
+
+export type WatchStreamChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.WatchStream;
+  payload: WatchStreamPayload;
+};
+
+export type DocStatusChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.DocStatus;
+  payload: DocStatusPayload;
+};
+
+export type ChangePayload = {
+  changeID: string;
+  message?: string;
+  operations?: Array<string>;
+  presenceChange?: {
+    type: PresenceChangeType;
+    presence?: object; // TODO(chacha912): Specify the type accurately.
+  };
+};
+
 export enum WatchStreamType {
   Initialization = 'initialization',
   DocEvent = 'doc-event',
@@ -505,7 +556,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * (time-traveling feature) in Devtools. Later, external storage such as
    * IndexedDB will be used.
    */
-  public historyChanges: Array<Devtools.HistoryChangePack>;
+  public historyChanges: Array<HistoryChangePack>;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -640,22 +691,10 @@ export class Document<T, P extends Indexable = Indexable> {
       // 04. Publish the devtools event.
       if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
         this.publishDevtoolsEvent([
-          // TODO(chacha912): Extract a function to convert protobuf changes to HistoryChangePack.
           {
             source: OpSource.Local,
-            type: Devtools.HistoryChangePackType.Change,
-            payload: {
-              changeID: converter.bytesToHex(
-                converter.toChangeID(change.getID()).toBinary(),
-              ),
-              message: change.getMessage(),
-              operations: change
-                .getOperations()
-                .map((op) =>
-                  converter.bytesToHex(converter.toOperation(op).toBinary()),
-                ),
-              presenceChange: change.getPresenceChange(),
-            },
+            type: HistoryChangePackType.Change,
+            payload: change.toChangePayload(),
           },
         ]);
       }
@@ -887,7 +926,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
    */
-  public publishDevtoolsEvent(changes: Array<Devtools.HistoryChangePack>) {
+  public publishDevtoolsEvent(changes: Array<HistoryChangePack>) {
     this.historyChanges.push(...changes);
     this.publish({
       type: DocEventType.Devtools,
@@ -1125,7 +1164,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getHistoryChanges` returns history changes of this document.
    */
-  public getHistoryChanges(): Array<Devtools.HistoryChangePack> {
+  public getHistoryChanges(): Array<HistoryChangePack> {
     return this.historyChanges;
   }
 
@@ -1179,7 +1218,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.publishDevtoolsEvent([
         {
           source: OpSource.Remote,
-          type: Devtools.HistoryChangePackType.Snapshot,
+          type: HistoryChangePackType.Snapshot,
           payload: {
             snapshot: converter.bytesToHex(snapshot),
             serverSeq: serverSeq.toString(),
@@ -1315,19 +1354,8 @@ export class Document<T, P extends Indexable = Indexable> {
       this.publishDevtoolsEvent([
         {
           source,
-          type: Devtools.HistoryChangePackType.Change,
-          payload: {
-            changeID: converter.bytesToHex(
-              converter.toChangeID(change.getID()).toBinary(),
-            ),
-            message: change.getMessage(),
-            operations: change
-              .getOperations()
-              .map((op) =>
-                converter.bytesToHex(converter.toOperation(op).toBinary()),
-              ),
-            presenceChange: change.getPresenceChange(),
-          },
+          type: HistoryChangePackType.Change,
+          payload: change.toChangePayload(),
         },
       ]);
     }
@@ -1360,7 +1388,7 @@ export class Document<T, P extends Indexable = Indexable> {
         this.publishDevtoolsEvent([
           {
             source: OpSource.Local,
-            type: Devtools.HistoryChangePackType.WatchStream,
+            type: HistoryChangePackType.WatchStream,
             payload,
           },
         ]);
@@ -1405,7 +1433,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.publishDevtoolsEvent([
         {
           source: OpSource.Remote,
-          type: Devtools.HistoryChangePackType.WatchStream,
+          type: HistoryChangePackType.WatchStream,
           payload,
         },
       ]);
@@ -1438,7 +1466,7 @@ export class Document<T, P extends Indexable = Indexable> {
             payload.type === DocumentStatus.Removed
               ? OpSource.Remote
               : OpSource.Local,
-          type: Devtools.HistoryChangePackType.DocStatus,
+          type: HistoryChangePackType.DocStatus,
           payload,
         },
       ]);

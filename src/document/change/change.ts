@@ -22,7 +22,8 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { ChangePayload, Indexable } from '@yorkie-js-sdk/src/document/document';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
   PresenceChange,
@@ -184,5 +185,21 @@ export class Change<P extends Indexable> {
     return `${this.operations
       .map((operation) => operation.toTestString())
       .join(',')}`;
+  }
+
+  /**
+   * `toChangePayload` returns the ChangePayload of this change.
+   */
+  public toChangePayload(): ChangePayload {
+    return {
+      changeID: converter.bytesToHex(
+        converter.toChangeID(this.getID()).toBinary(),
+      ),
+      message: this.getMessage(),
+      operations: this.getOperations().map((op) =>
+        converter.bytesToHex(converter.toOperation(op).toBinary()),
+      ),
+      presenceChange: this.getPresenceChange(),
+    };
   }
 }
