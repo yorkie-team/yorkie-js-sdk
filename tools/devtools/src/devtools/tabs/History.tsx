@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { Devtools } from 'yorkie-js-sdk';
+import { HistoryChangePackType } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
 import { useYorkieChanges } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
@@ -57,8 +57,8 @@ export function History({
       const source = change.source;
       let type = 'document';
       if (
-        change.type === Devtools.HistoryChangePackType.WatchStream ||
-        (change.type === Devtools.HistoryChangePackType.Change &&
+        change.type === HistoryChangePackType.WatchStream ||
+        (change.type === HistoryChangePackType.Change &&
           change.payload.operations?.length === 0 &&
           change.payload.presenceChange)
       ) {

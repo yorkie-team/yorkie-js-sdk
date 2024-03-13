@@ -23,8 +23,12 @@ import {
   useState,
 } from 'react';
 
-import type { SDKToPanelMessage, DocEvent } from 'yorkie-js-sdk';
-import { Devtools, converter, Change, Long } from 'yorkie-js-sdk';
+import type {
+  SDKToPanelMessage,
+  DocEvent,
+  HistoryChangePack,
+} from 'yorkie-js-sdk';
+import { HistoryChangePackType, converter, Change, Long } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string>(null);
@@ -35,7 +39,7 @@ type Props = {
   children?: ReactNode;
 };
 
-type HistoryChangePackInfo = Devtools.HistoryChangePack & {
+type HistoryChangePackInfo = HistoryChangePack & {
   event?: DocEvent;
   docMeta?: {
     myClientID: string;
@@ -46,13 +50,10 @@ type HistoryChangePackInfo = Devtools.HistoryChangePack & {
   };
 };
 
-export function applyHistoryChangePack(
-  doc,
-  changePack: Devtools.HistoryChangePack,
-) {
+export function applyHistoryChangePack(doc, changePack: HistoryChangePack) {
   let result;
   switch (changePack.type) {
-    case Devtools.HistoryChangePackType.Snapshot:
+    case HistoryChangePackType.Snapshot:
       const { snapshot, serverSeq } = changePack.payload;
       result = doc.applySnapshot(
         Long.fromString(serverSeq),
@@ -62,7 +63,7 @@ export function applyHistoryChangePack(
         event: result.event,
         changePack: { type: changePack.type },
       };
-    case Devtools.HistoryChangePackType.Change:
+    case HistoryChangePackType.Change:
       const { changeID, operations, presenceChange, message } =
         changePack.payload;
       const change = Change.create({
@@ -92,13 +93,13 @@ export function applyHistoryChangePack(
           },
         },
       };
-    case Devtools.HistoryChangePackType.WatchStream:
+    case HistoryChangePackType.WatchStream:
       result = doc.applyWatchStream(changePack.payload);
       return {
         event: result.event,
         changePack: { type: changePack.type, payload: changePack.payload },
       };
-    case Devtools.HistoryChangePackType.DocStatus:
+    case HistoryChangePackType.DocStatus:
       result = doc.applyDocStatus(changePack.payload);
       return {
         event: result.event,
