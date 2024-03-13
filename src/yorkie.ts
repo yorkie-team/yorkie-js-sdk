@@ -46,6 +46,8 @@ export {
   DocEvent,
   Document,
   ChangeInfo,
+  HistoryChangePack,
+  HistoryChangePackType,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
