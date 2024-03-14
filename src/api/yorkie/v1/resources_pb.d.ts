@@ -177,6 +177,11 @@ export declare class ChangePack extends Message<ChangePack> {
   snapshot: Uint8Array;
 
   /**
+   * @generated from field: yorkie.v1.VersionVector snapshot_version_vector = 7;
+   */
+  snapshotVersionVector?: VersionVector;
+
+  /**
    * @generated from field: repeated yorkie.v1.Change changes = 4;
    */
   changes: Change[];
@@ -269,6 +274,11 @@ export declare class ChangeID extends Message<ChangeID> {
    */
   actorId: Uint8Array;
 
+  /**
+   * @generated from field: yorkie.v1.VersionVector version_vector = 5;
+   */
+  versionVector?: VersionVector;
+
   constructor(data?: PartialMessage<ChangeID>);
 
   static readonly runtime: typeof proto3;
@@ -282,6 +292,30 @@ export declare class ChangeID extends Message<ChangeID> {
   static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChangeID;
 
   static equals(a: ChangeID | PlainMessage<ChangeID> | undefined, b: ChangeID | PlainMessage<ChangeID> | undefined): boolean;
+}
+
+/**
+ * @generated from message yorkie.v1.VersionVector
+ */
+export declare class VersionVector extends Message<VersionVector> {
+  /**
+   * @generated from field: map<string, int64> vector = 1;
+   */
+  vector: { [key: string]: bigint };
+
+  constructor(data?: PartialMessage<VersionVector>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "yorkie.v1.VersionVector";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): VersionVector;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): VersionVector;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): VersionVector;
+
+  static equals(a: VersionVector | PlainMessage<VersionVector> | undefined, b: VersionVector | PlainMessage<VersionVector> | undefined): boolean;
 }
 
 /**
@@ -782,6 +816,11 @@ export declare class Operation_TreeStyle extends Message<Operation_TreeStyle> {
    * @generated from field: yorkie.v1.TimeTicket executed_at = 5;
    */
   executedAt?: TimeTicket;
+
+  /**
+   * @generated from field: repeated string attributes_to_remove = 6;
+   */
+  attributesToRemove: string[];
 
   constructor(data?: PartialMessage<Operation_TreeStyle>);
 
