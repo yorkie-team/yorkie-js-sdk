@@ -18,6 +18,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
@@ -46,6 +47,11 @@ export class ChangePack<P extends Indexable> {
   private snapshot?: Uint8Array;
 
   /**
+   * `snapshotVersionVector` is the version vector of the snapshot.
+   */
+  private snapshotVersionVector?: VersionVector;
+
+  /**
    * `minSyncedTicket` is the minimum logical time taken by clients who attach
    * to the document. It is used to collect garbage on the replica on the
    * client.
@@ -58,6 +64,7 @@ export class ChangePack<P extends Indexable> {
     isRemoved: boolean,
     changes: Array<Change<P>>,
     snapshot?: Uint8Array,
+    snapshotVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
@@ -65,6 +72,7 @@ export class ChangePack<P extends Indexable> {
     this.isRemoved = isRemoved;
     this.changes = changes;
     this.snapshot = snapshot;
+    this.snapshotVersionVector = snapshotVersionVector;
     this.minSyncedTicket = minSyncedTicket;
   }
 
@@ -77,6 +85,7 @@ export class ChangePack<P extends Indexable> {
     isRemoved: boolean,
     changes: Array<Change<P>>,
     snapshot?: Uint8Array,
+    snapshotVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
     return new ChangePack<P>(
@@ -85,6 +94,7 @@ export class ChangePack<P extends Indexable> {
       isRemoved,
       changes,
       snapshot,
+      snapshotVersionVector,
       minSyncedTicket,
     );
   }
@@ -143,6 +153,13 @@ export class ChangePack<P extends Indexable> {
    */
   public getSnapshot(): Uint8Array | undefined {
     return this.snapshot;
+  }
+
+  /**
+   * `getSnapshotVersionVector` returns the version vector of the snapshot.
+   */
+  public getSnapshotVersionVector(): VersionVector | undefined {
+    return this.snapshotVersionVector;
   }
 
   /**

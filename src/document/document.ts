@@ -57,6 +57,7 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import {
   OpSource,
   OperationInfo,
@@ -293,7 +294,7 @@ export interface SnapshotEvent extends BaseDocEvent {
    */
   type: DocEventType.Snapshot;
   source: OpSource.Remote;
-  value: { snapshot?: string; serverSeq: string };
+  value: { snapshot?: string; serverSeq: string; snapshotVector: string };
 }
 
 /**
@@ -1057,7 +1058,8 @@ export class Document<T, P extends Indexable = Indexable> {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot(),
+        pack.getSnapshot()!,
+        pack.getSnapshotVersionVector()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
@@ -1281,11 +1283,15 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array) {
+  public applySnapshot(
+    serverSeq: Long,
+    snapshot: Uint8Array,
+    snapshotVector: VersionVector,
+  ): void {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.syncLamport(serverSeq);
+    this.changeID = this.changeID.setClocks(serverSeq, snapshotVector);
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -1295,10 +1301,11 @@ export class Document<T, P extends Indexable = Indexable> {
         type: DocEventType.Snapshot,
         source: OpSource.Remote,
         value: {
+          serverSeq: serverSeq.toString(),
           snapshot: this.isEnableDevtools()
             ? converter.bytesToHex(snapshot)
             : undefined,
-          serverSeq: serverSeq.toString(),
+          snapshotVector: converter.versionVectorToHex(snapshotVector),
         },
       },
     ]);
@@ -1398,7 +1405,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
-    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
@@ -1536,11 +1543,12 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     if (event.type === DocEventType.Snapshot) {
-      const { snapshot, serverSeq } = event.value;
+      const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
       this.applySnapshot(
         Long.fromString(serverSeq),
         converter.hexToBytes(snapshot),
+        converter.hexToVersionVector(snapshotVector),
       );
       return;
     }

@@ -27,6 +27,7 @@ import {
   InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
@@ -75,6 +76,7 @@ import {
   TextNodeID as PbTextNodeID,
   TextNodePos as PbTextNodePos,
   TimeTicket as PbTimeTicket,
+  VersionVector as PbVersionVector,
   TreeNode as PbTreeNode,
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
@@ -162,6 +164,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
     clientSeq: changeID.getClientSeq(),
     lamport: changeID.getLamportAsString(),
     actorId: toUint8Array(changeID.getActorID()),
+    versionVector: toVersionVector(changeID.getVersionVector()),
   });
 }
 
@@ -178,6 +181,18 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
     delimiter: ticket.getDelimiter(),
     actorId: toUint8Array(ticket.getActorID()),
   });
+}
+
+/**
+ * `toVersionVector` converts the given model to Protobuf format.
+ */
+function toVersionVector(vector: VersionVector): PbVersionVector | undefined {
+  const pbVector = new PbVersionVector();
+  for (const [actorID, lamport] of vector) {
+    // TODO(hackerwins): Remove Long after introducing BigInt.
+    pbVector.vector[actorID] = BigInt(lamport.toString());
+  }
+  return pbVector;
 }
 
 /**
@@ -808,8 +823,27 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
     pbChangeID.clientSeq,
     Long.fromString(pbChangeID.lamport, true),
     toHexString(pbChangeID.actorId),
+    fromVersionVector(pbChangeID.versionVector)!,
     serverSeq,
   );
+}
+
+/**
+ * `fromVersionVector` converts the given Protobuf format to model format.
+ */
+function fromVersionVector(
+  pbVersionVector?: PbVersionVector,
+): VersionVector | undefined {
+  if (!pbVersionVector) {
+    return;
+  }
+
+  const vector = new VersionVector();
+  Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
+    // TODO(hackerwins): Remove Long after introducing BigInt.
+    vector.set(key, Long.fromString(value.toString(), true));
+  });
+  return vector;
 }
 
 /**
@@ -1330,6 +1364,7 @@ function fromChangePack<P extends Indexable>(
     pbPack.isRemoved,
     fromChanges(pbPack.changes),
     pbPack.snapshot,
+    fromVersionVector(pbPack.snapshotVersionVector),
     fromTimeTicket(pbPack.minSyncedTicket),
   );
 }
@@ -1488,6 +1523,23 @@ function bytesToObject(bytes?: Uint8Array): CRDTObject {
 }
 
 /**
+ * `versionVectorToHex` converts the given VersionVector to bytes.
+ */
+function versionVectorToHex(vector: VersionVector): string {
+  const pbVersionVector = toVersionVector(vector)!;
+  return bytesToHex(pbVersionVector.toBinary());
+}
+
+/**
+ * `hexToVersionVector` creates a VersionVector from the given bytes.
+ */
+function hexToVersionVector(hex: string): VersionVector {
+  const bytes = hexToBytes(hex);
+  const pbVersionVector = PbVersionVector.fromBinary(bytes);
+  return fromVersionVector(pbVersionVector)!;
+}
+
+/**
  * `objectToBytes` converts the given JSONObject to byte array.
  */
 function objectToBytes(obj: CRDTObject): Uint8Array {
@@ -1598,6 +1650,8 @@ export const converter = {
   bytesToSnapshot,
   bytesToHex,
   hexToBytes,
+  versionVectorToHex,
+  hexToVersionVector,
   toHexString,
   toUint8Array,
   toOperation,
