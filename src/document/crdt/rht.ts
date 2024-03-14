@@ -106,6 +106,7 @@ export class RHT {
     const prev = this.nodeMapByKey.get(key);
 
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
+      // NOTE(raararaara): This logic is implemented without considering gc.
       if (prev !== undefined && prev.isRemoved()) {
         this.numberOfRemovedElement -= 1;
       }
