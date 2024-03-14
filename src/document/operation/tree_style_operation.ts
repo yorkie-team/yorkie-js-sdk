@@ -185,7 +185,7 @@ export class TreeStyleOperation extends Operation {
    * `getAttributes` returns the attributes of Style.
    */
   public getAttributes(): Map<string, string> {
-    return this.attributes!;
+    return this.attributes;
   }
 
   /**
