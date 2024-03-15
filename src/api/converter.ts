@@ -445,10 +445,15 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
     pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
 
-    const attributesMap = pbTreeStyleOperation.attributes;
+    const attributesToRemove = treeStyleOperation.getAttributesToRemove();
+    if (attributesToRemove.length > 0) {
+      pbTreeStyleOperation.attributesToRemove = attributesToRemove;
+    } else {
+      const attributesMap = pbTreeStyleOperation.attributes;
 
-    for (const [key, value] of treeStyleOperation.getAttributes()) {
-      attributesMap[key] = value;
+      for (const [key, value] of treeStyleOperation.getAttributes()) {
+        attributesMap[key] = value;
+      }
     }
     pbTreeStyleOperation.executedAt = toTimeTicket(
       treeStyleOperation.getExecutedAt(),
@@ -1171,17 +1176,30 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
     const attributes = new Map();
+    const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
 
-    Object.entries(pbTreeStyleOperation!.attributes).forEach(([key, value]) => {
-      attributes.set(key, value);
-    });
-    return TreeStyleOperation.create(
-      fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-      fromTreePos(pbTreeStyleOperation!.from!),
-      fromTreePos(pbTreeStyleOperation!.to!),
-      attributes,
-      fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-    );
+    if (attributesToRemove.length > 0) {
+      return TreeStyleOperation.createTreeRemoveStyleOperation(
+        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+        fromTreePos(pbTreeStyleOperation!.from!),
+        fromTreePos(pbTreeStyleOperation!.to!),
+        attributesToRemove,
+        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
+      );
+    } else {
+      Object.entries(pbTreeStyleOperation!.attributes).forEach(
+        ([key, value]) => {
+          attributes.set(key, value);
+        },
+      );
+      return TreeStyleOperation.create(
+        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+        fromTreePos(pbTreeStyleOperation!.from!),
+        fromTreePos(pbTreeStyleOperation!.to!),
+        attributes,
+        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
+      );
+    }
   } else {
     throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
   }
