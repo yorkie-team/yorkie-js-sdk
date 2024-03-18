@@ -86,6 +86,7 @@ const ChangePack = proto3.makeMessageType(
     { no: 1, name: "document_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "checkpoint", kind: "message", T: Checkpoint },
     { no: 3, name: "snapshot", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 7, name: "snapshot_version_vector", kind: "message", T: VersionVector },
     { no: 4, name: "changes", kind: "message", T: Change, repeated: true },
     { no: 5, name: "min_synced_ticket", kind: "message", T: TimeTicket },
     { no: 6, name: "is_removed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
@@ -115,6 +116,17 @@ const ChangeID = proto3.makeMessageType(
     { no: 2, name: "server_seq", kind: "scalar", T: 3 /* ScalarType.INT64 */, L: 1 /* LongType.STRING */ },
     { no: 3, name: "lamport", kind: "scalar", T: 3 /* ScalarType.INT64 */, L: 1 /* LongType.STRING */ },
     { no: 4, name: "actor_id", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 5, name: "version_vector", kind: "message", T: VersionVector },
+  ],
+);
+
+/**
+ * @generated from message yorkie.v1.VersionVector
+ */
+const VersionVector = proto3.makeMessageType(
+  "yorkie.v1.VersionVector",
+  () => [
+    { no: 1, name: "vector", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 3 /* ScalarType.INT64 */} },
   ],
 );
 
@@ -680,6 +692,7 @@ exports.Snapshot = Snapshot;
 exports.ChangePack = ChangePack;
 exports.Change = Change;
 exports.ChangeID = ChangeID;
+exports.VersionVector = VersionVector;
 exports.Operation = Operation;
 exports.Operation_Set = Operation_Set;
 exports.Operation_Add = Operation_Add;

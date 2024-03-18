@@ -49,6 +49,7 @@ import {
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import {
   OpSource,
   OperationInfo,
@@ -811,7 +812,8 @@ export class Document<T, P extends Indexable = Indexable> {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot(),
+        pack.getSnapshot()!,
+        pack.getSnapshotVersionVector()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges());
@@ -1035,11 +1037,15 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
+  public applySnapshot(
+    serverSeq: Long,
+    snapshot: Uint8Array,
+    snapshotVector: VersionVector,
+  ): void {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.syncLamport(serverSeq);
+    this.changeID = this.changeID.setClocks(serverSeq, snapshotVector);
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -1143,7 +1149,7 @@ export class Document<T, P extends Indexable = Indexable> {
         this.publish(presenceEvent);
       }
 
-      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+      this.changeID = this.changeID.syncClocks(change.getID());
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {
