@@ -60,7 +60,16 @@ const Panel = () => {
   });
 
   useEffect(() => {
-    if (changes.length > 0 && selectedChangeIndexInfo.isLast) {
+    if (changes.length === 0) {
+      // NOTE(chacha912): If there are no changes, reset the SelectedChangeIndexInfo.
+      setSelectedChangeIndexInfo({
+        index: null,
+        isLast: true,
+      });
+      return;
+    }
+
+    if (selectedChangeIndexInfo.isLast) {
       setSelectedChangeIndexInfo({
         index: changes.length - 1,
         isLast: true,
