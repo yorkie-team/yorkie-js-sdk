@@ -100,7 +100,7 @@ export function applyHistoryChangePack(doc, changePack: HistoryChangePack) {
         changePack: { type: changePack.type, payload: changePack.payload },
       };
     case HistoryChangePackType.DocStatus:
-      result = doc.applyDocStatus(changePack.payload);
+      result = doc.applyStatus(changePack.payload);
       return {
         event: result.event,
         changePack: { type: changePack.type, payload: changePack.payload },

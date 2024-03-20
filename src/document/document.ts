@@ -26,7 +26,10 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import {
+  ActorID,
+  InitialActorID,
+} from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import {
   ChangeID,
@@ -980,7 +983,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
-      this.applyDocStatus({ type: DocumentStatus.Removed });
+      this.applyStatus({ type: DocumentStatus.Removed });
     }
 
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -1053,7 +1056,8 @@ export class Document<T, P extends Indexable = Indexable> {
     }
     this.changeID = this.changeID.setActor(actorID);
 
-    // TODO also apply into root.
+    // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
+    // update InitialActor of the root and clone.
   }
 
   /**
@@ -1068,15 +1072,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getKey(): string {
     return this.key;
-  }
-
-  /**
-   * `setStatus` updates the status of this document.
-   *
-   * @internal
-   */
-  public setStatus(status: DocumentStatus) {
-    this.status = status;
   }
 
   /**
@@ -1443,22 +1438,19 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyDocStatus` applies the document status into this document.
+   * `applyStatus` applies the document status into this document.
    */
-  public applyDocStatus(payload: DocStatusPayload): {
+  public applyStatus(payload: DocStatusPayload): {
     event: Array<DocEvent<P>>;
   } {
+    this.status = payload.type;
+
     if (payload.type === DocumentStatus.Attached) {
-      this.setStatus(DocumentStatus.Attached);
       this.setActor(payload.value.actorID);
     } else if (payload.type === DocumentStatus.Detached) {
-      this.setStatus(DocumentStatus.Detached);
-      // TODO(chacha912): Reset the actor to the initial actor.
-    } else if (payload.type === DocumentStatus.Removed) {
-      this.setStatus(DocumentStatus.Removed);
+      this.setActor(InitialActorID);
     }
 
-    // Publish the devtools event.
     if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
       this.publishDevtoolsEvent([
         {

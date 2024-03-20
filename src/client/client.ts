@@ -450,7 +450,7 @@ export class Client implements Observable<ClientEvent> {
           return doc;
         }
 
-        doc.applyDocStatus({
+        doc.applyStatus({
           type: DocumentStatus.Attached,
           value: { actorID: this.id! },
         });
@@ -519,7 +519,7 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.applyDocStatus({
+          doc.applyStatus({
             type: DocumentStatus.Detached,
           });
         }
@@ -874,6 +874,9 @@ export class Client implements Observable<ClientEvent> {
       switch (eventType) {
         case PbDocEventType.DOCUMENT_CHANGED:
           attachment.remoteChangeEventReceived = true;
+
+          // TODO(chacha): We need to remove the following event propagation
+          // logic after removing `client.subscribe`.
           this.eventStreamObserver.next({
             type: ClientEventType.DocumentChanged,
             value: [attachment.doc.getKey()],
