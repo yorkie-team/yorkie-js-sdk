@@ -18,15 +18,6 @@ import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive'
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 
-// `DevtoolsEnvironment` specifies the environment for devtools.
-export type DevtoolsEnvironment =
-  // Disable devtools completely
-  | 'disabled'
-  // Run devtools only in development environment
-  | 'development'
-  // Run devtools in both development and production environments
-  | 'production';
-
 /**
  * `Json` represents a JSON value.
  *

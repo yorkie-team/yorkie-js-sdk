@@ -71,10 +71,7 @@ import {
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
-import {
-  setupDevtools,
-  isValidDevtoolsEnvironment,
-} from '@yorkie-js-sdk/src/devtools';
+import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
@@ -89,10 +86,9 @@ export interface DocumentOptions {
   disableGC?: boolean;
 
   /**
-   * `devtoolsEnvironment` specifies the environment for devtools.
-   * Default value is `development`.
+   * `enableDevtools` enables devtools if true.
    */
-  devtoolsEnvironment?: Devtools.DevtoolsEnvironment;
+  enableDevtools?: boolean;
 }
 
 /**
@@ -563,6 +559,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
+    // TODO(chacha): We need to enableDevtools if the environment is development.
 
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -692,7 +689,7 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       // 04. Publish the devtools event.
-      if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      if (this.opts.enableDevtools) {
         this.publishDevtoolsEvent([
           {
             source: OpSource.Local,
@@ -1061,10 +1058,10 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getDevtoolsEnvironmentOption` returns the environment option for devtools.
+   * `isEnableDevtools` returns whether devtools is enabled or not.
    */
-  public getDevtoolsEnvironmentOption(): Devtools.DevtoolsEnvironment {
-    return this.opts.devtoolsEnvironment || 'development';
+  public isEnableDevtools(): boolean {
+    return this.opts.enableDevtools || false;
   }
 
   /**
@@ -1208,8 +1205,7 @@ export class Document<T, P extends Indexable = Indexable> {
     };
     this.publish(snapshotEvent);
 
-    // Publish the devtools event.
-    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+    if (this.opts.enableDevtools) {
       this.publishDevtoolsEvent([
         {
           source: OpSource.Remote,
@@ -1344,8 +1340,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.changeID = this.changeID.syncLamport(change.getID().getLamport());
 
-    // Publish the devtools event.
-    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+    if (this.opts.enableDevtools) {
       this.publishDevtoolsEvent([
         {
           source,
@@ -1378,8 +1373,7 @@ export class Document<T, P extends Indexable = Indexable> {
       };
       this.publish(docEvent);
 
-      // Publish the devtools event.
-      if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+      if (this.opts.enableDevtools) {
         this.publishDevtoolsEvent([
           {
             source: OpSource.Local,
@@ -1423,8 +1417,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.publish(docEvent);
     }
 
-    // Publish the devtools event.
-    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+    if (this.opts.enableDevtools) {
       this.publishDevtoolsEvent([
         {
           source: OpSource.Remote,
@@ -1451,7 +1444,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.setActor(InitialActorID);
     }
 
-    if (isValidDevtoolsEnvironment(this.getDevtoolsEnvironmentOption())) {
+    if (this.opts.enableDevtools) {
       this.publishDevtoolsEvent([
         {
           source:
