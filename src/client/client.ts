@@ -38,6 +38,7 @@ import {
   Document,
   DocumentKey,
   DocumentStatus,
+  WatchStreamType,
 } from '@yorkie-js-sdk/src/document/document';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
@@ -449,7 +450,10 @@ export class Client implements Observable<ClientEvent> {
           return doc;
         }
 
-        doc.setStatus(DocumentStatus.Attached);
+        doc.applyStatus({
+          type: DocumentStatus.Attached,
+          value: { actorID: this.id! },
+        });
         this.attachmentMap.set(
           doc.getKey(),
           new Attachment(
@@ -515,7 +519,9 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.setStatus(DocumentStatus.Detached);
+          doc.applyStatus({
+            type: DocumentStatus.Detached,
+          });
         }
         this.detachInternal(doc.getKey());
 
@@ -855,17 +861,10 @@ export class Client implements Observable<ClientEvent> {
     attachment: Attachment<T, P>,
     resp: WatchDocumentResponse,
   ) {
-    const docKey = attachment.doc.getKey();
     if (resp.body.case === 'initialization') {
-      const clientIDs = resp.body.value.clientIds;
-      const onlineClients: Set<ActorID> = new Set();
-      for (const clientID of clientIDs) {
-        onlineClients.add(clientID);
-      }
-      attachment.doc.setOnlineClients(onlineClients);
-      attachment.doc.publish({
-        type: DocEventType.Initialized,
-        value: attachment.doc.getPresences(),
+      attachment.doc.applyWatchStream({
+        type: WatchStreamType.Initialization,
+        value: { clientIDs: resp.body.value.clientIds },
       });
       return;
     } else if (resp.body.case === 'event') {
@@ -875,36 +874,25 @@ export class Client implements Observable<ClientEvent> {
       switch (eventType) {
         case PbDocEventType.DOCUMENT_CHANGED:
           attachment.remoteChangeEventReceived = true;
+
+          // TODO(chacha): We need to remove the following event propagation
+          // logic after removing `client.subscribe`.
           this.eventStreamObserver.next({
             type: ClientEventType.DocumentChanged,
-            value: [docKey],
+            value: [attachment.doc.getKey()],
           });
           break;
         case PbDocEventType.DOCUMENT_WATCHED:
-          attachment.doc.addOnlineClient(publisher);
-          // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
-          // unless we also know their initial presence data at this point.
-          if (attachment.doc.hasPresence(publisher)) {
-            attachment.doc.publish({
-              type: DocEventType.Watched,
-              value: {
-                clientID: publisher,
-                presence: attachment.doc.getPresence(publisher)!,
-              },
-            });
-          }
+          attachment.doc.applyWatchStream({
+            type: WatchStreamType.DocEvent,
+            value: { type: DocEventType.Watched, publisher },
+          });
           break;
         case PbDocEventType.DOCUMENT_UNWATCHED: {
-          const presence = attachment.doc.getPresence(publisher);
-          attachment.doc.removeOnlineClient(publisher);
-          // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
-          // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
-          if (presence) {
-            attachment.doc.publish({
-              type: DocEventType.Unwatched,
-              value: { clientID: publisher, presence },
-            });
-          }
+          attachment.doc.applyWatchStream({
+            type: WatchStreamType.DocEvent,
+            value: { type: DocEventType.Unwatched, publisher },
+          });
           break;
         }
       }

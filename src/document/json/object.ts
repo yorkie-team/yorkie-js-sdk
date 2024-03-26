@@ -50,6 +50,7 @@ export type JSONObject<T> = {
 
   /**
    * `toJSForTest` returns the JSON object of this object for debugging.
+   * @internal
    */
   toJSForTest?(): Devtools.JSONElement;
 } & T;
@@ -105,7 +106,7 @@ export class ObjectProxy {
             return target.toJS();
           };
         } else if (keyOrMethod === 'toJSForTest') {
-          return (): object => {
+          return (): Devtools.JSONElement => {
             return target.toJSForTest();
           };
         }

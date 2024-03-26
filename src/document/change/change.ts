@@ -22,7 +22,8 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { ChangePayload, Indexable } from '@yorkie-js-sdk/src/document/document';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
   PresenceChange,
@@ -145,9 +146,16 @@ export class Change<P extends Indexable> {
   } {
     const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
-    if (process.env.NODE_ENV !== 'production' && this.operations.length) {
+
+    // TODO(chacha): Remove the below logic after implementing undo/redo feature in the devtools.
+    if (
+      typeof process !== 'undefined' &&
+      process.env?.NODE_ENV === 'development' &&
+      this.operations.length
+    ) {
       root.opsForTest.push(this.operations);
     }
+
     for (const operation of this.operations) {
       const executionResult = operation.execute(root, source);
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
@@ -184,5 +192,21 @@ export class Change<P extends Indexable> {
     return `${this.operations
       .map((operation) => operation.toTestString())
       .join(',')}`;
+  }
+
+  /**
+   * `toChangePayload` returns the ChangePayload of this change.
+   */
+  public toChangePayload(): ChangePayload {
+    return {
+      changeID: converter.bytesToHex(
+        converter.toChangeID(this.getID()).toBinary(),
+      ),
+      message: this.getMessage(),
+      operations: this.getOperations().map((op) =>
+        converter.bytesToHex(converter.toOperation(op).toBinary()),
+      ),
+      presenceChange: this.getPresenceChange(),
+    };
   }
 }

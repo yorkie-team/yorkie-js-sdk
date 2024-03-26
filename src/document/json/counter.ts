@@ -24,6 +24,7 @@ import {
   CounterType,
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `Counter` is a custom data type that is used to counter.
@@ -96,5 +97,17 @@ export class Counter {
     );
 
     return this;
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   * @internal
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    if (!this.context || !this.counter) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.counter.toJSForTest();
   }
 }

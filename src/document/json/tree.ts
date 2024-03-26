@@ -553,6 +553,18 @@ export class Tree {
   }
 
   /**
+   * `toJSForTest` returns value with meta data for testing.
+   * @internal
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.toJSForTest();
+  }
+
+  /**
    * `toJSInfoForTest` returns detailed TreeNode information for use in Devtools.
    *
    * @internal

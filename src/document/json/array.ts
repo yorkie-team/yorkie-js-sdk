@@ -30,6 +30,7 @@ import {
   toJSONElement,
   buildCRDTElement,
 } from '@yorkie-js-sdk/src/document/json/element';
+import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `JSONArray` represents JSON array, but unlike regular JSON, it has time
@@ -96,6 +97,12 @@ export type JSONArray<T> = {
    * for debugging purpose.
    */
   toTestString?(): string;
+
+  /**
+   * `toJSForTest` returns the JSON object of this array for debugging.
+   * @internal
+   */
+  toJSForTest?(): Devtools.JSONElement;
 } & Array<T>;
 
 /**
@@ -284,6 +291,10 @@ export class ArrayProxy {
               searchElement,
               fromIndex,
             );
+          };
+        } else if (method === 'toJSForTest') {
+          return (): Devtools.JSONElement => {
+            return target.toJSForTest();
           };
         } else if (method === 'toTestString') {
           return (): string => ArrayProxy.toTestString(target);

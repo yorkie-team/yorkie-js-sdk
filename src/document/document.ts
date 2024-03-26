@@ -26,7 +26,10 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import {
+  ActorID,
+  InitialActorID,
+} from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import {
   ChangeID,
@@ -81,6 +84,12 @@ export interface DocumentOptions {
    * `disableGC` disables garbage collection if true.
    */
   disableGC?: boolean;
+
+  /**
+   * `enableDevtools` enables devtools if true.
+   * The default value is true only when the environment is development in Node.js.
+   */
+  enableDevtools?: boolean;
 }
 
 /**
@@ -145,6 +154,11 @@ export enum DocEventType {
    * `PresenceChanged` means that the presences of the client has updated.
    */
   PresenceChanged = 'presence-changed',
+
+  /**
+   * `Devtools` means that the event is for devtools.
+   */
+  Devtools = 'devtools',
 }
 
 /**
@@ -160,7 +174,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | InitializedEvent<P>
   | WatchedEvent<P>
   | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>;
+  | PresenceChangedEvent<P>
+  | DevtoolsEvent;
 
 /**
  * @internal
@@ -249,6 +264,15 @@ export interface PresenceChangedEvent<P extends Indexable>
   extends BaseDocEvent {
   type: DocEventType.PresenceChanged;
   value: { clientID: ActorID; presence: P };
+}
+
+/**
+ * `DevtoolsEvent` is an event used to subscribe to changes in the document
+ * for the Devtools.
+ */
+export interface DevtoolsEvent extends BaseDocEvent {
+  type: DocEventType.Devtools;
+  value: Array<HistoryChangePack>;
 }
 
 /**
@@ -397,6 +421,87 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 >;
 
 /**
+ * `HistoryChangePack` represents a unit where changes can occur in the document.
+ * It is used for document replay purposes.
+ */
+export type HistoryChangePack =
+  | SnapshotChangePack
+  | ChangeChangePack
+  | WatchStreamChangePack
+  | DocStatusChangePack;
+
+type BaseHistoryChangePack = {
+  source: OpSource;
+};
+
+export enum HistoryChangePackType {
+  Snapshot = 'snapshot',
+  Change = 'change',
+  WatchStream = 'watch-stream',
+  DocStatus = 'doc-status',
+}
+
+export type SnapshotChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Snapshot;
+  payload: { snapshot: string; serverSeq: string };
+};
+
+export type ChangeChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.Change;
+  payload: ChangePayload;
+};
+
+export type WatchStreamChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.WatchStream;
+  payload: WatchStreamPayload;
+};
+
+export type DocStatusChangePack = BaseHistoryChangePack & {
+  type: HistoryChangePackType.DocStatus;
+  payload: DocStatusPayload;
+};
+
+export type ChangePayload = {
+  changeID: string;
+  message?: string;
+  operations?: Array<string>;
+  presenceChange?: {
+    type: PresenceChangeType;
+    presence?: object; // TODO(chacha912): Specify the type accurately.
+  };
+};
+
+export enum WatchStreamType {
+  Initialization = 'initialization',
+  DocEvent = 'doc-event',
+}
+
+export type WatchStreamPayload =
+  | {
+      type: WatchStreamType.Initialization;
+      value: { clientIDs: Array<string> };
+    }
+  | {
+      type: WatchStreamType.DocEvent;
+      value: {
+        type: DocEventType.Watched | DocEventType.Unwatched;
+        publisher: string;
+      };
+    };
+
+export type DocStatusPayload =
+  | {
+      type: DocumentStatus.Attached;
+      value: { actorID: string };
+    }
+  | {
+      type: DocumentStatus.Detached;
+    }
+  | {
+      type: DocumentStatus.Removed;
+    };
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  *
@@ -446,8 +551,19 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private isUpdating: boolean;
 
+  /**
+   * `historyChanges` stores all changes in the document for replaying
+   * (time-traveling feature) in Devtools. Later, external storage such as
+   * IndexedDB will be used.
+   */
+  public historyChanges: Array<HistoryChangePack>;
+
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
+    this.opts.enableDevtools =
+      this.opts.enableDevtools ??
+      (typeof process !== 'undefined' &&
+        process.env?.NODE_ENV === 'development');
 
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -473,6 +589,7 @@ export class Document<T, P extends Indexable = Indexable> {
       redo: this.redo.bind(this),
     };
 
+    this.historyChanges = [];
     setupDevtools(this);
   }
 
@@ -574,6 +691,18 @@ export class Document<T, P extends Indexable = Indexable> {
           },
         });
       }
+
+      // 04. Publish the devtools event.
+      if (this.opts.enableDevtools) {
+        this.publishDevtoolsEvent([
+          {
+            source: OpSource.Local,
+            type: HistoryChangePackType.Change,
+            payload: change.toChangePayload(),
+          },
+        ]);
+      }
+
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
@@ -720,10 +849,9 @@ export class Document<T, P extends Indexable = Indexable> {
       return this.eventStream.subscribe(
         (event) => {
           if (
-            event.type === DocEventType.Initialized ||
-            event.type === DocEventType.Watched ||
-            event.type === DocEventType.Unwatched ||
-            event.type === DocEventType.PresenceChanged
+            event.type !== DocEventType.Snapshot &&
+            event.type !== DocEventType.LocalChange &&
+            event.type !== DocEventType.RemoteChange
           ) {
             return;
           }
@@ -761,10 +889,9 @@ export class Document<T, P extends Indexable = Indexable> {
       return this.eventStream.subscribe(
         (event) => {
           if (
-            event.type === DocEventType.Initialized ||
-            event.type === DocEventType.Watched ||
-            event.type === DocEventType.Unwatched ||
-            event.type === DocEventType.PresenceChanged
+            event.type !== DocEventType.Snapshot &&
+            event.type !== DocEventType.LocalChange &&
+            event.type !== DocEventType.RemoteChange
           ) {
             return;
           }
@@ -779,6 +906,18 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `subscribeForTest` is used to subscribe to DevtoolsEvent.
+   */
+  public subscribeForTest(next: NextFn<DevtoolsEvent>): Unsubscribe {
+    return this.eventStream.subscribe((event) => {
+      if (event.type !== DocEventType.Devtools) {
+        return;
+      }
+      next(event);
+    });
+  }
+
+  /**
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
@@ -786,6 +925,17 @@ export class Document<T, P extends Indexable = Indexable> {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(event);
     }
+  }
+
+  /**
+   * `publishDevtoolsEvent` stores changes for devtools and publishes devtools event.
+   */
+  public publishDevtoolsEvent(changes: Array<HistoryChangePack>) {
+    this.historyChanges.push(...changes);
+    this.publish({
+      type: DocEventType.Devtools,
+      value: changes,
+    });
   }
 
   private isSameElementOrChildOf(elem: string, parent: string): boolean {
@@ -814,7 +964,7 @@ export class Document<T, P extends Indexable = Indexable> {
         pack.getSnapshot(),
       );
     } else if (pack.hasChanges()) {
-      this.applyChanges(pack.getChanges());
+      this.applyChanges(pack.getChanges(), OpSource.Remote);
     }
 
     // 02. Remove local changes applied to server.
@@ -834,7 +984,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
-      this.setStatus(DocumentStatus.Removed);
+      this.applyStatus({ type: DocumentStatus.Removed });
     }
 
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -907,7 +1057,15 @@ export class Document<T, P extends Indexable = Indexable> {
     }
     this.changeID = this.changeID.setActor(actorID);
 
-    // TODO also apply into root.
+    // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
+    // update InitialActor of the root and clone.
+  }
+
+  /**
+   * `isEnableDevtools` returns whether devtools is enabled or not.
+   */
+  public isEnableDevtools(): boolean {
+    return this.opts.enableDevtools!;
   }
 
   /**
@@ -915,15 +1073,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getKey(): string {
     return this.key;
-  }
-
-  /**
-   * `setStatus` updates the status of this document.
-   *
-   * @internal
-   */
-  public setStatus(status: DocumentStatus) {
-    this.status = status;
   }
 
   /**
@@ -1009,6 +1158,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getHistoryChanges` returns history changes of this document.
+   */
+  public getHistoryChanges(): Array<HistoryChangePack> {
+    return this.historyChanges;
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this document.
    */
   public toJSON(): string {
@@ -1035,7 +1191,10 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array): void {
+  public applySnapshot(
+    serverSeq: Long,
+    snapshot?: Uint8Array,
+  ): { event: Array<DocEvent<P>> } {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
@@ -1044,16 +1203,32 @@ export class Document<T, P extends Indexable = Indexable> {
     // drop clone because it is contaminated.
     this.clone = undefined;
 
-    this.publish({
+    const snapshotEvent: SnapshotEvent = {
       type: DocEventType.Snapshot,
       value: snapshot,
-    });
+    };
+    this.publish(snapshotEvent);
+
+    if (this.opts.enableDevtools) {
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Remote,
+          type: HistoryChangePackType.Snapshot,
+          payload: {
+            snapshot: converter.bytesToHex(snapshot),
+            serverSeq: serverSeq.toString(),
+          },
+        },
+      ]);
+    }
+
+    return { event: [snapshotEvent] };
   }
 
   /**
    * `applyChanges` applies the given changes into this document.
    */
-  public applyChanges(changes: Array<Change<P>>): void {
+  public applyChanges(changes: Array<Change<P>>, source: OpSource): void {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
@@ -1072,78 +1247,8 @@ export class Document<T, P extends Indexable = Indexable> {
       );
     }
 
-    this.ensureClone();
     for (const change of changes) {
-      change.execute(this.clone!.root, this.clone!.presences, OpSource.Remote);
-
-      let presenceEvent:
-        | WatchedEvent<P>
-        | UnwatchedEvent<P>
-        | PresenceChangedEvent<P>
-        | undefined;
-      const actorID = change.getID().getActorID();
-      if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
-        const presenceChange = change.getPresenceChange()!;
-        switch (presenceChange.type) {
-          case PresenceChangeType.Put:
-            // NOTE(chacha912): When the user exists in onlineClients, but
-            // their presence was initially absent, we can consider that we have
-            // received their initial presence, so trigger the 'watched' event.
-            presenceEvent = {
-              type: this.presences.has(actorID)
-                ? DocEventType.PresenceChanged
-                : DocEventType.Watched,
-              value: {
-                clientID: actorID,
-                presence: presenceChange.presence,
-              },
-            };
-            break;
-          case PresenceChangeType.Clear:
-            // NOTE(chacha912): When the user exists in onlineClients, but
-            // PresenceChange(clear) is received, we can consider it as detachment
-            // occurring before unwatching.
-            // Detached user is no longer participating in the document, we remove
-            // them from the online clients and trigger the 'unwatched' event.
-            presenceEvent = {
-              type: DocEventType.Unwatched,
-              value: {
-                clientID: actorID,
-                presence: this.getPresence(actorID)!,
-              },
-            };
-            this.removeOnlineClient(actorID);
-            break;
-          default:
-            break;
-        }
-      }
-
-      const { opInfos } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Remote,
-      );
-
-      // DocEvent should be emitted synchronously with applying changes.
-      // This is because 3rd party model should be synced with the Document
-      // after RemoteChange event is emitted. If the event is emitted
-      // asynchronously, the model can be changed and breaking consistency.
-      if (opInfos.length > 0) {
-        this.publish({
-          type: DocEventType.RemoteChange,
-          value: {
-            actor: actorID,
-            message: change.getMessage() || '',
-            operations: opInfos,
-          },
-        });
-      }
-      if (presenceEvent) {
-        this.publish(presenceEvent);
-      }
-
-      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+      this.applyChange(change, source);
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {
@@ -1153,6 +1258,210 @@ export class Document<T, P extends Indexable = Indexable> {
           ` removeds:${this.root.getRemovedElementSetSize()}`,
       );
     }
+  }
+
+  /**
+   * `applyChange` applies the given change into this document.
+   */
+  public applyChange(
+    change: Change<P>,
+    source: OpSource,
+  ): { event: Array<DocEvent<P>> } {
+    this.ensureClone();
+    change.execute(this.clone!.root, this.clone!.presences, source);
+
+    const events: Array<DocEvent<P>> = [];
+    let presenceEvent:
+      | WatchedEvent<P>
+      | UnwatchedEvent<P>
+      | PresenceChangedEvent<P>
+      | undefined;
+    let docEvent: LocalChangeEvent | RemoteChangeEvent | undefined;
+    const actorID = change.getID().getActorID();
+    if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
+      const presenceChange = change.getPresenceChange()!;
+      switch (presenceChange.type) {
+        case PresenceChangeType.Put:
+          // NOTE(chacha912): When the user exists in onlineClients, but
+          // their presence was initially absent, we can consider that we have
+          // received their initial presence, so trigger the 'watched' event.
+          presenceEvent = {
+            type: this.presences.has(actorID)
+              ? DocEventType.PresenceChanged
+              : DocEventType.Watched,
+            value: {
+              clientID: actorID,
+              presence: presenceChange.presence,
+            },
+          };
+          break;
+        case PresenceChangeType.Clear:
+          // NOTE(chacha912): When the user exists in onlineClients, but
+          // PresenceChange(clear) is received, we can consider it as detachment
+          // occurring before unwatching.
+          // Detached user is no longer participating in the document, we remove
+          // them from the online clients and trigger the 'unwatched' event.
+          presenceEvent = {
+            type: DocEventType.Unwatched,
+            value: {
+              clientID: actorID,
+              presence: this.getPresence(actorID)!,
+            },
+          };
+          this.removeOnlineClient(actorID);
+          break;
+        default:
+          break;
+      }
+    }
+
+    const { opInfos } = change.execute(this.root, this.presences, source);
+    if (opInfos.length > 0) {
+      docEvent = {
+        type:
+          source === OpSource.Remote
+            ? DocEventType.RemoteChange
+            : DocEventType.LocalChange,
+        value: {
+          actor: actorID,
+          message: change.getMessage() || '',
+          operations: opInfos,
+        },
+      };
+    }
+    // DocEvent should be emitted synchronously with applying changes.
+    // This is because 3rd party model should be synced with the Document
+    // after RemoteChange event is emitted. If the event is emitted
+    // asynchronously, the model can be changed and breaking consistency.
+    if (docEvent) {
+      this.publish(docEvent);
+      events.push(docEvent);
+    }
+    if (presenceEvent) {
+      this.publish(presenceEvent);
+      events.push(presenceEvent);
+    }
+
+    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+
+    if (this.opts.enableDevtools) {
+      this.publishDevtoolsEvent([
+        {
+          source,
+          type: HistoryChangePackType.Change,
+          payload: change.toChangePayload(),
+        },
+      ]);
+    }
+
+    return { event: events };
+  }
+
+  /**
+   * `applyWatchStream` applies the given watch stream payload into this document.
+   */
+  public applyWatchStream(payload: WatchStreamPayload): {
+    event: Array<DocEvent<P>>;
+  } {
+    if (payload.type === WatchStreamType.Initialization) {
+      const { clientIDs } = payload.value;
+      const onlineClients: Set<ActorID> = new Set();
+      for (const clientID of clientIDs) {
+        onlineClients.add(clientID);
+      }
+      this.setOnlineClients(onlineClients);
+
+      const docEvent: InitializedEvent<P> = {
+        type: DocEventType.Initialized,
+        value: this.getPresences(),
+      };
+      this.publish(docEvent);
+
+      if (this.opts.enableDevtools) {
+        this.publishDevtoolsEvent([
+          {
+            source: OpSource.Local,
+            type: HistoryChangePackType.WatchStream,
+            payload,
+          },
+        ]);
+      }
+      return { event: [docEvent] };
+    }
+
+    const { type, publisher } = payload.value;
+    let docEvent: WatchedEvent<P> | UnwatchedEvent<P> | undefined;
+    if (type === DocEventType.Watched) {
+      this.addOnlineClient(publisher);
+      // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+      // unless we also know their initial presence data at this point.
+      if (this.hasPresence(publisher)) {
+        docEvent = {
+          type: DocEventType.Watched,
+          value: {
+            clientID: publisher,
+            presence: this.getPresence(publisher)!,
+          },
+        };
+      }
+    } else if (type === DocEventType.Unwatched) {
+      const presence = this.getPresence(publisher);
+      this.removeOnlineClient(publisher);
+      // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+      // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+      if (presence) {
+        docEvent = {
+          type: DocEventType.Unwatched,
+          value: { clientID: publisher, presence },
+        };
+      }
+    }
+
+    if (docEvent) {
+      this.publish(docEvent);
+    }
+
+    if (this.opts.enableDevtools) {
+      this.publishDevtoolsEvent([
+        {
+          source: OpSource.Remote,
+          type: HistoryChangePackType.WatchStream,
+          payload,
+        },
+      ]);
+    }
+
+    return { event: docEvent ? [docEvent] : [] };
+  }
+
+  /**
+   * `applyStatus` applies the document status into this document.
+   */
+  public applyStatus(payload: DocStatusPayload): {
+    event: Array<DocEvent<P>>;
+  } {
+    this.status = payload.type;
+
+    if (payload.type === DocumentStatus.Attached) {
+      this.setActor(payload.value.actorID);
+    } else if (payload.type === DocumentStatus.Detached) {
+      this.setActor(InitialActorID);
+    }
+
+    if (this.opts.enableDevtools) {
+      this.publishDevtoolsEvent([
+        {
+          source:
+            payload.type === DocumentStatus.Removed
+              ? OpSource.Remote
+              : OpSource.Local,
+          type: HistoryChangePackType.DocStatus,
+          payload,
+        },
+      ]);
+    }
+
+    return { event: [] };
   }
 
   /**
@@ -1212,12 +1521,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getMyPresence` returns the presence of the current client.
    */
   public getMyPresence(): P {
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
     if (this.status !== DocumentStatus.Attached) {
       return {} as P;
     }
 
     const p = this.presences.get(this.changeID.getActorID())!;
-    return deepcopy(p);
+    return p ? deepcopy(p) : ({} as P);
   }
 
   /**
