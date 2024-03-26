@@ -148,7 +148,7 @@ export class Change<P extends Indexable> {
     const reverseOps: Array<HistoryOperation<P>> = [];
 
     // TODO(chacha): Remove the below logic after implementing undo/redo feature in the devtools.
-    if (process.env.NODE_ENV !== 'production' && this.operations.length) {
+    if (process.env.NODE_ENV === 'development' && this.operations.length) {
       root.opsForTest.push(this.operations);
     }
 

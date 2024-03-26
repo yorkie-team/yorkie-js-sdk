@@ -87,6 +87,7 @@ export interface DocumentOptions {
 
   /**
    * `enableDevtools` enables devtools if true.
+   * The default value is true only when the environment is development in Node.js.
    */
   enableDevtools?: boolean;
 }
@@ -559,7 +560,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
-    // TODO(chacha): We need to enableDevtools if the environment is development.
+    this.opts.enableDevtools =
+      this.opts.enableDevtools ?? process.env.NODE_ENV === 'development';
 
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -1061,7 +1063,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `isEnableDevtools` returns whether devtools is enabled or not.
    */
   public isEnableDevtools(): boolean {
-    return this.opts.enableDevtools || false;
+    return this.opts.enableDevtools!;
   }
 
   /**
