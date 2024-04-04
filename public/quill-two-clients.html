@@ -59,6 +59,7 @@
               value="manual"
             />
             <label for="manual-a">Manual Sync</label>
+            <button class="manual-sync">sync</button>
           </div>
         </div>
         <div class="editor"></div>
@@ -107,6 +108,7 @@
               value="manual"
             />
             <label for="manual-b">Manual Sync</label>
+            <button class="manual-sync">sync</button>
           </div>
         </div>
         <div class="editor"></div>
@@ -450,6 +452,10 @@
                 default:
                   break;
               }
+            });
+            const syncButton = clientElem.querySelector('.manual-sync');
+            syncButton.addEventListener('click', async () => {
+              await client.sync(doc);
             });
 
             syncText(doc, quill);

@@ -58,8 +58,9 @@
   display: none;
 }
 
-.option label {
-  display: block;
+.option label,
+.option .manual-sync {
+  display: inline-block;
   padding: 2px 6px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -76,10 +77,16 @@
   color: #fff;
 }
 
-.option input[type='radio']:checked + label.disabled {
-  background-color: #f0f0f0;
-  color: #999;
-  cursor: not-allowed;
+.option .manual-sync {
+  display: none;
+}
+
+.option .manual-sync:hover {
+  background-color: #ddd;
+}
+
+.option input[type='radio']:checked + label + .manual-sync {
+  display: inline-block;
 }
 
 .ql-editor {
