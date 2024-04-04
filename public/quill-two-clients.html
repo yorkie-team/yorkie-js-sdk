@@ -156,6 +156,13 @@
                   .join(', ');
                 onlineClients.textContent = clientIDs;
               }
+
+              console.warn(
+                `%c${clientID}`,
+                `color:white; padding: 2px 4px; border-radius: 3px;
+                 background: ${colorHash.hex(clientID)}; `,
+                event.type,
+              );
             });
 
             await client.attach(doc, {
@@ -175,6 +182,13 @@
                 // The text is replaced to snapshot and must be re-synced.
                 syncText(doc, quill);
               }
+
+              console.warn(
+                `%c${clientID}`,
+                `color:white; padding: 2px 4px; border-radius: 3px;
+                 background: ${colorHash.hex(clientID)}; `,
+                event.type,
+              );
             });
 
             doc.subscribe('$.content', (event) => {
