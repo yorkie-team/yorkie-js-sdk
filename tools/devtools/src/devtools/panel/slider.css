@@ -2,7 +2,7 @@
   position: relative;
   width: 100%;
   padding: 14px;
-  margin: 0 10px;
+  margin: 0 14px;
   touch-action: none;
   box-sizing: border-box;
   --gray: #c2bdba;
@@ -30,6 +30,7 @@
   width: 24px;
   height: 24px;
   top: 2px;
+  left: 0;
   background-color: #807b7860;
   border-radius: 4px;
   cursor: grab;
