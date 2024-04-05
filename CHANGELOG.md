@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.16] - 2024-03-29
+
+### Added
+
+- Implement Protocol Changes for Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/755
+
 ## [0.4.15] - 2024-03-11
 
 ### Added

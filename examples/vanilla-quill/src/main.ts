@@ -2,7 +2,6 @@
 import yorkie, { DocEventType, Indexable, OperationInfo } from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
-import ShortUniqueId from 'short-unique-id';
 import ColorHash from 'color-hash';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
@@ -19,7 +18,6 @@ const peersElem = document.getElementById('peers')!;
 const documentElem = document.getElementById('document')!;
 const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
-const shortUniqueID = new ShortUniqueId();
 const colorHash = new ColorHash();
 const documentKey = `vanilla-quill-${new Date()
   .toISOString()
@@ -62,7 +60,8 @@ async function main() {
 
   await client.attach(doc, {
     initialPresence: {
-      username: `username-${shortUniqueID()}`,
+      username: client.getID()!.slice(-2),
+      color: colorHash.hex(client.getID()!.slice(-2)),
       selection: undefined,
     },
   });
@@ -87,32 +86,36 @@ async function main() {
     if (event.type === 'remote-change') {
       handleOperations(event.value.operations);
     }
+    updateAllCursors();
   });
   doc.subscribe('others', (event) => {
     if (event.type === DocEventType.Unwatched) {
-      cursors.removeCursor(event.value.presence.username);
+      cursors.removeCursor(event.value.clientID);
     } else if (event.type === DocEventType.PresenceChanged) {
-      displayRemoteCursors([event.value]);
+      updateCursor(event.value);
     }
   });
 
-  function displayRemoteCursors(
-    peers: Array<{ clientID: string; presence: YorkiePresence }>,
-  ) {
-    for (const peer of peers) {
-      const {
-        presence: { username, selection },
-      } = peer;
-      if (!selection) continue;
-      const [fromIdx, toIdx] = doc
-        .getRoot()
-        .content.posRangeToIndexRange(selection);
+  function updateCursor(user: { clientID: string; presence: YorkiePresence }) {
+    const { clientID, presence } = user;
+    if (clientID === client.getID()) return;
+    // TODO(chacha912): After resolving the presence initialization issue(#608),
+    // remove the following check.
+    if (!presence) return;
 
-      cursors.createCursor(username, username, colorHash.hex(username));
-      cursors.moveCursor(username, {
-        index: fromIdx,
-        length: toIdx - fromIdx,
-      });
+    const { username, color, selection } = presence;
+    if (!selection) return;
+    const range = doc.getRoot().content.posRangeToIndexRange(selection);
+    cursors.createCursor(clientID, username, color);
+    cursors.moveCursor(clientID, {
+      index: range[0],
+      length: range[1] - range[0],
+    });
+  }
+
+  function updateAllCursors() {
+    for (const user of doc.getPresences()) {
+      updateCursor(user);
     }
   }
 
@@ -210,8 +213,25 @@ async function main() {
       }
     })
     .on('selection-change', (range, _, source) => {
-      if (source === 'api' || !range) {
+      if (!range) {
         return;
+      }
+
+      // NOTE(chacha912): If the selection in the Quill editor does not match the range computed by yorkie,
+      // additional updates are necessary. This condition addresses situations where Quill's selection behaves
+      // differently, such as when inserting text before a range selection made by another user, causing
+      // the second character onwards to be included in the selection.
+      if (source === 'api') {
+        const { selection } = doc.getMyPresence();
+        if (selection) {
+          const [from, to] = doc
+            .getRoot()
+            .content.posRangeToIndexRange(selection);
+          const { index, length } = range;
+          if (from === index && to === index + length) {
+            return;
+          }
+        }
       }
 
       doc.update((root, presence) => {
@@ -301,7 +321,7 @@ async function main() {
   }
 
   syncText();
-  displayRemoteCursors(doc.getPresences());
+  updateAllCursors();
   displayLog(documentElem, documentTextElem, doc);
 }
 
