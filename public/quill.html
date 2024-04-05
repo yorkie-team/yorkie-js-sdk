@@ -103,6 +103,7 @@
               const { actor, message, operations } = event.value;
               handleOperations(operations, actor);
             }
+            updateAllCursors();
           });
 
           doc.subscribe('others', (event) => {
@@ -156,6 +157,12 @@
               index: range[0],
               length: range[1] - range[0],
             });
+          }
+
+          function updateAllCursors() {
+            for (const user of doc.getPresences()) {
+              updateCursor(user);
+            }
           }
 
           // 04. bind the document with the Quill.
@@ -323,10 +330,8 @@
           }
 
           syncText();
+          updateAllCursors();
           displayLog(documentElem, documentTextElem, doc);
-          for (const user of doc.getPresences()) {
-            updateCursor(user);
-          }
         } catch (e) {
           console.error(e);
         }
