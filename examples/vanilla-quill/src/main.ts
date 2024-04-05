@@ -86,6 +86,7 @@ async function main() {
     if (event.type === 'remote-change') {
       handleOperations(event.value.operations);
     }
+    updateAllCursors();
   });
   doc.subscribe('others', (event) => {
     if (event.type === DocEventType.Unwatched) {
