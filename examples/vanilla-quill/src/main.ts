@@ -213,8 +213,25 @@ async function main() {
       }
     })
     .on('selection-change', (range, _, source) => {
-      if (source === 'api' || !range) {
+      if (!range) {
         return;
+      }
+
+      // NOTE(chacha912): If the selection in the Quill editor does not match the range computed by yorkie,
+      // additional updates are necessary. This condition addresses situations where Quill's selection behaves
+      // differently, such as when inserting text before a range selection made by another user, causing
+      // the second character onwards to be included in the selection.
+      if (source === 'api') {
+        const { selection } = doc.getMyPresence();
+        if (selection) {
+          const [from, to] = doc
+            .getRoot()
+            .content.posRangeToIndexRange(selection);
+          const { index, length } = range;
+          if (from === index && to === index + length) {
+            return;
+          }
+        }
       }
 
       doc.update((root, presence) => {
