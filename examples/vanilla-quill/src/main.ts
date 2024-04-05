@@ -2,7 +2,6 @@
 import yorkie, { DocEventType, Indexable, OperationInfo } from 'yorkie-js-sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
-import ShortUniqueId from 'short-unique-id';
 import ColorHash from 'color-hash';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
@@ -19,7 +18,6 @@ const peersElem = document.getElementById('peers')!;
 const documentElem = document.getElementById('document')!;
 const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
-const shortUniqueID = new ShortUniqueId();
 const colorHash = new ColorHash();
 const documentKey = `vanilla-quill-${new Date()
   .toISOString()
@@ -62,7 +60,8 @@ async function main() {
 
   await client.attach(doc, {
     initialPresence: {
-      username: `username-${shortUniqueID()}`,
+      username: client.getID()!.slice(-2),
+      color: colorHash.hex(client.getID()!.slice(-2)),
       selection: undefined,
     },
   });
@@ -90,29 +89,32 @@ async function main() {
   });
   doc.subscribe('others', (event) => {
     if (event.type === DocEventType.Unwatched) {
-      cursors.removeCursor(event.value.presence.username);
+      cursors.removeCursor(event.value.clientID);
     } else if (event.type === DocEventType.PresenceChanged) {
-      displayRemoteCursors([event.value]);
+      updateCursor(event.value);
     }
   });
 
-  function displayRemoteCursors(
-    peers: Array<{ clientID: string; presence: YorkiePresence }>,
-  ) {
-    for (const peer of peers) {
-      const {
-        presence: { username, selection },
-      } = peer;
-      if (!selection) continue;
-      const [fromIdx, toIdx] = doc
-        .getRoot()
-        .content.posRangeToIndexRange(selection);
+  function updateCursor(user: { clientID: string; presence: YorkiePresence }) {
+    const { clientID, presence } = user;
+    if (clientID === client.getID()) return;
+    // TODO(chacha912): After resolving the presence initialization issue(#608),
+    // remove the following check.
+    if (!presence) return;
 
-      cursors.createCursor(username, username, colorHash.hex(username));
-      cursors.moveCursor(username, {
-        index: fromIdx,
-        length: toIdx - fromIdx,
-      });
+    const { username, color, selection } = presence;
+    if (!selection) return;
+    const range = doc.getRoot().content.posRangeToIndexRange(selection);
+    cursors.createCursor(clientID, username, color);
+    cursors.moveCursor(clientID, {
+      index: range[0],
+      length: range[1] - range[0],
+    });
+  }
+
+  function updateAllCursors() {
+    for (const user of doc.getPresences()) {
+      updateCursor(user);
     }
   }
 
@@ -301,7 +303,7 @@ async function main() {
   }
 
   syncText();
-  displayRemoteCursors(doc.getPresences());
+  updateAllCursors();
   displayLog(documentElem, documentTextElem, doc);
 }
 
