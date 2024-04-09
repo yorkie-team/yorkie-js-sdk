@@ -121,7 +121,7 @@
       const colorHash = new ColorHash();
       const clientAElem = document.getElementById('client-a');
       const clientBElem = document.getElementById('client-b');
-      const documentKey = 'quill-two-clients-nice11124346333';
+      const documentKey = 'quill-two-clients';
 
       function toDeltaOperation(textValue) {
         const { embed, ...restAttributes } = textValue.attributes ?? {};
@@ -344,8 +344,23 @@
                 }
               })
               .on('selection-change', (range, _, source) => {
-                if (source === 'api' || !range) {
+                if (!range) {
                   return;
+                }
+                // NOTE(chacha912): If the selection in the Quill editor does not match the range computed by yorkie,
+                // additional updates are necessary. This condition addresses situations where Quill's selection behaves
+                // differently, such as when inserting text before a range selection made by another user, causing
+                // the second character onwards to be included in the selection.
+                if (source === 'api') {
+                  const [from, to] = doc
+                    .getRoot()
+                    .content.posRangeToIndexRange(
+                      doc.getMyPresence().selection,
+                    );
+                  const { index, length } = range;
+                  if (from === index && to === index + length) {
+                    return;
+                  }
                 }
 
                 doc.update((root, presence) => {
