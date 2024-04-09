@@ -58,6 +58,14 @@ export class Attachment<T, P extends Indexable> {
    * `changeSyncMode` changes the sync mode of the document.
    */
   public changeSyncMode(syncMode: SyncMode) {
+    // NOTE(chacha912): In pushonly/syncoff mode, the client does not receive change events
+    // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
+    // to sync the local and remote changes. This has limitations in that unnecessary
+    // syncs occur if the client and server do not have any changes.
+    if (syncMode === SyncMode.PushPull && syncMode !== this.syncMode) {
+      this.remoteChangeEventReceived = true;
+    }
+
     this.syncMode = syncMode;
   }
 

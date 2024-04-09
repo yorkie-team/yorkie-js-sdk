@@ -58,6 +58,11 @@ export enum SyncMode {
    * `PushOnly` is the mode that pushes changes only.
    */
   PushOnly = 'pushonly',
+
+  /**
+   * `SyncOff` is the mode that does not push and pull changes.
+   */
+  SyncOff = 'syncoff',
 }
 
 /**
@@ -555,6 +560,33 @@ export class Client implements Observable<ClientEvent> {
   }
 
   /**
+   * `changeRealtimeSyncMode` changes the realtime synchronization mode of the given document.
+   */
+  public changeRealtimeSyncMode<T, P extends Indexable>(
+    doc: Document<T, P>,
+    syncMode: SyncMode,
+  ) {
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.DocumentNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+    if (!attachment.isRealtimeSync) {
+      throw new YorkieError(
+        Code.Unsupported,
+        `${doc.getKey()} is not in realtime sync mode`,
+      );
+    }
+
+    attachment.changeSyncMode(syncMode);
+  }
+
+  /**
    * `pauseRemoteChanges` pauses the synchronization of remote changes,
    * allowing only local changes to be applied.
    */
@@ -937,6 +969,10 @@ export class Client implements Observable<ClientEvent> {
     syncMode: SyncMode,
   ): Promise<Document<T, P>> {
     const { doc, docID } = attachment;
+
+    if (syncMode === SyncMode.SyncOff) {
+      return Promise.resolve(doc);
+    }
 
     const reqPack = doc.createChangePack();
     return this.rpcClient

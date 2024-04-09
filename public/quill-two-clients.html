@@ -439,12 +439,15 @@
               switch (syncMode) {
                 case 'pushpull':
                   await client.resume(doc);
-                  await client.resumeRemoteChanges(doc);
+                  client.changeRealtimeSyncMode(doc, 'pushpull');
                   break;
                 case 'pushonly':
-                  await client.pauseRemoteChanges(doc);
+                  await client.resume(doc);
+                  client.changeRealtimeSyncMode(doc, 'pushonly');
                   break;
                 case 'syncoff':
+                  await client.resume(doc);
+                  client.changeRealtimeSyncMode(doc, 'syncoff');
                   break;
                 case 'manual':
                   await client.pause(doc);

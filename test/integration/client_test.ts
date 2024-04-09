@@ -401,7 +401,7 @@ describe.sequential('Client', function () {
     await c3.deactivate();
   });
 
-  it('Can change sync mode in realtime sync (pauseRemoteChanges/resumeRemoteChanges)', async function ({
+  it('Can change sync mode in realtime sync (changeRealtimeSyncMode)', async function ({
     task,
   }) {
     const c1 = new yorkie.Client(testRPCAddr);
@@ -412,9 +412,15 @@ describe.sequential('Client', function () {
     await c3.activate();
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
-    const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
-    const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
+    const d1 = new yorkie.Document<{ c1: number; c2: number; c3: number }>(
+      docKey,
+    );
+    const d2 = new yorkie.Document<{ c1: number; c2: number; c3: number }>(
+      docKey,
+    );
+    const d3 = new yorkie.Document<{ c1: number; c2: number; c3: number }>(
+      docKey,
+    );
 
     // 01. c1, c2, c3 attach to the same document in realtime sync.
     await c1.attach(d1);
@@ -454,33 +460,39 @@ describe.sequential('Client', function () {
     assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}', 'd2');
     assert.equal(d3.toSortedJSON(), '{"c1":0,"c2":0}', 'd3');
 
-    // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
-    // are not reflected to each other.
-    // But, c3 can get the changes of c1 and c2, because c3 sync with pull-pull mode.
-    c1.pauseRemoteChanges(d1);
-    c2.pauseRemoteChanges(d2);
+    // 03. c1 sync with push-only mode, c2 sync with sync-off mode.
+    // c3 can get the changes of c1 and c2, because c3 sync with push-pull mode.
+    c1.changeRealtimeSyncMode(d1, SyncMode.PushOnly);
+    c2.changeRealtimeSyncMode(d2, SyncMode.SyncOff);
     d1.update((root) => {
       root.c1 = 1;
     });
     d2.update((root) => {
       root.c2 = 1;
     });
+    d3.update((root) => {
+      root.c3 = 1;
+    });
 
     await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.LocalChange);
     await eventCollectorD2.waitAndVerifyNthEvent(3, DocEventType.LocalChange);
-    await eventCollectorD3.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
+    await eventCollectorD3.waitAndVerifyNthEvent(3, DocEventType.LocalChange);
     await eventCollectorD3.waitAndVerifyNthEvent(4, DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}', 'd1');
     assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}', 'd2');
-    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}', 'd3');
+    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":0,"c3":1}', 'd3');
 
     // 04. c1 and c2 sync with push-pull mode.
-    c1.resumeRemoteChanges(d1);
-    c2.resumeRemoteChanges(d2);
+    c1.changeRealtimeSyncMode(d1, SyncMode.PushPull);
+    c2.changeRealtimeSyncMode(d2, SyncMode.PushPull);
     await eventCollectorD1.waitAndVerifyNthEvent(4, DocEventType.RemoteChange);
+    await eventCollectorD1.waitAndVerifyNthEvent(5, DocEventType.RemoteChange);
     await eventCollectorD2.waitAndVerifyNthEvent(4, DocEventType.RemoteChange);
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}', 'd1');
-    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}', 'd2');
+    await eventCollectorD2.waitAndVerifyNthEvent(5, DocEventType.RemoteChange);
+    await eventCollectorD3.waitAndVerifyNthEvent(5, DocEventType.RemoteChange);
+    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1,"c3":1}', 'd1');
+    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1,"c3":1}', 'd2');
+    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1,"c3":1}', 'd3');
 
     unsub1();
     unsub2();
