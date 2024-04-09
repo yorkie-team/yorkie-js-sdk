@@ -612,7 +612,7 @@ describe.sequential('Client', function () {
     c2.sync();
 
     // In push-only mode, remote-change events should not occur.
-    c2.pauseRemoteChanges(d2);
+    c2.changeRealtimeSyncMode(d2, SyncMode.PushOnly);
     let remoteChangeOccured = false;
     const unsub3 = d2.subscribe((event) => {
       if (event.type === DocEventType.RemoteChange) {
@@ -626,7 +626,7 @@ describe.sequential('Client', function () {
     unsub3();
     assert.isFalse(remoteChangeOccured);
 
-    c2.resumeRemoteChanges(d2);
+    c2.changeRealtimeSyncMode(d2, SyncMode.PushPull);
 
     d2.update((root: any) => {
       root.tree.edit(2, 2, { type: 'text', value: 'b' });

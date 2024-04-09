@@ -587,45 +587,6 @@ export class Client implements Observable<ClientEvent> {
   }
 
   /**
-   * `pauseRemoteChanges` pauses the synchronization of remote changes,
-   * allowing only local changes to be applied.
-   */
-  public pauseRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-    const attachment = this.attachmentMap.get(doc.getKey());
-    if (!attachment) {
-      throw new YorkieError(
-        Code.DocumentNotAttached,
-        `${doc.getKey()} is not attached`,
-      );
-    }
-
-    attachment.changeSyncMode(SyncMode.PushOnly);
-  }
-
-  /**
-   * `resumeRemoteChanges` resumes the synchronization of remote changes,
-   * allowing both local and remote changes to be applied.
-   */
-  public resumeRemoteChanges<T, P extends Indexable>(doc: Document<T, P>) {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-    const attachment = this.attachmentMap.get(doc.getKey());
-    if (!attachment) {
-      throw new YorkieError(
-        Code.DocumentNotAttached,
-        `${doc.getKey()} is not attached`,
-      );
-    }
-
-    attachment.changeSyncMode(SyncMode.PushPull);
-    attachment.remoteChangeEventReceived = true;
-  }
-
-  /**
    * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
   private async changeRealtimeSync<T, P extends Indexable>(
