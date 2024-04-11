@@ -278,129 +278,6 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it('Should apply previous changes when switching to realtime sync', async function ({
-    task,
-  }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    await c1.activate();
-    await c2.activate();
-
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const d1 = new yorkie.Document<{ version: string }>(docKey);
-    const d2 = new yorkie.Document<{ version: string }>(docKey);
-
-    const eventCollector = new EventCollector();
-    const stub = vi.fn().mockImplementation((event) => {
-      eventCollector.add(event.type);
-    });
-    const unsub1 = c2.subscribe(stub);
-
-    // 01. c2 attach the doc with realtime sync mode at first.
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2);
-    d1.update((root) => {
-      root.version = 'v1';
-    });
-    await c1.sync();
-    assert.equal(d1.toSortedJSON(), `{"version":"v1"}`, 'd1');
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
-    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
-
-    // 02. c2 is changed to manual sync. So, c2 doesn't get the changes of c1.
-    await c2.changeSyncMode(d2, SyncMode.Manual);
-    d1.update((root) => {
-      root.version = 'v2';
-    });
-    await c1.sync();
-    assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
-    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
-
-    // 03. c2 is changed to realtime sync.
-    // c2 should be able to apply changes made to the document while c2 is not in realtime sync.
-    eventCollector.reset();
-    await c2.changeSyncMode(d2, SyncMode.Realtime);
-
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
-    assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
-
-    // 04. c2 should automatically synchronize changes.
-    eventCollector.reset();
-    d1.update((root) => {
-      root.version = 'v3';
-    });
-    await c1.sync();
-
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
-    assert.equal(d1.toSortedJSON(), `{"version":"v3"}`, 'd1');
-    assert.equal(d2.toSortedJSON(), `{"version":"v3"}`, 'd2');
-    unsub1();
-
-    await c1.deactivate();
-    await c2.deactivate();
-  });
-
-  it('Can change sync mode in manual sync (SyncMode.PushOnly)', async function ({
-    task,
-  }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    const c3 = new yorkie.Client(testRPCAddr);
-    await c1.activate();
-    await c2.activate();
-    await c3.activate();
-
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const d1 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
-    const d2 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
-    const d3 = new yorkie.Document<{ c1: number; c2: number }>(docKey);
-
-    // 01. c1, c2, c3 attach to the same document in manual sync.
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2, { isRealtimeSync: false });
-    await c3.attach(d3, { isRealtimeSync: false });
-
-    // 02. c1, c2 sync with push-pull mode.
-    d1.update((root) => {
-      root.c1 = 0;
-    });
-    d2.update((root) => {
-      root.c2 = 0;
-    });
-
-    await c1.sync();
-    await c2.sync();
-    await c1.sync();
-    assert.equal(d1.toSortedJSON(), '{"c1":0,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":0}');
-
-    // 03. c1 and c2 sync with push-only mode. So, the changes of c1 and c2
-    // are not reflected to each other.
-    // But, c3 can get the changes of c1 and c2, because c3 sync with push-pull mode.
-    d1.update((root) => {
-      root.c1 = 1;
-    });
-    d2.update((root) => {
-      root.c2 = 1;
-    });
-    await c1.sync(d1, SyncMode.RealtimePushOnly);
-    await c2.sync(d2, SyncMode.RealtimePushOnly);
-    await c3.sync();
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
-    assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
-    assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":1}');
-
-    // 04. c1 and c2 sync with push-pull mode.
-    await c1.sync();
-    await c2.sync();
-    assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":1}');
-    assert.equal(d2.toSortedJSON(), '{"c1":1,"c2":1}');
-
-    await c1.deactivate();
-    await c2.deactivate();
-    await c3.deactivate();
-  });
-
   it('Can change sync mode in realtime', async function ({ task }) {
     // |    | Step1    | Step2    | Step3    | Step4    |
     // | c1 | PushPull | PushOnly | SyncOff  | PushPull |
@@ -537,7 +414,71 @@ describe.sequential('Client', function () {
     await c3.deactivate();
   });
 
-  it('sync option with mixed mode test', async function ({ task }) {
+  it('Should apply previous changes when switching to realtime sync', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ version: string }>(docKey);
+    const d2 = new yorkie.Document<{ version: string }>(docKey);
+
+    const eventCollector = new EventCollector();
+    const stub = vi.fn().mockImplementation((event) => {
+      eventCollector.add(event.type);
+    });
+    const unsub1 = c2.subscribe(stub);
+
+    // 01. c2 attach the doc with realtime sync mode at first.
+    await c1.attach(d1, { isRealtimeSync: false });
+    await c2.attach(d2);
+    d1.update((root) => {
+      root.version = 'v1';
+    });
+    await c1.sync();
+    assert.equal(d1.toSortedJSON(), `{"version":"v1"}`, 'd1');
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
+
+    // 02. c2 is changed to manual sync. So, c2 doesn't get the changes of c1.
+    await c2.changeSyncMode(d2, SyncMode.Manual);
+    d1.update((root) => {
+      root.version = 'v2';
+    });
+    await c1.sync();
+    assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
+
+    // 03. c2 is changed to realtime sync.
+    // c2 should be able to apply changes made to the document while c2 is not in realtime sync.
+    eventCollector.reset();
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
+
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
+
+    // 04. c2 should automatically synchronize changes.
+    eventCollector.reset();
+    d1.update((root) => {
+      root.version = 'v3';
+    });
+    await c1.sync();
+
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    assert.equal(d1.toSortedJSON(), `{"version":"v3"}`, 'd1');
+    assert.equal(d2.toSortedJSON(), `{"version":"v3"}`, 'd2');
+    unsub1();
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Should not include changes applied in push-only mode when switching to realtime sync', async function ({
+    task,
+  }) {
     const c1 = new yorkie.Client(testRPCAddr);
     await c1.activate();
 
@@ -563,16 +504,21 @@ describe.sequential('Client', function () {
 
     // 03. cli update the document with increasing the counter(0 -> 1)
     //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
+    const eventCollector = new EventCollector();
+    const unsub = c1.subscribe((event) => {
+      eventCollector.add(event.type);
+    });
     d1.update((root) => {
       root.counter.increase(1);
     });
     let changePack = d1.createChangePack();
     assert.equal(changePack.getChangeSize(), 1);
-
-    await c1.sync(d1, SyncMode.RealtimePushOnly);
+    await c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+    await eventCollector.waitFor(ClientEventType.DocumentSynced);
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 3);
     assert.equal(checkpoint.getServerSeq().toInt(), 2);
+    await c1.changeSyncMode(d1, SyncMode.Manual);
 
     // 04. cli update the document with increasing the counter(1 -> 2)
     //     and sync with push-pull mode. CP(3, 2) -> CP(4, 4)
@@ -591,6 +537,7 @@ describe.sequential('Client', function () {
     assert.equal(checkpoint.getServerSeq().toInt(), 4);
     assert.equal(d1.getRoot().counter.getValue(), 2);
 
+    unsub();
     await c1.deactivate();
   });
 

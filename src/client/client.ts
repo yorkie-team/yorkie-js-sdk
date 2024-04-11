@@ -593,7 +593,6 @@ export class Client implements Observable<ClientEvent> {
    */
   public sync<T, P extends Indexable>(
     doc?: Document<T, P>,
-    syncMode = SyncMode.Realtime,
   ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
@@ -608,7 +607,7 @@ export class Client implements Observable<ClientEvent> {
           `${doc.getKey()} is not attached`,
         );
       }
-      promises.push(this.syncInternal(attachment, syncMode));
+      promises.push(this.syncInternal(attachment, SyncMode.Realtime));
     } else {
       this.attachmentMap.forEach((attachment) => {
         promises.push(this.syncInternal(attachment, attachment.syncMode));
