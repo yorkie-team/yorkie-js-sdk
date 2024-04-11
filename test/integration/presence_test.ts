@@ -3,6 +3,7 @@ import yorkie, {
   DocEvent,
   DocEventType,
   Counter,
+  SyncMode,
 } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -251,13 +252,13 @@ describe('Presence', function () {
     ]);
     assert.deepEqual(doc1.getPresence(c3ID), undefined);
 
-    // 02. c2 pauses the document (in manual sync), c3 resumes the document (in realtime sync).
-    await c2.pause(doc2);
+    // 02. c2 is changed to manual sync, while c3 is changed to realtime sync.
+    await c2.changeSyncMode(doc2, SyncMode.Manual);
     await eventCollector.waitAndVerifyNthEvent(2, {
       type: DocEventType.Unwatched,
       value: { clientID: c2ID, presence: doc2.getMyPresence() },
     });
-    await c3.resume(doc3);
+    await c3.changeSyncMode(doc3, SyncMode.Realtime);
     await eventCollector.waitAndVerifyNthEvent(3, {
       type: DocEventType.Watched,
       value: { clientID: c3ID, presence: doc3.getMyPresence() },
@@ -468,8 +469,8 @@ describe(`Document.Subscribe('presence')`, function () {
       },
     });
 
-    // 03-1. c2 pauses the document, c1 receives an unwatched event from c2.
-    await c2.pause(doc2);
+    // 03-1. c2 is changed to manual sync, c1 receives an unwatched event from c2.
+    await c2.changeSyncMode(doc2, SyncMode.Manual);
     await events.waitAndVerifyNthEvent(3, {
       type: DocEventType.Unwatched,
       value: {
@@ -477,14 +478,14 @@ describe(`Document.Subscribe('presence')`, function () {
         presence: { cursor: { x: 0, y: 0 }, name: 'b2' },
       },
     });
-    // 03-2. c3 resumes the document, c1 receives a watched event from c3.
+    // 03-2. c3 is changed to realtime sync, c1 receives a watched event from c3.
     // NOTE(chacha912): The events are influenced by the timing of realtime sync
-    // and watch stream resolution. For deterministic testing, the resume is performed
+    // and watch stream resolution. For deterministic testing, changeSyncMode is performed
     // after the sync. Since the sync updates c1 with all previous presence changes
     // from c3, only the watched event is triggered.
     await c3.sync();
     await c1.sync();
-    await c3.resume(doc3);
+    await c3.changeSyncMode(doc3, SyncMode.Realtime);
     await events.waitAndVerifyNthEvent(4, {
       type: DocEventType.Watched,
       value: {
@@ -505,8 +506,8 @@ describe(`Document.Subscribe('presence')`, function () {
       },
     });
 
-    // 05-1. c3 pauses the document, c1 receives an unwatched event from c3.
-    await c3.pause(doc3);
+    // 05-1. c3 is changed to manual sync, c1 receives an unwatched event from c3.
+    await c3.changeSyncMode(doc3, SyncMode.Manual);
     await events.waitAndVerifyNthEvent(6, {
       type: DocEventType.Unwatched,
       value: {
@@ -515,10 +516,10 @@ describe(`Document.Subscribe('presence')`, function () {
       },
     });
 
-    // 05-2. c2 resumes the document, c1 receives a watched event from c2.
+    // 05-2. c2 is changed to realtime sync, c1 receives a watched event from c2.
     await c2.sync();
     await c1.sync();
-    await c2.resume(doc2);
+    await c2.changeSyncMode(doc2, SyncMode.Realtime);
     await events.waitAndVerifyNthEvent(7, {
       type: DocEventType.Watched,
       value: {

@@ -220,7 +220,7 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it('Can change realtime sync (pause/resume)', async function ({ task }) {
+  it('Can change sync mode(realtime <-> manual)', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
@@ -249,7 +249,7 @@ describe.sequential('Client', function () {
       eventCollector.add(event.type);
     });
     const unsub1 = c2.subscribe(stub);
-    await c2.resume(d2);
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
     await eventCollector.waitFor(ClientEventType.DocumentSynced); // sync occurs when resuming
 
     eventCollector.reset();
@@ -264,7 +264,7 @@ describe.sequential('Client', function () {
     unsub1();
 
     // 03. c2 changes the sync mode to manual sync mode again.
-    await c2.pause(d2);
+    await c2.changeSyncMode(d2, SyncMode.Manual);
     d1.update((root) => {
       root.version = 'v3';
     });
@@ -278,7 +278,7 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
-  it('Should apply previous changes when resuming document', async function ({
+  it('Should apply previous changes when switching to realtime sync', async function ({
     task,
   }) {
     const c1 = new yorkie.Client(testRPCAddr);
@@ -307,8 +307,8 @@ describe.sequential('Client', function () {
     await eventCollector.waitFor(ClientEventType.DocumentSynced);
     assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
 
-    // 02. c2 pauses realtime sync mode. So, c2 doesn't get the changes of c1.
-    await c2.pause(d2);
+    // 02. c2 is changed to manual sync. So, c2 doesn't get the changes of c1.
+    await c2.changeSyncMode(d2, SyncMode.Manual);
     d1.update((root) => {
       root.version = 'v2';
     });
@@ -316,10 +316,10 @@ describe.sequential('Client', function () {
     assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
     assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
 
-    // 03. c2 resumes realtime sync mode.
+    // 03. c2 is changed to realtime sync.
     // c2 should be able to apply changes made to the document while c2 is not in realtime sync.
     eventCollector.reset();
-    await c2.resume(d2);
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
 
     await eventCollector.waitFor(ClientEventType.DocumentSynced);
     assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
@@ -383,8 +383,8 @@ describe.sequential('Client', function () {
     d2.update((root) => {
       root.c2 = 1;
     });
-    await c1.sync(d1, SyncMode.PushOnly);
-    await c2.sync(d2, SyncMode.PushOnly);
+    await c1.sync(d1, SyncMode.RealtimePushOnly);
+    await c2.sync(d2, SyncMode.RealtimePushOnly);
     await c3.sync();
     assert.equal(d1.toSortedJSON(), '{"c1":1,"c2":0}');
     assert.equal(d2.toSortedJSON(), '{"c1":0,"c2":1}');
@@ -401,9 +401,7 @@ describe.sequential('Client', function () {
     await c3.deactivate();
   });
 
-  it('Can change sync mode in realtime sync (changeRealtimeSyncMode)', async function ({
-    task,
-  }) {
+  it('Can change sync mode in realtime', async function ({ task }) {
     // |    | Step1    | Step2    | Step3    | Step4    |
     // | c1 | PushPull | PushOnly | SyncOff  | PushPull |
     // | c2 | PushPull | SyncOff  | PushOnly | PushPull |
@@ -473,8 +471,8 @@ describe.sequential('Client', function () {
 
     // 03. [Step2] c1 sync with push-only mode, c2 sync with sync-off mode.
     // c3 can get the changes of c1 and c2, because c3 sync with push-pull mode.
-    c1.changeRealtimeSyncMode(d1, SyncMode.PushOnly);
-    c2.changeRealtimeSyncMode(d2, SyncMode.SyncOff);
+    c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+    c2.changeSyncMode(d2, SyncMode.RealtimeSyncOff);
     d1.update((root) => {
       root.c1 = 1;
     });
@@ -494,8 +492,8 @@ describe.sequential('Client', function () {
     assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":0,"c3":1}', 'd3');
 
     // 04. [Step3] c1 sync with sync-off mode, c2 sync with push-only mode.
-    c1.changeRealtimeSyncMode(d1, SyncMode.SyncOff);
-    c2.changeRealtimeSyncMode(d2, SyncMode.PushOnly);
+    c1.changeSyncMode(d1, SyncMode.RealtimeSyncOff);
+    c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
     d1.update((root) => {
       root.c1 = 2;
     });
@@ -516,8 +514,8 @@ describe.sequential('Client', function () {
     assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":2,"c3":2}', 'd3');
 
     // 05. [Step4] c1 and c2 sync with push-pull mode.
-    c1.changeRealtimeSyncMode(d1, SyncMode.PushPull);
-    c2.changeRealtimeSyncMode(d2, SyncMode.PushPull);
+    c1.changeSyncMode(d1, SyncMode.Realtime);
+    c2.changeSyncMode(d2, SyncMode.Realtime);
     await eventCollectorD1.waitAndVerifyNthEvent(6, DocEventType.RemoteChange);
     await eventCollectorD1.waitAndVerifyNthEvent(7, DocEventType.RemoteChange);
     await eventCollectorD1.waitAndVerifyNthEvent(8, DocEventType.RemoteChange);
@@ -571,7 +569,7 @@ describe.sequential('Client', function () {
     let changePack = d1.createChangePack();
     assert.equal(changePack.getChangeSize(), 1);
 
-    await c1.sync(d1, SyncMode.PushOnly);
+    await c1.sync(d1, SyncMode.RealtimePushOnly);
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 3);
     assert.equal(checkpoint.getServerSeq().toInt(), 2);
@@ -649,7 +647,7 @@ describe.sequential('Client', function () {
     c2.sync();
 
     // In push-only mode, remote-change events should not occur.
-    c2.changeRealtimeSyncMode(d2, SyncMode.PushOnly);
+    c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
     let remoteChangeOccured = false;
     const unsub3 = d2.subscribe((event) => {
       if (event.type === DocEventType.RemoteChange) {
@@ -663,7 +661,7 @@ describe.sequential('Client', function () {
     unsub3();
     assert.isFalse(remoteChangeOccured);
 
-    c2.changeRealtimeSyncMode(d2, SyncMode.PushPull);
+    c2.changeSyncMode(d2, SyncMode.Realtime);
 
     d2.update((root: any) => {
       root.tree.edit(2, 2, { type: 'text', value: 'b' });

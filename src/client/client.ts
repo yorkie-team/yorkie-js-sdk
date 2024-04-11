@@ -44,25 +44,30 @@ import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interc
 import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 /**
- * `SyncMode` is the mode of synchronization. It is used to determine
- * whether to push and pull changes in PushPullChanges API.
+ * `SyncMode` defines synchronization modes for the PushPullChanges API.
  * @public
  */
 export enum SyncMode {
   /**
-   * `PushPull` is the mode that pushes and pulls changes.
+   * `Manual` mode indicates that changes are not automatically pushed or pulled.
    */
-  PushPull = 'pushpull',
+  Manual = 'manual',
 
   /**
-   * `PushOnly` is the mode that pushes changes only.
+   * `Realtime` mode indicates that changes are automatically pushed and pulled.
    */
-  PushOnly = 'pushonly',
+  Realtime = 'realtime',
 
   /**
-   * `SyncOff` is the mode that does not push and pull changes.
+   * `RealtimePushOnly` mode indicates that only local changes are automatically pushed.
    */
-  SyncOff = 'syncoff',
+  RealtimePushOnly = 'realtime-pushonly',
+
+  /**
+   * `RealtimeSyncOff` mode indicates that changes are not automatically pushed or pulled,
+   * but the watch stream is kept active.
+   */
+  RealtimeSyncOff = 'realtime-syncoff',
 }
 
 /**
@@ -534,67 +539,16 @@ export class Client implements Observable<ClientEvent> {
   }
 
   /**
-   * `pause` changes the synchronization mode of the given document to manual.
-   */
-  public pause<T, P extends Indexable>(
-    doc: Document<T, P>,
-  ): Promise<Document<T, P>> {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-
-    return this.changeRealtimeSync(doc, false);
-  }
-
-  /**
-   * `resume` changes the synchronization mode of the given document to realtime.
-   */
-  public resume<T, P extends Indexable>(
-    doc: Document<T, P>,
-  ): Promise<Document<T, P>> {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-
-    return this.changeRealtimeSync(doc, true);
-  }
-
-  /**
-   * `changeRealtimeSyncMode` changes the realtime synchronization mode of the given document.
-   */
-  public changeRealtimeSyncMode<T, P extends Indexable>(
-    doc: Document<T, P>,
-    syncMode: SyncMode,
-  ) {
-    if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
-    }
-    const attachment = this.attachmentMap.get(doc.getKey());
-    if (!attachment) {
-      throw new YorkieError(
-        Code.DocumentNotAttached,
-        `${doc.getKey()} is not attached`,
-      );
-    }
-    if (!attachment.isRealtimeSync) {
-      throw new YorkieError(
-        Code.Unsupported,
-        `${doc.getKey()} is not in realtime sync mode`,
-      );
-    }
-
-    attachment.changeSyncMode(syncMode);
-  }
-
-  /**
    * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
-  private async changeRealtimeSync<T, P extends Indexable>(
+  public async changeSyncMode<T, P extends Indexable>(
     doc: Document<T, P>,
-    isRealtimeSync: boolean,
+    syncMode: SyncMode,
   ): Promise<Document<T, P>> {
-    // TODO(hackerwins): We need to consider extracting this method to `attachment`
-    // with other methods like runWatchLoop, disconnectWatchStream.
+    if (!this.isActive()) {
+      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+    }
+
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
@@ -603,25 +557,32 @@ export class Client implements Observable<ClientEvent> {
       );
     }
 
-    if (!attachment.changeRealtimeSync(isRealtimeSync)) {
+    const prevSyncMode = attachment.syncMode;
+    if (prevSyncMode === syncMode) {
       return doc;
     }
 
-    if (isRealtimeSync) {
-      // NOTE(hackerwins): In manual mode, the client does not receive change events
+    attachment.changeSyncMode(syncMode);
+
+    // realtime to manual
+    if (syncMode === SyncMode.Manual) {
+      attachment.cancelWatchStream();
+      return doc;
+    }
+
+    if (syncMode === SyncMode.Realtime) {
+      // NOTE(hackerwins): In non-pushpull mode, the client does not receive change events
       // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
       // to sync the local and remote changes. This has limitations in that unnecessary
       // syncs occur if the client and server do not have any changes.
       attachment.remoteChangeEventReceived = true;
-      await this.runWatchLoop(doc.getKey());
-      return doc;
     }
 
-    this.eventStreamObserver.next({
-      type: ClientEventType.StreamConnectionStatusChanged,
-      value: StreamConnectionStatus.Disconnected,
-    });
-    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+    // manual to realtime
+    if (prevSyncMode === SyncMode.Manual) {
+      await this.runWatchLoop(doc.getKey());
+    }
+
     return doc;
   }
 
@@ -632,7 +593,7 @@ export class Client implements Observable<ClientEvent> {
    */
   public sync<T, P extends Indexable>(
     doc?: Document<T, P>,
-    syncMode = SyncMode.PushPull,
+    syncMode = SyncMode.Realtime,
   ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
       throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
@@ -931,10 +892,6 @@ export class Client implements Observable<ClientEvent> {
   ): Promise<Document<T, P>> {
     const { doc, docID } = attachment;
 
-    if (syncMode === SyncMode.SyncOff) {
-      return Promise.resolve(doc);
-    }
-
     const reqPack = doc.createChangePack();
     return this.rpcClient
       .pushPullChanges(
@@ -942,7 +899,7 @@ export class Client implements Observable<ClientEvent> {
           clientId: this.id!,
           documentId: docID,
           changePack: converter.toChangePack(reqPack),
-          pushOnly: syncMode === SyncMode.PushOnly,
+          pushOnly: syncMode === SyncMode.RealtimePushOnly,
         },
         {
           headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
@@ -955,7 +912,7 @@ export class Client implements Observable<ClientEvent> {
         // PushPull, ignore the response when the syncMode is PushOnly.
         if (
           respPack.hasChanges() &&
-          attachment.syncMode === SyncMode.PushOnly
+          attachment.syncMode === SyncMode.RealtimePushOnly
         ) {
           return doc;
         }

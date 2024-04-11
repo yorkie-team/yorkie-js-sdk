@@ -32,47 +32,26 @@ export class Attachment<T, P extends Indexable> {
     this.doc = doc;
     this.docID = docID;
     this.isRealtimeSync = isRealtimeSync;
-    this.syncMode = SyncMode.PushPull;
+    this.syncMode = isRealtimeSync ? SyncMode.Realtime : SyncMode.Manual;
     this.remoteChangeEventReceived = false;
-  }
-
-  /**
-   * `changeRealtimeSync` changes whether to synchronize the document in realtime or not.
-   */
-  public changeRealtimeSync(isRealtimeSync: boolean): boolean {
-    if (this.isRealtimeSync === isRealtimeSync) {
-      return false;
-    }
-
-    if (isRealtimeSync) {
-      this.isRealtimeSync = true;
-      return true;
-    }
-
-    this.cancelWatchStream();
-    this.isRealtimeSync = false;
-    return true;
   }
 
   /**
    * `changeSyncMode` changes the sync mode of the document.
    */
   public changeSyncMode(syncMode: SyncMode) {
-    // NOTE(chacha912): In pushonly/syncoff mode, the client does not receive change events
-    // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
-    // to sync the local and remote changes. This has limitations in that unnecessary
-    // syncs occur if the client and server do not have any changes.
-    if (syncMode === SyncMode.PushPull && syncMode !== this.syncMode) {
-      this.remoteChangeEventReceived = true;
-    }
-
     this.syncMode = syncMode;
+    this.isRealtimeSync = syncMode !== SyncMode.Manual;
   }
 
   /**
    * `needRealtimeSync` returns whether the document needs to be synced in real time.
    */
   public needRealtimeSync(): boolean {
+    if (this.syncMode === SyncMode.RealtimeSyncOff) {
+      return false;
+    }
+
     return (
       this.isRealtimeSync &&
       (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
