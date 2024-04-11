@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -1532,8 +1532,8 @@ describe('Tree.style', function () {
     await c1.activate();
     await c2.activate();
 
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
 
     // Perform a dummy update to apply changes up to the snapshot threshold.
     const snapshotThreshold = 500;
@@ -1733,7 +1733,7 @@ describe('Tree.style', function () {
     const d3 = new yorkie.Document<TestDoc>(docKey);
     const c3 = new yorkie.Client(testRPCAddr);
     await c3.activate();
-    await c3.attach(d3, { isRealtimeSync: false });
+    await c3.attach(d3, { syncMode: SyncMode.Manual });
     assert.equal(
       d3.getRoot().t.toXML(),
       /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이3</n></p></c></r>`,

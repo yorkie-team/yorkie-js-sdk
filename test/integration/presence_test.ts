@@ -25,10 +25,10 @@ describe('Presence', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, { isRealtimeSync: false });
+    await c1.attach(doc1, { syncMode: SyncMode.Manual });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, { isRealtimeSync: false });
+    await c2.attach(doc2, { syncMode: SyncMode.Manual });
 
     const snapshotThreshold = 500;
     for (let i = 0; i < snapshotThreshold; i++) {
@@ -58,13 +58,13 @@ describe('Presence', function () {
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { key: 'key1' },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { key: 'key2' },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), { key: 'key1' });
@@ -91,10 +91,10 @@ describe('Presence', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c1.attach(doc1, { isRealtimeSync: false });
+    await c1.attach(doc1, { syncMode: SyncMode.Manual });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
-    await c2.attach(doc2, { isRealtimeSync: false });
+    await c2.attach(doc2, { syncMode: SyncMode.Manual });
 
     const emptyObject = {} as PresenceType;
     assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), emptyObject);
@@ -185,13 +185,13 @@ describe('Presence', function () {
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { key: 'key1', cursor: { x: 0, y: 0 } },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { key: 'key2', cursor: { x: 0, y: 0 } },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     doc1.update((root, p) => p.set({ cursor: { x: 1, y: 1 } }));
@@ -240,7 +240,7 @@ describe('Presence', function () {
     const doc3 = new yorkie.Document<{}, PresenceType>(docKey);
     await c3.attach(doc3, {
       initialPresence: { name: 'c1', cursor: { x: 0, y: 0 } },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
     await eventCollector.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
@@ -288,13 +288,13 @@ describe('Presence', function () {
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { counter: 0 },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { counter: 0 },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
 
     doc1.update((root, p) => {
@@ -447,7 +447,7 @@ describe(`Document.Subscribe('presence')`, function () {
     const doc3 = new yorkie.Document<{}, PresenceType>(docKey);
     await c3.attach(doc3, {
       initialPresence: { name: 'c1', cursor: { x: 0, y: 0 } },
-      isRealtimeSync: false,
+      syncMode: SyncMode.Manual,
     });
     await events.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,

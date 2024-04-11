@@ -232,8 +232,8 @@ describe.sequential('Client', function () {
 
     // 01. c1 and c2 attach the doc with manual sync mode.
     //     c1 updates the doc, but c2 does't get until call sync manually.
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     d1.update((root) => {
       root.version = 'v1';
     });
@@ -433,7 +433,7 @@ describe.sequential('Client', function () {
     const unsub1 = c2.subscribe(stub);
 
     // 01. c2 attach the doc with realtime sync mode at first.
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     await c2.attach(d2);
     d1.update((root) => {
       root.version = 'v1';
@@ -485,7 +485,7 @@ describe.sequential('Client', function () {
     // 01. cli attach to the document having counter.
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
 
     // 02. cli update the document with creating a counter
     //     and sync with push-pull mode: CP(1, 1) -> CP(2, 2)

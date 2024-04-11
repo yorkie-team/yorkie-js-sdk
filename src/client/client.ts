@@ -425,7 +425,7 @@ export class Client implements Observable<ClientEvent> {
     doc: Document<T, P>,
     options: {
       initialPresence?: P;
-      isRealtimeSync?: boolean;
+      syncMode?: SyncMode;
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
@@ -440,7 +440,7 @@ export class Client implements Observable<ClientEvent> {
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(options.initialPresence || {}));
 
-    const isRealtimeSync = options.isRealtimeSync ?? true;
+    const syncMode = options.syncMode ?? SyncMode.Realtime;
 
     return this.rpcClient
       .attachDocument(
@@ -466,11 +466,11 @@ export class Client implements Observable<ClientEvent> {
             this.reconnectStreamDelay,
             doc,
             res.documentId,
-            isRealtimeSync,
+            syncMode,
           ),
         );
 
-        if (isRealtimeSync) {
+        if (syncMode !== SyncMode.Manual) {
           await this.runWatchLoop(doc.getKey());
         }
 
