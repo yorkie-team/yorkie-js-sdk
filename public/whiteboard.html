@@ -364,10 +364,10 @@
           const syncButton = document.querySelector('.sync-button');
           syncButton.addEventListener('click', async () => {
             if (isRealtime) {
-              await client.pause(doc);
+              await client.changeSyncMode(doc, 'manual');
               syncButton.textContent = 'Connect';
             } else {
-              await client.resume(doc);
+              await client.changeSyncMode(doc, 'realtime');
               syncButton.textContent = 'Disconnect';
             }
             isRealtime = !isRealtime;
