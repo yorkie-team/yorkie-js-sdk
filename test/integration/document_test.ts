@@ -1,5 +1,10 @@
 import { describe, it, assert, vi, afterEach } from 'vitest';
-import yorkie, { Counter, Text, JSONArray } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, {
+  Counter,
+  Text,
+  JSONArray,
+  SyncMode,
+} from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -32,7 +37,7 @@ describe('Document', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
@@ -40,14 +45,14 @@ describe('Document', function () {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
 
     await client1.detach(doc1);
     await client2.detach(doc2);
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     await client1.detach(doc1);
     await client2.detach(doc2);
@@ -465,8 +470,8 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
 
     d1.update((root) => {
       root['k1'] = [1, 2];
@@ -590,13 +595,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 updates d1 and removes it.
@@ -629,13 +634,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 detaches d2.
@@ -663,13 +668,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 removes d2.

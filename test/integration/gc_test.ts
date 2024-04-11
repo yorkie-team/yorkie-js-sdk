@@ -1,7 +1,7 @@
 import { describe, it, assert } from 'vitest';
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import yorkie, { Text, Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Text, Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -129,10 +129,10 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     // 1. initial state
-    await client1.attach(doc1, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => (root.point = { x: 0, y: 0 }));
     await client1.sync();
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     // 2. client1 updates doc
     doc1.update((root) => {
@@ -349,8 +349,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     doc1.update((root) => {
       root.t = new Tree({
@@ -434,8 +434,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     doc1.update((root) => {
       root['1'] = 1;
@@ -502,8 +502,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     doc1.update((root) => {
       root.text = new Text();
@@ -581,8 +581,8 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     doc1.update((root) => {
       root['1'] = 1;
@@ -643,7 +643,7 @@ describe('Garbage Collection', function () {
     const cli = new yorkie.Client(testRPCAddr);
     await cli.activate();
 
-    await cli.attach(doc, { isRealtimeSync: false });
+    await cli.attach(doc, { syncMode: SyncMode.Manual });
     doc.update((root) => {
       root.point = { x: 0, y: 0 };
     });
@@ -666,7 +666,7 @@ describe('Garbage Collection', function () {
     const cli = new yorkie.Client(testRPCAddr);
     await cli.activate();
 
-    await cli.attach(doc, { isRealtimeSync: false });
+    await cli.attach(doc, { syncMode: SyncMode.Manual });
     doc.update((root) => {
       root.list = [0, 1, 2];
       root.list.push([3, 4, 5]);
@@ -699,13 +699,13 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => (root.point = { x: 0, y: 0 }));
     doc1.update((root) => (root.point.x = 1));
     assert.equal(doc1.getGarbageLen(), 1);
     await client1.sync();
 
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(doc2.getGarbageLen(), 1);
     doc2.update((root) => (root.point.x = 2));
     assert.equal(doc2.getGarbageLen(), 2);
