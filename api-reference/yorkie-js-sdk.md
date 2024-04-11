@@ -27,7 +27,7 @@
 |  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> represents the result of synchronizing the document with the server. |
 |  [LogLevel](./yorkie-js-sdk.loglevel.md) |  |
 |  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> represents whether the stream connection between the client and the server is connected or not. |
-|  [SyncMode](./yorkie-js-sdk.syncmode.md) | <code>SyncMode</code> is the mode of synchronization. It is used to determine whether to push and pull changes in PushPullChanges API. |
+|  [SyncMode](./yorkie-js-sdk.syncmode.md) | <code>SyncMode</code> defines synchronization modes for the PushPullChanges API. |
 |  [TreeChangeType](./yorkie-js-sdk.treechangetype.md) | <code>TreeChangeType</code> represents the type of change in the tree. |
 
 ## Functions

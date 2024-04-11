@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-sync<T, P extends Indexable>(doc?: Document<T, P>, syncMode?: SyncMode): Promise<Array<Document<T, P>>>;
+sync<T, P extends Indexable>(doc?: Document<T, P>): Promise<Array<Document<T, P>>>;
 ```
 
 ## Parameters
@@ -17,7 +17,6 @@ sync<T, P extends Indexable>(doc?: Document<T, P>, syncMode?: SyncMode): Promise
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; | _(Optional)_ |
-|  syncMode | [SyncMode](./yorkie-js-sdk.syncmode.md) | _(Optional)_ |
 
 **Returns:**
 

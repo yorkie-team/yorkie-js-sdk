@@ -11,7 +11,7 @@
 ```typescript
 attach<T, P extends Indexable>(doc: Document<T, P>, options?: {
         initialPresence?: P;
-        isRealtimeSync?: boolean;
+        syncMode?: SyncMode;
     }): Promise<Document<T, P>>;
 ```
 
@@ -20,7 +20,7 @@ attach<T, P extends Indexable>(doc: Document<T, P>, options?: {
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  doc | [Document](./yorkie-js-sdk.document.md)<!-- -->&lt;T, P&gt; |  |
-|  options | { initialPresence?: P; isRealtimeSync?: boolean; } | _(Optional)_ |
+|  options | { initialPresence?: P; syncMode?: [SyncMode](./yorkie-js-sdk.syncmode.md)<!-- -->; } | _(Optional)_ |
 
 **Returns:**
 

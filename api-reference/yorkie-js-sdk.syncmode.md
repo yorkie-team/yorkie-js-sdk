@@ -4,7 +4,7 @@
 
 ## SyncMode enum
 
-`SyncMode` is the mode of synchronization. It is used to determine whether to push and pull changes in PushPullChanges API.
+`SyncMode` defines synchronization modes for the PushPullChanges API.
 
 **Signature:**
 
@@ -16,6 +16,8 @@ export declare enum SyncMode
 
 |  Member | Value | Description |
 |  --- | --- | --- |
-|  PushOnly | <code>&quot;pushonly&quot;</code> | <code>PushOnly</code> is the mode that pushes changes only. |
-|  PushPull | <code>&quot;pushpull&quot;</code> | <code>PushPull</code> is the mode that pushes and pulls changes. |
+|  Manual | <code>&quot;manual&quot;</code> | <code>Manual</code> mode indicates that changes are not automatically pushed or pulled. |
+|  Realtime | <code>&quot;realtime&quot;</code> | <code>Realtime</code> mode indicates that changes are automatically pushed and pulled. |
+|  RealtimePushOnly | <code>&quot;realtime-pushonly&quot;</code> | <code>RealtimePushOnly</code> mode indicates that only local changes are automatically pushed. |
+|  RealtimeSyncOff | <code>&quot;realtime-syncoff&quot;</code> | <code>RealtimeSyncOff</code> mode indicates that changes are not automatically pushed or pulled, but the watch stream is kept active. |
 

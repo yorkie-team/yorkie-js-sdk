@@ -25,17 +25,14 @@ export declare class Client implements Observable<ClientEvent>
 |  --- | --- | --- |
 |  [activate()](./yorkie-js-sdk.client.activate.md) |  | <code>activate</code> activates this client. That is, it registers itself to the server and receives a unique ID from the server. The given ID is used to distinguish different clients. |
 |  [attach(doc, options)](./yorkie-js-sdk.client.attach.md) |  | <code>attach</code> attaches the given document to this client. It tells the server that this client will synchronize the given document. |
+|  [changeSyncMode(doc, syncMode)](./yorkie-js-sdk.client.changesyncmode.md) |  | <code>changeRealtimeSync</code> changes the synchronization mode of the given document. |
 |  [deactivate()](./yorkie-js-sdk.client.deactivate.md) |  | <code>deactivate</code> deactivates this client. |
 |  [detach(doc, options)](./yorkie-js-sdk.client.detach.md) |  | <p><code>detach</code> detaches the given document from this client. It tells the server that this client will no longer synchronize the given document.</p><p>To collect garbage things like CRDT tombstones left on the document, all the changes should be applied to other replicas before GC time. For this, if the document is no longer used by this client, it should be detached.</p> |
 |  [getID()](./yorkie-js-sdk.client.getid.md) |  | <code>getID</code> returns a ActorID of client. |
 |  [getKey()](./yorkie-js-sdk.client.getkey.md) |  | <code>getKey</code> returns a key of client. |
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |
 |  [isActive()](./yorkie-js-sdk.client.isactive.md) |  | <code>isActive</code> checks if the client is active. |
-|  [pause(doc)](./yorkie-js-sdk.client.pause.md) |  | <code>pause</code> changes the synchronization mode of the given document to manual. |
-|  [pauseRemoteChanges(doc)](./yorkie-js-sdk.client.pauseremotechanges.md) |  | <code>pauseRemoteChanges</code> pauses the synchronization of remote changes, allowing only local changes to be applied. |
 |  [remove(doc)](./yorkie-js-sdk.client.remove.md) |  | <code>remove</code> removes the given document. |
-|  [resume(doc)](./yorkie-js-sdk.client.resume.md) |  | <code>resume</code> changes the synchronization mode of the given document to realtime. |
-|  [resumeRemoteChanges(doc)](./yorkie-js-sdk.client.resumeremotechanges.md) |  | <code>resumeRemoteChanges</code> resumes the synchronization of remote changes, allowing both local and remote changes to be applied. |
 |  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.client.subscribe.md) |  | <code>subscribe</code> subscribes to the given topics. |
-|  [sync(doc, syncMode)](./yorkie-js-sdk.client.sync.md) |  | <code>sync</code> pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents. |
+|  [sync(doc)](./yorkie-js-sdk.client.sync.md) |  | <code>sync</code> pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents. |
 
