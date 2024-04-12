@@ -86,6 +86,30 @@ export class EventCollector<E = string> {
     });
   }
 
+  /**
+   * `waitAndVerifyEventNotOccurred` waits for a specified duration until an event does not occur.
+   */
+  public waitAndVerifyEventNotOccurred(timeout: number) {
+    const startTime = Date.now();
+    const eventCount = this.events.length;
+    return new Promise<void>((resolve, reject) => {
+      const doLoop = () => {
+        if (this.events.length > eventCount) {
+          reject(new Error('Event occurred'));
+          return;
+        }
+
+        if (Date.now() - startTime >= timeout) {
+          resolve();
+          return;
+        }
+        setTimeout(doLoop, 0);
+      };
+
+      doLoop();
+    });
+  }
+
   public reset() {
     this.events = [];
   }

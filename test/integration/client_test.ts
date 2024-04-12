@@ -220,6 +220,61 @@ describe.sequential('Client', function () {
     await c2.deactivate();
   });
 
+  it('Should not reconnect watch stream after pausing or detaching', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ k1: string }>(docKey);
+    const d2 = new yorkie.Document<{ k1: string }>(docKey);
+
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    const eventCollector1 = new EventCollector();
+    const eventCollectorP1 = new EventCollector();
+    const stub1 = vi.fn().mockImplementation((event) => {
+      eventCollector1.add(event.type);
+    });
+    const stubP1 = vi.fn().mockImplementation((event) => {
+      eventCollectorP1.add(event.type);
+    });
+
+    const unsub = d1.subscribe(stub1);
+    const unsubP = d1.subscribe('presence', stubP1);
+
+    d2.update((root) => {
+      root['k1'] = 'v1';
+    });
+    await eventCollector1.waitAndVerifyNthEvent(1, DocEventType.RemoteChange);
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+    // c2 is changed to manual sync.
+    eventCollectorP1.reset();
+    await c2.changeSyncMode(d2, SyncMode.Manual);
+    await eventCollectorP1.waitAndVerifyNthEvent(1, DocEventType.Unwatched);
+    await eventCollectorP1.waitAndVerifyEventNotOccurred(2000);
+
+    // c2 is changed to realtime sync.
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
+    await eventCollectorP1.waitAndVerifyNthEvent(2, DocEventType.Watched);
+
+    // c2 detaches the document.
+    await c2.detach(d2);
+    await eventCollectorP1.waitAndVerifyNthEvent(3, DocEventType.Unwatched);
+    await eventCollectorP1.waitAndVerifyEventNotOccurred(2000);
+
+    unsub();
+    unsubP();
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
   it('Can change sync mode(realtime <-> manual)', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);

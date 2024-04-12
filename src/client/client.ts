@@ -24,7 +24,12 @@ import {
   CompleteFn,
   NextFn,
 } from '@yorkie-js-sdk/src/util/observable';
-import { createPromiseClient, PromiseClient } from '@connectrpc/connect';
+import {
+  createPromiseClient,
+  PromiseClient,
+  ConnectError,
+  Code as ConnectErrorCode,
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '../api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
@@ -792,7 +797,13 @@ export class Client implements Observable<ClientEvent> {
                 value: StreamConnectionStatus.Disconnected,
               });
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-              onDisconnect();
+
+              if (
+                err instanceof ConnectError &&
+                err.code != ConnectErrorCode.Canceled
+              ) {
+                await onDisconnect();
+              }
 
               reject(err);
             }
