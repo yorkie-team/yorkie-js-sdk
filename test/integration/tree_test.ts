@@ -4400,14 +4400,14 @@ describe('TreeChange', () => {
           } as any,
           {
             type: 'tree-edit',
-            from: 1,
-            to: 2,
+            from: 3,
+            to: 4,
             value: undefined,
           } as any,
           {
             type: 'tree-edit',
-            from: 3,
-            to: 4,
+            from: 1,
+            to: 2,
             value: undefined,
           } as any,
         ],
