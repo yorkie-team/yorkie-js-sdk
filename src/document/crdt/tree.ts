@@ -1469,7 +1469,7 @@ export class CRDTTree extends CRDTGCElement {
         }
       }
     }
-    return changes;
+    return changes.reverse();
   }
 
   /**
