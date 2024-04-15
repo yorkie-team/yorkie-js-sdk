@@ -227,10 +227,9 @@ describe('Presence', function () {
     });
 
     const eventCollector = new EventCollector<DocEvent>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = doc1.subscribe('presence', (event) => {
       eventCollector.add(event);
     });
-    const unsub = doc1.subscribe('presence', stub);
 
     // 01. c2 attaches doc in realtime sync, and c3 attached doc in manual sync.
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
@@ -328,19 +327,17 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.attach(doc1, {
       initialPresence: { name: 'a', cursor: { x: 0, y: 0 } },
     });
-    const stub1 = vi.fn().mockImplementation((event) => {
+    const unsub1 = doc1.subscribe('presence', (event) => {
       eventCollectorP1.add(event);
     });
-    const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { name: 'b', cursor: { x: 0, y: 0 } },
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = doc2.subscribe('presence', (event) => {
       eventCollectorP2.add(event);
     });
-    const unsub2 = doc2.subscribe('presence', stub2);
     await eventCollectorP1.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: doc2.getMyPresence() },
@@ -383,10 +380,9 @@ describe(`Document.Subscribe('presence')`, function () {
     const eventCollector = new EventCollector<DocEvent>();
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, { initialPresence: { name: 'a' } });
-    const stub1 = vi.fn().mockImplementation((event) => {
+    const unsub1 = doc1.subscribe('presence', (event) => {
       eventCollector.add(event);
     });
-    const unsub1 = doc1.subscribe('presence', stub1);
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });

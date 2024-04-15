@@ -967,10 +967,10 @@ describe.sequential('Document', function () {
 
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    // TODO(chacha912): Remove any type after specifying the type of DocEvent
+    const unsub = doc.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root[''] = {};
@@ -1010,10 +1010,9 @@ describe.sequential('Document', function () {
     const doc = new Document<any>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = doc.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root.arr = [];
@@ -1041,10 +1040,9 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = doc.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root.cnt = new Counter(CounterType.IntegerCnt, 0);
@@ -1093,10 +1091,9 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = doc.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root.text = new Text();
@@ -1122,10 +1119,9 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = doc.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const unsub = doc.subscribe(stub);
 
     doc.update((root) => {
       root.textWithAttr = new Text();
