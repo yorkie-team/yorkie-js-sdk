@@ -139,30 +139,25 @@ describe.sequential('Client', function () {
     const eventCollectorC1 = new EventCollector();
     const eventCollectorC2 = new EventCollector();
 
-    const stubC1 = vi.fn().mockImplementation((event) => {
-      if (event.type === ClientEventType.DocumentSynced) {
-        eventCollectorC1.add(event.value);
-      }
-    });
-    const stubC2 = vi.fn().mockImplementation((event) => {
-      if (event.type === ClientEventType.DocumentSynced) {
-        eventCollectorC2.add(event.value);
-      }
-    });
-    const stubD1 = vi.fn().mockImplementation((event) => {
-      eventCollectorD1.add(event.type);
-    });
-    const stubD2 = vi.fn().mockImplementation((event) => {
-      eventCollectorD2.add(event.type);
-    });
-
     const unsub1 = {
-      client: c1.subscribe(stubC1),
-      doc: d1.subscribe(stubD1),
+      client: c1.subscribe((event) => {
+        if (event.type === ClientEventType.DocumentSynced) {
+          eventCollectorC1.add(event.value);
+        }
+      }),
+      doc: d1.subscribe((event) => {
+        eventCollectorD1.add(event.type);
+      }),
     };
     const unsub2 = {
-      client: c2.subscribe(stubC2),
-      doc: d2.subscribe(stubD2),
+      client: c2.subscribe((event) => {
+        if (event.type === ClientEventType.DocumentSynced) {
+          eventCollectorC2.add(event.value);
+        }
+      }),
+      doc: d2.subscribe((event) => {
+        eventCollectorD2.add(event.type);
+      }),
     };
 
     // Normal Condition
@@ -245,10 +240,9 @@ describe.sequential('Client', function () {
 
     // 02. c2 changes the sync mode to realtime sync mode.
     const eventCollector = new EventCollector();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub1 = c2.subscribe((event) => {
       eventCollector.add(event.type);
     });
-    const unsub1 = c2.subscribe(stub);
     await c2.changeSyncMode(d2, SyncMode.Realtime);
     await eventCollector.waitFor(ClientEventType.DocumentSynced); // sync occurs when resuming
 
@@ -310,18 +304,15 @@ describe.sequential('Client', function () {
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
     const eventCollectorD3 = new EventCollector();
-    const stub1 = vi.fn().mockImplementation((event) => {
+    const unsub1 = d1.subscribe((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = d2.subscribe((event) => {
       eventCollectorD2.add(event.type);
     });
-    const stub3 = vi.fn().mockImplementation((event) => {
+    const unsub3 = d3.subscribe((event) => {
       eventCollectorD3.add(event.type);
     });
-    const unsub1 = d1.subscribe(stub1);
-    const unsub2 = d2.subscribe(stub2);
-    const unsub3 = d3.subscribe(stub3);
 
     // 02. [Step1] c1, c2, c3 sync in realtime.
     d1.update((root) => {
@@ -427,10 +418,9 @@ describe.sequential('Client', function () {
     const d2 = new yorkie.Document<{ version: string }>(docKey);
 
     const eventCollector = new EventCollector();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub1 = c2.subscribe((event) => {
       eventCollector.add(event.type);
     });
-    const unsub1 = c2.subscribe(stub);
 
     // 01. c2 attach the doc with realtime sync mode at first.
     await c1.attach(d1, { syncMode: SyncMode.Manual });
