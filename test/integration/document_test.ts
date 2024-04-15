@@ -125,14 +125,12 @@ describe('Document', function () {
 
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
-    const stub1 = vi.fn().mockImplementation((event) => {
+    const unsub1 = d1.subscribe((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = d2.subscribe((event) => {
       eventCollectorD2.add(event.type);
     });
-    const unsub1 = d1.subscribe(stub1);
-    const unsub2 = d2.subscribe(stub2);
 
     d2.update((root) => {
       root['k1'] = 'v1';
@@ -181,14 +179,13 @@ describe('Document', function () {
     let expectedEventValue: Array<OperationInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
-    const stub1 = vi.fn().mockImplementation((event) => {
+    // TODO(chacha912): Remove any type after specifying the type of DocEvent
+    const unsub1 = d1.subscribe((event: any) => {
       eventCollectorD1.add({ type: event.type, value: event.value.operations });
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = d2.subscribe((event: any) => {
       eventCollectorD2.add({ type: event.type, value: event.value.operations });
     });
-    const unsub1 = d1.subscribe(stub1);
-    const unsub2 = d2.subscribe(stub2);
 
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 100);
@@ -300,18 +297,15 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos = new EventCollector<EventForTest>();
     const eventCollectorForCounter = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = d1.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = vi.fn().mockImplementation((event) => {
+    const unsubTodo = d1.subscribe('$.todos', (event: any) => {
       eventCollectorForTodos.add(event.value.operations);
     });
-    const stubCounter = vi.fn().mockImplementation((event) => {
+    const unsubCounter = d1.subscribe('$.counter', (event: any) => {
       eventCollectorForCounter.add(event.value.operations);
     });
-    const unsub = d1.subscribe(stub);
-    const unsubTodo = d1.subscribe('$.todos', stubTodo);
-    const unsubCounter = d1.subscribe('$.counter', stubCounter);
 
     d2.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
@@ -390,18 +384,15 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos0 = new EventCollector<EventForTest>();
     const eventCollectorForObjC1 = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = d1.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = vi.fn().mockImplementation((event) => {
+    const unsubTodo = d1.subscribe('$.todos.0', (event: any) => {
       eventCollectorForTodos0.add(event.value.operations);
     });
-    const stubObj = vi.fn().mockImplementation((event) => {
+    const unsubObj = d1.subscribe('$.obj.c1', (event: any) => {
       eventCollectorForObjC1.add(event.value.operations);
     });
-    const unsub = d1.subscribe(stub);
-    const unsubTodo = d1.subscribe('$.todos.0', stubTodo);
-    const unsubObj = d1.subscribe('$.obj.c1', stubObj);
 
     d2.update((root) => {
       root.todos = [{ text: 'todo1', completed: false }];
