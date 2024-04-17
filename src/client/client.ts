@@ -38,11 +38,10 @@ import {
   Document,
   DocumentKey,
   DocumentStatus,
-  WatchStreamType,
+  Indexable,
 } from '@yorkie-js-sdk/src/document/document';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
-import { Indexable, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -460,10 +459,7 @@ export class Client implements Observable<ClientEvent> {
           return doc;
         }
 
-        doc.applyStatus({
-          type: DocumentStatus.Attached,
-          value: { actorID: this.id! },
-        });
+        doc.applyStatus(DocumentStatus.Attached);
         this.attachmentMap.set(
           doc.getKey(),
           new Attachment(
@@ -529,9 +525,7 @@ export class Client implements Observable<ClientEvent> {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         if (doc.getStatus() !== DocumentStatus.Removed) {
-          doc.applyStatus({
-            type: DocumentStatus.Detached,
-          });
+          doc.applyStatus(DocumentStatus.Detached);
         }
         this.detachInternal(doc.getKey());
 
@@ -814,42 +808,23 @@ export class Client implements Observable<ClientEvent> {
     attachment: Attachment<T, P>,
     resp: WatchDocumentResponse,
   ) {
-    if (resp.body.case === 'initialization') {
-      attachment.doc.applyWatchStream({
-        type: WatchStreamType.Initialization,
-        value: { clientIDs: resp.body.value.clientIds },
-      });
-      return;
-    } else if (resp.body.case === 'event') {
-      const pbWatchEvent = resp.body.value;
-      const eventType = pbWatchEvent.type;
-      const publisher = pbWatchEvent.publisher;
-      switch (eventType) {
-        case PbDocEventType.DOCUMENT_CHANGED:
-          attachment.remoteChangeEventReceived = true;
+    if (
+      resp.body.case === 'event' &&
+      resp.body.value.type === PbDocEventType.DOCUMENT_CHANGED
+    ) {
+      attachment.remoteChangeEventReceived = true;
 
-          // TODO(chacha): We need to remove the following event propagation
-          // logic after removing `client.subscribe`.
-          this.eventStreamObserver.next({
-            type: ClientEventType.DocumentChanged,
-            value: [attachment.doc.getKey()],
-          });
-          break;
-        case PbDocEventType.DOCUMENT_WATCHED:
-          attachment.doc.applyWatchStream({
-            type: WatchStreamType.DocEvent,
-            value: { type: DocEventType.Watched, publisher },
-          });
-          break;
-        case PbDocEventType.DOCUMENT_UNWATCHED: {
-          attachment.doc.applyWatchStream({
-            type: WatchStreamType.DocEvent,
-            value: { type: DocEventType.Unwatched, publisher },
-          });
-          break;
-        }
-      }
+      // TODO(chacha): We need to remove the following event propagation
+      // logic after removing `client.subscribe`.
+      this.eventStreamObserver.next({
+        type: ClientEventType.DocumentChanged,
+        value: [attachment.doc.getKey()],
+      });
+
+      return;
     }
+
+    attachment.doc.applyWatchStream(resp);
   }
 
   private detachInternal(docKey: DocumentKey) {

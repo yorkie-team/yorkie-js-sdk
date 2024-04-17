@@ -22,7 +22,7 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { ChangePayload, Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
@@ -30,6 +30,16 @@ import {
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+
+export type ChangeStruct = {
+  changeID: string;
+  message?: string;
+  operations?: Array<string>;
+  presenceChange?: {
+    type: PresenceChangeType;
+    presence?: object; // TODO(chacha912): Specify the type accurately.
+  };
+};
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -191,9 +201,9 @@ export class Change<P extends Indexable> {
   }
 
   /**
-   * `toChangePayload` returns the ChangePayload of this change.
+   * `toStruct` returns the structure of this change.
    */
-  public toChangePayload(): ChangePayload {
+  public toStruct(): ChangeStruct {
     return {
       changeID: converter.bytesToHex(
         converter.toChangeID(this.getID()).toBinary(),
@@ -204,5 +214,22 @@ export class Change<P extends Indexable> {
       ),
       presenceChange: this.getPresenceChange(),
     };
+  }
+
+  /**
+   * `fromStruct` creates a instance of Change from the struct.
+   */
+  public static fromStruct<P extends Indexable>(
+    struct: ChangeStruct,
+  ): Change<P> {
+    const { changeID, operations, presenceChange, message } = struct;
+    return Change.create<P>({
+      id: converter.bytesToChangeID(converter.hexToBytes(changeID)),
+      operations: operations?.map((op) => {
+        return converter.bytesToOperation(converter.hexToBytes(op));
+      }),
+      presenceChange: presenceChange as any,
+      message,
+    });
   }
 }

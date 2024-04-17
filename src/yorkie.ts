@@ -21,7 +21,6 @@ import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import Long from 'long';
 
 export {
   Client,
@@ -46,8 +45,6 @@ export {
   DocEvent,
   Document,
   ChangeInfo,
-  HistoryChangePack,
-  HistoryChangePackType,
 } from '@yorkie-js-sdk/src/document/document';
 export {
   Observer,
@@ -112,8 +109,6 @@ export { converter } from '@yorkie-js-sdk/src/api/converter';
 
 export type { LogLevel } from '@yorkie-js-sdk/src/util/logger';
 export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
-
-export { Long };
 
 export {
   EventSourceDevPanel,
