@@ -23,101 +23,25 @@ import {
   useState,
 } from 'react';
 
-import type {
-  SDKToPanelMessage,
-  DocEvent,
-  HistoryChangePack,
-} from 'yorkie-js-sdk';
-import { HistoryChangePackType, converter, Change, Long } from 'yorkie-js-sdk';
+import type { SDKToPanelMessage, DocEvent } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const YorkieChangesContext = createContext<Array<HistoryChangePackInfo>>(null);
+const YorkieEventsContext = createContext<Array<Array<DocEvent>>>(null);
 
 type Props = {
   children?: ReactNode;
 };
 
-type HistoryChangePackInfo = HistoryChangePack & {
-  event?: DocEvent;
-  docMeta?: {
-    myClientID: string;
-    docStatus: string;
-    onlineClients: Array<string>;
-    snapshot: string;
-    docKey: string;
-  };
-};
-
-export function applyHistoryChangePack(doc, changePack: HistoryChangePack) {
-  let result;
-  switch (changePack.type) {
-    case HistoryChangePackType.Snapshot:
-      const { snapshot, serverSeq } = changePack.payload;
-      result = doc.applySnapshot(
-        Long.fromString(serverSeq),
-        converter.hexToBytes(snapshot),
-      );
-      return {
-        event: result.event,
-        changePack: { type: changePack.type },
-      };
-    case HistoryChangePackType.Change:
-      const { changeID, operations, presenceChange, message } =
-        changePack.payload;
-      const change = Change.create({
-        id: converter.bytesToChangeID(converter.hexToBytes(changeID)),
-        operations: operations.map((op) => {
-          return converter.bytesToOperation(converter.hexToBytes(op));
-        }),
-        presenceChange: presenceChange as any,
-        message,
-      });
-      result = doc.applyChange(change, changePack.source);
-      return {
-        event: result.event,
-        changePack: {
-          type: changePack.type,
-          payload: {
-            actor: change.getID().getActorID(),
-            operations: change.getOperations().map((op) => {
-              // TODO(chacha912): Enhance to show the operation structure.
-              return {
-                desc: op.toTestString(),
-                executedAt: op.getExecutedAt().toTestString(),
-              };
-            }),
-            presenceChange: change.getPresenceChange(),
-            message: change.getMessage(),
-          },
-        },
-      };
-    case HistoryChangePackType.WatchStream:
-      result = doc.applyWatchStream(changePack.payload);
-      return {
-        event: result.event,
-        changePack: { type: changePack.type, payload: changePack.payload },
-      };
-    case HistoryChangePackType.DocStatus:
-      result = doc.applyStatus(changePack.payload);
-      return {
-        event: result.event,
-        changePack: { type: changePack.type, payload: changePack.payload },
-      };
-  }
-}
-
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
-  const [historyChanges, setHistoryChanges] = useState<
-    Array<HistoryChangePackInfo>
-  >([]);
+  const [docEvents, setDocEvents] = useState<Array<Array<DocEvent>>>([]);
 
   const resetDocument = () => {
     setCurrentDocKey('');
-    setHistoryChanges([]);
+    setDocEvents([]);
     setDoc(null);
   };
 
@@ -136,12 +60,12 @@ export function YorkieSourceProvider({ children }: Props) {
         break;
       case 'doc::sync::full':
         // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
-        if (message.changes === undefined) break;
-        setHistoryChanges(message.changes);
+        if (message.events === undefined) break;
+        setDocEvents(message.events);
         break;
       case 'doc::sync::partial':
-        if (message.changes === undefined) break;
-        setHistoryChanges((changes) => [...changes, ...message.changes]);
+        if (message.event === undefined) break;
+        setDocEvents((events) => [...events, message.event]);
         break;
     }
   }, []);
@@ -168,11 +92,11 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <YorkieChangesContext.Provider value={historyChanges}>
+      <YorkieEventsContext.Provider value={docEvents}>
         <YorkieDocContext.Provider value={[doc, setDoc]}>
           {children}
         </YorkieDocContext.Provider>
-      </YorkieChangesContext.Provider>
+      </YorkieEventsContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -195,11 +119,11 @@ export function useYorkieDoc() {
   return value;
 }
 
-export function useYorkieChanges() {
-  const value = useContext(YorkieChangesContext);
+export function useYorkieEvents() {
+  const value = useContext(YorkieEventsContext);
   if (value === undefined) {
     throw new Error(
-      'useYorkieChanges should be used within YorkieSourceProvider',
+      'useYorkieEvents should be used within YorkieSourceProvider',
     );
   }
   return value;

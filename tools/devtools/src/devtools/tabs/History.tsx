@@ -15,54 +15,91 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { HistoryChangePackType } from 'yorkie-js-sdk';
+import { DocEventType, Change, type DocEvent } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
-import { useYorkieChanges } from '../contexts/YorkieSource';
+import { useYorkieEvents } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 
 const SLIDER_MARK_WIDTH = 24;
 
+const getEventInfo = (event: Array<DocEvent>) => {
+  const info = [];
+  for (const e of event) {
+    if (
+      e.type === DocEventType.LocalChange ||
+      e.type === DocEventType.RemoteChange
+    ) {
+      const change = Change.fromStruct(e.rawChange);
+      info.push({
+        type: e.type,
+        value: e.value,
+        changeInfo: {
+          operations: change.getOperations().map((op) => {
+            // TODO(chacha912): Enhance to show the operation structure.
+            return {
+              desc: op.toTestString(),
+              executedAt: op.getExecutedAt().toTestString(),
+            };
+          }),
+          presenceChange: change.getPresenceChange(),
+          actor: change.getID().getActorID(),
+          changeID: change.getID().toTestString(),
+          message: change.getMessage(),
+        },
+      });
+      continue;
+    }
+    info.push({
+      type: e.type,
+      value: e.value,
+    });
+  }
+  return info;
+};
+
 export function History({
   style,
-  selectedChangeInfo,
-  selectedChangeIndexInfo,
-  setSelectedChangeIndexInfo,
+  selectedEvent,
+  selectedEventIndexInfo,
+  setSelectedEventIndexInfo,
 }) {
-  const changes = useYorkieChanges();
+  const events = useYorkieEvents();
   const [openHistory, setOpenHistory] = useState(false);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
 
-  const handleSliderChange = (value) => {
-    setSelectedChangeIndexInfo({
+  const handleSliderEvent = (value) => {
+    setSelectedEventIndexInfo({
       index: value,
-      isLast: value === changes.length - 1,
+      isLast: value === events.length - 1,
     });
   };
 
   useEffect(() => {
-    if (!openHistory || selectedChangeIndexInfo.index === null) return;
+    if (!openHistory || selectedEventIndexInfo.index === null) return;
     if (scrollRef.current) {
       scrollRef.current.scrollLeft =
-        selectedChangeIndexInfo.index * SLIDER_MARK_WIDTH -
+        selectedEventIndexInfo.index * SLIDER_MARK_WIDTH -
         scrollRef.current.clientWidth / 2;
     }
-  }, [openHistory, selectedChangeIndexInfo]);
+  }, [openHistory, selectedEventIndexInfo]);
 
   useEffect(() => {
-    if (!openHistory || changes.length === 0) return;
+    if (!openHistory || events.length === 0) return;
     const marks = {};
-    for (const [index, change] of changes.entries()) {
-      const source = change.source;
-      let type = 'document';
-      if (
-        change.type === HistoryChangePackType.WatchStream ||
-        (change.type === HistoryChangePackType.Change &&
-          change.payload.operations?.length === 0 &&
-          change.payload.presenceChange)
-      ) {
-        type = 'presence';
+    for (const [index, event] of events.entries()) {
+      const source = event[0].source;
+      let type = 'presence';
+      for (const e of event) {
+        if (
+          e.type === DocEventType.StatusChanged ||
+          e.type === DocEventType.Snapshot ||
+          e.type === DocEventType.LocalChange ||
+          e.type === DocEventType.RemoteChange
+        ) {
+          type = 'document';
+        }
       }
       marks[index] = (
         <span className={`mark-history mark-${source} mark-${type}`}>
@@ -71,7 +108,7 @@ export function History({
       );
     }
     setSliderMarks(marks);
-  }, [openHistory, changes]);
+  }, [openHistory, events]);
 
   return (
     <div
@@ -100,9 +137,9 @@ export function History({
               <span className="devtools-history-buttons">
                 <button
                   onClick={() => {
-                    setSelectedChangeIndexInfo({
+                    setSelectedEventIndexInfo({
                       index: 0,
-                      isLast: changes.length === 1,
+                      isLast: events.length === 1,
                     });
                   }}
                 >
@@ -110,7 +147,7 @@ export function History({
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndexInfo((prev) => {
+                    setSelectedEventIndexInfo((prev) => {
                       return prev.index === 0
                         ? prev
                         : { index: prev.index - 1, isLast: false };
@@ -121,8 +158,8 @@ export function History({
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndexInfo((prev) => {
-                      return prev.index === changes.length - 1
+                    setSelectedEventIndexInfo((prev) => {
+                      return prev.index === events.length - 1
                         ? prev
                         : { index: prev.index + 1, isLast: false };
                     });
@@ -132,8 +169,8 @@ export function History({
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedChangeIndexInfo({
-                      index: changes.length - 1,
+                    setSelectedEventIndexInfo({
+                      index: events.length - 1,
                       isLast: true,
                     });
                   }}
@@ -154,17 +191,17 @@ export function History({
                 dots
                 min={0}
                 marks={sliderMarks}
-                max={changes.length - 1}
-                value={selectedChangeIndexInfo.index}
+                max={events.length - 1}
+                value={selectedEventIndexInfo.index}
                 step={1}
-                onChange={handleSliderChange}
+                onChange={handleSliderEvent}
                 style={{
-                  width: changes.length * SLIDER_MARK_WIDTH + 'px',
+                  width: events.length * SLIDER_MARK_WIDTH + 'px',
                 }}
               />
             </div>
-            <div className="devtools-change-wrap">
-              <JSONView src={selectedChangeInfo} />
+            <div className="devtools-event-wrap">
+              <JSONView src={getEventInfo(selectedEvent)} />
             </div>
           </>
         )}

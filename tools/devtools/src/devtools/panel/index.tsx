@@ -24,9 +24,8 @@ import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
-  useYorkieChanges,
+  useYorkieEvents,
   useYorkieDoc,
-  applyHistoryChangePack,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
@@ -35,13 +34,13 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const changes = useYorkieChanges();
+  const events = useYorkieEvents();
   const [, setDoc] = useYorkieDoc();
-  const [selectedChangeIndexInfo, setSelectedChangeIndexInfo] = useState({
+  const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
     isLast: true,
   });
-  const [selectedChangeInfo, setSelectedChangeInfo] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const {
     isDragging: isHistoryDragging,
     position: historyH,
@@ -60,36 +59,40 @@ const Panel = () => {
   });
 
   useEffect(() => {
-    if (changes.length === 0) {
-      // NOTE(chacha912): If there are no changes, reset the SelectedChangeIndexInfo.
-      setSelectedChangeIndexInfo({
+    if (events.length === 0) {
+      // NOTE(chacha912): If there are no events, reset the SelectedEventIndexInfo.
+      setSelectedEventIndexInfo({
         index: null,
         isLast: true,
       });
       return;
     }
 
-    if (selectedChangeIndexInfo.isLast) {
-      setSelectedChangeIndexInfo({
-        index: changes.length - 1,
+    if (selectedEventIndexInfo.isLast) {
+      setSelectedEventIndexInfo({
+        index: events.length - 1,
         isLast: true,
       });
     }
-  }, [changes]);
+  }, [events]);
 
   useEffect(() => {
-    if (selectedChangeIndexInfo.index === null) return;
+    if (selectedEventIndexInfo.index === null) return;
     const doc = new yorkie.Document(currentDocKey);
-    for (let i = 0; i < selectedChangeIndexInfo.index; i++) {
-      applyHistoryChangePack(doc, changes[i]);
+    for (let i = 0; i < selectedEventIndexInfo.index; i++) {
+      for (const event of events[i]) {
+        doc.applyDocEvent(event);
+      }
     }
 
-    const change = changes[selectedChangeIndexInfo.index];
-    const info = applyHistoryChangePack(doc, change);
+    const event = events[selectedEventIndexInfo.index];
+    for (const e of event) {
+      doc.applyDocEvent(e);
+    }
 
     setDoc(doc);
-    setSelectedChangeInfo(info);
-  }, [selectedChangeIndexInfo]);
+    setSelectedEvent(event);
+  }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {
     return (
@@ -117,9 +120,9 @@ const Panel = () => {
     <div className="yorkie-devtools">
       <History
         style={{ height: historyH }}
-        selectedChangeInfo={selectedChangeInfo}
-        selectedChangeIndexInfo={selectedChangeIndexInfo}
-        setSelectedChangeIndexInfo={setSelectedChangeIndexInfo}
+        selectedEvent={selectedEvent}
+        selectedEventIndexInfo={selectedEventIndexInfo}
+        setSelectedEventIndexInfo={setSelectedEventIndexInfo}
       />
       <Separator
         dir={'horizontal'}
