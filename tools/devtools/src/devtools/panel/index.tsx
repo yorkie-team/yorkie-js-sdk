@@ -79,19 +79,12 @@ const Panel = () => {
   useEffect(() => {
     if (selectedEventIndexInfo.index === null) return;
     const doc = new yorkie.Document(currentDocKey);
-    for (let i = 0; i < selectedEventIndexInfo.index; i++) {
-      for (const event of events[i]) {
-        doc.applyDocEvent(event);
-      }
-    }
-
-    const event = events[selectedEventIndexInfo.index];
-    for (const e of event) {
-      doc.applyDocEvent(e);
+    for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
+      doc.applyTransactionDocEvents(events[i]);
     }
 
     setDoc(doc);
-    setSelectedEvent(event);
+    setSelectedEvent(events[selectedEventIndexInfo.index]);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {

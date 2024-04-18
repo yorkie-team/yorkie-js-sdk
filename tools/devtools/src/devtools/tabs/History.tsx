@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { DocEventType, Change, type DocEvent } from 'yorkie-js-sdk';
+import { DocEventType, Change, type TransactionDocEvents } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
 import { useYorkieEvents } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
@@ -23,9 +23,9 @@ import { CursorIcon, DocumentIcon } from '../icons';
 
 const SLIDER_MARK_WIDTH = 24;
 
-const getEventInfo = (event: Array<DocEvent>) => {
+const getEventInfo = (events: TransactionDocEvents) => {
   const info = [];
-  for (const e of event) {
+  for (const e of events) {
     if (
       e.type === DocEventType.LocalChange ||
       e.type === DocEventType.RemoteChange

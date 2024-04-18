@@ -23,12 +23,12 @@ import {
   useState,
 } from 'react';
 
-import type { SDKToPanelMessage, DocEvent } from 'yorkie-js-sdk';
+import type { SDKToPanelMessage, TransactionDocEvents } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const YorkieEventsContext = createContext<Array<Array<DocEvent>>>(null);
+const YorkieEventsContext = createContext<Array<TransactionDocEvents>>(null);
 
 type Props = {
   children?: ReactNode;
@@ -37,7 +37,7 @@ type Props = {
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
-  const [docEvents, setDocEvents] = useState<Array<Array<DocEvent>>>([]);
+  const [docEvents, setDocEvents] = useState<Array<TransactionDocEvents>>([]);
 
   const resetDocument = () => {
     setCurrentDocKey('');
