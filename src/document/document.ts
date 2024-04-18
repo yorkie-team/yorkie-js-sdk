@@ -191,8 +191,7 @@ export interface BaseDocEvent {
 }
 
 /**
- * `SnapshotEvent` is an event that occurs when a snapshot is received from
- * the server.
+ * `StatusChangedEvent` is an event that occurs when the status of a document changes.
  *
  * @public
  */
