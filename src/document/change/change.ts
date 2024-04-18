@@ -31,13 +31,17 @@ import {
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { deepcopy } from '@yorkie-js-sdk/src/util/object';
 
-export type ChangeStruct = {
+/**
+ * `ChangeStruct` represents the structure of Change.
+ * This is used to serialize and deserialize Change.
+ */
+export type ChangeStruct<P extends Indexable> = {
   changeID: string;
   message?: string;
   operations?: Array<string>;
   presenceChange?: {
     type: PresenceChangeType;
-    presence?: object; // TODO(chacha912): Specify the type accurately.
+    presence?: P;
   };
 };
 
@@ -203,7 +207,7 @@ export class Change<P extends Indexable> {
   /**
    * `toStruct` returns the structure of this change.
    */
-  public toStruct(): ChangeStruct {
+  public toStruct(): ChangeStruct<P> {
     return {
       changeID: converter.bytesToHex(
         converter.toChangeID(this.getID()).toBinary(),
@@ -220,7 +224,7 @@ export class Change<P extends Indexable> {
    * `fromStruct` creates a instance of Change from the struct.
    */
   public static fromStruct<P extends Indexable>(
-    struct: ChangeStruct,
+    struct: ChangeStruct<P>,
   ): Change<P> {
     const { changeID, operations, presenceChange, message } = struct;
     return Change.create<P>({

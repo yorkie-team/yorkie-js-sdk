@@ -175,8 +175,8 @@ export enum DocEventType {
 export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | StatusChangedEvent
   | SnapshotEvent
-  | LocalChangeEvent<T>
-  | RemoteChangeEvent<T>
+  | LocalChangeEvent<T, P>
+  | RemoteChangeEvent<T, P>
   | InitializedEvent<P>
   | WatchedEvent<P>
   | UnwatchedEvent<P>
@@ -238,14 +238,17 @@ export interface ChangeInfo<T = OperationInfo> {
  *
  * @public
  */
-export interface LocalChangeEvent<T = OperationInfo> extends BaseDocEvent {
+export interface LocalChangeEvent<
+  T = OperationInfo,
+  P extends Indexable = Indexable,
+> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.LocalChange
    */
   type: DocEventType.LocalChange;
   source: OpSource.Local | OpSource.UndoRedo;
   value: ChangeInfo<T>;
-  rawChange: ChangeStruct;
+  rawChange: ChangeStruct<P>;
 }
 
 /**
@@ -254,14 +257,17 @@ export interface LocalChangeEvent<T = OperationInfo> extends BaseDocEvent {
  *
  * @public
  */
-export interface RemoteChangeEvent<T = OperationInfo> extends BaseDocEvent {
+export interface RemoteChangeEvent<
+  T = OperationInfo,
+  P extends Indexable = Indexable,
+> extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.RemoteChange
    */
   type: DocEventType.RemoteChange;
   source: OpSource.Remote;
   value: ChangeInfo<T>;
-  rawChange: ChangeStruct;
+  rawChange: ChangeStruct<P>;
 }
 
 export interface InitializedEvent<P extends Indexable> extends BaseDocEvent {
