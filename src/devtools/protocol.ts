@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+import type { TransactionDocEvents } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `EventSourceDevPanel` is the name of the source representing messages
@@ -76,7 +76,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      events: Array<Array<DocEvent>>;
+      events: Array<TransactionDocEvents>;
     }
   /**
    * Sent whenever the document is changed.
@@ -84,7 +84,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      event: Array<DocEvent>;
+      event: TransactionDocEvents;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

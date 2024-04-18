@@ -183,6 +183,14 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | PresenceChangedEvent<P>;
 
 /**
+ * `TransactionDocEvents` represents document events that occur within
+ * a single transaction (e.g., doc.update).
+ */
+export type TransactionDocEvents<P extends Indexable = Indexable> = Array<
+  DocEvent<P>
+>;
+
+/**
  * @internal
  */
 export interface BaseDocEvent {
@@ -461,8 +469,8 @@ export class Document<T, P extends Indexable = Indexable> {
     presences: Map<ActorID, P>;
   };
 
-  private eventStream: Observable<Array<DocEvent<P>>>;
-  private eventStreamObserver!: Observer<Array<DocEvent<P>>>;
+  private eventStream: Observable<TransactionDocEvents<P>>;
+  private eventStreamObserver!: Observer<TransactionDocEvents<P>>;
 
   /**
    * `onlineClients` is a set of client IDs that are currently online.
@@ -495,7 +503,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * (time-traveling feature) in Devtools. Later, external storage such as
    * IndexedDB will be used.
    */
-  public docEvents: Array<Array<DocEvent<P>>>;
+  public docEvents: Array<TransactionDocEvents<P>>;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -510,7 +518,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
 
-    this.eventStream = createObservable<Array<DocEvent<P>>>((observer) => {
+    this.eventStream = createObservable<TransactionDocEvents<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
 
@@ -609,7 +617,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
-      const events: Array<DocEvent<P>> = [];
+      const events: TransactionDocEvents<P> = [];
       const rawChange = change.toStruct();
       if (opInfos.length > 0) {
         events.push({
@@ -701,7 +709,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'all',
-    next: NextFn<Array<DocEvent<P>>>,
+    next: NextFn<TransactionDocEvents<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -716,7 +724,7 @@ export class Document<T, P extends Indexable = Indexable> {
     arg2?:
       | NextFn<DocEvent<P, TOperationInfo>>
       | NextFn<DocEvent<P>>
-      | NextFn<Array<DocEvent<P>>>
+      | NextFn<TransactionDocEvents<P>>
       | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
@@ -797,7 +805,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'all') {
-        const callback = arg2 as NextFn<Array<DocEvent<P>>>;
+        const callback = arg2 as NextFn<TransactionDocEvents<P>>;
         return this.eventStream.subscribe(callback, arg3, arg4);
       }
       const target = arg1;
@@ -864,7 +872,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
-  public publish(events: Array<DocEvent<P>>) {
+  public publish(events: TransactionDocEvents<P>) {
     if (this.opts.enableDevtools) {
       this.docEvents.push(events);
     }
@@ -1095,7 +1103,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getDocEvents` returns all events of this document.
    */
-  public getDocEvents(): Array<Array<DocEvent<P>>> {
+  public getDocEvents(): Array<TransactionDocEvents<P>> {
     return this.docEvents;
   }
 
@@ -1189,7 +1197,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const events: Array<DocEvent<P>> = [];
+    const events: TransactionDocEvents<P> = [];
     const actorID = change.getID().getActorID();
     if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
       const presenceChange = change.getPresenceChange()!;
@@ -1419,6 +1427,15 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `applyTransactionDocEvents` applies the TransactionDocEvents into this document.
+   */
+  public applyTransactionDocEvents(events: TransactionDocEvents<P>) {
+    for (const event of events) {
+      this.applyDocEvent(event);
+    }
+  }
+
+  /**
    * `getValueByPath` returns the JSONElement corresponding to the given path.
    */
   public getValueByPath(path: string): JSONElement | undefined {
@@ -1626,7 +1643,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const events: Array<DocEvent<P>> = [];
+    const events: TransactionDocEvents<P> = [];
     const rawChange = change.toStruct();
     if (opInfos.length > 0) {
       events.push({
@@ -1718,7 +1735,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const events: Array<DocEvent<P>> = [];
+    const events: TransactionDocEvents<P> = [];
     const rawChange = change.toStruct();
     if (opInfos.length > 0) {
       events.push({
