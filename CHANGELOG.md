@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.17] - 2024-04-19
+
+### Added
+
+- Add RealtimeSyncOff and refactor interface of SyncMode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/772
+
+### Fixed
+
+- Fix issue of incorrect display of remote selection in Quill example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/769
+- Reverse TreeChanges when Deleting in Tree by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/774
+- Remove unnecessary stubs from the test code by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/776
+- Provide CODECOV_TOKEN to codecov-action by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/777
+- Fix issue of referencing process object on browser by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/778
+
 ## [0.4.16] - 2024-03-29
 
 ### Added
