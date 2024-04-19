@@ -227,7 +227,7 @@ export interface SnapshotEvent extends BaseDocEvent {
    */
   type: DocEventType.Snapshot;
   source: OpSource.Remote;
-  value: { snapshot: string; serverSeq: string };
+  value: { snapshot?: string; serverSeq: string };
 }
 
 /**
@@ -256,7 +256,7 @@ export interface LocalChangeEvent<
   type: DocEventType.LocalChange;
   source: OpSource.Local | OpSource.UndoRedo;
   value: ChangeInfo<T>;
-  rawChange: ChangeStruct<P>;
+  rawChange?: ChangeStruct<P>;
 }
 
 /**
@@ -275,7 +275,7 @@ export interface RemoteChangeEvent<
   type: DocEventType.RemoteChange;
   source: OpSource.Remote;
   value: ChangeInfo<T>;
-  rawChange: ChangeStruct<P>;
+  rawChange?: ChangeStruct<P>;
 }
 
 export interface InitializedEvent<P extends Indexable> extends BaseDocEvent {
@@ -618,7 +618,6 @@ export class Document<T, P extends Indexable = Indexable> {
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
       const events: TransactionDocEvents<P> = [];
-      const rawChange = change.toStruct();
       if (opInfos.length > 0) {
         events.push({
           type: DocEventType.LocalChange,
@@ -628,7 +627,7 @@ export class Document<T, P extends Indexable = Indexable> {
             operations: opInfos,
             actor: actorID,
           },
-          rawChange,
+          rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
         });
       }
       if (change.hasPresenceChange()) {
@@ -873,7 +872,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * callback functions from document.subscribe().
    */
   public publish(events: TransactionDocEvents<P>) {
-    if (this.opts.enableDevtools) {
+    if (this.isEnableDevtools()) {
       this.docEvents.push(events);
     }
     if (this.eventStreamObserver) {
@@ -1148,7 +1147,9 @@ export class Document<T, P extends Indexable = Indexable> {
         type: DocEventType.Snapshot,
         source: OpSource.Remote,
         value: {
-          snapshot: converter.bytesToHex(snapshot),
+          snapshot: this.isEnableDevtools()
+            ? converter.bytesToHex(snapshot)
+            : undefined,
           serverSeq: serverSeq.toString(),
         },
       },
@@ -1250,9 +1251,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     const { opInfos } = change.execute(this.root, this.presences, source);
     this.changeID = this.changeID.syncLamport(change.getID().getLamport());
-
     if (opInfos.length > 0) {
-      const rawChange = change.toStruct();
+      const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       events.push(
         source === OpSource.Remote
           ? {
@@ -1382,6 +1382,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     if (event.type === DocEventType.Snapshot) {
       const { snapshot, serverSeq } = event.value;
+      if (!snapshot) return;
       this.applySnapshot(
         Long.fromString(serverSeq),
         converter.hexToBytes(snapshot),
@@ -1393,6 +1394,7 @@ export class Document<T, P extends Indexable = Indexable> {
       event.type === DocEventType.LocalChange ||
       event.type === DocEventType.RemoteChange
     ) {
+      if (!event.rawChange) return;
       const change = Change.fromStruct<P>(event.rawChange);
       this.applyChange(change, event.source);
     }
@@ -1644,7 +1646,6 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
     const events: TransactionDocEvents<P> = [];
-    const rawChange = change.toStruct();
     if (opInfos.length > 0) {
       events.push({
         type: DocEventType.LocalChange,
@@ -1654,7 +1655,7 @@ export class Document<T, P extends Indexable = Indexable> {
           operations: opInfos,
           actor: actorID,
         },
-        rawChange,
+        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
       });
     }
     if (change.hasPresenceChange()) {
@@ -1736,7 +1737,6 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
     const events: TransactionDocEvents<P> = [];
-    const rawChange = change.toStruct();
     if (opInfos.length > 0) {
       events.push({
         type: DocEventType.LocalChange,
@@ -1746,7 +1746,7 @@ export class Document<T, P extends Indexable = Indexable> {
           operations: opInfos,
           actor: actorID,
         },
-        rawChange,
+        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
       });
     }
     if (change.hasPresenceChange()) {
