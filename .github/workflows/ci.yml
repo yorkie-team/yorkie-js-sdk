@@ -34,6 +34,8 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage/lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run benchmark
         run: npm run benchmark | tee output.txt
