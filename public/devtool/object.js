@@ -50,11 +50,7 @@ const objectDevtool = (
   };
 
   const displayOps = () => {
-    opsHolder.innerHTML = `
-        <div class="devtool-ops-holder">
-            ${renderOpsHolder(doc.getOpsForTest(), 'op')}
-        </div>
-        `;
+    // TODO(chacha912): Implement this feature in Devtools extension.
   };
 
   const displayUndoOps = () => {

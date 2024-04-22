@@ -14,24 +14,50 @@
  * limitations under the License.
  */
 
+import { useEffect, useState } from 'react';
+import { Primitive } from 'yorkie-js-sdk';
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
-import { useSeletedNode } from '../contexts/SeletedNode';
-import {
-  useCurrentDocKey,
-  useDocumentRoot,
-  useNodeDetail,
-} from '../contexts/YorkieSource';
+import { useSelectedNode } from '../contexts/SelectedNode';
+import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
-export function Document() {
+export function Document({ style }) {
   const currentDocKey = useCurrentDocKey();
-  const root = useDocumentRoot();
-  const nodeDetail = useNodeDetail();
-  const [selectedNode, setSelectedNode] = useSeletedNode();
+  const [doc] = useYorkieDoc();
+  const [selectedNode, setSelectedNode] = useSelectedNode();
+  const [root, setRoot] = useState(null);
+  const [nodeDetail, setNodeDetail] = useState(null);
+
+  useEffect(() => {
+    if (!doc) return;
+    // TODO(chacha912): Enhance to prevent updates when there are no changes in the root.
+    setRoot(doc.toJSForTest());
+
+    // NOTE(chacha912): When the document changes, also update the currently selected node.
+    if (!selectedNode) return;
+    const selectedElem = doc.getValueByPath(selectedNode.path);
+    if (!selectedElem) {
+      setSelectedNode(null);
+      return;
+    }
+    setSelectedNode((prev) => ({
+      ...prev,
+      value: Primitive.isSupport(selectedElem)
+        ? selectedElem
+        : selectedElem.toJSForTest().value,
+    }));
+  }, [doc]);
+
+  useEffect(() => {
+    if (!doc || !selectedNode) return;
+    if (selectedNode.type === 'YORKIE_TREE') {
+      setNodeDetail(doc.getValueByPath(selectedNode.path).toJSInfoForTest());
+    }
+  }, [selectedNode]);
 
   return (
-    <div className="yorkie-root content-wrap">
+    <div className="yorkie-root content-wrap" style={{ ...style }}>
       <div className="title">{currentDocKey || 'Document'}</div>
       <div className="content">
         <RootTree root={root} />
@@ -53,7 +79,7 @@ export function Document() {
                 <TreeDetail node={selectedNode} tree={nodeDetail} />
               ) : (
                 <JSONDetail
-                  json={JSON.stringify(selectedNode?.value, null, 2)}
+                  json={JSON.stringify(selectedNode.value, null, 2)}
                 />
               )}
             </div>

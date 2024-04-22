@@ -115,16 +115,21 @@ describe('Presence', function () {
     const c2ID = c2.getID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const events1 = new EventCollector<DocEvent>();
-    const events2 = new EventCollector<DocEvent>();
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const events1 = new EventCollector<EventForTest>();
+    const events2 = new EventCollector<EventForTest>();
 
     const doc1 = new yorkie.Document<{}, { name: string }>(docKey);
     await c1.attach(doc1, { initialPresence: { name: 'a' } });
-    const unsub1 = doc1.subscribe('presence', (event) => events1.add(event));
+    const unsub1 = doc1.subscribe('presence', ({ type, value }) =>
+      events1.add({ type, value }),
+    );
 
     const doc2 = new yorkie.Document<{}, { name: string }>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
-    const unsub2 = doc2.subscribe('presence', (event) => events2.add(event));
+    const unsub2 = doc2.subscribe('presence', ({ type, value }) =>
+      events2.add({ type, value }),
+    );
 
     await events1.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
@@ -226,10 +231,11 @@ describe('Presence', function () {
       initialPresence: { name: 'a1', cursor: { x: 0, y: 0 } },
     });
 
-    const eventCollector = new EventCollector<DocEvent>();
-    const unsub = doc1.subscribe('presence', (event) => {
-      eventCollector.add(event);
-    });
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const eventCollector = new EventCollector<EventForTest>();
+    const unsub = doc1.subscribe('presence', ({ type, value }) =>
+      eventCollector.add({ type, value }),
+    );
 
     // 01. c2 attaches doc in realtime sync, and c3 attached doc in manual sync.
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
@@ -320,24 +326,25 @@ describe(`Document.Subscribe('presence')`, function () {
     const c2ID = c2.getID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const eventCollectorP1 = new EventCollector<DocEvent>();
-    const eventCollectorP2 = new EventCollector<DocEvent>();
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const eventCollectorP1 = new EventCollector<EventForTest>();
+    const eventCollectorP2 = new EventCollector<EventForTest>();
     type PresenceType = { name: string; cursor: { x: number; y: number } };
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, {
       initialPresence: { name: 'a', cursor: { x: 0, y: 0 } },
     });
-    const unsub1 = doc1.subscribe('presence', (event) => {
-      eventCollectorP1.add(event);
-    });
+    const unsub1 = doc1.subscribe('presence', ({ type, value }) =>
+      eventCollectorP1.add({ type, value }),
+    );
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, {
       initialPresence: { name: 'b', cursor: { x: 0, y: 0 } },
     });
-    const unsub2 = doc2.subscribe('presence', (event) => {
-      eventCollectorP2.add(event);
-    });
+    const unsub2 = doc2.subscribe('presence', ({ type, value }) =>
+      eventCollectorP2.add({ type, value }),
+    );
     await eventCollectorP1.waitAndVerifyNthEvent(1, {
       type: DocEventType.Watched,
       value: { clientID: c2ID, presence: doc2.getMyPresence() },
@@ -377,12 +384,13 @@ describe(`Document.Subscribe('presence')`, function () {
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string };
-    const eventCollector = new EventCollector<DocEvent>();
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const eventCollector = new EventCollector<EventForTest>();
     const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
     await c1.attach(doc1, { initialPresence: { name: 'a' } });
-    const unsub1 = doc1.subscribe('presence', (event) => {
-      eventCollector.add(event);
-    });
+    const unsub1 = doc1.subscribe('presence', ({ type, value }) =>
+      eventCollector.add({ type, value }),
+    );
 
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
@@ -431,8 +439,11 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.attach(doc1, {
       initialPresence: { name: 'a1', cursor: { x: 0, y: 0 } },
     });
-    const events = new EventCollector<DocEvent>();
-    const unsub = doc1.subscribe('presence', (event) => events.add(event));
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const events = new EventCollector<EventForTest>();
+    const unsub = doc1.subscribe('presence', ({ type, value }) =>
+      events.add({ type, value }),
+    );
 
     // 01. c2 attaches doc in realtime sync, and c3 attached doc in manual sync.
     //     c1 receives the watched event from c2.

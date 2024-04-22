@@ -15,18 +15,77 @@
  */
 
 import { createRoot } from 'react-dom/client';
+import { useEffect, useState } from 'react';
+import yorkie from 'yorkie-js-sdk';
+import { useResizable } from 'react-resizable-layout';
 
-import { SeleteNodeProvider } from '../contexts/SeletedNode';
-import { SeletedPresenceProvider } from '../contexts/SeletedPresence';
+import { SelectedNodeProvider } from '../contexts/SelectedNode';
+import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
+  useYorkieEvents,
+  useYorkieDoc,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
+import { History } from '../tabs/History';
+import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
+  const events = useYorkieEvents();
+  const [, setDoc] = useYorkieDoc();
+  const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
+    index: null,
+    isLast: true,
+  });
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const {
+    isDragging: isHistoryDragging,
+    position: historyH,
+    separatorProps: historySeparatorProps,
+  } = useResizable({
+    axis: 'y',
+    initial: 40,
+  });
+  const {
+    isDragging: isDocumentDragging,
+    position: documentW,
+    separatorProps: documentSeparatorProps,
+  } = useResizable({
+    axis: 'x',
+    initial: 300,
+  });
+
+  useEffect(() => {
+    if (events.length === 0) {
+      // NOTE(chacha912): If there are no events, reset the SelectedEventIndexInfo.
+      setSelectedEventIndexInfo({
+        index: null,
+        isLast: true,
+      });
+      return;
+    }
+
+    if (selectedEventIndexInfo.isLast) {
+      setSelectedEventIndexInfo({
+        index: events.length - 1,
+        isLast: true,
+      });
+    }
+  }, [events]);
+
+  useEffect(() => {
+    if (selectedEventIndexInfo.index === null) return;
+    const doc = new yorkie.Document(currentDocKey);
+    for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
+      doc.applyTransactionDocEvents(events[i]);
+    }
+
+    setDoc(doc);
+    setSelectedEvent(events[selectedEventIndexInfo.index]);
+  }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {
     return (
@@ -34,7 +93,9 @@ const Panel = () => {
         <p className="empty-title">Yorkie is not found in this page.</p>
         <p className="empty-desc">
           If this seems wrong, try reloading the page.
-          <br /> Requires a development build of yorkie-js-sdk v0.4.13 or newer.
+          <br />
+          The current Devtools requires yorkie-js-sdk v0.4.18 or newer in a
+          development build.
         </p>
         <button
           className="reload-btn"
@@ -50,12 +111,29 @@ const Panel = () => {
 
   return (
     <div className="yorkie-devtools">
-      <SeleteNodeProvider>
-        <Document />
-      </SeleteNodeProvider>
-      <SeletedPresenceProvider>
-        <Presence />
-      </SeletedPresenceProvider>
+      <History
+        style={{ height: historyH }}
+        selectedEvent={selectedEvent}
+        selectedEventIndexInfo={selectedEventIndexInfo}
+        setSelectedEventIndexInfo={setSelectedEventIndexInfo}
+      />
+      <Separator
+        dir={'horizontal'}
+        isDragging={isHistoryDragging}
+        {...historySeparatorProps}
+      />
+      <div className="devtools-data">
+        <SelectedNodeProvider>
+          <Document style={{ width: documentW }} />
+        </SelectedNodeProvider>
+        <Separator
+          isDragging={isDocumentDragging}
+          {...documentSeparatorProps}
+        />
+        <SelectedPresenceProvider>
+          <Presence />
+        </SelectedPresenceProvider>
+      </div>
     </div>
   );
 };

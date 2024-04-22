@@ -1,3 +1,4 @@
+/* prism-react-renderer */
 .prism-code .token {
   white-space: pre;
 }
@@ -38,4 +39,31 @@
 }
 .prism-code.language-bash {
   padding: 0 24px;
+}
+
+/* react-json-view */
+.react-json-view {
+  font-family: menlo, monospace !important;
+  font-size: 11px;
+  color: var(--gray-900);
+}
+.react-json-view .icon-container {
+  margin-left: -16px;
+}
+.react-json-view .object-key {
+  color: var(--gray-900) !important;
+}
+.react-json-view .variable-value {
+  color: var(--gray-600);
+}
+.react-json-view
+  > .object-container
+  > .object-content
+  > .object-key-val
+  > span
+  .icon-container {
+  display: none !important;
+}
+.react-json-view .node-ellipsis {
+  font-size: 10px !important;
 }
