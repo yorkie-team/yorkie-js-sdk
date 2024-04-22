@@ -498,13 +498,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private isUpdating: boolean;
 
-  /**
-   * `docEvents` stores all events in the document for replaying
-   * (time-traveling feature) in Devtools. Later, external storage such as
-   * IndexedDB will be used.
-   */
-  public docEvents: Array<TransactionDocEvents<P>>;
-
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
     this.opts.enableDevtools =
@@ -534,7 +527,6 @@ export class Document<T, P extends Indexable = Indexable> {
       redo: this.redo.bind(this),
     };
 
-    this.docEvents = [];
     setupDevtools(this);
   }
 
@@ -872,9 +864,6 @@ export class Document<T, P extends Indexable = Indexable> {
    * callback functions from document.subscribe().
    */
   public publish(events: TransactionDocEvents<P>) {
-    if (this.isEnableDevtools()) {
-      this.docEvents.push(events);
-    }
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(events);
     }
@@ -1097,13 +1086,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getGarbageLenFromClone(): number {
     return this.clone!.root.getGarbageLen();
-  }
-
-  /**
-   * `getDocEvents` returns all events of this document.
-   */
-  public getDocEvents(): Array<TransactionDocEvents<P>> {
-    return this.docEvents;
   }
 
   /**

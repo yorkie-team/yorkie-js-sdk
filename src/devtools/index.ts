@@ -14,12 +14,24 @@
  * limitations under the License.
  */
 
-import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
+import {
+  Document,
+  Indexable,
+  TransactionDocEvents,
+} from '@yorkie-js-sdk/src/yorkie';
+import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 
-let isDevtoolsConnected = false;
+type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
+let devtoolsStatus: DevtoolsStatus = 'disconnected';
 const unsubsByDocKey = new Map<string, Array<() => void>>();
+/**
+ * `docEventsByDocKey` stores all events in the document for replaying
+ * (time-traveling feature) in Devtools. Later, external storage such as
+ * IndexedDB will be used.
+ */
+const docEventsByDocKey = new Map<string, Array<TransactionDocEvents>>();
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
@@ -28,7 +40,7 @@ function sendToPanel(
   message: DevTools.SDKToPanelMessage,
   options?: { force: boolean },
 ): void {
-  if (!(options?.force || isDevtoolsConnected)) {
+  if (!(options?.force || devtoolsStatus !== 'disconnected')) {
     return;
   }
 
@@ -42,42 +54,6 @@ function sendToPanel(
 }
 
 /**
- * `startSync` subscribes to a document and sends messages to a panel accordingly.
- * Initially sends a "full sync" message and later sends "partial sync" messages
- * on document changes.
- */
-function startSync<T, P extends Indexable>(doc: Document<T, P>): void {
-  sendToPanel({
-    msg: 'doc::sync::full',
-    docKey: doc.getKey(),
-    events: doc.getDocEvents(),
-  });
-
-  const unsub = doc.subscribe('all', (event) => {
-    sendToPanel({
-      msg: 'doc::sync::partial',
-      docKey: doc.getKey(),
-      event,
-    });
-  });
-
-  unsubsByDocKey.set(doc.getKey(), [unsub]);
-}
-
-/**
- * `stopSync` cancels all subscriptions to a document.
- */
-function stopSync(docKey: string): void {
-  const unsubs = unsubsByDocKey.get(docKey);
-  if (!unsubs) return;
-
-  unsubsByDocKey.delete(docKey);
-  for (const unsub of unsubs) {
-    unsub();
-  }
-}
-
-/**
  * `setupDevtools` sets up the devtools integration. It sends messages to the
  * devtools panel when a document is available, when a document is subscribed,
  * and when a document is changed.
@@ -85,9 +61,23 @@ function stopSync(docKey: string): void {
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
-  if (!doc.isEnableDevtools()) {
+  if (!doc.isEnableDevtools() || unsubsByDocKey.has(doc.getKey())) {
     return;
   }
+
+  docEventsByDocKey.set(doc.getKey(), []);
+  const unsub = doc.subscribe('all', (event) => {
+    docEventsByDocKey.get(doc.getKey())!.push(event);
+    if (devtoolsStatus === 'synced') {
+      sendToPanel({
+        msg: 'doc::sync::partial',
+        docKey: doc.getKey(),
+        event,
+      });
+    }
+  });
+  // TODO(chacha912): Cancel the subscription when the document is removed.
+  unsubsByDocKey.set(doc.getKey(), [unsub]);
 
   // NOTE(chacha912): Send initial message, in case the devtool panel is already open.
   sendToPanel(
@@ -109,21 +99,28 @@ export function setupDevtools<T, P extends Indexable>(
       const message = event.data;
       switch (message.msg) {
         case 'devtools::connect':
-          if (isDevtoolsConnected) {
+          if (devtoolsStatus !== 'disconnected') {
             break;
           }
-          isDevtoolsConnected = true;
+          devtoolsStatus = 'connected';
           sendToPanel({
             msg: 'doc::available',
             docKey: doc.getKey(),
           });
+          logger.info(`[YD] Devtools connected. Doc: ${doc.getKey()}`);
           break;
         case 'devtools::disconnect':
-          isDevtoolsConnected = false;
-          stopSync(doc.getKey());
+          devtoolsStatus = 'disconnected';
+          logger.info(`[YD] Devtools disconnected. Doc: ${doc.getKey()}`);
           break;
         case 'devtools::subscribe':
-          startSync(doc);
+          devtoolsStatus = 'synced';
+          sendToPanel({
+            msg: 'doc::sync::full',
+            docKey: doc.getKey(),
+            events: docEventsByDocKey.get(doc.getKey())!,
+          });
+          logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
           break;
       }
     },
