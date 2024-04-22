@@ -24,7 +24,7 @@ import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
-  useYorkieEvents,
+  useTransactionEvents,
   useYorkieDoc,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
@@ -34,13 +34,13 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const events = useYorkieEvents();
+  const events = useTransactionEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
     isLast: true,
   });
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState([]);
   const {
     isDragging: isHistoryDragging,
     position: historyH,
@@ -80,7 +80,7 @@ const Panel = () => {
     if (selectedEventIndexInfo.index === null) return;
     const doc = new yorkie.Document(currentDocKey);
     for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
-      doc.applyTransactionDocEvents(events[i]);
+      doc.applyTransactionEvent(events[i]);
     }
 
     setDoc(doc);

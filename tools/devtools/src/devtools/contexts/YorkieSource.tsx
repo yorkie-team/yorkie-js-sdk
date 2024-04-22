@@ -23,12 +23,12 @@ import {
   useState,
 } from 'react';
 
-import type { SDKToPanelMessage, TransactionDocEvents } from 'yorkie-js-sdk';
+import type { SDKToPanelMessage, TransactionEvent } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const YorkieEventsContext = createContext<Array<TransactionDocEvents>>(null);
+const TransactionEventsContext = createContext<Array<TransactionEvent>>(null);
 
 type Props = {
   children?: ReactNode;
@@ -37,11 +37,13 @@ type Props = {
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
-  const [docEvents, setDocEvents] = useState<Array<TransactionDocEvents>>([]);
+  const [transactionEvents, setTransactionEvents] = useState<
+    Array<TransactionEvent>
+  >([]);
 
   const resetDocument = () => {
     setCurrentDocKey('');
-    setDocEvents([]);
+    setTransactionEvents([]);
     setDoc(null);
   };
 
@@ -61,11 +63,11 @@ export function YorkieSourceProvider({ children }: Props) {
       case 'doc::sync::full':
         // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
         if (message.events === undefined) break;
-        setDocEvents(message.events);
+        setTransactionEvents(message.events);
         break;
       case 'doc::sync::partial':
         if (message.event === undefined) break;
-        setDocEvents((events) => [...events, message.event]);
+        setTransactionEvents((events) => [...events, message.event]);
         break;
     }
   }, []);
@@ -92,11 +94,11 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <YorkieEventsContext.Provider value={docEvents}>
+      <TransactionEventsContext.Provider value={transactionEvents}>
         <YorkieDocContext.Provider value={[doc, setDoc]}>
           {children}
         </YorkieDocContext.Provider>
-      </YorkieEventsContext.Provider>
+      </TransactionEventsContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -119,11 +121,11 @@ export function useYorkieDoc() {
   return value;
 }
 
-export function useYorkieEvents() {
-  const value = useContext(YorkieEventsContext);
+export function useTransactionEvents() {
+  const value = useContext(TransactionEventsContext);
   if (value === undefined) {
     throw new Error(
-      'useYorkieEvents should be used within YorkieSourceProvider',
+      'useTransactionEvents should be used within YorkieSourceProvider',
     );
   }
   return value;
