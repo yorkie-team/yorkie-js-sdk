@@ -94,7 +94,7 @@ const Panel = () => {
         <p className="empty-desc">
           If this seems wrong, try reloading the page.
           <br />
-          The current Devtools requires yorkie-js-sdk v0.4.16 or newer in a
+          The current Devtools requires yorkie-js-sdk v0.4.18 or newer in a
           development build.
         </p>
         <button
