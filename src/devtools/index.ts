@@ -17,7 +17,7 @@
 import {
   Document,
   Indexable,
-  TransactionDocEvents,
+  TransactionEvent,
 } from '@yorkie-js-sdk/src/yorkie';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type * as DevTools from './protocol';
@@ -26,12 +26,13 @@ import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 let devtoolsStatus: DevtoolsStatus = 'disconnected';
 const unsubsByDocKey = new Map<string, Array<() => void>>();
+
 /**
- * `docEventsByDocKey` stores all events in the document for replaying
+ * `transactionEventsByDocKey` stores all events in the document for replaying
  * (time-traveling feature) in Devtools. Later, external storage such as
  * IndexedDB will be used.
  */
-const docEventsByDocKey = new Map<string, Array<TransactionDocEvents>>();
+const transactionEventsByDocKey = new Map<string, Array<TransactionEvent>>();
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
@@ -65,9 +66,9 @@ export function setupDevtools<T, P extends Indexable>(
     return;
   }
 
-  docEventsByDocKey.set(doc.getKey(), []);
+  transactionEventsByDocKey.set(doc.getKey(), []);
   const unsub = doc.subscribe('all', (event) => {
-    docEventsByDocKey.get(doc.getKey())!.push(event);
+    transactionEventsByDocKey.get(doc.getKey())!.push(event);
     if (devtoolsStatus === 'synced') {
       sendToPanel({
         msg: 'doc::sync::partial',
@@ -118,7 +119,7 @@ export function setupDevtools<T, P extends Indexable>(
           sendToPanel({
             msg: 'doc::sync::full',
             docKey: doc.getKey(),
-            events: docEventsByDocKey.get(doc.getKey())!,
+            events: transactionEventsByDocKey.get(doc.getKey())!,
           });
           logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
           break;

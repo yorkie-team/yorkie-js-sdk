@@ -92,7 +92,6 @@ export interface DocumentOptions {
 
   /**
    * `enableDevtools` enables devtools if true.
-   * The default value is true only when the environment is development in Node.js.
    */
   enableDevtools?: boolean;
 }
@@ -183,10 +182,10 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | PresenceChangedEvent<P>;
 
 /**
- * `TransactionDocEvents` represents document events that occur within
+ * `TransactionEvent` represents document events that occur within
  * a single transaction (e.g., doc.update).
  */
-export type TransactionDocEvents<P extends Indexable = Indexable> = Array<
+export type TransactionEvent<P extends Indexable = Indexable> = Array<
   DocEvent<P>
 >;
 
@@ -469,8 +468,8 @@ export class Document<T, P extends Indexable = Indexable> {
     presences: Map<ActorID, P>;
   };
 
-  private eventStream: Observable<TransactionDocEvents<P>>;
-  private eventStreamObserver!: Observer<TransactionDocEvents<P>>;
+  private eventStream: Observable<TransactionEvent<P>>;
+  private eventStreamObserver!: Observer<TransactionEvent<P>>;
 
   /**
    * `onlineClients` is a set of client IDs that are currently online.
@@ -500,8 +499,6 @@ export class Document<T, P extends Indexable = Indexable> {
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
-    this.opts.enableDevtools =
-      this.opts.enableDevtools ?? process.env.NODE_ENV === 'development';
 
     this.key = key;
     this.status = DocumentStatus.Detached;
@@ -511,7 +508,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
 
-    this.eventStream = createObservable<TransactionDocEvents<P>>((observer) => {
+    this.eventStream = createObservable<TransactionEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
 
@@ -609,9 +606,9 @@ export class Document<T, P extends Indexable = Indexable> {
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
-      const events: TransactionDocEvents<P> = [];
+      const event: TransactionEvent<P> = [];
       if (opInfos.length > 0) {
-        events.push({
+        event.push({
           type: DocEventType.LocalChange,
           source: OpSource.Local,
           value: {
@@ -623,7 +620,7 @@ export class Document<T, P extends Indexable = Indexable> {
         });
       }
       if (change.hasPresenceChange()) {
-        events.push({
+        event.push({
           type: DocEventType.PresenceChanged,
           source: OpSource.Local,
           value: {
@@ -633,7 +630,7 @@ export class Document<T, P extends Indexable = Indexable> {
         });
       }
 
-      this.publish(events);
+      this.publish(event);
 
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`after update a local change: ${this.toJSON()}`);
@@ -700,7 +697,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'all',
-    next: NextFn<TransactionDocEvents<P>>,
+    next: NextFn<TransactionEvent<P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -715,7 +712,7 @@ export class Document<T, P extends Indexable = Indexable> {
     arg2?:
       | NextFn<DocEvent<P, TOperationInfo>>
       | NextFn<DocEvent<P>>
-      | NextFn<TransactionDocEvents<P>>
+      | NextFn<TransactionEvent<P>>
       | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
@@ -796,7 +793,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'all') {
-        const callback = arg2 as NextFn<TransactionDocEvents<P>>;
+        const callback = arg2 as NextFn<TransactionEvent<P>>;
         return this.eventStream.subscribe(callback, arg3, arg4);
       }
       const target = arg1;
@@ -863,9 +860,9 @@ export class Document<T, P extends Indexable = Indexable> {
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
-  public publish(events: TransactionDocEvents<P>) {
+  public publish(event: TransactionEvent<P>) {
     if (this.eventStreamObserver) {
-      this.eventStreamObserver.next(events);
+      this.eventStreamObserver.next(event);
     }
   }
 
@@ -996,7 +993,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `isEnableDevtools` returns whether devtools is enabled or not.
    */
   public isEnableDevtools(): boolean {
-    return this.opts.enableDevtools!;
+    return !!this.opts.enableDevtools;
   }
 
   /**
@@ -1173,7 +1170,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const events: TransactionDocEvents<P> = [];
+    const event: TransactionEvent<P> = [];
     const actorID = change.getID().getActorID();
     if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
       const presenceChange = change.getPresenceChange()!;
@@ -1183,7 +1180,7 @@ export class Document<T, P extends Indexable = Indexable> {
           // their presence was initially absent, we can consider that we have
           // received their initial presence, so trigger the 'watched' event.
 
-          events.push(
+          event.push(
             this.presences.has(actorID)
               ? {
                   type: DocEventType.PresenceChanged,
@@ -1209,7 +1206,7 @@ export class Document<T, P extends Indexable = Indexable> {
           // occurring before unwatching.
           // Detached user is no longer participating in the document, we remove
           // them from the online clients and trigger the 'unwatched' event.
-          events.push({
+          event.push({
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: {
@@ -1228,7 +1225,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.changeID = this.changeID.syncLamport(change.getID().getLamport());
     if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
-      events.push(
+      event.push(
         source === OpSource.Remote
           ? {
               type: DocEventType.RemoteChange,
@@ -1256,8 +1253,8 @@ export class Document<T, P extends Indexable = Indexable> {
     // This is because 3rd party model should be synced with the Document
     // after RemoteChange event is emitted. If the event is emitted
     // asynchronously, the model can be changed and breaking consistency.
-    if (events.length > 0) {
-      this.publish(events);
+    if (event.length > 0) {
+      this.publish(event);
     }
   }
 
@@ -1285,13 +1282,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
     if (resp.body.case === 'event') {
       const { type, publisher } = resp.body.value;
-      const docEvent: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
+      const event: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
         this.addOnlineClient(publisher);
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
         // unless we also know their initial presence data at this point.
         if (this.hasPresence(publisher)) {
-          docEvent.push({
+          event.push({
             type: DocEventType.Watched,
             source: OpSource.Remote,
             value: {
@@ -1306,7 +1303,7 @@ export class Document<T, P extends Indexable = Indexable> {
         // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
         // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
         if (presence) {
-          docEvent.push({
+          event.push({
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: { clientID: publisher, presence },
@@ -1314,8 +1311,8 @@ export class Document<T, P extends Indexable = Indexable> {
         }
       }
 
-      if (docEvent.length > 0) {
-        this.publish(docEvent);
+      if (event.length > 0) {
+        this.publish(event);
       }
     }
   }
@@ -1404,11 +1401,11 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyTransactionDocEvents` applies the TransactionDocEvents into this document.
+   * `applyTransactionEvent` applies the given TransactionEvent into this document.
    */
-  public applyTransactionDocEvents(events: TransactionDocEvents<P>) {
-    for (const event of events) {
-      this.applyDocEvent(event);
+  public applyTransactionEvent(event: TransactionEvent<P>) {
+    for (const docEvent of event) {
+      this.applyDocEvent(docEvent);
     }
   }
 
@@ -1620,9 +1617,9 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const events: TransactionDocEvents<P> = [];
+    const event: TransactionEvent<P> = [];
     if (opInfos.length > 0) {
-      events.push({
+      event.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,
         value: {
@@ -1634,7 +1631,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (change.hasPresenceChange()) {
-      events.push({
+      event.push({
         type: DocEventType.PresenceChanged,
         source: OpSource.UndoRedo,
         value: {
@@ -1643,7 +1640,7 @@ export class Document<T, P extends Indexable = Indexable> {
         },
       });
     }
-    this.publish(events);
+    this.publish(event);
   }
 
   /**
@@ -1711,9 +1708,9 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const events: TransactionDocEvents<P> = [];
+    const event: TransactionEvent<P> = [];
     if (opInfos.length > 0) {
-      events.push({
+      event.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,
         value: {
@@ -1725,7 +1722,7 @@ export class Document<T, P extends Indexable = Indexable> {
       });
     }
     if (change.hasPresenceChange()) {
-      events.push({
+      event.push({
         type: DocEventType.PresenceChanged,
         source: OpSource.UndoRedo,
         value: {
@@ -1734,7 +1731,7 @@ export class Document<T, P extends Indexable = Indexable> {
         },
       });
     }
-    this.publish(events);
+    this.publish(event);
   }
 
   /**

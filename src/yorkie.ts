@@ -43,7 +43,7 @@ export {
   RemoteChangeEvent,
   Indexable,
   DocEvent,
-  TransactionDocEvents,
+  TransactionEvent,
   Document,
   ChangeInfo,
 } from '@yorkie-js-sdk/src/document/document';
