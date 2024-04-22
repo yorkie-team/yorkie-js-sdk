@@ -4,8 +4,6 @@
 
 ## LocalChangeEvent.value property
 
-LocalChangeEvent type
-
 **Signature:**
 
 ```typescript

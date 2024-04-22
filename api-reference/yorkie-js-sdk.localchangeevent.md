@@ -9,13 +9,15 @@
 **Signature:**
 
 ```typescript
-export declare interface LocalChangeEvent<T = OperationInfo> 
+export declare interface LocalChangeEvent<T = OperationInfo, P extends Indexable = Indexable> 
 ```
 
 ## Properties
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
+|  [rawChange?](./yorkie-js-sdk.localchangeevent.rawchange.md) |  | ChangeStruct&lt;P&gt; | _(Optional)_ |
+|  [source](./yorkie-js-sdk.localchangeevent.source.md) |  | OpSource.Local \| OpSource.UndoRedo |  |
 |  [type](./yorkie-js-sdk.localchangeevent.type.md) |  | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
-|  [value](./yorkie-js-sdk.localchangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; | LocalChangeEvent type |
+|  [value](./yorkie-js-sdk.localchangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; |  |
 

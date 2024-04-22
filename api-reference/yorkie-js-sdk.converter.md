@@ -17,7 +17,14 @@ converter: {
     objectToBytes: typeof objectToBytes;
     bytesToObject: typeof bytesToObject;
     bytesToSnapshot: typeof bytesToSnapshot;
+    bytesToHex: typeof bytesToHex;
+    hexToBytes: typeof hexToBytes;
     toHexString: typeof toHexString;
     toUint8Array: typeof toUint8Array;
+    toOperation: typeof toOperation;
+    toChangeID: typeof toChangeID;
+    PbChangeID: typeof ChangeID;
+    bytesToChangeID: typeof bytesToChangeID;
+    bytesToOperation: typeof bytesToOperation;
 }
 ```

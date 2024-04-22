@@ -31,26 +31,16 @@ export declare type SDKToPanelMessage =
  | {
     msg: 'doc::sync::full';
     docKey: string;
-    root: Devtools.JSONElement;
-    clients: Array<Devtools.Client>;
+    events: Array<TransactionEvent>;
 }
 /**
-* Sent whenever the document is updated.
+* Sent whenever the document is changed.
 */
  | {
     msg: 'doc::sync::partial';
     docKey: string;
-    event?: DocEvent;
-    root?: Devtools.JSONElement;
-    clients?: Array<Devtools.Client>;
-}
-/**
-* Sent detailed information for the node corresponding to the given path.
-*/
- | {
-    msg: 'doc::node::detail';
-    node: Devtools.TreeNodeInfo;
+    event: TransactionEvent;
 };
 ```
-**References:** [DocEvent](./yorkie-js-sdk.docevent.md)
+**References:** [TransactionEvent](./yorkie-js-sdk.transactionevent.md)
 

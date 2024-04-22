@@ -29,15 +29,5 @@ export declare type PanelToSDKMessage =
  | {
     msg: 'devtools::subscribe';
     docKey: string;
-}
-/**
-* Requests the detailed information for the node corresponding to the given path.
-*/
- | {
-    msg: 'devtools::node::detail';
-    data: {
-        path: string;
-        type: string;
-    };
 };
 ```

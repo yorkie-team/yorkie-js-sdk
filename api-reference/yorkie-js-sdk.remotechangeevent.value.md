@@ -4,8 +4,6 @@
 
 ## RemoteChangeEvent.value property
 
-RemoteChangeEvent type
-
 **Signature:**
 
 ```typescript

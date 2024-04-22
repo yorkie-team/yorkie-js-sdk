@@ -9,14 +9,14 @@
 **Signature:**
 
 ```typescript
-publish(event: DocEvent<P>): void;
+publish(event: TransactionEvent<P>): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  event | [DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt; |  |
+|  event | [TransactionEvent](./yorkie-js-sdk.transactionevent.md)<!-- -->&lt;P&gt; |  |
 
 **Returns:**
 

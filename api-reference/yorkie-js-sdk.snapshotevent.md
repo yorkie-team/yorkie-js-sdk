@@ -16,6 +16,7 @@ export declare interface SnapshotEvent
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
+|  [source](./yorkie-js-sdk.snapshotevent.source.md) |  | OpSource.Remote |  |
 |  [type](./yorkie-js-sdk.snapshotevent.type.md) |  | [DocEventType.Snapshot](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.Snapshot |
-|  [value](./yorkie-js-sdk.snapshotevent.value.md) |  | Uint8Array \| undefined | SnapshotEvent type |
+|  [value](./yorkie-js-sdk.snapshotevent.value.md) |  | { snapshot?: string; serverSeq: string; } |  |
 

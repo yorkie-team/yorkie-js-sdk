@@ -4,10 +4,11 @@
 
 ## SnapshotEvent.value property
 
-SnapshotEvent type
-
 **Signature:**
 
 ```typescript
-value: Uint8Array | undefined;
+value: {
+        snapshot?: string;
+        serverSeq: string;
+    };
 ```

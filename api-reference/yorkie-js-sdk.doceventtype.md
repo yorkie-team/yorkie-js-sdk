@@ -21,6 +21,7 @@ export declare enum DocEventType
 |  PresenceChanged | <code>&quot;presence-changed&quot;</code> | <code>PresenceChanged</code> means that the presences of the client has updated. |
 |  RemoteChange | <code>&quot;remote-change&quot;</code> | remote document change event type |
 |  Snapshot | <code>&quot;snapshot&quot;</code> | snapshot event type |
+|  StatusChanged | <code>&quot;status-changed&quot;</code> | status changed event type |
 |  Unwatched | <code>&quot;unwatched&quot;</code> | <code>Unwatched</code> means that the connection has been disconnected. |
 |  Watched | <code>&quot;watched&quot;</code> | <code>Watched</code> means that the client has established a connection with the server, enabling real-time synchronization. |
 

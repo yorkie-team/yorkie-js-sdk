@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-applyChanges(changes: Array<Change<P>>): void;
+applyChanges(changes: Array<Change<P>>, source: OpSource): void;
 ```
 
 ## Parameters
@@ -17,6 +17,7 @@ applyChanges(changes: Array<Change<P>>): void;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  changes | Array&lt;[Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;&gt; |  |
+|  source | OpSource |  |
 
 **Returns:**
 
