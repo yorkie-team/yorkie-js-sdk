@@ -1,7 +1,7 @@
 name: npm-publish
 on:
   release:
-    types: [ created ]
+    types: [created]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +18,20 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install
+
+      - name: Cache Node Moudles
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npm install
+
       - run: npm run build && npm run publish:prepare
       - run: cd bundle && npm publish --provenance
         env:

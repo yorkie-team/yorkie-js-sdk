@@ -9,7 +9,7 @@
     "strict": true,
     "baseUrl": ".",
     "esModuleInterop": true,
-    "moduleResolution":"node",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "paths": {
       "@yorkie-js-sdk/src/*": ["src/*"],
