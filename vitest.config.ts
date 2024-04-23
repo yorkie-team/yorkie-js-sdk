@@ -19,5 +19,9 @@ export default defineConfig({
     globals: true,
     testTimeout: isCI ? 5000 : Infinity,
   },
-  plugins: [tsconfigPaths()],
+  plugins: [
+    tsconfigPaths({
+      ignoreConfigErrors: true,
+    }),
+  ],
 });
