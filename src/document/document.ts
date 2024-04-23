@@ -724,18 +724,18 @@ export class Document<T, P extends Indexable = Indexable> {
       if (arg1 === 'presence') {
         const callback = arg2 as NextFn<DocEvent<P>>;
         return this.eventStream.subscribe(
-          (events) => {
-            for (const event of events) {
+          (event) => {
+            for (const docEvent of event) {
               if (
-                event.type !== DocEventType.Initialized &&
-                event.type !== DocEventType.Watched &&
-                event.type !== DocEventType.Unwatched &&
-                event.type !== DocEventType.PresenceChanged
+                docEvent.type !== DocEventType.Initialized &&
+                docEvent.type !== DocEventType.Watched &&
+                docEvent.type !== DocEventType.Unwatched &&
+                docEvent.type !== DocEventType.PresenceChanged
               ) {
                 continue;
               }
 
-              callback(event);
+              callback(docEvent);
             }
           },
           arg3,
@@ -745,25 +745,25 @@ export class Document<T, P extends Indexable = Indexable> {
       if (arg1 === 'my-presence') {
         const callback = arg2 as NextFn<DocEvent<P>>;
         return this.eventStream.subscribe(
-          (events) => {
-            for (const event of events) {
+          (event) => {
+            for (const docEvent of event) {
               if (
-                event.type !== DocEventType.Initialized &&
-                event.type !== DocEventType.Watched &&
-                event.type !== DocEventType.Unwatched &&
-                event.type !== DocEventType.PresenceChanged
+                docEvent.type !== DocEventType.Initialized &&
+                docEvent.type !== DocEventType.Watched &&
+                docEvent.type !== DocEventType.Unwatched &&
+                docEvent.type !== DocEventType.PresenceChanged
               ) {
                 continue;
               }
 
               if (
-                event.type !== DocEventType.Initialized &&
-                event.value.clientID !== this.changeID.getActorID()
+                docEvent.type !== DocEventType.Initialized &&
+                docEvent.value.clientID !== this.changeID.getActorID()
               ) {
                 continue;
               }
 
-              callback(event);
+              callback(docEvent);
             }
           },
           arg3,
@@ -773,18 +773,18 @@ export class Document<T, P extends Indexable = Indexable> {
       if (arg1 === 'others') {
         const callback = arg2 as NextFn<DocEvent<P>>;
         return this.eventStream.subscribe(
-          (events) => {
-            for (const event of events) {
+          (event) => {
+            for (const docEvent of event) {
               if (
-                event.type !== DocEventType.Watched &&
-                event.type !== DocEventType.Unwatched &&
-                event.type !== DocEventType.PresenceChanged
+                docEvent.type !== DocEventType.Watched &&
+                docEvent.type !== DocEventType.Unwatched &&
+                docEvent.type !== DocEventType.PresenceChanged
               ) {
                 continue;
               }
 
-              if (event.value.clientID !== this.changeID.getActorID()) {
-                callback(event);
+              if (docEvent.value.clientID !== this.changeID.getActorID()) {
+                callback(docEvent);
               }
             }
           },
@@ -799,31 +799,31 @@ export class Document<T, P extends Indexable = Indexable> {
       const target = arg1;
       const callback = arg2 as NextFn<DocEvent<P>>;
       return this.eventStream.subscribe(
-        (events) => {
-          for (const event of events) {
+        (event) => {
+          for (const docEvent of event) {
             if (
-              event.type !== DocEventType.Snapshot &&
-              event.type !== DocEventType.LocalChange &&
-              event.type !== DocEventType.RemoteChange
+              docEvent.type !== DocEventType.Snapshot &&
+              docEvent.type !== DocEventType.LocalChange &&
+              docEvent.type !== DocEventType.RemoteChange
             ) {
               continue;
             }
 
-            if (event.type === DocEventType.Snapshot) {
-              target === '$' && callback(event);
+            if (docEvent.type === DocEventType.Snapshot) {
+              target === '$' && callback(docEvent);
               continue;
             }
 
             const targetOps: Array<OperationInfo> = [];
-            for (const op of event.value.operations) {
+            for (const op of docEvent.value.operations) {
               if (this.isSameElementOrChildOf(op.path, target)) {
                 targetOps.push(op);
               }
             }
             targetOps.length &&
               callback({
-                ...event,
-                value: { ...event.value, operations: targetOps },
+                ...docEvent,
+                value: { ...docEvent.value, operations: targetOps },
               });
           }
         },
@@ -836,17 +836,17 @@ export class Document<T, P extends Indexable = Indexable> {
       const error = arg2 as ErrorFn;
       const complete = arg3 as CompleteFn;
       return this.eventStream.subscribe(
-        (events) => {
-          for (const event of events) {
+        (event) => {
+          for (const docEvent of event) {
             if (
-              event.type !== DocEventType.Snapshot &&
-              event.type !== DocEventType.LocalChange &&
-              event.type !== DocEventType.RemoteChange
+              docEvent.type !== DocEventType.Snapshot &&
+              docEvent.type !== DocEventType.LocalChange &&
+              docEvent.type !== DocEventType.RemoteChange
             ) {
               continue;
             }
 
-            callback(event);
+            callback(docEvent);
           }
         },
         error,

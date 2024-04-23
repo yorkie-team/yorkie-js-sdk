@@ -15,25 +15,25 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { DocEventType, Change, type TransactionDocEvents } from 'yorkie-js-sdk';
+import { DocEventType, Change, type TransactionEvent } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
-import { useYorkieEvents } from '../contexts/YorkieSource';
+import { useTransactionEvents } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 
 const SLIDER_MARK_WIDTH = 24;
 
-const getEventInfo = (events: TransactionDocEvents) => {
+const getEventInfo = (event: TransactionEvent) => {
   const info = [];
-  for (const e of events) {
+  for (const docEvent of event) {
     if (
-      e.type === DocEventType.LocalChange ||
-      e.type === DocEventType.RemoteChange
+      docEvent.type === DocEventType.LocalChange ||
+      docEvent.type === DocEventType.RemoteChange
     ) {
-      const change = Change.fromStruct(e.rawChange);
+      const change = Change.fromStruct(docEvent.rawChange);
       info.push({
-        type: e.type,
-        value: e.value,
+        type: docEvent.type,
+        value: docEvent.value,
         changeInfo: {
           operations: change.getOperations().map((op) => {
             // TODO(chacha912): Enhance to show the operation structure.
@@ -51,8 +51,8 @@ const getEventInfo = (events: TransactionDocEvents) => {
       continue;
     }
     info.push({
-      type: e.type,
-      value: e.value,
+      type: docEvent.type,
+      value: docEvent.value,
     });
   }
   return info;
@@ -64,7 +64,7 @@ export function History({
   selectedEventIndexInfo,
   setSelectedEventIndexInfo,
 }) {
-  const events = useYorkieEvents();
+  const events = useTransactionEvents();
   const [openHistory, setOpenHistory] = useState(false);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
@@ -91,12 +91,12 @@ export function History({
     for (const [index, event] of events.entries()) {
       const source = event[0].source;
       let type = 'presence';
-      for (const e of event) {
+      for (const docEvent of event) {
         if (
-          e.type === DocEventType.StatusChanged ||
-          e.type === DocEventType.Snapshot ||
-          e.type === DocEventType.LocalChange ||
-          e.type === DocEventType.RemoteChange
+          docEvent.type === DocEventType.StatusChanged ||
+          docEvent.type === DocEventType.Snapshot ||
+          docEvent.type === DocEventType.LocalChange ||
+          docEvent.type === DocEventType.RemoteChange
         ) {
           type = 'document';
         }
