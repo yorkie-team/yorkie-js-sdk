@@ -15,13 +15,18 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import {
+  testRPCAddr,
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { TreeEditOpInfo } from '@yorkie-js-sdk/src/document/operation/operation';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  TreeEditOpInfo,
+  TreeStyleOpInfo,
+} from '@yorkie-js-sdk/src/document/operation/operation';
+import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -609,6 +614,65 @@ describe('Tree', () => {
     range = tree.pathRangeToPosRange([[0], [1]]);
     assert.deepEqual(tree.posRangeToPathRange(range), [[0], [1]]);
   });
+
+  it('Should return correct range from index within doc.subscribe', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      d1.update((root, presence) => {
+        root.t.edit(1, 1, { type: 'text', value: 'a' });
+        const posSelection = root.t.indexRangeToPosRange([2, 2]);
+        presence.set({ selection: posSelection });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>ahello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>ahello</p></doc>`);
+      const { selection } = d1.getMyPresence();
+      assert.deepEqual(d1.getRoot().t.posRangeToIndexRange(selection), [2, 2]);
+
+      const eventCollector = new EventCollector<{ type: DocEventType }>();
+      const unsub = d1.subscribe((event) => {
+        assert.deepEqual(
+          d1.getRoot().t.posRangeToIndexRange(selection),
+          [2, 2],
+        );
+        eventCollector.add({ type: event.type });
+      });
+      d2.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: 'b' });
+      });
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p>abhello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p>abhello</p></doc>`,
+      );
+
+      await eventCollector.waitAndVerifyNthEvent(1, {
+        type: DocEventType.RemoteChange,
+      });
+      unsub();
+    }, task.name);
+  });
 });
 
 describe('Tree.edit', function () {
@@ -987,6 +1051,89 @@ describe('Tree.style', function () {
     );
   });
 
+  it('Can be edited removal with index', function ({ task }) {
+    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(task.name));
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span bold="true">hello</span></p></doc>`,
+    );
+
+    doc.update((root) => {
+      root.t.removeStyle(1, 8, ['bold']);
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>hello</span></p></doc>`,
+    );
+  });
+
+  it('Can handle removal of attributes that do not exist', function ({ task }) {
+    const doc = new yorkie.Document<{ t: Tree }>(toDocKey(task.name));
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                attributes: { bold: true },
+                children: [{ type: 'text', value: 'hello' }],
+              },
+              {
+                type: 'span',
+                children: [{ type: 'text', value: 'hi' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span bold="true">hello</span><span>hi</span></p></doc>`,
+    );
+
+    doc.update((root) => {
+      root.t.removeStyle(1, 12, ['italic']);
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span bold="true">hello</span><span>hi</span></p></doc>`,
+    );
+
+    doc.update((root) => {
+      root.t.removeStyle(1, 8, ['italic', 'bold']);
+    });
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>hello</span><span>hi</span></p></doc>`,
+    );
+  });
+
   it('Can be edited with index', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
@@ -1119,12 +1266,12 @@ describe('Tree.style', function () {
 
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+        /*html*/ `<doc><p bold="true" italic="true">hello</p></doc>`,
       );
 
       assert.equal(
         d2.getRoot().t.toXML(),
-        /*html*/ `<doc><p italic="true" bold="true">hello</p></doc>`,
+        /*html*/ `<doc><p bold="true" italic="true">hello</p></doc>`,
       );
     }, task.name);
   });
@@ -1162,30 +1309,470 @@ describe('Tree.style', function () {
       root.t.style(3, 4, { color: 'red' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red">ab</p><p>cd</p></doc>`,
+        /*html*/ `<doc><p color="red" weight="bold">ab</p><p>cd</p></doc>`,
       );
 
       // style attributes with the whole
       root.t.style(0, 4, { size: 'small' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small">ab</p><p>cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" weight="bold">ab</p><p>cd</p></doc>`,
       );
 
       // 02. style attributes to elements.
       root.t.style(0, 5, { style: 'italic' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" style="italic" weight="bold">ab</p><p style="italic">cd</p></doc>`,
       );
 
       // 03. Ignore styling attributes to text nodes.
       root.t.style(1, 3, { bold: 'true' });
       assert.equal(
         root.t.toXML(),
-        /*html*/ `<doc><p weight="bold" color="red" size="small" style="italic">ab</p><p style="italic">cd</p></doc>`,
+        /*html*/ `<doc><p color="red" size="small" style="italic" weight="bold">ab</p><p style="italic">cd</p></doc>`,
       );
     });
+  });
+
+  it('Can sync its content with remove style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'hello' }],
+              attributes: { italic: 'true' },
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p italic="true">hello</p></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.removeStyle(0, 1, ['italic']);
+      });
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+    }, task.name);
+  });
+
+  it('Should return correct range path within doc.subscribe', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'c',
+              children: [
+                {
+                  type: 'u',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [
+                        {
+                          type: 'n',
+                          children: [],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'c',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'n',
+                      children: [],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+      );
+
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 0], [1, 0, 0, 0], {
+          type: 'text',
+          value: '1',
+        }),
+      );
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 1], {
+          type: 'text',
+          value: '2',
+        }),
+      );
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 2], {
+          type: 'text',
+          value: '3',
+        }),
+      );
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>123</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>123</n></p></c></r>`,
+      );
+
+      d1.update((r) =>
+        r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 1], {
+          type: 'text',
+          value: 'abcdefgh',
+        }),
+      );
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcdefgh23</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcdefgh23</n></p></c></r>`,
+      );
+
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 5], [1, 0, 0, 5], {
+          type: 'text',
+          value: '4',
+        }),
+      );
+      d2.update((r) => r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 7]));
+      d2.update((r) =>
+        r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 6], {
+          type: 'text',
+          value: '5',
+        }),
+      );
+      await c2.sync();
+      await c1.sync();
+
+      const eventCollector = new EventCollector<{ type: DocEventType }>();
+      const unsub = d2.subscribe((event) => {
+        if (event.type === 'local-change' || event.type === 'remote-change') {
+          const operation = event.value.operations[0] as TreeEditOpInfo;
+          const { fromPath, toPath } = operation;
+          assert.deepEqual(fromPath, [1, 0, 0, 7]);
+          assert.deepEqual(toPath, [1, 0, 0, 8]);
+          eventCollector.add({ type: event.type });
+        }
+      });
+
+      d2.update((r) => r.t.editByPath([1, 0, 0, 7], [1, 0, 0, 8]));
+
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcd45gh23</n></p></c></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1abcd45gh23</n></p></c></r>`,
+      );
+
+      await eventCollector.waitAndVerifyNthEvent(1, {
+        type: DocEventType.LocalChange,
+      });
+      unsub();
+    }, task.name);
+  });
+
+  it('Can handle client reload case', async function ({ task }) {
+    type TestDoc = { t: Tree; num: number };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+
+    await c1.activate();
+    await c2.activate();
+
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+
+    // Perform a dummy update to apply changes up to the snapshot threshold.
+    const snapshotThreshold = 500;
+    for (let idx = 0; idx < snapshotThreshold; idx++) {
+      d1.update((root) => {
+        root.num = 0;
+      });
+    }
+
+    // Start scenario.
+    d1.update((root) => {
+      root.t = new Tree({
+        type: 'r',
+        children: [
+          {
+            type: 'c',
+            children: [
+              {
+                type: 'u',
+                children: [
+                  {
+                    type: 'p',
+                    children: [
+                      {
+                        type: 'n',
+                        children: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'c',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  {
+                    type: 'n',
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    });
+    await c1.sync();
+    await c2.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n></n></p></c></r>`,
+    );
+
+    d1.update((r) => {
+      r.t.editByPath([1, 0, 0, 0], [1, 0, 0, 0], {
+        type: 'text',
+        value: '1',
+      });
+      r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 1], {
+        type: 'text',
+        value: '2',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 2], {
+        type: 'text',
+        value: '3',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 2], {
+        type: 'text',
+        value: ' ',
+      });
+      r.t.editByPath([1, 0, 0, 3], [1, 0, 0, 3], {
+        type: 'text',
+        value: '네이버랑 ',
+      });
+    });
+    await c1.sync();
+    await c2.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>12 네이버랑 3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>12 네이버랑 3</n></p></c></r>`,
+    );
+
+    d2.update((r) => {
+      r.t.editByPath([1, 0, 0, 1], [1, 0, 0, 8], {
+        type: 'text',
+        value: ' 2 네이버랑 ',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 2], {
+        type: 'text',
+        value: 'ㅋ',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 3], {
+        type: 'text',
+        value: '카',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 3], {
+        type: 'text',
+        value: '캌',
+      });
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 3], {
+        type: 'text',
+        value: '카카',
+      });
+      r.t.editByPath([1, 0, 0, 3], [1, 0, 0, 4], {
+        type: 'text',
+        value: '캉',
+      });
+      r.t.editByPath([1, 0, 0, 3], [1, 0, 0, 4], {
+        type: 'text',
+        value: '카오',
+      });
+      r.t.editByPath([1, 0, 0, 4], [1, 0, 0, 5], {
+        type: 'text',
+        value: '올',
+      });
+      r.t.editByPath([1, 0, 0, 4], [1, 0, 0, 5], {
+        type: 'text',
+        value: '오라',
+      });
+      r.t.editByPath([1, 0, 0, 5], [1, 0, 0, 6], {
+        type: 'text',
+        value: '랑',
+      });
+      r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 6], {
+        type: 'text',
+        value: ' ',
+      });
+    });
+    await c2.sync();
+    await c1.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오랑 2 네이버랑 3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오랑 2 네이버랑 3</n></p></c></r>`,
+    );
+
+    d1.update((r) => {
+      r.t.editByPath([1, 0, 0, 13], [1, 0, 0, 14]);
+      r.t.editByPath([1, 0, 0, 12], [1, 0, 0, 13]);
+    });
+    await c1.sync();
+    await c2.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오랑 2 네이버3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오랑 2 네이버3</n></p></c></r>`,
+    );
+
+    d2.update((r) => {
+      r.t.editByPath([1, 0, 0, 6], [1, 0, 0, 7]);
+      r.t.editByPath([1, 0, 0, 5], [1, 0, 0, 6]);
+    });
+    await c2.sync();
+    await c1.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이버3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이버3</n></p></c></r>`,
+    );
+
+    d1.update((r) => {
+      r.t.editByPath([1, 0, 0, 9], [1, 0, 0, 10]);
+    });
+    await c1.sync();
+    await c2.sync();
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이3</n></p></c></r>`,
+    );
+
+    // A new client has been added.
+    const d3 = new yorkie.Document<TestDoc>(docKey);
+    const c3 = new yorkie.Client(testRPCAddr);
+    await c3.activate();
+    await c3.attach(d3, { syncMode: SyncMode.Manual });
+    assert.equal(
+      d3.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카카오2 네이3</n></p></c></r>`,
+    );
+    await c2.sync();
+
+    d3.update((r) => {
+      r.t.editByPath([1, 0, 0, 4], [1, 0, 0, 5]);
+      r.t.editByPath([1, 0, 0, 3], [1, 0, 0, 4]);
+    });
+    await c3.sync();
+    await c2.sync();
+    assert.equal(
+      d3.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카2 네이3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 카2 네이3</n></p></c></r>`,
+    );
+
+    d3.update((r) => {
+      r.t.editByPath([1, 0, 0, 2], [1, 0, 0, 3]);
+    });
+
+    await c3.sync();
+    await c2.sync();
+    assert.equal(
+      d3.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 2 네이3</n></p></c></r>`,
+    );
+    assert.equal(
+      d2.getRoot().t.toXML(),
+      /*html*/ `<r><c><u><p><n></n></p></u></c><c><p><n>1 2 네이3</n></p></c></r>`,
+    );
+
+    await c1.deactivate();
+    await c2.deactivate();
+    await c3.deactivate();
   });
 });
 
@@ -3813,14 +4400,14 @@ describe('TreeChange', () => {
           } as any,
           {
             type: 'tree-edit',
-            from: 1,
-            to: 2,
+            from: 3,
+            to: 4,
             value: undefined,
           } as any,
           {
             type: 'tree-edit',
-            from: 3,
-            to: 4,
+            from: 1,
+            to: 2,
             value: undefined,
           } as any,
         ],
@@ -3977,14 +4564,85 @@ describe('TreeChange', () => {
       );
     }, task.name);
   });
+
+  it('Concurrent delete and style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'root',
+          children: [
+            { type: 't', attributes: { id: '1', value: 'init' }, children: [] },
+            { type: 't', attributes: { id: '2', value: 'init' }, children: [] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<root><t id="1" value="init"></t><t id="2" value="init"></t></root>`,
+      );
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      d1.update((root) => root.t.styleByPath([0], { value: 'changed' }));
+      d2.update((root) => root.t.editByPath([0], [1]));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<root><t id="2" value="init"></t></root>`,
+      );
+
+      assert.deepEqual(
+        ops1.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [
+          {
+            type: 'tree-style',
+            from: 0,
+            to: 1,
+            value: { value: 'changed' },
+          } as any,
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 2,
+            value: undefined,
+          } as any,
+        ],
+      );
+
+      assert.deepEqual(
+        ops2.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 2,
+            value: undefined,
+          } as any,
+        ],
+      );
+    }, task.name);
+  });
 });
 
 function subscribeDocs(
   d1: Document<{ t: Tree }>,
   d2: Document<{ t: Tree }>,
-): [Array<TreeEditOpInfo>, Array<TreeEditOpInfo>] {
-  const ops1: Array<TreeEditOpInfo> = [];
-  const ops2: Array<TreeEditOpInfo> = [];
+): [
+  Array<TreeEditOpInfo | TreeStyleOpInfo>,
+  Array<TreeEditOpInfo | TreeStyleOpInfo>,
+] {
+  const ops1: Array<TreeEditOpInfo | TreeStyleOpInfo> = [];
+  const ops2: Array<TreeEditOpInfo | TreeStyleOpInfo> = [];
 
   d1.subscribe('$.t', (event) => {
     if (event.type === 'local-change' || event.type === 'remote-change') {
@@ -3992,8 +4650,8 @@ function subscribeDocs(
 
       ops1.push(
         ...(operations.filter(
-          (op) => op.type === 'tree-edit',
-        ) as Array<TreeEditOpInfo>),
+          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
+        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
       );
     }
   });
@@ -4004,8 +4662,8 @@ function subscribeDocs(
 
       ops2.push(
         ...(operations.filter(
-          (op) => op.type === 'tree-edit',
-        ) as Array<TreeEditOpInfo>),
+          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
+        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
       );
     }
   });

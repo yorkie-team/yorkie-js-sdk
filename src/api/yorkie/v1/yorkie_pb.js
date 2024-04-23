@@ -50,7 +50,6 @@ const ActivateClientResponse = proto3.makeMessageType(
 const DeactivateClientRequest = proto3.makeMessageType(
   "yorkie.v1.DeactivateClientRequest",
   () => [
-    { no: 2, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
@@ -69,7 +68,6 @@ const DeactivateClientResponse = proto3.makeMessageType(
 const AttachDocumentRequest = proto3.makeMessageType(
   "yorkie.v1.AttachDocumentRequest",
   () => [
-    { no: 3, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "change_pack", kind: "message", T: ChangePack },
   ],
@@ -92,7 +90,6 @@ const AttachDocumentResponse = proto3.makeMessageType(
 const DetachDocumentRequest = proto3.makeMessageType(
   "yorkie.v1.DetachDocumentRequest",
   () => [
-    { no: 5, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
@@ -116,9 +113,7 @@ const DetachDocumentResponse = proto3.makeMessageType(
 const WatchDocumentRequest = proto3.makeMessageType(
   "yorkie.v1.WatchDocumentRequest",
   () => [
-    { no: 4, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "document_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
@@ -151,7 +146,6 @@ const WatchDocumentResponse_Initialization = proto3.makeMessageType(
 const RemoveDocumentRequest = proto3.makeMessageType(
   "yorkie.v1.RemoveDocumentRequest",
   () => [
-    { no: 4, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
@@ -174,7 +168,6 @@ const RemoveDocumentResponse = proto3.makeMessageType(
 const PushPullChangesRequest = proto3.makeMessageType(
   "yorkie.v1.PushPullChangesRequest",
   () => [
-    { no: 5, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
@@ -198,9 +191,7 @@ const PushPullChangesResponse = proto3.makeMessageType(
 const BroadcastRequest = proto3.makeMessageType(
   "yorkie.v1.BroadcastRequest",
   () => [
-    { no: 6, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 5, name: "document_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },

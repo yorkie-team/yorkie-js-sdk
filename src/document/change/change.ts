@@ -23,12 +23,27 @@ import {
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import {
   PresenceChange,
   PresenceChangeType,
 } from '@yorkie-js-sdk/src/document/presence/presence';
 import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+
+/**
+ * `ChangeStruct` represents the structure of Change.
+ * This is used to serialize and deserialize Change.
+ */
+export type ChangeStruct<P extends Indexable> = {
+  changeID: string;
+  message?: string;
+  operations?: Array<string>;
+  presenceChange?: {
+    type: PresenceChangeType;
+    presence?: P;
+  };
+};
 
 /**
  * `Change` represents a unit of modification in the document.
@@ -145,9 +160,7 @@ export class Change<P extends Indexable> {
   } {
     const changeOpInfos: Array<OperationInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
-    if (process.env.NODE_ENV !== 'production' && this.operations.length) {
-      root.opsForTest.push(this.operations);
-    }
+
     for (const operation of this.operations) {
       const executionResult = operation.execute(root, source);
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
@@ -166,11 +179,11 @@ export class Change<P extends Indexable> {
     if (this.presenceChange) {
       if (this.presenceChange.type === PresenceChangeType.Put) {
         presences.set(
-          this.id.getActorID()!,
+          this.id.getActorID(),
           deepcopy(this.presenceChange.presence),
         );
       } else {
-        presences.delete(this.id.getActorID()!);
+        presences.delete(this.id.getActorID());
       }
     }
 
@@ -184,5 +197,38 @@ export class Change<P extends Indexable> {
     return `${this.operations
       .map((operation) => operation.toTestString())
       .join(',')}`;
+  }
+
+  /**
+   * `toStruct` returns the structure of this change.
+   */
+  public toStruct(): ChangeStruct<P> {
+    return {
+      changeID: converter.bytesToHex(
+        converter.toChangeID(this.getID()).toBinary(),
+      ),
+      message: this.getMessage(),
+      operations: this.getOperations().map((op) =>
+        converter.bytesToHex(converter.toOperation(op).toBinary()),
+      ),
+      presenceChange: this.getPresenceChange(),
+    };
+  }
+
+  /**
+   * `fromStruct` creates a instance of Change from the struct.
+   */
+  public static fromStruct<P extends Indexable>(
+    struct: ChangeStruct<P>,
+  ): Change<P> {
+    const { changeID, operations, presenceChange, message } = struct;
+    return Change.create<P>({
+      id: converter.bytesToChangeID(converter.hexToBytes(changeID)),
+      operations: operations?.map((op) => {
+        return converter.bytesToOperation(converter.hexToBytes(op));
+      }),
+      presenceChange: presenceChange as any,
+      message,
+    });
   }
 }

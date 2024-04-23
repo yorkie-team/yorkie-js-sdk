@@ -29,6 +29,7 @@ import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 /**
  * `TextPosStruct` represents the structure of RGATreeSplitPos.
@@ -264,6 +265,18 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     return this.text.toString();
+  }
+
+  /**
+   * `toJSForTest` returns value with meta data for testing.
+   * @internal
+   */
+  public toJSForTest(): Devtools.JSONElement {
+    if (!this.context || !this.text) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.text.toJSForTest();
   }
 
   /**

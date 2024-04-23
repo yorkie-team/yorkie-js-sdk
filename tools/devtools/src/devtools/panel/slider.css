@@ -1,0 +1,93 @@
+.rc-slider {
+  position: relative;
+  width: 100%;
+  padding: 14px;
+  margin: 0 14px;
+  touch-action: none;
+  box-sizing: border-box;
+  --gray: #c2bdba;
+  --gray-active: #807b78;
+}
+.rc-slider * {
+  box-sizing: border-box;
+}
+.rc-slider-rail {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: var(--gray);
+  border-radius: 6px;
+}
+.rc-slider-track {
+  position: absolute;
+  height: 1px;
+  background-color: var(--gray-active);
+  border-radius: 6px;
+}
+.rc-slider-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  top: 2px;
+  left: 0;
+  background-color: #807b7860;
+  border-radius: 4px;
+  cursor: grab;
+  touch-action: pan-x;
+}
+.rc-slider-handle:focus {
+  outline: none;
+  background-color: var(--gray);
+}
+.rc-slider-handle-click-focused:focus {
+  background-color: rgb(191 219 254);
+}
+.rc-slider-handle:hover {
+  background-color: var(--gray);
+}
+.rc-slider-handle:active {
+  background-color: var(--gray);
+  cursor: -webkit-grabbing;
+  cursor: grabbing;
+}
+.rc-slider-mark {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 100%;
+  font-size: 10px;
+}
+.rc-slider-mark-text {
+  position: absolute;
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.rc-slider-mark-text .mark-history {
+  cursor: pointer;
+  background-color: white;
+  border: 1px solid var(--gray);
+  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.rc-slider-mark-text-active .mark-history {
+  border-color: var(--gray-active);
+}
+.rc-slider-mark-text .mark-local {
+  color: var(--yellow-light);
+}
+.rc-slider-mark-text .mark-remote {
+  color: var(--blue-light);
+}
+.rc-slider-mark-text-active .mark-local {
+  color: var(--yellow-0);
+}
+.rc-slider-mark-text-active .mark-remote {
+  color: var(--blue-0);
+}

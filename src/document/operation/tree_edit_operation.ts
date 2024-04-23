@@ -21,6 +21,7 @@ import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreePos,
+  toXML,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   Operation,
@@ -155,13 +156,15 @@ export class TreeEditOperation extends Operation {
     const fromPos = `${this.fromPos
       .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.fromPos.getLeftSiblingID().getOffset()}`;
+      .toTestString()}/${this.fromPos.getLeftSiblingID().getOffset()}`;
     const toPos = `${this.toPos
       .getLeftSiblingID()
       .getCreatedAt()
-      .toTestString()}:${this.toPos.getLeftSiblingID().getOffset()}`;
-    const contents = this.contents;
-    return `${parent}.EDIT(${fromPos},${toPos},${contents?.join('')})`;
+      .toTestString()}/${this.toPos.getLeftSiblingID().getOffset()}`;
+    const contents = this.contents || [];
+    return `${parent}.EDIT(${fromPos},${toPos},${contents
+      .map((v) => toXML(v))
+      .join('')})`;
   }
 
   /**
