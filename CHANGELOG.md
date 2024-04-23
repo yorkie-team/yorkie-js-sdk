@@ -7,6 +7,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.18] - 2024-04-23
+
 ### Added
 
 - Add history tab and enhance visualization features to devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/760
