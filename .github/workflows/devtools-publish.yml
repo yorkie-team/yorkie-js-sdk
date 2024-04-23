@@ -22,8 +22,9 @@ jobs:
 
       - name: Install and Build 🔧
         run: |
+          cd tools/devtools
           npm install
-          npm run build:devtools
+          npm run build
 
       - name: Deploy 🚀
         uses: PlasmoHQ/bpp@v3
