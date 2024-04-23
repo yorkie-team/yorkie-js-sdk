@@ -520,7 +520,7 @@ For more details see https://formatjs.io/docs/getting-started/message-distributi
  * 
  * yorkie-js-sdk for building collaborative editing applications.
  *  - Version: v0.4.17
- *  - Date: 2024-04-22T08:26Z
+ *  - Date: 2024-04-23T07:02Z
  *  - Homepage: https://yorkie.dev
  *
  * Copyright 2020 The Yorkie Authors. All rights reserved.
