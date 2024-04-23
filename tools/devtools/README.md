@@ -22,7 +22,8 @@ const doc = new yorkie.Document('docKey', {
 
 To start developing with Yorkie Devtools, follow these steps:
 
-1. Run `npm run build` from this directory.
-2. Open your Chrome browser and go to [chrome://extensions](chrome://extensions).
-3. Enable "Developer mode."
-4. Click on "Load unpacked" and select the output directory `dist/chrome-mv3-prod`.
+1. Run `npm install` from this directory.
+2. Run `npm run build` from this directory.
+3. Open your Chrome browser and go to [chrome://extensions](chrome://extensions).
+4. Enable "Developer mode."
+5. Click on "Load unpacked" and select the output directory `dist/chrome-mv3-prod`.

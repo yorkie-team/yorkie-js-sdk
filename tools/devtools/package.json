@@ -20,7 +20,7 @@
     "react-dom": "18.2.0",
     "react-resizable-layout": "^0.7.2",
     "use-resize-observer": "^9.1.0",
-    "yorkie-js-sdk": "github:yorkie-team/yorkie-js-sdk#v0.4.18-rc"
+    "yorkie-js-sdk": "^0.4.18-rc"
   },
   "devDependencies": {
     "@types/chrome": "0.0.251",
