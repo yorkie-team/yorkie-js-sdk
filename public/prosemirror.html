@@ -256,7 +256,9 @@
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
-        const doc = new yorkie.Document('prosemirror');
+        const doc = new yorkie.Document('prosemirror', {
+          enableDevtools: true,
+        });
         window.doc = doc;
         await client.attach(doc);
         doc.update((root) => {
