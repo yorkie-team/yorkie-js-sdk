@@ -21,7 +21,7 @@ execute(root: CRDTRoot, presences: Map<ActorID, P>, source: OpSource): {
 |  --- | --- | --- |
 |  root | CRDTRoot |  |
 |  presences | Map&lt;[ActorID](./yorkie-js-sdk.actorid.md)<!-- -->, P&gt; |  |
-|  source | OpSource |  |
+|  source | [OpSource](./yorkie-js-sdk.opsource.md) |  |
 
 **Returns:**
 

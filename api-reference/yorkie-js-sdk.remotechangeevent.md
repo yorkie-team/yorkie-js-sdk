@@ -17,7 +17,7 @@ export declare interface RemoteChangeEvent<T = OperationInfo, P extends Indexabl
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [rawChange?](./yorkie-js-sdk.remotechangeevent.rawchange.md) |  | ChangeStruct&lt;P&gt; | _(Optional)_ |
-|  [source](./yorkie-js-sdk.remotechangeevent.source.md) |  | OpSource.Remote |  |
+|  [source](./yorkie-js-sdk.remotechangeevent.source.md) |  | [OpSource.Remote](./yorkie-js-sdk.opsource.md) |  |
 |  [type](./yorkie-js-sdk.remotechangeevent.type.md) |  | [DocEventType.RemoteChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.RemoteChange |
 |  [value](./yorkie-js-sdk.remotechangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; |  |
 

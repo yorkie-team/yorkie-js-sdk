@@ -17,7 +17,7 @@ export declare interface LocalChangeEvent<T = OperationInfo, P extends Indexable
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [rawChange?](./yorkie-js-sdk.localchangeevent.rawchange.md) |  | ChangeStruct&lt;P&gt; | _(Optional)_ |
-|  [source](./yorkie-js-sdk.localchangeevent.source.md) |  | OpSource.Local \| OpSource.UndoRedo |  |
+|  [source](./yorkie-js-sdk.localchangeevent.source.md) |  | [OpSource.Local](./yorkie-js-sdk.opsource.md) \| [OpSource.UndoRedo](./yorkie-js-sdk.opsource.md) |  |
 |  [type](./yorkie-js-sdk.localchangeevent.type.md) |  | [DocEventType.LocalChange](./yorkie-js-sdk.doceventtype.md) | enum [DocEventType](./yorkie-js-sdk.doceventtype.md)<!-- -->.LocalChange |
 |  [value](./yorkie-js-sdk.localchangeevent.value.md) |  | [ChangeInfo](./yorkie-js-sdk.changeinfo.md)<!-- -->&lt;T&gt; |  |
 

@@ -17,7 +17,7 @@ applyChanges(changes: Array<Change<P>>, source: OpSource): void;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  changes | Array&lt;[Change](./yorkie-js-sdk.change.md)<!-- -->&lt;P&gt;&gt; |  |
-|  source | OpSource |  |
+|  source | [OpSource](./yorkie-js-sdk.opsource.md) |  |
 
 **Returns:**
 

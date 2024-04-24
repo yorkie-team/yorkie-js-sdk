@@ -26,6 +26,7 @@
 |  [DocEventType](./yorkie-js-sdk.doceventtype.md) | <code>DocEventType</code> represents the type of the event that occurs in <code>Document</code>. |
 |  [DocumentSyncResultType](./yorkie-js-sdk.documentsyncresulttype.md) | <code>DocumentSyncResultType</code> represents the result of synchronizing the document with the server. |
 |  [LogLevel](./yorkie-js-sdk.loglevel.md) |  |
+|  [OpSource](./yorkie-js-sdk.opsource.md) | <code>OpSource</code> represents the source of the operation. It is used to handle corner cases in the operations created by undo/redo allow the removed elements when executing them. |
 |  [StreamConnectionStatus](./yorkie-js-sdk.streamconnectionstatus.md) | <code>StreamConnectionStatus</code> represents whether the stream connection between the client and the server is connected or not. |
 |  [SyncMode](./yorkie-js-sdk.syncmode.md) | <code>SyncMode</code> defines synchronization modes for the PushPullChanges API. |
 |  [TreeChangeType](./yorkie-js-sdk.treechangetype.md) | <code>TreeChangeType</code> represents the type of change in the tree. |
