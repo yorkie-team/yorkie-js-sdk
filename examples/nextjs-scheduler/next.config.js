@@ -2,8 +2,9 @@
 const nextConfig = {
   output: 'export',
   distDir: 'dist',
-  basePath: '/yorkie-js-sdk/examples/nextjs-scheduler',
-  assetPrefix: '/yorkie-js-sdk/examples/nextjs-scheduler/',
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
+  assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || '',
+  reactStrictMode: false,
 };
 
 module.exports = nextConfig;
