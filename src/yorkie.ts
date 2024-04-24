@@ -75,6 +75,7 @@ export type {
   EditOpInfo,
   StyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+export { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {
   Primitive,
