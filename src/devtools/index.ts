@@ -62,7 +62,11 @@ function sendToPanel(
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
-  if (!doc.isEnableDevtools() || unsubsByDocKey.has(doc.getKey())) {
+  if (
+    !doc.isEnableDevtools() ||
+    typeof window === 'undefined' ||
+    unsubsByDocKey.has(doc.getKey())
+  ) {
     return;
   }
 
