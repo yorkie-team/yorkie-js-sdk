@@ -16,16 +16,22 @@ jobs:
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v2
+
       - name: Setup Node 🔧
         uses: actions/setup-node@v2
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: package-lock.json
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install
-      - run: cd tools/create-yorkie-app && npm run build
-      - run: cd tools/create-yorkie-app && npm publish --provenance
+
+      - name: Install and Build 🔧
+        run: |
+          cd tools/create-yorkie-app
+          npm install
+          npm run build
+
+      - name: Publish 🚀
+        run: cd tools/create-yorkie-app && npm publish --provenance
         continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
