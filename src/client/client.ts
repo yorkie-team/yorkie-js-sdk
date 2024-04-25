@@ -15,15 +15,6 @@
  */
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import {
-  Observer,
-  Observable,
-  createObservable,
-  Unsubscribe,
-  ErrorFn,
-  CompleteFn,
-  NextFn,
-} from '@yorkie-js-sdk/src/util/observable';
 import { createPromiseClient, PromiseClient } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '../api/yorkie/v1/yorkie_connect';
@@ -90,150 +81,6 @@ export enum ClientStatus {
 }
 
 /**
- * `StreamConnectionStatus` represents whether the stream connection between the
- * client and the server is connected or not.
- * @public
- */
-export enum StreamConnectionStatus {
-  /**
-   * `Connected` means that the stream connection is connected.
-   */
-  Connected = 'connected',
-  /**
-   * `Disconnected` means that the stream connection is disconnected.
-   */
-  Disconnected = 'disconnected',
-}
-
-/**
- * `DocumentSyncResultType` represents the result of synchronizing the document
- *  with the server.
- * @public
- */
-export enum DocumentSyncResultType {
-  /**
-   * type when Document synced successfully.
-   */
-  Synced = 'synced',
-  /**
-   * type when Document sync failed.
-   */
-  SyncFailed = 'sync-failed',
-}
-
-/**
- * `ClientEventType` represents the type of the event that the client can emit.
- * @public
- */
-export enum ClientEventType {
-  /**
-   * `StatusChanged` means that the status of the client has changed.
-   */
-  StatusChanged = 'status-changed',
-  /**
-   * `DocumentChanged` means that the document has changed.
-   */
-  DocumentChanged = 'document-changed',
-  /**
-   * `StreamConnectionStatusChanged` means that the stream connection status of
-   * the client has changed.
-   */
-  StreamConnectionStatusChanged = 'stream-connection-status-changed',
-  /**
-   * `DocumentSynced` means that the document has been synced with the server.
-   */
-  DocumentSynced = 'document-synced',
-}
-
-/**
- * `ClientEvent` is an event that occurs in `Client`. It can be delivered using
- * `Client.subscribe()`.
- *
- * @public
- */
-export type ClientEvent =
-  | StatusChangedEvent
-  | DocumentChangedEvent
-  | StreamConnectionStatusChangedEvent
-  | DocumentSyncedEvent;
-
-/**
- * @internal
- */
-export interface BaseClientEvent {
-  type: ClientEventType;
-}
-
-/**
- * `StatusChangedEvent` is an event that occurs when the Client's state changes.
- *
- * @public
- */
-export interface StatusChangedEvent extends BaseClientEvent {
-  /**
-   * enum {@link ClientEventType}.StatusChanged
-   */
-  type: ClientEventType.StatusChanged;
-  /**
-   * `StatusChangedEvent` value
-   */
-  value: ClientStatus;
-}
-
-/**
- * `DocumentChangedEvent` is an event that occurs when document attached to
- * the client changes.
- *
- * @public
- */
-export interface DocumentChangedEvent extends BaseClientEvent {
-  /**
-   * enum {@link ClientEventType}.DocumentChangedEvent
-   */
-  type: ClientEventType.DocumentChanged;
-  /**
-   * `DocumentChangedEvent` value
-   */
-  value: Array<string>;
-}
-
-/**
- * `StreamConnectionStatusChangedEvent` is an event that occurs when
- * the client's stream connection state changes.
- *
- * @public
- */
-export interface StreamConnectionStatusChangedEvent extends BaseClientEvent {
-  /**
-   * `StreamConnectionStatusChangedEvent` type
-   * enum {@link ClientEventType}.StreamConnectionStatusChangedEvent
-   */
-  type: ClientEventType.StreamConnectionStatusChanged;
-  /**
-   * `StreamConnectionStatusChangedEvent` value
-   */
-  value: StreamConnectionStatus;
-}
-
-/**
- * `DocumentSyncedEvent` is an event that occurs when document
- * attached to the client are synced.
- *
- * @public
- */
-export interface DocumentSyncedEvent extends BaseClientEvent {
-  /**
-   * `DocumentSyncedEvent` type
-   * enum {@link ClientEventType}.DocumentSyncedEvent
-   */
-  type: ClientEventType.DocumentSynced;
-  /**
-   * `DocumentSyncedEvent` value
-   */
-  value: DocumentSyncResultType;
-}
-
-/**
  * `ClientOptions` are user-settable options used when defining clients.
  *
  * @public
@@ -295,7 +142,7 @@ const DefaultClientOptions = {
  *
  * @public
  */
-export class Client implements Observable<ClientEvent> {
+export class Client {
   private id?: ActorID;
   private key: string;
   private status: ClientStatus;
@@ -307,8 +154,6 @@ export class Client implements Observable<ClientEvent> {
   private retrySyncLoopDelay: number;
 
   private rpcClient: PromiseClient<typeof YorkieService>;
-  private eventStream: Observable<ClientEvent>;
-  private eventStreamObserver!: Observer<ClientEvent>;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -342,10 +187,6 @@ export class Client implements Observable<ClientEvent> {
         ],
       }),
     );
-
-    this.eventStream = createObservable<ClientEvent>((observer) => {
-      this.eventStreamObserver = observer;
-    });
   }
 
   /**
@@ -369,11 +210,6 @@ export class Client implements Observable<ClientEvent> {
         this.id = res.clientId;
         this.status = ClientStatus.Activated;
         this.runSyncLoop();
-
-        this.eventStreamObserver.next({
-          type: ClientEventType.StatusChanged,
-          value: this.status,
-        });
 
         logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
       })
@@ -404,10 +240,6 @@ export class Client implements Observable<ClientEvent> {
       )
       .then(() => {
         this.status = ClientStatus.Deactivated;
-        this.eventStreamObserver.next({
-          type: ClientEventType.StatusChanged,
-          value: this.status,
-        });
 
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
       })
@@ -615,10 +447,10 @@ export class Client implements Observable<ClientEvent> {
     }
 
     return Promise.all(promises).catch((err) => {
-      this.eventStreamObserver.next({
-        type: ClientEventType.DocumentSynced,
-        value: DocumentSyncResultType.SyncFailed,
-      });
+      // this.eventStreamObserver.next({
+      //   type: ClientEventType.DocumentSynced,
+      //   value: DocumentSyncResultType.SyncFailed,
+      // });
       throw err;
     });
   }
@@ -663,21 +495,6 @@ export class Client implements Observable<ClientEvent> {
         logger.error(`[RD] c:"${this.getKey()}" err :`, err);
         throw err;
       });
-  }
-
-  /**
-   * `subscribe` subscribes to the given topics.
-   */
-  public subscribe(
-    nextOrObserver: Observer<ClientEvent> | NextFn<ClientEvent>,
-    error?: ErrorFn,
-    complete?: CompleteFn,
-  ): Unsubscribe {
-    return this.eventStream.subscribe(
-      nextOrObserver as NextFn<ClientEvent>,
-      error,
-      complete,
-    );
   }
 
   /**
@@ -727,10 +544,10 @@ export class Client implements Observable<ClientEvent> {
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-          this.eventStreamObserver.next({
-            type: ClientEventType.DocumentSynced,
-            value: DocumentSyncResultType.SyncFailed,
-          });
+          // this.eventStreamObserver.next({
+          //   type: ClientEventType.DocumentSynced,
+          //   value: DocumentSyncResultType.SyncFailed,
+          // });
           setTimeout(doLoop, this.retrySyncLoopDelay);
         });
     };
@@ -768,10 +585,10 @@ export class Client implements Observable<ClientEvent> {
           },
         );
 
-        this.eventStreamObserver.next({
-          type: ClientEventType.StreamConnectionStatusChanged,
-          value: StreamConnectionStatus.Connected,
-        });
+        // this.eventStreamObserver.next({
+        //   type: ClientEventType.StreamConnectionStatusChanged,
+        //   value: StreamConnectionStatus.Connected,
+        // });
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
         return new Promise((resolve, reject) => {
@@ -787,10 +604,10 @@ export class Client implements Observable<ClientEvent> {
                 }
               }
             } catch (err) {
-              this.eventStreamObserver.next({
-                type: ClientEventType.StreamConnectionStatusChanged,
-                value: StreamConnectionStatus.Disconnected,
-              });
+              // this.eventStreamObserver.next({
+              //   type: ClientEventType.StreamConnectionStatusChanged,
+              //   value: StreamConnectionStatus.Disconnected,
+              // });
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
               onDisconnect();
 
@@ -813,14 +630,6 @@ export class Client implements Observable<ClientEvent> {
       resp.body.value.type === PbDocEventType.DOCUMENT_CHANGED
     ) {
       attachment.remoteChangeEventReceived = true;
-
-      // TODO(chacha): We need to remove the following event propagation
-      // logic after removing `client.subscribe`.
-      this.eventStreamObserver.next({
-        type: ClientEventType.DocumentChanged,
-        value: [attachment.doc.getKey()],
-      });
-
       return;
     }
 
@@ -840,10 +649,10 @@ export class Client implements Observable<ClientEvent> {
     attachment.cancelWatchStream();
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-    this.eventStreamObserver.next({
-      type: ClientEventType.StreamConnectionStatusChanged,
-      value: StreamConnectionStatus.Disconnected,
-    });
+    // this.eventStreamObserver.next({
+    //   type: ClientEventType.StreamConnectionStatusChanged,
+    //   value: StreamConnectionStatus.Disconnected,
+    // });
 
     this.attachmentMap.delete(docKey);
   }
@@ -880,10 +689,10 @@ export class Client implements Observable<ClientEvent> {
         }
 
         doc.applyChangePack(respPack);
-        this.eventStreamObserver.next({
-          type: ClientEventType.DocumentSynced,
-          value: DocumentSyncResultType.Synced,
-        });
+        // this.eventStreamObserver.next({
+        //   type: ClientEventType.DocumentSynced,
+        //   value: DocumentSyncResultType.Synced,
+        // });
         // NOTE(chacha912): If a document has been removed, watchStream should
         // be disconnected to not receive an event for that document.
         if (doc.getStatus() === DocumentStatus.Removed) {
