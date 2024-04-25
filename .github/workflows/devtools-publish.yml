@@ -18,7 +18,6 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: package-lock.json
 
       - name: Install and Build 🔧
         run: |
