@@ -24,16 +24,8 @@ import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 
 export {
   Client,
-  ClientEvent,
   ClientStatus,
   SyncMode,
-  StreamConnectionStatus,
-  DocumentSyncResultType,
-  ClientEventType,
-  StatusChangedEvent,
-  DocumentChangedEvent,
-  StreamConnectionStatusChangedEvent,
-  DocumentSyncedEvent,
   ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
 export {
@@ -41,6 +33,15 @@ export {
   SnapshotEvent,
   LocalChangeEvent,
   RemoteChangeEvent,
+  ConnectionChangedEvent,
+  SyncStatusChangedEvent,
+  WatchedEvent,
+  UnwatchedEvent,
+  PresenceChangedEvent,
+  InitializedEvent,
+  StreamConnectionStatus,
+  DocumentSyncStatus,
+  DocumentStatus,
   Indexable,
   DocEvent,
   TransactionEvent,

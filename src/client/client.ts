@@ -15,7 +15,12 @@
  */
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { createPromiseClient, PromiseClient } from '@connectrpc/connect';
+import {
+  createPromiseClient,
+  PromiseClient,
+  ConnectError,
+  Code as ConnectErrorCode,
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '../api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
@@ -30,6 +35,9 @@ import {
   DocumentKey,
   DocumentStatus,
   Indexable,
+  DocEventType,
+  StreamConnectionStatus,
+  DocumentSyncStatus,
 } from '@yorkie-js-sdk/src/document/document';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
@@ -446,13 +454,7 @@ export class Client {
       });
     }
 
-    return Promise.all(promises).catch((err) => {
-      // this.eventStreamObserver.next({
-      //   type: ClientEventType.DocumentSynced,
-      //   value: DocumentSyncResultType.SyncFailed,
-      // });
-      throw err;
-    });
+    return Promise.all(promises);
   }
 
   /**
@@ -544,10 +546,6 @@ export class Client {
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-          // this.eventStreamObserver.next({
-          //   type: ClientEventType.DocumentSynced,
-          //   value: DocumentSyncResultType.SyncFailed,
-          // });
           setTimeout(doLoop, this.retrySyncLoopDelay);
         });
     };
@@ -585,10 +583,12 @@ export class Client {
           },
         );
 
-        // this.eventStreamObserver.next({
-        //   type: ClientEventType.StreamConnectionStatusChanged,
-        //   value: StreamConnectionStatus.Connected,
-        // });
+        attachment.doc.publish([
+          {
+            type: DocEventType.ConnectionChanged,
+            value: StreamConnectionStatus.Connected,
+          },
+        ]);
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
         return new Promise((resolve, reject) => {
@@ -604,12 +604,20 @@ export class Client {
                 }
               }
             } catch (err) {
-              // this.eventStreamObserver.next({
-              //   type: ClientEventType.StreamConnectionStatusChanged,
-              //   value: StreamConnectionStatus.Disconnected,
-              // });
+              attachment.doc.publish([
+                {
+                  type: DocEventType.ConnectionChanged,
+                  value: StreamConnectionStatus.Disconnected,
+                },
+              ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-              onDisconnect();
+
+              if (
+                err instanceof ConnectError &&
+                err.code != ConnectErrorCode.Canceled
+              ) {
+                onDisconnect();
+              }
 
               reject(err);
             }
@@ -649,11 +657,6 @@ export class Client {
     attachment.cancelWatchStream();
     logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-    // this.eventStreamObserver.next({
-    //   type: ClientEventType.StreamConnectionStatusChanged,
-    //   value: StreamConnectionStatus.Disconnected,
-    // });
-
     this.attachmentMap.delete(docKey);
   }
 
@@ -689,10 +692,12 @@ export class Client {
         }
 
         doc.applyChangePack(respPack);
-        // this.eventStreamObserver.next({
-        //   type: ClientEventType.DocumentSynced,
-        //   value: DocumentSyncResultType.Synced,
-        // });
+        attachment.doc.publish([
+          {
+            type: DocEventType.SyncStatusChanged,
+            value: DocumentSyncStatus.Synced,
+          },
+        ]);
         // NOTE(chacha912): If a document has been removed, watchStream should
         // be disconnected to not receive an event for that document.
         if (doc.getStatus() === DocumentStatus.Removed) {
@@ -709,6 +714,12 @@ export class Client {
         return doc;
       })
       .catch((err) => {
+        doc.publish([
+          {
+            type: DocEventType.SyncStatusChanged,
+            value: DocumentSyncStatus.SyncFailed,
+          },
+        ]);
         logger.error(`[PP] c:"${this.getKey()}" err :`, err);
         throw err;
       });

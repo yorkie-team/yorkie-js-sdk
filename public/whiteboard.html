@@ -255,7 +255,6 @@
         try {
           // 01. create client with RPCAddr then activate it.
           const client = new yorkie.Client('http://localhost:8080');
-          client.subscribe(network.statusListener(statusHolder));
           await client.activate();
           const myClientID = client.getID();
 
@@ -286,6 +285,7 @@
             redoStackCount.textContent = doc.getRedoStackForTest().length;
           };
 
+          doc.subscribe('connection', new Network(statusHolder).statusListener);
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') {
               renderShapes(doc, myClientID);
