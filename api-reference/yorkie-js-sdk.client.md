@@ -9,9 +9,8 @@
 **Signature:**
 
 ```typescript
-export declare class Client implements Observable<ClientEvent> 
+export declare class Client 
 ```
-**Implements:** [Observable](./yorkie-js-sdk.observable.md)<!-- -->&lt;[ClientEvent](./yorkie-js-sdk.clientevent.md)<!-- -->&gt;
 
 ## Constructors
 
@@ -33,6 +32,5 @@ export declare class Client implements Observable<ClientEvent>
 |  [getStatus()](./yorkie-js-sdk.client.getstatus.md) |  | <code>getStatus</code> returns the status of this client. |
 |  [isActive()](./yorkie-js-sdk.client.isactive.md) |  | <code>isActive</code> checks if the client is active. |
 |  [remove(doc)](./yorkie-js-sdk.client.remove.md) |  | <code>remove</code> removes the given document. |
-|  [subscribe(nextOrObserver, error, complete)](./yorkie-js-sdk.client.subscribe.md) |  | <code>subscribe</code> subscribes to the given topics. |
 |  [sync(doc)](./yorkie-js-sdk.client.sync.md) |  | <code>sync</code> pushes local changes of the attached documents to the server and receives changes of the remote replica from the server then apply them to local documents. |
 

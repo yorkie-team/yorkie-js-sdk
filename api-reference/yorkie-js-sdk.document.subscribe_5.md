@@ -4,20 +4,20 @@
 
 ## Document.subscribe() method
 
-`subscribe` registers a callback to subscribe to events on the document.
+`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the document is synced with the server.
 
 **Signature:**
 
 ```typescript
-subscribe(type: 'all', next: NextFn<TransactionEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe(type: 'sync', next: NextFn<DocEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  type | 'all' |  |
-|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[TransactionEvent](./yorkie-js-sdk.transactionevent.md)<!-- -->&lt;P&gt;&gt; |  |
+|  type | 'sync' |  |
+|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
 |  error | [ErrorFn](./yorkie-js-sdk.errorfn.md) | _(Optional)_ |
 |  complete | [CompleteFn](./yorkie-js-sdk.completefn.md) | _(Optional)_ |
 

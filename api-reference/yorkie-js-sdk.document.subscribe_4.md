@@ -4,20 +4,20 @@
 
 ## Document.subscribe() method
 
-`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the targetPath or any of its nested values change.
+`subscribe` registers a callback to subscribe to events on the document. The callback will be called when the stream connection status changes.
 
 **Signature:**
 
 ```typescript
-subscribe<TPath extends PathOf<T>, TOperationInfo extends OperationInfoOf<T, TPath>>(targetPath: TPath, next: NextFn<DocEvent<P, TOperationInfo>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
+subscribe(type: 'connection', next: NextFn<DocEvent<P>>, error?: ErrorFn, complete?: CompleteFn): Unsubscribe;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  targetPath | TPath |  |
-|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P, TOperationInfo&gt;&gt; |  |
+|  type | 'connection' |  |
+|  next | [NextFn](./yorkie-js-sdk.nextfn.md)<!-- -->&lt;[DocEvent](./yorkie-js-sdk.docevent.md)<!-- -->&lt;P&gt;&gt; |  |
 |  error | [ErrorFn](./yorkie-js-sdk.errorfn.md) | _(Optional)_ |
 |  complete | [CompleteFn](./yorkie-js-sdk.completefn.md) | _(Optional)_ |
 

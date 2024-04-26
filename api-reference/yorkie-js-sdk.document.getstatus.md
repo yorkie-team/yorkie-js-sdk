@@ -13,5 +13,5 @@ getStatus(): DocumentStatus;
 ```
 **Returns:**
 
-DocumentStatus
+[DocumentStatus](./yorkie-js-sdk.documentstatus.md)
 

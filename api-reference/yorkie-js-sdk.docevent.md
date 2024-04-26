@@ -9,7 +9,7 @@
 **Signature:**
 
 ```typescript
-export declare type DocEvent<P extends Indexable = Indexable, T = OperationInfo> = StatusChangedEvent | SnapshotEvent | LocalChangeEvent<T, P> | RemoteChangeEvent<T, P> | InitializedEvent<P> | WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>;
+export declare type DocEvent<P extends Indexable = Indexable, T = OperationInfo> = StatusChangedEvent | ConnectionChangedEvent | SyncStatusChangedEvent | SnapshotEvent | LocalChangeEvent<T, P> | RemoteChangeEvent<T, P> | InitializedEvent<P> | WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>;
 ```
-**References:** [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->, [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md)<!-- -->, [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md)<!-- -->, [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md)
+**References:** [Indexable](./yorkie-js-sdk.indexable.md)<!-- -->, [OperationInfo](./yorkie-js-sdk.operationinfo.md)<!-- -->, [ConnectionChangedEvent](./yorkie-js-sdk.connectionchangedevent.md)<!-- -->, [SyncStatusChangedEvent](./yorkie-js-sdk.syncstatuschangedevent.md)<!-- -->, [SnapshotEvent](./yorkie-js-sdk.snapshotevent.md)<!-- -->, [LocalChangeEvent](./yorkie-js-sdk.localchangeevent.md)<!-- -->, [RemoteChangeEvent](./yorkie-js-sdk.remotechangeevent.md)<!-- -->, [InitializedEvent](./yorkie-js-sdk.initializedevent.md)<!-- -->, [WatchedEvent](./yorkie-js-sdk.watchedevent.md)<!-- -->, [UnwatchedEvent](./yorkie-js-sdk.unwatchedevent.md)<!-- -->, [PresenceChangedEvent](./yorkie-js-sdk.presencechangedevent.md)
 

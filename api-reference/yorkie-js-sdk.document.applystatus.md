@@ -16,7 +16,7 @@ applyStatus(status: DocumentStatus): void;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  status | DocumentStatus |  |
+|  status | [DocumentStatus](./yorkie-js-sdk.documentstatus.md) |  |
 
 **Returns:**
 

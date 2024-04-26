@@ -4,7 +4,7 @@
 
 ## StreamConnectionStatus enum
 
-`StreamConnectionStatus` represents whether the stream connection between the client and the server is connected or not.
+`StreamConnectionStatus` represents whether the stream connection is connected or not.
 
 **Signature:**
 
