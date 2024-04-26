@@ -3,9 +3,8 @@ import { describe, it, assert, vi, afterEach } from 'vitest';
 import yorkie, {
   Counter,
   SyncMode,
-  DocumentSyncResultType,
   DocEventType,
-  ClientEventType,
+  DocumentSyncStatus,
   Tree,
 } from '@yorkie-js-sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
@@ -136,24 +135,20 @@ describe.sequential('Client', function () {
 
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
-    const eventCollectorC1 = new EventCollector();
-    const eventCollectorC2 = new EventCollector();
+    const eventCollectorSync1 = new EventCollector();
+    const eventCollectorSync2 = new EventCollector();
 
     const unsub1 = {
-      client: c1.subscribe((event) => {
-        if (event.type === ClientEventType.DocumentSynced) {
-          eventCollectorC1.add(event.value);
-        }
+      syncEvent: d1.subscribe('sync', (event) => {
+        eventCollectorSync1.add(event.value as DocumentSyncStatus);
       }),
       doc: d1.subscribe((event) => {
         eventCollectorD1.add(event.type);
       }),
     };
     const unsub2 = {
-      client: c2.subscribe((event) => {
-        if (event.type === ClientEventType.DocumentSynced) {
-          eventCollectorC2.add(event.value);
-        }
+      syncEvent: d2.subscribe('sync', (event) => {
+        eventCollectorSync2.add(event.value as DocumentSyncStatus);
       }),
       doc: d2.subscribe((event) => {
         eventCollectorD2.add(event.type);
@@ -169,8 +164,8 @@ describe.sequential('Client', function () {
     await eventCollectorD1.waitAndVerifyNthEvent(1, DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-    eventCollectorC1.reset();
-    eventCollectorC2.reset();
+    eventCollectorSync1.reset();
+    eventCollectorSync2.reset();
 
     // Simulate network error
     vi.stubGlobal('fetch', () => {
@@ -184,27 +179,27 @@ describe.sequential('Client', function () {
     });
 
     await eventCollectorD2.waitAndVerifyNthEvent(2, DocEventType.LocalChange);
-    await eventCollectorC2.waitFor(DocumentSyncResultType.SyncFailed); // c2 should fail to sync
+    await eventCollectorSync2.waitFor(DocumentSyncStatus.SyncFailed); // c2 should fail to sync
 
     await c1.sync().catch((err) => {
       assert.equal(err.message, '[unknown] Failed to fetch'); // c1 should also fail to sync
     });
-    await eventCollectorC1.waitFor(DocumentSyncResultType.SyncFailed);
+    await eventCollectorSync1.waitFor(DocumentSyncStatus.SyncFailed);
     assert.equal(d1.toSortedJSON(), '{"k1":"undefined"}');
     assert.equal(d2.toSortedJSON(), '{"k1":"v1"}');
 
     // Back to normal condition
-    eventCollectorC1.reset();
-    eventCollectorC2.reset();
+    eventCollectorSync1.reset();
+    eventCollectorSync2.reset();
     vi.unstubAllGlobals();
 
-    await eventCollectorC1.waitFor(DocumentSyncResultType.Synced); // wait for c1 to sync
-    await eventCollectorC2.waitFor(DocumentSyncResultType.Synced);
+    await eventCollectorSync1.waitFor(DocumentSyncStatus.Synced); // wait for c1 to sync
+    await eventCollectorSync2.waitFor(DocumentSyncStatus.Synced);
     await eventCollectorD1.waitAndVerifyNthEvent(2, DocEventType.RemoteChange);
     assert.equal(d1.toSortedJSON(), '{"k1":"v1"}'); // d1 should be able to receive d2's update
 
-    unsub1.client();
-    unsub2.client();
+    unsub1.syncEvent();
+    unsub2.syncEvent();
     unsub1.doc();
     unsub2.doc();
 
@@ -240,11 +235,11 @@ describe.sequential('Client', function () {
 
     // 02. c2 changes the sync mode to realtime sync mode.
     const eventCollector = new EventCollector();
-    const unsub1 = c2.subscribe((event) => {
-      eventCollector.add(event.type);
+    const unsub1 = d2.subscribe('sync', (event) => {
+      eventCollector.add(event.value as DocumentSyncStatus);
     });
     await c2.changeSyncMode(d2, SyncMode.Realtime);
-    await eventCollector.waitFor(ClientEventType.DocumentSynced); // sync occurs when resuming
+    await eventCollector.waitFor(DocumentSyncStatus.Synced); // sync occurs when resuming
 
     eventCollector.reset();
     d1.update((root) => {
@@ -252,7 +247,7 @@ describe.sequential('Client', function () {
     });
     await c1.sync();
 
-    await eventCollector.waitFor(ClientEventType.DocumentSynced); // c2 should sync automatically
+    await eventCollector.waitFor(DocumentSyncStatus.Synced); // c2 should sync automatically
     assert.equal(d1.toSortedJSON(), `{"version":"v2"}`, 'd1');
     assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
     unsub1();
@@ -418,8 +413,8 @@ describe.sequential('Client', function () {
     const d2 = new yorkie.Document<{ version: string }>(docKey);
 
     const eventCollector = new EventCollector();
-    const unsub1 = c2.subscribe((event) => {
-      eventCollector.add(event.type);
+    const unsub1 = d2.subscribe('sync', (event) => {
+      eventCollector.add(event.value as DocumentSyncStatus);
     });
 
     // 01. c2 attach the doc with realtime sync mode at first.
@@ -430,7 +425,7 @@ describe.sequential('Client', function () {
     });
     await c1.sync();
     assert.equal(d1.toSortedJSON(), `{"version":"v1"}`, 'd1');
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    await eventCollector.waitFor(DocumentSyncStatus.Synced);
     assert.equal(d2.toSortedJSON(), `{"version":"v1"}`, 'd2');
 
     // 02. c2 is changed to manual sync. So, c2 doesn't get the changes of c1.
@@ -447,7 +442,7 @@ describe.sequential('Client', function () {
     eventCollector.reset();
     await c2.changeSyncMode(d2, SyncMode.Realtime);
 
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    await eventCollector.waitFor(DocumentSyncStatus.Synced);
     assert.equal(d2.toSortedJSON(), `{"version":"v2"}`, 'd2');
 
     // 04. c2 should automatically synchronize changes.
@@ -457,7 +452,7 @@ describe.sequential('Client', function () {
     });
     await c1.sync();
 
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    await eventCollector.waitFor(DocumentSyncStatus.Synced);
     assert.equal(d1.toSortedJSON(), `{"version":"v3"}`, 'd1');
     assert.equal(d2.toSortedJSON(), `{"version":"v3"}`, 'd2');
     unsub1();
@@ -495,8 +490,8 @@ describe.sequential('Client', function () {
     // 03. cli update the document with increasing the counter(0 -> 1)
     //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
     const eventCollector = new EventCollector();
-    const unsub = c1.subscribe((event) => {
-      eventCollector.add(event.type);
+    const unsub = d1.subscribe('sync', (event) => {
+      eventCollector.add(event.value as DocumentSyncStatus);
     });
     d1.update((root) => {
       root.counter.increase(1);
@@ -504,7 +499,7 @@ describe.sequential('Client', function () {
     let changePack = d1.createChangePack();
     assert.equal(changePack.getChangeSize(), 1);
     await c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
-    await eventCollector.waitFor(ClientEventType.DocumentSynced);
+    await eventCollector.waitFor(DocumentSyncStatus.Synced);
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 3);
     assert.equal(checkpoint.getServerSeq().toInt(), 2);

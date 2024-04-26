@@ -18,6 +18,7 @@
     <div class="client-container">
       <div id="client-a">
         Client A ( id:<span class="client-id"></span>)
+        <span class="network-status"></span>
         <div class="syncmode-option">
           <span>SyncMode: </span>
           <div class="realtime-sync">
@@ -67,6 +68,7 @@
       </div>
       <div id="client-b">
         Client B ( id:<span class="client-id"></span>)
+        <span class="network-status"></span>
         <div class="syncmode-option">
           <span>SyncMode: </span>
           <div class="realtime-sync">
@@ -149,7 +151,11 @@
             const doc = new yorkie.Document(documentKey, {
               enableDevtools: true,
             });
-
+            doc.subscribe(
+              'connection',
+              new Network(clientElem.querySelector('.network-status'))
+                .statusListener,
+            );
             const onlineClients = clientElem.querySelector('.online-clients');
             doc.subscribe('presence', (event) => {
               // Update online clients list

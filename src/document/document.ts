@@ -129,6 +129,16 @@ export enum DocEventType {
   StatusChanged = 'status-changed',
 
   /**
+   * `ConnectionChanged` means that the watch stream connection status has changed.
+   */
+  ConnectionChanged = 'connection-changed',
+
+  /**
+   * `SyncStatusChanged` means that the document sync status has changed.
+   */
+  SyncStatusChanged = 'sync-status-changed',
+
+  /**
    * snapshot event type
    */
   Snapshot = 'snapshot',
@@ -173,6 +183,8 @@ export enum DocEventType {
  */
 export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | StatusChangedEvent
+  | ConnectionChangedEvent
+  | SyncStatusChangedEvent
   | SnapshotEvent
   | LocalChangeEvent<T, P>
   | RemoteChangeEvent<T, P>
@@ -194,7 +206,6 @@ export type TransactionEvent<P extends Indexable = Indexable> = Array<
  */
 export interface BaseDocEvent {
   type: DocEventType;
-  source: OpSource;
 }
 
 /**
@@ -212,6 +223,62 @@ export interface StatusChangedEvent extends BaseDocEvent {
     | { status: DocumentStatus.Attached; actorID: string }
     | { status: DocumentStatus.Detached }
     | { status: DocumentStatus.Removed };
+}
+
+/**
+ * `StreamConnectionStatus` represents whether the stream connection is connected or not.
+ * @public
+ */
+export enum StreamConnectionStatus {
+  /**
+   * `Connected` means that the stream connection is connected.
+   */
+  Connected = 'connected',
+  /**
+   * `Disconnected` means that the stream connection is disconnected.
+   */
+  Disconnected = 'disconnected',
+}
+
+/**
+ * `ConnectionChangedEvent` is an event that occurs when the stream connection state changes.
+ *
+ * @public
+ */
+export interface ConnectionChangedEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.ConnectionChanged
+   */
+  type: DocEventType.ConnectionChanged;
+  value: StreamConnectionStatus;
+}
+
+/**
+ * `DocumentSyncStatus` represents the result of synchronizing the document with the server.
+ * @public
+ */
+export enum DocumentSyncStatus {
+  /**
+   * `Synced` means that document synced successfully.
+   */
+  Synced = 'synced',
+  /**
+   * `SyncFiled` means that document synchronization has failed.
+   */
+  SyncFailed = 'sync-failed',
+}
+
+/**
+ * `SyncStatusChangedEvent` is an event that occurs when document is synced with the server.
+ *
+ * @public
+ */
+export interface SyncStatusChangedEvent extends BaseDocEvent {
+  /**
+   * enum {@link DocEventType}.SyncStatusChanged
+   */
+  type: DocEventType.SyncStatusChanged;
+  value: DocumentSyncStatus;
 }
 
 /**
@@ -681,6 +748,26 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the stream connection status changes.
+   */
+  public subscribe(
+    type: 'connection',
+    next: NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the document is synced with the server.
+   */
+  public subscribe(
+    type: 'sync',
+    next: NextFn<DocEvent<P>>,
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the targetPath or any of its nested values change.
    */
   public subscribe<
@@ -786,6 +873,36 @@ export class Document<T, P extends Indexable = Indexable> {
               if (docEvent.value.clientID !== this.changeID.getActorID()) {
                 callback(docEvent);
               }
+            }
+          },
+          arg3,
+          arg4,
+        );
+      }
+      if (arg1 === 'connection') {
+        const callback = arg2 as NextFn<DocEvent<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            for (const docEvent of event) {
+              if (docEvent.type !== DocEventType.ConnectionChanged) {
+                continue;
+              }
+              callback(docEvent);
+            }
+          },
+          arg3,
+          arg4,
+        );
+      }
+      if (arg1 === 'sync') {
+        const callback = arg2 as NextFn<DocEvent<P>>;
+        return this.eventStream.subscribe(
+          (event) => {
+            for (const docEvent of event) {
+              if (docEvent.type !== DocEventType.SyncStatusChanged) {
+                continue;
+              }
+              callback(docEvent);
             }
           },
           arg3,
