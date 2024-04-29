@@ -7,7 +7,7 @@ const isCI = process.env.CI === 'true';
 export default defineConfig({
   test: {
     include: ['**/*_{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['**/bench/*', '**/node_modules/**'],
+    exclude: ['**/lib/**', '**/node_modules/**'],
     coverage: {
       provider: 'istanbul',
       reporter: ['lcov', 'text-summary'],
@@ -18,6 +18,9 @@ export default defineConfig({
     environment: 'custom-jsdom',
     globals: true,
     testTimeout: isCI ? 5000 : Infinity,
+    benchmark: {
+      exclude: ['**/lib/**', '**/node_modules/**'],
+    },
   },
   plugins: [
     tsconfigPaths({

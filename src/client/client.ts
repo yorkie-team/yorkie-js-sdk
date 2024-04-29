@@ -22,7 +22,7 @@ import {
   Code as ConnectErrorCode,
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import { YorkieService } from '../api/yorkie/v1/yorkie_connect';
+import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
