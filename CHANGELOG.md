@@ -7,12 +7,51 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [0.4.14] - 2024-01-29
+## [0.4.18] - 2024-04-23
+
+### Added
+
+- Add history tab and enhance visualization features to devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/760
+
+## [0.4.17] - 2024-04-19
+
+### Added
+
+- Add RealtimeSyncOff and refactor interface of SyncMode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/772
+
+### Fixed
+
+- Fix issue of incorrect display of remote selection in Quill example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/769
+- Reverse TreeChanges when Deleting in Tree by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/774
+- Remove unnecessary stubs from the test code by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/776
+- Provide CODECOV_TOKEN to codecov-action by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/777
+- Fix issue of referencing process object on browser by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/778
+
+## [0.4.16] - 2024-03-29
+
+### Added
+
+- Implement Protocol Changes for Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/755
+
+## [0.4.15] - 2024-03-11
+
+### Added
+
+- Implement Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/745
+
+### Changed
+
+- Change actorID to be non-optional by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/747
 
 ### Fixed
 
 - Fix invalid sync when editing multiple cursors in CodeMirror6 by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/743
 - Fix incorrect index returned when using posRangeToIndexRange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/742
+- Fix incorrect calculation in `indexTree.treePosToPath` operation by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/751
+- Fix errors when editing Tree due to missing insPrevID in CRDTTree by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/756
+- Prevent remote-change events from occurring in push-only mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/759
+
+## [0.4.14] - 2024-01-29
 
 ### Added
 

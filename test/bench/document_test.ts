@@ -241,7 +241,7 @@ const tests = [
     run: (): void => {
       const doc = new Document<{ text: JSONArray<string> }>(`test-doc`);
       assert.equal(doc.getStatus(), DocumentStatus.Detached);
-      doc.setStatus(DocumentStatus.Attached);
+      doc.applyStatus(DocumentStatus.Attached);
       assert.equal(doc.getStatus(), DocumentStatus.Attached);
     },
   },

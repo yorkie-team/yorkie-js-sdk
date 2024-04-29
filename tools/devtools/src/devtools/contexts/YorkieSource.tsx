@@ -23,13 +23,12 @@ import {
   useState,
 } from 'react';
 
-import type { Devtools, SDKToPanelMessage } from 'yorkie-js-sdk';
+import type { SDKToPanelMessage, TransactionEvent } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
-const DocKeyContext = createContext<string | null>(null);
-const RootContext = createContext<Devtools.JSONElement | null>(null);
-const PresencesContext = createContext<Array<Devtools.Client> | null>(null);
-const NodeDetailContext = createContext<Devtools.TreeNodeInfo | null>(null);
+const DocKeyContext = createContext<string>(null);
+const YorkieDocContext = createContext(null);
+const TransactionEventsContext = createContext<Array<TransactionEvent>>(null);
 
 type Props = {
   children?: ReactNode;
@@ -37,14 +36,21 @@ type Props = {
 
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
-  const [root, setRoot] = useState<Devtools.JSONElement>(null);
-  const [presences, setPresences] = useState<Array<Devtools.Client>>([]);
-  const [nodeDetail, setNodeDetail] = useState(null);
+  const [doc, setDoc] = useState(null);
+  const [transactionEvents, setTransactionEvents] = useState<
+    Array<TransactionEvent>
+  >([]);
+
+  const resetDocument = () => {
+    setCurrentDocKey('');
+    setTransactionEvents([]);
+    setDoc(null);
+  };
 
   const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
     switch (message.msg) {
       case 'refresh-devtools':
-        setCurrentDocKey('');
+        resetDocument();
         sendToSDK({ msg: 'devtools::connect' });
         break;
       case 'doc::available':
@@ -55,26 +61,20 @@ export function YorkieSourceProvider({ children }: Props) {
         });
         break;
       case 'doc::sync::full':
-        setRoot(message.root);
-        setPresences(message.clients);
+        // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
+        if (message.events === undefined) break;
+        setTransactionEvents(message.events);
         break;
       case 'doc::sync::partial':
-        if (message.root) {
-          setRoot(message.root);
-        }
-        if (message.clients) {
-          setPresences(message.clients);
-        }
-        break;
-      case 'doc::node::detail':
-        setNodeDetail(message.node);
+        if (message.event === undefined) break;
+        setTransactionEvents((events) => [...events, message.event]);
         break;
     }
   }, []);
 
   const handlePortDisconnect = useCallback(() => {
-    setCurrentDocKey('');
-  }, []);
+    resetDocument();
+  }, [resetDocument]);
 
   useEffect(() => {
     connectPort(handleSDKMessage, handlePortDisconnect);
@@ -94,13 +94,11 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <RootContext.Provider value={root}>
-        <PresencesContext.Provider value={presences}>
-          <NodeDetailContext.Provider value={nodeDetail}>
-            {children}
-          </NodeDetailContext.Provider>
-        </PresencesContext.Provider>
-      </RootContext.Provider>
+      <TransactionEventsContext.Provider value={transactionEvents}>
+        <YorkieDocContext.Provider value={[doc, setDoc]}>
+          {children}
+        </YorkieDocContext.Provider>
+      </TransactionEventsContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -115,28 +113,20 @@ export function useCurrentDocKey() {
   return value;
 }
 
-export function useDocumentRoot() {
-  const value = useContext(RootContext);
+export function useYorkieDoc() {
+  const value = useContext(YorkieDocContext);
+  if (value === undefined) {
+    throw new Error('useYorkieDoc should be used within YorkieSourceProvider');
+  }
+  return value;
+}
+
+export function useTransactionEvents() {
+  const value = useContext(TransactionEventsContext);
   if (value === undefined) {
     throw new Error(
-      'useDocumentRoot should be used within YorkieSourceProvider',
+      'useTransactionEvents should be used within YorkieSourceProvider',
     );
-  }
-  return value;
-}
-
-export function usePresences() {
-  const value = useContext(PresencesContext);
-  if (value === undefined) {
-    throw new Error('usePresences should be used within YorkieSourceProvider');
-  }
-  return value;
-}
-
-export function useNodeDetail() {
-  const value = useContext(NodeDetailContext);
-  if (value === undefined) {
-    throw new Error('useNodeDetail should be used within YorkieSourceProvider');
   }
   return value;
 }

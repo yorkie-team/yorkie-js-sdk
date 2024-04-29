@@ -21,7 +21,7 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import yorkie, { Tree } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { SyncMode, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 function parseSimpleXML(s: string): Array<string> {
@@ -234,8 +234,8 @@ async function RunTest(
 
   const d1 = new yorkie.Document<{ t: Tree }>(docKey);
   const d2 = new yorkie.Document<{ t: Tree }>(docKey);
-  await c1.attach(d1, { isRealtimeSync: false });
-  await c2.attach(d2, { isRealtimeSync: false });
+  await c1.attach(d1, { syncMode: SyncMode.Manual });
+  await c2.attach(d2, { syncMode: SyncMode.Manual });
 
   d1.update((root) => {
     root.t = initialState;

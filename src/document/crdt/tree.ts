@@ -357,7 +357,7 @@ export class CRDTTreeNodeID {
    * for debugging purpose.
    */
   public toTestString(): string {
-    return `${this.createdAt.toTestString()}:${this.offset}`;
+    return `${this.createdAt.toTestString()}/${this.offset}`;
   }
 }
 
@@ -455,6 +455,8 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
       childClone.parent = clone;
       return childClone;
     });
+    clone.insPrevID = this.insPrevID;
+    clone.insNextID = this.insNextID;
     return clone;
   }
 
@@ -1172,12 +1174,27 @@ export class CRDTTree extends CRDTGCElement {
 
     const toTreeNodeInfo = (
       node: CRDTTreeNode,
-      parentID: string | undefined = undefined,
+      parentNode: CRDTTreeNode | undefined = undefined,
+      leftChildNode: CRDTTreeNode | undefined = undefined,
       depth = 0,
     ): Devtools.TreeNodeInfo => {
+      let index, path, pos;
+
+      const treePos = node.isText
+        ? { node, offset: 0 }
+        : parentNode && leftChildNode
+        ? this.toTreePos(parentNode, leftChildNode)
+        : null;
+
+      if (treePos) {
+        index = this.indexTree.indexOf(treePos);
+        path = this.indexTree.treePosToPath(treePos);
+        pos = CRDTTreePos.fromTreePos(treePos).toStruct();
+      }
+
       const nodeInfo: Devtools.TreeNodeInfo = {
         type: node.type,
-        parent: parentID,
+        parent: parentNode?.id.toTestString(),
         size: node.size,
         id: node.id.toTestString(),
         removedAt: node.removedAt?.toTestString(),
@@ -1187,10 +1204,19 @@ export class CRDTTree extends CRDTGCElement {
         isRemoved: node.isRemoved,
         children: [] as Array<Devtools.TreeNodeInfo>,
         depth,
+        attributes: node.attrs
+          ? parseObjectValues(node.attrs?.toObject())
+          : undefined,
+        index,
+        path,
+        pos,
       };
 
-      for (const child of node.children) {
-        nodeInfo.children.push(toTreeNodeInfo(child, nodeInfo.id, depth + 1));
+      for (let i = 0; i < node.children.length; i++) {
+        const leftChildNode = i === 0 ? node : node.children[i - 1];
+        nodeInfo.children.push(
+          toTreeNodeInfo(node.children[i], node, leftChildNode, depth + 1),
+        );
       }
 
       return nodeInfo;
@@ -1443,7 +1469,7 @@ export class CRDTTree extends CRDTGCElement {
         }
       }
     }
-    return changes;
+    return changes.reverse();
   }
 
   /**

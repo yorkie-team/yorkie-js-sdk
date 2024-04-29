@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.4.15-rc",
+  "version": "0.4.18",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -13,7 +13,6 @@
     "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "build:examples": "npm run build --workspace examples",
     "build:create-yorkie-app": "npm run build --workspace create-yorkie-app",
-    "build:devtools": "npm run build --workspace tools/devtools",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
@@ -100,7 +99,6 @@
     }
   },
   "workspaces": [
-    "examples/*",
-    "tools/*"
+    "examples/*"
   ]
 }

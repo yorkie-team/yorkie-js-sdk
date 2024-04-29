@@ -783,6 +783,11 @@ export declare class Operation_TreeStyle extends Message<Operation_TreeStyle> {
    */
   executedAt?: TimeTicket;
 
+  /**
+   * @generated from field: repeated string attributes_to_remove = 6;
+   */
+  attributesToRemove: string[];
+
   constructor(data?: PartialMessage<Operation_TreeStyle>);
 
   static readonly runtime: typeof proto3;
