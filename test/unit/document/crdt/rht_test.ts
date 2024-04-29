@@ -26,7 +26,7 @@ import {
   NextTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
-import {stringifyObjectValues} from "@yorkie-js-sdk/src/util/object";
+import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 function createDummyContext() {
   return ChangeContext.create(

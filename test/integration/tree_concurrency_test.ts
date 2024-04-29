@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert, describe, it, test } from 'vitest';
+import { assert, describe, test } from 'vitest';
 import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
