@@ -7,7 +7,7 @@ const isCI = process.env.CI === 'true';
 export default defineConfig({
   test: {
     include: ['**/*_{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['**/bench/*', '**/node_modules/**'],
+    exclude: ['**/lib/**', '**/bench/*', '**/node_modules/**'],
     coverage: {
       provider: 'istanbul',
       reporter: ['lcov', 'text-summary'],

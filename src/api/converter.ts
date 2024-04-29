@@ -43,7 +43,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { CRDTTreePos } from './../document/crdt/tree';
+import { CRDTTreePos } from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
@@ -105,9 +105,9 @@ import {
   CRDTTreeNode,
   CRDTTreeNodeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { traverse } from '../util/index_tree';
-import { TreeStyleOperation } from '../document/operation/tree_style_operation';
-import { RHT } from '../document/crdt/rht';
+import { traverse } from '@yorkie-js-sdk/src/util/index_tree';
+import { TreeStyleOperation } from '@yorkie-js-sdk/src/document/operation/tree_style_operation';
+import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
 
 /**
  * `toPresence` converts the given model to Protobuf format.

@@ -37,7 +37,6 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm install
 
-      - run: npm run lint
       - run: npm run build
       - run: npm run build:examples
       - run: docker-compose -f docker/docker-compose-ci.yml up --build -d

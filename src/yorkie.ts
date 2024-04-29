@@ -26,41 +26,41 @@ export {
   Client,
   ClientStatus,
   SyncMode,
-  ClientOptions,
+  type ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
 export {
   DocEventType,
-  SnapshotEvent,
-  LocalChangeEvent,
-  RemoteChangeEvent,
-  ConnectionChangedEvent,
-  SyncStatusChangedEvent,
-  WatchedEvent,
-  UnwatchedEvent,
-  PresenceChangedEvent,
-  InitializedEvent,
+  type SnapshotEvent,
+  type LocalChangeEvent,
+  type RemoteChangeEvent,
+  type ConnectionChangedEvent,
+  type SyncStatusChangedEvent,
+  type WatchedEvent,
+  type UnwatchedEvent,
+  type PresenceChangedEvent,
+  type InitializedEvent,
   StreamConnectionStatus,
   DocumentSyncStatus,
   DocumentStatus,
-  Indexable,
-  DocEvent,
-  TransactionEvent,
+  type Indexable,
+  type DocEvent,
+  type TransactionEvent,
   Document,
-  ChangeInfo,
+  type ChangeInfo,
 } from '@yorkie-js-sdk/src/document/document';
 export {
-  Observer,
-  Observable,
-  NextFn,
-  ErrorFn,
-  CompleteFn,
-  Unsubscribe,
+  type Observer,
+  type Observable,
+  type NextFn,
+  type ErrorFn,
+  type CompleteFn,
+  type Unsubscribe,
 } from '@yorkie-js-sdk/src/util/observable';
 export {
   TimeTicket,
-  TimeTicketStruct,
+  type TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-export { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+export { type ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 export type {
   OperationInfo,
   TextOperationInfo,
@@ -80,32 +80,32 @@ export { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 
 export {
   Primitive,
-  PrimitiveValue,
+  type PrimitiveValue,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
 
 export {
-  WrappedElement,
-  JSONElement,
+  type WrappedElement,
+  type JSONElement,
 } from '@yorkie-js-sdk/src/document/json/element';
-export { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-export { JSONArray } from '@yorkie-js-sdk/src/document/json/array';
+export { type JSONObject } from '@yorkie-js-sdk/src/document/json/object';
+export { type JSONArray } from '@yorkie-js-sdk/src/document/json/array';
 export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
+export { type CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
 export {
   Text,
-  TextPosStruct,
-  TextPosStructRange,
+  type TextPosStruct,
+  type TextPosStructRange,
 } from '@yorkie-js-sdk/src/document/json/text';
 export {
   Tree,
-  TreeNode,
-  ElementNode,
-  TextNode,
-  TreeChange,
-  TreeChangeType,
-  CRDTTreeNodeIDStruct,
-  TreePosStructRange,
+  type TreeNode,
+  type ElementNode,
+  type TextNode,
+  type TreeChange,
+  type TreeChangeType,
+  type CRDTTreeNodeIDStruct,
+  type TreePosStructRange,
 } from '@yorkie-js-sdk/src/document/json/tree';
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
@@ -116,10 +116,10 @@ export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
 export {
   EventSourceDevPanel,
   EventSourceSDK,
-  PanelToSDKMessage,
-  SDKToPanelMessage,
-  FullPanelToSDKMessage,
-  FullSDKToPanelMessage,
+  type PanelToSDKMessage,
+  type SDKToPanelMessage,
+  type FullPanelToSDKMessage,
+  type FullSDKToPanelMessage,
 } from '@yorkie-js-sdk/src/devtools/protocol';
 export { Devtools };
 

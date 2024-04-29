@@ -31,7 +31,7 @@ import {
 import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
 import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import { RHT } from '../crdt/rht';
-import { TreeStyleOperation } from '../operation/tree_style_operation';
+import { TreeStyleOperation } from '@yorkie-js-sdk/src/document/operation/tree_style_operation';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type {
   ElementNode,
