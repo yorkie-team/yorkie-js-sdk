@@ -1383,6 +1383,9 @@ export class Document<T, P extends Indexable = Indexable> {
       const clientIDs = resp.body.value.clientIds;
       const onlineClients: Set<ActorID> = new Set();
       for (const clientID of clientIDs) {
+        if (clientID === this.changeID.getActorID()) {
+          continue;
+        }
         onlineClients.add(clientID);
       }
       this.setOnlineClients(onlineClients);
@@ -1553,6 +1556,15 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `resetOnlineClients` resets the online client set.
+   *
+   * @internal
+   */
+  public resetOnlineClients() {
+    this.onlineClients = new Set();
+  }
+
+  /**
    * `addOnlineClient` adds the given clientID into the online client set.
    *
    * @internal
@@ -1597,6 +1609,10 @@ export class Document<T, P extends Indexable = Indexable> {
    * `getPresence` returns the presence of the given clientID.
    */
   public getPresence(clientID: ActorID): P | undefined {
+    if (clientID === this.changeID.getActorID()) {
+      return this.getMyPresence();
+    }
+
     if (!this.onlineClients.has(clientID)) return;
     const p = this.presences.get(clientID);
     return p ? deepcopy(p) : undefined;
@@ -1618,6 +1634,11 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getPresences(): Array<{ clientID: ActorID; presence: P }> {
     const presences: Array<{ clientID: ActorID; presence: P }> = [];
+    presences.push({
+      clientID: this.changeID.getActorID(),
+      presence: deepcopy(this.getMyPresence()),
+    });
+
     for (const clientID of this.onlineClients) {
       if (this.presences.has(clientID)) {
         presences.push({

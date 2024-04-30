@@ -39,6 +39,7 @@ import {
   StreamConnectionStatus,
   DocumentSyncStatus,
 } from '@yorkie-js-sdk/src/document/document';
+import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 
@@ -604,6 +605,14 @@ export class Client {
                 }
               }
             } catch (err) {
+              attachment.doc.resetOnlineClients();
+              attachment.doc.publish([
+                {
+                  type: DocEventType.Initialized,
+                  source: OpSource.Local,
+                  value: attachment.doc.getPresences(),
+                },
+              ]);
               attachment.doc.publish([
                 {
                   type: DocEventType.ConnectionChanged,
