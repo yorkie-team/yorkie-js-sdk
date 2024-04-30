@@ -35,8 +35,6 @@ jobs:
       - name: Build 🔧
         run: |
           npm run build
-          npm run predoc
-          npm run build:docs
           npm run build:examples
           npm run build:ghpages
 

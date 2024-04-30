@@ -10,10 +10,9 @@
   "scripts": {
     "build": "tsc && vite build",
     "build:proto": "npx buf generate",
-    "build:docs": "npm run predoc && api-documenter markdown --input temp --output docs",
     "build:examples": "npm run build --workspace examples",
     "build:create-yorkie-app": "npm run build --workspace create-yorkie-app",
-    "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
+    "build:ghpages": "mkdir -p ghpages/examples  && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "api-report": "api-extractor run --local --verbose --config ./config/api-extractor.json",
     "prune": "ts-node-script ./scripts/prune-dts.ts --input ./dist/yorkie-js-sdk.d.ts --output ./dist/yorkie-js-sdk.d.ts",
     "predoc": "ts-node-script ./scripts/api-extractor.ts && sed -i.bak 's/_2//g' temp/yorkie-js-sdk.api.json temp/yorkie-js-sdk.api.md",
