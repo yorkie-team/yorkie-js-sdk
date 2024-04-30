@@ -4,7 +4,9 @@ import yorkie, {
   DocEventType,
   Counter,
   SyncMode,
+  StreamConnectionStatus,
 } from '@yorkie-js-sdk/src/yorkie';
+import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import {
   testRPCAddr,
   toDocKey,
@@ -312,6 +314,52 @@ describe('Presence', function () {
     await c2.sync();
     assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), { counter: 1 });
   });
+
+  it(`Should not be accessible to other clients' presence when the stream is disconnected`, async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    const c2ID = c2.getID()!;
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    type EventForTest = Pick<DocEvent, 'type' | 'value'>;
+    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector2 = new EventCollector<EventForTest>();
+    type PresenceType = { name: string };
+    const doc1 = new yorkie.Document<{}, PresenceType>(docKey);
+
+    await c1.attach(doc1, { initialPresence: { name: 'a' } });
+    const unsub = doc1.subscribe('presence', ({ type, value }) => {
+      eventCollector.add({ type, value });
+    });
+    const unsub2 = doc1.subscribe('connection', ({ type, value }) => {
+      eventCollector2.add({ type, value });
+    });
+
+    const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
+    await c2.attach(doc2, { initialPresence: { name: 'b' } });
+    await eventCollector.waitAndVerifyNthEvent(1, {
+      type: DocEventType.Watched,
+      value: { clientID: c2ID, presence: doc2.getMyPresence() },
+    });
+    assert.deepEqual(doc1.getPresence(c2ID), { name: 'b' });
+
+    await c1.changeSyncMode(doc1, SyncMode.Manual);
+    await eventCollector2.waitAndVerifyNthEvent(1, {
+      type: DocEventType.ConnectionChanged,
+      value: StreamConnectionStatus.Disconnected,
+    });
+    assert.equal(doc1.getPresence(c2ID), undefined);
+
+    await c1.deactivate();
+    await c2.deactivate();
+
+    unsub();
+    unsub2();
+  });
 });
 
 describe(`Document.Subscribe('presence')`, function () {
@@ -410,8 +458,8 @@ describe(`Document.Subscribe('presence')`, function () {
       deepSort([{ clientID: c1ID, presence: { name: 'a' } }]),
     );
     assert.deepEqual(
-      deepSort(doc1.getPresences()),
       deepSort(doc2.getPresences()),
+      deepSort([{ clientID: InitialActorID, presence: {} }]),
     );
 
     await c1.deactivate();
