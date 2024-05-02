@@ -207,7 +207,9 @@ export function useMultiplayerState(roomId: string) {
         await client.activate();
 
         // 02. Create document with tldraw custom object type.
-        doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(roomId);
+        doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(roomId, {
+          enableDevtools: true,
+        });
 
         // 02-1. Subscribe peers-changed event and update tldraw users state
         doc.subscribe('my-presence', (event) => {

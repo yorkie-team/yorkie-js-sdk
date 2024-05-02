@@ -51,7 +51,9 @@ async function main() {
   });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey);
+  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey, {
+    enableDevtools: true,
+  });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
       displayPeers(peersElem, doc.getPresences(), client.getID()!);
