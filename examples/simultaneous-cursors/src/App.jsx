@@ -89,6 +89,7 @@ const App = () => {
     <div className="general-container">
       {clients.map(
         ({ clientID, presence: { cursorShape, cursor, pointerDown } }) => {
+          if (!cursor) return null;
           return (
             <Cursor
               selectedCursorShape={cursorShape}
