@@ -6,7 +6,9 @@ async function main() {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
-  const doc = new yorkie.Document('profile-stack');
+  const doc = new yorkie.Document('profile-stack', {
+    enableDevtools: true,
+  });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
       displayPeerList(doc.getPresences(), client.getID());

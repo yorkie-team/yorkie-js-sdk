@@ -22,6 +22,9 @@
     "@types/prompts": "^2.4.4",
     "kolorist": "^1.8.0",
     "minimist": "^1.2.8",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
   }
 }

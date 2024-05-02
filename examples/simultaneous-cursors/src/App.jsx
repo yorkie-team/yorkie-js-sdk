@@ -8,7 +8,9 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
 });
 
-const doc = new yorkie.Document('simultaneous-cursors');
+const doc = new yorkie.Document('simultaneous-cursors', {
+  enableDevtools: true,
+});
 
 const App = () => {
   const [clients, setClients] = useState([]);
