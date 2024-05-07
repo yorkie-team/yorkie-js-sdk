@@ -1,16 +1,23 @@
 {
   "compilerOptions": {
-    "sourceMap": true,
     "target": "ES2019",
-    "removeComments": false,
-    "allowSyntheticDefaultImports": true,
-    "declaration": true,
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2019"],
+    "skipLibCheck": true,
     "outDir": "./lib",
-    "strict": true,
-    "baseUrl": ".",
-    "esModuleInterop": true,
+
+    /* Bundle */
     "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "esModuleInterop": true,
+
+    /* Lint */
+    "strict": true,
+
+    /* Paths */
+    "baseUrl": ".",
     "paths": {
       "@yorkie-js-sdk/src/*": ["src/*"],
       "@yorkie-js-sdk/test/*": ["test/*"]
@@ -21,6 +28,5 @@
     ]
   },
   "include": ["./src/**/*", "./test/**/*"],
-  "exclude": ["./node_modules"],
-  "typeRoots": ["./node_modules/@types"]
+  "exclude": ["./node_modules"]
 }

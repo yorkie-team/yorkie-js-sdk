@@ -7,7 +7,8 @@ export default defineConfig({
     lib: {
       entry: 'src/yorkie.ts',
       name: 'yorkie-js-sdk',
-      fileName: 'yorkie-js-sdk',
+      fileName: (format) =>
+        format === 'umd' ? 'yorkie-js-sdk.js' : `yorkie-js-sdk.${format}.js`,
     },
     outDir: 'dist',
     sourcemap: true,

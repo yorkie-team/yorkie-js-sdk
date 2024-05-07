@@ -30,7 +30,6 @@ import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 export class CRDTArray extends CRDTContainer {
   private elements: RGATreeList;
 
-  /** @hideconstructor */
   constructor(createdAt: TimeTicket, elements: RGATreeList) {
     super(createdAt);
     this.elements = elements;
