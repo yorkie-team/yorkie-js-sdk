@@ -7,6 +7,27 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Added
+
+- Add Tree concurrency tests by @justiceHui, @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/792
+
+### Changed
+
+- Reset online clients when stream is disconnected by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/796
+- Remove Client.subscribe by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/789
+- Replace `benchmark.js` with `vitest bench` by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/793
+- Replace webpack with vite by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/795
+- Replace TSDoc with TypeDoc by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/800
+- Add vite-plugin-dts to build yorkie-js-sdk.d.ts by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/801
+- Update examples version to v0.4.18 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/785
+
+### Fixed
+
+- Export OpSource by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/786
+- Add window type condition for using devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/787
+- Handle exception for the client without proper presence value in example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/798
+- Update GitHub Action workflow for create-yorkie-app by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/790
+
 ## [0.4.18] - 2024-04-23
 
 ### Added

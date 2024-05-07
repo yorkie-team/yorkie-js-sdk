@@ -1,6 +1,6 @@
 {
   "name": "yorkie-js-sdk",
-  "version": "0.4.18",
+  "version": "0.4.19-rc",
   "description": "Yorkie JS SDK",
   "main": "./dist/yorkie-js-sdk.js",
   "typings": "./dist/yorkie-js-sdk.d.ts",
@@ -12,7 +12,6 @@
     "build:proto": "npx buf generate",
     "build:docs": "typedoc",
     "build:examples": "npm run build --workspace examples",
-    "build:create-yorkie-app": "npm run build --workspace create-yorkie-app",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
     "dev": "vite build -c vite.preview.ts && vite preview",
     "test": "vitest run",
