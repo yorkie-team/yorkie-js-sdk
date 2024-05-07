@@ -68,7 +68,6 @@ export class CRDTTextValue {
   private attributes: RHT;
   private content: string;
 
-  /** @hideconstructor */
   constructor(content: string) {
     this.attributes = RHT.create();
     this.content = content;
