@@ -23,7 +23,6 @@
 export class VersionVector {
   private vector: Map<string, Long>;
 
-  /** @hideconstructor */
   constructor(vector?: Map<string, Long>) {
     this.vector = vector || new Map();
   }

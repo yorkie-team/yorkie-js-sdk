@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <title>ProseMirror Example</title>
     <link rel="stylesheet" href="prosemirror.css" />
-    <script src="./yorkie.js"></script>
+    <script src="./yorkie-js-sdk.js"></script>
     <script src="./util.js"></script>
   </head>
   <body>
@@ -256,7 +256,9 @@
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
-        const doc = new yorkie.Document('prosemirror');
+        const doc = new yorkie.Document('prosemirror', {
+          enableDevtools: true,
+        });
         window.doc = doc;
         await client.attach(doc);
         doc.update((root) => {

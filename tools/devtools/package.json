@@ -1,7 +1,7 @@
 {
   "name": "yorkie-devtools",
   "displayName": "Yorkie Devtools",
-  "version": "0.4.13",
+  "version": "0.4.18",
   "description": "A browser extension that helps you debug Yorkie.",
   "homepage": "https://yorkie.dev/",
   "scripts": {
@@ -10,14 +10,17 @@
     "test": "plasmo test"
   },
   "dependencies": {
+    "@microlink/react-json-view": "^1.23.0",
     "classnames": "^2.3.2",
     "plasmo": "0.84.0",
     "prism-react-renderer": "^2.3.1",
+    "rc-slider": "^10.5.0",
     "react": "18.2.0",
     "react-arborist": "^3.4.0",
     "react-dom": "18.2.0",
+    "react-resizable-layout": "^0.7.2",
     "use-resize-observer": "^9.1.0",
-    "yorkie-js-sdk": "0.4.13"
+    "yorkie-js-sdk": "^0.4.18-rc"
   },
   "devDependencies": {
     "@types/chrome": "0.0.251",

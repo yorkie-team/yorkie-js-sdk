@@ -37,6 +37,9 @@ async function main() {
       .toISOString()
       .substring(0, 10)
       .replace(/-/g, '')}`,
+    {
+      enableDevtools: true,
+    },
   );
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {

@@ -14,7 +14,6 @@ export class Attachment<T, P extends Indexable> {
   private reconnectStreamDelay: number;
   doc: Document<T, P>;
   docID: string;
-  isRealtimeSync: boolean;
   syncMode: SyncMode;
   remoteChangeEventReceived: boolean;
 
@@ -26,32 +25,13 @@ export class Attachment<T, P extends Indexable> {
     reconnectStreamDelay: number,
     doc: Document<T, P>,
     docID: string,
-    isRealtimeSync: boolean,
+    syncMode: SyncMode,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.doc = doc;
     this.docID = docID;
-    this.isRealtimeSync = isRealtimeSync;
-    this.syncMode = SyncMode.PushPull;
+    this.syncMode = syncMode;
     this.remoteChangeEventReceived = false;
-  }
-
-  /**
-   * `changeRealtimeSync` changes whether to synchronize the document in realtime or not.
-   */
-  public changeRealtimeSync(isRealtimeSync: boolean): boolean {
-    if (this.isRealtimeSync === isRealtimeSync) {
-      return false;
-    }
-
-    if (isRealtimeSync) {
-      this.isRealtimeSync = true;
-      return true;
-    }
-
-    this.cancelWatchStream();
-    this.isRealtimeSync = false;
-    return true;
   }
 
   /**
@@ -65,8 +45,12 @@ export class Attachment<T, P extends Indexable> {
    * `needRealtimeSync` returns whether the document needs to be synced in real time.
    */
   public needRealtimeSync(): boolean {
+    if (this.syncMode === SyncMode.RealtimeSyncOff) {
+      return false;
+    }
+
     return (
-      this.isRealtimeSync &&
+      this.syncMode !== SyncMode.Manual &&
       (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
     );
   }

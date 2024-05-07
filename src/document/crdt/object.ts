@@ -31,7 +31,6 @@ import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 export class CRDTObject extends CRDTContainer {
   private memberNodes: ElementRHT;
 
-  /** @hideconstructor */
   constructor(createdAt: TimeTicket, memberNodes: ElementRHT) {
     super(createdAt);
     this.memberNodes = memberNodes;

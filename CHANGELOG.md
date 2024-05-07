@@ -7,6 +7,53 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Added
+
+- Add Tree concurrency tests by @justiceHui, @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/792
+
+### Changed
+
+- Reset online clients when stream is disconnected by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/796
+- Remove Client.subscribe by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/789
+- Replace `benchmark.js` with `vitest bench` by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/793
+- Replace webpack with vite by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/795
+- Replace TSDoc with TypeDoc by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/800
+- Add vite-plugin-dts to build yorkie-js-sdk.d.ts by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/801
+- Update examples version to v0.4.18 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/785
+
+### Fixed
+
+- Export OpSource by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/786
+- Add window type condition for using devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/787
+- Handle exception for the client without proper presence value in example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/798
+- Update GitHub Action workflow for create-yorkie-app by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/790
+
+## [0.4.18] - 2024-04-23
+
+### Added
+
+- Add history tab and enhance visualization features to devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/760
+
+## [0.4.17] - 2024-04-19
+
+### Added
+
+- Add RealtimeSyncOff and refactor interface of SyncMode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/772
+
+### Fixed
+
+- Fix issue of incorrect display of remote selection in Quill example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/769
+- Reverse TreeChanges when Deleting in Tree by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/774
+- Remove unnecessary stubs from the test code by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/776
+- Provide CODECOV_TOKEN to codecov-action by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/777
+- Fix issue of referencing process object on browser by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/778
+
+## [0.4.16] - 2024-03-29
+
+### Added
+
+- Implement Protocol Changes for Tree.RemoveStyle by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/755
+
 ## [0.4.15] - 2024-03-11
 
 ### Added

@@ -1,5 +1,5 @@
 import { describe, it, assert } from 'vitest';
-import { JSONObject, Client } from '@yorkie-js-sdk/src/yorkie';
+import { JSONObject, Client, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import {
   withTwoClientsAndDocuments,
@@ -382,14 +382,14 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.shape = { point: { x: 0, y: 0 } };
       });
       await client1.sync();
       assert.equal(doc1.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"point":{"x":0,"y":0}}}');
 
       doc1.update((root) => {
@@ -426,14 +426,14 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.shape = { color: 'black' };
       }, 'init doc');
       await client1.sync();
       assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
 
       doc1.update((root) => {
@@ -476,7 +476,7 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.shape = { circle: { point: { x: 0, y: 0 } } };
       });
@@ -486,7 +486,7 @@ describe('Object', function () {
         '{"shape":{"circle":{"point":{"x":0,"y":0}}}}',
       );
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(
         doc2.toSortedJSON(),
         '{"shape":{"circle":{"point":{"x":0,"y":0}}}}',
@@ -546,14 +546,14 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.shape = { color: 'black' };
       }, 'init doc');
       await client1.sync();
       assert.equal(doc1.toSortedJSON(), '{"shape":{"color":"black"}}');
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
 
       doc2.update((root) => {
@@ -592,14 +592,14 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.shape = { circle: { color: 'red' } };
       });
       await client1.sync();
       assert.equal(doc1.toSortedJSON(), '{"shape":{"circle":{"color":"red"}}}');
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"circle":{"color":"red"}}}');
 
       doc1.update((root) => {
@@ -651,7 +651,7 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       let doc1ChangeID = doc1.getChangeID();
       let doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 1);
@@ -669,7 +669,7 @@ describe('Object', function () {
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getServerSeq().toInt(), 2);
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
 
       doc2.update((root) => {
@@ -727,7 +727,7 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
       let doc1ChangeID = doc1.getChangeID();
       let doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 1);
@@ -745,7 +745,7 @@ describe('Object', function () {
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getServerSeq().toInt(), 2);
 
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
 
       doc2.update((root) => {
@@ -803,8 +803,8 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.color = 'black';
       }, 'init doc');
@@ -859,8 +859,8 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
       doc1.update((root) => {
         root.color = 'black';
       }, 'init doc');
@@ -912,8 +912,8 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
       doc1.update((root) => {
         root.shape = { color: 'black' };
@@ -960,8 +960,8 @@ describe('Object', function () {
       await client1.activate();
       await client2.activate();
 
-      await client1.attach(doc1, { isRealtimeSync: false });
-      await client2.attach(doc2, { isRealtimeSync: false });
+      await client1.attach(doc1, { syncMode: SyncMode.Manual });
+      await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
       doc1.update((root) => {
         root.shape = { color: 'black' };

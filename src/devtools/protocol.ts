@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import type { DocEvent } from '@yorkie-js-sdk/src/document/document';
+import type { TransactionEvent } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `EventSourceDevPanel` is the name of the source representing messages
@@ -50,16 +49,6 @@ export type PanelToSDKMessage =
   | {
       msg: 'devtools::subscribe';
       docKey: string;
-    }
-  /**
-   * Requests the detailed information for the node corresponding to the given path.
-   */
-  | {
-      msg: 'devtools::node::detail';
-      data: {
-        path: string;
-        type: string;
-      };
     };
 
 /**
@@ -87,25 +76,15 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      root: Devtools.JSONElement;
-      clients: Array<Devtools.Client>;
+      events: Array<TransactionEvent>;
     }
   /**
-   * Sent whenever the document is updated.
+   * Sent whenever the document is changed.
    */
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      event?: DocEvent;
-      root?: Devtools.JSONElement;
-      clients?: Array<Devtools.Client>;
-    }
-  /**
-   * Sent detailed information for the node corresponding to the given path.
-   */
-  | {
-      msg: 'doc::node::detail';
-      node: Devtools.TreeNodeInfo;
+      event: TransactionEvent;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

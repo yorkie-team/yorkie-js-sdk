@@ -1,5 +1,5 @@
 import { assert } from 'vitest';
-import yorkie from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
@@ -31,8 +31,8 @@ export async function withTwoClientsAndDocuments<T>(
   const doc1 = new yorkie.Document<T>(docKey);
   const doc2 = new yorkie.Document<T>(docKey);
 
-  await client1.attach(doc1, { isRealtimeSync: false });
-  await client2.attach(doc2, { isRealtimeSync: false });
+  await client1.attach(doc1, { syncMode: SyncMode.Manual });
+  await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
   await callback(client1, doc1, client2, doc2);
 

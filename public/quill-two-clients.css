@@ -1,0 +1,97 @@
+.client-container {
+  display: flex;
+}
+.client-id {
+  padding: 2px 4px;
+  margin: 0 4px;
+  border-radius: 10px;
+  background-color: #eee;
+}
+.client-container .ql-toolbar {
+  margin-top: 10px;
+}
+.client-container .ql-container {
+  height: 300px;
+}
+#client-a,
+#client-b {
+  width: 50%;
+  margin: 15px;
+}
+
+.online-clients {
+  margin: 1rem 0;
+  font-family: monospace;
+}
+.online-clients:before {
+  display: block;
+  margin-bottom: 4px;
+  content: 'online-clients: ';
+}
+
+/* sync mode option */
+.syncmode-option {
+  margin: 30px 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.realtime-sync {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px;
+  gap: 4px;
+  margin: 0 4px;
+}
+
+.realtime-sync-title {
+  position: absolute;
+  top: -14px;
+  left: 0;
+  font-size: 12px;
+}
+
+.option input[type='radio'] {
+  display: none;
+}
+
+.option label,
+.option .manual-sync {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.option label:hover {
+  background-color: #f0f0f0;
+}
+
+.option input[type='radio']:checked + label {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.option .manual-sync {
+  display: none;
+}
+
+.option .manual-sync:hover {
+  background-color: #ddd;
+}
+
+.option input[type='radio']:checked + label + .manual-sync {
+  display: inline-block;
+}
+
+.ql-editor {
+  caret-color: transparent;
+}
+.ql-editor ::selection {
+  background: none;
+}

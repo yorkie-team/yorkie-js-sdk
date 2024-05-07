@@ -94,7 +94,6 @@
 
 .user-info {
   --client-background-color: var(--client-color, #000);
-  --client-status-color: var(--network-status-color, --client-background-color);
   background-color: var(--client-background-color);
   position: relative;
   display: flex;
@@ -108,19 +107,6 @@
   text-transform: uppercase;
   color: white;
   cursor: pointer;
-}
-
-.user-info.me::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  transform-origin: center center;
-  transform: translate(-50%, -50%) scale(1.2);
-  border: 2px solid var(--client-status-color);
-  border-radius: 50%;
 }
 
 /* toolbar > hide deleted node */

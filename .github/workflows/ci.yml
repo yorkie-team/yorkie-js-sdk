@@ -19,11 +19,24 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-      - run: npm install
+      - name: Cache Node Moudles
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npm install
+
       - run: npm run lint
       - run: npm run build
       - run: npm run build:examples
@@ -34,31 +47,8 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage/lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run benchmark
-        run: npm run benchmark | tee output.txt
-      # Download previous benchmark result from cache (if exists)
-      - name: Download previous benchmark data
-        uses: actions/cache@v1
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark
-      # Run `github-action-benchmark` action
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        with:
-          # What benchmark tool the output.txt came from
-          tool: 'benchmarkjs'
-          # Where the output from the benchmark tool is stored
-          output-file-path: output.txt
-          # Where the previous data file is stored
-          external-data-json-path: ./cache/benchmark-data.json
-          # Workflow will fail when an alert happens
-          fail-on-alert: false
-          # GitHub API token to make a commit comment
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Enable comment always
-          comment-always: true
-          # Save only on the main to compare the benchmarks between PR and base branch
-          save-data-file: ${{ github.ref == 'refs/heads/main' }}
+        run: npm run test:bench

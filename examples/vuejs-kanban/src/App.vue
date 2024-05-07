@@ -9,17 +9,17 @@ const defaultLists = [
         title: 'Pruning document',
       },
       {
-        title: 'Clean up codes'
-      }
-    ]
+        title: 'Clean up codes',
+      },
+    ],
   },
   {
     title: 'Doing',
     cards: [
       {
         title: 'Array operations',
-      }
-    ]
+      },
+    ],
   },
   {
     title: 'Done',
@@ -28,9 +28,9 @@ const defaultLists = [
         title: 'Create a sample page',
       },
       {
-        title: 'Launch demo site'
-      }
-    ]
+        title: 'Launch demo site',
+      },
+    ],
   },
 ];
 
@@ -38,7 +38,8 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
 });
 const doc = new yorkie.Document(
-  `vuejs-kanban-${(new Date()).toISOString().substring(0, 10).replace(/-/g, '')}`
+  `vuejs-kanban-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
+  { enableDevtools: true },
 );
 
 export default {
@@ -52,7 +53,7 @@ export default {
   created() {
     this.fetchDoc();
   },
-  beforeUnmount(){
+  beforeUnmount() {
     this.disconnect();
   },
   watch: {
@@ -65,7 +66,7 @@ export default {
           // Or open add card form
           this.$refs['addCardForm'][index - 1].querySelector('input').focus();
         }
-        this.title = ''
+        this.title = '';
       });
     },
   },
@@ -73,7 +74,6 @@ export default {
     async fetchDoc() {
       await client.activate();
       await client.attach(doc);
-
 
       doc.update((root) => {
         if (!root.lists) {
@@ -89,7 +89,7 @@ export default {
       this.lists = doc.getRoot().lists;
     },
 
-    async disconnect(){
+    async disconnect() {
       await client.deactivate();
     },
 
@@ -140,7 +140,7 @@ export default {
       }, `delete a list by ${client.getID()}`);
     },
   },
-}
+};
 </script>
 
 <template>
@@ -153,25 +153,49 @@ export default {
     </div>
     <div class="add-card" ref="addCardForm">
       <div v-if="isOpened(index + 1)" class="add-form">
-        <input type="text" placeholder="Enter card title" v-model="title" v-on:keyup.enter="addCard(list)"
-          v-on:keyup.esc="closeForm()">
+        <input
+          type="text"
+          placeholder="Enter card title"
+          v-model="title"
+          v-on:keyup.enter="addCard(list)"
+          v-on:keyup.esc="closeForm()"
+        />
         <div class="buttons">
-          <input type="button" value="Add" v-on:click="addCard(list)">
-          <input type="button" value="Close" class="pull-right" v-on:click="closeForm()">
+          <input type="button" value="Add" v-on:click="addCard(list)" />
+          <input
+            type="button"
+            value="Close"
+            class="pull-right"
+            v-on:click="closeForm()"
+          />
         </div>
       </div>
-      <div v-else class="add-card-opener" v-on:click="openForm(index + 1)">Add another card</div>
+      <div v-else class="add-card-opener" v-on:click="openForm(index + 1)">
+        Add another card
+      </div>
     </div>
   </div>
   <div class="add-list" ref="addListForm">
     <div v-if="isOpened(0)" class="add-form">
-      <input type="text" placeholder="Enter list title" v-model="title" v-on:keyup.enter="addList()"
-        v-on:keyup.esc="closeForm()">
+      <input
+        type="text"
+        placeholder="Enter list title"
+        v-model="title"
+        v-on:keyup.enter="addList()"
+        v-on:keyup.esc="closeForm()"
+      />
       <div class="buttons">
-        <input type="button" value="Add" v-on:click="addList()">
-        <input type="button" value="Close" class="pull-right" v-on:click="closeForm()">
+        <input type="button" value="Add" v-on:click="addList()" />
+        <input
+          type="button"
+          value="Close"
+          class="pull-right"
+          v-on:click="closeForm()"
+        />
       </div>
     </div>
-    <div v-else class="add-list-opener" v-on:click="openForm(0)">Add another list</div>
+    <div v-else class="add-list-opener" v-on:click="openForm(0)">
+      Add another list
+    </div>
   </div>
 </template>

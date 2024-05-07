@@ -14,10 +14,6 @@ menu, nav, output, section, summary,
 time, mark, audio, video {
 	margin: 0;
 	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-  vertical-align: baseline;
   box-sizing: border-box;
 }
 ol,
@@ -39,12 +35,14 @@ button {
 }
 
 #network-status,
+.network-status,
 #online-clients,
 #log-holder {
   margin: 1rem;
   font-family: monospace;
 }
-#network-status:before {
+#network-status:before,
+.network-status:before {
   content: 'network: ';
 }
 #online-clients:before {
@@ -53,16 +51,19 @@ button {
 #log-holder:before {
   content: 'root: ';
 }
-#network-status span {
+#network-status span,
+.network-status span {
   display: inline-block;
   height: 0.8rem;
   width: 0.8rem;
   border-radius: 0.4rem;
 }
-#network-status .green {
+#network-status .green,
+.network-status .green {
   background-color: green;
 }
-#network-status .red {
+#network-status .red,
+.network-status .red {
   background-color: red;
 }
 

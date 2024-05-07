@@ -7,7 +7,7 @@ import {
   toDocKey,
   testRPCAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import yorkie, { Counter } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Counter, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 import Long from 'long';
 
@@ -232,14 +232,14 @@ describe('Counter', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => {
       root.counter = new Counter(yorkie.IntType, 100);
     }, 'init counter');
     await client1.sync();
     assert.equal(doc1.toSortedJSON(), '{"counter":100}');
 
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(doc2.toSortedJSON(), '{"counter":100}');
 
     // client1 increases 1 and client2 increases 2

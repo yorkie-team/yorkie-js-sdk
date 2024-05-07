@@ -809,7 +809,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       path.push(sizeOfLeftSiblings + treePos.offset);
       node = node.parent!;
     } else if (node.hasTextChild()) {
-      // TODO(hackerwins): The function does not consider the situation 
+      // TODO(hackerwins): The function does not consider the situation
       // where Element and Text nodes are mixed in the Element's Children.
       const sizeOfLeftSiblings = addSizeOfLeftSiblings(
         node! as T,

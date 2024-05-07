@@ -1,5 +1,10 @@
 import { describe, it, assert, vi, afterEach } from 'vitest';
-import yorkie, { Counter, Text, JSONArray } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, {
+  Counter,
+  Text,
+  JSONArray,
+  SyncMode,
+} from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -32,7 +37,7 @@ describe('Document', function () {
     await client1.activate();
     await client2.activate();
 
-    await client1.attach(doc1, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => {
       root['k1'] = { 'k1-1': 'v1' };
       root['k2'] = ['1', '2'];
@@ -40,14 +45,14 @@ describe('Document', function () {
     await client1.sync();
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc1.toSortedJSON());
 
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal('{"k1":{"k1-1":"v1"},"k2":["1","2"]}', doc2.toSortedJSON());
 
     await client1.detach(doc1);
     await client2.detach(doc2);
 
-    await client1.attach(doc1, { isRealtimeSync: false });
-    await client2.attach(doc2, { isRealtimeSync: false });
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     await client1.detach(doc1);
     await client2.detach(doc2);
@@ -120,14 +125,12 @@ describe('Document', function () {
 
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
-    const stub1 = vi.fn().mockImplementation((event) => {
+    const unsub1 = d1.subscribe((event) => {
       eventCollectorD1.add(event.type);
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = d2.subscribe((event) => {
       eventCollectorD2.add(event.type);
     });
-    const unsub1 = d1.subscribe(stub1);
-    const unsub2 = d2.subscribe(stub2);
 
     d2.update((root) => {
       root['k1'] = 'v1';
@@ -176,14 +179,13 @@ describe('Document', function () {
     let expectedEventValue: Array<OperationInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
-    const stub1 = vi.fn().mockImplementation((event) => {
+    // TODO(chacha912): Remove any type after specifying the type of DocEvent
+    const unsub1 = d1.subscribe((event: any) => {
       eventCollectorD1.add({ type: event.type, value: event.value.operations });
     });
-    const stub2 = vi.fn().mockImplementation((event) => {
+    const unsub2 = d2.subscribe((event: any) => {
       eventCollectorD2.add({ type: event.type, value: event.value.operations });
     });
-    const unsub1 = d1.subscribe(stub1);
-    const unsub2 = d2.subscribe(stub2);
 
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 100);
@@ -295,18 +297,15 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos = new EventCollector<EventForTest>();
     const eventCollectorForCounter = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = d1.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = vi.fn().mockImplementation((event) => {
+    const unsubTodo = d1.subscribe('$.todos', (event: any) => {
       eventCollectorForTodos.add(event.value.operations);
     });
-    const stubCounter = vi.fn().mockImplementation((event) => {
+    const unsubCounter = d1.subscribe('$.counter', (event: any) => {
       eventCollectorForCounter.add(event.value.operations);
     });
-    const unsub = d1.subscribe(stub);
-    const unsubTodo = d1.subscribe('$.todos', stubTodo);
-    const unsubCounter = d1.subscribe('$.counter', stubCounter);
 
     d2.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
@@ -385,18 +384,15 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos0 = new EventCollector<EventForTest>();
     const eventCollectorForObjC1 = new EventCollector<EventForTest>();
-    const stub = vi.fn().mockImplementation((event) => {
+    const unsub = d1.subscribe((event: any) => {
       eventCollector.add(event.value.operations);
     });
-    const stubTodo = vi.fn().mockImplementation((event) => {
+    const unsubTodo = d1.subscribe('$.todos.0', (event: any) => {
       eventCollectorForTodos0.add(event.value.operations);
     });
-    const stubObj = vi.fn().mockImplementation((event) => {
+    const unsubObj = d1.subscribe('$.obj.c1', (event: any) => {
       eventCollectorForObjC1.add(event.value.operations);
     });
-    const unsub = d1.subscribe(stub);
-    const unsubTodo = d1.subscribe('$.todos.0', stubTodo);
-    const unsubObj = d1.subscribe('$.obj.c1', stubObj);
 
     d2.update((root) => {
       root.todos = [{ text: 'todo1', completed: false }];
@@ -465,8 +461,8 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
 
-    await c1.attach(d1, { isRealtimeSync: false });
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
 
     d1.update((root) => {
       root['k1'] = [1, 2];
@@ -590,13 +586,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 updates d1 and removes it.
@@ -629,13 +625,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 detaches d2.
@@ -663,13 +659,13 @@ describe('Document', function () {
     d1.update((root) => {
       root['k1'] = [1, 2];
     }, 'set array');
-    await c1.attach(d1, { isRealtimeSync: false });
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
     const c2 = new yorkie.Client(testRPCAddr);
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
-    await c2.attach(d2, { isRealtimeSync: false });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2]}');
 
     // 02. c1 removes d1 and c2 removes d2.
