@@ -13,7 +13,7 @@ export default defineConfig({
         {
           format: 'umd',
           name: 'yorkie',
-          entryFileNames: 'yorkie.js',
+          entryFileNames: 'yorkie-js-sdk.js',
         },
       ],
     },

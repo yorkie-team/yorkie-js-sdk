@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
+import dts from 'vite-plugin-dts';
 import commonjs from 'vite-plugin-commonjs';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   build: {
@@ -12,9 +13,13 @@ export default defineConfig({
     },
     outDir: 'dist',
     sourcemap: true,
+    minify: false,
     emptyOutDir: true,
   },
   plugins: [
+    dts({
+      rollupTypes: true,
+    }),
     commonjs(),
     tsconfigPaths({
       ignoreConfigErrors: true,
