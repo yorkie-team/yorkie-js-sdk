@@ -70,11 +70,14 @@ export class ChangeID {
    * `next` creates a next ID of this ID.
    */
   public next(): ChangeID {
+    const vector = this.versionVector.deepcopy();
+    vector.set(this.actor, this.lamport.add(1));
+
     return new ChangeID(
       this.clientSeq + 1,
       this.lamport.add(1),
       this.actor,
-      this.versionVector.deepcopy(),
+      vector,
     );
   }
 
