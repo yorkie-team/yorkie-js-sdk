@@ -579,7 +579,7 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  describe.skip('concurrently-edit-style-test', async () => {
+  describe('concurrently-edit-style-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [

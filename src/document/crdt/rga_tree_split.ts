@@ -437,9 +437,9 @@ export class RGATreeSplitNode<
   /**
    * `canDelete` checks if node is able to delete.
    */
-  public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+  public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
     return (
-      !this.getCreatedAt().after(latestCreatedAt) &&
+      !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
     );
   }
@@ -447,9 +447,9 @@ export class RGATreeSplitNode<
   /**
    * `canStyle` checks if node is able to set style.
    */
-  public canStyle(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+  public canStyle(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
     return (
-      !this.getCreatedAt().after(latestCreatedAt) &&
+      !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
     );
   }
@@ -532,14 +532,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    * @param range - range of RGATreeSplitNode
    * @param editedAt - edited time
    * @param value - value
-   * @param latestCreatedAtMapByActor - latestCreatedAtMapByActor
+   * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
    * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<Change>]`
    */
   public edit(
     range: RGATreeSplitPosRange,
     editedAt: TimeTicket,
     value?: T,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [RGATreeSplitPos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -547,8 +547,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const [changes, latestCreatedAtMap, removedNodeMapByNodeKey] =
-      this.deleteNodes(nodesToDelete, editedAt, latestCreatedAtMapByActor);
+    const [changes, maxCreatedAtMap, removedNodeMapByNodeKey] =
+      this.deleteNodes(nodesToDelete, editedAt, maxCreatedAtMapByActor);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitPos.of(caretID, 0);
@@ -584,7 +584,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       this.removedNodeMap.set(key, removedNode);
     }
 
-    return [caretPos, latestCreatedAtMap, changes];
+    return [caretPos, maxCreatedAtMap, changes];
   }
 
   /**
@@ -845,7 +845,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [
     Array<ValueChange<T>>,
     Map<string, TimeTicket>,
@@ -861,7 +861,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     const [nodesToDelete, nodesToKeep] = this.filterNodes(
       candidates,
       editedAt,
-      latestCreatedAtMapByActor,
+      maxCreatedAtMapByActor,
     );
 
     const createdAtMapByActor = new Map();
@@ -889,9 +889,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
   private filterNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>] {
-    const isRemote = !!latestCreatedAtMapByActor;
+    const isRemote = !!maxCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
 
@@ -901,13 +901,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
 
-      const latestCreatedAt = isRemote
-        ? latestCreatedAtMapByActor!.has(actorID)
-          ? latestCreatedAtMapByActor!.get(actorID)
+      const maxCreatedAt = isRemote
+        ? maxCreatedAtMapByActor!.has(actorID)
+          ? maxCreatedAtMapByActor!.get(actorID)
           : InitialTimeTicket
         : MaxTimeTicket;
 
-      if (node.canDelete(editedAt, latestCreatedAt!)) {
+      if (node.canDelete(editedAt, maxCreatedAt!)) {
         nodesToDelete.push(node);
       } else {
         nodesToKeep.push(node);

@@ -444,6 +444,10 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
     pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
+    const pbCreatedAtMapByActor = pbTreeStyleOperation.createdAtMapByActor;
+    for (const [key, value] of treeStyleOperation.getMaxCreatedAtMapByActor()) {
+      pbCreatedAtMapByActor[key] = toTimeTicket(value)!;
+    }
 
     const attributesToRemove = treeStyleOperation.getAttributesToRemove();
     if (attributesToRemove.length > 0) {
@@ -1177,6 +1181,12 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const pbTreeStyleOperation = pbOperation.body.value;
     const attributes = new Map();
     const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
+    const createdAtMapByActor = new Map();
+    Object.entries(pbTreeStyleOperation!.createdAtMapByActor).forEach(
+      ([key, value]) => {
+        createdAtMapByActor.set(key, fromTimeTicket(value));
+      },
+    );
 
     if (attributesToRemove.length > 0) {
       return TreeStyleOperation.createTreeRemoveStyleOperation(
@@ -1196,6 +1206,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
         fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeStyleOperation!.from!),
         fromTreePos(pbTreeStyleOperation!.to!),
+        createdAtMapByActor,
         attributes,
         fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );

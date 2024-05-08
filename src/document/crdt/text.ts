@@ -191,7 +191,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     content: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitPosRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
@@ -200,11 +200,11 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
-    const [caretPos, latestCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
+    const [caretPos, maxCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
       range,
       editedAt,
       crdtTextValue,
-      latestCreatedAtMapByActor,
+      maxCreatedAtMapByActor,
     );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
@@ -221,7 +221,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    return [latestCreatedAtMap, changes, [caretPos, caretPos]];
+    return [maxCreatedAtMap, changes, [caretPos, caretPos]];
   }
 
   /**
@@ -238,7 +238,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     range: RGATreeSplitPosRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
@@ -256,16 +256,16 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     for (const node of nodes) {
       const actorID = node.getCreatedAt().getActorID();
 
-      const latestCreatedAt = latestCreatedAtMapByActor?.size
-        ? latestCreatedAtMapByActor!.has(actorID)
-          ? latestCreatedAtMapByActor!.get(actorID)!
+      const maxCreatedAt = maxCreatedAtMapByActor?.size
+        ? maxCreatedAtMapByActor!.has(actorID)
+          ? maxCreatedAtMapByActor!.get(actorID)!
           : InitialTimeTicket
         : MaxTimeTicket;
 
-      if (node.canStyle(editedAt, latestCreatedAt)) {
-        const latestCreatedAt = createdAtMapByActor.get(actorID);
+      if (node.canStyle(editedAt, maxCreatedAt)) {
+        const maxCreatedAt = createdAtMapByActor.get(actorID);
         const createdAt = node.getCreatedAt();
-        if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
+        if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
           createdAtMapByActor.set(actorID, createdAt);
         }
         toBeStyleds.push(node);

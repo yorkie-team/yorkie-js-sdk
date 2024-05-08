@@ -279,13 +279,19 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [maxCreationMapByActor, change] = this.tree!.style(
+      [fromPos, toPos],
+      attrs,
+      ticket,
+      undefined,
+    );
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
@@ -313,13 +319,19 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [maxCreationMapByActor, change] = this.tree!.style(
+      [fromPos, toPos],
+      attrs,
+      ticket,
+      undefined,
+    );
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
