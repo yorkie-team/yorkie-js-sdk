@@ -116,7 +116,7 @@ export class TreeStyleOperation extends Operation {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      const [maxCreatedAtMapByActor, change] = tree.style(
+      const [, change] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
