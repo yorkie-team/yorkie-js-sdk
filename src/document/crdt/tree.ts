@@ -766,7 +766,9 @@ export class CRDTTree extends CRDTGCElement {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
-    const value = attributes ? parseObjectValues(attributes) : undefined;
+    const attrs: { [key: string]: any } = attributes
+      ? parseObjectValues(attributes)
+      : {};
     const createdAtMapByActor = new Map<string, TimeTicket>();
     this.traverseInPosRange(
       fromParent,
@@ -795,19 +797,32 @@ export class CRDTTree extends CRDTGCElement {
             node.attrs = new RHT();
           }
 
+          const affectedKeys = new Set<string>();
           for (const [key, value] of Object.entries(attributes)) {
-            node.attrs.set(key, value, editedAt);
+            if (node.attrs.set(key, value, editedAt)) {
+              affectedKeys.add(key);
+            }
           }
 
-          changes.push({
-            type: TreeChangeType.Style,
-            from: this.toIndex(fromParent, fromLeft),
-            to: this.toIndex(toParent, toLeft),
-            fromPath: this.toPath(fromParent, fromLeft),
-            toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID(),
-            value,
-          });
+          if (affectedKeys.size > 0) {
+            const affectedAttrs = Array.from(affectedKeys).reduce(
+              (acc: { [key: string]: any }, key) => {
+                acc[key] = attrs[key];
+                return acc;
+              },
+              {},
+            );
+
+            changes.push({
+              type: TreeChangeType.Style,
+              from: this.toIndex(fromParent, fromLeft),
+              to: this.toIndex(toParent, toLeft),
+              fromPath: this.toPath(fromParent, fromLeft),
+              toPath: this.toPath(toParent, toLeft),
+              actor: editedAt.getActorID(),
+              value: affectedAttrs,
+            });
+          }
         }
       },
     );

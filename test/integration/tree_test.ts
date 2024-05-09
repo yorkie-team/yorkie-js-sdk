@@ -4632,6 +4632,53 @@ describe('TreeChange', () => {
       );
     }, task.name);
   });
+
+  it('Concurrent style and style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      d1.update((r) => r.t.style(0, 1, { bold: 'true' }));
+      d2.update((r) => r.t.style(0, 1, { bold: 'false' }));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p bold="false">hello</p></doc>`,
+      );
+
+      assert.deepEqual(
+        ops1.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [
+          { type: 'tree-style', from: 0, to: 1, value: { bold: 'true' } },
+          { type: 'tree-style', from: 0, to: 1, value: { bold: 'false' } },
+        ],
+      );
+
+      assert.deepEqual(
+        ops2.map((it) => {
+          return { type: it.type, from: it.from, to: it.to, value: it.value };
+        }),
+        [{ type: 'tree-style', from: 0, to: 1, value: { bold: 'false' } }],
+      );
+    }, task.name);
+  });
 });
 
 function subscribeDocs(
