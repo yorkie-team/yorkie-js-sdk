@@ -102,7 +102,7 @@ export class RHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: string, executedAt: TimeTicket): void {
+  public set(key: string, value: string, executedAt: TimeTicket): boolean {
     const prev = this.nodeMapByKey.get(key);
 
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
@@ -111,7 +111,10 @@ export class RHT {
       }
       const node = RHTNode.of(key, value, executedAt, false);
       this.nodeMapByKey.set(key, node);
+      return true;
     }
+
+    return false;
   }
 
   /**
