@@ -757,7 +757,7 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -777,7 +777,7 @@ export class CRDTTree extends CRDTGCElement {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        let maxCreatedAt: TimeTicket | undefined = maxCreatedAtMapByActor
+        const maxCreatedAt: TimeTicket | undefined = maxCreatedAtMapByActor
           ? maxCreatedAtMapByActor!.has(actorID)
             ? maxCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
@@ -788,7 +788,7 @@ export class CRDTTree extends CRDTGCElement {
           !node.isText &&
           attributes
         ) {
-          maxCreatedAt = createdAtMapByActor!.get(actorID);
+          const maxCreatedAt = createdAtMapByActor!.get(actorID);
           const createdAt = node.getCreatedAt();
           if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
             createdAtMapByActor.set(actorID, createdAt);
