@@ -577,9 +577,19 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   /**
    * `canDelete` checks if node is able to delete.
    */
-  public canDelete(editedAt: TimeTicket, latestCreatedAt: TimeTicket): boolean {
+  public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
     return (
-      !this.getCreatedAt().after(latestCreatedAt) &&
+      !this.getCreatedAt().after(maxCreatedAt) &&
+      (!this.removedAt || editedAt.after(this.removedAt))
+    );
+  }
+
+  /**
+   * `canStyle` checks if node is able to style.
+   */
+  public canStyle(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
+    return (
+      !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
     );
   }
@@ -747,7 +757,8 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
-  ) {
+    maxCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
+  ): [Map<string, TimeTicket>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -756,13 +767,30 @@ export class CRDTTree extends CRDTGCElement {
 
     const changes: Array<TreeChange> = [];
     const value = attributes ? parseObjectValues(attributes) : undefined;
+    const createdAtMapByActor = new Map<string, TimeTicket>();
     this.traverseInPosRange(
       fromParent,
       fromLeft,
       toParent,
       toLeft,
       ([node]) => {
-        if (!node.isRemoved && !node.isText && attributes) {
+        const actorID = node.getCreatedAt().getActorID();
+        let maxCreatedAt: TimeTicket | undefined = maxCreatedAtMapByActor
+          ? maxCreatedAtMapByActor!.has(actorID)
+            ? maxCreatedAtMapByActor!.get(actorID)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
+
+        if (
+          node.canStyle(editedAt, maxCreatedAt) &&
+          !node.isText &&
+          attributes
+        ) {
+          maxCreatedAt = createdAtMapByActor!.get(actorID);
+          const createdAt = node.getCreatedAt();
+          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
+            createdAtMapByActor.set(actorID, createdAt);
+          }
           if (!node.attrs) {
             node.attrs = new RHT();
           }
@@ -784,7 +812,7 @@ export class CRDTTree extends CRDTGCElement {
       },
     );
 
-    return changes;
+    return [createdAtMapByActor, changes];
   }
 
   /**
@@ -844,7 +872,7 @@ export class CRDTTree extends CRDTGCElement {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
-    latestCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Array<TreeChange>, Map<string, TimeTicket>] {
     // 01. find nodes from the given range and split nodes.
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
@@ -859,7 +887,7 @@ export class CRDTTree extends CRDTGCElement {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
-    const latestCreatedAtMap = new Map<string, TimeTicket>();
+    const maxCreatedAtMap = new Map<string, TimeTicket>();
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -883,23 +911,23 @@ export class CRDTTree extends CRDTGCElement {
         }
 
         const actorID = node.getCreatedAt().getActorID();
-        const latestCreatedAt = latestCreatedAtMapByActor
-          ? latestCreatedAtMapByActor!.has(actorID)
-            ? latestCreatedAtMapByActor!.get(actorID)!
+        const maxCreatedAt = maxCreatedAtMapByActor
+          ? maxCreatedAtMapByActor!.has(actorID)
+            ? maxCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
           : MaxTimeTicket;
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
         if (
-          node.canDelete(editedAt, latestCreatedAt) ||
+          node.canDelete(editedAt, maxCreatedAt) ||
           nodesToBeRemoved.includes(node.parent!)
         ) {
-          const latestCreatedAt = latestCreatedAtMap.get(actorID);
+          const maxCreatedAt = maxCreatedAtMap.get(actorID);
           const createdAt = node.getCreatedAt();
 
-          if (!latestCreatedAt || createdAt.after(latestCreatedAt)) {
-            latestCreatedAtMap.set(actorID, createdAt);
+          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
+            maxCreatedAtMap.set(actorID, createdAt);
           }
 
           // NOTE(hackerwins): If the node overlaps as an end token with the
@@ -1003,7 +1031,7 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    return [changes, latestCreatedAtMap];
+    return [changes, maxCreatedAtMap];
   }
 
   /**

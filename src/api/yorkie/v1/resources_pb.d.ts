@@ -788,6 +788,11 @@ export declare class Operation_TreeStyle extends Message<Operation_TreeStyle> {
    */
   attributesToRemove: string[];
 
+  /**
+   * @generated from field: map<string, yorkie.v1.TimeTicket> created_at_map_by_actor = 7;
+   */
+  createdAtMapByActor: { [key: string]: TimeTicket };
+
   constructor(data?: PartialMessage<Operation_TreeStyle>);
 
   static readonly runtime: typeof proto3;
