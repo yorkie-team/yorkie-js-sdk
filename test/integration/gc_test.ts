@@ -743,4 +743,141 @@ describe('Garbage Collection', function () {
     assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
     assert.equal(doc.garbageCollect(MaxTimeTicket), 4); // The number of GC nodes must also be 4.
   });
+
+  it('Should work properly when there are multiple nodes to be collected in text type', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+
+    doc1.update((root) => {
+      root.t = new yorkie.Text();
+      root.t.edit(0, 0, 'z');
+    });
+    doc1.update((root) => {
+      root.t.edit(0, 1, 'a');
+    });
+    doc1.update((root) => {
+      root.t.edit(1, 1, 'b');
+    });
+    doc1.update((root) => {
+      root.t.edit(2, 2, 'd');
+    });
+    await client1.sync();
+    await client2.sync();
+    assert.equal(doc1.getRoot().t.toString(), 'abd');
+    assert.equal(doc2.getRoot().t.toString(), 'abd');
+    assert.equal(doc1.getGarbageLen(), 1); // z
+
+    doc1.update((root) => {
+      root.t.edit(2, 2, 'c');
+    });
+    await client1.sync();
+    await client2.sync();
+    await client2.sync();
+    assert.equal(doc1.getRoot().t.toString(), 'abcd');
+    assert.equal(doc2.getRoot().t.toString(), 'abcd');
+
+    doc1.update((root) => {
+      root.t.edit(1, 3, '');
+    });
+    await client1.sync();
+    assert.equal(doc1.getRoot().t.toString(), 'ad');
+    assert.equal(doc1.getGarbageLen(), 2); // b,c
+
+    await client2.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc2.getRoot().t.toString(), 'ad');
+    assert.equal(doc1.getGarbageLen(), 0);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
+
+  it('Should work properly when there are multiple nodes to be collected in tree type', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Tree };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+
+    doc1.update((root) => {
+      root.t = new yorkie.Tree({
+        type: 'r',
+        children: [
+          {
+            type: 'text',
+            value: 'z',
+          },
+        ],
+      });
+    });
+    doc1.update((root) => {
+      root.t.editByPath([0], [1], {
+        type: 'text',
+        value: 'a',
+      });
+    });
+    doc1.update((root) => {
+      root.t.editByPath([1], [1], {
+        type: 'text',
+        value: 'b',
+      });
+    });
+    doc1.update((root) => {
+      root.t.editByPath([2], [2], {
+        type: 'text',
+        value: 'd',
+      });
+    });
+    await client1.sync();
+    await client2.sync();
+    assert.equal(doc1.getRoot().t.toXML(), '<r>abd</r>');
+    assert.equal(doc2.getRoot().t.toXML(), '<r>abd</r>');
+    assert.equal(doc1.getGarbageLen(), 1); // z
+
+    doc1.update((root) => {
+      root.t.editByPath([2], [2], {
+        type: 'text',
+        value: 'c',
+      });
+    });
+    await client1.sync();
+    await client2.sync();
+    await client2.sync();
+    assert.equal(doc1.getRoot().t.toXML(), '<r>abcd</r>');
+    assert.equal(doc2.getRoot().t.toXML(), '<r>abcd</r>');
+
+    doc1.update((root) => {
+      root.t.editByPath([1], [3]);
+    });
+    await client1.sync();
+    assert.equal(doc1.getRoot().t.toXML(), '<r>ad</r>');
+    assert.equal(doc1.getGarbageLen(), 2); // b,c
+
+    await client2.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc2.getRoot().t.toXML(), '<r>ad</r>');
+    assert.equal(doc1.getGarbageLen(), 0);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
 });

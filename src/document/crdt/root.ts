@@ -278,7 +278,7 @@ export class CRDTRoot {
       const elem = pair.element as CRDTGCElement;
 
       const removedNodeCnt = elem.purgeRemovedNodesBefore(ticket);
-      if (removedNodeCnt > 0) {
+      if (elem.getRemovedNodesLen() === 0) {
         this.elementHasRemovedNodesSetByCreatedAt.delete(
           elem.getCreatedAt().toIDString(),
         );
