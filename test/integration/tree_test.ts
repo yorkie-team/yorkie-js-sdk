@@ -1231,6 +1231,27 @@ describe('Tree.style', function () {
     });
   });
 
+  it('Can style nested object', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'hello' }] }],
+      });
+      assert.equal(root.t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+    });
+
+    doc.update((root) =>
+      root.t.style(0, 1, { img: { src: 'yorkie.png' }, rep: 'false' }),
+    );
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p img="{\\"src\\":\\"yorkie.png\\"}" rep="false">hello</p></doc>`,
+    );
+  });
+
   it('Can sync its content containing attributes with other replicas', async function ({
     task,
   }) {

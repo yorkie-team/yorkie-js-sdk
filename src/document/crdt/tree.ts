@@ -777,7 +777,7 @@ export class CRDTTree extends CRDTGCElement {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        const maxCreatedAt: TimeTicket = maxCreatedAtMapByActor
+        const maxCreatedAt = maxCreatedAtMapByActor
           ? maxCreatedAtMapByActor!.has(actorID)
             ? maxCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
