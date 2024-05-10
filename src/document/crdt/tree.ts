@@ -21,6 +21,7 @@ import {
   MaxTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
+
 import {
   IndexTree,
   TreePos,
@@ -40,6 +41,7 @@ import type {
 } from '@yorkie-js-sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -588,10 +590,35 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
    * `canStyle` checks if node is able to style.
    */
   public canStyle(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
+    if (this.isText) {
+      return false;
+    }
+
     return (
       !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
     );
+  }
+
+  /**
+   * `setAttrs` sets the attributes of the node.
+   */
+  public setAttrs(
+    attrs: { [key: string]: string },
+    editedAt: TimeTicket,
+  ): Set<string> {
+    if (!this.attrs) {
+      this.attrs = new RHT();
+    }
+
+    const affectedKeys = new Set<string>();
+    for (const [key, value] of Object.entries(attrs)) {
+      if (this.attrs.set(key, value, editedAt)) {
+        affectedKeys.add(key);
+      }
+    }
+
+    return affectedKeys;
   }
 }
 
@@ -625,7 +652,24 @@ export function toXML(node: CRDTTreeNode): string {
     return currentNode.value;
   }
 
-  return `<${node.type}${node.attrs?.toXML() || ''}>${node.children
+  let attrs = '';
+  if (node.attrs && node.attrs.size()) {
+    attrs =
+      ' ' +
+      Array.from(node.attrs)
+        .filter((n) => !n.isRemoved())
+        .sort((a, b) => a.getKey().localeCompare(b.getKey()))
+        .map((n) => {
+          const obj = JSON.parse(n.getValue());
+          if (typeof obj === 'string') {
+            return `${n.getKey()}="${obj}"`;
+          }
+          return `${n.getKey()}="${escapeString(n.getValue())}"`;
+        })
+        .join(' ');
+  }
+
+  return `<${node.type}${attrs}>${node.children
     .map((child) => toXML(child))
     .join('')}</${node.type}>`;
 }
@@ -757,7 +801,7 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
   ): [Map<string, TimeTicket>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -777,33 +821,20 @@ export class CRDTTree extends CRDTGCElement {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        let maxCreatedAt: TimeTicket | undefined = maxCreatedAtMapByActor
+        const maxCreatedAt = maxCreatedAtMapByActor
           ? maxCreatedAtMapByActor!.has(actorID)
             ? maxCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
           : MaxTimeTicket;
 
-        if (
-          node.canStyle(editedAt, maxCreatedAt) &&
-          !node.isText &&
-          attributes
-        ) {
-          maxCreatedAt = createdAtMapByActor!.get(actorID);
+        if (node.canStyle(editedAt, maxCreatedAt) && attributes) {
+          const maxCreatedAt = createdAtMapByActor!.get(actorID);
           const createdAt = node.getCreatedAt();
           if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
             createdAtMapByActor.set(actorID, createdAt);
           }
-          if (!node.attrs) {
-            node.attrs = new RHT();
-          }
 
-          const affectedKeys = new Set<string>();
-          for (const [key, value] of Object.entries(attributes)) {
-            if (node.attrs.set(key, value, editedAt)) {
-              affectedKeys.add(key);
-            }
-          }
-
+          const affectedKeys = node.setAttrs(attributes, editedAt);
           if (affectedKeys.size > 0) {
             const affectedAttrs = Array.from(affectedKeys).reduce(
               (acc: { [key: string]: any }, key) => {

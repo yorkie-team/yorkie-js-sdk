@@ -19,6 +19,7 @@ import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
   InitialTimeTicket as ITT,
+  MaxTimeTicket as MTT,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
@@ -32,6 +33,7 @@ import {
   toXML,
   TreeNodeForTest,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 
 /**
  * `idT` is a dummy CRDTTreeNodeID for testing.
@@ -88,6 +90,30 @@ describe('CRDTTreeNode', function () {
     assert.equal(right!.value, 'yorkie');
     assert.deepEqual(left.id, CRDTTreeNodeID.of(ITT, 0));
     assert.deepEqual(right!.id, CRDTTreeNodeID.of(ITT, 5));
+  });
+
+  it('Can convert to XML', function () {
+    const text = new CRDTTreeNode(idT, 'text', 'hello');
+    assert.equal(toXML(text), 'hello');
+
+    const elem = new CRDTTreeNode(idT, 'p', []);
+    elem.append(text);
+    assert.equal(toXML(elem), /*html*/ `<p>hello</p>`);
+
+    const elemWithAttrs = new CRDTTreeNode(idT, 'p', []);
+    elemWithAttrs.append(text);
+    elemWithAttrs.setAttrs({ b: '"t"', i: 'true' }, MTT);
+    assert.equal(toXML(elemWithAttrs), /*html*/ `<p b="t" i="true">hello</p>`);
+
+    elemWithAttrs.setAttrs(
+      stringifyObjectValues({ img: { src: 'yorkie.png' } }),
+      MTT,
+    );
+
+    assert.equal(
+      toXML(elemWithAttrs),
+      /*html*/ `<p b="t" i="true" img="{\\"src\\":\\"yorkie.png\\"}">hello</p>`,
+    );
   });
 });
 
