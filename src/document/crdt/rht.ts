@@ -200,28 +200,6 @@ export class RHT {
   }
 
   /**
-   * `toXML` converts the given RHT to XML string.
-   */
-  public toXML(): string {
-    if (!this.size()) {
-      return '';
-    }
-
-    const attrs = [...this.nodeMapByKey]
-      .filter(([, v]) => v instanceof RHTNode && !v.isRemoved())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([k, v]) => {
-        const obj = JSON.parse(v.getValue());
-        if (typeof obj === 'string') {
-          return `${k}="${obj}"`;
-        }
-        return `${k}="${escapeString(v.getValue())}"`;
-      });
-
-    return ` ${attrs.join(' ')}`;
-  }
-
-  /**
    * `size` returns the size of RHT
    */
   public size(): number {
