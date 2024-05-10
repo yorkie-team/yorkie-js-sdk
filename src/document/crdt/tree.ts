@@ -757,7 +757,7 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    maxCreatedAtMapByActor: Map<string, TimeTicket> | undefined,
   ): [Map<string, TimeTicket>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -766,9 +766,7 @@ export class CRDTTree extends CRDTGCElement {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
-    const attrs: { [key: string]: any } = attributes
-      ? parseObjectValues(attributes)
-      : {};
+    const value = attributes ? parseObjectValues(attributes) : undefined;
     const createdAtMapByActor = new Map<string, TimeTicket>();
     this.traverseInPosRange(
       fromParent,
@@ -777,7 +775,7 @@ export class CRDTTree extends CRDTGCElement {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        const maxCreatedAt: TimeTicket = maxCreatedAtMapByActor
+        let maxCreatedAt: TimeTicket | undefined = maxCreatedAtMapByActor
           ? maxCreatedAtMapByActor!.has(actorID)
             ? maxCreatedAtMapByActor!.get(actorID)!
             : InitialTimeTicket
@@ -788,7 +786,7 @@ export class CRDTTree extends CRDTGCElement {
           !node.isText &&
           attributes
         ) {
-          const maxCreatedAt = createdAtMapByActor!.get(actorID);
+          maxCreatedAt = createdAtMapByActor!.get(actorID);
           const createdAt = node.getCreatedAt();
           if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
             createdAtMapByActor.set(actorID, createdAt);
@@ -797,32 +795,19 @@ export class CRDTTree extends CRDTGCElement {
             node.attrs = new RHT();
           }
 
-          const affectedKeys = new Set<string>();
           for (const [key, value] of Object.entries(attributes)) {
-            if (node.attrs.set(key, value, editedAt)) {
-              affectedKeys.add(key);
-            }
+            node.attrs.set(key, value, editedAt);
           }
 
-          if (affectedKeys.size > 0) {
-            const affectedAttrs = Array.from(affectedKeys).reduce(
-              (acc: { [key: string]: any }, key) => {
-                acc[key] = attrs[key];
-                return acc;
-              },
-              {},
-            );
-
-            changes.push({
-              type: TreeChangeType.Style,
-              from: this.toIndex(fromParent, fromLeft),
-              to: this.toIndex(toParent, toLeft),
-              fromPath: this.toPath(fromParent, fromLeft),
-              toPath: this.toPath(toParent, toLeft),
-              actor: editedAt.getActorID(),
-              value: affectedAttrs,
-            });
-          }
+          changes.push({
+            type: TreeChangeType.Style,
+            from: this.toIndex(fromParent, fromLeft),
+            to: this.toIndex(toParent, toLeft),
+            fromPath: this.toPath(fromParent, fromLeft),
+            toPath: this.toPath(toParent, toLeft),
+            actor: editedAt.getActorID(),
+            value,
+          });
         }
       },
     );

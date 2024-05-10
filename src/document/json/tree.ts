@@ -283,7 +283,6 @@ export class Tree {
       [fromPos, toPos],
       attrs,
       ticket,
-      undefined,
     );
 
     this.context.push(
