@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Multi Example</title>
+    <link
+      href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.1.0/dist/quill-cursors.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/color-hash@1.0.3/dist/color-hash.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/short-unique-id@4.4.4/dist/short-unique-id.min.js"></script>
+  </head>
+  <body>
+    <div>
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
+      <div class="counter">
+        <h2>Counter</h2>
+        <button class="increaseButton">
+          count is <span class="count"></span>
+        </button>
+      </div>
+      <h2>Todo List</h2>
+      <div class="todos">
+        <ul class="todoList"></ul>
+        <div class="todoNew">
+          <input type="text" class="todoInput" placeholder="enter.." />
+          <button class="addButton">+</button>
+        </div>
+      </div>
+      <h2>Quill Editor</h2>
+      <div id="editor"></div>
+      <h2>yorkie document</h2>
+      <pre style="white-space: pre-wrap" id="log-holder"></pre>
+    </div>
+    <script src="./yorkie-js-sdk.js"></script>
+    <script src="./util.js"></script>
+    <script>
+      const statusHolder = document.getElementById('network-status');
+      const placeholder = document.getElementById('placeholder');
+      const onlineClientsHolder = document.getElementById('online-clients');
+      const logHolder = document.getElementById('log-holder');
+      const shortUniqueID = new ShortUniqueId();
+      const colorHash = new ColorHash();
+      const counter = document.querySelector('.count');
+      const counterIncreaseButton = document.querySelector('.increaseButton');
+      const todoList = document.querySelector('.todoList');
+      const todoInput = document.querySelector('.todoInput');
+      const addTodoButton = document.querySelector('.addButton');
+
+      function toDeltaOperation(textValue) {
+        const { embed, ...restAttributes } = textValue.attributes ?? {};
+
+        if (embed) {
+          return { insert: JSON.parse(embed), attributes: restAttributes };
+        }
+
+        return {
+          insert: textValue.content || '',
+          attributes: textValue.attributes,
+        };
+      }
+
+      function displayOnlineClients(presences, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of presences) {
+          usernames.push(
+            myClientID === clientID
+              ? `<b>${presence.username}</b>`
+              : presence.username,
+          );
+        }
+        onlineClientsHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      async function main() {
+        try {
+          // 01-1. create client with RPCAddr.
+          const client = new yorkie.Client('http://localhost:8080');
+          // 01-2. activate client
+          await client.activate();
+
+          // 02. create a document then attach it into the client.
+          const doc = new yorkie.Document('multi-example', {
+            enableDevtools: true,
+          });
+          doc.subscribe('connection', new Network(statusHolder).statusListener);
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') return;
+            displayOnlineClients(doc.getPresences(), client.getID());
+          });
+
+          doc.subscribe((event) => {
+            console.log('🟢 doc event', event);
+            if (event.type === 'snapshot') {
+              // The text is replaced to snapshot and must be re-synced.
+              syncText();
+            }
+            displayLog();
+          });
+
+          function displayLog() {
+            logHolder.innerHTML = JSON.stringify(doc.getRoot().toJS(), null, 2);
+          }
+
+          await client.attach(doc, {
+            initialPresence: { username: `user-${shortUniqueID()}` },
+          });
+
+          doc.update((root) => {
+            if (!root.counter) {
+              root.counter = new yorkie.Counter(yorkie.IntType, 0);
+              root.todos = [];
+              root.content = new yorkie.Text();
+              root.content.edit(0, 0, '\n');
+              root.obj = {
+                name: 'josh',
+                age: 14,
+                food: ['🍇', '🍌', '🍏'],
+                score: {
+                  english: 80,
+                  math: 90,
+                },
+              };
+              root.obj.score = { science: 100 };
+              delete root.obj.food;
+            }
+          }, 'initaialize doc');
+
+          // 03. Counter example
+          doc.subscribe('$.counter', (event) => {
+            console.log('🟣 counter event', event);
+            displayCount();
+          });
+
+          const displayCount = () => {
+            counter.textContent = doc.getValueByPath('$.counter').getValue();
+            // you can also get the value as follows:
+            // doc.getRoot().counter.getValue();
+          };
+
+          counterIncreaseButton.onclick = () => {
+            doc.update((root) => {
+              root.counter.increase(1);
+            });
+          };
+
+          // 04. Todo example
+          doc.subscribe('$.todos', (event) => {
+            console.log('🟡 todos event', event);
+
+            const { message, operations } = event.value;
+            for (const op of operations) {
+              const { type, path, index } = op;
+              switch (type) {
+                case 'add':
+                  const value = doc.getValueByPath(`${path}.${index}`);
+                  addTodo(value);
+                  break;
+                default:
+                  displayTodos();
+                  break;
+              }
+            }
+
+            if (event.type === 'local-change') {
+              todoInput.value = '';
+              todoInput.focus();
+            }
+          });
+
+          function displayTodos() {
+            todoList.innerHTML = '';
+            doc.getValueByPath('$.todos').forEach((todo) => {
+              addTodo(todo);
+            });
+          }
+
+          function addTodo(text) {
+            const newTodo = document.createElement('li');
+            newTodo.classList.add('todoItem');
+            newTodo.innerHTML = `
+              <button class="moveUp">⬆</button>
+              <button class="moveDown">⬇</button>
+              <span class="itemName">${text}</span>
+              <button class="trash">🗑</button></li>
+            `;
+            todoList.appendChild(newTodo);
+          }
+          function handleAddTodo() {
+            const text = todoInput.value;
+            if (text === '') {
+              todoInput.focus();
+              return;
+            }
+            doc.update((root) => {
+              root.todos.push(text);
+            });
+          }
+
+          addTodoButton.addEventListener('click', handleAddTodo);
+          todoInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+              handleAddTodo();
+            }
+          });
+          todoList.addEventListener('click', function (e) {
+            if (e.target.classList.contains('trash')) {
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
+              doc.update((root) => {
+                const todoID = root.todos.getElementByIndex(idx).getID();
+                root.todos.deleteByID(todoID);
+              });
+              return;
+            }
+            if (e.target.classList.contains('moveUp')) {
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
+              if (idx === 0) return;
+              doc.update((root) => {
+                const nextItem = root.todos.getElementByIndex(idx - 1);
+                const currItem = root.todos.getElementByIndex(idx);
+                root.todos.moveBefore(nextItem.getID(), currItem.getID());
+              });
+              return;
+            }
+            if (e.target.classList.contains('moveDown')) {
+              const li = e.target.parentNode;
+              const idx = Array.from(li.parentNode.children).indexOf(li);
+              if (idx === doc.getRoot().todos.length - 1) return;
+              doc.update((root) => {
+                const prevItem = root.todos.getElementByIndex(idx + 1);
+                const currItem = root.todos.getElementByIndex(idx);
+                root.todos.moveAfter(prevItem.getID(), currItem.getID());
+              });
+              return;
+            }
+          });
+
+          // 05. Quill example
+          doc.subscribe('$.content', (event) => {
+            console.log('🔵 quill event', event);
+            if (event.type === 'remote-change') {
+              const { actor, message, operations } = event.value;
+              handleOperations(operations, actor);
+            }
+          });
+          doc.subscribe('others', (event) => {
+            if (event.type === 'unwatched') {
+              cursors.removeCursor(event.value.presence.username);
+            } else if (event.type === 'presence-changed') {
+              displayRemoteCursor(event.value);
+            }
+          });
+
+          Quill.register('modules/cursors', QuillCursors);
+          const quill = new Quill('#editor', {
+            modules: {
+              toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ header: 1 }, { header: 2 }],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                [{ script: 'sub' }, { script: 'super' }],
+                [{ indent: '-1' }, { indent: '+1' }],
+                [{ direction: 'rtl' }],
+                [{ size: ['small', false, 'large', 'huge'] }],
+                [{ header: [1, 2, 3, 4, 5, 6, false] }],
+                [{ color: [] }, { background: [] }],
+                [{ font: [] }],
+                [{ align: [] }],
+                ['image', 'video'],
+                ['clean'],
+              ],
+              cursors: true,
+            },
+            theme: 'snow',
+          });
+          const cursors = quill.getModule('cursors');
+          function displayRemoteCursor(user) {
+            const {
+              clientID: id,
+              presence: { username, selection },
+            } = user;
+            if (!selection || id === client.getID()) return;
+            const range = doc.getRoot().content.posRangeToIndexRange(selection);
+            cursors.createCursor(username, username, colorHash.hex(username));
+            cursors.moveCursor(username, {
+              index: range[0],
+              length: range[1] - range[0],
+            });
+          }
+
+          // 05-1. Quill to Document.
+          quill
+            .on('text-change', (delta, _, source) => {
+              if (source === 'api' || !delta.ops) {
+                return;
+              }
+
+              let from = 0,
+                to = 0;
+              console.log(
+                `%c quill: ${JSON.stringify(delta.ops)}`,
+                'color: green',
+              );
+              for (const op of delta.ops) {
+                if (op.attributes !== undefined || op.insert !== undefined) {
+                  if (op.retain !== undefined) {
+                    to = from + op.retain;
+                  }
+                  console.log(
+                    `%c local: ${from}-${to}: ${op.insert} ${
+                      op.attributes ? JSON.stringify(op.attributes) : '{}'
+                    }`,
+                    'color: green',
+                  );
+
+                  doc.update((root, presence) => {
+                    let range;
+                    if (
+                      op.attributes !== undefined &&
+                      op.insert === undefined
+                    ) {
+                      root.content.setStyle(from, to, op.attributes);
+                    } else if (op.insert !== undefined) {
+                      if (to < from) {
+                        to = from;
+                      }
+
+                      if (typeof op.insert === 'object') {
+                        range = root.content.edit(from, to, ' ', {
+                          embed: JSON.stringify(op.insert),
+                          ...op.attributes,
+                        });
+                      } else {
+                        range = root.content.edit(
+                          from,
+                          to,
+                          op.insert,
+                          op.attributes,
+                        );
+                      }
+                      from = to + op.insert.length;
+                    }
+
+                    if (range) {
+                      presence.set({
+                        selection: root.content.indexRangeToPosRange(range),
+                      });
+                    }
+                  }, `update style by ${client.getID()}`);
+                } else if (op.delete !== undefined) {
+                  to = from + op.delete;
+                  console.log(`%c local: ${from}-${to}: ''`, 'color: green');
+
+                  doc.update((root, presence) => {
+                    const range = root.content.edit(from, to, '');
+                    if (range) {
+                      presence.set({
+                        selection: root.content.indexRangeToPosRange(range),
+                      });
+                    }
+                  }, `update content by ${client.getID()}`);
+                } else if (op.retain !== undefined) {
+                  from = to + op.retain;
+                  to = from;
+                }
+              }
+            })
+            .on('selection-change', (range, _, source) => {
+              if (source === 'api' || !range) {
+                return;
+              }
+
+              doc.update((root, presence) => {
+                presence.set({
+                  selection: root.content.indexRangeToPosRange([
+                    range.index,
+                    range.index + range.length,
+                  ]),
+                });
+              }, `update selection by ${client.getID()}`);
+            });
+
+          // 05-2. Document to Quill(remote).
+          function handleOperations(ops, actor) {
+            const deltaOperations = [];
+            let prevTo = 0;
+            for (const op of ops) {
+              const actorName = doc.getPresence(actor).username;
+              const from = op.from;
+              const to = op.to;
+              const retainFrom = from - prevTo;
+              const retainTo = to - from;
+
+              if (op.type === 'edit') {
+                const { insert, attributes } = toDeltaOperation(op.value);
+                console.log(
+                  `%c remote: ${from}-${to}: ${insert}`,
+                  'color: skyblue',
+                );
+
+                if (retainFrom) {
+                  deltaOperations.push({ retain: retainFrom });
+                }
+                if (retainTo) {
+                  deltaOperations.push({ delete: retainTo });
+                }
+                if (insert) {
+                  const deltaOp = { insert };
+                  if (attributes) {
+                    deltaOp.attributes = attributes;
+                  }
+                  deltaOperations.push(deltaOp);
+                }
+              } else if (op.type === 'style') {
+                const { attributes } = toDeltaOperation(op.value);
+                console.log(
+                  `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
+                  'color: skyblue',
+                );
+
+                if (retainFrom) {
+                  deltaOperations.push({ retain: retainFrom });
+                }
+                if (attributes) {
+                  const deltaOp = { attributes };
+                  if (retainTo) {
+                    deltaOp.retain = retainTo;
+                  }
+
+                  deltaOperations.push(deltaOp);
+                }
+              }
+
+              prevTo = to;
+            }
+
+            if (deltaOperations.length) {
+              console.log(
+                `%c to quill: ${JSON.stringify(deltaOperations)}`,
+                'color: green',
+              );
+              quill.updateContents({ ops: deltaOperations }, 'api');
+            }
+          }
+
+          // 05-3. synchronize text of document and Quill.
+          function syncText() {
+            const text = doc.getRoot().content;
+            const delta = {
+              ops: text.values().map((val) => toDeltaOperation(val)),
+            };
+            quill.setContents(delta, 'api');
+          }
+
+          syncText();
+          displayCount();
+          displayTodos();
+          displayLog();
+          for (const user of doc.getPresences()) {
+            displayRemoteCursor(user);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

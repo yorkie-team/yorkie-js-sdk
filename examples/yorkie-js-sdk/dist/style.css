@@ -1,0 +1,196 @@
+/* ============== RESET CSS ============= */
+/* prettier-ignore */
+html, body, div, span, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a,  address, cite, code,
+del, dfn, em, img,  strong, sub,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header, hgroup,
+menu, nav, output, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+  box-sizing: border-box;
+}
+ol,
+ul {
+  list-style: none;
+}
+
+/* ============= COMMON CSS ============= */
+body {
+  margin: 8px;
+  background: white;
+}
+
+button {
+  display: inline-flex;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+}
+
+#network-status,
+.network-status,
+#online-clients,
+#log-holder {
+  margin: 1rem;
+  font-family: monospace;
+}
+#network-status:before,
+.network-status:before {
+  content: 'network: ';
+}
+#online-clients:before {
+  content: 'online-clients: ';
+}
+#log-holder:before {
+  content: 'root: ';
+}
+#network-status span,
+.network-status span {
+  display: inline-block;
+  height: 0.8rem;
+  width: 0.8rem;
+  border-radius: 0.4rem;
+}
+#network-status .green,
+.network-status .green {
+  background-color: green;
+}
+#network-status .red,
+.network-status .red {
+  background-color: red;
+}
+
+/* ============= quill.html ============= */
+
+.ql-editor {
+  min-height: 300px;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+#document,
+#document-text {
+  margin: 1rem;
+  font-family: monospace;
+}
+
+#document:before {
+  display: block;
+  content: 'document: ';
+}
+
+#document-text:before {
+  display: block;
+  content: 'text: ';
+}
+
+/* ============ counter.html ============ */
+
+.counter-wrap {
+  display: flex;
+  align-items: center;
+  margin: 1em 0;
+  padding: 2em;
+  border-radius: 1em;
+  border: 1px solid black;
+}
+
+#counter {
+  display: inline-block;
+  margin-right: 2rem;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+#increaseButton,
+#decreaseButton {
+  margin-right: 1em;
+  width: 30px;
+  height: 30px;
+}
+
+/* ============= multi.html ============= */
+
+h2 {
+  margin: 1.6em 0 0.4em;
+  font-weight: bold;
+  font-size: 24px;
+}
+
+.increaseButton {
+  display: inline-block;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0.6em 1.2em;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.todos {
+  width: 300px;
+  background: #efefef;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #ddd;
+}
+.todoList {
+  margin: 0;
+  padding: 8px 0;
+  height: 160px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.todoList li {
+  display: flex;
+  padding: 10px;
+  font-size: 0.9em;
+}
+.todoList li:hover,
+.todoList li:focus {
+  background: #e2e2e2;
+}
+.todoList li .itemName {
+  padding: 0 10px;
+  flex: 1;
+  word-break: break-all;
+}
+.todoList .trash {
+  background: transparent;
+  border: none;
+}
+.todoList .moveUp,
+.todoList .moveDown {
+  background: #fff;
+  border-radius: 10px;
+  border: none;
+  margin-right: 4px;
+  color: #666;
+}
+.todoList .trash:hover,
+.todoList .moveUp:hover,
+.todoList .moveDown:hover {
+  scale: 1.1;
+}
+.todoNew {
+  display: flex;
+  border-top: 1px solid #ddd;
+}
+.todoNew .addButton {
+  border: none;
+  padding: 0 10px;
+}
+.todoInput {
+  display: inline-block;
+  flex: 1;
+  padding: 0 20px;
+  height: 30px;
+  border: none;
+  outline: none;
+}

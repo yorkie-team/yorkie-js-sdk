@@ -1,0 +1,119 @@
+.whiteboard-example {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.dev-log-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 350px);
+}
+.dev-log {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.dev-log .log-holders {
+  padding: 10px;
+}
+.dev-log .log-holders,
+.dev-log .log-holder-wrap,
+.dev-log .log-holder {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.log-holder-wrap h2 {
+  margin: 10px 0;
+}
+.log-holder-wrap .stack-count {
+  font-weight: normal;
+  font-size: 14px;
+}
+.dev-log-wrap .network {
+  margin-top: 10px;
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 350px;
+}
+.canvas .toolbar {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.toolbar button {
+  margin: 2px;
+  padding: 4px 6px;
+  color: #666;
+}
+.canvas .shapes {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #eee;
+  overflow: hidden;
+}
+.canvas .shape {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-style: solid;
+  border-width: 2px;
+}
+.selection-tools {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  right: 4px;
+  background: #fff;
+  padding: 6px;
+  border-radius: 4px;
+  justify-content: center;
+  gap: 4px;
+}
+.selection-tools .color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 120px;
+}
+.selection-tools .color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  margin: 4px;
+  border: 1px solid #ddd;
+}
+.selection-tools .color:nth-child(1) {
+  background: orangered;
+}
+.selection-tools .color:nth-child(2) {
+  background: gold;
+}
+.selection-tools .color:nth-child(3) {
+  background: limegreen;
+}
+.selection-tools .color:nth-child(4) {
+  background: dodgerblue;
+}
+.selection-tools .color:nth-child(5) {
+  background: darkviolet;
+}
+.selection-tools .color:nth-child(6) {
+  background: darkorange;
+}
+.selection-tools .color:nth-child(7) {
+  background: dimgray;
+}
+.selection-tools .color:nth-child(8) {
+  background: white;
+}

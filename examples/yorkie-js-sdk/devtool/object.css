@@ -1,0 +1,147 @@
+.devtool-root-holder,
+.devtool-ops-holder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: scroll;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.devtool-root-holder .object-content {
+  margin-left: 24px;
+}
+
+.devtool-root-holder .object-key-val,
+.devtool-root-holder .object-val {
+  position: relative;
+}
+
+.devtool-root-holder .object-key-val:not(:last-of-type):before,
+.devtool-root-holder .object-val:not(:last-of-type):before {
+  border: 1px dashed #ddd;
+  border-width: 0 0 0 1px;
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: -18px;
+  top: 12px;
+}
+
+.devtool-root-holder .object-key-val:after,
+.devtool-root-holder .object-val:after {
+  border-bottom: 1px dashed #ddd;
+  border-left: 1px dashed #ddd;
+  border-radius: 0 0 0 4px;
+  border-right: 0 dashed #ddd;
+  border-top: 0 dashed #ddd;
+  content: '';
+  height: 16px;
+  position: absolute;
+  top: 0;
+  width: 16px;
+  height: 32px;
+  top: -16px;
+  left: -18px;
+}
+
+.devtool-root-holder > .object-key-val:after,
+.devtool-root-holder > .object-val:after {
+  content: none;
+}
+
+.devtool-root-holder .object-val > span,
+.devtool-root-holder .object-key-val > span,
+.devtool-root-holder .object-val label,
+.devtool-root-holder .object-key-val label {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0 !important;
+  line-height: 1.72;
+  margin-bottom: 16px;
+  padding: 6px 8px;
+}
+
+.devtool-root-holder label {
+  cursor: pointer;
+}
+
+.devtool-root-holder .object-key-val label:before {
+  content: '▾';
+  margin-right: 4px;
+}
+
+.devtool-root-holder input[type='checkbox']:checked + label:before {
+  content: '▸';
+}
+
+.devtool-root-holder input[type='checkbox']:checked ~ .object-content {
+  display: none;
+}
+
+.devtool-root-holder input[type='checkbox'] {
+  display: none;
+}
+
+.devtool-root-holder .timeticket,
+.devtool-ops-holder .timeticket {
+  border-radius: 4px;
+  background: #f1f2f3;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 2px 6px;
+  margin-left: 4px;
+  letter-spacing: 1px;
+}
+
+.devtool-ops-holder .change {
+  display: flex;
+  margin-bottom: 3px;
+  border-top: 1px solid #ddd;
+  word-break: break-all;
+}
+.devtool-ops-holder label {
+  position: relative;
+  overflow: hidden;
+  padding-left: 24px;
+  cursor: pointer;
+  line-height: 1.6;
+}
+.devtool-ops-holder input[type='checkbox']:checked + label {
+  height: 22px;
+}
+.devtool-ops-holder input[type='checkbox'] {
+  display: none;
+}
+.devtool-ops-holder .count {
+  position: absolute;
+  left: 0px;
+  display: flex;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
+}
+.devtool-ops-holder .op {
+  display: block;
+}
+.devtool-ops-holder .op:first-child {
+  display: inline-block;
+}
+.devtool-ops-holder .op .type {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #e6e6fa;
+}
+.devtool-ops-holder .op .type.set {
+  background: #cff7cf;
+}
+.devtool-ops-holder .op .type.remove {
+  background: #f9c0c8;
+}
+.devtool-ops-holder .op .type.add {
+  background: #add8e6;
+}
