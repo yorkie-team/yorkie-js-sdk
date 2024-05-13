@@ -26,11 +26,6 @@ async function main() {
   });
   await client.activate();
 
-  // subscribe peer change event
-  client.subscribe((event) => {
-    network.statusListener(networkStatusElem)(event);
-  });
-
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc>(
     `codemirror6-${new Date()
@@ -41,6 +36,9 @@ async function main() {
       enableDevtools: true,
     },
   );
+  doc.subscribe('connection', (event) => {
+    network.statusListener(networkStatusElem)(event);
+  });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
       displayPeers(peersElem, doc.getPresences(), client.getID()!);

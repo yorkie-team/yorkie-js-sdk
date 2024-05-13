@@ -1,10 +1,4 @@
-import {
-  ClientEvent,
-  ClientEventType,
-  ClientStatus,
-  StreamConnectionStatus,
-  DocumentSyncResultType,
-} from 'yorkie-js-sdk';
+import { DocEvent, StreamConnectionStatus } from 'yorkie-js-sdk';
 export const network = {
   isOnline: false,
   showOffline: (elem: HTMLElement) => {
@@ -16,26 +10,15 @@ export const network = {
     elem.innerHTML = '<span class="green"> </span>';
   },
   statusListener: (elem: HTMLElement) => {
-    return (event: ClientEvent) => {
+    return (event: DocEvent) => {
       if (
         network.isOnline &&
-        ((event.type == ClientEventType.StatusChanged &&
-          event.value == ClientStatus.Deactivated) ||
-          (event.type == ClientEventType.StreamConnectionStatusChanged &&
-            event.value == StreamConnectionStatus.Disconnected) ||
-          (event.type == ClientEventType.DocumentSynced &&
-            event.value == DocumentSyncResultType.SyncFailed))
+        event.value == StreamConnectionStatus.Disconnected
       ) {
         network.showOffline(elem);
       } else if (
         !network.isOnline &&
-        ((event.type == ClientEventType.StatusChanged &&
-          event.value == ClientStatus.Activated) ||
-          (event.type == ClientEventType.StreamConnectionStatusChanged &&
-            event.value == StreamConnectionStatus.Connected) ||
-          (event.type == ClientEventType.DocumentSynced &&
-            event.value == DocumentSyncResultType.Synced) ||
-          event.type == ClientEventType.DocumentChanged)
+        event.value == StreamConnectionStatus.Connected
       ) {
         network.showOnline(elem);
       }
