@@ -45,14 +45,12 @@ async function main() {
   });
   await client.activate();
 
-  // 01-2. subscribe client event.
-  client.subscribe((event) => {
-    network.statusListener(networkStatusElem)(event);
-  });
-
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey, {
     enableDevtools: true,
+  });
+  doc.subscribe('connection', (event) => {
+    network.statusListener(networkStatusElem)(event);
   });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
