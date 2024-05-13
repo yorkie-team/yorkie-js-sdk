@@ -569,7 +569,7 @@ describe.sequential('Client', function () {
     assert.equal(d1.getRoot().tree.toXML(), '<doc><p>12</p><p>34</p></doc>');
     assert.equal(d2.getRoot().tree.toXML(), '<doc><p>12</p><p>34</p></doc>');
 
-    d1.update((root: any) => {
+    d1.update((root) => {
       root.tree.edit(2, 2, { type: 'text', value: 'a' });
     });
     await c1.sync();
@@ -595,7 +595,7 @@ describe.sequential('Client', function () {
 
     c2.changeSyncMode(d2, SyncMode.Realtime);
 
-    d2.update((root: any) => {
+    d2.update((root) => {
       root.tree.edit(2, 2, { type: 'text', value: 'b' });
     });
     await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
