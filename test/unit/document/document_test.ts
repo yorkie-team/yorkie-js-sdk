@@ -18,7 +18,7 @@ import { describe, it, assert, vi, afterEach } from 'vitest';
 import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
 
 import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -967,8 +967,10 @@ describe.sequential('Document', function () {
 
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    // TODO(chacha912): Remove any type after specifying the type of DocEvent
-    const unsub = doc.subscribe((event: any) => {
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
 
@@ -1010,7 +1012,10 @@ describe.sequential('Document', function () {
     const doc = new Document<any>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const unsub = doc.subscribe((event: any) => {
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
 
@@ -1040,7 +1045,10 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const unsub = doc.subscribe((event: any) => {
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
 
@@ -1091,7 +1099,10 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const unsub = doc.subscribe((event: any) => {
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
 
@@ -1119,7 +1130,10 @@ describe.sequential('Document', function () {
     const doc = new Document<TestDoc>('test-doc');
     type EventForTest = Array<OperationInfo>;
     const eventCollector = new EventCollector<EventForTest>();
-    const unsub = doc.subscribe((event: any) => {
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
 

@@ -88,16 +88,37 @@ export enum TreeChangeType {
 /**
  * `TreeChange` represents the change in the tree.
  */
-export interface TreeChange {
-  actor: ActorID;
-  type: TreeChangeType;
-  from: number;
-  to: number;
-  fromPath: Array<number>;
-  toPath: Array<number>;
-  value?: Array<TreeNode> | { [key: string]: any } | Array<string>;
-  splitLevel?: number;
-}
+export type TreeChange =
+  | {
+      actor: ActorID;
+      type: TreeChangeType.Content;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value?: Array<TreeNode>;
+      splitLevel?: number;
+    }
+  | {
+      actor: ActorID;
+      type: TreeChangeType.Style;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value: { [key: string]: string };
+      splitLevel?: number;
+    }
+  | {
+      actor: ActorID;
+      type: TreeChangeType.RemoveStyle;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value?: Array<string>;
+      splitLevel?: number;
+    };
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a

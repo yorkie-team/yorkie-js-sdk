@@ -179,11 +179,16 @@ describe('Document', function () {
     let expectedEventValue: Array<OperationInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
-    // TODO(chacha912): Remove any type after specifying the type of DocEvent
-    const unsub1 = d1.subscribe((event: any) => {
+    const unsub1 = d1.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollectorD1.add({ type: event.type, value: event.value.operations });
     });
-    const unsub2 = d2.subscribe((event: any) => {
+    const unsub2 = d2.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollectorD2.add({ type: event.type, value: event.value.operations });
     });
 
@@ -297,13 +302,16 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos = new EventCollector<EventForTest>();
     const eventCollectorForCounter = new EventCollector<EventForTest>();
-    const unsub = d1.subscribe((event: any) => {
+    const unsub = d1.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
-    const unsubTodo = d1.subscribe('$.todos', (event: any) => {
+    const unsubTodo = d1.subscribe('$.todos', (event) => {
       eventCollectorForTodos.add(event.value.operations);
     });
-    const unsubCounter = d1.subscribe('$.counter', (event: any) => {
+    const unsubCounter = d1.subscribe('$.counter', (event) => {
       eventCollectorForCounter.add(event.value.operations);
     });
 
@@ -384,13 +392,16 @@ describe('Document', function () {
     const eventCollector = new EventCollector<EventForTest>();
     const eventCollectorForTodos0 = new EventCollector<EventForTest>();
     const eventCollectorForObjC1 = new EventCollector<EventForTest>();
-    const unsub = d1.subscribe((event: any) => {
+    const unsub = d1.subscribe((event) => {
+      if (event.type === DocEventType.Snapshot) {
+        return;
+      }
       eventCollector.add(event.value.operations);
     });
-    const unsubTodo = d1.subscribe('$.todos.0', (event: any) => {
+    const unsubTodo = d1.subscribe('$.todos.0', (event) => {
       eventCollectorForTodos0.add(event.value.operations);
     });
-    const unsubObj = d1.subscribe('$.obj.c1', (event: any) => {
+    const unsubObj = d1.subscribe('$.obj.c1', (event) => {
       eventCollectorForObjC1.add(event.value.operations);
     });
 
