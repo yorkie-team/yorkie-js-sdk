@@ -880,4 +880,181 @@ describe('Garbage Collection', function () {
     await client1.deactivate();
     await client2.deactivate();
   });
+  describe('garbage collection for tree', () => {
+    enum OpCode {
+      NoOp,
+      Style,
+      RemoveStyle,
+      DeleteNode,
+      GC,
+    }
+
+    interface Operation {
+      code: OpCode;
+      key: string;
+      val: string;
+    }
+
+    interface Step {
+      op: Operation;
+      garbageLen: number;
+      expectXML: string;
+    }
+
+    interface TestCase {
+      desc: string;
+      steps: Array<Step>;
+    }
+
+    describe('TreeGC', () => {
+      const tests: Array<TestCase> = [
+        {
+          desc: 'style-style test',
+          steps: [
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: '<r><p b="t"></p></r>',
+            },
+            {
+              op: { code: OpCode.Style, key: 'b', val: 'f' },
+              garbageLen: 0,
+              expectXML: '<r><p b="f"></p></r>',
+            },
+          ],
+        },
+        {
+          desc: 'style-remove test',
+          steps: [
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: '<r><p b="t"></p></r>',
+            },
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+          ],
+        },
+        {
+          desc: 'remove-style test',
+          steps: [
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: '<r><p b="t"></p></r>',
+            },
+          ],
+        },
+        {
+          desc: 'remove-remove test',
+          steps: [
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+          ],
+        },
+        {
+          desc: 'style-delete test',
+          steps: [
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: '<r><p b="t"></p></r>',
+            },
+            {
+              op: { code: OpCode.DeleteNode, key: '', val: '' },
+              garbageLen: 1,
+              expectXML: '<r></r>',
+            },
+          ],
+        },
+        {
+          desc: 'remove-delete test',
+          steps: [
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+            {
+              op: { code: OpCode.DeleteNode, key: 'b', val: 't' },
+              garbageLen: 2,
+              expectXML: '<r></r>',
+            },
+          ],
+        },
+        {
+          desc: 'remove-gc-delete test',
+          steps: [
+            {
+              op: { code: OpCode.RemoveStyle, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: '<r><p></p></r>',
+            },
+            {
+              op: { code: OpCode.GC, key: '', val: '' },
+              garbageLen: 0,
+              expectXML: '<r><p></p></r>',
+            },
+            {
+              op: { code: OpCode.DeleteNode, key: 'b', val: 't' },
+              garbageLen: 1,
+              expectXML: '<r></r>',
+            },
+          ],
+        },
+      ];
+
+      for (let i = 0; i < tests.length; i++) {
+        const tc = tests[i];
+        it(`${i + 1}. ${tc.desc}`, () => {
+          const doc = new yorkie.Document<{ t: Tree }>(`test-doc${i}`);
+          assert.equal(doc.toSortedJSON(), '{}');
+
+          doc.update((root) => {
+            root.t = new Tree({
+              type: 'r',
+              children: [{ type: 'p', children: [] }],
+            });
+          });
+          assert.equal(doc.getRoot().t.toXML(), '<r><p></p></r>');
+
+          for (let j = 0; j < tc.steps.length; j++) {
+            const s = tc.steps[j];
+            doc.update((root: any) => {
+              if (s.op.code === OpCode.RemoveStyle) {
+                root.t.removeStyle(0, 1, [s.op.key]);
+              } else if (s.op.code === OpCode.Style) {
+                root.t.style(0, 1, { [s.op.key]: s.op.val });
+              } else if (s.op.code === OpCode.DeleteNode) {
+                root.t.edit(0, 2, null, 0);
+              } else if (s.op.code === OpCode.GC) {
+                doc.garbageCollect(MaxTimeTicket);
+              }
+            });
+            assert.equal(doc.getRoot().t.toXML(), s.expectXML);
+            assert.equal(doc.getGarbageLen(), s.garbageLen);
+          }
+
+          doc.garbageCollect(MaxTimeTicket);
+          assert.equal(doc.getGarbageLen(), 0);
+        });
+      }
+    });
+  });
 });

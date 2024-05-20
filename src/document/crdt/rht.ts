@@ -16,11 +16,12 @@
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
+import { GCChild } from '@yorkie-js-sdk/src/document/crdt/gs';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
  */
-export class RHTNode {
+export class RHTNode implements GCChild {
   private key: string;
   private value: string;
   private updatedAt: TimeTicket;
@@ -77,6 +78,24 @@ export class RHTNode {
   public isRemoved(): boolean {
     return this._isRemoved;
   }
+
+  /**
+   * `IDString` returns the IDString of this node.
+   */
+  public IDString(): string {
+    return this.updatedAt.toIDString() + this.key;
+  }
+
+  /**
+   * `getRemovedAt` returns the time when this node was removed.
+   */
+  public getRemovedAt(): TimeTicket | undefined {
+    if (this._isRemoved) {
+      return this.updatedAt;
+    }
+
+    return undefined;
+  }
 }
 
 /**
@@ -102,51 +121,79 @@ export class RHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(key: string, value: string, executedAt: TimeTicket): boolean {
+  public set(
+    key: string,
+    value: string,
+    executedAt: TimeTicket,
+  ): [RHTNode | undefined, RHTNode | undefined] {
     const prev = this.nodeMapByKey.get(key);
 
-    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-      if (prev !== undefined && !prev.isRemoved()) {
-        this.numberOfRemovedElement -= 1;
-      }
-      const node = RHTNode.of(key, value, executedAt, false);
-      this.nodeMapByKey.set(key, node);
-      return true;
+    if (prev && prev.isRemoved() && executedAt.after(prev.getUpdatedAt())) {
+      this.numberOfRemovedElement -= 1;
     }
 
-    return false;
+    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
+      const node = RHTNode.of(key, value, executedAt, false);
+      this.nodeMapByKey.set(key, node);
+
+      if (prev !== undefined && prev.isRemoved()) {
+        return [prev, node];
+      }
+      return [undefined, node];
+    }
+
+    if (prev.isRemoved()) {
+      return [prev, undefined];
+    }
+    return [undefined, undefined];
+    // const prev = this.nodeMapByKey.get(key);
+    //
+    // if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
+    //   if (prev !== undefined && !prev.isRemoved()) {
+    //     this.numberOfRemovedElement -= 1;
+    //   }
+    //   const node = RHTNode.of(key, value, executedAt, false);
+    //   this.nodeMapByKey.set(key, node);
+    //   return true;
+    // }
+    //
+    // return false;
   }
 
   /**
    * `remove` removes the Element of the given key.
    */
-  public remove(key: string, executedAt: TimeTicket): string {
+  public remove(key: string, executedAt: TimeTicket): Array<RHTNode> {
     const prev = this.nodeMapByKey.get(key);
 
+    const gcNodes: Array<RHTNode> = [];
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
       if (prev === undefined) {
         this.numberOfRemovedElement += 1;
         const node = RHTNode.of(key, '', executedAt, true);
         this.nodeMapByKey.set(key, node);
 
-        return '';
+        gcNodes.push(node);
+        return gcNodes;
       }
 
       const alreadyRemoved = prev.isRemoved();
       if (!alreadyRemoved) {
         this.numberOfRemovedElement += 1;
       }
-      const node = RHTNode.of(key, prev.getValue(), executedAt, true);
-      this.nodeMapByKey.set(key, node);
 
       if (alreadyRemoved) {
-        return '';
+        gcNodes.push(prev);
       }
 
-      return prev.getValue();
+      const node = RHTNode.of(key, prev.getValue(), executedAt, true);
+      this.nodeMapByKey.set(key, node);
+      gcNodes.push(node);
+
+      return gcNodes;
     }
 
-    return '';
+    return gcNodes;
   }
 
   /**
@@ -225,5 +272,18 @@ export class RHT {
     for (const [, node] of this.nodeMapByKey) {
       yield node as RHTNode;
     }
+  }
+
+  /**
+   * `purge` purges the given child node.
+   */
+  public purge(child: RHTNode) {
+    const node = this.nodeMapByKey.get(child.getKey());
+    if (node == undefined || node.IDString() != child.IDString()) {
+      return;
+    }
+
+    this.nodeMapByKey.delete(child.getKey());
+    this.numberOfRemovedElement--;
   }
 }

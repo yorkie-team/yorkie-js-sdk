@@ -30,6 +30,7 @@ import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gs';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -108,6 +109,13 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   public registerElementHasRemovedNodes(elem: CRDTGCElement): void {
     this.root.registerElementHasRemovedNodes(elem);
+  }
+
+  /**
+   * `registerGCPair` registers the given pair to hash table.
+   */
+  public registerGCPair(pair: GCPair): void {
+    this.root.registerGCPair(pair);
   }
 
   /**
