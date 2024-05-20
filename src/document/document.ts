@@ -369,7 +369,12 @@ export interface PresenceChangedEvent<P extends Indexable>
   value: { clientID: ActorID; presence: P };
 }
 
-type DocumentEventCallbackMap<P extends Indexable> = {
+type DocEventCallbackMap<P extends Indexable> = {
+  default: NextFn<
+    | SnapshotEvent
+    | LocalChangeEvent<OperationInfo, P>
+    | RemoteChangeEvent<OperationInfo, P>
+  >;
   presence: NextFn<
     | InitializedEvent<P>
     | WatchedEvent<P>
@@ -382,9 +387,9 @@ type DocumentEventCallbackMap<P extends Indexable> = {
   sync: NextFn<SyncStatusChangedEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
-export type DocumentEventTopic = keyof DocumentEventCallbackMap<never>;
-export type DocumentEventCallback<P extends Indexable> =
-  DocumentEventCallbackMap<P>[DocumentEventTopic];
+export type DocEventTopic = keyof DocEventCallbackMap<never>;
+export type DocEventCallback<P extends Indexable> =
+  DocEventCallbackMap<P>[DocEventTopic];
 
 /**
  * Indexable key, value
@@ -727,11 +732,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * The callback will be called when the document is changed.
    */
   public subscribe(
-    next: NextFn<
-      | SnapshotEvent
-      | LocalChangeEvent<OperationInfo, P>
-      | RemoteChangeEvent<OperationInfo, P>
-    >,
+    next: DocEventCallbackMap<P>['default'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -742,12 +743,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'presence',
-    next: NextFn<
-      | InitializedEvent<P>
-      | WatchedEvent<P>
-      | UnwatchedEvent<P>
-      | PresenceChangedEvent<P>
-    >,
+    next: DocEventCallbackMap<P>['presence'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -757,7 +753,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'my-presence',
-    next: NextFn<InitializedEvent<P> | PresenceChangedEvent<P>>,
+    next: DocEventCallbackMap<P>['my-presence'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -768,7 +764,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'others',
-    next: NextFn<WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>>,
+    next: DocEventCallbackMap<P>['others'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -778,7 +774,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'connection',
-    next: NextFn<ConnectionChangedEvent>,
+    next: DocEventCallbackMap<P>['connection'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -788,7 +784,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'sync',
-    next: NextFn<SyncStatusChangedEvent>,
+    next: DocEventCallbackMap<P>['sync'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -812,7 +808,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public subscribe(
     type: 'all',
-    next: NextFn<TransactionEvent<P>>,
+    next: DocEventCallbackMap<P>['all'],
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -823,20 +819,13 @@ export class Document<T, P extends Indexable = Indexable> {
     TPath extends PathOf<T>,
     TOperationInfo extends OperationInfoOf<T, TPath>,
   >(
-    arg1:
-      | TPath
-      | DocumentEventTopic
-      | NextFn<
-          | SnapshotEvent
-          | LocalChangeEvent<OperationInfo, P>
-          | RemoteChangeEvent<OperationInfo, P>
-        >,
+    arg1: TPath | DocEventTopic | DocEventCallbackMap<P>['default'],
     arg2?:
       | NextFn<
           | LocalChangeEvent<TOperationInfo, P>
           | RemoteChangeEvent<TOperationInfo, P>
         >
-      | DocumentEventCallback<P>
+      | DocEventCallback<P>
       | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
     arg4?: CompleteFn,
@@ -846,7 +835,7 @@ export class Document<T, P extends Indexable = Indexable> {
         throw new Error('Second argument must be a callback function');
       }
       if (arg1 === 'presence') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['presence'];
+        const callback = arg2 as DocEventCallbackMap<P>['presence'];
         return this.eventStream.subscribe(
           (event) => {
             for (const docEvent of event) {
@@ -867,7 +856,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'my-presence') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['my-presence'];
+        const callback = arg2 as DocEventCallbackMap<P>['my-presence'];
         return this.eventStream.subscribe(
           (event) => {
             for (const docEvent of event) {
@@ -893,7 +882,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'others') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['others'];
+        const callback = arg2 as DocEventCallbackMap<P>['others'];
         return this.eventStream.subscribe(
           (event) => {
             for (const docEvent of event) {
@@ -915,7 +904,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'connection') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['connection'];
+        const callback = arg2 as DocEventCallbackMap<P>['connection'];
         return this.eventStream.subscribe(
           (event) => {
             for (const docEvent of event) {
@@ -930,7 +919,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'sync') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['sync'];
+        const callback = arg2 as DocEventCallbackMap<P>['sync'];
         return this.eventStream.subscribe(
           (event) => {
             for (const docEvent of event) {
@@ -945,7 +934,7 @@ export class Document<T, P extends Indexable = Indexable> {
         );
       }
       if (arg1 === 'all') {
-        const callback = arg2 as DocumentEventCallbackMap<P>['all'];
+        const callback = arg2 as DocEventCallbackMap<P>['all'];
         return this.eventStream.subscribe(callback, arg3, arg4);
       }
       const target = arg1;
@@ -981,11 +970,7 @@ export class Document<T, P extends Indexable = Indexable> {
       );
     }
     if (typeof arg1 === 'function') {
-      const callback = arg1 as NextFn<
-        | SnapshotEvent
-        | LocalChangeEvent<OperationInfo, P>
-        | RemoteChangeEvent<OperationInfo, P>
-      >;
+      const callback = arg1 as DocEventCallbackMap<P>['default'];
       const error = arg2 as ErrorFn;
       const complete = arg3 as CompleteFn;
       return this.eventStream.subscribe(

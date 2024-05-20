@@ -140,7 +140,7 @@ describe.sequential('Client', function () {
 
     const unsub1 = {
       syncEvent: d1.subscribe('sync', (event) => {
-        eventCollectorSync1.add(event.value as DocumentSyncStatus);
+        eventCollectorSync1.add(event.value);
       }),
       doc: d1.subscribe((event) => {
         eventCollectorD1.add(event.type);
@@ -148,7 +148,7 @@ describe.sequential('Client', function () {
     };
     const unsub2 = {
       syncEvent: d2.subscribe('sync', (event) => {
-        eventCollectorSync2.add(event.value as DocumentSyncStatus);
+        eventCollectorSync2.add(event.value);
       }),
       doc: d2.subscribe((event) => {
         eventCollectorD2.add(event.type);
@@ -236,7 +236,7 @@ describe.sequential('Client', function () {
     // 02. c2 changes the sync mode to realtime sync mode.
     const eventCollector = new EventCollector();
     const unsub1 = d2.subscribe('sync', (event) => {
-      eventCollector.add(event.value as DocumentSyncStatus);
+      eventCollector.add(event.value);
     });
     await c2.changeSyncMode(d2, SyncMode.Realtime);
     await eventCollector.waitFor(DocumentSyncStatus.Synced); // sync occurs when resuming
@@ -414,7 +414,7 @@ describe.sequential('Client', function () {
 
     const eventCollector = new EventCollector();
     const unsub1 = d2.subscribe('sync', (event) => {
-      eventCollector.add(event.value as DocumentSyncStatus);
+      eventCollector.add(event.value);
     });
 
     // 01. c2 attach the doc with realtime sync mode at first.
@@ -491,7 +491,7 @@ describe.sequential('Client', function () {
     //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
     const eventCollector = new EventCollector();
     const unsub = d1.subscribe('sync', (event) => {
-      eventCollector.add(event.value as DocumentSyncStatus);
+      eventCollector.add(event.value);
     });
     d1.update((root) => {
       root.counter.increase(1);

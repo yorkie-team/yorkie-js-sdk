@@ -87,16 +87,37 @@ export enum TreeChangeType {
 /**
  * `TreeChange` represents the change in the tree.
  */
-export interface TreeChange {
-  actor: ActorID;
-  type: TreeChangeType;
-  from: number;
-  to: number;
-  fromPath: Array<number>;
-  toPath: Array<number>;
-  value?: Array<TreeNode> | { [key: string]: any } | Array<string>;
-  splitLevel?: number;
-}
+export type TreeChange =
+  | {
+      actor: ActorID;
+      type: TreeChangeType.Content;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value?: Array<TreeNode>;
+      splitLevel?: number;
+    }
+  | {
+      actor: ActorID;
+      type: TreeChangeType.Style;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value: { [key: string]: string };
+      splitLevel?: number;
+    }
+  | {
+      actor: ActorID;
+      type: TreeChangeType.RemoveStyle;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value?: Array<string>;
+      splitLevel?: number;
+    };
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
@@ -876,7 +897,6 @@ export class CRDTTree extends CRDTGCElement {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
-    const value = attributesToRemove ? attributesToRemove : undefined;
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -893,13 +913,13 @@ export class CRDTTree extends CRDTGCElement {
           }
 
           changes.push({
+            actor: editedAt.getActorID()!,
             type: TreeChangeType.RemoveStyle,
             from: this.toIndex(fromParent, fromLeft),
             to: this.toIndex(toParent, toLeft),
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID()!,
-            value,
+            value: attributesToRemove,
           });
         }
       },

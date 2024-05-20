@@ -237,7 +237,7 @@ describe('Tree', () => {
           from: 1,
           to: 1,
           value: [{ type: 'text', value: 'X' }],
-        } as any,
+        },
       ],
     );
   });
@@ -309,7 +309,7 @@ describe('Tree', () => {
           fromPath: [0, 0, 0, 1],
           toPath: [0, 0, 0, 1],
           value: [{ type: 'text', value: 'X' }],
-        } as any,
+        },
       ],
     );
   });
@@ -4322,7 +4322,7 @@ describe('TreeChange', () => {
             from: 0,
             to: 4,
             value: undefined,
-          } as any,
+          },
         ],
       );
 
@@ -4341,13 +4341,13 @@ describe('TreeChange', () => {
             from: 1,
             to: 2,
             value: undefined,
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 0,
             to: 3,
             value: undefined,
-          } as any,
+          },
         ],
       );
     }, task.name);
@@ -4393,13 +4393,13 @@ describe('TreeChange', () => {
             from: 1,
             to: 3,
             value: undefined,
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 1,
             to: 1,
             value: [{ type: 'text', value: 'c' }],
-          } as any,
+          },
         ],
       );
 
@@ -4418,19 +4418,19 @@ describe('TreeChange', () => {
             from: 2,
             to: 2,
             value: [{ type: 'text', value: 'c' }],
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 3,
             to: 4,
             value: undefined,
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 1,
             to: 2,
             value: undefined,
-          } as any,
+          },
         ],
       );
     }, task.name);
@@ -4478,7 +4478,7 @@ describe('TreeChange', () => {
             from: 0,
             to: 4,
             value: undefined,
-          } as any,
+          },
         ],
       );
 
@@ -4497,13 +4497,13 @@ describe('TreeChange', () => {
             from: 2,
             to: 2,
             value: [{ type: 'text', value: 'c' }],
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 0,
             to: 5,
             value: undefined,
-          } as any,
+          },
         ],
       );
     }, task.name);
@@ -4549,13 +4549,13 @@ describe('TreeChange', () => {
             from: 1,
             to: 2,
             value: [{ type: 'text', value: 'b' }],
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 2,
             to: 2,
             value: [{ type: 'text', value: 'c' }],
-          } as any,
+          },
         ],
       );
 
@@ -4574,13 +4574,13 @@ describe('TreeChange', () => {
             from: 2,
             to: 2,
             value: [{ type: 'text', value: 'c' }],
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 1,
             to: 2,
             value: [{ type: 'text', value: 'b' }],
-          } as any,
+          },
         ],
       );
     }, task.name);
@@ -4628,13 +4628,13 @@ describe('TreeChange', () => {
             from: 0,
             to: 1,
             value: { value: 'changed' },
-          } as any,
+          },
           {
             type: 'tree-edit',
             from: 0,
             to: 2,
             value: undefined,
-          } as any,
+          },
         ],
       );
 
@@ -4648,7 +4648,7 @@ describe('TreeChange', () => {
             from: 0,
             to: 2,
             value: undefined,
-          } as any,
+          },
         ],
       );
     }, task.name);
