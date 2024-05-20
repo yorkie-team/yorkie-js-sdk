@@ -897,7 +897,6 @@ export class CRDTTree extends CRDTGCElement {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
-    const value = attributesToRemove ? attributesToRemove : undefined;
     const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
@@ -924,7 +923,7 @@ export class CRDTTree extends CRDTGCElement {
             fromPath: this.toPath(fromParent, fromLeft),
             toPath: this.toPath(toParent, toLeft),
             actor: editedAt.getActorID()!,
-            value,
+            value: attributesToRemove,
           });
         }
       },
