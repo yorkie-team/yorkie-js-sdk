@@ -20,15 +20,10 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
  * `GCPair` is a structure that represents a pair of parent and child for garbage
  * collection.
  */
-export class GCPair {
+export type GCPair = {
   parent: GCParent;
   child: GCChild;
-
-  constructor(parent: GCParent, child: GCChild) {
-    this.parent = parent;
-    this.child = child;
-  }
-}
+};
 
 /**
  * `GCParent` is an interface for the parent of the garbage collection target.

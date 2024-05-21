@@ -308,7 +308,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       for (const [key, value] of Object.entries(attributes)) {
         const [prev] = node.getValue().setAttr(key, value, editedAt);
         if (prev !== undefined) {
-          pairs.push(new GCPair(node.getValue(), prev));
+          pairs.push({ parent: node.getValue(), child: prev });
         }
       }
     }

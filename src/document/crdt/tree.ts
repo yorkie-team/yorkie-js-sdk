@@ -636,14 +636,12 @@ export class CRDTTreeNode
       this.attrs = new RHT();
     }
 
-    const affectedKeys = new Array<
-      [RHTNode | undefined, RHTNode | undefined]
-    >();
+    const pairs = new Array<[RHTNode | undefined, RHTNode | undefined]>();
     for (const [key, value] of Object.entries(attrs)) {
-      affectedKeys.push(this.attrs.set(key, value, editedAt));
+      pairs.push(this.attrs.set(key, value, editedAt));
     }
 
-    return affectedKeys;
+    return pairs;
   }
 
   /**
@@ -869,8 +867,8 @@ export class CRDTTree extends CRDTGCElement {
             createdAtMapByActor.set(actorID, createdAt);
           }
 
-          const affectedKeys = node.setAttrs(attributes, editedAt);
-          const affectedAttrs = affectedKeys.reduce(
+          const updatedAttrPairs = node.setAttrs(attributes, editedAt);
+          const affectedAttrs = updatedAttrPairs.reduce(
             (acc: { [key: string]: string }, [, curr]) => {
               if (!curr) {
                 return acc;
@@ -881,6 +879,7 @@ export class CRDTTree extends CRDTGCElement {
             },
             {},
           );
+
           if (Object.keys(affectedAttrs).length > 0) {
             changes.push({
               type: TreeChangeType.Style,
@@ -892,9 +891,10 @@ export class CRDTTree extends CRDTGCElement {
               value: affectedAttrs,
             });
           }
-          for (const [prev] of affectedKeys) {
-            if (prev !== undefined) {
-              pairs.push(new GCPair(node, prev));
+
+          for (const [prev] of updatedAttrPairs) {
+            if (prev) {
+              pairs.push({ parent: node, child: prev });
             }
           }
         }
@@ -934,7 +934,7 @@ export class CRDTTree extends CRDTGCElement {
           for (const value of attributesToRemove) {
             const nodesTobeRemoved = node.attrs.remove(value, editedAt);
             for (const rhtNode of nodesTobeRemoved) {
-              pairs.push(new GCPair(node, rhtNode));
+              pairs.push({ parent: node, child: rhtNode });
             }
           }
 

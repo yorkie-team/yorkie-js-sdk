@@ -20,7 +20,7 @@ import { InitialTimeTicket as ITT } from '@yorkie-js-sdk/src/document/time/ticke
 import { timeT } from '@yorkie-js-sdk/test/helper/helper';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
-describe('RHT', function () {
+describe('RHT interface', function () {
   it('should set and get a value', function () {
     const testKey = 'test-key';
     const testValue = 'test-value';
@@ -122,6 +122,7 @@ describe('RHT', function () {
     assert.equal(jsonObj.testKey3, testData.testKey3);
   });
 });
+
 describe('RHT', () => {
   enum OpCode {
     NoOp,
@@ -142,6 +143,7 @@ describe('RHT', () => {
     desc: string;
     steps: Array<Step>;
   }
+
   describe('marshal', () => {
     const tests: Array<TestCase> = [
       {
@@ -175,12 +177,15 @@ describe('RHT', () => {
     ];
     const rht = RHT.create();
     it.each(tests)('$desc', ({ steps }) => {
-      steps.forEach(({ op: { code, key, val }, expectJSON: expectJSON }) => {
+      for (const {
+        op: { code, key, val },
+        expectJSON: expectJSON,
+      } of steps) {
         if (code === OpCode.Set) {
           rht.set(key, val, timeT());
         }
         assert.equal(rht.toJSON(), expectJSON);
-      });
+      }
     });
   });
 
@@ -220,13 +225,17 @@ describe('RHT', () => {
 
     const rht = RHT.create();
     it.each(tests)('$desc', ({ steps }) => {
-      steps.forEach(({ op: { code, key, val }, expectJSON, expectSize }) => {
+      for (const {
+        op: { code, key, val },
+        expectJSON,
+        expectSize,
+      } of steps) {
         if (code === OpCode.Set) {
           rht.set(key, val, timeT());
         }
         assert.equal(rht.toJSON(), expectJSON);
         assert.equal(rht.size(), expectSize);
-      });
+      }
     });
   });
 
@@ -313,9 +322,14 @@ describe('RHT', () => {
         ],
       },
     ];
+
     const rht = RHT.create();
     it.each(tests)('$desc', ({ steps }) => {
-      steps.forEach(({ op: { code, key, val }, expectJSON, expectSize }) => {
+      for (const {
+        op: { code, key, val },
+        expectJSON,
+        expectSize,
+      } of steps) {
         if (code === OpCode.Set) {
           rht.set(key, val, timeT());
         } else if (code === OpCode.Remove) {
@@ -324,7 +338,7 @@ describe('RHT', () => {
         assert.equal(rht.toJSON(), expectJSON);
         assert.equal(rht.size(), expectSize);
         assert.equal(Object.keys(rht.toObject()).length, expectSize);
-      });
+      }
     });
   });
 });
