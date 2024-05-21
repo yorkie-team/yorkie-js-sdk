@@ -166,7 +166,15 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor] = this.text.setStyle(range, attrs, ticket);
+    const [maxCreatedAtMapByActor, pairs] = this.text.setStyle(
+      range,
+      attrs,
+      ticket,
+    );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       new StyleOperation(
