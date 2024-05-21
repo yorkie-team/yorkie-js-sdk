@@ -20,7 +20,7 @@ import {
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { RHT } from '@yorkie-js-sdk/src/document/crdt/rht';
+import { RHT, RHTNode } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
@@ -31,6 +31,7 @@ import {
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { GCChild, GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -101,8 +102,12 @@ export class CRDTTextValue {
   /**
    * `setAttr` sets attribute of the given key, updated time and value.
    */
-  public setAttr(key: string, content: string, updatedAt: TimeTicket): void {
-    this.attributes.set(key, content, updatedAt);
+  public setAttr(
+    key: string,
+    content: string,
+    updatedAt: TimeTicket,
+  ): [RHTNode | undefined, RHTNode | undefined] {
+    return this.attributes.set(key, content, updatedAt);
   }
 
   /**
@@ -153,6 +158,15 @@ export class CRDTTextValue {
    */
   public getContent(): string {
     return this.content;
+  }
+
+  /**
+   * `purge` purges the given child node.
+   */
+  public purge(node: GCChild): void {
+    if (this.attributes && node instanceof RHTNode) {
+      this.attributes.purge(node);
+    }
   }
 }
 
@@ -239,7 +253,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>] {
+  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
     const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -272,6 +286,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
+    const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       if (node.isRemoved()) {
         continue;
@@ -291,11 +306,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       });
 
       for (const [key, value] of Object.entries(attributes)) {
-        node.getValue().setAttr(key, value, editedAt);
+        const [prev] = node.getValue().setAttr(key, value, editedAt);
+        if (prev !== undefined) {
+          pairs.push({ parent: node.getValue(), child: prev });
+        }
       }
     }
 
-    return [createdAtMapByActor, changes];
+    return [createdAtMapByActor, pairs, changes];
   }
 
   /**

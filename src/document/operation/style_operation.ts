@@ -83,12 +83,17 @@ export class StyleOperation extends Operation {
       logger.fatal(`fail to execute, only Text can execute edit`);
     }
     const text = parentObject as CRDTText<A>;
-    const [, changes] = text.setStyle(
+    const [, pairs, changes] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
     );
+
+    for (const pair of pairs) {
+      root.registerGCPair(pair);
+    }
+
     return {
       opInfos: changes.map(({ from, to, value }) => {
         return {

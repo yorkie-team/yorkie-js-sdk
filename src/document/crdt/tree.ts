@@ -29,7 +29,7 @@ import {
   traverseAll,
   TokenType,
 } from '@yorkie-js-sdk/src/util/index_tree';
-import { RHT } from './rht';
+import { RHT, RHTNode } from './rht';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
@@ -42,6 +42,7 @@ import type {
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
+import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -413,10 +414,13 @@ export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
- * `CRDTTreeNode` is a node of CRDTTree. It is includes the logical clock and
+ * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
  * links to other nodes to resolve conflicts.
  */
-export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
+export class CRDTTreeNode
+  extends IndexTreeNode<CRDTTreeNode>
+  implements GCParent
+{
   id: CRDTTreeNodeID;
   removedAt?: TimeTicket;
   attrs?: RHT;
@@ -627,19 +631,26 @@ export class CRDTTreeNode extends IndexTreeNode<CRDTTreeNode> {
   public setAttrs(
     attrs: { [key: string]: string },
     editedAt: TimeTicket,
-  ): Set<string> {
+  ): Array<[RHTNode | undefined, RHTNode | undefined]> {
     if (!this.attrs) {
       this.attrs = new RHT();
     }
 
-    const affectedKeys = new Set<string>();
+    const pairs = new Array<[RHTNode | undefined, RHTNode | undefined]>();
     for (const [key, value] of Object.entries(attrs)) {
-      if (this.attrs.set(key, value, editedAt)) {
-        affectedKeys.add(key);
-      }
+      pairs.push(this.attrs.set(key, value, editedAt));
     }
 
-    return affectedKeys;
+    return pairs;
+  }
+
+  /**
+   * `purge` purges the given child node.
+   */
+  public purge(node: GCChild): void {
+    if (this.attrs && node instanceof RHTNode) {
+      this.attrs.purge(node);
+    }
   }
 }
 
@@ -823,7 +834,7 @@ export class CRDTTree extends CRDTGCElement {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TreeChange>] {
+  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -835,6 +846,7 @@ export class CRDTTree extends CRDTGCElement {
       ? parseObjectValues(attributes)
       : {};
     const createdAtMapByActor = new Map<string, TimeTicket>();
+    const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -855,16 +867,20 @@ export class CRDTTree extends CRDTGCElement {
             createdAtMapByActor.set(actorID, createdAt);
           }
 
-          const affectedKeys = node.setAttrs(attributes, editedAt);
-          if (affectedKeys.size > 0) {
-            const affectedAttrs = Array.from(affectedKeys).reduce(
-              (acc: { [key: string]: any }, key) => {
-                acc[key] = attrs[key];
+          const updatedAttrPairs = node.setAttrs(attributes, editedAt);
+          const affectedAttrs = updatedAttrPairs.reduce(
+            (acc: { [key: string]: string }, [, curr]) => {
+              if (!curr) {
                 return acc;
-              },
-              {},
-            );
+              }
 
+              acc[curr.getKey()] = attrs[curr.getKey()];
+              return acc;
+            },
+            {},
+          );
+
+          if (Object.keys(affectedAttrs).length > 0) {
             changes.push({
               type: TreeChangeType.Style,
               from: this.toIndex(fromParent, fromLeft),
@@ -875,11 +891,17 @@ export class CRDTTree extends CRDTGCElement {
               value: affectedAttrs,
             });
           }
+
+          for (const [prev] of updatedAttrPairs) {
+            if (prev) {
+              pairs.push({ parent: node, child: prev });
+            }
+          }
         }
       },
     );
 
-    return [createdAtMapByActor, changes];
+    return [createdAtMapByActor, pairs, changes];
   }
 
   /**
@@ -889,7 +911,7 @@ export class CRDTTree extends CRDTGCElement {
     range: [CRDTTreePos, CRDTTreePos],
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
-  ) {
+  ): [Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -897,6 +919,7 @@ export class CRDTTree extends CRDTGCElement {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
+    const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -909,7 +932,10 @@ export class CRDTTree extends CRDTGCElement {
           }
 
           for (const value of attributesToRemove) {
-            node.attrs.remove(value, editedAt);
+            const nodesTobeRemoved = node.attrs.remove(value, editedAt);
+            for (const rhtNode of nodesTobeRemoved) {
+              pairs.push({ parent: node, child: rhtNode });
+            }
           }
 
           changes.push({
@@ -925,7 +951,7 @@ export class CRDTTree extends CRDTGCElement {
       },
     );
 
-    return changes;
+    return [pairs, changes];
   }
 
   /**

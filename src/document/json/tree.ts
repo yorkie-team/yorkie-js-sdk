@@ -318,11 +318,15 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [maxCreationMapByActor] = this.tree!.style(
+    const [maxCreationMapByActor, pairs] = this.tree!.style(
       [fromPos, toPos],
       attrs,
       ticket,
     );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       TreeStyleOperation.create(
@@ -356,7 +360,15 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    this.tree!.removeStyle([fromPos, toPos], attributesToRemove, ticket);
+    const [pairs] = this.tree!.removeStyle(
+      [fromPos, toPos],
+      attributesToRemove,
+      ticket,
+    );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       TreeStyleOperation.createTreeRemoveStyleOperation(

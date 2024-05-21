@@ -18,12 +18,24 @@ import { assert } from 'chai';
 
 import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
-import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import {
+  CRDTTreeNode,
+  CRDTTreeNodeID,
+} from '@yorkie-js-sdk/src/document/crdt/tree';
 import {
   OperationInfo,
   Operation,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import {
+  InitialTimeTicket as ITT,
+  TimeTicket,
+} from '@yorkie-js-sdk/src/document/time/ticket';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
+import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
+import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 
 export type Indexable = Record<string, any>;
 
@@ -237,4 +249,32 @@ export function toStringHistoryOp<P extends Indexable>(
   op: HistoryOperation<P>,
 ): string {
   return op instanceof Operation ? op.toTestString() : JSON.stringify(op);
+}
+
+/**
+ * `idT` is a dummy CRDTTreeNodeID for testing.
+ */
+export const idT = CRDTTreeNodeID.of(ITT, 0);
+
+/**
+ * `dummyContext` is a helper context that is used for testing.
+ */
+export const dummyContext = ChangeContext.create(
+  InitialChangeID,
+  new CRDTRoot(new CRDTObject(ITT, ElementRHT.create())),
+  {},
+);
+
+/**
+ * `posT` is a helper function that issues a new CRDTTreeNodeID.
+ */
+export function posT(offset = 0): CRDTTreeNodeID {
+  return CRDTTreeNodeID.of(dummyContext.issueTimeTicket(), offset);
+}
+
+/**
+ * `timeT` is a helper function that issues a new TimeTicket.
+ */
+export function timeT(): TimeTicket {
+  return dummyContext.issueTimeTicket();
 }

@@ -166,7 +166,15 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor] = this.text.setStyle(range, attrs, ticket);
+    const [maxCreatedAtMapByActor, pairs] = this.text.setStyle(
+      range,
+      attrs,
+      ticket,
+    );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       new StyleOperation(
@@ -265,6 +273,17 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     return this.text.toString();
+  }
+
+  /**
+   * `toJSON` returns the JSON string of this tree.
+   */
+  public toJSON(): string {
+    if (!this.context || !this.text) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.text.toJSON();
   }
 
   /**

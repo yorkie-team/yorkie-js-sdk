@@ -15,16 +15,10 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
   InitialTimeTicket as ITT,
   MaxTimeTicket as MTT,
-  TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNode,
@@ -34,34 +28,7 @@ import {
   TreeNodeForTest,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
-
-/**
- * `idT` is a dummy CRDTTreeNodeID for testing.
- */
-const idT = CRDTTreeNodeID.of(ITT, 0);
-
-/**
- * `dummyContext` is a helper context that is used for testing.
- */
-const dummyContext = ChangeContext.create(
-  InitialChangeID,
-  new CRDTRoot(new CRDTObject(ITT, ElementRHT.create())),
-  {},
-);
-
-/**
- * `posT` is a helper function that issues a new CRDTTreeNodeID.
- */
-function posT(offset = 0): CRDTTreeNodeID {
-  return CRDTTreeNodeID.of(dummyContext.issueTimeTicket(), offset);
-}
-
-/**
- * `timeT` is a helper function that issues a new TimeTicket.
- */
-function timeT(): TimeTicket {
-  return dummyContext.issueTimeTicket();
-}
+import { idT, posT, timeT } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {

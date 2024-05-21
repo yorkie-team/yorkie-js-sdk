@@ -25,6 +25,7 @@ import {
   CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -70,11 +71,18 @@ export class CRDTRoot {
    */
   private elementHasRemovedNodesSetByCreatedAt: Set<string>;
 
+  /**
+   * `gcPairMap` is a hash table that maps the IDString of GCChild to the
+   * element itself and its parent.
+   */
+  private gcPairMap: Map<string, GCPair>;
+
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
     this.elementHasRemovedNodesSetByCreatedAt = new Set();
+    this.gcPairMap = new Map();
     this.registerElement(rootObject, undefined);
   }
 
@@ -200,6 +208,19 @@ export class CRDTRoot {
   }
 
   /**
+   * `registerGCPair` registers the given pair to hash table.
+   */
+  public registerGCPair(pair: GCPair): void {
+    const prev = this.gcPairMap.get(pair.child.toIDString());
+    if (prev) {
+      this.gcPairMap.delete(pair.child.toIDString());
+      return;
+    }
+
+    this.gcPairMap.set(pair.child.toIDString(), pair);
+  }
+
+  /**
    * `getElementMapSize` returns the size of element map.
    */
   public getElementMapSize(): number {
@@ -246,6 +267,8 @@ export class CRDTRoot {
       count += elem.getRemovedNodesLen();
     }
 
+    count += this.gcPairMap.size;
+
     return count;
   }
 
@@ -284,6 +307,16 @@ export class CRDTRoot {
         );
       }
       count += removedNodeCnt;
+    }
+
+    for (const [, pair] of this.gcPairMap) {
+      const removedAt = pair.child.getRemovedAt();
+      if (removedAt !== undefined && ticket.compare(removedAt) >= 0) {
+        pair.parent.purge(pair.child);
+      }
+
+      this.gcPairMap.delete(pair.child.toIDString());
+      count += 1;
     }
 
     return count;

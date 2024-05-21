@@ -27,6 +27,7 @@ import {
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `TreeStyleOperation` represents an operation that modifies the style of the
@@ -112,25 +113,29 @@ export class TreeStyleOperation extends Operation {
     }
     const tree = parentObject as CRDTTree;
     let changes: Array<TreeChange>;
+    let pairs: Array<GCPair>;
     if (this.attributes.size) {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      const [, change] = tree.style(
+      [, pairs, changes] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
         this.maxCreatedAtMapByActor,
       );
-      changes = change;
     } else {
       const attributesToRemove = this.attributesToRemove;
 
-      changes = tree.removeStyle(
+      [pairs, changes] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
       );
+    }
+
+    for (const pair of pairs) {
+      root.registerGCPair(pair);
     }
 
     return {
