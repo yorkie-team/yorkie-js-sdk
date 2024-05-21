@@ -1060,4 +1060,99 @@ describe('Garbage Collection', function () {
       });
     });
   });
+
+  describe('garbage collection for text', () => {
+    enum OpCode {
+      NoOp,
+      Style,
+      DeleteNode,
+      GC,
+    }
+
+    interface Operation {
+      code: OpCode;
+      key: string;
+      val: string;
+    }
+
+    interface Step {
+      op: Operation;
+      garbageLen: number;
+      expectXML: string;
+    }
+
+    interface TestCase {
+      desc: string;
+      steps: Array<Step>;
+    }
+
+    describe('TextGC', () => {
+      const tests: Array<TestCase> = [
+        {
+          desc: 'style-style test',
+          steps: [
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: `[{"attrs":{"b":"t"},"val":"AB"}]`,
+            },
+            {
+              op: { code: OpCode.Style, key: 'b', val: 'f' },
+              garbageLen: 0,
+              expectXML: `[{"attrs":{"b":"f"},"val":"AB"}]`,
+            },
+          ],
+        },
+        {
+          desc: 'style-delete test',
+          steps: [
+            {
+              op: { code: OpCode.Style, key: 'b', val: 't' },
+              garbageLen: 0,
+              expectXML: `[{"attrs":{"b":"t"},"val":"AB"}]`,
+            },
+            {
+              op: { code: OpCode.DeleteNode, key: 'b', val: '' },
+              garbageLen: 1,
+              expectXML: `[]`,
+            },
+          ],
+        },
+      ];
+
+      it.each(tests)('$desc', ({ steps }) => {
+        const doc = new yorkie.Document<{ t: Text }>('test-doc');
+        assert.equal(doc.toSortedJSON(), '{}');
+
+        doc.update((root) => {
+          root.t = new Text();
+          root.t.edit(0, 0, 'AB');
+        });
+        assert.equal(doc.getRoot().t.toJSON(), `[{"val":"AB"}]`);
+
+        steps.forEach(
+          ({
+            op: { code, key, val },
+            garbageLen: garbageLen,
+            expectXML: expectXML,
+          }) => {
+            doc.update((root) => {
+              if (code === OpCode.Style) {
+                root.t.setStyle(0, 2, { [key]: val });
+              } else if (code === OpCode.DeleteNode) {
+                root.t.edit(0, 2, '');
+              } else if (code === OpCode.GC) {
+                doc.garbageCollect(timeT());
+              }
+            });
+            assert.equal(doc.getRoot().t.toJSON(), expectXML);
+            assert.equal(doc.getGarbageLen(), garbageLen);
+          },
+        );
+
+        doc.garbageCollect(MaxTimeTicket);
+        assert.equal(doc.getGarbageLen(), 0);
+      });
+    });
+  });
 });

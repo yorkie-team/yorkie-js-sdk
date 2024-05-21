@@ -276,6 +276,17 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
+   * `toJSON` returns the JSON string of this tree.
+   */
+  public toJSON(): string {
+    if (!this.context || !this.text) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.text.toJSON();
+  }
+
+  /**
    * `toJSForTest` returns value with meta data for testing.
    * @internal
    */
