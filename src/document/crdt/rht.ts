@@ -16,7 +16,7 @@
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { GCChild } from '@yorkie-js-sdk/src/document/crdt/gs';
+import { GCChild } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -80,10 +80,10 @@ export class RHTNode implements GCChild {
   }
 
   /**
-   * `IDString` returns the IDString of this node.
+   * `toIDString` returns the IDString of this node.
    */
-  public IDString(): string {
-    return this.updatedAt.toIDString() + this.key;
+  public toIDString(): string {
+    return `${this.updatedAt.toIDString()}:${this.key}`;
   }
 
   /**
@@ -145,19 +145,8 @@ export class RHT {
     if (prev.isRemoved()) {
       return [prev, undefined];
     }
+
     return [undefined, undefined];
-    // const prev = this.nodeMapByKey.get(key);
-    //
-    // if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-    //   if (prev !== undefined && !prev.isRemoved()) {
-    //     this.numberOfRemovedElement -= 1;
-    //   }
-    //   const node = RHTNode.of(key, value, executedAt, false);
-    //   this.nodeMapByKey.set(key, node);
-    //   return true;
-    // }
-    //
-    // return false;
   }
 
   /**
@@ -279,7 +268,7 @@ export class RHT {
    */
   public purge(child: RHTNode) {
     const node = this.nodeMapByKey.get(child.getKey());
-    if (node == undefined || node.IDString() != child.IDString()) {
+    if (node == undefined || node.toIDString() != child.toIDString()) {
       return;
     }
 

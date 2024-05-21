@@ -41,6 +41,6 @@ export interface GCParent {
  * `GCChild` is an interface for the child of the garbage collection target.
  */
 export interface GCChild {
-  IDString(): string;
+  toIDString(): string;
   getRemovedAt(): TimeTicket | undefined;
 }

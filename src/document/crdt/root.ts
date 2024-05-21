@@ -25,7 +25,7 @@ import {
   CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gs';
+import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -72,17 +72,17 @@ export class CRDTRoot {
   private elementHasRemovedNodesSetByCreatedAt: Set<string>;
 
   /**
-   * `gcNodePairMap` is a hash table that maps the IDString of GCChild to the
+   * `gcPairMap` is a hash table that maps the IDString of GCChild to the
    * element itself and its parent.
    */
-  private gcNodePairMap: Map<string, GCPair>;
+  private gcPairMap: Map<string, GCPair>;
 
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
     this.elementHasRemovedNodesSetByCreatedAt = new Set();
-    this.gcNodePairMap = new Map();
+    this.gcPairMap = new Map();
     this.registerElement(rootObject, undefined);
   }
 
@@ -211,13 +211,13 @@ export class CRDTRoot {
    * `registerGCPair` registers the given pair to hash table.
    */
   public registerGCPair(pair: GCPair): void {
-    const prev = this.gcNodePairMap.get(pair.child.IDString());
+    const prev = this.gcPairMap.get(pair.child.toIDString());
     if (prev) {
-      this.gcNodePairMap.delete(pair.child.IDString());
+      this.gcPairMap.delete(pair.child.toIDString());
       return;
     }
 
-    this.gcNodePairMap.set(pair.child.IDString(), pair);
+    this.gcPairMap.set(pair.child.toIDString(), pair);
   }
 
   /**
@@ -267,7 +267,7 @@ export class CRDTRoot {
       count += elem.getRemovedNodesLen();
     }
 
-    count += this.gcNodePairMap.size;
+    count += this.gcPairMap.size;
 
     return count;
   }
@@ -309,13 +309,13 @@ export class CRDTRoot {
       count += removedNodeCnt;
     }
 
-    for (const [, pair] of this.gcNodePairMap) {
+    for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (removedAt !== undefined && ticket.compare(removedAt) >= 0) {
         pair.parent.purge(pair.child);
       }
 
-      this.gcNodePairMap.delete(pair.child.IDString());
+      this.gcPairMap.delete(pair.child.toIDString());
       count += 1;
     }
 

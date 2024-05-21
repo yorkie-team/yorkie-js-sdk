@@ -42,7 +42,7 @@ import type {
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gs';
+import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -631,12 +631,14 @@ export class CRDTTreeNode
   public setAttrs(
     attrs: { [key: string]: string },
     editedAt: TimeTicket,
-  ): Array<any> {
+  ): Array<[RHTNode | undefined, RHTNode | undefined]> {
     if (!this.attrs) {
       this.attrs = new RHT();
     }
 
-    const affectedKeys = new Array<any>();
+    const affectedKeys = new Array<
+      [RHTNode | undefined, RHTNode | undefined]
+    >();
     for (const [key, value] of Object.entries(attrs)) {
       affectedKeys.push(this.attrs.set(key, value, editedAt));
     }
@@ -868,17 +870,17 @@ export class CRDTTree extends CRDTGCElement {
           }
 
           const affectedKeys = node.setAttrs(attributes, editedAt);
-          // Make changes
-          const affectedAttrs = affectedKeys
-            .filter((x) => {
-              const [, curr] = x;
-              return curr !== undefined;
-            })
-            .reduce((acc: { [key: string]: any }, res) => {
-              const [, curr] = res;
-              acc[curr.key] = attrs[curr.key];
+          const affectedAttrs = affectedKeys.reduce(
+            (acc: { [key: string]: string }, [, curr]) => {
+              if (!curr) {
+                return acc;
+              }
+
+              acc[curr.getKey()] = attrs[curr.getKey()];
               return acc;
-            }, {});
+            },
+            {},
+          );
           if (Object.keys(affectedAttrs).length > 0) {
             changes.push({
               type: TreeChangeType.Style,
@@ -890,7 +892,6 @@ export class CRDTTree extends CRDTGCElement {
               value: affectedAttrs,
             });
           }
-          // Make GCPairs
           for (const [prev] of affectedKeys) {
             if (prev !== undefined) {
               pairs.push(new GCPair(node, prev));

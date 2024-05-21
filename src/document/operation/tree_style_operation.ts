@@ -27,7 +27,7 @@ import {
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
-import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gs';
+import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 /**
  * `TreeStyleOperation` represents an operation that modifies the style of the

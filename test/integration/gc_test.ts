@@ -1036,13 +1036,13 @@ describe('Garbage Collection', function () {
 
           for (let j = 0; j < tc.steps.length; j++) {
             const s = tc.steps[j];
-            doc.update((root: any) => {
+            doc.update((root) => {
               if (s.op.code === OpCode.RemoveStyle) {
                 root.t.removeStyle(0, 1, [s.op.key]);
               } else if (s.op.code === OpCode.Style) {
                 root.t.style(0, 1, { [s.op.key]: s.op.val });
               } else if (s.op.code === OpCode.DeleteNode) {
-                root.t.edit(0, 2, null, 0);
+                root.t.edit(0, 2, undefined, 0);
               } else if (s.op.code === OpCode.GC) {
                 doc.garbageCollect(MaxTimeTicket);
               }
