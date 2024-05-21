@@ -8,6 +8,7 @@ import {
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { IndexTreeNode } from '@yorkie-js-sdk/src/util/index_tree';
+import { timeT } from '@yorkie-js-sdk/test/helper/helper';
 
 // `getNodeLength` returns the number of nodes in the given tree.
 function getNodeLength(root: IndexTreeNode<CRDTTreeNode>) {
@@ -1020,41 +1021,43 @@ describe('Garbage Collection', function () {
         },
       ];
 
-      for (let i = 0; i < tests.length; i++) {
-        const tc = tests[i];
-        it(`${i + 1}. ${tc.desc}`, () => {
-          const doc = new yorkie.Document<{ t: Tree }>(`test-doc${i}`);
-          assert.equal(doc.toSortedJSON(), '{}');
+      it.each(tests)('$desc', ({ steps }) => {
+        const doc = new yorkie.Document<{ t: Tree }>('test-doc');
+        assert.equal(doc.toSortedJSON(), '{}');
 
-          doc.update((root) => {
-            root.t = new Tree({
-              type: 'r',
-              children: [{ type: 'p', children: [] }],
-            });
+        doc.update((root) => {
+          root.t = new Tree({
+            type: 'r',
+            children: [{ type: 'p', children: [] }],
           });
-          assert.equal(doc.getRoot().t.toXML(), '<r><p></p></r>');
+        });
+        assert.equal(doc.getRoot().t.toXML(), '<r><p></p></r>');
 
-          for (let j = 0; j < tc.steps.length; j++) {
-            const s = tc.steps[j];
+        steps.forEach(
+          ({
+            op: { code, key, val },
+            garbageLen: garbageLen,
+            expectXML: expectXML,
+          }) => {
             doc.update((root) => {
-              if (s.op.code === OpCode.RemoveStyle) {
-                root.t.removeStyle(0, 1, [s.op.key]);
-              } else if (s.op.code === OpCode.Style) {
-                root.t.style(0, 1, { [s.op.key]: s.op.val });
-              } else if (s.op.code === OpCode.DeleteNode) {
+              if (code === OpCode.RemoveStyle) {
+                root.t.removeStyle(0, 1, [key]);
+              } else if (code === OpCode.Style) {
+                root.t.style(0, 1, { [key]: val });
+              } else if (code === OpCode.DeleteNode) {
                 root.t.edit(0, 2, undefined, 0);
-              } else if (s.op.code === OpCode.GC) {
-                doc.garbageCollect(MaxTimeTicket);
+              } else if (code === OpCode.GC) {
+                doc.garbageCollect(timeT());
               }
             });
-            assert.equal(doc.getRoot().t.toXML(), s.expectXML);
-            assert.equal(doc.getGarbageLen(), s.garbageLen);
-          }
+            assert.equal(doc.getRoot().t.toXML(), expectXML);
+            assert.equal(doc.getGarbageLen(), garbageLen);
+          },
+        );
 
-          doc.garbageCollect(MaxTimeTicket);
-          assert.equal(doc.getGarbageLen(), 0);
-        });
-      }
+        doc.garbageCollect(MaxTimeTicket);
+        assert.equal(doc.getGarbageLen(), 0);
+      });
     });
   });
 });
