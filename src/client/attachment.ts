@@ -49,6 +49,10 @@ export class Attachment<T, P extends Indexable> {
       return false;
     }
 
+    if (this.syncMode === SyncMode.RealtimePushOnly) {
+      return this.doc.hasLocalChanges();
+    }
+
     return (
       this.syncMode !== SyncMode.Manual &&
       (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
