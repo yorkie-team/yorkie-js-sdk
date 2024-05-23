@@ -170,9 +170,9 @@ export class CRDTTextValue {
   }
 
   /**
-   * `GCPairs` returns the pairs of GC.
+   * `getGCPairs` returns the pairs of GC.
    */
-  public GCPairs(): Array<GCPair> {
+  public getGCPairs(): Array<GCPair> {
     const pairs = [];
 
     for (const node of this.attributes) {
@@ -464,16 +464,16 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   }
 
   /**
-   * `GCPairs` returns the pairs of GC.
+   * `getGCPairs` returns the pairs of GC.
    */
-  public GCPairs(): Array<GCPair> {
+  public getGCPairs(): Array<GCPair> {
     const pairs = [];
     for (const node of this.rgaTreeSplit) {
       if (node.getRemovedAt()) {
         pairs.push({ parent: this.rgaTreeSplit, child: node });
       }
 
-      for (const p of node.getValue().GCPairs()) {
+      for (const p of node.getValue().getGCPairs()) {
         pairs.push(p);
       }
     }

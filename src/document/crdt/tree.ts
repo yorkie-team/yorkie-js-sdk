@@ -668,9 +668,9 @@ export class CRDTTreeNode
   }
 
   /**
-   * `GCPairs` returns the pairs of GC.
+   * `getGCPairs` returns the pairs of GC.
    */
-  public GCPairs(): Array<GCPair> {
+  public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
     if (!this.attrs) {
       return pairs;
@@ -1221,16 +1221,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `GCPairs` returns the pairs of GC.
+   * `getGCPairs` returns the pairs of GC.
    */
-  public GCPairs(): Array<GCPair> {
+  public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
     this.indexTree.traverse((node) => {
       if (node.getRemovedAt()) {
         pairs.push({ parent: this, child: node });
       }
 
-      for (const p of node.GCPairs()) {
+      for (const p of node.getGCPairs()) {
         pairs.push(p);
       }
     });
