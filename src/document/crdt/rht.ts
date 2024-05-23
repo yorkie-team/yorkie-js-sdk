@@ -269,6 +269,7 @@ export class RHT {
   public purge(child: RHTNode) {
     const node = this.nodeMapByKey.get(child.getKey());
     if (node == undefined || node.toIDString() != child.toIDString()) {
+      // TODO(hackerwins): Should we return an error when the child is not found?
       return;
     }
 

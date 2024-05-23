@@ -1196,26 +1196,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `purge` physically purges the given node.
    */
   public purge(node: GCChild): void {
-    if (node instanceof CRDTTreeNode) {
-      node.parent?.removeChild(node);
-      this.nodeMapByID.remove(node.id);
-
-      const insPrevID = node.insPrevID;
-      const insNextID = node.insNextID;
-
-      if (insPrevID) {
-        const insPrev = this.findFloorNode(insPrevID)!;
-        insPrev.insNextID = insNextID;
-      }
-
-      if (insNextID) {
-        const insNext = this.findFloorNode(insNextID)!;
-        insNext.insPrevID = insPrevID;
-      }
-
-      node.insPrevID = undefined;
-      node.insNextID = undefined;
+    if (!(node instanceof CRDTTreeNode)) {
+      return;
     }
+
+    node.parent?.removeChild(node);
+    this.nodeMapByID.remove(node.id);
+
+    const insPrevID = node.insPrevID;
+    const insNextID = node.insNextID;
+
+    if (insPrevID) {
+      const insPrev = this.findFloorNode(insPrevID)!;
+      insPrev.insNextID = insNextID;
+    }
+
+    if (insNextID) {
+      const insNext = this.findFloorNode(insNextID)!;
+      insNext.insPrevID = insPrevID;
+    }
+
+    node.insPrevID = undefined;
+    node.insNextID = undefined;
   }
 
   /**

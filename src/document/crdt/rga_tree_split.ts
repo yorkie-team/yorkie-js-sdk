@@ -1012,32 +1012,34 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: GCChild): void {
-    if (node instanceof RGATreeSplitNode<T>) {
-      const prev = node.getPrev();
-      const next = node.getNext();
-      const insPrev = node.getInsPrev();
-      const insNext = node.getInsNext();
-
-      if (prev) {
-        prev.setNext(next);
-      }
-      if (next) {
-        next.setPrev(prev);
-      }
-
-      node.setPrev(undefined);
-      node.setNext(undefined);
-
-      if (insPrev) {
-        insPrev.setInsNext(insNext);
-      }
-
-      if (insNext) {
-        insNext.setInsPrev(insPrev);
-      }
-
-      node.setInsPrev(undefined);
-      node.setInsNext(undefined);
+    if (!(node instanceof RGATreeSplitNode<T>)) {
+      return;
     }
+
+    const prev = node.getPrev();
+    const next = node.getNext();
+    const insPrev = node.getInsPrev();
+    const insNext = node.getInsNext();
+
+    if (prev) {
+      prev.setNext(next);
+    }
+    if (next) {
+      next.setPrev(prev);
+    }
+
+    node.setPrev(undefined);
+    node.setNext(undefined);
+
+    if (insPrev) {
+      insPrev.setInsNext(insNext);
+    }
+
+    if (insNext) {
+      insNext.setInsPrev(insPrev);
+    }
+
+    node.setInsPrev(undefined);
+    node.setInsNext(undefined);
   }
 }
