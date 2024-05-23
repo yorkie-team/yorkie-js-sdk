@@ -661,8 +661,8 @@ export class CRDTTreeNode
   /**
    * `purge` purges the given child node.
    */
-  public purge(node: GCChild): void {
-    if (this.attrs && node instanceof RHTNode) {
+  public purge(node: RHTNode): void {
+    if (this.attrs) {
       this.attrs.purge(node);
     }
   }
@@ -1195,11 +1195,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   /**
    * `purge` physically purges the given node.
    */
-  public purge(node: GCChild): void {
-    if (!(node instanceof CRDTTreeNode)) {
-      return;
-    }
-
+  public purge(node: CRDTTreeNode): void {
     node.parent?.removeChild(node);
     this.nodeMapByID.remove(node.id);
 
