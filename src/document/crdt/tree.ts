@@ -1229,6 +1229,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (node.getRemovedAt()) {
         pairs.push({ parent: this, child: node });
       }
+
+      for (const p of node.GCPairs()) {
+        pairs.push(p);
+      }
     });
 
     return pairs;

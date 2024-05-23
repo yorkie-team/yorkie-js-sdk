@@ -440,15 +440,10 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `canDelete` checks if node is able to delete.
    */
   public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
-    const justRemoved = !this.removedAt;
-    if (
+    return (
       !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
-    ) {
-      return justRemoved;
-    }
-
-    return false;
+    );
   }
 
   /**
@@ -545,7 +540,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param editedAt - edited time
    * @param value - value
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
-   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<Change>]`
+   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>]`
    */
   public edit(
     range: RGATreeSplitPosRange,
@@ -886,7 +881,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     );
 
     const createdAtMapByActor = new Map();
-    const removedNodeMap = new Map();
+    const removedNodes = new Map();
     // First we need to collect indexes for change.
     const changes = this.makeChanges(nodesToKeep, editedAt);
     for (const node of nodesToDelete) {
@@ -898,13 +893,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(node.getID().toIDString(), node);
+      removedNodes.set(node.getID().toIDString(), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);
 
-    return [changes, createdAtMapByActor, removedNodeMap];
+    return [changes, createdAtMapByActor, removedNodes];
   }
 
   private filterNodes(
