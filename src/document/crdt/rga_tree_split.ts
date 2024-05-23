@@ -440,10 +440,15 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `canDelete` checks if node is able to delete.
    */
   public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
-    return (
+    const justRemoved = !this.removedAt;
+    if (
       !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
-    );
+    ) {
+      return justRemoved;
+    }
+
+    return false;
   }
 
   /**
