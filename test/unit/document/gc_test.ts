@@ -478,7 +478,7 @@ describe('Garbage Collection for tree', () => {
         } else if (code === OpCode.DeleteNode) {
           root.t.edit(0, 2, undefined, 0);
         } else if (code === OpCode.GC) {
-          doc.garbageCollect(timeT());
+          doc.garbageCollect(MaxTimeTicket);
         }
       });
       assert.equal(doc.getRoot().t.toXML(), expectXML);

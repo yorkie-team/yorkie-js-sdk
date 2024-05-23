@@ -419,7 +419,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    const [, maxCreatedAtMapByActor] = this.tree!.edit(
+    const [, pairs, maxCreatedAtMapByActor] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -428,6 +428,10 @@ export class Tree {
       ticket,
       () => this.context!.issueTimeTicket(),
     );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context!.push(
       TreeEditOperation.create(
@@ -440,10 +444,6 @@ export class Tree {
         ticket,
       ),
     );
-
-    if (!fromPos.equals(toPos)) {
-      this.context!.registerElementHasRemovedNodes(this.tree!);
-    }
 
     return true;
   }

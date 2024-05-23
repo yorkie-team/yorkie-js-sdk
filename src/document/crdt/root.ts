@@ -22,10 +22,11 @@ import {
 import {
   CRDTContainer,
   CRDTElement,
-  CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -65,13 +66,6 @@ export class CRDTRoot {
   private removedElementSetByCreatedAt: Set<string>;
 
   /**
-   * `elementHasRemovedNodesSetByCreatedAt` is a hash set that contains the
-   * creation time of the element that has removed nodes. It is used to find
-   * the element that has removed nodes when executing garbage collection.
-   */
-  private elementHasRemovedNodesSetByCreatedAt: Set<string>;
-
-  /**
    * `gcPairMap` is a hash table that maps the IDString of GCChild to the
    * element itself and its parent.
    */
@@ -81,9 +75,20 @@ export class CRDTRoot {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.removedElementSetByCreatedAt = new Set();
-    this.elementHasRemovedNodesSetByCreatedAt = new Set();
     this.gcPairMap = new Map();
     this.registerElement(rootObject, undefined);
+
+    rootObject.getDescendants((elem) => {
+      if (elem.getRemovedAt()) {
+        this.registerRemovedElement(elem);
+      }
+      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
+        for (const pair of elem.GCPairs()) {
+          this.registerGCPair(pair);
+        }
+      }
+      return false;
+    });
   }
 
   /**
@@ -198,16 +203,6 @@ export class CRDTRoot {
   }
 
   /**
-   * `registerElementHasRemovedNodes` registers the given GC element to the
-   * hash set.
-   */
-  public registerElementHasRemovedNodes(elem: CRDTGCElement): void {
-    this.elementHasRemovedNodesSetByCreatedAt.add(
-      elem.getCreatedAt().toIDString(),
-    );
-  }
-
-  /**
    * `registerGCPair` registers the given pair to hash table.
    */
   public registerGCPair(pair: GCPair): void {
@@ -261,12 +256,6 @@ export class CRDTRoot {
 
     count += seen.size;
 
-    for (const createdAt of this.elementHasRemovedNodesSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const elem = pair.element as CRDTGCElement;
-      count += elem.getRemovedNodesLen();
-    }
-
     count += this.gcPairMap.size;
 
     return count;
@@ -296,27 +285,14 @@ export class CRDTRoot {
       }
     }
 
-    for (const createdAt of this.elementHasRemovedNodesSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const elem = pair.element as CRDTGCElement;
-
-      const removedNodeCnt = elem.purgeRemovedNodesBefore(ticket);
-      if (elem.getRemovedNodesLen() === 0) {
-        this.elementHasRemovedNodesSetByCreatedAt.delete(
-          elem.getCreatedAt().toIDString(),
-        );
-      }
-      count += removedNodeCnt;
-    }
-
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (removedAt !== undefined && ticket.compare(removedAt) >= 0) {
         pair.parent.purge(pair.child);
-      }
 
-      this.gcPairMap.delete(pair.child.toIDString());
-      count += 1;
+        this.gcPairMap.delete(pair.child.toIDString());
+        count += 1;
+      }
     }
 
     return count;

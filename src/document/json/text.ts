@@ -101,12 +101,16 @@ export class Text<A extends Indexable = Indexable> {
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor, , rangeAfterEdit] = this.text.edit(
+    const [maxCreatedAtMapByActor, , pairs, rangeAfterEdit] = this.text.edit(
       range,
       content,
       ticket,
       attrs,
     );
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       new EditOperation(
@@ -119,10 +123,6 @@ export class Text<A extends Indexable = Indexable> {
         ticket,
       ),
     );
-
-    if (!range[0].equals(range[1])) {
-      this.context.registerElementHasRemovedNodes(this.text);
-    }
 
     return this.text.findIndexesFromRange(rangeAfterEdit);
   }

@@ -92,7 +92,7 @@ export class TreeEditOperation extends Operation {
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
-    const [changes] = tree.edit(
+    const [changes, pairs] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
@@ -120,9 +120,10 @@ export class TreeEditOperation extends Operation {
       this.maxCreatedAtMapByActor,
     );
 
-    if (!this.fromPos.equals(this.toPos)) {
-      root.registerElementHasRemovedNodes(tree);
+    for (const pair of pairs) {
+      root.registerGCPair(pair);
     }
+
     return {
       opInfos: changes.map(
         ({ from, to, value, splitLevel, fromPath, toPath }) => {

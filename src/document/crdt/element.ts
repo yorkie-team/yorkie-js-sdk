@@ -157,11 +157,3 @@ export abstract class CRDTContainer extends CRDTElement {
    */
   abstract getByID(createdAt: TimeTicket): CRDTElement | undefined;
 }
-
-/**
- * `CRDTGCElement` represents element which has garbage collecting method.
- */
-export abstract class CRDTGCElement extends CRDTElement {
-  abstract getRemovedNodesLen(): number;
-  abstract purgeRemovedNodesBefore(ticket: TimeTicket): number;
-}
