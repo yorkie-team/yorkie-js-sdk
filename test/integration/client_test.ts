@@ -6,6 +6,7 @@ import yorkie, {
   DocEventType,
   DocumentSyncStatus,
   Tree,
+  Text,
 } from '@yorkie-js-sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
 import {
@@ -602,6 +603,62 @@ describe.sequential('Client', function () {
 
     assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
     assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+
+    unsub1();
+    unsub2();
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Should avoid unnecessary syncs in push-only mode', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ t: Text }>(docKey);
+    const d2 = new yorkie.Document<{ t: Text }>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    const eventCollectorD1 = new EventCollector();
+    const eventCollectorD2 = new EventCollector();
+    const unsub1 = d1.subscribe('sync', (event) => {
+      eventCollectorD1.add(event.value);
+    });
+    const unsub2 = d2.subscribe('sync', (event) => {
+      eventCollectorD2.add(event.value);
+    });
+
+    d1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(1, DocumentSyncStatus.Synced);
+
+    assert.equal(d1.getRoot().t.toString(), 'a');
+    assert.equal(d2.getRoot().t.toString(), 'a');
+
+    eventCollectorD1.reset();
+    c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+    d2.update((root) => {
+      root.t.edit(1, 1, 'b');
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(2, DocumentSyncStatus.Synced);
+    d2.update((root) => {
+      root.t.edit(2, 2, 'c');
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(3, DocumentSyncStatus.Synced);
+
+    assert.equal(eventCollectorD1.getLength(), 0);
+    c1.changeSyncMode(d1, SyncMode.Realtime);
+    await eventCollectorD1.waitAndVerifyNthEvent(1, DocumentSyncStatus.Synced);
+
+    assert.equal(d1.getRoot().t.toString(), 'abc');
+    assert.equal(d2.getRoot().t.toString(), 'abc');
 
     unsub1();
     unsub2();
