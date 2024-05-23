@@ -83,7 +83,7 @@ export class CRDTRoot {
         this.registerRemovedElement(elem);
       }
       if (elem instanceof CRDTText || elem instanceof CRDTTree) {
-        for (const pair of elem.GCPairs()) {
+        for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
         }
       }
