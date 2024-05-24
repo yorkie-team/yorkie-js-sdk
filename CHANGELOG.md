@@ -13,7 +13,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 - Update examples version to v0.4.19 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/812
 - Enhance type inference in Document.subscribe by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/814
 - Implement RHT.GC by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/815
-- Avoid unnecessary syncs in push-only syncmode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/#818
+- Avoid unnecessary syncs in push-only syncmode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/818
 - Apply GCPair to TreeNode, TextNode by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/819
 
 ## [0.4.19] - 2024-05-10
