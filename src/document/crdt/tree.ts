@@ -20,7 +20,7 @@ import {
   TimeTicketStruct,
   MaxTimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 
 import {
   IndexTree,
@@ -419,7 +419,7 @@ export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
  */
 export class CRDTTreeNode
   extends IndexTreeNode<CRDTTreeNode>
-  implements GCParent
+  implements GCParent, GCChild
 {
   id: CRDTTreeNodeID;
   removedAt?: TimeTicket;
@@ -454,6 +454,20 @@ export class CRDTTreeNode
     } else if (Array.isArray(opts)) {
       this._children = opts;
     }
+  }
+
+  /**
+   * `toIDString` returns the IDString of this node.
+   */
+  toIDString(): string {
+    return this.id.toIDString();
+  }
+
+  /**
+   * `getRemovedAt` returns the time when this node was removed.
+   */
+  getRemovedAt(): TimeTicket | undefined {
+    return this.removedAt;
   }
 
   /**
@@ -647,10 +661,28 @@ export class CRDTTreeNode
   /**
    * `purge` purges the given child node.
    */
-  public purge(node: GCChild): void {
-    if (this.attrs && node instanceof RHTNode) {
+  public purge(node: RHTNode): void {
+    if (this.attrs) {
       this.attrs.purge(node);
     }
+  }
+
+  /**
+   * `getGCPairs` returns the pairs of GC.
+   */
+  public getGCPairs(): Array<GCPair> {
+    const pairs: Array<GCPair> = [];
+    if (!this.attrs) {
+      return pairs;
+    }
+
+    for (const node of this.attrs) {
+      if (node.getRemovedAt()) {
+        pairs.push({ parent: this, child: node });
+      }
+    }
+
+    return pairs;
   }
 }
 
@@ -731,16 +763,14 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
 /**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
-export class CRDTTree extends CRDTGCElement {
+export class CRDTTree extends CRDTElement implements GCParent {
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
-  private removedNodeMap: Map<string, CRDTTreeNode>;
 
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
-    this.removedNodeMap = new Map();
 
     this.indexTree.traverse((node) => {
       this.nodeMapByID.put(node.id, node);
@@ -965,7 +995,7 @@ export class CRDTTree extends CRDTGCElement {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Array<TreeChange>, Map<string, TimeTicket>] {
+  ): [Array<TreeChange>, Array<GCPair>, Map<string, TimeTicket>] {
     // 01. find nodes from the given range and split nodes.
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -1040,10 +1070,11 @@ export class CRDTTree extends CRDTGCElement {
     );
 
     // 02. Delete: delete the nodes that are marked as removed.
+    const pairs: Array<GCPair> = [];
     for (const node of nodesToBeRemoved) {
       node.remove(editedAt);
       if (node.isRemoved) {
-        this.removedNodeMap.set(node.id.toIDString(), node);
+        pairs.push({ parent: this, child: node });
       }
     }
 
@@ -1095,7 +1126,8 @@ export class CRDTTree extends CRDTGCElement {
           // make new nodes as tombstone immediately.
           if (fromParent.isRemoved) {
             node.remove(editedAt);
-            this.removedNodeMap.set(node.id.toIDString(), node);
+
+            pairs.push({ parent: this, child: node });
           }
 
           this.nodeMapByID.put(node.id, node);
@@ -1123,7 +1155,7 @@ export class CRDTTree extends CRDTGCElement {
       }
     }
 
-    return [changes, maxCreatedAtMap];
+    return [changes, pairs, maxCreatedAtMap];
   }
 
   /**
@@ -1161,33 +1193,12 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
-   * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
-   */
-  public purgeRemovedNodesBefore(ticket: TimeTicket) {
-    const nodesToBeRemoved = new Set<CRDTTreeNode>();
-
-    let count = 0;
-    for (const [, node] of this.removedNodeMap) {
-      if (node.removedAt && ticket.compare(node.removedAt!) >= 0) {
-        nodesToBeRemoved.add(node);
-        count++;
-      }
-    }
-
-    for (const node of nodesToBeRemoved) {
-      node.parent?.removeChild(node);
-      this.nodeMapByID.remove(node.id);
-      this.purge(node);
-      this.removedNodeMap.delete(node.id.toIDString());
-    }
-
-    return count;
-  }
-
-  /**
-   * `purge` physically purges the given node from RGATreeSplit.
+   * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {
+    node.parent?.removeChild(node);
+    this.nodeMapByID.remove(node.id);
+
     const insPrevID = node.insPrevID;
     const insNextID = node.insNextID;
 
@@ -1206,18 +1217,29 @@ export class CRDTTree extends CRDTGCElement {
   }
 
   /**
+   * `getGCPairs` returns the pairs of GC.
+   */
+  public getGCPairs(): Array<GCPair> {
+    const pairs: Array<GCPair> = [];
+    this.indexTree.traverse((node) => {
+      if (node.getRemovedAt()) {
+        pairs.push({ parent: this, child: node });
+      }
+
+      for (const p of node.getGCPairs()) {
+        pairs.push(p);
+      }
+    });
+
+    return pairs;
+  }
+
+  /**
    * `findPos` finds the position of the given index in the tree.
    */
   public findPos(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
     return CRDTTreePos.fromTreePos(treePos);
-  }
-
-  /**
-   * `getRemovedNodesLen` returns size of removed nodes.
-   */
-  public getRemovedNodesLen(): number {
-    return this.removedNodeMap.size;
   }
 
   /**

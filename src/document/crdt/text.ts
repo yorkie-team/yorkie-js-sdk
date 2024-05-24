@@ -21,7 +21,7 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT, RHTNode } from '@yorkie-js-sdk/src/document/crdt/rht';
-import { CRDTGCElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
@@ -168,13 +168,28 @@ export class CRDTTextValue {
       this.attributes.purge(node);
     }
   }
+
+  /**
+   * `getGCPairs` returns the pairs of GC.
+   */
+  public getGCPairs(): Array<GCPair> {
+    const pairs = [];
+
+    for (const node of this.attributes) {
+      if (node.getRemovedAt()) {
+        pairs.push({ parent: this, child: node });
+      }
+    }
+
+    return pairs;
+  }
 }
 
 /**
  *  `CRDTText` is a custom CRDT data type to represent the contents of text editors.
  *
  */
-export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
+export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   private rgaTreeSplit: RGATreeSplit<CRDTTextValue>;
 
   constructor(
@@ -206,7 +221,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [Map<string, TimeTicket>, Array<TextChange<A>>, RGATreeSplitPosRange] {
+  ): [
+    Map<string, TimeTicket>,
+    Array<TextChange<A>>,
+    Array<GCPair>,
+    RGATreeSplitPosRange,
+  ] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -214,12 +234,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, valueChanges] = this.rgaTreeSplit.edit(
-      range,
-      editedAt,
-      crdtTextValue,
-      maxCreatedAtMapByActor,
-    );
+    const [caretPos, maxCreatedAtMap, pairs, valueChanges] =
+      this.rgaTreeSplit.edit(
+        range,
+        editedAt,
+        crdtTextValue,
+        maxCreatedAtMapByActor,
+      );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -235,7 +256,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
       type: TextChangeType.Content,
     }));
 
-    return [maxCreatedAtMap, changes, [caretPos, caretPos]];
+    return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }
 
   /**
@@ -246,6 +267,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
+   * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
    * @internal
    */
   public setStyle(
@@ -423,22 +445,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
   }
 
   /**
-   * `getRemovedNodesLen` returns length of removed nodes
-   */
-  public getRemovedNodesLen(): number {
-    return this.rgaTreeSplit.getRemovedNodesLen();
-  }
-
-  /**
-   * `purgeRemovedNodesBefore` purges removed nodes before the given time.
-   *
-   * @internal
-   */
-  public purgeRemovedNodesBefore(ticket: TimeTicket): number {
-    return this.rgaTreeSplit.purgeRemovedNodesBefore(ticket);
-  }
-
-  /**
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTText<A> {
@@ -455,5 +461,23 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTGCElement {
    */
   public findIndexesFromRange(range: RGATreeSplitPosRange): [number, number] {
     return this.rgaTreeSplit.findIndexesFromRange(range);
+  }
+
+  /**
+   * `getGCPairs` returns the pairs of GC.
+   */
+  public getGCPairs(): Array<GCPair> {
+    const pairs = [];
+    for (const node of this.rgaTreeSplit) {
+      if (node.getRemovedAt()) {
+        pairs.push({ parent: this.rgaTreeSplit, child: node });
+      }
+
+      for (const p of node.getValue().getGCPairs()) {
+        pairs.push(p);
+      }
+    }
+
+    return pairs;
   }
 }

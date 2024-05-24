@@ -90,7 +90,7 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [, changes] = text.edit(
+    const [, changes, pairs] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -98,9 +98,10 @@ export class EditOperation extends Operation {
       this.maxCreatedAtMapByActor,
     );
 
-    if (!this.fromPos.equals(this.toPos)) {
-      root.registerElementHasRemovedNodes(text);
+    for (const pair of pairs) {
+      root.registerGCPair(pair);
     }
+
     return {
       opInfos: changes.map(({ from, to, value }) => {
         return {

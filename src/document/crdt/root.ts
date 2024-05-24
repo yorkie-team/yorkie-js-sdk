@@ -22,10 +22,11 @@ import {
 import {
   CRDTContainer,
   CRDTElement,
-  CRDTGCElement,
 } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -58,18 +59,11 @@ export class CRDTRoot {
   private elementPairMapByCreatedAt: Map<string, CRDTElementPair>;
 
   /**
-   * `removedElementSetByCreatedAt` is a hash set that contains the creation
+   * `gcElementSetByCreatedAt` is a hash set that contains the creation
    * time of the removed element. It is used to find the removed element when
    * executing garbage collection.
    */
-  private removedElementSetByCreatedAt: Set<string>;
-
-  /**
-   * `elementHasRemovedNodesSetByCreatedAt` is a hash set that contains the
-   * creation time of the element that has removed nodes. It is used to find
-   * the element that has removed nodes when executing garbage collection.
-   */
-  private elementHasRemovedNodesSetByCreatedAt: Set<string>;
+  private gcElementSetByCreatedAt: Set<string>;
 
   /**
    * `gcPairMap` is a hash table that maps the IDString of GCChild to the
@@ -80,10 +74,21 @@ export class CRDTRoot {
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
-    this.removedElementSetByCreatedAt = new Set();
-    this.elementHasRemovedNodesSetByCreatedAt = new Set();
+    this.gcElementSetByCreatedAt = new Set();
     this.gcPairMap = new Map();
     this.registerElement(rootObject, undefined);
+
+    rootObject.getDescendants((elem) => {
+      if (elem.getRemovedAt()) {
+        this.registerRemovedElement(elem);
+      }
+      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
+        for (const pair of elem.getGCPairs()) {
+          this.registerGCPair(pair);
+        }
+      }
+      return false;
+    });
   }
 
   /**
@@ -175,7 +180,7 @@ export class CRDTRoot {
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
       this.elementPairMapByCreatedAt.delete(createdAt);
-      this.removedElementSetByCreatedAt.delete(createdAt);
+      this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
     };
 
@@ -194,17 +199,7 @@ export class CRDTRoot {
    * `registerRemovedElement` registers the given element to the hash set.
    */
   public registerRemovedElement(element: CRDTElement): void {
-    this.removedElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
-  }
-
-  /**
-   * `registerElementHasRemovedNodes` registers the given GC element to the
-   * hash set.
-   */
-  public registerElementHasRemovedNodes(elem: CRDTGCElement): void {
-    this.elementHasRemovedNodesSetByCreatedAt.add(
-      elem.getCreatedAt().toIDString(),
-    );
+    this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
   }
 
   /**
@@ -228,10 +223,22 @@ export class CRDTRoot {
   }
 
   /**
-   * `getRemovedElementSetSize()` returns the size of removed element set.
+   * `getGarbageElementSetSize()` returns the size of removed element set.
    */
-  public getRemovedElementSetSize(): number {
-    return this.removedElementSetByCreatedAt.size;
+  public getGarbageElementSetSize(): number {
+    const seen = new Set<string>();
+
+    for (const createdAt of this.gcElementSetByCreatedAt) {
+      seen.add(createdAt);
+      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      if (pair.element instanceof CRDTContainer) {
+        pair.element.getDescendants((el) => {
+          seen.add(el.getCreatedAt().toIDString());
+          return false;
+        });
+      }
+    }
+    return seen.size;
   }
 
   /**
@@ -245,31 +252,7 @@ export class CRDTRoot {
    * `getGarbageLen` returns length of nodes which can be garbage collected.
    */
   public getGarbageLen(): number {
-    let count = 0;
-    const seen = new Set<string>();
-
-    for (const createdAt of this.removedElementSetByCreatedAt) {
-      seen.add(createdAt);
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      if (pair.element instanceof CRDTContainer) {
-        pair.element.getDescendants((el) => {
-          seen.add(el.getCreatedAt().toIDString());
-          return false;
-        });
-      }
-    }
-
-    count += seen.size;
-
-    for (const createdAt of this.elementHasRemovedNodesSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const elem = pair.element as CRDTGCElement;
-      count += elem.getRemovedNodesLen();
-    }
-
-    count += this.gcPairMap.size;
-
-    return count;
+    return this.getGarbageElementSetSize() + this.gcPairMap.size;
   }
 
   /**
@@ -285,7 +268,7 @@ export class CRDTRoot {
   public garbageCollect(ticket: TimeTicket): number {
     let count = 0;
 
-    for (const createdAt of this.removedElementSetByCreatedAt) {
+    for (const createdAt of this.gcElementSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       if (
         pair.element.getRemovedAt() &&
@@ -296,27 +279,14 @@ export class CRDTRoot {
       }
     }
 
-    for (const createdAt of this.elementHasRemovedNodesSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      const elem = pair.element as CRDTGCElement;
-
-      const removedNodeCnt = elem.purgeRemovedNodesBefore(ticket);
-      if (elem.getRemovedNodesLen() === 0) {
-        this.elementHasRemovedNodesSetByCreatedAt.delete(
-          elem.getCreatedAt().toIDString(),
-        );
-      }
-      count += removedNodeCnt;
-    }
-
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (removedAt !== undefined && ticket.compare(removedAt) >= 0) {
         pair.parent.purge(pair.child);
-      }
 
-      this.gcPairMap.delete(pair.child.toIDString());
-      count += 1;
+        this.gcPairMap.delete(pair.child.toIDString());
+        count += 1;
+      }
     }
 
     return count;

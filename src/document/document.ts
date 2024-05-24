@@ -1274,7 +1274,7 @@ export class Document<T, P extends Indexable = Indexable> {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
           `elements:${this.root.getElementMapSize()}, ` +
-          `removeds:${this.root.getRemovedElementSetSize()}`,
+          `removeds:${this.root.getGarbageElementSetSize()}`,
       );
     }
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -1296,7 +1296,7 @@ export class Document<T, P extends Indexable = Indexable> {
       logger.debug(
         `after appling ${changes.length} remote changes.` +
           `elements:${this.root.getElementMapSize()}, ` +
-          ` removeds:${this.root.getRemovedElementSetSize()}`,
+          ` removeds:${this.root.getGarbageElementSetSize()}`,
       );
     }
   }

@@ -25,6 +25,7 @@ import {
   TimeTicket,
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -243,9 +244,10 @@ export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
  */
-export class RGATreeSplitNode<
-  T extends RGATreeSplitValue,
-> extends SplayNode<T> {
+export class RGATreeSplitNode<T extends RGATreeSplitValue>
+  extends SplayNode<T>
+  implements GCChild
+{
   private id: RGATreeSplitNodeID;
   private removedAt?: TimeTicket;
 
@@ -438,10 +440,15 @@ export class RGATreeSplitNode<
    * `canDelete` checks if node is able to delete.
    */
   public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
-    return (
+    const justRemoved = !this.removedAt;
+    if (
       !this.getCreatedAt().after(maxCreatedAt) &&
       (!this.removedAt || editedAt.after(this.removedAt))
-    );
+    ) {
+      return justRemoved;
+    }
+
+    return false;
   }
 
   /**
@@ -491,6 +498,13 @@ export class RGATreeSplitNode<
     this.value = value.substring(0, offset) as T;
     return value.substring(offset, value.length) as T;
   }
+
+  /**
+   * `toIDString` returns a string that can be used as an ID for this position.
+   */
+  public toIDString(): string {
+    return this.id.toIDString();
+  }
 }
 
 /**
@@ -500,17 +514,15 @@ export class RGATreeSplitNode<
  * the block is split.
  *
  */
-export class RGATreeSplit<T extends RGATreeSplitValue> {
+export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private head: RGATreeSplitNode<T>;
   private treeByIndex: SplayTree<T>;
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
-  private removedNodeMap: Map<string, RGATreeSplitNode<T>>;
 
   constructor() {
     this.head = RGATreeSplitNode.create(InitialRGATreeSplitNodeID);
     this.treeByIndex = new SplayTree();
     this.treeByID = new LLRBTree(RGATreeSplitNode.createComparator());
-    this.removedNodeMap = new Map();
 
     this.treeByIndex.insert(this.head);
     this.treeByID.put(this.head.getID(), this.head);
@@ -533,22 +545,30 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
    * @param editedAt - edited time
    * @param value - value
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
-   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<Change>]`
+   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>]`
    */
   public edit(
     range: RGATreeSplitPosRange,
     editedAt: TimeTicket,
     value?: T,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
-  ): [RGATreeSplitPos, Map<string, TimeTicket>, Array<ValueChange<T>>] {
+  ): [
+    RGATreeSplitPos,
+    Map<string, TimeTicket>,
+    Array<GCPair>,
+    Array<ValueChange<T>>,
+  ] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
     const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const [changes, maxCreatedAtMap, removedNodeMapByNodeKey] =
-      this.deleteNodes(nodesToDelete, editedAt, maxCreatedAtMapByActor);
+    const [changes, maxCreatedAtMap, removedNodes] = this.deleteNodes(
+      nodesToDelete,
+      editedAt,
+      maxCreatedAtMapByActor,
+    );
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitPos.of(caretID, 0);
@@ -580,11 +600,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     }
 
     // 04. add removed node
-    for (const [key, removedNode] of removedNodeMapByNodeKey) {
-      this.removedNodeMap.set(key, removedNode);
+    const pairs: Array<GCPair> = [];
+    for (const [, removedNode] of removedNodes) {
+      pairs.push({ parent: this, child: removedNode });
     }
 
-    return [caretPos, maxCreatedAtMap, changes];
+    return [caretPos, maxCreatedAtMap, pairs, changes];
   }
 
   /**
@@ -865,7 +886,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
     );
 
     const createdAtMapByActor = new Map();
-    const removedNodeMap = new Map();
+    const removedNodes = new Map();
     // First we need to collect indexes for change.
     const changes = this.makeChanges(nodesToKeep, editedAt);
     for (const node of nodesToDelete) {
@@ -877,13 +898,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
       ) {
         createdAtMapByActor.set(actorID, node.getID().getCreatedAt());
       }
-      removedNodeMap.set(node.getID().toIDString(), node);
+      removedNodes.set(node.getID().toIDString(), node);
       node.remove(editedAt);
     }
     // Finally remove index nodes of tombstones.
     this.deleteIndexNodes(nodesToKeep);
 
-    return [changes, createdAtMapByActor, removedNodeMap];
+    return [changes, createdAtMapByActor, removedNodes];
   }
 
   private filterNodes(
@@ -985,31 +1006,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> {
         this.treeByIndex.deleteRange(leftBoundary!, rightBoundary);
       }
     }
-  }
-
-  /**
-   * `getRemovedNodesLen` returns size of removed nodes.
-   */
-  public getRemovedNodesLen(): number {
-    return this.removedNodeMap.size;
-  }
-
-  /**
-   * `purgeRemovedNodesBefore` physically purges nodes that have been removed.
-   */
-  public purgeRemovedNodesBefore(ticket: TimeTicket): number {
-    let count = 0;
-    for (const [, node] of this.removedNodeMap) {
-      if (node.getRemovedAt() && ticket.compare(node.getRemovedAt()!) >= 0) {
-        this.treeByIndex.delete(node);
-        this.purge(node);
-        this.treeByID.remove(node.getID());
-        this.removedNodeMap.delete(node.getID().toIDString());
-        count++;
-      }
-    }
-
-    return count;
   }
 
   /**

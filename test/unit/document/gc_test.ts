@@ -155,38 +155,27 @@ describe('Garbage Collection', function () {
     );
   });
 
-  it('should collect garbage for text node 2', function () {
+  it('should return correct gc count with already removed text node', function () {
     const doc = new yorkie.Document<{ k1: Text }>('test-doc');
     assert.equal(doc.toSortedJSON(), '{}');
 
-    let expectedMessage = '{"k1":[{"val":"Hello "},{"val":"mario"}]}';
     doc.update((root) => {
       root.k1 = new Text();
-      root.k1.edit(0, 0, 'Hello world');
-      root.k1.edit(6, 11, 'mario');
-      assert.equal(root.toJSON!(), expectedMessage);
+      root.k1.edit(0, 0, 'ab');
+      root.k1.edit(0, 1, 'c');
     }, 'edit text k1');
-    assert.equal(doc.toSortedJSON(), expectedMessage);
+    assert.equal(doc.toSortedJSON(), '{"k1":[{"val":"c"},{"val":"b"}]}');
     assert.equal(doc.getGarbageLen(), 1);
-
-    expectedMessage =
-      '{"k1":[{"val":"Hi"},{"val":" "},{"val":"j"},{"val":"ane"}]}';
 
     doc.update((root) => {
       const text = root['k1'];
-      text.edit(0, 5, 'Hi');
-      text.edit(3, 4, 'j');
-      text.edit(4, 8, 'ane');
-      assert.equal(root.toJSON!(), expectedMessage);
+      text.edit(1, 2, 'd');
     }, 'deletes 2');
-    assert.equal(doc.toSortedJSON(), expectedMessage);
+    assert.equal(doc.toSortedJSON(), '{"k1":[{"val":"c"},{"val":"d"}]}');
+    assert.equal(doc.getGarbageLen(), 2);
 
-    const expectedGarbageLen = 4;
-    assert.equal(doc.getGarbageLen(), expectedGarbageLen);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), expectedGarbageLen);
-
-    const empty = 0;
-    assert.equal(doc.getGarbageLen(), empty);
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 2);
+    assert.equal(doc.getGarbageLen(), 0);
   });
 
   it('should collect garbage for text node with attributes', function () {
@@ -299,6 +288,45 @@ describe('Garbage Collection', function () {
     assert.equal(doc.getGarbageLen(), 0);
     nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
+  });
+
+  it('should return correct gc count with already removed tree node', () => {
+    const doc = new yorkie.Document<{ t: Tree }>('test-doc');
+    assert.equal(doc.toSortedJSON(), '{}');
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'tn',
+                children: [{ type: 'text', value: 'abc' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+    assert.equal(doc.getRoot().t.toXML(), `<doc><p><tn>abc</tn></p></doc>`);
+    assert.equal(doc.getGarbageLen(), 0);
+
+    doc.update((root) => {
+      root.t.edit(3, 4, undefined);
+    });
+    assert.equal(doc.getRoot().t.toXML(), `<doc><p><tn>ac</tn></p></doc>`);
+    assert.equal(doc.getGarbageLen(), 1);
+
+    doc.update((root) => {
+      root.t.edit(2, 4, undefined);
+    });
+    assert.equal(doc.getRoot().t.toXML(), `<doc><p><tn></tn></p></doc>`);
+    assert.equal(doc.getGarbageLen(), 3);
+
+    assert.equal(doc.garbageCollect(MaxTimeTicket), 3);
+    assert.equal(doc.getGarbageLen(), 0);
   });
 
   it('should collect garbage for nested object', async () => {
@@ -478,7 +506,7 @@ describe('Garbage Collection for tree', () => {
         } else if (code === OpCode.DeleteNode) {
           root.t.edit(0, 2, undefined, 0);
         } else if (code === OpCode.GC) {
-          doc.garbageCollect(timeT());
+          doc.garbageCollect(MaxTimeTicket);
         }
       });
       assert.equal(doc.getRoot().t.toXML(), expectXML);
