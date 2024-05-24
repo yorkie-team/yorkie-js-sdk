@@ -1,5 +1,9 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { DocEventType, OperationInfo } from 'yorkie-js-sdk';
+import yorkie, {
+  DocEventType,
+  TextOperationInfo,
+  EditOpInfo,
+} from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {
@@ -112,14 +116,14 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  function handleOperations(operations: Array<OperationInfo>) {
+  function handleOperations(operations: Array<TextOperationInfo>) {
     operations.forEach((op) => {
       if (op.type === 'edit') {
         handleEditOp(op);
       }
     });
   }
-  function handleEditOp(op: any) {
+  function handleEditOp(op: EditOpInfo) {
     const changes = [
       {
         from: Math.max(0, op.from),

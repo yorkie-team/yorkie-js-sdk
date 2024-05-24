@@ -71,7 +71,10 @@
           const doc = new yorkie.Document(documentKey, {
             enableDevtools: true,
           });
-          doc.subscribe('connection', new Network(statusHolder).statusListener);
+          doc.subscribe(
+            'connection',
+            new Network(networkStatusElem).statusListener,
+          );
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;
             displayOnlineClients(doc.getPresences(), client.getID());
