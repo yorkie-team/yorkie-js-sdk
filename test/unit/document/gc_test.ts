@@ -290,7 +290,7 @@ describe('Garbage Collection', function () {
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
   });
 
-  it.only('should return correct gc count with already removed tree node', () => {
+  it('should return correct gc count with already removed tree node', () => {
     const doc = new yorkie.Document<{ t: Tree }>('test-doc');
     assert.equal(doc.toSortedJSON(), '{}');
 
