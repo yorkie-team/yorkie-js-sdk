@@ -7,6 +7,14 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Update exmples version to v0.4.20 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/822
+
+### Fixed
+
+- Prevent remote-change events in RealtimeSyncOff mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/824
+
 ## [0.4.20] - 2024-05-24
 
 ### Added
