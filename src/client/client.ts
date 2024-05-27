@@ -695,7 +695,8 @@ export class Client {
         // PushPull, ignore the response when the syncMode is PushOnly.
         if (
           respPack.hasChanges() &&
-          attachment.syncMode === SyncMode.RealtimePushOnly
+          (attachment.syncMode === SyncMode.RealtimePushOnly ||
+            attachment.syncMode === SyncMode.RealtimeSyncOff)
         ) {
           return doc;
         }
