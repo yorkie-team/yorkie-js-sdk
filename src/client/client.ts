@@ -623,6 +623,18 @@ export class Client {
 
               if (
                 err instanceof ConnectError &&
+                err.code === ConnectErrorCode.FailedPrecondition
+              ) {
+                this.status = ClientStatus.Deactivated;
+                for (const [key, attachment] of this.attachmentMap) {
+                  this.detachInternal(key);
+                  attachment.doc.applyStatus(DocumentStatus.Detached);
+                }
+                return;
+              }
+
+              if (
+                err instanceof ConnectError &&
                 err.code != ConnectErrorCode.Canceled
               ) {
                 onDisconnect();
