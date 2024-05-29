@@ -223,7 +223,9 @@ export class CRDTTreePos {
     const parentNode = tree.findFloorNode(parentID);
     let leftNode = tree.findFloorNode(leftSiblingID);
     if (!parentNode || !leftNode) {
-      throw new Error(`cannot find node at ${this}`);
+      throw new Error(
+        `cannot find node of CRDTTreePos(${parentID.toTestString()}, ${leftSiblingID.toTestString()})`,
+      );
     }
 
     /**
