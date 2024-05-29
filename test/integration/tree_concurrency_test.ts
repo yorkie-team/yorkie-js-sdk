@@ -501,7 +501,7 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  describe.skip('concurrently-style-style-test', async () => {
+  describe('concurrently-style-style-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
