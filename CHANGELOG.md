@@ -14,6 +14,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Fixed
 
 - Prevent remote-change events in RealtimeSyncOff mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/824
+- Fix invalid error message in CRDTTreePos by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/830
 
 ## [0.4.20] - 2024-05-24
 
