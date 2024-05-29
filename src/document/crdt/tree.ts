@@ -1356,10 +1356,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
         pos,
       };
 
-      for (let i = 0; i < node.children.length; i++) {
-        const leftChildNode = i === 0 ? node : node.children[i - 1];
+      for (let i = 0; i < node.allChildren.length; i++) {
+        const leftChildNode = i === 0 ? node : node.allChildren[i - 1];
         nodeInfo.children.push(
-          toTreeNodeInfo(node.children[i], node, leftChildNode, depth + 1),
+          toTreeNodeInfo(node.allChildren[i], node, leftChildNode, depth + 1),
         );
       }
 
