@@ -770,10 +770,16 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
+  let serverSeq: Long | undefined;
+  if (pbChangeID.serverSeq) {
+    serverSeq = Long.fromString(pbChangeID.serverSeq, true);
+  }
+
   return ChangeID.of(
     pbChangeID.clientSeq,
     Long.fromString(pbChangeID.lamport, true),
     toHexString(pbChangeID.actorId),
+    serverSeq,
   );
 }
 
@@ -1182,13 +1188,15 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const attributes = new Map();
     const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
     const createdAtMapByActor = new Map();
-    Object.entries(pbTreeStyleOperation!.createdAtMapByActor).forEach(
-      ([key, value]) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      },
-    );
+    if (pbTreeStyleOperation?.createdAtMapByActor) {
+      Object.entries(pbTreeStyleOperation!.createdAtMapByActor).forEach(
+        ([key, value]) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        },
+      );
+    }
 
-    if (attributesToRemove.length > 0) {
+    if (attributesToRemove?.length > 0) {
       return TreeStyleOperation.createTreeRemoveStyleOperation(
         fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeStyleOperation!.from!),

@@ -34,6 +34,7 @@ const unsubsByDocKey = new Map<string, Array<() => void>>();
  * IndexedDB will be used.
  */
 const transactionEventsByDocKey = new Map<string, Array<TransactionEvent>>();
+(window as any).transactionEventsByDocKey = transactionEventsByDocKey;
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
