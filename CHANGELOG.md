@@ -11,6 +11,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 - Update example version to v0.4.20 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/822
 - Remove skip from style-style-test by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/829
+- Include all nodes in tree.toJSInfoForTest by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/832
+- Add ServerSeq into ChangeInfo by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/833
 
 ### Fixed
 
