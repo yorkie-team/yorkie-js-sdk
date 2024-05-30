@@ -51,7 +51,11 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
 
   return (
     <div
-      className={classNames('tree-node', node.type === 'text' && 'text')}
+      className={classNames(
+        'tree-node',
+        node.type === 'text' && 'text',
+        node.isRemoved && 'removed',
+      )}
       style={{ '--depth': depth } as any}
     >
       <span className="node-item">

@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import classNames from 'classnames';
 import { Primitive } from 'yorkie-js-sdk';
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
@@ -26,6 +27,7 @@ export function Document({ style }) {
   const currentDocKey = useCurrentDocKey();
   const [doc] = useYorkieDoc();
   const [selectedNode, setSelectedNode] = useSelectedNode();
+  const [hideRemovedNode, setHideRemovedNode] = useState(true);
   const [root, setRoot] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
 
@@ -62,17 +64,32 @@ export function Document({ style }) {
       <div className="content">
         <RootTree root={root} />
         {selectedNode && (
-          <div className="selected-content">
+          <div
+            className={classNames(
+              'selected-content',
+              hideRemovedNode && 'hide-removed-node',
+            )}
+          >
             <div className="selected-title">
               {selectedNode.id}
-              <button
-                className="selected-close-btn"
-                onClick={() => {
-                  setSelectedNode(null);
-                }}
-              >
-                <CloseIcon />
-              </button>
+              <div>
+                <button
+                  className="toggle-removed-node-btn"
+                  onClick={() => {
+                    setHideRemovedNode((v) => !v);
+                  }}
+                >
+                  {hideRemovedNode ? 'Show removed node' : 'Hide removed node'}
+                </button>
+                <button
+                  className="selected-close-btn"
+                  onClick={() => {
+                    setSelectedNode(null);
+                  }}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             </div>
             <div className="selected-view">
               {selectedNode.type === 'YORKIE_TREE' ? (
