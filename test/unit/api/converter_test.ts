@@ -97,18 +97,17 @@ describe('Converter', function () {
 
       root.tree.editByPath([0, 1], [1, 1]);
       assert.equal(root.tree.toXML(), /*html*/ `<r><p>14</p></r>`);
+      assert.equal(root.tree.getSize(), 4);
     });
 
     const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
 
-    // LLRBTree Size Comparison
     assert.equal(
       doc.getRoot().tree.getLLRBTreeSize(),
       (obj.get('tree') as any).getLLRBTreeSize(),
     );
 
-    // IndexTree Size Comparison
     assert.equal(
       doc.getRoot().tree.getSize(),
       (obj.get('tree') as any).getSize(),
