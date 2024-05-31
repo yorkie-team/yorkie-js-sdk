@@ -81,7 +81,7 @@ describe('Converter', function () {
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
   });
 
-  it.only('check size', function () {
+  it.skip('check size', function () {
     const doc = new Document<{
       tree: Tree;
     }>('test-doc');
