@@ -17,7 +17,7 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
+import { Counter, Text, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
@@ -79,6 +79,59 @@ describe('Converter', function () {
     const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
+  });
+
+  it.only('check size', function () {
+    const doc = new Document<{
+      tree: Tree;
+    }>('test-doc');
+
+    doc.update((root) => {
+      root.tree = new Tree({
+        type: 'r',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'abcd' }],
+          },
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'p',
+                children: [{ type: 'text', value: '1234' }],
+              },
+              {
+                type: 'p',
+                children: [{ type: 'text', value: '5678' }],
+              },
+            ],
+          },
+        ],
+      });
+
+      root.tree.editByPath([0, 1], [0, 3]);
+      root.tree.editByPath([1, 0, 2], [1, 1, 2]);
+      assert.equal(
+        root.tree.toXML(),
+        /*html*/ `<r><p>ad</p><p><p>1278</p></p></r>`,
+      );
+    });
+
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const obj = converter.bytesToObject(bytes);
+
+    // IndexTree Size Comparison
+    assert.equal(
+      doc.getRoot().tree.getSize(),
+      (obj.get('tree') as any).getSize(),
+    );
+
+    // LLRBTree Size Comparison
+    assert.equal(
+      doc.getRoot().tree.getLLRBTreeSize(),
+      (obj.get('tree') as any).getLLRBTreeSize(),
+    );
   });
 
   it('convert hex string <-> byte array', function () {

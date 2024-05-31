@@ -1275,6 +1275,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `getLLRBTreeSize` returns the size of the LLRBTree.
+   */
+  public getLLRBTreeSize(): number {
+    return this.nodeMapByID.size();
+  }
+
+  /**
    * `getIndexTree` returns the index tree.
    */
   public getIndexTree(): IndexTree<CRDTTreeNode> {

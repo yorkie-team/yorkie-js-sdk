@@ -253,6 +253,14 @@ export class Tree {
     return this.tree.getSize();
   }
 
+  public getLLRBTreeSize(): number {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.getLLRBTreeSize();
+  }
+
   /**
    * `getIndexTree` returns the index tree of this tree.
    */
