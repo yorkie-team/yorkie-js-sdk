@@ -1055,6 +1055,9 @@ function fromTreeNodes(
   return CRDTTree.create(root, InitialTimeTicket).getRoot();
 }
 
+/**
+ * `dfs` calculates the size of the given node and its descendants.
+ */
 function dfs(curr: CRDTTreeNode): number {
   if (curr.isRemoved) {
     curr.size = 0;
