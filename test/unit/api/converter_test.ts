@@ -90,47 +90,28 @@ describe('Converter', function () {
       root.tree = new Tree({
         type: 'r',
         children: [
-          {
-            type: 'p',
-            children: [{ type: 'text', value: 'abcd' }],
-          },
-          {
-            type: 'p',
-            children: [
-              {
-                type: 'p',
-                children: [{ type: 'text', value: '1234' }],
-              },
-              {
-                type: 'p',
-                children: [{ type: 'text', value: '5678' }],
-              },
-            ],
-          },
+          { type: 'p', children: [{ type: 'text', value: '12' }] },
+          { type: 'p', children: [{ type: 'text', value: '34' }] },
         ],
       });
 
-      root.tree.editByPath([0, 1], [0, 3]);
-      root.tree.editByPath([1, 0, 2], [1, 1, 2]);
-      assert.equal(
-        root.tree.toXML(),
-        /*html*/ `<r><p>ad</p><p><p>1278</p></p></r>`,
-      );
+      root.tree.editByPath([0, 1], [1, 1]);
+      assert.equal(root.tree.toXML(), /*html*/ `<r><p>14</p></r>`);
     });
 
     const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
 
-    // IndexTree Size Comparison
-    assert.equal(
-      doc.getRoot().tree.getSize(),
-      (obj.get('tree') as any).getSize(),
-    );
-
     // LLRBTree Size Comparison
     assert.equal(
       doc.getRoot().tree.getLLRBTreeSize(),
       (obj.get('tree') as any).getLLRBTreeSize(),
+    );
+
+    // IndexTree Size Comparison
+    assert.equal(
+      doc.getRoot().tree.getSize(),
+      (obj.get('tree') as any).getSize(),
     );
   });
 
