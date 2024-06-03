@@ -105,7 +105,7 @@ import {
   CRDTTreeNode,
   CRDTTreeNodeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { traverse } from '../util/index_tree';
+import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 
@@ -601,7 +601,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   }
 
   const pbTreeNodes: Array<PbTreeNode> = [];
-  traverse(node, (n, depth) => {
+  traverseAll(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode({
       id: toTreeNodeID(n.id),
       type: n.type,
@@ -1046,6 +1046,8 @@ function fromTreeNodes(
 
     parent!.prepend(nodes[i]);
   }
+
+  root.updateDescendantsSize();
 
   // build CRDTTree from the root to construct the links between nodes.
   return CRDTTree.create(root, InitialTimeTicket).getRoot();

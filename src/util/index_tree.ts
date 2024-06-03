@@ -134,7 +134,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateAncestorsSize` updates the size of the ancestors.
+   * `updateAncestorsSize` updates the size of the ancestors. It is used when
+   * the size of the node is changed.
    */
   updateAncestorsSize(): void {
     let parent: T | undefined = this.parent;
@@ -144,6 +145,26 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       parent.size += this.paddedSize * sign;
       parent = parent.parent;
     }
+  }
+
+  /**
+   * `updateDescendantsSize` updates the size of the descendants. It is used when
+   * the tree is newly created and the size of the descendants is not calculated.
+   */
+  updateDescendantsSize(): number {
+    if (this.isRemoved) {
+      this.size = 0;
+      return 0;
+    }
+
+    let sum = 0;
+    for (const child of this._children) {
+      sum += child.updateDescendantsSize();
+    }
+
+    this.size += sum;
+
+    return this.paddedSize;
   }
 
   /**
@@ -276,7 +297,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `prepend` prepends the given nodes to the children.
+   * `prepend` prepends the given nodes to the children. It is only used
+   * for creating a new node from snapshot.
    */
   prepend(...newNode: Array<T>): void {
     if (this.isText) {
@@ -286,10 +308,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.unshift(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-
-      if (!node.isRemoved) {
-        node.updateAncestorsSize();
-      }
     }
   }
 

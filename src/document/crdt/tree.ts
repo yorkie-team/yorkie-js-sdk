@@ -774,7 +774,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
 
-    this.indexTree.traverse((node) => {
+    this.indexTree.traverseAll((node) => {
       this.nodeMapByID.put(node.id, node);
     });
   }
@@ -1272,6 +1272,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public getSize(): number {
     return this.indexTree.size;
+  }
+
+  /**
+   * `getNodeSize` returns the size of the LLRBTree.
+   */
+  public getNodeSize(): number {
+    return this.nodeMapByID.size();
   }
 
   /**

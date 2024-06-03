@@ -254,6 +254,17 @@ export class Tree {
   }
 
   /**
+   * `getNodeSize` returns the node size of this tree.
+   */
+  public getNodeSize(): number {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.getNodeSize();
+  }
+
+  /**
    * `getIndexTree` returns the index tree of this tree.
    */
   public getIndexTree(): IndexTree<CRDTTreeNode> {
