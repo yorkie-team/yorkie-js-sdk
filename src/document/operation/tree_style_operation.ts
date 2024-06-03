@@ -86,6 +86,7 @@ export class TreeStyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
+    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributesToRemove: Array<string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
@@ -93,7 +94,7 @@ export class TreeStyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
-      new Map(),
+      maxCreatedAtMapByActor,
       new Map(),
       attributesToRemove,
       executedAt,
@@ -127,7 +128,7 @@ export class TreeStyleOperation extends Operation {
     } else {
       const attributesToRemove = this.attributesToRemove;
 
-      [pairs, changes] = tree.removeStyle(
+      [, pairs, changes] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),

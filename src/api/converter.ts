@@ -1202,6 +1202,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
         fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeStyleOperation!.from!),
         fromTreePos(pbTreeStyleOperation!.to!),
+        createdAtMapByActor,
         attributesToRemove,
         fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );

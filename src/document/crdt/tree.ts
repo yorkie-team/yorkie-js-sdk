@@ -955,7 +955,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     range: [CRDTTreePos, CRDTTreePos],
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
-  ): [Array<GCPair>, Array<TreeChange>] {
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -963,14 +964,23 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
+    const createdAtMapByActor = new Map<string, TimeTicket>();
     const pairs: Array<GCPair> = [];
+    console.error('removeStyle');
     this.traverseInPosRange(
       fromParent,
       fromLeft,
       toParent,
       toLeft,
-      ([node]) => {
-        if (!node.isRemoved && !node.isText && attributesToRemove) {
+      ([node, tokenType]) => {
+        const actorID = node.getCreatedAt().getActorID();
+        const maxCreatedAt = maxCreatedAtMapByActor
+          ? maxCreatedAtMapByActor!.has(actorID)
+            ? maxCreatedAtMapByActor!.get(actorID)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
+
+        if (node.canStyle(editedAt, maxCreatedAt) && attributesToRemove) {
           if (!node.attrs) {
             node.attrs = new RHT();
           }
@@ -985,6 +995,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const parentOfNode = node.parent!;
           const previousNode = node.prevSibling || node.parent!;
 
+          console.error(
+            'traverse',
+            node.getCreatedAt().toTestString(),
+            toXML(node),
+            tokenType,
+          );
+
           changes.push({
             actor: editedAt.getActorID()!,
             type: TreeChangeType.RemoveStyle,
@@ -998,7 +1015,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [pairs, changes];
+    return [createdAtMapByActor, pairs, changes];
   }
 
   /**

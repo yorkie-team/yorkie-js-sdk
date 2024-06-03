@@ -360,7 +360,7 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [pairs] = this.tree!.removeStyle(
+    const [maxCreationMapByActor, pairs] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
@@ -375,6 +375,7 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreationMapByActor,
         attributesToRemove,
         ticket,
       ),

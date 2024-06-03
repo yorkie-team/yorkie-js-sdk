@@ -4645,7 +4645,7 @@ describe('TreeChange', () => {
     }, task.name);
   });
 
-  it.only('Concurrent insert and removeStyle', async function ({ task }) {
+  it('Concurrent insert and removeStyle', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -4704,7 +4704,6 @@ describe('TreeChange', () => {
         toPath: [1, 0],
       };
 
-      console.error('length:', ops1.length, ops2.length);
       assert.deepEqual(ops1, [styleChange, styleChange, editChange]);
       assert.deepEqual(ops2, [editChange, styleChange2, styleChange2]);
     }, task.name);
