@@ -604,7 +604,7 @@ describe('Tree.concurrency', () => {
     const content: TreeNode = {
       type: 'p',
       children: [{ type: 'text', value: 'd' }],
-      attributes: { italic: 'true' },
+      attributes: { italic: 'true', color: 'blue' },
     };
 
     const rangesArr = [
@@ -675,7 +675,7 @@ describe('Tree.concurrency', () => {
         StyleOpCode.StyleRemove,
         'color',
         '',
-        'remove-bold',
+        'remove-color',
       ),
       new StyleOperationType(
         RangeSelector.RangeAll,

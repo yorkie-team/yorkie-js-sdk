@@ -132,6 +132,7 @@ export class TreeStyleOperation extends Operation {
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
+        this.maxCreatedAtMapByActor,
       );
     }
 

@@ -4586,7 +4586,7 @@ describe('TreeChange', () => {
     }, task.name);
   });
 
-  it.only('Concurrent insert and style', async function ({ task }) {
+  it('Concurrent insert and style', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -4645,7 +4645,7 @@ describe('TreeChange', () => {
     }, task.name);
   });
 
-  it.only('Concurrent insert and removeStyle', async function ({ task }) {
+  it('Concurrent insert and removeStyle', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({

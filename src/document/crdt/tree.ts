@@ -966,7 +966,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const changes: Array<TreeChange> = [];
     const createdAtMapByActor = new Map<string, TimeTicket>();
     const pairs: Array<GCPair> = [];
-    console.error('removeStyle');
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -981,6 +980,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
           : MaxTimeTicket;
 
         if (node.canStyle(editedAt, maxCreatedAt) && attributesToRemove) {
+          const maxCreatedAt = createdAtMapByActor!.get(actorID);
+          const createdAt = node.getCreatedAt();
+          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
+            createdAtMapByActor.set(actorID, createdAt);
+          }
+
           if (!node.attrs) {
             node.attrs = new RHT();
           }
@@ -994,13 +999,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
           const parentOfNode = node.parent!;
           const previousNode = node.prevSibling || node.parent!;
-
-          console.error(
-            'traverse',
-            node.getCreatedAt().toTestString(),
-            toXML(node),
-            tokenType,
-          );
 
           changes.push({
             actor: editedAt.getActorID()!,
