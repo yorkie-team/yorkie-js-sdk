@@ -1034,7 +1034,6 @@ function fromTreeNodes(
     nodes.push(fromTreeNode(pbTreeNode));
   }
 
-  // 01. build tree structure
   const root = nodes[nodes.length - 1];
   for (let i = nodes.length - 2; i >= 0; i--) {
     let parent: CRDTTreeNode;
@@ -1048,30 +1047,10 @@ function fromTreeNodes(
     parent!.prepend(nodes[i]);
   }
 
-  // 02. adjust descendant size of all nodes
-  dfs(root);
+  root.updateDescendantsSize();
 
   // build CRDTTree from the root to construct the links between nodes.
   return CRDTTree.create(root, InitialTimeTicket).getRoot();
-}
-
-/**
- * `dfs` calculates the size of the given node and its descendants.
- */
-function dfs(curr: CRDTTreeNode): number {
-  if (curr.isRemoved) {
-    curr.size = 0;
-    return 0;
-  }
-
-  let ret = 0;
-  for (const child of curr._children) {
-    ret += dfs(child);
-  }
-
-  curr.size += ret;
-
-  return curr.paddedSize;
 }
 
 /**

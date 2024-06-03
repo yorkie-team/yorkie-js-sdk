@@ -254,14 +254,14 @@ export class Tree {
   }
 
   /**
-   * `getLLRBTreeSize` returns the size of the LLRB tree of this tree.
+   * `getNodeSize` returns the node size of this tree.
    */
-  public getLLRBTreeSize(): number {
+  public getNodeSize(): number {
     if (!this.context || !this.tree) {
       throw new Error('it is not initialized yet');
     }
 
-    return this.tree.getLLRBTreeSize();
+    return this.tree.getNodeSize();
   }
 
   /**

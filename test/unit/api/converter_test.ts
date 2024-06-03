@@ -81,7 +81,14 @@ describe('Converter', function () {
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
   });
 
-  it.skip('check size', function () {
+  it('convert hex string <-> byte array', function () {
+    const hexString = '0123456789abcdef01234567';
+    const bytes = converter.toUint8Array(hexString);
+    assert.equal(bytes.length, 12);
+    assert.equal(converter.toHexString(bytes), hexString);
+  });
+
+  it('should encode and decode tree properly', function () {
     const doc = new Document<{
       tree: Tree;
     }>('test-doc');
@@ -96,28 +103,21 @@ describe('Converter', function () {
       });
 
       root.tree.editByPath([0, 1], [1, 1]);
-      assert.equal(root.tree.toXML(), /*html*/ `<r><p>14</p></r>`);
-      assert.equal(root.tree.getSize(), 4);
     });
+    assert.equal(doc.getRoot().tree.toXML(), /*html*/ `<r><p>14</p></r>`);
+    assert.equal(doc.getRoot().tree.getSize(), 4);
 
     const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
 
     assert.equal(
-      doc.getRoot().tree.getLLRBTreeSize(),
-      (obj.get('tree') as any).getLLRBTreeSize(),
+      doc.getRoot().tree.getNodeSize(),
+      (obj.get('tree') as unknown as Tree).getNodeSize(),
     );
 
     assert.equal(
       doc.getRoot().tree.getSize(),
-      (obj.get('tree') as any).getSize(),
+      (obj.get('tree') as unknown as Tree).getSize(),
     );
-  });
-
-  it('convert hex string <-> byte array', function () {
-    const hexString = '0123456789abcdef01234567';
-    const bytes = converter.toUint8Array(hexString);
-    assert.equal(bytes.length, 12);
-    assert.equal(converter.toHexString(bytes), hexString);
   });
 });
