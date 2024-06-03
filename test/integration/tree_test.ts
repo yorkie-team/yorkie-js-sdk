@@ -4601,8 +4601,8 @@ describe('TreeChange', () => {
 
       const [ops1, ops2] = subscribeDocs(d1, d2);
 
-      d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
-      d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
+      d1.update((root) => root.t.style(0, 1, { key: 'a' }));
+      d1.update((root) => root.t.style(0, 1, { key: 'a' }));
       d2.update((root) => root.t.edit(0, 0, { type: 'p', children: [] }));
       await c1.sync();
       await c2.sync();
@@ -4610,27 +4610,27 @@ describe('TreeChange', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p></p><p value="changed"></p></doc>`,
+        /*html*/ `<doc><p></p><p key="a"></p></doc>`,
       );
 
       const editChange: TreeEditOpInfo = {
         type: 'tree-edit',
+        path: '$.t',
         from: 0,
         to: 0,
-        value: [{ children: [], type: 'p' }],
         fromPath: [0],
         toPath: [0],
-        path: '$.t',
+        value: [{ children: [], type: 'p' }],
         splitLevel: undefined,
       };
       const styleChange: TreeStyleOpInfo = {
         type: 'tree-style',
+        path: '$.t',
         from: 0,
         to: 1,
         fromPath: [0],
         toPath: [0, 0],
-        path: '$.t',
-        value: { attributes: { value: 'changed' } },
+        value: { attributes: { key: 'a' } },
       };
       const styleChange2: TreeStyleOpInfo = {
         ...styleChange,
@@ -4645,12 +4645,12 @@ describe('TreeChange', () => {
     }, task.name);
   });
 
-  it('Concurrent insert and removeStyle', async function ({ task }) {
+  it.only('Concurrent insert and removeStyle', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
           type: 'doc',
-          children: [{ type: 'p', attributes: { key1: 'a' }, children: [] }],
+          children: [{ type: 'p', attributes: { key: 'a' }, children: [] }],
         });
       });
       await c1.sync();
@@ -4658,13 +4658,13 @@ describe('TreeChange', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<doc><p key1="a"></p></doc>`,
+        /*html*/ `<doc><p key="a"></p></doc>`,
       );
 
       const [ops1, ops2] = subscribeDocs(d1, d2);
 
-      d1.update((root) => root.t.removeStyle(0, 1, ['key1']));
-      d1.update((root) => root.t.removeStyle(0, 1, ['key1']));
+      d1.update((root) => root.t.removeStyle(0, 1, ['key']));
+      d1.update((root) => root.t.removeStyle(0, 1, ['key']));
       d2.update((root) => root.t.edit(0, 0, { type: 'p', children: [] }));
       await c1.sync();
       await c2.sync();
@@ -4677,23 +4677,23 @@ describe('TreeChange', () => {
 
       const editChange: TreeEditOpInfo = {
         type: 'tree-edit',
+        path: '$.t',
         from: 0,
         to: 0,
-        value: [{ children: [], type: 'p' }],
         fromPath: [0],
         toPath: [0],
-        path: '$.t',
+        value: [{ children: [], type: 'p' }],
         splitLevel: undefined,
       };
       const styleChange: TreeStyleOpInfo = {
         type: 'tree-style',
-        from: 0,
-        fromPath: [0],
         path: '$.t',
+        from: 0,
         to: 1,
+        fromPath: [0],
         toPath: [0, 0],
         value: {
-          attributesToRemove: ['key1'],
+          attributesToRemove: ['key'],
         },
       };
       const styleChange2: TreeStyleOpInfo = {
