@@ -4586,6 +4586,71 @@ describe('TreeChange', () => {
     }, task.name);
   });
 
+  it.only('Concurrent insert and style', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p></p></doc>`);
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      // for (let i = 0; i < 10; i++) {
+      d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
+      // }
+      d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
+      d2.update((root) => root.t.edit(0, 0, { type: 'p', children: [] }));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p></p><p value="changed"></p></doc>`,
+      );
+
+      const editChange: TreeEditOpInfo = {
+        type: 'tree-edit',
+        from: 0,
+        to: 0,
+        value: [
+          {
+            attributes: {},
+            children: [],
+            type: 'p',
+          },
+        ],
+        fromPath: [0],
+        toPath: [0],
+        path: '$.t',
+        splitLevel: undefined,
+      };
+      const styleChange: TreeStyleOpInfo = {
+        type: 'tree-style',
+        from: 0,
+        fromPath: [0],
+        path: '$.t',
+        to: 1,
+        value: { value: 'changed' },
+      };
+      const styleChange2: TreeStyleOpInfo = {
+        ...styleChange,
+        from: 2,
+        to: 3,
+        fromPath: [1],
+      };
+
+      assert.deepEqual(ops1, [styleChange, styleChange, editChange]);
+      assert.deepEqual(ops2, [editChange, styleChange2, styleChange2]);
+    }, task.name);
+  });
+
   it('Concurrent delete and style', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -4713,27 +4778,11 @@ function subscribeDocs(
   const ops2: Array<TreeEditOpInfo | TreeStyleOpInfo> = [];
 
   d1.subscribe('$.t', (event) => {
-    if (event.type === 'local-change' || event.type === 'remote-change') {
-      const { operations } = event.value;
-
-      ops1.push(
-        ...(operations.filter(
-          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
-        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
-      );
-    }
+    ops1.push(...event.value.operations);
   });
 
   d2.subscribe('$.t', (event) => {
-    if (event.type === 'local-change' || event.type === 'remote-change') {
-      const { operations } = event.value;
-
-      ops2.push(
-        ...(operations.filter(
-          (op) => op.type === 'tree-edit' || op.type === 'tree-style',
-        ) as Array<TreeEditOpInfo | TreeStyleOpInfo>),
-      );
-    }
+    ops2.push(...event.value.operations);
   });
 
   return [ops1, ops2];

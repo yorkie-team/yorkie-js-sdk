@@ -150,7 +150,7 @@ export type TreeEditOpInfo = {
   from: number;
   to: number;
   value?: Array<TreeNode>;
-  splitLevel: number;
+  splitLevel?: number;
   fromPath: Array<number>;
   toPath: Array<number>;
 };
