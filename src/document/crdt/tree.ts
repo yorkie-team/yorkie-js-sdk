@@ -971,7 +971,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       fromLeft,
       toParent,
       toLeft,
-      ([node, tokenType]) => {
+      ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
         const maxCreatedAt = maxCreatedAtMapByActor
           ? maxCreatedAtMapByActor!.has(actorID)
