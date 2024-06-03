@@ -139,13 +139,16 @@ export class TreeStyleOperation extends Operation {
     }
 
     return {
-      opInfos: changes.map(({ from, to, value, fromPath }) => {
+      opInfos: changes.map(({ from, to, value, fromPath, toPath }) => {
         return {
           type: 'tree-style',
           from,
           to,
-          value,
+          value: this.attributes.size
+            ? { attributes: value }
+            : { attributesToRemove: value },
           fromPath,
+          toPath,
           path: root.createPath(this.getParentCreatedAt()),
         } as OperationInfo;
       }),

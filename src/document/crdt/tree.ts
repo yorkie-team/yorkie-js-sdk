@@ -212,12 +212,12 @@ export class CRDTTreePos {
   }
 
   /**
-   * `toTreeNodes` converts the pos to parent and left sibling nodes.
+   * `toTreeNodePair` converts the pos to parent and left sibling nodes.
    * If the position points to the middle of a node, then the left sibling node
    * is the node that contains the position. Otherwise, the left sibling node is
    * the node that is located at the left of the position.
    */
-  public toTreeNodes(tree: CRDTTree): [CRDTTreeNode, CRDTTreeNode] {
+  public toTreeNodePair(tree: CRDTTree): TreeNodePair {
     const parentID = this.getParentID();
     const leftSiblingID = this.getLeftSiblingID();
     const parentNode = tree.findFloorNode(parentID);
@@ -408,6 +408,12 @@ export type CRDTTreeNodeIDStruct = {
  * `TreePosRange` represents a pair of CRDTTreePos.
  */
 export type TreePosRange = [CRDTTreePos, CRDTTreePos];
+
+/**
+ * `TreeNodePair` represents a pair of CRDTTreeNode. It represents the position
+ * of the node in the tree with the left and parent nodes.
+ */
+type TreeNodePair = [CRDTTreeNode, CRDTTreeNode];
 
 /**
  * `TreePosStructRange` represents the structure of TreeRange.
@@ -689,7 +695,7 @@ export class CRDTTreeNode
 }
 
 /**
- * toTreeNode converts the given CRDTTreeNode to TreeNode.
+ * `toTreeNode` converts the given CRDTTreeNode to TreeNode.
  */
 function toTreeNode(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
@@ -700,17 +706,20 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
     } as TextNode;
   }
 
-  return {
+  const treeNode: TreeNode = {
     type: node.type,
     children: node.children.map(toTreeNode),
-    attributes: node.attrs
-      ? parseObjectValues(node.attrs?.toObject())
-      : undefined,
   };
+
+  if (node.attrs) {
+    treeNode.attributes = parseObjectValues(node.attrs?.toObject());
+  }
+
+  return treeNode;
 }
 
 /**
- * toXML converts the given CRDTNode to XML string.
+ * `toXML` converts the given CRDTNode to XML string.
  */
 export function toXML(node: CRDTTreeNode): string {
   if (node.isText) {
@@ -819,9 +828,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public findNodesAndSplitText(
     pos: CRDTTreePos,
     editedAt?: TimeTicket,
-  ): [CRDTTreeNode, CRDTTreeNode] {
+  ): TreeNodePair {
     // 01. Find the parent and left sibling node of the given position.
-    const [parent, leftSibling] = pos.toTreeNodes(this);
+    const [parent, leftSibling] = pos.toTreeNodePair(this);
     let leftNode = leftSibling;
 
     // 02. Determine whether the position is left-most and the exact parent
@@ -912,13 +921,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
             {},
           );
 
+          const parentOfNode = node.parent!;
+          const previousNode = node.prevSibling || node.parent!;
+
           if (Object.keys(affectedAttrs).length > 0) {
             changes.push({
               type: TreeChangeType.Style,
-              from: this.toIndex(fromParent, fromLeft),
-              to: this.toIndex(toParent, toLeft),
-              fromPath: this.toPath(fromParent, fromLeft),
-              toPath: this.toPath(toParent, toLeft),
+              from: this.toIndex(parentOfNode, previousNode),
+              to: this.toIndex(node, node),
+              fromPath: this.toPath(parentOfNode, previousNode),
+              toPath: this.toPath(node, node),
               actor: editedAt.getActorID(),
               value: affectedAttrs,
             });
@@ -970,13 +982,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
             }
           }
 
+          const parentOfNode = node.parent!;
+          const previousNode = node.prevSibling || node.parent!;
+
           changes.push({
             actor: editedAt.getActorID()!,
             type: TreeChangeType.RemoveStyle,
-            from: this.toIndex(fromParent, fromLeft),
-            to: this.toIndex(toParent, toLeft),
-            fromPath: this.toPath(fromParent, fromLeft),
-            toPath: this.toPath(toParent, toLeft),
+            from: this.toIndex(parentOfNode, previousNode),
+            to: this.toIndex(node, node),
+            fromPath: this.toPath(parentOfNode, previousNode),
+            toPath: this.toPath(node, node),
             value: attributesToRemove,
           });
         }

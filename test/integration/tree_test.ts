@@ -4601,9 +4601,7 @@ describe('TreeChange', () => {
 
       const [ops1, ops2] = subscribeDocs(d1, d2);
 
-      // for (let i = 0; i < 10; i++) {
       d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
-      // }
       d1.update((root) => root.t.style(0, 1, { value: 'changed' }));
       d2.update((root) => root.t.edit(0, 0, { type: 'p', children: [] }));
       await c1.sync();
@@ -4619,13 +4617,69 @@ describe('TreeChange', () => {
         type: 'tree-edit',
         from: 0,
         to: 0,
-        value: [
-          {
-            attributes: {},
-            children: [],
-            type: 'p',
-          },
-        ],
+        value: [{ children: [], type: 'p' }],
+        fromPath: [0],
+        toPath: [0],
+        path: '$.t',
+        splitLevel: undefined,
+      };
+      const styleChange: TreeStyleOpInfo = {
+        type: 'tree-style',
+        from: 0,
+        to: 1,
+        fromPath: [0],
+        toPath: [0, 0],
+        path: '$.t',
+        value: { attributes: { value: 'changed' } },
+      };
+      const styleChange2: TreeStyleOpInfo = {
+        ...styleChange,
+        from: 2,
+        to: 3,
+        fromPath: [1],
+        toPath: [1, 0],
+      };
+
+      assert.deepEqual(ops1, [styleChange, styleChange, editChange]);
+      assert.deepEqual(ops2, [editChange, styleChange2, styleChange2]);
+    }, task.name);
+  });
+
+  it.only('Concurrent insert and removeStyle', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', attributes: { key1: 'a' }, children: [] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p key1="a"></p></doc>`,
+      );
+
+      const [ops1, ops2] = subscribeDocs(d1, d2);
+
+      d1.update((root) => root.t.removeStyle(0, 1, ['key1']));
+      d1.update((root) => root.t.removeStyle(0, 1, ['key1']));
+      d2.update((root) => root.t.edit(0, 0, { type: 'p', children: [] }));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p></p><p></p></doc>`,
+      );
+
+      const editChange: TreeEditOpInfo = {
+        type: 'tree-edit',
+        from: 0,
+        to: 0,
+        value: [{ children: [], type: 'p' }],
         fromPath: [0],
         toPath: [0],
         path: '$.t',
@@ -4637,15 +4691,20 @@ describe('TreeChange', () => {
         fromPath: [0],
         path: '$.t',
         to: 1,
-        value: { value: 'changed' },
+        toPath: [0, 0],
+        value: {
+          attributesToRemove: ['key1'],
+        },
       };
       const styleChange2: TreeStyleOpInfo = {
         ...styleChange,
         from: 2,
         to: 3,
         fromPath: [1],
+        toPath: [1, 0],
       };
 
+      console.error('length:', ops1.length, ops2.length);
       assert.deepEqual(ops1, [styleChange, styleChange, editChange]);
       assert.deepEqual(ops2, [editChange, styleChange2, styleChange2]);
     }, task.name);
@@ -4692,7 +4751,7 @@ describe('TreeChange', () => {
             type: 'tree-style',
             from: 0,
             to: 1,
-            value: { value: 'changed' },
+            value: { attributes: { value: 'changed' } },
           },
           {
             type: 'tree-edit',
@@ -4752,8 +4811,18 @@ describe('TreeChange', () => {
           return { type: it.type, from: it.from, to: it.to, value: it.value };
         }),
         [
-          { type: 'tree-style', from: 0, to: 1, value: { bold: 'true' } },
-          { type: 'tree-style', from: 0, to: 1, value: { bold: 'false' } },
+          {
+            type: 'tree-style',
+            from: 0,
+            to: 1,
+            value: { attributes: { bold: 'true' } },
+          },
+          {
+            type: 'tree-style',
+            from: 0,
+            to: 1,
+            value: { attributes: { bold: 'false' } },
+          },
         ],
       );
 
@@ -4761,7 +4830,14 @@ describe('TreeChange', () => {
         ops2.map((it) => {
           return { type: it.type, from: it.from, to: it.to, value: it.value };
         }),
-        [{ type: 'tree-style', from: 0, to: 1, value: { bold: 'false' } }],
+        [
+          {
+            type: 'tree-style',
+            from: 0,
+            to: 1,
+            value: { attributes: { bold: 'false' } },
+          },
+        ],
       );
     }, task.name);
   });

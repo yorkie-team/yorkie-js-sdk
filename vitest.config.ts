@@ -13,7 +13,7 @@ export default defineConfig({
       reporter: ['lcov', 'text-summary'],
     },
     onConsoleLog() {
-      return false;
+      // return false;
     },
     environment: 'custom-jsdom',
     globals: true,

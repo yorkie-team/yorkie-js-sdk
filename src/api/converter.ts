@@ -1057,13 +1057,14 @@ function fromTreeNodes(
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   const id = fromTreeNodeID(pbTreeNode.id!);
   const node = CRDTTreeNode.create(id, pbTreeNode.type);
+  const pbAttrs = Object.entries(pbTreeNode.attributes);
   if (node.isText) {
     node.value = pbTreeNode.value;
-  } else {
+  } else if (pbAttrs.length) {
     const attrs = RHT.create();
-    Object.entries(pbTreeNode.attributes).forEach(([key, value]) => {
+    for (const [key, value] of pbAttrs) {
       attrs.set(key, value.value, fromTimeTicket(value.updatedAt)!);
-    });
+    }
     node.attrs = attrs;
   }
 

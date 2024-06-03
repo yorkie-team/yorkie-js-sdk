@@ -183,6 +183,19 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `prevSibling` returns the previous sibling of the node.
+   */
+  get prevSibling(): T | undefined {
+    const offset = this.parent!.findOffset(this as any);
+    const sibling = this.parent!.children[offset - 1];
+    if (sibling) {
+      return sibling;
+    }
+
+    return undefined;
+  }
+
+  /**
    * `isRemoved` returns true if the node is removed.
    */
   abstract get isRemoved(): boolean;
