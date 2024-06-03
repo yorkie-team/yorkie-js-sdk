@@ -7,6 +7,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.21] - 2024-06-03
+
 ### Changed
 
 - Update example version to v0.4.20 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/822
@@ -18,6 +20,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 - Prevent remote-change events in RealtimeSyncOff mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/824
 - Fix invalid error message in CRDTTreePos by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/830
+- Fix incorrect tree snapshot encoding/decoding by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/836
+- Fix incorrect indexes in TreeChange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/837
 
 ## [0.4.20] - 2024-05-24
 
