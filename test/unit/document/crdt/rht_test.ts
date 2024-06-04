@@ -121,6 +121,16 @@ describe('RHT interface', function () {
     assert.equal(jsonObj.testKey2, testData.testKey2);
     assert.equal(jsonObj.testKey3, testData.testKey3);
   });
+
+  it('should deepcopy correctly', function () {
+    const rht = RHT.create();
+    rht.set('key1', 'value1', timeT());
+    rht.remove('key2', timeT());
+
+    const rht2 = rht.deepcopy();
+    assert.equal(rht.toJSON(), rht2.toJSON());
+    assert.equal(rht.size(), rht2.size());
+  });
 });
 
 describe('RHT', () => {
