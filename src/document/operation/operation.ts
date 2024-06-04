@@ -165,13 +165,10 @@ export type TreeStyleOpInfo = {
   to: number;
   fromPath: Array<number>;
   toPath: Array<number>;
-  value:
-    | {
-        attributes: Indexable;
-      }
-    | {
-        attributesToRemove: Array<string>;
-      };
+  value: {
+    attributes?: Indexable;
+    attributesToRemove?: Array<string>;
+  };
 };
 
 /**
