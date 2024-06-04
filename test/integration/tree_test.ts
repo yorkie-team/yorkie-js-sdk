@@ -4122,6 +4122,41 @@ describe('Tree(edge cases)', () => {
     }, task.name);
   });
 
+  it.skip('Can update its size correctly', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      d1.update((root) => {
+        root.t.editByPath([0], [1]);
+      });
+      d2.update((root) => {
+        root.t.editByPath([0, 0], [0, 1], {
+          type: 'text',
+          value: 'p',
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      // d1.size:1
+      // d2.size:0
+      assert.equal(d2.getRoot().t.getSize(), d1.getRoot().t.getSize());
+    }, task.name);
+  });
+
   it('Can split and merge with empty paragraph: left', async function ({
     task,
   }) {
