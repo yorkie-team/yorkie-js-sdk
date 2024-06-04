@@ -4122,7 +4122,9 @@ describe('Tree(edge cases)', () => {
     }, task.name);
   });
 
-  it.skip('Can update its size correctly', async function ({ task }) {
+  it.skip('Can calculate size of index tree correctly during concurrent editing', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
