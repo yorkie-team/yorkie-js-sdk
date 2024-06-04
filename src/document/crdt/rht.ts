@@ -119,6 +119,13 @@ export class RHT {
   }
 
   /**
+   * `getNodeMapByKey` returns the hashtable of RHT.
+   */
+  public getNodeMapByKey(): Map<string, RHTNode> {
+    return this.nodeMapByKey;
+  }
+
+  /**
    * `set` sets the value of the given key.
    */
   public set(
@@ -147,6 +154,23 @@ export class RHT {
     }
 
     return [undefined, undefined];
+  }
+
+  /**
+   * SetInternal sets the value of the given key internally.
+   */
+  public setInternal(
+    key: string,
+    value: string,
+    executedAt: TimeTicket,
+    removed: boolean,
+  ) {
+    const node = RHTNode.of(key, value, executedAt, removed);
+    this.nodeMapByKey.set(key, node);
+
+    if (removed) {
+      this.numberOfRemovedElement++;
+    }
   }
 
   /**
@@ -213,7 +237,12 @@ export class RHT {
   public deepcopy(): RHT {
     const rht = new RHT();
     for (const [, node] of this.nodeMapByKey) {
-      rht.set(node.getKey(), node.getValue(), node.getUpdatedAt());
+      rht.setInternal(
+        node.getKey(),
+        node.getValue(),
+        node.getUpdatedAt(),
+        node.isRemoved(),
+      );
     }
     return rht;
   }
