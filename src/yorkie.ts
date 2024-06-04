@@ -75,6 +75,8 @@ export type {
   MoveOpInfo,
   EditOpInfo,
   StyleOpInfo,
+  TreeEditOpInfo,
+  TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 export { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 
