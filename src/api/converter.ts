@@ -593,6 +593,22 @@ function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
 }
 
 /**
+ * `toRHT` converts the given model to Protobuf format.
+ */
+function toRHT(rht: RHT): { [key: string]: PbNodeAttr } {
+  const pbAttrs: { [key: string]: PbNodeAttr } = {};
+  for (const [key, rhtNode] of rht.getNodeMapByKey()) {
+    pbAttrs[key] = new PbNodeAttr({
+      value: rhtNode.getValue(),
+      updatedAt: toTimeTicket(rhtNode.getUpdatedAt()),
+      isRemoved: rhtNode.isRemoved(),
+    });
+  }
+
+  return pbAttrs;
+}
+
+/**
  * `toTreeNodes` converts the given model to Protobuf format.
  */
 function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
@@ -620,12 +636,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     }
 
     if (n.attrs) {
-      for (const attr of n.attrs) {
-        pbTreeNode.attributes[attr.getKey()] = new PbNodeAttr({
-          value: attr.getValue(),
-          updatedAt: toTimeTicket(attr.getUpdatedAt()),
-        });
-      }
+      pbTreeNode.attributes = toRHT(n.attrs);
     }
 
     pbTreeNodes.push(pbTreeNode);
@@ -1054,6 +1065,23 @@ function fromTreeNodes(
 }
 
 /**
+ * `fromRHT` converts the given Protobuf format to model format.
+ */
+function fromRHT(pbRHT: { [key: string]: PbNodeAttr }): RHT {
+  const rht = RHT.create();
+  Object.entries(pbRHT).forEach(([key, rhtNode]) => {
+    rht.setInternal(
+      key,
+      rhtNode.value,
+      fromTimeTicket(rhtNode.updatedAt)!,
+      rhtNode.isRemoved,
+    );
+  });
+
+  return rht;
+}
+
+/**
  * `fromTreeNode` converts the given Protobuf format to model format.
  */
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
@@ -1063,11 +1091,7 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   if (node.isText) {
     node.value = pbTreeNode.value;
   } else if (pbAttrs.length) {
-    const attrs = RHT.create();
-    for (const [key, value] of pbAttrs) {
-      attrs.set(key, value.value, fromTimeTicket(value.updatedAt)!);
-    }
-    node.attrs = attrs;
+    node.attrs = fromRHT(pbTreeNode.attributes);
   }
 
   if (pbTreeNode.insPrevId) {

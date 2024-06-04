@@ -103,8 +103,13 @@ describe('Converter', function () {
       });
 
       root.tree.editByPath([0, 1], [1, 1]);
+
+      root.tree.style(0, 1, { b: 't', i: 't' });
+      assert.equal(root.tree.toXML(), '<r><p b="t" i="t">14</p></r>');
+
+      root.tree.removeStyle(0, 1, ['i']);
     });
-    assert.equal(doc.getRoot().tree.toXML(), /*html*/ `<r><p>14</p></r>`);
+    assert.equal(doc.getRoot().tree.toXML(), /*html*/ `<r><p b="t">14</p></r>`);
     assert.equal(doc.getRoot().tree.getSize(), 4);
 
     const bytes = converter.objectToBytes(doc.getRootObject());
@@ -118,6 +123,10 @@ describe('Converter', function () {
     assert.equal(
       doc.getRoot().tree.getSize(),
       (obj.get('tree') as unknown as Tree).getSize(),
+    );
+    assert.equal(
+      doc.getRoot().tree.toXML(),
+      (obj.get('tree') as unknown as Tree).toXML(),
     );
   });
 });

@@ -119,6 +119,13 @@ export class RHT {
   }
 
   /**
+   * `getNodeMapByKey` returns the hashtable of RHT.
+   */
+  public getNodeMapByKey(): Map<string, RHTNode> {
+    return this.nodeMapByKey;
+  }
+
+  /**
    * `set` sets the value of the given key.
    */
   public set(
