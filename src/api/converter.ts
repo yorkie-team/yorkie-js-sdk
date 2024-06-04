@@ -596,16 +596,16 @@ function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
  * `toRHT` converts the given model to Protobuf format.
  */
 function toRHT(rht: RHT): { [key: string]: PbNodeAttr } {
-  const pbAttrs: { [key: string]: PbNodeAttr } = {};
-  for (const [key, rhtNode] of rht.getNodeMapByKey()) {
-    pbAttrs[key] = new PbNodeAttr({
-      value: rhtNode.getValue(),
-      updatedAt: toTimeTicket(rhtNode.getUpdatedAt()),
-      isRemoved: rhtNode.isRemoved(),
+  const pbRHT: { [key: string]: PbNodeAttr } = {};
+  for (const node of rht) {
+    pbRHT[node.getKey()] = new PbNodeAttr({
+      value: node.getValue(),
+      updatedAt: toTimeTicket(node.getUpdatedAt()),
+      isRemoved: node.isRemoved(),
     });
   }
 
-  return pbAttrs;
+  return pbRHT;
 }
 
 /**
@@ -1069,14 +1069,14 @@ function fromTreeNodes(
  */
 function fromRHT(pbRHT: { [key: string]: PbNodeAttr }): RHT {
   const rht = RHT.create();
-  Object.entries(pbRHT).forEach(([key, rhtNode]) => {
+  for (const [key, pbRHTNode] of Object.entries(pbRHT)) {
     rht.setInternal(
       key,
-      rhtNode.value,
-      fromTimeTicket(rhtNode.updatedAt)!,
-      rhtNode.isRemoved,
+      pbRHTNode.value,
+      fromTimeTicket(pbRHTNode.updatedAt)!,
+      pbRHTNode.isRemoved,
     );
-  });
+  }
 
   return rht;
 }
