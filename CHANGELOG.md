@@ -7,6 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.22] - 2024-06-04
+
+### Added
+
+- Add RHTNode removal to converter for consistency by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/842
+
+### Changed
+
+- Update examples version to v0.4.21 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/840
+- Simplify type checking for style attributes in TreeStyleOpInfo by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/841
+
+### Fixed
+
+- Add conditional checks for `window` object by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/839
+
 ## [0.4.21] - 2024-06-03
 
 ### Changed
