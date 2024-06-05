@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import yorkie, { Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, SyncMode, converter } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -27,6 +27,7 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { toXML } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -4139,10 +4140,8 @@ describe('Tree(edge cases)', () => {
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
 
-      d1.update((root) => root.t.editByPath([0], [1]));
-      d2.update((root) =>
-        root.t.editByPath([0, 0], [0, 1], { type: 'text', value: 'p' }),
-      );
+      d1.update((root) => root.t.edit(0, 7));
+      d2.update((root) => root.t.edit(1, 2, { type: 'text', value: 'p' }));
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
       assert.equal(0, d1.getRoot().t.getSize());
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>pello</p></doc>`);
@@ -4154,6 +4153,61 @@ describe('Tree(edge cases)', () => {
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
       assert.equal(d2.getRoot().t.getSize(), d1.getRoot().t.getSize());
+    }, task.name);
+  });
+
+  it('Can keep index tree consistent from snapshot', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [{ type: 'p', children: [] }],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p></p></r>`);
+
+      d1.update((root) => root.t.edit(0, 2));
+      d2.update((root) => {
+        root.t.edit(1, 1, {
+          type: 'i',
+          children: [{ type: 'text', value: 'a' }],
+        });
+        root.t.edit(2, 3, { type: 'text', value: 'b' });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d1.getRoot().t.getSize(), 0);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><i>b</i></p></r>`);
+      assert.equal(5, d2.getRoot().t.getSize());
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      const d1Nodes: Array<[string, number, boolean]> = [];
+      const d2Nodes: Array<[string, number, boolean]> = [];
+      const sNodes: Array<[string, number, boolean]> = [];
+      d1.getRoot()
+        .t.getIndexTree()
+        .traverseAll((node) => {
+          d1Nodes.push([toXML(node), node.size, node.isRemoved]);
+        });
+      d2.getRoot()
+        .t.getIndexTree()
+        .traverseAll((node) => {
+          d2Nodes.push([toXML(node), node.size, node.isRemoved]);
+        });
+      const sRoot = converter.bytesToObject(
+        converter.objectToBytes(d1.getRootObject()),
+      );
+      (sRoot.get('t') as unknown as Tree).getIndexTree().traverseAll((node) => {
+        sNodes.push([toXML(node), node.size, node.isRemoved]);
+      });
+      assert.deepEqual(d1Nodes, d2Nodes);
+      assert.deepEqual(d1Nodes, sNodes);
     }, task.name);
   });
 
