@@ -143,6 +143,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     while (parent) {
       parent.size += this.paddedSize * sign;
+      if (parent.isRemoved) {
+        break;
+      }
+
       parent = parent.parent;
     }
   }
@@ -152,14 +156,17 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    * the tree is newly created and the size of the descendants is not calculated.
    */
   updateDescendantsSize(): number {
-    if (this.isRemoved) {
-      this.size = 0;
-      return 0;
-    }
+    // if (this.isRemoved) {
+    //   this.size = 0;
+    //   return 0;
+    // }
 
     let sum = 0;
     for (const child of this._children) {
-      sum += child.updateDescendantsSize();
+      const toAdd = child.updateDescendantsSize();
+      if (!child.isRemoved) {
+        sum += toAdd;
+      }
     }
 
     this.size += sum;

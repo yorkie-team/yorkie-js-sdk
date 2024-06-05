@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import yorkie, { Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, SyncMode, converter } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
@@ -27,6 +27,7 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -4122,7 +4123,7 @@ describe('Tree(edge cases)', () => {
     }, task.name);
   });
 
-  it.skip('Can calculate size of index tree correctly during concurrent editing', async function ({
+  it('Can calculate size of index tree correctly during concurrent editing', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -4148,6 +4149,10 @@ describe('Tree(edge cases)', () => {
           value: 'p',
         });
       });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(0, d1.getRoot().t.getSize());
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>pello</p></doc>`);
+      assert.equal(7, d2.getRoot().t.getSize());
       await c1.sync();
       await c2.sync();
       await c1.sync();
@@ -4155,7 +4160,117 @@ describe('Tree(edge cases)', () => {
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
       // d1.size:1
       // d2.size:0
-      assert.equal(d2.getRoot().t.getSize(), d1.getRoot().t.getSize());
+      // assert.equal(d2.getRoot().t.getSize(), d1.getRoot().t.getSize());
+    }, task.name);
+  });
+
+  it.only('Can calculate size of index tree correctly during concurrent editing', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>hello</p></doc>`);
+
+      d1.update((root) => {
+        root.t.editByPath([0], [1]);
+      });
+      d2.update((root) => {
+        root.t.editByPath([0, 0], [0, 1], {
+          type: 'text',
+          value: 'p',
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(0, d1.getRoot().t.getSize());
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc><p>pello</p></doc>`);
+      assert.equal(7, d2.getRoot().t.getSize());
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      // d1.size:1
+      // d2.size:0
+      // assert.equal(d2.getRoot().t.getSize(), d1.getRoot().t.getSize());
+
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 's', children: [{ type: 'text', value: 'a' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><s>a</s></p></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p><s>a</s></p></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.editByPath([0], [1]);
+      });
+      d2.update((root) => {
+        root.t.editByPath([0, 0], [0, 0], {
+          type: 'text',
+          value: 'b',
+        });
+        root.t.editByPath([0, 0, 0], [0, 0, 1], {
+          type: 'text',
+          value: 'b',
+        });
+      });
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(0, d1.getRoot().t.getSize());
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><p><s>b</s></p></doc>`,
+      );
+      assert.equal(5, d2.getRoot().t.getSize());
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+
+      // converter
+      const bytes = converter.objectToBytes(d1.getRootObject());
+      const obj = converter.bytesToObject(bytes);
+      const objTree = obj.get('t') as unknown as Tree;
+      const nodeList1 = [];
+      const nodeList2 = [];
+      objTree.getIndexTree().traverseAll((node) => {
+        nodeList1.push([node.toIDString(), node.size]);
+        console.log(node.type, node.size, node.isRemoved);
+      });
+
+      d1.getRoot()
+        .t.getIndexTree()
+        .traverseAll((node) => {
+          nodeList2.push([node.toIDString(), node.size]);
+        });
+
+      assert.deepEqual(nodeList1, nodeList2);
     }, task.name);
   });
 

@@ -550,11 +550,7 @@ export class CRDTTreeNode
     }
 
     if (alived) {
-      if (!this.parent!.removedAt) {
-        this.updateAncestorsSize();
-      } else {
-        this.parent!.size -= this.paddedSize;
-      }
+      this.updateAncestorsSize();
     }
   }
 
@@ -1103,6 +1099,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
+    // nodesToBeRemoved.reverse();
     for (const node of nodesToBeRemoved) {
       node.remove(editedAt);
       if (node.isRemoved) {
