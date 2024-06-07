@@ -13,7 +13,7 @@
     "react": "18.2.0",
     "react-calendar": "^4.6.0",
     "react-dom": "18.2.0",
-    "yorkie-js-sdk": "^0.4.22"
+    "yorkie-js-sdk": "^0.4.23"
   },
   "devDependencies": {
     "@types/node": "20.4.2",
