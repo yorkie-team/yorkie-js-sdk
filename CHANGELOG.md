@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.23] - 2024-06-07
+
+### Changed
+
+- Update examples version to v0.4.22 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/845
+
+### Fixed
+
+- Fix miscalculation of tree size in concurrent editing by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/846
+
 ## [0.4.22] - 2024-06-04
 
 ### Added
