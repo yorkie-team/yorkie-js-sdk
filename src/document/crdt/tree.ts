@@ -550,11 +550,7 @@ export class CRDTTreeNode
     }
 
     if (alived) {
-      if (!this.parent!.removedAt) {
-        this.updateAncestorsSize();
-      } else {
-        this.parent!.size -= this.paddedSize;
-      }
+      this.updateAncestorsSize();
     }
   }
 
