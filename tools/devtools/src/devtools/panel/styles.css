@@ -391,6 +391,10 @@
   display: inline-block;
 }
 
+.selected-content.hide-removed-node .tree-node.removed {
+  display: none;
+}
+
 .tree-node .node-item {
   display: inline-flex;
   flex-direction: column;
@@ -426,10 +430,6 @@
 
 .tree-node.text .node-item {
   background: var(--gray-100);
-}
-
-.selected-content.hide-removed-node .tree-node.removed .node-item {
-  display: none;
 }
 
 .tree-node.removed .node-item {

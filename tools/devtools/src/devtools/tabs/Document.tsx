@@ -73,14 +73,18 @@ export function Document({ style }) {
             <div className="selected-title">
               {selectedNode.id}
               <div>
-                <button
-                  className="toggle-removed-node-btn"
-                  onClick={() => {
-                    setHideRemovedNode((v) => !v);
-                  }}
-                >
-                  {hideRemovedNode ? 'Show removed node' : 'Hide removed node'}
-                </button>
+                {selectedNode.type === 'YORKIE_TREE' && (
+                  <button
+                    className="toggle-removed-node-btn"
+                    onClick={() => {
+                      setHideRemovedNode((v) => !v);
+                    }}
+                  >
+                    {hideRemovedNode
+                      ? 'Show removed node'
+                      : 'Hide removed node'}
+                  </button>
+                )}
                 <button
                   className="selected-close-btn"
                   onClick={() => {

@@ -33,8 +33,14 @@ export class ChangeID {
   private lamport: Long;
   private actor: ActorID;
 
-  constructor(clientSeq: number, lamport: Long, actor: ActorID) {
+  constructor(
+    clientSeq: number,
+    lamport: Long,
+    actor: ActorID,
+    serverSeq?: Long,
+  ) {
     this.clientSeq = clientSeq;
+    this.serverSeq = serverSeq;
     this.lamport = lamport;
     this.actor = actor;
   }
@@ -42,8 +48,13 @@ export class ChangeID {
   /**
    * `of` creates a new instance of ChangeID.
    */
-  public static of(clientSeq: number, lamport: Long, actor: ActorID): ChangeID {
-    return new ChangeID(clientSeq, lamport, actor);
+  public static of(
+    clientSeq: number,
+    lamport: Long,
+    actor: ActorID,
+    serverSeq?: Long,
+  ): ChangeID {
+    return new ChangeID(clientSeq, lamport, actor, serverSeq);
   }
 
   /**
@@ -77,7 +88,7 @@ export class ChangeID {
    * `setActor` sets the given actor.
    */
   public setActor(actorID: ActorID): ChangeID {
-    return new ChangeID(this.clientSeq, this.lamport, actorID);
+    return new ChangeID(this.clientSeq, this.lamport, actorID, this.serverSeq);
   }
 
   /**
@@ -85,6 +96,16 @@ export class ChangeID {
    */
   public getClientSeq(): number {
     return this.clientSeq;
+  }
+
+  /**
+   * `getServerSeq` returns the server sequence of this ID.
+   */
+  public getServerSeq(): string {
+    if (this.serverSeq) {
+      return this.serverSeq.toString();
+    }
+    return '';
   }
 
   /**

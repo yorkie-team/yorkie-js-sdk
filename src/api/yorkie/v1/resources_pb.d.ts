@@ -1228,6 +1228,11 @@ export declare class NodeAttr extends Message<NodeAttr> {
    */
   updatedAt?: TimeTicket;
 
+  /**
+   * @generated from field: bool is_removed = 3;
+   */
+  isRemoved: boolean;
+
   constructor(data?: PartialMessage<NodeAttr>);
 
   static readonly runtime: typeof proto3;

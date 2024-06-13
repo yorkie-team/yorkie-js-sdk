@@ -7,15 +7,46 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.23] - 2024-06-07
+
+### Changed
+
+- Update examples version to v0.4.22 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/845
+
+### Fixed
+
+- Fix miscalculation of tree size in concurrent editing by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/846
+
+## [0.4.22] - 2024-06-04
+
+### Added
+
+- Add RHTNode removal to converter for consistency by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/842
+
+### Changed
+
+- Update examples version to v0.4.21 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/840
+- Simplify type checking for style attributes in TreeStyleOpInfo by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/841
+
+### Fixed
+
+- Add conditional checks for `window` object by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/839
+
+## [0.4.21] - 2024-06-03
+
 ### Changed
 
 - Update example version to v0.4.20 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/822
 - Remove skip from style-style-test by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/829
+- Include all nodes in tree.toJSInfoForTest by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/832
+- Add ServerSeq into ChangeInfo by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/833
 
 ### Fixed
 
 - Prevent remote-change events in RealtimeSyncOff mode by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/824
 - Fix invalid error message in CRDTTreePos by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/830
+- Fix incorrect tree snapshot encoding/decoding by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/836
+- Fix incorrect indexes in TreeChange by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/837
 
 ## [0.4.20] - 2024-05-24
 

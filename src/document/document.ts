@@ -304,6 +304,8 @@ export interface ChangeInfo<T = OperationInfo> {
   message: string;
   operations: Array<T>;
   actor: ActorID;
+  clientSeq: number;
+  serverSeq: string;
 }
 
 /**
@@ -704,6 +706,8 @@ export class Document<T, P extends Indexable = Indexable> {
             message: change.getMessage() || '',
             operations: opInfos,
             actor: actorID,
+            clientSeq: change.getID().getClientSeq(),
+            serverSeq: change.getID().getServerSeq(),
           },
           rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
         });
@@ -1370,6 +1374,8 @@ export class Document<T, P extends Indexable = Indexable> {
               source,
               value: {
                 actor: actorID,
+                clientSeq: change.getID().getClientSeq(),
+                serverSeq: change.getID().getServerSeq(),
                 message: change.getMessage() || '',
                 operations: opInfos,
               },
@@ -1380,6 +1386,8 @@ export class Document<T, P extends Indexable = Indexable> {
               source,
               value: {
                 actor: actorID,
+                clientSeq: change.getID().getClientSeq(),
+                serverSeq: change.getID().getServerSeq(),
                 message: change.getMessage() || '',
                 operations: opInfos,
               },
@@ -1785,6 +1793,8 @@ export class Document<T, P extends Indexable = Indexable> {
           message: change.getMessage() || '',
           operations: opInfos,
           actor: actorID,
+          clientSeq: change.getID().getClientSeq(),
+          serverSeq: change.getID().getServerSeq(),
         },
         rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
       });
@@ -1876,6 +1886,8 @@ export class Document<T, P extends Indexable = Indexable> {
           message: change.getMessage() || '',
           operations: opInfos,
           actor: actorID,
+          clientSeq: change.getID().getClientSeq(),
+          serverSeq: change.getID().getServerSeq(),
         },
         rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
       });

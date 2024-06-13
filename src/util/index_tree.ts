@@ -134,7 +134,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateAncestorsSize` updates the size of the ancestors.
+   * `updateAncestorsSize` updates the size of the ancestors. It is used when
+   * the size of the node is changed.
    */
   updateAncestorsSize(): void {
     let parent: T | undefined = this.parent;
@@ -142,8 +143,32 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     while (parent) {
       parent.size += this.paddedSize * sign;
+      if (parent.isRemoved) {
+        break;
+      }
+
       parent = parent.parent;
     }
+  }
+
+  /**
+   * `updateDescendantsSize` updates the size of the descendants. It is used when
+   * the tree is newly created and the size of the descendants is not calculated.
+   */
+  updateDescendantsSize(): number {
+    let size = 0;
+    for (const child of this._children) {
+      const childSize = child.updateDescendantsSize();
+      if (child.isRemoved) {
+        continue;
+      }
+
+      size += childSize;
+    }
+
+    this.size += size;
+
+    return this.paddedSize;
   }
 
   /**
@@ -175,6 +200,19 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   get nextSibling(): T | undefined {
     const offset = this.parent!.findOffset(this as any);
     const sibling = this.parent!.children[offset + 1];
+    if (sibling) {
+      return sibling;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * `prevSibling` returns the previous sibling of the node.
+   */
+  get prevSibling(): T | undefined {
+    const offset = this.parent!.findOffset(this as any);
+    const sibling = this.parent!.children[offset - 1];
     if (sibling) {
       return sibling;
     }
@@ -276,7 +314,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `prepend` prepends the given nodes to the children.
+   * `prepend` prepends the given nodes to the children. It is only used
+   * for creating a new node from snapshot.
    */
   prepend(...newNode: Array<T>): void {
     if (this.isText) {
@@ -286,10 +325,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.unshift(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-
-      if (!node.isRemoved) {
-        node.updateAncestorsSize();
-      }
     }
   }
 

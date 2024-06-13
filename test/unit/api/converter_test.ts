@@ -17,7 +17,7 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { Counter, Text } from '@yorkie-js-sdk/src/yorkie';
+import { Counter, Text, Tree } from '@yorkie-js-sdk/src/yorkie';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
@@ -86,5 +86,47 @@ describe('Converter', function () {
     const bytes = converter.toUint8Array(hexString);
     assert.equal(bytes.length, 12);
     assert.equal(converter.toHexString(bytes), hexString);
+  });
+
+  it('should encode and decode tree properly', function () {
+    const doc = new Document<{
+      tree: Tree;
+    }>('test-doc');
+
+    doc.update((root) => {
+      root.tree = new Tree({
+        type: 'r',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: '12' }] },
+          { type: 'p', children: [{ type: 'text', value: '34' }] },
+        ],
+      });
+
+      root.tree.editByPath([0, 1], [1, 1]);
+
+      root.tree.style(0, 1, { b: 't', i: 't' });
+      assert.equal(root.tree.toXML(), '<r><p b="t" i="t">14</p></r>');
+
+      root.tree.removeStyle(0, 1, ['i']);
+    });
+    assert.equal(doc.getRoot().tree.toXML(), /*html*/ `<r><p b="t">14</p></r>`);
+    assert.equal(doc.getRoot().tree.getSize(), 4);
+
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const obj = converter.bytesToObject(bytes);
+
+    assert.equal(
+      doc.getRoot().tree.getNodeSize(),
+      (obj.get('tree') as unknown as Tree).getNodeSize(),
+    );
+
+    assert.equal(
+      doc.getRoot().tree.getSize(),
+      (obj.get('tree') as unknown as Tree).getSize(),
+    );
+    assert.equal(
+      doc.getRoot().tree.toXML(),
+      (obj.get('tree') as unknown as Tree).toXML(),
+    );
   });
 });
