@@ -79,6 +79,10 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
             ${nodeIDToString(node.pos.leftSiblingID)}]`}
           </span>
         </div>
+        <div>
+          <span className="title">size: </span>
+          <span className="desc">{node.size}</span>
+        </div>
         {node.type !== 'text' && (
           <div>
             <span className="title">attrs: </span>
