@@ -112,92 +112,6 @@ describe('Document', function () {
     await client3.deactivate();
   });
 
-  it('Can subscribe to events related to document status changes', async function ({
-    task,
-  }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    await c1.activate();
-    await c2.activate();
-    const c1ID = c1.getID()!;
-    let c2ID = c2.getID()!;
-
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const d1 = new yorkie.Document(docKey);
-    const d2 = new yorkie.Document(docKey);
-    const eventCollectorD1 = new EventCollector<StatusChangedEvent['value']>();
-    const eventCollectorD2 = new EventCollector<StatusChangedEvent['value']>();
-    const unsub1 = d1.subscribe('status', (event) => {
-      eventCollectorD1.add(event.value);
-    });
-    const unsub2 = d2.subscribe('status', (event) => {
-      eventCollectorD2.add(event.value);
-    });
-
-    // 1. When the client attaches a document, it receives an attached event.
-    await c1.attach(d1);
-    await c2.attach(d2);
-
-    await eventCollectorD1.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
-      actorID: c1ID,
-    });
-    await eventCollectorD2.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
-      actorID: c2ID,
-    });
-
-    // 2. When c1 detaches a document, it receives a detached event.
-    await c1.detach(d1);
-    await eventCollectorD1.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Detached,
-    });
-
-    // 3. When c2 deactivates, it should also receive a detached event.
-    await c2.deactivate();
-    await eventCollectorD2.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Detached,
-    });
-
-    // 4. When the document is re-attached, it receives an attached event.
-    await c1.attach(d1, { syncMode: SyncMode.Manual });
-    await eventCollectorD1.waitAndVerifyNthEvent(3, {
-      status: DocumentStatus.Attached,
-      actorID: c1ID,
-    });
-
-    await c2.activate();
-    c2ID = c2.getID()!;
-    await c2.attach(d2, { syncMode: SyncMode.Manual });
-    await eventCollectorD2.waitAndVerifyNthEvent(3, {
-      status: DocumentStatus.Attached,
-      actorID: c2ID,
-    });
-
-    // 5. When c1 removes a document, it receives a removed event.
-    await c1.remove(d1);
-    await eventCollectorD1.waitAndVerifyNthEvent(4, {
-      status: DocumentStatus.Removed,
-    });
-
-    // 6. When c4 syncs, it should also receive a removed event.
-    await c2.sync();
-    await eventCollectorD2.waitAndVerifyNthEvent(4, {
-      status: DocumentStatus.Removed,
-    });
-
-    // 7. If the document is in the removed state, a detached event should not occur when deactivating.
-    const eventCount1 = eventCollectorD1.getLength();
-    const eventCount2 = eventCollectorD2.getLength();
-    await c1.deactivate();
-    await c2.deactivate();
-    assert.equal(eventCollectorD1.getLength(), eventCount1);
-    assert.equal(eventCollectorD2.getLength(), eventCount2);
-
-    unsub1();
-    unsub2();
-  });
-
   it('Can watch documents', async function ({ task }) {
     const c1 = new yorkie.Client(testRPCAddr);
     const c2 = new yorkie.Client(testRPCAddr);
@@ -852,6 +766,150 @@ describe('Document', function () {
     );
 
     await c1.deactivate();
+  });
+
+  it('Can subscribe to events related to document status changes', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    const c1ID = c1.getID()!;
+    let c2ID = c2.getID()!;
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document(docKey);
+    const d2 = new yorkie.Document(docKey);
+    const eventCollectorD1 = new EventCollector<StatusChangedEvent['value']>();
+    const eventCollectorD2 = new EventCollector<StatusChangedEvent['value']>();
+    const unsub1 = d1.subscribe('status', (event) => {
+      eventCollectorD1.add(event.value);
+    });
+    const unsub2 = d2.subscribe('status', (event) => {
+      eventCollectorD2.add(event.value);
+    });
+
+    // 1. When the client attaches a document, it receives an attached event.
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    await eventCollectorD1.waitAndVerifyNthEvent(1, {
+      status: DocumentStatus.Attached,
+      actorID: c1ID,
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(1, {
+      status: DocumentStatus.Attached,
+      actorID: c2ID,
+    });
+
+    // 2. When c1 detaches a document, it receives a detached event.
+    await c1.detach(d1);
+    await eventCollectorD1.waitAndVerifyNthEvent(2, {
+      status: DocumentStatus.Detached,
+    });
+
+    // 3. When c2 deactivates, it should also receive a detached event.
+    await c2.deactivate();
+    await eventCollectorD2.waitAndVerifyNthEvent(2, {
+      status: DocumentStatus.Detached,
+    });
+
+    // 4. When the document is re-attached, it receives an attached event.
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await eventCollectorD1.waitAndVerifyNthEvent(3, {
+      status: DocumentStatus.Attached,
+      actorID: c1ID,
+    });
+
+    await c2.activate();
+    c2ID = c2.getID()!;
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+    await eventCollectorD2.waitAndVerifyNthEvent(3, {
+      status: DocumentStatus.Attached,
+      actorID: c2ID,
+    });
+
+    // 5. When c1 removes a document, it receives a removed event.
+    await c1.remove(d1);
+    await eventCollectorD1.waitAndVerifyNthEvent(4, {
+      status: DocumentStatus.Removed,
+    });
+
+    // 6. When c4 syncs, it should also receive a removed event.
+    await c2.sync();
+    await eventCollectorD2.waitAndVerifyNthEvent(4, {
+      status: DocumentStatus.Removed,
+    });
+
+    // 7. If the document is in the removed state, a detached event should not occur when deactivating.
+    const eventCount1 = eventCollectorD1.getLength();
+    const eventCount2 = eventCollectorD2.getLength();
+    await c1.deactivate();
+    await c2.deactivate();
+    assert.equal(eventCollectorD1.getLength(), eventCount1);
+    assert.equal(eventCollectorD2.getLength(), eventCount2);
+
+    unsub1();
+    unsub2();
+  });
+
+  it('Should properly handle removed document when deactivating', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
+    await c1.activate();
+    await c2.activate();
+    const c1ID = c1.getID()!;
+    const c2ID = c2.getID()!;
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document(docKey);
+    const d2 = new yorkie.Document(docKey);
+    const eventCollectorD1 = new EventCollector<StatusChangedEvent['value']>();
+    const eventCollectorD2 = new EventCollector<StatusChangedEvent['value']>();
+    const unsub1 = d1.subscribe('status', (event) => {
+      eventCollectorD1.add(event.value);
+    });
+    const unsub2 = d2.subscribe('status', (event) => {
+      eventCollectorD2.add(event.value);
+    });
+
+    // 1. When the client attaches a document, it receives an attached event.
+    await c1.attach(d1, {
+      syncMode: SyncMode.Manual,
+    });
+    await c2.attach(d2, {
+      syncMode: SyncMode.Manual,
+    });
+
+    await eventCollectorD1.waitAndVerifyNthEvent(1, {
+      status: DocumentStatus.Attached,
+      actorID: c1ID,
+    });
+    await eventCollectorD2.waitAndVerifyNthEvent(1, {
+      status: DocumentStatus.Attached,
+      actorID: c2ID,
+    });
+
+    // 2. When c1 removes a document, it receives a removed event.
+    await c1.remove(d1);
+    await eventCollectorD1.waitAndVerifyNthEvent(2, {
+      status: DocumentStatus.Removed,
+    });
+
+    // 3. When c2 deactivates, it should also receive a removed event.
+    await c2.deactivate();
+    // NOTE(chacha912): For now, document status changes to `Detached` when deactivating.
+    // This behavior may change in the future.
+    await eventCollectorD2.waitAndVerifyNthEvent(2, {
+      status: DocumentStatus.Detached,
+    });
+
+    await c1.deactivate();
+    unsub1();
+    unsub2();
   });
 
   describe('Undo/Redo', function () {
