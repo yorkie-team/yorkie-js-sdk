@@ -135,6 +135,9 @@ export function History({
           {openHistory && (
             <span>
               <span className="devtools-history-buttons">
+                <span className="history-index">
+                  {selectedEventIndexInfo.index + 1} / {events.length}
+                </span>
                 <button
                   onClick={() => {
                     setSelectedEventIndexInfo({
