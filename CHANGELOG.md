@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.24] - 2024-06-14
+
+### Added
+
+- Show removed node in devtools by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/835
+
 ## [0.4.23] - 2024-06-07
 
 ### Changed
