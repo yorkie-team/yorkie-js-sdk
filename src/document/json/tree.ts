@@ -254,6 +254,17 @@ export class Tree {
   }
 
   /**
+   * `getNodeSize` returns the node size of this tree.
+   */
+  public getNodeSize(): number {
+    if (!this.context || !this.tree) {
+      throw new Error('it is not initialized yet');
+    }
+
+    return this.tree.getNodeSize();
+  }
+
+  /**
    * `getIndexTree` returns the index tree of this tree.
    */
   public getIndexTree(): IndexTree<CRDTTreeNode> {
@@ -360,7 +371,7 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [pairs] = this.tree!.removeStyle(
+    const [maxCreationMapByActor, pairs] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
@@ -375,6 +386,7 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
+        maxCreationMapByActor,
         attributesToRemove,
         ticket,
       ),

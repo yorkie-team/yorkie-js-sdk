@@ -212,18 +212,20 @@ export class CRDTTreePos {
   }
 
   /**
-   * `toTreeNodes` converts the pos to parent and left sibling nodes.
+   * `toTreeNodePair` converts the pos to parent and left sibling nodes.
    * If the position points to the middle of a node, then the left sibling node
    * is the node that contains the position. Otherwise, the left sibling node is
    * the node that is located at the left of the position.
    */
-  public toTreeNodes(tree: CRDTTree): [CRDTTreeNode, CRDTTreeNode] {
+  public toTreeNodePair(tree: CRDTTree): TreeNodePair {
     const parentID = this.getParentID();
     const leftSiblingID = this.getLeftSiblingID();
     const parentNode = tree.findFloorNode(parentID);
     let leftNode = tree.findFloorNode(leftSiblingID);
     if (!parentNode || !leftNode) {
-      throw new Error(`cannot find node at ${this}`);
+      throw new Error(
+        `cannot find node of CRDTTreePos(${parentID.toTestString()}, ${leftSiblingID.toTestString()})`,
+      );
     }
 
     /**
@@ -408,6 +410,12 @@ export type CRDTTreeNodeIDStruct = {
 export type TreePosRange = [CRDTTreePos, CRDTTreePos];
 
 /**
+ * `TreeNodePair` represents a pair of CRDTTreeNode. It represents the position
+ * of the node in the tree with the left and parent nodes.
+ */
+type TreeNodePair = [CRDTTreeNode, CRDTTreeNode];
+
+/**
  * `TreePosStructRange` represents the structure of TreeRange.
  * It is used to serialize and deserialize the TreeRange.
  */
@@ -542,11 +550,7 @@ export class CRDTTreeNode
     }
 
     if (alived) {
-      if (!this.parent!.removedAt) {
-        this.updateAncestorsSize();
-      } else {
-        this.parent!.size -= this.paddedSize;
-      }
+      this.updateAncestorsSize();
     }
   }
 
@@ -687,7 +691,7 @@ export class CRDTTreeNode
 }
 
 /**
- * toTreeNode converts the given CRDTTreeNode to TreeNode.
+ * `toTreeNode` converts the given CRDTTreeNode to TreeNode.
  */
 function toTreeNode(node: CRDTTreeNode): TreeNode {
   if (node.isText) {
@@ -698,17 +702,20 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
     } as TextNode;
   }
 
-  return {
+  const treeNode: TreeNode = {
     type: node.type,
     children: node.children.map(toTreeNode),
-    attributes: node.attrs
-      ? parseObjectValues(node.attrs?.toObject())
-      : undefined,
   };
+
+  if (node.attrs) {
+    treeNode.attributes = parseObjectValues(node.attrs?.toObject());
+  }
+
+  return treeNode;
 }
 
 /**
- * toXML converts the given CRDTNode to XML string.
+ * `toXML` converts the given CRDTNode to XML string.
  */
 export function toXML(node: CRDTTreeNode): string {
   if (node.isText) {
@@ -772,7 +779,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
 
-    this.indexTree.traverse((node) => {
+    this.indexTree.traverseAll((node) => {
       this.nodeMapByID.put(node.id, node);
     });
   }
@@ -817,9 +824,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public findNodesAndSplitText(
     pos: CRDTTreePos,
     editedAt?: TimeTicket,
-  ): [CRDTTreeNode, CRDTTreeNode] {
+  ): TreeNodePair {
     // 01. Find the parent and left sibling node of the given position.
-    const [parent, leftSibling] = pos.toTreeNodes(this);
+    const [parent, leftSibling] = pos.toTreeNodePair(this);
     let leftNode = leftSibling;
 
     // 02. Determine whether the position is left-most and the exact parent
@@ -910,13 +917,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
             {},
           );
 
+          const parentOfNode = node.parent!;
+          const previousNode = node.prevSibling || node.parent!;
+
           if (Object.keys(affectedAttrs).length > 0) {
             changes.push({
               type: TreeChangeType.Style,
-              from: this.toIndex(fromParent, fromLeft),
-              to: this.toIndex(toParent, toLeft),
-              fromPath: this.toPath(fromParent, fromLeft),
-              toPath: this.toPath(toParent, toLeft),
+              from: this.toIndex(parentOfNode, previousNode),
+              to: this.toIndex(node, node),
+              fromPath: this.toPath(parentOfNode, previousNode),
+              toPath: this.toPath(node, node),
               actor: editedAt.getActorID(),
               value: affectedAttrs,
             });
@@ -941,7 +951,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     range: [CRDTTreePos, CRDTTreePos],
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
-  ): [Array<GCPair>, Array<TreeChange>] {
+    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -949,6 +960,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
+    const createdAtMapByActor = new Map<string, TimeTicket>();
     const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
@@ -956,7 +968,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
       toParent,
       toLeft,
       ([node]) => {
-        if (!node.isRemoved && !node.isText && attributesToRemove) {
+        const actorID = node.getCreatedAt().getActorID();
+        const maxCreatedAt = maxCreatedAtMapByActor
+          ? maxCreatedAtMapByActor!.has(actorID)
+            ? maxCreatedAtMapByActor!.get(actorID)!
+            : InitialTimeTicket
+          : MaxTimeTicket;
+
+        if (node.canStyle(editedAt, maxCreatedAt) && attributesToRemove) {
+          const maxCreatedAt = createdAtMapByActor!.get(actorID);
+          const createdAt = node.getCreatedAt();
+          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
+            createdAtMapByActor.set(actorID, createdAt);
+          }
+
           if (!node.attrs) {
             node.attrs = new RHT();
           }
@@ -968,20 +993,23 @@ export class CRDTTree extends CRDTElement implements GCParent {
             }
           }
 
+          const parentOfNode = node.parent!;
+          const previousNode = node.prevSibling || node.parent!;
+
           changes.push({
             actor: editedAt.getActorID()!,
             type: TreeChangeType.RemoveStyle,
-            from: this.toIndex(fromParent, fromLeft),
-            to: this.toIndex(toParent, toLeft),
-            fromPath: this.toPath(fromParent, fromLeft),
-            toPath: this.toPath(toParent, toLeft),
+            from: this.toIndex(parentOfNode, previousNode),
+            to: this.toIndex(node, node),
+            fromPath: this.toPath(parentOfNode, previousNode),
+            toPath: this.toPath(node, node),
             value: attributesToRemove,
           });
         }
       },
     );
 
-    return [pairs, changes];
+    return [createdAtMapByActor, pairs, changes];
   }
 
   /**
@@ -1273,6 +1301,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `getNodeSize` returns the size of the LLRBTree.
+   */
+  public getNodeSize(): number {
+    return this.nodeMapByID.size();
+  }
+
+  /**
    * `getIndexTree` returns the index tree.
    */
   public getIndexTree(): IndexTree<CRDTTreeNode> {
@@ -1354,10 +1389,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
         pos,
       };
 
-      for (let i = 0; i < node.children.length; i++) {
-        const leftChildNode = i === 0 ? node : node.children[i - 1];
+      for (let i = 0; i < node.allChildren.length; i++) {
+        const leftChildNode = i === 0 ? node : node.allChildren[i - 1];
         nodeInfo.children.push(
-          toTreeNodeInfo(node.children[i], node, leftChildNode, depth + 1),
+          toTreeNodeInfo(node.allChildren[i], node, leftChildNode, depth + 1),
         );
       }
 

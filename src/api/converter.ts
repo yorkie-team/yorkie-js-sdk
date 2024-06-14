@@ -105,7 +105,7 @@ import {
   CRDTTreeNode,
   CRDTTreeNodeID,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { traverse } from '../util/index_tree';
+import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 
@@ -593,6 +593,22 @@ function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
 }
 
 /**
+ * `toRHT` converts the given model to Protobuf format.
+ */
+function toRHT(rht: RHT): { [key: string]: PbNodeAttr } {
+  const pbRHT: { [key: string]: PbNodeAttr } = {};
+  for (const node of rht) {
+    pbRHT[node.getKey()] = new PbNodeAttr({
+      value: node.getValue(),
+      updatedAt: toTimeTicket(node.getUpdatedAt()),
+      isRemoved: node.isRemoved(),
+    });
+  }
+
+  return pbRHT;
+}
+
+/**
  * `toTreeNodes` converts the given model to Protobuf format.
  */
 function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
@@ -601,7 +617,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
   }
 
   const pbTreeNodes: Array<PbTreeNode> = [];
-  traverse(node, (n, depth) => {
+  traverseAll(node, (n, depth) => {
     const pbTreeNode = new PbTreeNode({
       id: toTreeNodeID(n.id),
       type: n.type,
@@ -620,12 +636,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     }
 
     if (n.attrs) {
-      for (const attr of n.attrs) {
-        pbTreeNode.attributes[attr.getKey()] = new PbNodeAttr({
-          value: attr.getValue(),
-          updatedAt: toTimeTicket(attr.getUpdatedAt()),
-        });
-      }
+      pbTreeNode.attributes = toRHT(n.attrs);
     }
 
     pbTreeNodes.push(pbTreeNode);
@@ -770,10 +781,16 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
+  let serverSeq: Long | undefined;
+  if (pbChangeID.serverSeq) {
+    serverSeq = Long.fromString(pbChangeID.serverSeq, true);
+  }
+
   return ChangeID.of(
     pbChangeID.clientSeq,
     Long.fromString(pbChangeID.lamport, true),
     toHexString(pbChangeID.actorId),
+    serverSeq,
   );
 }
 
@@ -1041,8 +1058,27 @@ function fromTreeNodes(
     parent!.prepend(nodes[i]);
   }
 
+  root.updateDescendantsSize();
+
   // build CRDTTree from the root to construct the links between nodes.
   return CRDTTree.create(root, InitialTimeTicket).getRoot();
+}
+
+/**
+ * `fromRHT` converts the given Protobuf format to model format.
+ */
+function fromRHT(pbRHT: { [key: string]: PbNodeAttr }): RHT {
+  const rht = RHT.create();
+  for (const [key, pbRHTNode] of Object.entries(pbRHT)) {
+    rht.setInternal(
+      key,
+      pbRHTNode.value,
+      fromTimeTicket(pbRHTNode.updatedAt)!,
+      pbRHTNode.isRemoved,
+    );
+  }
+
+  return rht;
 }
 
 /**
@@ -1051,14 +1087,11 @@ function fromTreeNodes(
 function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
   const id = fromTreeNodeID(pbTreeNode.id!);
   const node = CRDTTreeNode.create(id, pbTreeNode.type);
+  const pbAttrs = Object.entries(pbTreeNode.attributes);
   if (node.isText) {
     node.value = pbTreeNode.value;
-  } else {
-    const attrs = RHT.create();
-    Object.entries(pbTreeNode.attributes).forEach(([key, value]) => {
-      attrs.set(key, value.value, fromTimeTicket(value.updatedAt)!);
-    });
-    node.attrs = attrs;
+  } else if (pbAttrs.length) {
+    node.attrs = fromRHT(pbTreeNode.attributes);
   }
 
   if (pbTreeNode.insPrevId) {
@@ -1182,17 +1215,20 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const attributes = new Map();
     const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
     const createdAtMapByActor = new Map();
-    Object.entries(pbTreeStyleOperation!.createdAtMapByActor).forEach(
-      ([key, value]) => {
-        createdAtMapByActor.set(key, fromTimeTicket(value));
-      },
-    );
+    if (pbTreeStyleOperation?.createdAtMapByActor) {
+      Object.entries(pbTreeStyleOperation!.createdAtMapByActor).forEach(
+        ([key, value]) => {
+          createdAtMapByActor.set(key, fromTimeTicket(value));
+        },
+      );
+    }
 
-    if (attributesToRemove.length > 0) {
+    if (attributesToRemove?.length > 0) {
       return TreeStyleOperation.createTreeRemoveStyleOperation(
         fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
         fromTreePos(pbTreeStyleOperation!.from!),
         fromTreePos(pbTreeStyleOperation!.to!),
+        createdAtMapByActor,
         attributesToRemove,
         fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );

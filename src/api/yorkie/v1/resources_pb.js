@@ -436,6 +436,7 @@ const NodeAttr = proto3.makeMessageType(
   () => [
     { no: 1, name: "value", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "updated_at", kind: "message", T: TimeTicket },
+    { no: 3, name: "is_removed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ],
 );
 

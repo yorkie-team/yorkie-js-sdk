@@ -150,7 +150,7 @@ export type TreeEditOpInfo = {
   from: number;
   to: number;
   value?: Array<TreeNode>;
-  splitLevel: number;
+  splitLevel?: number;
   fromPath: Array<number>;
   toPath: Array<number>;
 };
@@ -164,7 +164,11 @@ export type TreeStyleOpInfo = {
   from: number;
   to: number;
   fromPath: Array<number>;
-  value: { [key: string]: any };
+  toPath: Array<number>;
+  value: {
+    attributes?: Indexable;
+    attributesToRemove?: Array<string>;
+  };
 };
 
 /**

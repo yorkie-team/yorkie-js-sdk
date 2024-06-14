@@ -51,7 +51,11 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
 
   return (
     <div
-      className={classNames('tree-node', node.type === 'text' && 'text')}
+      className={classNames(
+        'tree-node',
+        node.type === 'text' && 'text',
+        node.isRemoved && 'removed',
+      )}
       style={{ '--depth': depth } as any}
     >
       <span className="node-item">
@@ -74,6 +78,10 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
               `[${nodeIDToString(node.pos.parentID)},
             ${nodeIDToString(node.pos.leftSiblingID)}]`}
           </span>
+        </div>
+        <div>
+          <span className="title">size: </span>
+          <span className="desc">{node.size}</span>
         </div>
         {node.type !== 'text' && (
           <div>

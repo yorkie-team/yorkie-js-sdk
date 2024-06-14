@@ -501,7 +501,7 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  describe.skip('concurrently-style-style-test', async () => {
+  describe('concurrently-style-style-test', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -604,7 +604,7 @@ describe('Tree.concurrency', () => {
     const content: TreeNode = {
       type: 'p',
       children: [{ type: 'text', value: 'd' }],
-      attributes: { italic: 'true' },
+      attributes: { italic: 'true', color: 'blue' },
     };
 
     const rangesArr = [
@@ -675,7 +675,7 @@ describe('Tree.concurrency', () => {
         StyleOpCode.StyleRemove,
         'color',
         '',
-        'remove-bold',
+        'remove-color',
       ),
       new StyleOperationType(
         RangeSelector.RangeAll,
