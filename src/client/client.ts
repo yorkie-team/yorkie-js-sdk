@@ -236,10 +236,6 @@ export class Client {
       return Promise.resolve();
     }
 
-    for (const [key] of this.attachmentMap) {
-      this.detachInternal(key);
-    }
-
     return this.rpcClient
       .deactivateClient(
         {
@@ -248,6 +244,11 @@ export class Client {
         { headers: { 'x-shard-key': this.apiKey } },
       )
       .then(() => {
+        for (const [key, attachment] of this.attachmentMap) {
+          attachment.doc.applyStatus(DocumentStatus.Detached);
+          this.detachInternal(key);
+        }
+
         this.status = ClientStatus.Deactivated;
 
         logger.info(`[DC] c"${this.getKey()}" deactivated`);

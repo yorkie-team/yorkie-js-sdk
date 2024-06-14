@@ -120,7 +120,7 @@ describe('Document', function () {
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
+    let c2ID = c2.getID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document(docKey);
@@ -128,11 +128,9 @@ describe('Document', function () {
     const eventCollectorD1 = new EventCollector<StatusChangedEvent['value']>();
     const eventCollectorD2 = new EventCollector<StatusChangedEvent['value']>();
     const unsub1 = d1.subscribe('status', (event) => {
-      console.log('c1', event.value);
       eventCollectorD1.add(event.value);
     });
     const unsub2 = d2.subscribe('status', (event) => {
-      console.log('c2', event.value);
       eventCollectorD2.add(event.value);
     });
 
@@ -156,11 +154,10 @@ describe('Document', function () {
     });
 
     // 3. When c2 deactivates, it should also receive a detached event.
-    // TODO(chacha912): The following line should be uncommented.
-    // await c2.deactivate();
-    // await eventCollectorD2.waitAndVerifyNthEvent(2, {
-    //   status: DocumentStatus.Detached,
-    // });
+    await c2.deactivate();
+    await eventCollectorD2.waitAndVerifyNthEvent(2, {
+      status: DocumentStatus.Detached,
+    });
 
     // 4. When the document is re-attached, it receives an attached event.
     await c1.attach(d1, { syncMode: SyncMode.Manual });
@@ -169,26 +166,23 @@ describe('Document', function () {
       actorID: c1ID,
     });
 
-    // TODO(chacha912): The following line should be uncommented.
-    // await c2.activate();
-    // c2ID = c2.getID()!;
-    // await c2.attach(d2, { syncMode: SyncMode.Manual });
-    // await eventCollectorD2.waitAndVerifyNthEvent(2, {
-    //   status: DocumentStatus.Attached,
-    //   actorID: c2ID,
-    // });
+    await c2.activate();
+    c2ID = c2.getID()!;
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+    await eventCollectorD2.waitAndVerifyNthEvent(3, {
+      status: DocumentStatus.Attached,
+      actorID: c2ID,
+    });
 
     // 5. When c1 removes a document, it receives a removed event.
     await c1.remove(d1);
-    // await c1.sync();
     await eventCollectorD1.waitAndVerifyNthEvent(4, {
       status: DocumentStatus.Removed,
     });
 
     // 6. When c4 syncs, it should also receive a removed event.
-    // TODO(chacha912): The following line should be uncommented.
-    // await c2.sync();
-    await eventCollectorD2.waitAndVerifyNthEvent(2, {
+    await c2.sync();
+    await eventCollectorD2.waitAndVerifyNthEvent(4, {
       status: DocumentStatus.Removed,
     });
 

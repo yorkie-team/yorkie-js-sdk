@@ -66,7 +66,7 @@ export class EventCollector<E = string> {
             resolve();
           } else {
             reject(
-              new Error(`event is not equal -
+              new Error(`event is not equal ${count}-
                 expected: ${JSON.stringify(event)},
                 actual: ${JSON.stringify(this.events[count - 1])}`),
             );
