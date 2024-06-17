@@ -108,6 +108,12 @@ export interface ClientOptions {
   apiKey?: string;
 
   /**
+   * `sessionKey` is the session key for session affinity between the client
+   * and the server.
+   */
+  sessionKey?: string;
+
+  /**
    * `token` is the authentication token of this client. It is used to identify
    * the user of the client.
    */
@@ -158,6 +164,7 @@ export class Client {
   private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
+  private sessionKey: string;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
@@ -177,6 +184,7 @@ export class Client {
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
+    this.sessionKey = opts.sessionKey || '';
     this.syncLoopDuration =
       opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
@@ -213,7 +221,9 @@ export class Client {
         {
           clientKey: this.key,
         },
-        { headers: { 'x-shard-key': this.apiKey } },
+        { 
+          headers: { 'x-shard-key': this.apiKey }, 
+        },
       )
       .then((res) => {
         this.id = res.clientId;
@@ -245,7 +255,12 @@ export class Client {
         {
           clientId: this.id!,
         },
-        { headers: { 'x-shard-key': this.apiKey } },
+        { 
+          headers: { 
+            'x-shard-key': this.apiKey, 
+            'x-session-key': this.sessionKey 
+          } 
+        },
       )
       .then(() => {
         this.status = ClientStatus.Deactivated;
@@ -290,7 +305,9 @@ export class Client {
           changePack: converter.toChangePack(doc.createChangePack()),
         },
         {
-          headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+          headers: {
+            'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+          },
         },
       )
       .then(async (res) => {
@@ -359,7 +376,10 @@ export class Client {
           removeIfNotAttached: options.removeIfNotAttached ?? false,
         },
         {
-          headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+          headers: {
+            'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+            'x-session-key': this.sessionKey
+          },
         },
       )
       .then((res) => {
@@ -484,7 +504,10 @@ export class Client {
           changePack: pbChangePack,
         },
         {
-          headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+          headers: {
+            'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+            'x-session-key': this.sessionKey
+          },
         },
       )
       .then((res) => {
@@ -579,7 +602,13 @@ export class Client {
             documentId: attachment.docID,
           },
           {
-            headers: { 'x-shard-key': `${this.apiKey}/${docKey}` },
+            headers: {
+              'x-shard-key': `${this.apiKey}/${docKey}`,
+              'x-session-key': this.sessionKey
+            },
+            onHeader: (headers) => {
+              this.sessionKey = headers.get('x-session-key') || ''
+            },
             signal: ac.signal,
           },
         );
@@ -621,12 +650,8 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (
-                err instanceof ConnectError &&
-                err.code != ConnectErrorCode.Canceled
-              ) {
-                onDisconnect();
-              }
+              this.sessionKey = ''
+              onDisconnect();
 
               reject(err);
             }
@@ -685,7 +710,10 @@ export class Client {
           pushOnly: syncMode === SyncMode.RealtimePushOnly,
         },
         {
-          headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` },
+          headers: {
+            'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+            'x-session-key': this.sessionKey
+          },
         },
       )
       .then((res) => {
