@@ -857,6 +857,8 @@ describe('Document', function () {
 
     unsub1();
     unsub2();
+    unsub3();
+    unsub4();
   });
 
   it('Should properly handle removed document when deactivating', async function ({
