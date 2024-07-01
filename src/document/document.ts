@@ -386,6 +386,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   'my-presence': NextFn<InitializedEvent<P> | PresenceChangedEvent<P>>;
   others: NextFn<WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>>;
   connection: NextFn<ConnectionChangedEvent>;
+  status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
@@ -784,6 +785,16 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the document status changes.
+   */
+  public subscribe(
+    type: 'status',
+    next: DocEventCallbackMap<P>['status'],
+    error?: ErrorFn,
+    complete?: CompleteFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the document is synced with the server.
    */
   public subscribe(
@@ -913,6 +924,21 @@ export class Document<T, P extends Indexable = Indexable> {
           (event) => {
             for (const docEvent of event) {
               if (docEvent.type !== DocEventType.ConnectionChanged) {
+                continue;
+              }
+              callback(docEvent);
+            }
+          },
+          arg3,
+          arg4,
+        );
+      }
+      if (arg1 === 'status') {
+        const callback = arg2 as DocEventCallbackMap<P>['status'];
+        return this.eventStream.subscribe(
+          (event) => {
+            for (const docEvent of event) {
+              if (docEvent.type !== DocEventType.StatusChanged) {
                 continue;
               }
               callback(docEvent);
