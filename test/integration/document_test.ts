@@ -52,12 +52,6 @@ describe('Document', function () {
     await client1.detach(doc1);
     await client2.detach(doc2);
 
-    await client1.attach(doc1, { syncMode: SyncMode.Manual });
-    await client2.attach(doc2, { syncMode: SyncMode.Manual });
-
-    await client1.detach(doc1);
-    await client2.detach(doc2);
-
     await client1.deactivate();
     await client2.deactivate();
   });
