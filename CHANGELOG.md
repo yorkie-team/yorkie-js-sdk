@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.25] - 2024-07-03
+
+### Added
+
+- Add `doc.subscribe('status', callback)` function by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/828
+
+### Changed
+
+- Use module import style for Protobuf by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/853
+- Remove reattach test code by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/855
+
 ## [0.4.24] - 2024-06-14
 
 ### Added
