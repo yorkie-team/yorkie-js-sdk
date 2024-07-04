@@ -22,14 +22,22 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import {
+  RGATreeSplitNode,
+  RGATreeSplitNodeID,
   RGATreeSplitPos,
   RGATreeSplitPosRange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText, TextValueType } from '@yorkie-js-sdk/src/document/crdt/text';
+import {
+  CRDTText,
+  CRDTTextValue,
+  TextValueType,
+} from '@yorkie-js-sdk/src/document/crdt/text';
 import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
 import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
  * `TextPosStruct` represents the structure of RGATreeSplitPos.
@@ -256,11 +264,20 @@ export class Text<A extends Indexable = Indexable> {
   }
 
   /**
-   * `checkWeight` returns false when there is an incorrect weight node.
-   * for debugging purpose.
+   * `getTreeByIndex` returns IndexTree of the text for testing purpose.
    */
-  public checkWeight(): boolean {
-    return this.text!.checkWeight();
+  public getTreeByIndex(): SplayTree<CRDTTextValue> {
+    return this.text!.getTreeByIndex();
+  }
+
+  /**
+   * `getTreeByID` returns IDTree of the text for testing purpose.
+   */
+  public getTreeByID(): LLRBTree<
+    RGATreeSplitNodeID,
+    RGATreeSplitNode<CRDTTextValue>
+  > {
+    return this.text!.getTreeByID();
   }
 
   /**
