@@ -1012,6 +1012,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: RGATreeSplitNode<T>): void {
+    this.treeByIndex.delete(node);
+    this.treeByID.remove(node.getID());
+
     const prev = node.getPrev();
     const next = node.getNext();
     const insPrev = node.getInsPrev();
