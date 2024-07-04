@@ -405,8 +405,8 @@ describe('Text', function () {
       await c2.sync();
       await c1.sync();
 
-      // assert.isOk(d1.getRoot().k1.checkWeight());
-      // assert.isOk(d2.getRoot().k1.checkWeight());
+      // assert.isOk(d1.getRoot().k1.getTreeByIndex().checkWeight());
+      // assert.isOk(d2.getRoot().k1.getTreeByIndex().checkWeight());
     }, task.name);
   });
 });

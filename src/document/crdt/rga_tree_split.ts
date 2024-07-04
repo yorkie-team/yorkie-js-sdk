@@ -660,11 +660,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
-   * `checkWeight` returns false when there is an incorrect weight node.
-   * for debugging purpose.
+   * `getTreeByIndex` returns the tree by index for debugging purpose.
    */
-  public checkWeight(): boolean {
-    return this.treeByIndex.checkWeight();
+  public getTreeByIndex(): SplayTree<T> {
+    return this.treeByIndex;
+  }
+
+  /**
+   * `getTreeByID` returns the tree by ID for debugging purpose.
+   */
+  public getTreeByID(): LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>> {
+    return this.treeByID;
   }
 
   /**

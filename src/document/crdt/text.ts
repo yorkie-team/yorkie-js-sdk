@@ -25,6 +25,7 @@ import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
+  RGATreeSplitNodeID,
   RGATreeSplitPosRange,
   ValueChange,
 } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -32,6 +33,8 @@ import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -361,11 +364,20 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   }
 
   /**
-   * `checkWeight` returns false when there is an incorrect weight node.
-   * for debugging purpose.
+   * `getTreeByIndex` returns the tree by index for debugging.
    */
-  public checkWeight(): boolean {
-    return this.rgaTreeSplit.checkWeight();
+  public getTreeByIndex(): SplayTree<CRDTTextValue> {
+    return this.rgaTreeSplit.getTreeByIndex();
+  }
+
+  /**
+   * `getTreeByID` returns the tree by ID for debugging.
+   */
+  public getTreeByID(): LLRBTree<
+    RGATreeSplitNodeID,
+    RGATreeSplitNode<CRDTTextValue>
+  > {
+    return this.rgaTreeSplit.getTreeByID();
   }
 
   /**

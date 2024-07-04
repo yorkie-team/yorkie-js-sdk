@@ -1238,6 +1238,21 @@ describe.sequential('Document', function () {
     assert.equal(0, doc.getGarbageLen());
   });
 
+  it('should purge node from indexes during GC', function () {
+    const doc = new Document<{ k1: Text }>('test-doc');
+    doc.update((root) => (root.k1 = new Text()));
+    assert.equal(doc.getRoot().k1.getTreeByID().size(), 1);
+
+    doc.update((root) => root.k1.edit(0, 0, 'ABC'));
+    assert.equal(doc.getRoot().k1.getTreeByID().size(), 2);
+
+    doc.update((root) => root.k1.edit(1, 3, ''));
+    assert.equal(doc.getRoot().k1.getTreeByID().size(), 3);
+
+    doc.garbageCollect(MaxTimeTicket);
+    assert.equal(doc.getRoot().k1.getTreeByID().size(), 2);
+  });
+
   it('should handle escape string for strings containing single quotes', function () {
     const doc = new Document<{ [key: string]: any }>('test-doc');
     doc.update((root) => (root.str = `I'm yorkie`));
