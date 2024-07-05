@@ -1,4 +1,4 @@
-import { describe, it, assert, vi, afterEach } from 'vitest';
+import { describe, it, assert, vi, afterEach, expect } from 'vitest';
 
 import yorkie, {
   Counter,
@@ -747,5 +747,20 @@ describe.sequential('Client', function () {
     unsub2();
     await c1.deactivate();
     await c2.deactivate();
+  });
+
+  it('Should handle each request one by one', async function ({ task }) {
+    for (let i = 0; i < 10; i++) {
+      const cli = new yorkie.Client(testRPCAddr);
+      await cli.activate();
+
+      const doc = new yorkie.Document<{ t: Text }>(
+        toDocKey(`${task.name}-${new Date().getTime()}-{i}`),
+      );
+      await cli.attach(doc);
+
+      expect(cli.detach(doc)).resolves.toBeDefined();
+      await cli.deactivate();
+    }
   });
 });
