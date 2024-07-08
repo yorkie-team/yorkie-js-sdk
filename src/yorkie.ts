@@ -25,6 +25,7 @@ import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 export {
   Client,
   ClientStatus,
+  ClientCondition,
   SyncMode,
   type ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
@@ -112,8 +113,8 @@ export {
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
 
-export type { LogLevel } from '@yorkie-js-sdk/src/util/logger';
-export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { LogLevel, setLogLevel } from '@yorkie-js-sdk/src/util/logger';
+export { LogLevel, setLogLevel } from '@yorkie-js-sdk/src/util/logger';
 
 export {
   EventSourceDevPanel,
@@ -142,6 +143,8 @@ export default {
   Text,
   Counter,
   Tree,
+  LogLevel,
+  setLogLevel,
   IntType: CounterType.IntegerCnt,
   LongType: CounterType.LongCnt,
 };
@@ -155,6 +158,8 @@ if (typeof globalThis !== 'undefined') {
     Text,
     Counter,
     Tree,
+    LogLevel,
+    setLogLevel,
     IntType: CounterType.IntegerCnt,
     LongType: CounterType.LongCnt,
   };
