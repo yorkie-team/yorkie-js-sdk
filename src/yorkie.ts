@@ -25,6 +25,7 @@ import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 export {
   Client,
   ClientStatus,
+  ClientCondition,
   SyncMode,
   type ClientOptions,
 } from '@yorkie-js-sdk/src/client/client';
@@ -112,7 +113,7 @@ export {
 export { Change } from '@yorkie-js-sdk/src/document/change/change';
 export { converter } from '@yorkie-js-sdk/src/api/converter';
 
-export type { LogLevel } from '@yorkie-js-sdk/src/util/logger';
+export { LogLevel } from '@yorkie-js-sdk/src/util/logger';
 export { setLogLevel } from '@yorkie-js-sdk/src/util/logger';
 
 export {

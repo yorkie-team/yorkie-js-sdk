@@ -90,6 +90,21 @@ export enum ClientStatus {
 }
 
 /**
+ * `ClientCondition` represents the condition of the client.
+ */
+export enum ClientCondition {
+  /**
+   * `SyncLoop` is a key of the sync loop condition.
+   */
+  SyncLoop = 'SyncLoop',
+
+  /**
+   * `WatchLoop` is a key of the watch loop condition.
+   */
+  WatchLoop = 'WatchLoop',
+}
+
+/**
  * `ClientOptions` are user-settable options used when defining clients.
  *
  * @public
@@ -158,13 +173,14 @@ export class Client {
   private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
+  private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
 
   private rpcClient: PromiseClient<typeof YorkieService>;
   private taskQueue: Array<() => Promise<any>>;
-  private processing: boolean = false;
+  private processing = false;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -179,6 +195,10 @@ export class Client {
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
+    this.conditions = {
+      [ClientCondition.SyncLoop]: false,
+      [ClientCondition.WatchLoop]: false,
+    };
     this.syncLoopDuration =
       opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
@@ -535,10 +555,22 @@ export class Client {
     return this.status;
   }
 
+  /**
+   * `getCondition` returns the condition of this client.
+   */
+  public getCondition(condition: ClientCondition): boolean {
+    return this.conditions[condition];
+  }
+
+  /**
+   * `runSyncLoop` runs the sync loop. The sync loop pushes local changes to
+   * the server and pulls remote changes from the server.
+   */
   private runSyncLoop(): void {
     const doLoop = (): void => {
       if (!this.isActive()) {
         logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`);
+        this.conditions[ClientCondition.SyncLoop] = false;
         return;
       }
 
@@ -554,14 +586,24 @@ export class Client {
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-          setTimeout(doLoop, this.retrySyncLoopDelay);
+
+          if (this.isRetryableConnectError(err)) {
+            setTimeout(doLoop, this.retrySyncLoopDelay);
+          } else {
+            this.conditions[ClientCondition.SyncLoop] = false;
+          }
         });
     };
 
     logger.debug(`[SL] c:"${this.getKey()}" run sync loop`);
+    this.conditions[ClientCondition.SyncLoop] = true;
     doLoop();
   }
 
+  /**
+   * `runWatchLoop` runs the watch loop for the given document. The watch loop
+   * listens to the events of the given document from the server.
+   */
   private async runWatchLoop(docKey: DocumentKey): Promise<void> {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
@@ -571,9 +613,11 @@ export class Client {
       );
     }
 
+    this.conditions[ClientCondition.WatchLoop] = true;
     return attachment.runWatchLoop(
       (onDisconnect: () => void): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
+          this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
             new YorkieError(Code.ClientNotActive, `${this.key} is not active`),
           );
@@ -628,11 +672,10 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (
-                err instanceof ConnectError &&
-                err.code != ConnectErrorCode.Canceled
-              ) {
+              if (this.isRetryableConnectError(err)) {
                 onDisconnect();
+              } else {
+                this.conditions[ClientCondition.WatchLoop] = false;
               }
 
               reject(err);
@@ -738,6 +781,30 @@ export class Client {
         logger.error(`[PP] c:"${this.getKey()}" err :`, err);
         throw err;
       });
+  }
+
+  /**
+   * `isRetryableConnectError` returns whether the given error is a retryable error.
+   */
+  private isRetryableConnectError(err: any): boolean {
+    if (!(err instanceof ConnectError)) {
+      return false;
+    }
+
+    // NOTE(hackerwins): These errors are retryable.
+    // - Unknown: The error is unknown. It is retryable because it is unknown.
+    // - ResourceExhausted: The resource is exhausted. It is retryable because the resource may be available.
+    // - Unavailable: The server is unavailable. It is retryable because the server may be down.
+    const retryables = [
+      ConnectErrorCode.Unknown,
+      ConnectErrorCode.ResourceExhausted,
+      ConnectErrorCode.Unavailable,
+    ];
+
+    // TODO(hackerwins): We need to handle more cases.
+    // - FailedPrecondition: If the client fixes its state, it is retryable.
+    // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
+    return retryables.includes(err.code);
   }
 
   /**

@@ -3,6 +3,7 @@ import { describe, it, assert, vi, afterEach, expect } from 'vitest';
 import yorkie, {
   Counter,
   SyncMode,
+  ClientCondition,
   DocEventType,
   DocumentSyncStatus,
   Tree,
@@ -14,6 +15,7 @@ import {
   testRPCAddr,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { ConnectError, Code } from '@connectrpc/connect';
 
 describe.sequential('Client', function () {
   afterEach(() => {
@@ -762,5 +764,40 @@ describe.sequential('Client', function () {
       expect(cli.detach(doc)).resolves.toBeDefined();
       await cli.deactivate();
     }
+  });
+
+  it('Should retry on network failure and eventually succeed', async ({
+    task,
+  }) => {
+    const cli = new yorkie.Client(testRPCAddr, {
+      retrySyncLoopDelay: 10,
+    });
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    // 01. Simulate Unknown error.
+    vi.stubGlobal('fetch', async () => {
+      throw new ConnectError('Failed to fetch', Code.Unknown);
+    });
+
+    doc.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+    });
+
+    await new Promise((res) => setTimeout(res, 30));
+    assert.isTrue(cli.getCondition(ClientCondition.SyncLoop));
+
+    // 02. Simulate FailedPrecondition error.
+    vi.stubGlobal('fetch', async () => {
+      throw new ConnectError('Failed to fetch', Code.FailedPrecondition);
+    });
+
+    await new Promise((res) => setTimeout(res, 30));
+    assert.isFalse(cli.getCondition(ClientCondition.SyncLoop));
+
+    vi.unstubAllGlobals();
   });
 });
