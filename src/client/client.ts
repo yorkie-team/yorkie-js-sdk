@@ -792,10 +792,12 @@ export class Client {
     }
 
     // NOTE(hackerwins): These errors are retryable.
-    // - Unknown: The error is unknown. It is retryable because it is unknown.
-    // - ResourceExhausted: The resource is exhausted. It is retryable because the resource may be available.
-    // - Unavailable: The server is unavailable. It is retryable because the server may be down.
+    // Connect guide indicates that for error codes like `ResourceExhausted` and
+    // `Unavailable`, retries should be attempted following their guidelines.
+    // Additionally, `Unknown` and `Canceled` are added separately as it
+    // typically occurs when the server is stopped.
     const retryables = [
+      ConnectErrorCode.Canceled,
       ConnectErrorCode.Unknown,
       ConnectErrorCode.ResourceExhausted,
       ConnectErrorCode.Unavailable,

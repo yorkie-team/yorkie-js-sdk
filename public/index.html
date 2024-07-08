@@ -316,6 +316,7 @@
           const codemirror = CodeMirror.fromTextArea(textarea, {
             lineNumbers: true,
           });
+          yorkie.setLogLevel(yorkie.LogLevel.Debug);
           devtool.setCodeMirror(codemirror);
 
           // 02-1. create client with RPCAddr.
