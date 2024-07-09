@@ -15,6 +15,8 @@
  */
 
 import Long from 'long';
+import { ConnectError } from '@connectrpc/connect';
+import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
@@ -775,6 +777,18 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     snapshot: pack.getSnapshot(),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
+}
+
+/**
+ * `errorCodeOf` returns the error code of the given connect error.
+ */
+export function errorCodeOf(error: ConnectError): string {
+  const infos = error.findDetails(ErrorInfo);
+  for (const info of infos) {
+    return info.metadata.code;
+  }
+
+  return "";
 }
 
 /**

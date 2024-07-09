@@ -46,6 +46,17 @@ describe.sequential('Client', function () {
     assert.isFalse(clientWithoutKey.isActive());
   });
 
+  it('Can attach/detach document', async function ({ task }) {
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ version: number }>(key);
+
+    await cli.attach(doc);
+    await expect(async () => cli.attach(doc)).rejects.toThrow('is not detached');
+  });
+
   it('Can handle sync', async function ({ task }) {
     type TestDoc = { k1: string; k2: string; k3: string };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
@@ -757,7 +768,7 @@ describe.sequential('Client', function () {
       await cli.activate();
 
       const doc = new yorkie.Document<{ t: Text }>(
-        toDocKey(`${task.name}-${new Date().getTime()}-{i}`),
+        toDocKey(`${task.name}-${new Date().getTime()}-${i}`),
       );
       await cli.attach(doc);
 

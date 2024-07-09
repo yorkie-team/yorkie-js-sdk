@@ -25,7 +25,7 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
+import { converter, errorCodeOf } from '@yorkie-js-sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
@@ -806,6 +806,8 @@ export class Client {
     // TODO(hackerwins): We need to handle more cases.
     // - FailedPrecondition: If the client fixes its state, it is retryable.
     // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
+    console.error(`error code:`, errorCodeOf(err));
+
     return retryables.includes(err.code);
   }
 
