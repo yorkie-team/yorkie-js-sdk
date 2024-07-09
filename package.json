@@ -65,8 +65,7 @@
     "vite-plugin-commonjs": "^0.10.1",
     "vite-plugin-dts": "^3.9.1",
     "vite-tsconfig-paths": "^4.2.1",
-    "vitest": "^0.34.5",
-    "vitest-environment-custom-jsdom": "file:test/vitest/env"
+    "vitest": "^0.34.5"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.6.0",
