@@ -20,6 +20,7 @@ export default defineConfig({
     benchmark: {
       exclude: ['**/lib/**', '**/node_modules/**'],
     },
+    setupFiles: ['./test/vitest.setup.ts'],
   },
   plugins: [
     tsconfigPaths({

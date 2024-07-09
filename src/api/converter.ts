@@ -783,12 +783,16 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
  * `errorCodeOf` returns the error code of the given connect error.
  */
 export function errorCodeOf(error: ConnectError): string {
+  // NOTE(hackerwins): Currently, we only use the first detail to represent the
+  // error code.
   const infos = error.findDetails(ErrorInfo);
   for (const info of infos) {
-    return info.metadata.code;
+    if (info.metadata.code) {
+      return info.metadata.code;
+    }
   }
 
-  return "";
+  return '';
 }
 
 /**
