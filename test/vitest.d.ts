@@ -18,10 +18,10 @@ import type { Assertion, AsymmetricMatchersContaining } from 'vitest';
 import { Code } from '@yorkie-js-sdk/src/util/error';
 
 interface CustomMatchers<R = unknown> {
-  toThrowErrorCode: (expected: Code) => R;
+  toThrowErrorCode: (expected: Code) => Promise<R>;
 }
 
 declare module 'vitest' {
-  type Assertion<T = any> = CustomMatchers<T>;
+  interface Assertion extends CustomMatchers {}
   interface AsymmetricMatchersContaining extends CustomMatchers {}
 }
