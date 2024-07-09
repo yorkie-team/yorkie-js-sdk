@@ -15,7 +15,6 @@ export default defineConfig({
     onConsoleLog() {
       return false;
     },
-    environment: 'custom-jsdom',
     globals: true,
     testTimeout: isCI ? 5000 : Infinity,
     benchmark: {
