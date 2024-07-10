@@ -266,13 +266,7 @@ export class Client {
           { headers: { 'x-shard-key': this.apiKey } },
         )
         .then(() => {
-          for (const [key, attachment] of this.attachmentMap) {
-            attachment.doc.applyStatus(DocumentStatus.Detached);
-            this.detachInternal(key);
-          }
-
-          this.status = ClientStatus.Deactivated;
-
+          this.deactivateInternal();
           logger.info(`[DC] c"${this.getKey()}" deactivated`);
         })
         .catch((err) => {
@@ -587,7 +581,7 @@ export class Client {
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
 
-          if (this.isRetryableConnectError(err)) {
+          if (this.handleConnectError(err)) {
             setTimeout(doLoop, this.retrySyncLoopDelay);
           } else {
             this.conditions[ClientCondition.SyncLoop] = false;
@@ -672,7 +666,7 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (this.isRetryableConnectError(err)) {
+              if (this.handleConnectError(err)) {
                 onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
@@ -703,6 +697,15 @@ export class Client {
     attachment.doc.applyWatchStream(resp);
   }
 
+  private deactivateInternal() {
+    this.status = ClientStatus.Deactivated;
+
+    for (const [key, attachment] of this.attachmentMap) {
+      this.detachInternal(key);
+      attachment.doc.applyStatus(DocumentStatus.Detached);
+    }
+  }
+
   private detachInternal(docKey: DocumentKey) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
@@ -714,8 +717,6 @@ export class Client {
     }
 
     attachment.cancelWatchStream();
-    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-
     this.attachmentMap.delete(docKey);
   }
 
@@ -784,9 +785,10 @@ export class Client {
   }
 
   /**
-   * `isRetryableConnectError` returns whether the given error is a retryable error.
+   * `handleConnectError` handles the given error. If the given error can be
+   * retried after handling, it returns true.
    */
-  private isRetryableConnectError(err: any): boolean {
+  private handleConnectError(err: any): boolean {
     if (!(err instanceof ConnectError)) {
       return false;
     }
@@ -796,19 +798,27 @@ export class Client {
     // `Unavailable`, retries should be attempted following their guidelines.
     // Additionally, `Unknown` and `Canceled` are added separately as it
     // typically occurs when the server is stopped.
-    const retryables = [
-      ConnectErrorCode.Canceled,
-      ConnectErrorCode.Unknown,
-      ConnectErrorCode.ResourceExhausted,
-      ConnectErrorCode.Unavailable,
-    ];
+    if (
+      err.code === ConnectErrorCode.Canceled ||
+      err.code === ConnectErrorCode.Unknown ||
+      err.code === ConnectErrorCode.ResourceExhausted ||
+      err.code === ConnectErrorCode.Unavailable
+    ) {
+      return true;
+    }
+
+    // NOTE(hackerwins): Handle FailedPrecondition. If the client fixes its state,
+    // some of the FailedPrecondition errors are retryable.
+    if (err.code === ConnectErrorCode.FailedPrecondition) {
+      if (errorCodeOf(err) === 'database.ErrClientNotActivated') {
+        this.deactivateInternal();
+      }
+    }
 
     // TODO(hackerwins): We need to handle more cases.
-    // - FailedPrecondition: If the client fixes its state, it is retryable.
     // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
-    console.error(`error code:`, errorCodeOf(err));
 
-    return retryables.includes(err.code);
+    return false;
   }
 
   /**
