@@ -18,29 +18,32 @@ export enum Code {
   // Ok is returned when the operation completed successfully.
   Ok = 'ok',
 
-  // ClientNotActive is returned when the client is not active.
-  ClientNotActive = 'client-not-active',
+  // ErrClientNotActivated is returned when the client is not active.
+  ErrClientNotActivated = 'ErrClientNotActivated',
 
-  // Unimplemented is returned when the operation is not implemented.
-  Unimplemented = 'unimplemented',
+  // ErrClientNotFound is returned when the client is not found.
+  ErrClientNotFound = 'ErrClientNotFound',
+
+  // ErrUnimplemented is returned when the operation is not implemented.
+  ErrUnimplemented = 'ErrUnimplemented',
 
   // Unsupported is returned when the operation is not supported.
   Unsupported = 'unsupported',
 
-  // DocumentNotAttached is returned when the document is not attached.
-  DocumentNotAttached = 'document-not-attached',
+  // ErrDocumentNotAttached is returned when the document is not attached.
+  ErrDocumentNotAttached = 'ErrDocumentNotAttached',
 
-  // DocumentNotDetached is returned when the document is not detached.
-  DocumentNotDetached = 'document-not-detached',
+  // ErrDocumentNotDetached is returned when the document is not detached.
+  ErrDocumentNotDetached = 'ErrDocumentNotDetached',
 
-  // DocumentRemoved is returned when the document is removed.
-  DocumentRemoved = 'document-removed',
+  // ErrDocumentRemoved is returned when the document is removed.
+  ErrDocumentRemoved = 'ErrDocumentRemoved',
 
   // InvalidObjectKey is returned when the object key is invalid.
-  InvalidObjectKey = 'invalid-object-key',
+  ErrInvalidObjectKey = 'ErrInvalidObjectKey',
 
-  // InvalidArgument is returned when the argument is invalid.
-  InvalidArgument = 'invalid-argument',
+  // ErrInvalidArgument is returned when the argument is invalid.
+  ErrInvalidArgument = 'ErrInvalidArgument',
 }
 
 /**

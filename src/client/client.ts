@@ -288,11 +288,14 @@ export class Client {
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     if (doc.getStatus() !== DocumentStatus.Detached) {
       throw new YorkieError(
-        Code.DocumentNotDetached,
+        Code.ErrDocumentNotDetached,
         `${doc.getKey()} is not detached`,
       );
     }
@@ -356,12 +359,15 @@ export class Client {
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -404,13 +410,16 @@ export class Client {
     syncMode: SyncMode,
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
 
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -453,14 +462,17 @@ export class Client {
     doc?: Document<T, P>,
   ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     if (doc) {
       // prettier-ignore
       const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<T, P>;
       if (!attachment) {
         throw new YorkieError(
-          Code.DocumentNotAttached,
+          Code.ErrDocumentNotAttached,
           `${doc.getKey()} is not attached`,
         );
       }
@@ -483,12 +495,15 @@ export class Client {
    */
   public remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -602,7 +617,7 @@ export class Client {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${docKey} is not attached`,
       );
     }
@@ -613,7 +628,10 @@ export class Client {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
-            new YorkieError(Code.ClientNotActive, `${this.key} is not active`),
+            new YorkieError(
+              Code.ErrClientNotActivated,
+              `${this.key} is not active`,
+            ),
           );
         }
 
@@ -807,12 +825,12 @@ export class Client {
       return true;
     }
 
-    // NOTE(hackerwins): Handle FailedPrecondition. If the client fixes its state,
-    // some of the FailedPrecondition errors are retryable.
-    if (err.code === ConnectErrorCode.FailedPrecondition) {
-      if (errorCodeOf(err) === 'database.ErrClientNotActivated') {
-        this.deactivateInternal();
-      }
+    // NOTE(hackerwins): Some errors should fix the state of the client.
+    if (
+      errorCodeOf(err) === Code.ErrClientNotActivated ||
+      errorCodeOf(err) === Code.ErrClientNotFound
+    ) {
+      this.deactivateInternal();
     }
 
     // TODO(hackerwins): We need to handle more cases.

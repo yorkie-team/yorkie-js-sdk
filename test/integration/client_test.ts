@@ -72,12 +72,12 @@ describe.sequential('Client', function () {
 
     await cli.attach(doc);
     expect(async () => cli.attach(doc)).rejects.toThrowErrorCode(
-      Code.DocumentNotDetached,
+      Code.ErrDocumentNotDetached,
     );
 
     await cli.detach(doc);
     expect(async () => cli.detach(doc)).rejects.toThrowErrorCode(
-      Code.DocumentNotAttached,
+      Code.ErrDocumentNotAttached,
     );
 
     await cli.deactivate();

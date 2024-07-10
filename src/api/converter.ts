@@ -141,7 +141,7 @@ function toPresenceChange(
     });
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented type`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented type`);
 }
 
 /**
@@ -266,7 +266,7 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
     });
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
 }
 
 /**
@@ -467,7 +467,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.case = 'treeStyle';
     pbOperation.body.value = pbTreeStyleOperation;
   } else {
-    throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
+    throw new YorkieError(Code.ErrUnimplemented, 'unimplemented operation');
   }
 
   return pbOperation;
@@ -762,7 +762,7 @@ function toElement(element: CRDTElement): PbJSONElement {
     return toTree(element);
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
 }
 
 /**
@@ -898,7 +898,7 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
       return PrimitiveType.Date;
   }
   throw new YorkieError(
-    Code.Unimplemented,
+    Code.ErrUnimplemented,
     `unimplemented value type: ${pbValueType}`,
   );
 }
@@ -914,7 +914,7 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.LongCnt;
   }
   throw new YorkieError(
-    Code.Unimplemented,
+    Code.ErrUnimplemented,
     `unimplemented value type: ${pbValueType}`,
   );
 }
@@ -1266,7 +1266,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       );
     }
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
+    throw new YorkieError(Code.ErrUnimplemented, `unimplemented operation`);
   }
 }
 
@@ -1448,7 +1448,7 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
   } else if (pbElement.body.case === 'tree') {
     return fromTree(pbElement.body.value!);
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+    throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
   }
 }
 

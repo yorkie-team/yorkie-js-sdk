@@ -92,7 +92,7 @@ export class Primitive extends CRDTElement {
         return new Date(Long.fromBytesLE(Array.from(bytes), true).toNumber());
       default:
         throw new YorkieError(
-          Code.Unimplemented,
+          Code.ErrUnimplemented,
           `unimplemented type: ${primitiveType}`,
         );
     }
@@ -265,7 +265,7 @@ export class Primitive extends CRDTElement {
       }
       default:
         throw new YorkieError(
-          Code.Unimplemented,
+          Code.ErrUnimplemented,
           `unimplemented type: ${this.valueType}`,
         );
     }

@@ -70,7 +70,7 @@ export class CRDTCounter extends CRDTElement {
         break;
       default:
         throw new YorkieError(
-          Code.Unimplemented,
+          Code.ErrUnimplemented,
           `unimplemented type: ${valueType}`,
         );
     }
@@ -100,7 +100,7 @@ export class CRDTCounter extends CRDTElement {
         return Long.fromBytesLE(Array.from(bytes));
       default:
         throw new YorkieError(
-          Code.Unimplemented,
+          Code.ErrUnimplemented,
           `unimplemented type: ${counterType}`,
         );
     }
@@ -229,7 +229,7 @@ export class CRDTCounter extends CRDTElement {
       }
       default:
         throw new YorkieError(
-          Code.Unimplemented,
+          Code.ErrUnimplemented,
           `unimplemented type: ${this.valueType}`,
         );
     }
