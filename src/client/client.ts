@@ -246,6 +246,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[AC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -271,6 +272,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -339,6 +341,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[AD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -397,6 +400,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -476,9 +480,13 @@ export class Client {
           `${doc.getKey()} is not attached`,
         );
       }
-      return this.enqueueTask(async () =>
-        this.syncInternal(attachment, SyncMode.Realtime),
-      );
+      return this.enqueueTask(async () => {
+        return this.syncInternal(attachment, SyncMode.Realtime).catch((err) => {
+          logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
+          throw err;
+        });
+      });
     }
 
     return this.enqueueTask(async () => {
@@ -486,7 +494,11 @@ export class Client {
       for (const [, attachment] of this.attachmentMap) {
         promises.push(this.syncInternal(attachment, attachment.syncMode));
       }
-      return Promise.all(promises);
+      return Promise.all(promises).catch((err) => {
+        logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+        this.handleConnectError(err);
+        throw err;
+      });
     });
   }
 
@@ -531,6 +543,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[RD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });

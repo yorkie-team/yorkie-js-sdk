@@ -18,6 +18,10 @@ import { expect } from 'vitest';
 import { Code } from '@yorkie-js-sdk/src/util/error';
 
 expect.extend({
+  /**
+   * `toThrowErrorCode` is a custom matcher that checks if the received error
+   * has the expected error code.
+   */
   toThrowErrorCode(received: any, expected: Code) {
     const { isNot } = this;
     const pass = received?.code === expected;

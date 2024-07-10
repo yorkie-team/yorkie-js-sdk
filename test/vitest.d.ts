@@ -18,6 +18,10 @@ import type { Assertion, AsymmetricMatchersContaining } from 'vitest';
 import { Code } from '@yorkie-js-sdk/src/util/error';
 
 interface CustomMatchers<R = unknown> {
+  /**
+   * `toThrowErrorCode` is a custom matcher that checks if the received error
+   * has the expected error code.
+   */
   toThrowErrorCode: (expected: Code) => Promise<R>;
 }
 
