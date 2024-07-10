@@ -3,7 +3,7 @@
     "target": "ES2019",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ES2019"],
+    "lib": ["ES2019", "dom"],
     "skipLibCheck": true,
     "outDir": "./lib",
 
