@@ -727,9 +727,10 @@ export class Client {
     const { doc, docID } = attachment;
 
     const requestId = this.requestId++;
-    console.error('syncInternal(Request)', requestId);
+
 
     const reqPack = doc.createChangePack();
+    console.error('syncInternal(Request), reqPack', requestId, reqPack.getCheckpoint().toTestString());
     return this.rpcClient
       .pushPullChanges(
         {
@@ -741,8 +742,8 @@ export class Client {
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
       )
       .then((res) => {
-        console.error('syncInternal(Response)', requestId);
         const respPack = converter.fromChangePack<P>(res.changePack!);
+        console.error('syncInternal(Response)', requestId, respPack.getCheckpoint().toTestString());
 
         // NOTE(chacha912, hackerwins): If syncLoop already executed with
         // PushPull, ignore the response when the syncMode is PushOnly.
