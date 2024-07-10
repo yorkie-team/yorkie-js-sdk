@@ -181,6 +181,7 @@ export class Client {
   private rpcClient: PromiseClient<typeof YorkieService>;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
+  private requestId = 0;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -725,6 +726,9 @@ export class Client {
   ): Promise<Document<T, P>> {
     const { doc, docID } = attachment;
 
+    const requestId = this.requestId++;
+    console.error('syncInternal(Request)', requestId);
+
     const reqPack = doc.createChangePack();
     return this.rpcClient
       .pushPullChanges(
@@ -737,6 +741,7 @@ export class Client {
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
       )
       .then((res) => {
+        console.error('syncInternal(Response)', requestId);
         const respPack = converter.fromChangePack<P>(res.changePack!);
 
         // NOTE(chacha912, hackerwins): If syncLoop already executed with
