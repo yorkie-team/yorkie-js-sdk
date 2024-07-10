@@ -627,7 +627,7 @@ export class Document<T, P extends Indexable = Indexable> {
     message?: string,
   ): void {
     if (this.getStatus() === DocumentStatus.Removed) {
-      throw new YorkieError(Code.DocumentRemoved, `${this.key} is removed`);
+      throw new YorkieError(Code.ErrDocumentRemoved, `${this.key} is removed`);
     }
 
     // 01. Update the clone object and create a change.
@@ -1589,7 +1589,10 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getValueByPath(path: string): JSONElement | undefined {
     if (!path.startsWith('$')) {
-      throw new YorkieError(Code.InvalidArgument, `path must start with "$"`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `path must start with "$"`,
+      );
     }
     const pathArr = path.split('.');
     pathArr.shift();

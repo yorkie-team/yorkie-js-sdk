@@ -25,7 +25,7 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
+import { converter, errorCodeOf } from '@yorkie-js-sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
@@ -246,6 +246,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[AC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -266,17 +267,12 @@ export class Client {
           { headers: { 'x-shard-key': this.apiKey } },
         )
         .then(() => {
-          for (const [key, attachment] of this.attachmentMap) {
-            attachment.doc.applyStatus(DocumentStatus.Detached);
-            this.detachInternal(key);
-          }
-
-          this.status = ClientStatus.Deactivated;
-
+          this.deactivateInternal();
           logger.info(`[DC] c"${this.getKey()}" deactivated`);
         })
         .catch((err) => {
           logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -294,11 +290,14 @@ export class Client {
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     if (doc.getStatus() !== DocumentStatus.Detached) {
       throw new YorkieError(
-        Code.DocumentNotDetached,
+        Code.ErrDocumentNotDetached,
         `${doc.getKey()} is not detached`,
       );
     }
@@ -342,6 +341,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[AD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -362,12 +362,15 @@ export class Client {
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -397,6 +400,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -410,13 +414,16 @@ export class Client {
     syncMode: SyncMode,
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
 
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -459,20 +466,27 @@ export class Client {
     doc?: Document<T, P>,
   ): Promise<Array<Document<T, P>>> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     if (doc) {
       // prettier-ignore
       const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<T, P>;
       if (!attachment) {
         throw new YorkieError(
-          Code.DocumentNotAttached,
+          Code.ErrDocumentNotAttached,
           `${doc.getKey()} is not attached`,
         );
       }
-      return this.enqueueTask(async () =>
-        this.syncInternal(attachment, SyncMode.Realtime),
-      );
+      return this.enqueueTask(async () => {
+        return this.syncInternal(attachment, SyncMode.Realtime).catch((err) => {
+          logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
+          throw err;
+        });
+      });
     }
 
     return this.enqueueTask(async () => {
@@ -480,7 +494,11 @@ export class Client {
       for (const [, attachment] of this.attachmentMap) {
         promises.push(this.syncInternal(attachment, attachment.syncMode));
       }
-      return Promise.all(promises);
+      return Promise.all(promises).catch((err) => {
+        logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+        this.handleConnectError(err);
+        throw err;
+      });
     });
   }
 
@@ -489,12 +507,15 @@ export class Client {
    */
   public remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void> {
     if (!this.isActive()) {
-      throw new YorkieError(Code.ClientNotActive, `${this.key} is not active`);
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
     }
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -522,6 +543,7 @@ export class Client {
         })
         .catch((err) => {
           logger.error(`[RD] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
           throw err;
         });
     });
@@ -587,7 +609,7 @@ export class Client {
         .catch((err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
 
-          if (this.isRetryableConnectError(err)) {
+          if (this.handleConnectError(err)) {
             setTimeout(doLoop, this.retrySyncLoopDelay);
           } else {
             this.conditions[ClientCondition.SyncLoop] = false;
@@ -608,7 +630,7 @@ export class Client {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
-        Code.DocumentNotAttached,
+        Code.ErrDocumentNotAttached,
         `${docKey} is not attached`,
       );
     }
@@ -619,7 +641,10 @@ export class Client {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
-            new YorkieError(Code.ClientNotActive, `${this.key} is not active`),
+            new YorkieError(
+              Code.ErrClientNotActivated,
+              `${this.key} is not active`,
+            ),
           );
         }
 
@@ -672,7 +697,7 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (this.isRetryableConnectError(err)) {
+              if (this.handleConnectError(err)) {
                 onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
@@ -703,6 +728,15 @@ export class Client {
     attachment.doc.applyWatchStream(resp);
   }
 
+  private deactivateInternal() {
+    this.status = ClientStatus.Deactivated;
+
+    for (const [key, attachment] of this.attachmentMap) {
+      this.detachInternal(key);
+      attachment.doc.applyStatus(DocumentStatus.Detached);
+    }
+  }
+
   private detachInternal(docKey: DocumentKey) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
@@ -714,8 +748,6 @@ export class Client {
     }
 
     attachment.cancelWatchStream();
-    logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-
     this.attachmentMap.delete(docKey);
   }
 
@@ -784,9 +816,10 @@ export class Client {
   }
 
   /**
-   * `isRetryableConnectError` returns whether the given error is a retryable error.
+   * `handleConnectError` handles the given error. If the given error can be
+   * retried after handling, it returns true.
    */
-  private isRetryableConnectError(err: any): boolean {
+  private handleConnectError(err: any): boolean {
     if (!(err instanceof ConnectError)) {
       return false;
     }
@@ -796,17 +829,27 @@ export class Client {
     // `Unavailable`, retries should be attempted following their guidelines.
     // Additionally, `Unknown` and `Canceled` are added separately as it
     // typically occurs when the server is stopped.
-    const retryables = [
-      ConnectErrorCode.Canceled,
-      ConnectErrorCode.Unknown,
-      ConnectErrorCode.ResourceExhausted,
-      ConnectErrorCode.Unavailable,
-    ];
+    if (
+      err.code === ConnectErrorCode.Canceled ||
+      err.code === ConnectErrorCode.Unknown ||
+      err.code === ConnectErrorCode.ResourceExhausted ||
+      err.code === ConnectErrorCode.Unavailable
+    ) {
+      return true;
+    }
+
+    // NOTE(hackerwins): Some errors should fix the state of the client.
+    if (
+      errorCodeOf(err) === Code.ErrClientNotActivated ||
+      errorCodeOf(err) === Code.ErrClientNotFound
+    ) {
+      this.deactivateInternal();
+    }
 
     // TODO(hackerwins): We need to handle more cases.
-    // - FailedPrecondition: If the client fixes its state, it is retryable.
     // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
-    return retryables.includes(err.code);
+
+    return false;
   }
 
   /**

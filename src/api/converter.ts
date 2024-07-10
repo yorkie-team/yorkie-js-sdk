@@ -15,6 +15,8 @@
  */
 
 import Long from 'long';
+import { ConnectError } from '@connectrpc/connect';
+import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import {
@@ -139,7 +141,7 @@ function toPresenceChange(
     });
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented type`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented type`);
 }
 
 /**
@@ -264,7 +266,7 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
     });
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
 }
 
 /**
@@ -465,7 +467,7 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.case = 'treeStyle';
     pbOperation.body.value = pbTreeStyleOperation;
   } else {
-    throw new YorkieError(Code.Unimplemented, 'unimplemented operation');
+    throw new YorkieError(Code.ErrUnimplemented, 'unimplemented operation');
   }
 
   return pbOperation;
@@ -760,7 +762,7 @@ function toElement(element: CRDTElement): PbJSONElement {
     return toTree(element);
   }
 
-  throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+  throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
 }
 
 /**
@@ -775,6 +777,22 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     snapshot: pack.getSnapshot(),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
+}
+
+/**
+ * `errorCodeOf` returns the error code of the given connect error.
+ */
+export function errorCodeOf(error: ConnectError): string {
+  // NOTE(hackerwins): Currently, we only use the first detail to represent the
+  // error code.
+  const infos = error.findDetails(ErrorInfo);
+  for (const info of infos) {
+    if (info.metadata.code) {
+      return info.metadata.code;
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -880,7 +898,7 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
       return PrimitiveType.Date;
   }
   throw new YorkieError(
-    Code.Unimplemented,
+    Code.ErrUnimplemented,
     `unimplemented value type: ${pbValueType}`,
   );
 }
@@ -896,7 +914,7 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.LongCnt;
   }
   throw new YorkieError(
-    Code.Unimplemented,
+    Code.ErrUnimplemented,
     `unimplemented value type: ${pbValueType}`,
   );
 }
@@ -1248,7 +1266,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       );
     }
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented operation`);
+    throw new YorkieError(Code.ErrUnimplemented, `unimplemented operation`);
   }
 }
 
@@ -1430,7 +1448,7 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
   } else if (pbElement.body.case === 'tree') {
     return fromTree(pbElement.body.value!);
   } else {
-    throw new YorkieError(Code.Unimplemented, `unimplemented element`);
+    throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
   }
 }
 

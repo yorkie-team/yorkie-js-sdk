@@ -147,7 +147,7 @@ export class ObjectProxy {
   ): void {
     if (key.includes('.')) {
       throw new YorkieError(
-        Code.InvalidObjectKey,
+        Code.ErrInvalidObjectKey,
         `key must not contain the '.'.`,
       );
     }
@@ -183,7 +183,7 @@ export class ObjectProxy {
     for (const [k, v] of Object.entries(value)) {
       if (k.includes('.')) {
         throw new YorkieError(
-          Code.InvalidObjectKey,
+          Code.ErrInvalidObjectKey,
           `key must not contain the '.'.`,
         );
       }

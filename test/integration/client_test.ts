@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { describe, it, assert, vi, afterEach, expect } from 'vitest';
 
 import yorkie, {
@@ -15,7 +31,8 @@ import {
   testRPCAddr,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { ConnectError, Code } from '@connectrpc/connect';
+import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
+import { Code } from '@yorkie-js-sdk/src/util/error';
 
 describe.sequential('Client', function () {
   afterEach(() => {
@@ -44,6 +61,27 @@ describe.sequential('Client', function () {
     assert.lengthOf(clientWithoutKey.getKey(), 36);
     await clientWithoutKey.deactivate();
     assert.isFalse(clientWithoutKey.isActive());
+  });
+
+  it('Can attach/detach document', async function ({ task }) {
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+    const doc = new yorkie.Document(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+
+    await cli.attach(doc);
+    expect(async () => cli.attach(doc)).rejects.toThrowErrorCode(
+      Code.ErrDocumentNotDetached,
+    );
+
+    await cli.detach(doc);
+    expect(async () => cli.detach(doc)).rejects.toThrowErrorCode(
+      Code.ErrDocumentNotAttached,
+    );
+
+    await cli.deactivate();
+    await cli.deactivate();
   });
 
   it('Can handle sync', async function ({ task }) {
@@ -757,7 +795,7 @@ describe.sequential('Client', function () {
       await cli.activate();
 
       const doc = new yorkie.Document<{ t: Text }>(
-        toDocKey(`${task.name}-${new Date().getTime()}-{i}`),
+        toDocKey(`${task.name}-${new Date().getTime()}-${i}`),
       );
       await cli.attach(doc);
 
@@ -779,7 +817,7 @@ describe.sequential('Client', function () {
 
     // 01. Simulate Unknown error.
     vi.stubGlobal('fetch', async () => {
-      throw new ConnectError('Failed to fetch', Code.Unknown);
+      throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
     });
 
     doc.update((root) => {
@@ -792,7 +830,7 @@ describe.sequential('Client', function () {
 
     // 02. Simulate FailedPrecondition error.
     vi.stubGlobal('fetch', async () => {
-      throw new ConnectError('Failed to fetch', Code.FailedPrecondition);
+      throw new ConnectError('Failed to fetch', ConnectCode.FailedPrecondition);
     });
 
     await new Promise((res) => setTimeout(res, 30));
