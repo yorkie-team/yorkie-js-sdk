@@ -7,6 +7,24 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.27] - 2024-07-11
+
+### Changed
+
+- Add taskQueue to handle each request one by one by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/862
+
+### Removed
+
+- Remove Custom JSDOM by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/864
+- Remove vitest-environment-custom-jsdom from dependencies by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/866
+- Remove jsdom from dependencies by @blurfx in https://github.com/yorkie-team/yorkie-js-sdk/pull/867
+
+### Fixed
+
+- Handle retry for syncLoop and watchLoop by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/863
+- Handle ErrClientNotActivated and ErrClientNotFound by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/865
+- Handle local changes correctly when receiving snapshot by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/868
+
 ## [0.4.26] - 2024-07-04
 
 ### Changed
