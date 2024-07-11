@@ -38,8 +38,8 @@ describe('Snapshot', function () {
       await c1.sync();
       await c2.sync();
 
-      // 01. Updates 700 changes over snapshot threshold by c1.
-      for (let idx = 0; idx < 700; idx++) {
+      // 01. Updates 500 changes over snapshot threshold by c1.
+      for (let idx = 0; idx < 500; idx++) {
         d1.update((root) => {
           root.k1.edit(idx, idx, 'x');
         });

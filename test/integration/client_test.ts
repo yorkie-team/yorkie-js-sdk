@@ -838,4 +838,29 @@ describe.sequential('Client', function () {
 
     vi.unstubAllGlobals();
   });
+
+  it('Should handle local changes correctly when receiving snapshot', async ({
+    task,
+  }) => {
+    type TestDoc = { counter: Counter };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => (r.counter = new Counter(yorkie.IntType, 0)));
+      await c1.sync();
+      await c2.sync();
+
+      // 01. c1 increases the counter for creating snapshot.
+      for (let i = 0; i < 500; i++) {
+        d1.update((r) => r.counter.increase(1));
+      }
+      await c1.sync();
+
+      // 02. c2 receives the snapshot and increases the counter simultaneously.
+      c2.sync();
+      d2.update((r) => r.counter.increase(1));
+
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
 });
