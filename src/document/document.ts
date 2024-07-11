@@ -1072,6 +1072,14 @@ export class Document<T, P extends Indexable = Indexable> {
       this.localChanges.shift();
     }
 
+    // NOTE(hackerwins): If the document has local changes, we need to apply
+    // them after applying the snapshot. We need to treat the local changes
+    // as remote changes because the application should apply the local
+    // changes to their own document.
+    if (pack.hasSnapshot()) {
+      this.applyChanges(this.localChanges, OpSource.Remote);
+    }
+
     // 03. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
