@@ -23,7 +23,7 @@ export enum LogLevel {
   Fatal,
 }
 
-let level = LogLevel.Info;
+let level = LogLevel.Warn;
 
 /**
  * `setLogLevel` sets log level.
