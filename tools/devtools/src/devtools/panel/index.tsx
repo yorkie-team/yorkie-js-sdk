@@ -15,10 +15,9 @@
  */
 
 import { createRoot } from 'react-dom/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import yorkie from 'yorkie-js-sdk';
 import { useResizable } from 'react-resizable-layout';
-
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
 import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
@@ -29,7 +28,11 @@ import {
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
-import { History } from '../tabs/History';
+import {
+  History,
+  TransactionEventType,
+  getTransactionEventType,
+} from '../tabs/History';
 import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
@@ -58,8 +61,25 @@ const Panel = () => {
     initial: 300,
   });
 
+  // filter out presence events in History tab
+  const [hidePresenceEvent, setHidePresenceEvent] = useState(false);
+  const filteredEvents = useMemo(
+    () =>
+      events.filter((event) => {
+        if (!hidePresenceEvent) {
+          return true;
+        }
+
+        if (getTransactionEventType(event) === TransactionEventType.Presence) {
+          return false;
+        }
+        return true;
+      }),
+    [events, hidePresenceEvent],
+  );
+
   useEffect(() => {
-    if (events.length === 0) {
+    if (filteredEvents.length === 0) {
       // NOTE(chacha912): If there are no events, reset the SelectedEventIndexInfo.
       setSelectedEventIndexInfo({
         index: null,
@@ -70,21 +90,21 @@ const Panel = () => {
 
     if (selectedEventIndexInfo.isLast) {
       setSelectedEventIndexInfo({
-        index: events.length - 1,
+        index: filteredEvents.length - 1,
         isLast: true,
       });
     }
-  }, [events]);
+  }, [filteredEvents]);
 
   useEffect(() => {
     if (selectedEventIndexInfo.index === null) return;
     const doc = new yorkie.Document(currentDocKey);
     for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
-      doc.applyTransactionEvent(events[i]);
+      doc.applyTransactionEvent(filteredEvents[i]);
     }
 
     setDoc(doc);
-    setSelectedEvent(events[selectedEventIndexInfo.index]);
+    setSelectedEvent(filteredEvents[selectedEventIndexInfo.index]);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {
@@ -116,20 +136,31 @@ const Panel = () => {
         selectedEvent={selectedEvent}
         selectedEventIndexInfo={selectedEventIndexInfo}
         setSelectedEventIndexInfo={setSelectedEventIndexInfo}
+        hidePresenceEvent={hidePresenceEvent}
+        setHidePresenceEvent={setHidePresenceEvent}
+        events={filteredEvents}
       />
+
       <Separator
         dir={'horizontal'}
         isDragging={isHistoryDragging}
         {...historySeparatorProps}
       />
+
       <div className="devtools-data">
         <SelectedNodeProvider>
-          <Document style={{ width: documentW }} />
+          <Document
+            style={{
+              width: documentW,
+            }}
+          />
         </SelectedNodeProvider>
+
         <Separator
           isDragging={isDocumentDragging}
           {...documentSeparatorProps}
         />
+
         <SelectedPresenceProvider>
           <Presence />
         </SelectedPresenceProvider>

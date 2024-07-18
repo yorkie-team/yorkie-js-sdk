@@ -152,9 +152,6 @@
 
 .yorkie-root {
   min-width: 10%;
-  max-width: 90%;
-  width: 60%;
-  border-right: 1px solid var(--gray-300);
 }
 
 .yorkie-presence {

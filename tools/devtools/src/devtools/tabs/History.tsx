@@ -17,7 +17,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { DocEventType, Change, type TransactionEvent } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
-import { useTransactionEvents } from '../contexts/YorkieSource';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 
@@ -58,13 +57,37 @@ const getEventInfo = (event: TransactionEvent) => {
   return info;
 };
 
+export enum TransactionEventType {
+  Document = 'document',
+  Presence = 'presence',
+}
+
+export const getTransactionEventType = (
+  event: TransactionEvent,
+): TransactionEventType => {
+  for (const docEvent of event) {
+    if (
+      docEvent.type === DocEventType.StatusChanged ||
+      docEvent.type === DocEventType.Snapshot ||
+      docEvent.type === DocEventType.LocalChange ||
+      docEvent.type === DocEventType.RemoteChange
+    ) {
+      return TransactionEventType.Document;
+    }
+  }
+
+  return TransactionEventType.Presence;
+};
+
 export function History({
   style,
   selectedEvent,
   selectedEventIndexInfo,
   setSelectedEventIndexInfo,
+  hidePresenceEvent,
+  setHidePresenceEvent,
+  events,
 }) {
-  const events = useTransactionEvents();
   const [openHistory, setOpenHistory] = useState(false);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
@@ -74,6 +97,14 @@ export function History({
       index: value,
       isLast: value === events.length - 1,
     });
+  };
+
+  const toggleHidePresenceEvent = () => {
+    setSelectedEventIndexInfo({
+      index: null,
+      isLast: true,
+    });
+    setHidePresenceEvent((prev: boolean) => !prev);
   };
 
   useEffect(() => {
@@ -87,23 +118,21 @@ export function History({
 
   useEffect(() => {
     if (!openHistory || events.length === 0) return;
+
     const marks = {};
     for (const [index, event] of events.entries()) {
       const source = event[0].source;
-      let type = 'presence';
-      for (const docEvent of event) {
-        if (
-          docEvent.type === DocEventType.StatusChanged ||
-          docEvent.type === DocEventType.Snapshot ||
-          docEvent.type === DocEventType.LocalChange ||
-          docEvent.type === DocEventType.RemoteChange
-        ) {
-          type = 'document';
-        }
-      }
+      const transactionEventType = getTransactionEventType(event);
+
       marks[index] = (
-        <span className={`mark-history mark-${source} mark-${type}`}>
-          {type === 'presence' ? <CursorIcon /> : <DocumentIcon />}
+        <span
+          className={`mark-history mark-${source} mark-${transactionEventType}`}
+        >
+          {transactionEventType === TransactionEventType.Presence ? (
+            <CursorIcon />
+          ) : (
+            <DocumentIcon />
+          )}
         </span>
       );
     }
@@ -180,6 +209,9 @@ export function History({
                 >
                   ⇥
                 </button>
+                <button onClick={toggleHidePresenceEvent}>
+                  {hidePresenceEvent ? '¥' : 'Y'}
+                </button>
               </span>
             </span>
           )}
@@ -196,7 +228,7 @@ export function History({
                 marks={sliderMarks}
                 max={events.length - 1}
                 value={selectedEventIndexInfo.index}
-                step={1}
+                step={0}
                 onChange={handleSliderEvent}
                 style={{
                   width: events.length * SLIDER_MARK_WIDTH + 'px',
