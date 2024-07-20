@@ -60,6 +60,7 @@ const Panel = () => {
     axis: 'x',
     initial: 300,
   });
+  const [hidePresenceTab, setHidePresenceTab] = useState(false);
 
   // filter out presence events in History tab
   const [hidePresenceEvent, setHidePresenceEvent] = useState(false);
@@ -151,19 +152,29 @@ const Panel = () => {
         <SelectedNodeProvider>
           <Document
             style={{
-              width: documentW,
+              width: hidePresenceTab ? '100%' : documentW,
+              maxWidth: hidePresenceTab ? '100%' : '90%',
+              borderRight: hidePresenceTab
+                ? 'none'
+                : '1px solid var(--gray-300)',
             }}
+            hidePresenceTab={hidePresenceTab}
+            setHidePresenceTab={setHidePresenceTab}
           />
         </SelectedNodeProvider>
 
-        <Separator
-          isDragging={isDocumentDragging}
-          {...documentSeparatorProps}
-        />
+        {!hidePresenceTab && (
+          <>
+            <Separator
+              isDragging={isDocumentDragging}
+              {...documentSeparatorProps}
+            />
 
-        <SelectedPresenceProvider>
-          <Presence />
-        </SelectedPresenceProvider>
+            <SelectedPresenceProvider>
+              <Presence />
+            </SelectedPresenceProvider>
+          </>
+        )}
       </div>
     </div>
   );

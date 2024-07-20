@@ -149,11 +149,11 @@ export function History({
       }}
     >
       <div className="content-wrap">
-        <div className="devtools-history-toolbar">
+        <div className="devtools-tab-toolbar">
           <span className="title">
             History
             <button
-              className="toggle-history-btn"
+              className="toggle-tab-btn"
               onClick={() => {
                 setOpenHistory((v) => !v);
               }}
