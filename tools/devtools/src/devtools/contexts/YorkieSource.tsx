@@ -14,21 +14,30 @@
  * limitations under the License.
  */
 
-import type { ReactNode } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
-import type { SDKToPanelMessage, TransactionEvent } from 'yorkie-js-sdk';
+import {
+  DocEventType,
+  type SDKToPanelMessage,
+  type TransactionEvent,
+} from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const TransactionEventsContext = createContext<Array<TransactionEvent>>(null);
+const TransactionEventsContext = createContext<{
+  events: Array<TransactionEvent>;
+  hidePresenceEvents: boolean;
+  setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
+}>(null);
 
 type Props = {
   children?: ReactNode;
@@ -40,6 +49,10 @@ export function YorkieSourceProvider({ children }: Props) {
   const [transactionEvents, setTransactionEvents] = useState<
     Array<TransactionEvent>
   >([]);
+
+  // filter out presence events
+  const [hideTransactionPresenceEvents, setHideTransactionPresenceEvents] =
+    useState(false);
 
   const resetDocument = () => {
     setCurrentDocKey('');
@@ -94,7 +107,13 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <TransactionEventsContext.Provider value={transactionEvents}>
+      <TransactionEventsContext.Provider
+        value={{
+          events: transactionEvents,
+          hidePresenceEvents: hideTransactionPresenceEvents,
+          setHidePresenceEvents: setHideTransactionPresenceEvents,
+        }}
+      >
         <YorkieDocContext.Provider value={[doc, setDoc]}>
           {children}
         </YorkieDocContext.Provider>
@@ -121,12 +140,52 @@ export function useYorkieDoc() {
   return value;
 }
 
+export enum TransactionEventType {
+  Document = 'document',
+  Presence = 'presence',
+}
+
+export const getTransactionEventType = (
+  event: TransactionEvent,
+): TransactionEventType => {
+  for (const docEvent of event) {
+    if (
+      docEvent.type === DocEventType.StatusChanged ||
+      docEvent.type === DocEventType.Snapshot ||
+      docEvent.type === DocEventType.LocalChange ||
+      docEvent.type === DocEventType.RemoteChange
+    ) {
+      return TransactionEventType.Document;
+    }
+  }
+
+  return TransactionEventType.Presence;
+};
+
 export function useTransactionEvents() {
-  const value = useContext(TransactionEventsContext);
-  if (value === undefined) {
+  const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
+    TransactionEventsContext,
+  );
+
+  if (events === undefined) {
     throw new Error(
       'useTransactionEvents should be used within YorkieSourceProvider',
     );
   }
-  return value;
+
+  const filteredEvents = useMemo(
+    () =>
+      events.filter(
+        (event) =>
+          !hidePresenceEvents ||
+          getTransactionEventType(event) === TransactionEventType.Document,
+      ),
+    [events, hidePresenceEvents],
+  );
+
+  return {
+    events: filteredEvents,
+    hidePresenceEvents,
+    setHidePresenceEvents,
+  };
 }

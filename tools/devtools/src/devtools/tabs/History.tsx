@@ -19,6 +19,11 @@ import { DocEventType, Change, type TransactionEvent } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
+import {
+  TransactionEventType,
+  getTransactionEventType,
+  useTransactionEvents,
+} from '../contexts/YorkieSource';
 
 const SLIDER_MARK_WIDTH = 24;
 
@@ -57,40 +62,17 @@ const getEventInfo = (event: TransactionEvent) => {
   return info;
 };
 
-export enum TransactionEventType {
-  Document = 'document',
-  Presence = 'presence',
-}
-
-export const getTransactionEventType = (
-  event: TransactionEvent,
-): TransactionEventType => {
-  for (const docEvent of event) {
-    if (
-      docEvent.type === DocEventType.StatusChanged ||
-      docEvent.type === DocEventType.Snapshot ||
-      docEvent.type === DocEventType.LocalChange ||
-      docEvent.type === DocEventType.RemoteChange
-    ) {
-      return TransactionEventType.Document;
-    }
-  }
-
-  return TransactionEventType.Presence;
-};
-
 export function History({
   style,
   selectedEvent,
   selectedEventIndexInfo,
   setSelectedEventIndexInfo,
-  hidePresenceEvent,
-  setHidePresenceEvent,
-  events,
 }) {
   const [openHistory, setOpenHistory] = useState(false);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
+  const { events, hidePresenceEvents, setHidePresenceEvents } =
+    useTransactionEvents();
 
   const handleSliderEvent = (value) => {
     setSelectedEventIndexInfo({
@@ -104,7 +86,7 @@ export function History({
       index: null,
       isLast: true,
     });
-    setHidePresenceEvent((prev: boolean) => !prev);
+    setHidePresenceEvents((prev: boolean) => !prev);
   };
 
   useEffect(() => {
@@ -210,7 +192,7 @@ export function History({
                   ⇥
                 </button>
                 <button onClick={toggleHidePresenceEvent}>
-                  {hidePresenceEvent ? '¥' : 'Y'}
+                  {hidePresenceEvents ? '¥' : 'Y'}
                 </button>
               </span>
             </span>

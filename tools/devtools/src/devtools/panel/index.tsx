@@ -28,16 +28,12 @@ import {
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
-import {
-  History,
-  TransactionEventType,
-  getTransactionEventType,
-} from '../tabs/History';
+import { History } from '../tabs/History';
 import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const events = useTransactionEvents();
+  const { events } = useTransactionEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -62,25 +58,8 @@ const Panel = () => {
   });
   const [hidePresenceTab, setHidePresenceTab] = useState(false);
 
-  // filter out presence events in History tab
-  const [hidePresenceEvent, setHidePresenceEvent] = useState(false);
-  const filteredEvents = useMemo(
-    () =>
-      events.filter((event) => {
-        if (!hidePresenceEvent) {
-          return true;
-        }
-
-        if (getTransactionEventType(event) === TransactionEventType.Presence) {
-          return false;
-        }
-        return true;
-      }),
-    [events, hidePresenceEvent],
-  );
-
   useEffect(() => {
-    if (filteredEvents.length === 0) {
+    if (events.length === 0) {
       // NOTE(chacha912): If there are no events, reset the SelectedEventIndexInfo.
       setSelectedEventIndexInfo({
         index: null,
@@ -91,21 +70,21 @@ const Panel = () => {
 
     if (selectedEventIndexInfo.isLast) {
       setSelectedEventIndexInfo({
-        index: filteredEvents.length - 1,
+        index: events.length - 1,
         isLast: true,
       });
     }
-  }, [filteredEvents]);
+  }, [events]);
 
   useEffect(() => {
     if (selectedEventIndexInfo.index === null) return;
     const doc = new yorkie.Document(currentDocKey);
     for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
-      doc.applyTransactionEvent(filteredEvents[i]);
+      doc.applyTransactionEvent(events[i]);
     }
 
     setDoc(doc);
-    setSelectedEvent(filteredEvents[selectedEventIndexInfo.index]);
+    setSelectedEvent(events[selectedEventIndexInfo.index]);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {
@@ -137,9 +116,6 @@ const Panel = () => {
         selectedEvent={selectedEvent}
         selectedEventIndexInfo={selectedEventIndexInfo}
         setSelectedEventIndexInfo={setSelectedEventIndexInfo}
-        hidePresenceEvent={hidePresenceEvent}
-        setHidePresenceEvent={setHidePresenceEvent}
-        events={filteredEvents}
       />
 
       <Separator
