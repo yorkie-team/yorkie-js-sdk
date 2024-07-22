@@ -203,6 +203,8 @@ export function History({
             <div
               ref={scrollRef}
               style={{ width: '100%', overflowX: 'auto', minHeight: '46px' }}
+              className="history-slider-wrap"
+              data-length={events.length}
             >
               <Slider
                 dots

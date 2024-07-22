@@ -91,3 +91,7 @@
 .rc-slider-mark-text-active .mark-remote {
   color: var(--blue-0);
 }
+
+.history-slider-wrap[data-length='1'] .rc-slider-rail {
+  display: none;
+}
