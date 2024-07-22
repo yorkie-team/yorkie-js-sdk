@@ -14,6 +14,20 @@
  * limitations under the License.
  */
 
+import {
+  Indexable,
+  StatusChangedEvent,
+  SnapshotEvent,
+  LocalChangeEvent,
+  RemoteChangeEvent,
+  InitializedEvent,
+  WatchedEvent,
+  UnwatchedEvent,
+  PresenceChangedEvent,
+  TransactionEvent,
+  DocEventType,
+} from '@yorkie-js-sdk/src/document/document';
+import type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
@@ -98,3 +112,38 @@ export type TreeNodeInfo = {
   path?: Array<number>;
   pos?: CRDTTreePosStruct;
 };
+
+/**
+ * `TransactionEventForDevtools` represents the transaction event used in devtools.
+ */
+export type TransactionEventForDevtools<P extends Indexable = Indexable> =
+  Array<
+    | StatusChangedEvent
+    | SnapshotEvent
+    | LocalChangeEvent<OperationInfo, P>
+    | RemoteChangeEvent<OperationInfo, P>
+    | InitializedEvent<P>
+    | WatchedEvent<P>
+    | UnwatchedEvent<P>
+    | PresenceChangedEvent<P>
+  >;
+
+/**
+ * `isTransactionEventForDevtools` checks if a event is suitable for devtools.
+ */
+export function isTransactionEventForDevtools(
+  event: TransactionEvent,
+): event is TransactionEventForDevtools {
+  const allowedEventTypes = [
+    DocEventType.StatusChanged,
+    DocEventType.Snapshot,
+    DocEventType.LocalChange,
+    DocEventType.RemoteChange,
+    DocEventType.Initialized,
+    DocEventType.Watched,
+    DocEventType.Unwatched,
+    DocEventType.PresenceChanged,
+  ];
+
+  return event.every((docEvent) => allowedEventTypes.includes(docEvent.type));
+}

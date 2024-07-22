@@ -36,6 +36,7 @@ export {
   type RemoteChangeEvent,
   type ConnectionChangedEvent,
   type SyncStatusChangedEvent,
+  type StatusChangedEvent,
   type WatchedEvent,
   type UnwatchedEvent,
   type PresenceChangedEvent,

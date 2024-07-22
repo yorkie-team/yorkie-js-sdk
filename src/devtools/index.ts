@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-import {
-  Document,
-  Indexable,
-  TransactionEvent,
-} from '@yorkie-js-sdk/src/yorkie';
-import { DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
+import {
+  TransactionEventForDevtools,
+  isTransactionEventForDevtools,
+} from './types';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 let devtoolsStatus: DevtoolsStatus = 'disconnected';
@@ -33,10 +32,13 @@ const unsubsByDocKey = new Map<string, Array<() => void>>();
  * (time-traveling feature) in Devtools. Later, external storage such as
  * IndexedDB will be used.
  */
-const transactionEventsByDocKey = new Map<string, Array<TransactionEvent>>();
+const transactionEventsByDocKey = new Map<
+  string,
+  Array<TransactionEventForDevtools>
+>();
 declare global {
   interface Window {
-    transactionEventsByDocKey: Map<string, Array<TransactionEvent>>;
+    transactionEventsByDocKey: Map<string, Array<TransactionEventForDevtools>>;
   }
 }
 if (typeof window !== 'undefined') {
@@ -81,19 +83,7 @@ export function setupDevtools<T, P extends Indexable>(
 
   transactionEventsByDocKey.set(doc.getKey(), []);
   const unsub = doc.subscribe('all', (event) => {
-    if (
-      event.some(
-        (docEvent) =>
-          docEvent.type !== DocEventType.StatusChanged &&
-          docEvent.type !== DocEventType.Snapshot &&
-          docEvent.type !== DocEventType.LocalChange &&
-          docEvent.type !== DocEventType.RemoteChange &&
-          docEvent.type !== DocEventType.Initialized &&
-          docEvent.type !== DocEventType.Watched &&
-          docEvent.type !== DocEventType.Unwatched &&
-          docEvent.type !== DocEventType.PresenceChanged,
-      )
-    ) {
+    if (!isTransactionEventForDevtools(event)) {
       return;
     }
 
