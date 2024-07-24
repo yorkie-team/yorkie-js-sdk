@@ -218,7 +218,7 @@ export function History({
                 marks={sliderMarks}
                 max={events.length - 1}
                 value={selectedEventIndexInfo.index}
-                step={0}
+                step={1}
                 onChange={handleSliderEvent}
                 style={{
                   width: events.length * SLIDER_MARK_WIDTH + 'px',

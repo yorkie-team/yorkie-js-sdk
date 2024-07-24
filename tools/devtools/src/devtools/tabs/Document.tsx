@@ -68,7 +68,7 @@ export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
             setHidePresenceTab((v: boolean) => !v);
           }}
         >
-          {hidePresenceTab ? '⏴' : '⏵'}
+          {hidePresenceTab ? '◂' : '▸'}
         </button>
       </div>
 
