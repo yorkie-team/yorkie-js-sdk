@@ -173,18 +173,35 @@ export function useTransactionEvents() {
     );
   }
 
-  const filteredEvents = useMemo(
+  // mark presence events as null in the original events
+  const presenceMarkedEvents = useMemo(() => {
+    if (!hidePresenceEvents) {
+      return events;
+    }
+
+    return events.map((event) => {
+      if (getTransactionEventType(event) === TransactionEventType.Presence) {
+        return null;
+      }
+
+      return event;
+    });
+  }, [events, hidePresenceEvents]);
+
+  // filter out presence events from the original events
+  const presenceFilteredEvents = useMemo(
     () =>
       events.filter(
         (event) =>
-          !hidePresenceEvents ||
           getTransactionEventType(event) === TransactionEventType.Document,
       ),
-    [events, hidePresenceEvents],
+    [hidePresenceEvents, events],
   );
 
   return {
-    events: filteredEvents,
+    originalEvents: events,
+    presenceMarkedEvents,
+    presenceFilteredEvents,
     hidePresenceEvents,
     setHidePresenceEvents,
   };

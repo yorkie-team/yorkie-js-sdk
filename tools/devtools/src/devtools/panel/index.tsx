@@ -15,7 +15,7 @@
  */
 
 import { createRoot } from 'react-dom/client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import yorkie from 'yorkie-js-sdk';
 import { useResizable } from 'react-resizable-layout';
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
@@ -33,7 +33,12 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const { events } = useTransactionEvents();
+  const {
+    originalEvents,
+    presenceMarkedEvents,
+    presenceFilteredEvents,
+    hidePresenceEvents,
+  } = useTransactionEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -57,6 +62,7 @@ const Panel = () => {
     initial: 300,
   });
   const [hidePresenceTab, setHidePresenceTab] = useState(false);
+  const events = hidePresenceEvents ? presenceFilteredEvents : originalEvents;
 
   useEffect(() => {
     if (events.length === 0) {
@@ -78,9 +84,22 @@ const Panel = () => {
 
   useEffect(() => {
     if (selectedEventIndexInfo.index === null) return;
+
     const doc = new yorkie.Document(currentDocKey);
-    for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
-      doc.applyTransactionEvent(events[i]);
+
+    let eventIndex = 0;
+    let filteredEventIndex = 0;
+
+    while (
+      eventIndex < originalEvents.length &&
+      filteredEventIndex <= selectedEventIndexInfo.index
+    ) {
+      if (presenceMarkedEvents[eventIndex] !== null) {
+        filteredEventIndex++;
+      }
+
+      doc.applyTransactionEvent(originalEvents[eventIndex]);
+      eventIndex++;
     }
 
     setDoc(doc);

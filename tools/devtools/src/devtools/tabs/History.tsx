@@ -71,8 +71,14 @@ export function History({
   const [openHistory, setOpenHistory] = useState(false);
   const [sliderMarks, setSliderMarks] = useState({});
   const scrollRef = useRef(null);
-  const { events, hidePresenceEvents, setHidePresenceEvents } =
-    useTransactionEvents();
+  const {
+    originalEvents,
+    presenceFilteredEvents,
+    hidePresenceEvents,
+    setHidePresenceEvents,
+  } = useTransactionEvents();
+
+  const events = hidePresenceEvents ? presenceFilteredEvents : originalEvents;
 
   const handleSliderEvent = (value) => {
     setSelectedEventIndexInfo({
