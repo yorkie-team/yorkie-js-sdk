@@ -1,29 +1,30 @@
 #!/bin/bash
 
-# 버전을 입력받기
+# Get the version of yorkie-js-sdk
 read -p "Enter the yorkie-js-sdk version: " version
 
-# examples 폴더로 이동
+# Change the directory to the examples folder
 cd examples
 
-# 모든 예제 폴더들에 대해 반복
+# Loop through all example folders
 for dir in */; do
-  # 디렉토리인지 확인하고 dist 폴더는 제외
+  # Check if it is a directory and exclude the dist folder
+  echo $dir
   if [ -d "$dir" ] && [ "$dir" != "dist/" ]; then
-    # 예제 폴더로 이동
+    # Move to the example folder
     cd "$dir"
     
-    # npm i와 npm run build 실행
+    # Execute npm i and npm run build
     npm i "yorkie-js-sdk@$version" && npm run build
     
-    # 실행 결과 확인
+    # Check the result of the execution
     if [ $? -ne 0 ]; then
       echo "Error occurred in $dir"
     else
       echo "$dir build succeeded"
     fi
     
-    # 원래 디렉토리로 돌아오기
+    # Move back to the examples folder
     cd ..
   fi
 done
