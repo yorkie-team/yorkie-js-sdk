@@ -23,7 +23,7 @@ import { useSelectedNode } from '../contexts/SelectedNode';
 import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
-export function Document({ style }) {
+export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
   const currentDocKey = useCurrentDocKey();
   const [doc] = useYorkieDoc();
   const [selectedNode, setSelectedNode] = useSelectedNode();
@@ -60,7 +60,18 @@ export function Document({ style }) {
 
   return (
     <div className="yorkie-root content-wrap" style={{ ...style }}>
-      <div className="title">{currentDocKey || 'Document'}</div>
+      <div className="devtools-tab-toolbar">
+        <span className="title">{currentDocKey || 'Document'}</span>
+        <button
+          className="toggle-tab-btn"
+          onClick={() => {
+            setHidePresenceTab((v: boolean) => !v);
+          }}
+        >
+          {hidePresenceTab ? '◂' : '▸'}
+        </button>
+      </div>
+
       <div className="content">
         <RootTree root={root} />
         {selectedNode && (

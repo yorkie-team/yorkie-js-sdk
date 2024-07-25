@@ -18,7 +18,6 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import yorkie from 'yorkie-js-sdk';
 import { useResizable } from 'react-resizable-layout';
-
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
 import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
@@ -34,7 +33,8 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const events = useTransactionEvents();
+  const { originalEvents, presenceFilteredEvents, hidePresenceEvents } =
+    useTransactionEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -57,6 +57,8 @@ const Panel = () => {
     axis: 'x',
     initial: 300,
   });
+  const [hidePresenceTab, setHidePresenceTab] = useState(false);
+  const events = hidePresenceEvents ? presenceFilteredEvents : originalEvents;
 
   useEffect(() => {
     if (events.length === 0) {
@@ -78,13 +80,23 @@ const Panel = () => {
 
   useEffect(() => {
     if (selectedEventIndexInfo.index === null) return;
+
     const doc = new yorkie.Document(currentDocKey);
-    for (let i = 0; i <= selectedEventIndexInfo.index; i++) {
-      doc.applyTransactionEvent(events[i]);
+
+    let eventIndex = 0;
+    let filteredEventIndex = 0;
+
+    while (filteredEventIndex <= selectedEventIndexInfo.index) {
+      if (!originalEvents[eventIndex].isFiltered) {
+        filteredEventIndex++;
+      }
+
+      doc.applyTransactionEvent(originalEvents[eventIndex].event);
+      eventIndex++;
     }
 
     setDoc(doc);
-    setSelectedEvent(events[selectedEventIndexInfo.index]);
+    setSelectedEvent(events[selectedEventIndexInfo.index].event);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {
@@ -117,22 +129,40 @@ const Panel = () => {
         selectedEventIndexInfo={selectedEventIndexInfo}
         setSelectedEventIndexInfo={setSelectedEventIndexInfo}
       />
+
       <Separator
         dir={'horizontal'}
         isDragging={isHistoryDragging}
         {...historySeparatorProps}
       />
+
       <div className="devtools-data">
         <SelectedNodeProvider>
-          <Document style={{ width: documentW }} />
+          <Document
+            style={{
+              width: hidePresenceTab ? '100%' : documentW,
+              maxWidth: hidePresenceTab ? '100%' : '90%',
+              borderRight: hidePresenceTab
+                ? 'none'
+                : '1px solid var(--gray-300)',
+            }}
+            hidePresenceTab={hidePresenceTab}
+            setHidePresenceTab={setHidePresenceTab}
+          />
         </SelectedNodeProvider>
-        <Separator
-          isDragging={isDocumentDragging}
-          {...documentSeparatorProps}
-        />
-        <SelectedPresenceProvider>
-          <Presence />
-        </SelectedPresenceProvider>
+
+        {!hidePresenceTab && (
+          <>
+            <Separator
+              isDragging={isDocumentDragging}
+              {...documentSeparatorProps}
+            />
+
+            <SelectedPresenceProvider>
+              <Presence />
+            </SelectedPresenceProvider>
+          </>
+        )}
       </div>
     </div>
   );
