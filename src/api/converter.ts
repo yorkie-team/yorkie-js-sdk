@@ -1064,16 +1064,12 @@ function fromTreeNodes(
   }
 
   const root = nodes[nodes.length - 1];
+  const depthTable = new Map<number, CRDTTreeNode>();
+  depthTable.set(pbTreeNodes[nodes.length - 1].depth, nodes[nodes.length - 1]);
   for (let i = nodes.length - 2; i >= 0; i--) {
-    let parent: CRDTTreeNode;
-    for (let j = i + 1; j < nodes.length; j++) {
-      if (pbTreeNodes[i].depth - 1 === pbTreeNodes[j].depth) {
-        parent = nodes[j];
-        break;
-      }
-    }
-
+    const parent = depthTable.get(pbTreeNodes[i].depth - 1);
     parent!.prepend(nodes[i]);
+    depthTable.set(pbTreeNodes[i].depth, nodes[i]);
   }
 
   root.updateDescendantsSize();
@@ -1593,6 +1589,8 @@ export const converter = {
   toChangePack,
   fromChangePack,
   fromChanges,
+  toTreeNodes,
+  fromTreeNodes,
   objectToBytes,
   bytesToObject,
   bytesToSnapshot,
