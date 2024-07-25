@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.28] - 2024-07-25
+
+### Added
+
+- Improve performance for creating crdt.TreeNode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/875
+- Add Root-Only Filter Feature in History Tab by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/872
+
+### Changed
+
+- Update example version to v0.4.27 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/870
+- Adjust Default LogLevel to Warn by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/871
+
 ## [0.4.27] - 2024-07-11
 
 ### Changed
