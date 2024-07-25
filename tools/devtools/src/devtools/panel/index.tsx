@@ -33,12 +33,8 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const {
-    originalEvents,
-    presenceMarkedEvents,
-    presenceFilteredEvents,
-    hidePresenceEvents,
-  } = useTransactionEvents();
+  const { originalEvents, presenceFilteredEvents, hidePresenceEvents } =
+    useTransactionEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -90,20 +86,17 @@ const Panel = () => {
     let eventIndex = 0;
     let filteredEventIndex = 0;
 
-    while (
-      eventIndex < originalEvents.length &&
-      filteredEventIndex <= selectedEventIndexInfo.index
-    ) {
-      if (presenceMarkedEvents[eventIndex] !== null) {
+    while (filteredEventIndex <= selectedEventIndexInfo.index) {
+      if (!originalEvents[eventIndex].isFiltered) {
         filteredEventIndex++;
       }
 
-      doc.applyTransactionEvent(originalEvents[eventIndex]);
+      doc.applyTransactionEvent(originalEvents[eventIndex].event);
       eventIndex++;
     }
 
     setDoc(doc);
-    setSelectedEvent(events[selectedEventIndexInfo.index]);
+    setSelectedEvent(events[selectedEventIndexInfo.index].event);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {

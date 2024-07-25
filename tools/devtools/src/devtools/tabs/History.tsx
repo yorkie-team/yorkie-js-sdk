@@ -21,7 +21,6 @@ import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 import {
   TransactionEventType,
-  getTransactionEventType,
   useTransactionEvents,
 } from '../contexts/YorkieSource';
 
@@ -109,8 +108,8 @@ export function History({
 
     const marks = {};
     for (const [index, event] of events.entries()) {
-      const source = event[0].source;
-      const transactionEventType = getTransactionEventType(event);
+      const source = event.event[0].source;
+      const transactionEventType = event.transactionEventType;
 
       marks[index] = (
         <span

@@ -173,34 +173,29 @@ export function useTransactionEvents() {
     );
   }
 
-  // mark presence events as null in the original events
-  const presenceMarkedEvents = useMemo(() => {
-    if (!hidePresenceEvents) {
-      return events;
-    }
-
+  // create an enhanced events with metadata
+  const enhancedEvents = useMemo(() => {
     return events.map((event) => {
-      if (getTransactionEventType(event) === TransactionEventType.Presence) {
-        return null;
-      }
+      const transactionEventType = getTransactionEventType(event);
 
-      return event;
+      return {
+        event,
+        transactionEventType,
+        isFiltered:
+          hidePresenceEvents &&
+          transactionEventType === TransactionEventType.Presence,
+      };
     });
-  }, [events, hidePresenceEvents]);
+  }, [hidePresenceEvents, events]);
 
   // filter out presence events from the original events
-  const presenceFilteredEvents = useMemo(
-    () =>
-      events.filter(
-        (event) =>
-          getTransactionEventType(event) === TransactionEventType.Document,
-      ),
-    [hidePresenceEvents, events],
-  );
+  const presenceFilteredEvents = useMemo(() => {
+    if (!hidePresenceEvents) return enhancedEvents;
+    return enhancedEvents.filter((e) => !e.isFiltered);
+  }, [enhancedEvents]);
 
   return {
-    originalEvents: events,
-    presenceMarkedEvents,
+    originalEvents: enhancedEvents,
     presenceFilteredEvents,
     hidePresenceEvents,
     setHidePresenceEvents,
