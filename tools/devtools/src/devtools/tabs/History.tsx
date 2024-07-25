@@ -197,7 +197,14 @@ export function History({
                 >
                   ⇥
                 </button>
-                <button onClick={toggleHidePresenceEvent}>
+                <button
+                  onClick={toggleHidePresenceEvent}
+                  title={
+                    hidePresenceEvents
+                      ? 'Show only root changes'
+                      : 'Show all changes'
+                  }
+                >
                   {hidePresenceEvents ? '¥' : 'Y'}
                 </button>
               </span>
