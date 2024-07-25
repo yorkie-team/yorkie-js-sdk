@@ -20,6 +20,7 @@
     "test:ci": "vitest run --coverage",
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
+    "update:examples": "./scripts/update-examples.sh",
     "prepare": "npm run build"
   },
   "engines": {
