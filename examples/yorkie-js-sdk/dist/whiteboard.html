@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Whiteboard Example</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="whiteboard.css" />
+    <link rel="stylesheet" href="devtool/object.css" />
+  </head>
+  <body>
+    <div class="whiteboard-example">
+      <div class="canvas">
+        <div class="toolbar">
+          <button class="delete">🗑 delete</button>
+          <button class="rectangle">⬜️ (new!)</button>
+          <button class="undo">⬅ undo</button>
+          <button class="redo">➡️ redo</button>
+        </div>
+        <div class="shapes"></div>
+        <div class="selection-tools">
+          <div class="color-picker">
+            <button class="color" data-color="orangered"></button>
+            <button class="color" data-color="gold"></button>
+            <button class="color" data-color="limegreen"></button>
+            <button class="color" data-color="dodgerblue"></button>
+            <button class="color" data-color="darkviolet"></button>
+            <button class="color" data-color="darkorange"></button>
+            <button class="color" data-color="dimgray"></button>
+            <button class="color" data-color="white"></button>
+          </div>
+        </div>
+      </div>
+      <div class="dev-log-wrap">
+        <div class="network">
+          <span id="network-status"></span>
+          <button class="sync-button">disconnect</button>
+        </div>
+        <div id="online-clients"></div>
+        <div class="dev-log">
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>yorkie document</h2>
+              <div id="document-holder" class="log-holder"></div>
+            </div>
+          </div>
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>operations</h2>
+              <div id="ops-holder" class="log-holder"></div>
+            </div>
+          </div>
+          <div class="log-holders">
+            <div class="log-holder-wrap">
+              <h2>
+                undo stack
+                <span class="stack-count">
+                  [ total: <span id="undo-stack-count"></span> ]</span
+                >
+              </h2>
+              <div id="undo-holder" class="log-holder"></div>
+            </div>
+            <div class="log-holder-wrap">
+              <h2>
+                redo stack
+                <span class="stack-count">
+                  [ total: <span id="redo-stack-count"></span> ]</span
+                >
+              </h2>
+              <div id="redo-holder" class="log-holder"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./yorkie-js-sdk.js"></script>
+    <script src="./util.js"></script>
+    <script type="module">
+      import devtool from './devtool/object.js';
+      const statusHolder = document.getElementById('network-status');
+      const onlineClientsHolder = document.getElementById('online-clients');
+      const docHolder = document.getElementById('document-holder');
+      const opsHolder = document.getElementById('ops-holder');
+      const undoHolder = document.getElementById('undo-holder');
+      const redoHolder = document.getElementById('redo-holder');
+      const undoStackCount = document.getElementById('undo-stack-count');
+      const redoStackCount = document.getElementById('redo-stack-count');
+      const undoTool = document.querySelector('.toolbar .undo');
+      const redoTool = document.querySelector('.toolbar .redo');
+      const deleteTool = document.querySelector('.toolbar .delete');
+      const rectangleTool = document.querySelector('.toolbar .rectangle');
+      const shapesHolder = document.querySelector('.canvas .shapes');
+      const selectionTool = document.querySelector('.selection-tools');
+      const colorPicker = document.querySelector(
+        '.selection-tools .color-picker',
+      );
+      const COLORS = [
+        'orangered',
+        'gold',
+        'limegreen',
+        'dodgerblue',
+        'darkviolet',
+      ];
+      const rectangleSize = 50;
+      let isDragging = false;
+
+      function getRandomInt(max) {
+        return Math.floor(Math.random() * max);
+      }
+      function getRandomColor() {
+        return COLORS[getRandomInt(COLORS.length)];
+      }
+
+      function renderShapes(doc, myClientID) {
+        const shapes = doc.getRoot().shapes;
+        if (!shapes) return;
+        shapesHolder.innerHTML = '';
+        const { selectedShapeID, movingShapePoint } = doc.getMyPresence();
+        for (const shape of shapes) {
+          // TODO(chacha912): Remove the following condition after implementing the reverse
+          // operation for array.add. Currently, the shape is left as an empty object.
+          if (!shape.id) continue;
+          const shapeElement = document.createElement('div');
+          shapeElement.className = 'shape';
+          let point = shape.point;
+          // TODO(chacha912): The movement of the peer's rectangle is not rendered.
+          // It can be replaced after implementing `history.pause` and `history.resume`.
+          if (shape.id === selectedShapeID && movingShapePoint) {
+            point = movingShapePoint;
+          }
+          shapeElement.style.transform = `translate(${point.x}px, ${point.y}px)`;
+          shapeElement.style.backgroundColor = shape.color;
+          const selectedByMe = doc.getMyPresence().selectedShapeID === shape.id;
+          const selectedByOthers = doc
+            .getPresences()
+            .some(
+              ({ clientID, presence }) =>
+                presence.selectedShapeID === shape.id &&
+                clientID !== myClientID,
+            );
+          const selectionColor = selectedByMe
+            ? 'blue'
+            : selectedByOthers
+            ? 'orange'
+            : 'transparent';
+          shapeElement.style.borderColor = selectionColor;
+          shapeElement.setAttribute('data-id', shape.id);
+
+          shapesHolder.appendChild(shapeElement);
+        }
+      }
+      const onCanvasPointerDown = (e, doc) => {
+        e.stopPropagation();
+
+        const shape = e.target.closest('.shape');
+        if (!shape) return;
+        const id = shape.dataset.id;
+        const currentSelectedShapeID = doc.getMyPresence().selectedShapeID;
+        isDragging = true;
+        if (currentSelectedShapeID === id) return;
+        doc.update((root, presence) => {
+          presence.set({ selectedShapeID: id }, { addToHistory: true });
+        });
+      };
+      const onCanvasPointerUp = (e, doc) => {
+        const { selectedShapeID, movingShapePoint } = doc.getMyPresence();
+        // When the shape movement is completed, update from presence to the document
+        if (isDragging && selectedShapeID && movingShapePoint) {
+          doc.update((root, presence) => {
+            const selectedShape = root.shapes.find(
+              (shape) => shape.id === selectedShapeID,
+            );
+            selectedShape.point = movingShapePoint;
+            presence.set({ movingShapePoint: null });
+          });
+        }
+        // If the user clicks on the canvas, deselect the shape.
+        if (!isDragging && selectedShapeID) {
+          doc.update((root, presence) => {
+            presence.set(
+              { selectedShapeID: null, movingShapePoint: null },
+              { addToHistory: true },
+            );
+          });
+        }
+        isDragging = false;
+      };
+      const onCanvasPointerMove = (e, doc) => {
+        if (!isDragging) return;
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
+
+        doc.update((root, presence) => {
+          const selectedShape = root.shapes.find(
+            (shape) => shape.id === selectedShapeID,
+          );
+          if (!selectedShape) return;
+
+          presence.set({
+            movingShapePoint: {
+              x: e.clientX - rectangleSize / 2,
+              y: e.clientY - rectangleSize / 2,
+            },
+          });
+        });
+      };
+
+      const insertRectangle = (doc) => {
+        const shapeID = Date.now().toString();
+        doc.update((root, presence) => {
+          root.shapes.push({
+            id: shapeID,
+            point: {
+              x: getRandomInt(300),
+              y: getRandomInt(300),
+            },
+            color: getRandomColor(),
+          });
+          presence.set({ selectedShapeID: shapeID }, { addToHistory: true });
+        });
+      };
+      const deleteRectangle = (doc) => {
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
+        if (!selectedShapeID) return;
+        doc.update((root, presence) => {
+          const selectedShape = root.shapes.find(
+            (shape) => shape.id === selectedShapeID,
+          );
+          if (!selectedShape) return;
+          root.shapes.deleteByID(selectedShape.getID());
+          presence.set({ selectedShapeID: null });
+        });
+      };
+      const setColor = (e, doc) => {
+        if (!e.target.dataset.color) return;
+        const selectedShapeID = doc.getMyPresence().selectedShapeID;
+        doc.update((root) => {
+          const selectedShape = root.shapes.find(
+            (shape) => shape.id === selectedShapeID,
+          );
+          if (!selectedShape) return;
+          selectedShape.color = e.target.dataset.color;
+        });
+      };
+
+      function displayOnlineClients(presences, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of presences) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        onlineClientsHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      async function main() {
+        try {
+          // 01. create client with RPCAddr then activate it.
+          const client = new yorkie.Client('http://localhost:8080');
+          await client.activate();
+          const myClientID = client.getID();
+
+          // 02. create a document then attach it into the client.
+          const doc = new yorkie.Document('whiteboard', {
+            enableDevtools: true,
+            disableGC: true,
+          });
+          // setup devtool
+          const {
+            displayRootObject,
+            displayOps,
+            displayUndoOps,
+            displayRedoOps,
+          } = devtool(doc, {
+            rootHolder: docHolder,
+            opsHolder: opsHolder,
+            undoOpsHolder: undoHolder,
+            redoOpsHolder: redoHolder,
+          });
+
+          const displayLog = () => {
+            displayRootObject();
+            displayOps();
+            displayUndoOps();
+            displayRedoOps();
+            undoStackCount.textContent = doc.getUndoStackForTest().length;
+            redoStackCount.textContent = doc.getRedoStackForTest().length;
+          };
+
+          doc.subscribe('connection', new Network(statusHolder).statusListener);
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') {
+              renderShapes(doc, myClientID);
+            }
+            displayOnlineClients(doc.getPresences(), client.getID());
+          });
+          doc.subscribe('my-presence', (event) => {
+            if (event.type === 'presence-changed') {
+              if (event.value.presence?.selectedShapeID) {
+                selectionTool.style.display = 'flex';
+              } else {
+                selectionTool.style.display = 'none';
+              }
+            }
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
+          });
+          await client.attach(doc);
+
+          // 03. subscribe to document changes
+          doc.subscribe((event) => {
+            renderShapes(doc, myClientID);
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
+          });
+
+          // 04. set initial value
+          doc.update((root) => {
+            if (!root.shapes) {
+              root.shapes = [];
+            }
+          });
+          renderShapes(doc, myClientID);
+          displayLog();
+
+          // 05. set event handlers
+          rectangleTool.onclick = () => {
+            insertRectangle(doc);
+          };
+          deleteTool.onclick = () => {
+            deleteRectangle(doc);
+          };
+          colorPicker.onclick = (e) => {
+            setColor(e, doc);
+          };
+          undoTool.onclick = () => {
+            // TODO(chacha912): Activate button only when the undo stack is not empty.
+            if (!doc.history.canUndo()) {
+              return;
+            }
+
+            doc.history.undo();
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
+          };
+          redoTool.onclick = () => {
+            // TODO(chacha912): Activate button only when the redo stack is not empty.
+            if (!doc.history.canRedo()) {
+              return;
+            }
+
+            doc.history.redo();
+            // TODO(chacha912): Display log here before implementing `doc.subscribe('history')`
+            displayLog();
+          };
+          shapesHolder.addEventListener('pointerdown', (e) => {
+            onCanvasPointerDown(e, doc);
+          });
+          shapesHolder.addEventListener('pointerup', (e) => {
+            onCanvasPointerUp(e, doc);
+          });
+          shapesHolder.addEventListener('pointermove', (e) => {
+            onCanvasPointerMove(e, doc);
+          });
+
+          let isRealtime = true;
+          const syncButton = document.querySelector('.sync-button');
+          syncButton.addEventListener('click', async () => {
+            if (isRealtime) {
+              await client.changeSyncMode(doc, 'manual');
+              syncButton.textContent = 'Connect';
+            } else {
+              await client.changeSyncMode(doc, 'realtime');
+              syncButton.textContent = 'Disconnect';
+            }
+            isRealtime = !isRealtime;
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

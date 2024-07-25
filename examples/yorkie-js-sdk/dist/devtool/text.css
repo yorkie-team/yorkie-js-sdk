@@ -1,0 +1,452 @@
+:root {
+  --deleted-node-color: #dadada;
+  --selected-node-color: #ffffff;
+  --selected-node-bg-color: #ff0000;
+  --hover-node-bg-color: rgba(0, 0, 0, 0.1);
+}
+
+/* layout */
+
+.layout {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .toolbar {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #ececec;
+}
+
+.layout > .toolbar .tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 0px 20px;
+}
+
+.layout > .content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout > .content > .editor-area,
+.layout > .content > .graph-view {
+  flex: 1;
+}
+
+.layout > .content > .graph-view {
+  display: flex;
+  position: relative;
+  border-top: 1px solid #ececec;
+}
+
+.layout > .content > .graph-view > .graph-area:first-child {
+  border-right: 1px solid #ececec;
+}
+
+.layout > .content > .editor-area {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  height: 300px;
+  flex: none;
+}
+
+.layout > .content > .editor-area > .codemirror-area,
+.layout > .content > .editor-area > .data-area {
+  flex: 1 1 auto;
+  width: 50%;
+  position: relative;
+}
+
+.layout > .content > .editor-area > .codemirror-area {
+  border-right: 1px solid #ececec;
+}
+
+.layout > .content > .editor-area .CodeMirror {
+  height: 100%;
+}
+
+.layout > .content > .editor-area > .data-area {
+  display: flex;
+}
+
+.layout > .content > .editor-area > .data-area > .text-view-area {
+  flex: 1 1 auto;
+  display: flex;
+  height: 100%;
+}
+
+/* toolbar > userlist */
+
+#users-holder {
+  display: flex;
+  gap: 10px;
+}
+
+.user-info {
+  --client-background-color: var(--client-color, #000);
+  background-color: var(--client-background-color);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0px 1px;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  text-transform: uppercase;
+  color: white;
+  cursor: pointer;
+}
+
+/* toolbar > hide deleted node */
+
+.text-view-area.hide-deleted-node .char-item.deleted,
+.text-view-area.hide-deleted-node .structure-item.deleted,
+#splaytree-log-holder.hide-deleted-node .node-item.is-removed,
+#llrbtree-log-holder.hide-deleted-node .node-item.is-removed {
+  display: none;
+}
+
+/* toolbar > hide view */
+
+.layout > .content.hide-splay-tree.hide-llrb-tree > .editor-area,
+.layout > .content.hide-splay-tree.hide-llrb-tree .tabcontent {
+  height: 100%;
+}
+
+/* body > top > center(tab)  */
+
+.text-view-area .tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.text-view-area .tab-header {
+  flex: none;
+  display: flex;
+  height: 30px;
+  border-bottom: 1px solid #ececec;
+}
+
+.text-view-area .tab-body {
+  flex: 1;
+  display: flex;
+}
+
+.text-view-area .tab-button {
+  margin-right: 3px;
+  border: none;
+}
+
+.text-view-area .tab-button.active {
+  background-color: #ccc;
+}
+
+.text-view-area .tabcontent {
+  display: none;
+  height: 270px;
+  width: 100%;
+  overflow: auto;
+}
+
+.text-view-area .tabcontent.active {
+  display: block;
+}
+
+/* body > top > center(tab) > text */
+
+.text-view-area .char-item {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px;
+  min-height: 20px;
+  border-bottom: 1px solid #e5e5e5;
+  vertical-align: bottom;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.text-view-area .char-item:hover {
+  background-color: var(--hover-node-bg-color) !important;
+}
+
+.text-view-area .char-item.selected {
+  color: var(--selected-node-color);
+  background-color: var(--selected-node-bg-color);
+}
+
+.text-view-area .char-item.deleted:not(.selected) {
+  text-decoration: line-through;
+  background-color: var(--deleted-node-color);
+}
+
+.text-view-area .char-item .time {
+  display: none;
+}
+
+/* body > top > center(tab) > structure data */
+
+.text-view-area .structure-item {
+  --structure-background-color: var(--client-color, white);
+  display: flex;
+  position: relative;
+  padding: 2px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.text-view-area .structure-item > .icon {
+  background-color: var(--structure-background-color);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-right: 5px;
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.text-view-area .structure-item.deleted {
+  text-align: right;
+  background-color: var(--deleted-node-color);
+}
+
+.text-view-area .structure-item.selected {
+  color: var(--selected-node-color);
+  background-color: var(--selected-node-bg-color);
+}
+
+.text-view-area .structure-item:hover {
+  background-color: var(--hover-node-bg-color) !important;
+}
+
+/* body > top > center(tab) > structure text */
+
+.text-view-area #structure-text-holder {
+  padding: 10px;
+  width: 100%;
+  font-size: 12px;
+}
+
+/* body > top > right(selected node info) */
+
+.text-view-area .selected-node-info-area {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}
+
+.text-view-area .selected-node-info-area .title {
+  display: flex;
+  align-items: center;
+  margin: 0px;
+  padding: 10px 10px;
+  height: 30px;
+  border-bottom: 1px solid #ececec;
+  border-left: 1px solid #ececec;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.text-view-area .selected-node-info {
+  flex: 1;
+  width: 100%;
+  border-left: 1px solid #ececec;
+  font-size: 14px;
+}
+
+.text-view-area .selected-node-info .property-item-view {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  text-align: left;
+}
+
+.text-view-area .selected-node-info .property-item-view label {
+  flex: none;
+  width: 72px;
+  text-align: left;
+  font-weight: bold;
+}
+
+/* body > bottom > tree graph  */
+
+.graph-view .graph-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-view .title {
+  display: flex;
+  align-items: center;
+  margin: 0px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ececec;
+  font-weight: bold;
+}
+
+.graph-view .badge {
+  margin-left: 10px;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.graph-view .tree-area {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tree-area .node-item {
+  display: inline-block;
+  padding: 2px;
+  box-sizing: border-box;
+  cursor: pointer;
+  position: absolute;
+  z-index: 10;
+  text-align: center;
+}
+
+.tree-area .node-item .inner-description {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
+  border-color: var(--ticker-color, black);
+  border-width: 2px;
+  border-style: solid;
+  margin-bottom: 10px;
+  position: relative;
+  margin-left: 8px;
+  margin-right: 8px;
+  width: 64px;
+  height: 40px;
+  contain: size;
+  background-color: white;
+}
+
+.tree-area .node-item.selected .inner-description {
+  border-color: var(--selected-node-bg-color) !important;
+  background-color: var(--selected-node-bg-color) !important;
+  color: var(--selected-node-color) !important;
+}
+
+.tree-area .node-item.is-removed .inner-description {
+  background-color: var(--deleted-node-color);
+  border-width: 1px;
+}
+
+.tree-area .node-item .inner-description .key-area {
+  font-size: 10px;
+  padding: 4px;
+  box-sizing: border-box;
+  flex: 1;
+}
+
+.tree-area .node-item .inner-description .value-area {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
+  width: 100%;
+  border-top: 1px solid black;
+  font-size: 11px;
+}
+
+.tree-area .node-item .inner-description .value-area .value {
+  flex: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 40px;
+}
+
+.tree-area .node-item .inner-description .value-area .weight {
+  flex: none;
+  border-right: 1px solid black;
+  box-sizing: border-box;
+  padding: 0px 2px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.tree-area .node-item .inner-description .prev-view,
+.tree-area .node-item .inner-description .next-view {
+  position: absolute;
+  display: none;
+  width: 10px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: black;
+}
+
+.tree-area .node-item .inner-description .prev-view {
+  top: 50%;
+  left: -12px;
+  transform: translate(0, -50%);
+}
+
+.tree-area .node-item .inner-description .next-view {
+  top: 50%;
+  right: -12px;
+  transform: translate(0, -50%);
+}
+
+.tree-area .node-item .inner-description:hover .prev-view,
+.tree-area .node-item .inner-description:hover .next-view {
+  display: flex;
+}
+
+.tree-area .line-holder {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 100px;
+  height: 100px;
+}
+
+.tree-area .line-holder svg {
+  display: block;
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.tree-area .line-holder path {
+  stroke: black;
+}

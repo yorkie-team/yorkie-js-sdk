@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CodeMirror Example</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="./devtool/text.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.js"></script>
+    <script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script>
+    <style type="text/css" id="codemirror-custom-style"></style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="toolbar">
+        <div class="left-tools tools">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="100"
+            height="38"
+            viewBox="0 0 100 38"
+            fill="none"
+            role="img"
+          >
+            <mask id="path-1-inside-1_4874_2783" fill="white">
+              <path
+                d="M11.8574 11.4048L18.8525 21.4507C19.2947 22.086 20.1683 22.2423 20.8036 21.8001C20.9398 21.7052 21.0581 21.5869 21.153 21.4507L28.148 11.4048C29.0327 10.1343 28.7198 8.3872 27.4495 7.5027C26.9794 7.17549 26.4205 7 25.8477 7H14.1577C12.6095 7 11.3545 8.25503 11.3545 9.80322C11.3547 10.3758 11.5302 10.9347 11.8574 11.4048Z"
+              ></path>
+            </mask>
+            <path
+              d="M11.8574 11.4048L18.8525 21.4507C19.2947 22.086 20.1683 22.2423 20.8036 21.8001C20.9398 21.7052 21.0581 21.5869 21.153 21.4507L28.148 11.4048C29.0327 10.1343 28.7198 8.3872 27.4495 7.5027C26.9794 7.17549 26.4205 7 25.8477 7H14.1577C12.6095 7 11.3545 8.25503 11.3545 9.80322C11.3547 10.3758 11.5302 10.9347 11.8574 11.4048Z"
+              fill="#514C49"
+              stroke="#FEFDFB"
+              stroke-miterlimit="10"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              mask="url(#path-1-inside-1_4874_2783)"
+            ></path>
+            <path
+              d="M22.8637 29.5446C23.3612 29.8283 23.9338 29.9528 24.5042 29.9014L37.2991 28.7469C38.3271 28.6542 39.0851 27.7457 38.9924 26.7178C38.9876 26.6636 38.9803 26.6096 38.9706 26.556C38.5862 24.4114 37.8296 22.3507 36.7352 20.4668C35.6407 18.5829 34.2255 16.9048 32.5532 15.5085C31.761 14.8471 30.5825 14.953 29.9211 15.7455C29.8862 15.7872 29.8532 15.8305 29.8219 15.8752L22.4807 26.418C22.1535 26.888 21.978 27.4469 21.978 28.0198V27.9849C21.978 28.3055 22.0604 28.6208 22.2176 28.9002C22.3826 29.1751 22.6155 29.4029 22.8942 29.5617"
+              fill="#FDC433"
+            ></path>
+            <path
+              d="M17.8492 28.7605C17.6844 29.097 17.4222 29.376 17.0969 29.5616L17.1365 29.539C16.6391 29.8227 16.0665 29.9472 15.4961 29.8959L2.70114 28.7414C2.64694 28.7365 2.59295 28.7293 2.53935 28.7196C1.52348 28.5375 0.847507 27.5663 1.02965 26.5505C1.41407 24.4057 2.17064 22.3451 3.26489 20.4611C4.35914 18.577 5.77455 16.8993 7.44706 15.5028C7.48877 15.4679 7.53208 15.4349 7.57681 15.4037C8.42384 14.8139 9.58841 15.0225 10.1784 15.8695L17.5196 26.4124C17.8468 26.8825 18.0223 27.4414 18.0223 28.0142V27.9685C18.0223 28.343 17.9096 28.7091 17.6991 29.019"
+              fill="#FDC433"
+            ></path>
+            <path
+              d="M46 13.0243L50.3839 20.7431V24.9463H52.4806V20.7272L56.8645 13.0243H54.6726L51.7658 18.3231L51.4164 19.0237L51.0669 18.3231L48.192 13.0243H46Z"
+              fill="#332E2B"
+            ></path>
+            <path
+              d="M61.4832 15.7917C58.9259 15.7917 57.0358 17.6863 57.0358 20.4884C57.0358 23.2905 58.9259 25.1851 61.4832 25.1851C64.0087 25.1851 65.9307 23.2905 65.9307 20.4884C65.9307 17.6863 64.0087 15.7917 61.4832 15.7917ZM61.4832 23.4656C60.149 23.4656 59.0689 22.2556 59.0689 20.4884C59.0689 18.7212 60.149 17.5112 61.4832 17.5112C62.8175 17.5112 63.8976 18.7212 63.8976 20.4884C63.8976 22.2556 62.8175 23.4656 61.4832 23.4656Z"
+              fill="#332E2B"
+            ></path>
+            <path
+              d="M73.6325 15.8076C72.6 15.8076 71.5676 16.0783 70.821 16.7788V16.0305H68.7879V24.9463H70.821V21.2685C70.821 20.3929 70.8846 19.8356 70.964 19.5013C71.234 18.3391 72.2982 17.543 73.6325 17.6067V15.8076Z"
+              fill="#332E2B"
+            ></path>
+            <path
+              d="M82.1798 24.9463H84.6259L80.6232 20.2177L84.2288 16.0305H81.7827L78.6059 19.8516V13.0779H76.5728V24.9463H78.6059V20.6476L82.1798 24.9463Z"
+              fill="#332E2B"
+            ></path>
+            <path
+              d="M88.6995 16.0305H86.6664V24.9463H88.6995V16.0305ZM86.5711 15.0434H88.7948V12.8145H86.5711V15.0434Z"
+              fill="#332E2B"
+            ></path>
+            <path
+              d="M98.3957 21.8258C97.8875 22.781 96.9344 23.4656 95.8543 23.4656C94.6313 23.4656 93.7259 22.4626 93.5512 21.2526H100V20.2814C100 17.6704 98.2051 15.7917 95.7114 15.7917C93.3288 15.7917 91.4228 17.6863 91.4228 20.4884C91.4228 23.2905 93.2176 25.1851 95.8543 25.1851C97.5062 25.1851 98.9834 24.3095 99.8729 22.9562L98.3957 21.8258ZM93.5353 19.565C93.7894 18.2913 94.6313 17.5112 95.7114 17.5112C96.8709 17.5112 97.6651 18.3709 97.9033 19.565H93.5353Z"
+              fill="#332E2B"
+            ></path>
+          </svg>
+          <div><span id="network-status"></span></div>
+        </div>
+        <div class="center-tools tools">
+          <label style="display: flex; align-items: center">
+            <input
+              type="checkbox"
+              id="hide-deleted-node"
+              onClick="devtool.toggleDeletedNodeShow()"
+            />
+            <span>Hide deleted node</span>
+          </label>
+          <label style="display: flex; align-items: center">
+            <input
+              type="checkbox"
+              id="hide-text"
+              onClick="devtool.toggleText()"
+            />
+            <span>Text</span>
+          </label>
+          <label style="display: flex; align-items: center">
+            <input
+              type="checkbox"
+              id="hide-splay-tree"
+              onClick="devtool.toggleSplayTree()"
+            />
+            <span>SplayTree</span>
+          </label>
+          <label style="display: flex; align-items: center">
+            <input
+              type="checkbox"
+              id="hide-llrb-tree"
+              onClick="devtool.toggleLLRBTree()"
+            />
+            <span>LLRBTree</span>
+          </label>
+        </div>
+        <div class="right-tools tools">
+          <div style="padding: 10px 0px" id="users-holder"></div>
+        </div>
+      </div>
+      <div id="real-view" class="content">
+        <div class="editor-area">
+          <div class="codemirror-area">
+            <textarea id="textarea" cols="30" rows="10"></textarea>
+          </div>
+          <div class="data-area" id="view-text">
+            <div class="text-view-area">
+              <div id="tab-container" class="tab">
+                <div class="tab-header">
+                  <button
+                    class="tab-button active"
+                    onclick="devtool.openTab(event, 'text')"
+                  >
+                    Text
+                  </button>
+                  <button
+                    class="tab-button"
+                    onclick="devtool.openTab(event, 'structure')"
+                  >
+                    Structure Data
+                  </button>
+                  <button
+                    class="tab-button"
+                    onclick="devtool.openTab(event, 'structure-text')"
+                  >
+                    Structure Text
+                  </button>
+                </div>
+                <div id="structure-info-holder" class="tab-body">
+                  <div id="text" class="tabcontent active">
+                    <div id="text-log-holder"></div>
+                  </div>
+                  <div id="structure" class="tabcontent">
+                    <div id="structure-log-holder"></div>
+                  </div>
+                  <div id="structure-text" class="tabcontent">
+                    <div id="structure-text-holder"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="selected-node-info-area">
+                <h4 class="title">Selected SplayTree Node</h4>
+                <div class="selected-node-info"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="graph-view">
+          <div class="graph-area" id="view-splay-tree">
+            <h4 class="title">
+              <span>SplayTree</span>
+              <span class="badge" id="splaytree-info"></span>
+            </h4>
+            <div class="tree-area">
+              <div id="splaytree-log-holder"></div>
+            </div>
+          </div>
+          <div class="graph-area" id="view-llrb-tree">
+            <h4 class="title">
+              <span>LLRBTree</span>
+              <span class="badge" id="llrbtree-info"></span>
+            </h4>
+            <div class="tree-area">
+              <div id="llrbtree-log-holder"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="./yorkie-js-sdk.js"></script>
+    <script src="./util.js"></script>
+    <script src="./devtool/text.js"></script>
+    <script>
+      const textarea = document.getElementById('textarea');
+      const statusHolder = document.getElementById('network-status');
+      const usersHolder = document.getElementById('users-holder');
+      const selectionMap = new Map();
+
+      function getRandomColor() {
+        const colors = ['#FFC75F', '#FF6F91', '#00C9A7', '#F3C5FF', '#009EFA'];
+        const randomIndex = Math.floor(Math.random() * colors.length);
+        return colors[randomIndex];
+      }
+
+      function displayUsers(users, myClientID) {
+        const usersInfo = Object.fromEntries(
+          users.map((user) => {
+            const id = user.clientID;
+            return [
+              id,
+              {
+                id,
+                ticker: id.substr(-2),
+                user,
+                color: user.presence.color,
+              },
+            ];
+          }),
+        );
+        devtool.setUsersInfo(usersInfo);
+
+        usersHolder.innerHTML = users
+          .map(({ clientID: id }) => {
+            const color = usersInfo[id].color;
+            const ticker = usersInfo[id].ticker;
+
+            const idString = `<span class="user-info ${
+              id === myClientID ? 'me' : ''
+            }" style="--client-color: ${color}" data-id="${id}" title="${id}"> ${ticker}</span>`;
+
+            return idString;
+          })
+          .join('');
+
+        document.head.querySelector('#codemirror-custom-style').textContent = `
+          .CodeMirror-selected {
+            background-color: ${usersInfo[myClientID]?.color} !important;
+          }
+        `;
+      }
+
+      // https://github.com/codemirror/CodeMirror/pull/5619
+      function replaceRangeFix(cm, text, from, to, origin) {
+        const adjust = cm.listSelections().findIndex(({ anchor, head }) => {
+          return (
+            CodeMirror.cmpPos(anchor, head) === 0 &&
+            CodeMirror.cmpPos(anchor, from) === 0
+          );
+        });
+        cm.operation(() => {
+          cm.replaceRange(text, from, to, origin);
+          if (adjust > -1) {
+            const range = cm.listSelections()[adjust];
+            if (
+              range &&
+              CodeMirror.cmpPos(
+                range.head,
+                CodeMirror.changeEnd({ from, to, text }),
+              ) === 0
+            ) {
+              const ranges = cm.listSelections().slice();
+              ranges[adjust] = { anchor: from, head: from };
+              cm.setSelections(ranges);
+            }
+          }
+        });
+      }
+
+      function displayRemoteSelection(cm, doc, user) {
+        const { clientID, presence } = user;
+        if (!presence.selection) return;
+        if (selectionMap.has(clientID)) {
+          const selection = selectionMap.get(clientID);
+          selection.marker.clear();
+        }
+
+        const [from, to] = doc
+          .getRoot()
+          .content.posRangeToIndexRange(presence.selection);
+
+        console.log(
+          `%c remote selection from:${from} to:${to}`,
+          'color: skyblue',
+        );
+
+        if (from === to) {
+          const pos = cm.posFromIndex(from);
+          const cursorCoords = cm.cursorCoords(pos);
+          const cursorElement = document.createElement('span');
+          cursorElement.style.borderLeftWidth = '2px';
+          cursorElement.style.borderLeftStyle = 'solid';
+          cursorElement.style.borderLeftColor = presence.color;
+          cursorElement.style.marginLeft = cursorElement.style.marginRight =
+            '-1px';
+          cursorElement.style.height =
+            (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
+          cursorElement.setAttribute('data-actor-id', clientID);
+          cursorElement.style.zIndex = 0;
+
+          selectionMap.set(clientID, {
+            marker: cm.setBookmark(pos, {
+              widget: cursorElement,
+              insertLeft: true,
+            }),
+          });
+        } else {
+          const fromPos = cm.posFromIndex(Math.min(from, to));
+          const toPos = cm.posFromIndex(Math.max(from, to));
+
+          selectionMap.set(clientID, {
+            marker: cm.markText(fromPos, toPos, {
+              css: `background: ${presence.color}`,
+              insertLeft: true,
+            }),
+          });
+        }
+      }
+
+      async function main() {
+        try {
+          // 01. create an instance of codemirror.
+          const codemirror = CodeMirror.fromTextArea(textarea, {
+            lineNumbers: true,
+          });
+          yorkie.setLogLevel(yorkie.LogLevel.Debug);
+          devtool.setCodeMirror(codemirror);
+
+          // 02-1. create client with RPCAddr.
+          const client = new yorkie.Client('http://localhost:8080');
+          // 02-2. activate client
+          await client.activate();
+
+          // 03-1. create a document then attach it into the client.
+          const doc = new yorkie.Document('codemirror', {
+            enableDevtools: true,
+          });
+          doc.subscribe('connection', new Network(statusHolder).statusListener);
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') return;
+            displayUsers(doc.getPresences(), client.getID());
+          });
+
+          await client.attach(doc, {
+            initialPresence: { color: getRandomColor() },
+          });
+
+          doc.update((root) => {
+            if (!root.content) {
+              root.content = new yorkie.Text();
+            }
+          }, 'create content if not exists');
+
+          // 03-2. subscribe document event.
+          doc.subscribe((event) => {
+            if (event.type === 'snapshot') {
+              codemirror.setValue(doc.getRoot().content.toString());
+            }
+            devtool.displayLog(doc, codemirror);
+          });
+
+          doc.subscribe('others', (event) => {
+            if (event.type === 'unwatched') {
+              const { clientID } = event.value;
+              if (selectionMap.has(clientID)) {
+                const selection = selectionMap.get(clientID);
+                selection.marker.clear();
+              }
+            } else if (event.type === 'presence-changed') {
+              displayRemoteSelection(codemirror, doc, event.value);
+            }
+          });
+
+          doc.subscribe('$.content', (event) => {
+            if (event.type === 'remote-change') {
+              const { actor, operations } = event.value;
+              handleOperations(operations, actor);
+
+              const textLength = codemirror.getValue().length;
+              if (
+                doc.getRoot().content.length !=
+                  doc.getRoot().content.toString().length ||
+                (textLength != doc.getRoot().content.length && textLength != 0)
+              ) {
+                debugger;
+              }
+            }
+          });
+
+          // 04. bind the document with the codemirror.
+          // 04-1. codemirror to document(applying local).
+          codemirror.on('beforeChange', (cm, change) => {
+            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+              return;
+            }
+
+            const from = cm.indexFromPos(change.from);
+            const to = cm.indexFromPos(change.to);
+            const content = change.text.join('\n');
+
+            doc.update((root, presence) => {
+              const range = root.content.edit(from, to, content);
+              presence.set({
+                selection: root.content.indexRangeToPosRange(range),
+              });
+            }, `update content by ${client.getID()}`);
+            console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
+          });
+          codemirror.on('change', (cm, change) => {
+            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+              return;
+            }
+
+            const textLength = codemirror.getValue().length;
+            if (
+              doc.getRoot().content.length !=
+                doc.getRoot().content.toString().length ||
+              (textLength != doc.getRoot().content.length && textLength != 0)
+            ) {
+              debugger;
+            }
+          });
+
+          codemirror.on('beforeSelectionChange', (cm, change) => {
+            // NOTE: The following conditional statement ignores cursor changes
+            //       that occur while applying remote changes to CodeMirror
+            //       and handles only movement by keyboard and mouse.
+            if (change.origin === undefined) {
+              return;
+            }
+
+            const from = cm.indexFromPos(change.ranges[0].anchor);
+            const to = cm.indexFromPos(change.ranges[0].head);
+
+            doc.update((root, presence) => {
+              presence.set({
+                selection: root.content.indexRangeToPosRange([from, to]),
+              });
+            }, `update selection by ${client.getID()}`);
+          });
+
+          // 04-2. document to codemirror(applying remote).
+          function handleOperations(ops, actor) {
+            for (const op of ops) {
+              if (op.type === 'edit') {
+                const from = op.from;
+                const to = op.to;
+                const content = op.value.content || '';
+
+                console.log(
+                  `%c remote: ${from}-${to}: ${content}`,
+                  'color: skyblue',
+                );
+                const fromIdx = codemirror.posFromIndex(from);
+                const toIdx = codemirror.posFromIndex(to);
+                replaceRangeFix(codemirror, content, fromIdx, toIdx, 'yorkie');
+              }
+            }
+          }
+
+          // 05. synchronize text of document and codemirror.
+          codemirror.setValue(doc.getRoot().content.toString());
+          devtool.displayLog(doc, codemirror);
+          for (const user of doc.getPresences()) {
+            if (user.clientID === client.getID()) continue;
+            displayRemoteSelection(codemirror, doc, user);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>
