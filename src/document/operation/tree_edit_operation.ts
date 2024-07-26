@@ -28,6 +28,7 @@ import {
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TreeEditOperation` is an operation representing Tree editing.
@@ -85,10 +86,14 @@ export class TreeEditOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTTree)) {
-      logger.fatal(`fail to execute, only Tree can execute edit`);
+      const ERROR_MESSAGE = `fail to execute, only Tree can execute edit`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;

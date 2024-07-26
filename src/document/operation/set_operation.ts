@@ -25,6 +25,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -66,10 +67,14 @@ export class SetOperation extends Operation {
   ): ExecutionResult | undefined {
     const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
     if (!obj) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(obj instanceof CRDTObject)) {
-      logger.fatal(`fail to execute, only object can execute set`);
+      const ERROR_MESSAGE = `fail to execute, only object can execute set`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.

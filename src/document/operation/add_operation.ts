@@ -23,6 +23,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `AddOperation` is an operation representing adding an element to an Array.
@@ -60,10 +61,14 @@ export class AddOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTArray)) {
-      logger.fatal(`fail to execute, only array can execute add`);
+      const ERROR_MESSAGE = `fail to execute, only array can execute add`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const array = parentObject as CRDTArray;
     const value = this.value.deepcopy();

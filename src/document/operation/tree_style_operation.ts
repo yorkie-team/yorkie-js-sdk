@@ -28,6 +28,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TreeStyleOperation` represents an operation that modifies the style of the
@@ -107,10 +108,14 @@ export class TreeStyleOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTTree)) {
-      logger.fatal(`fail to execute, only Tree can execute edit`);
+      const ERROR_MESSAGE = `fail to execute, only Tree can execute edit`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const tree = parentObject as CRDTTree;
     let changes: Array<TreeChange>;

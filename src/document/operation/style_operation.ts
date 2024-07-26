@@ -25,6 +25,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  *  `StyleOperation` is an operation applies the style of the given range to Text.
@@ -77,10 +78,14 @@ export class StyleOperation extends Operation {
   public execute<A extends Indexable>(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTText)) {
-      logger.fatal(`fail to execute, only Text can execute edit`);
+      const ERROR_MESSAGE = `fail to execute, only Text can execute edit`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const text = parentObject as CRDTText<A>;
     const [, pairs, changes] = text.setStyle(

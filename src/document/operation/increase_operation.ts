@@ -28,6 +28,7 @@ import {
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
@@ -62,10 +63,14 @@ export class IncreaseOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTCounter)) {
-      logger.fatal(`fail to execute, only Counter can execute increase`);
+      const ERROR_MESSAGE = `fail to execute, only Counter can execute increase`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;

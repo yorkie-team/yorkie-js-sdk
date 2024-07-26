@@ -99,8 +99,6 @@ export const logger = {
         console.log('YORKIE F:', ...messages);
       }
     }
-
-    throw new Error(`YORKIE F: ${message}`);
   },
 
   isEnabled: (l: LogLevel): boolean => {

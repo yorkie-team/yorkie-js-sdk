@@ -22,6 +22,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `MoveOperation` is an operation representing moving an element to an Array.
@@ -64,10 +65,14 @@ export class MoveOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(parentObject instanceof CRDTArray)) {
-      logger.fatal(`fail to execute, only array can execute move`);
+      const ERROR_MESSAGE = `fail to execute, only array can execute move`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const array = parentObject as CRDTArray;
     const previousIndex = Number(array.subPathOf(this.createdAt));

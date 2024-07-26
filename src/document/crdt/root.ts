@@ -27,6 +27,7 @@ import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -134,7 +135,9 @@ export class CRDTRoot {
       const createdAt = pair.element.getCreatedAt();
       const subPath = pair.parent.subPathOf(createdAt);
       if (subPath === undefined) {
-        logger.fatal(`cant find the given element: ${createdAt.toIDString()}`);
+        const ERROR_MESSAGE = `cant find the given element: ${createdAt.toIDString()}`;
+        logger.fatal(ERROR_MESSAGE);
+        throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
       }
 
       subPaths.unshift(subPath!);

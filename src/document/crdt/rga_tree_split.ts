@@ -26,6 +26,7 @@ import {
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -634,9 +635,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       ? this.findFloorNodePreferToLeft(absoluteID)
       : this.findFloorNode(absoluteID);
     if (!node) {
-      logger.fatal(
-        `the node of the given id should be found: ${absoluteID.toTestString()}`,
-      );
+      const ERROR_MESSAGE = `the node of the given id should be found: ${absoluteID.toTestString()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     const index = this.treeByIndex.indexOf(node!);
     const offset = node!.isRemoved()
@@ -793,9 +794,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): RGATreeSplitNode<T> {
     let node = this.findFloorNode(id);
     if (!node) {
-      logger.fatal(
-        `the node of the given id should be found: ${id.toTestString()}`,
-      );
+      const ERROR_MESSAGE = `the node of the given id should be found: ${id.toTestString()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     if (id.getOffset() > 0 && node!.getID().getOffset() == id.getOffset()) {
@@ -847,7 +848,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     offset: number,
   ): RGATreeSplitNode<T> | undefined {
     if (offset > node.getContentLength()) {
-      logger.fatal('offset should be less than or equal to length');
+      const ERROR_MESSAGE = `offset should be less than or equal to length`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     if (offset === 0) {

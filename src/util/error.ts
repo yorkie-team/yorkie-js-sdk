@@ -44,6 +44,12 @@ export enum Code {
 
   // ErrInvalidArgument is returned when the argument is invalid.
   ErrInvalidArgument = 'ErrInvalidArgument',
+
+  // ErrOperationNotReady is returned when another operation needs to be completed first.
+  ErrOperationNotReady = 'ErrOperationNotReady',
+
+  // ErrOperationBlocked is returned when the operation cannot proceed.
+  ErrOperationBlocked = 'ErrOperationBlocked',
 }
 
 /**

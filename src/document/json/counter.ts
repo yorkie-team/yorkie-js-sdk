@@ -25,6 +25,7 @@ import {
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `Counter` is a custom data type that is used to counter.
@@ -78,9 +79,9 @@ export class Counter {
    */
   public increase(v: number | Long): Counter {
     if (!this.context || !this.counter) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Counter is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const ticket = this.context.issueTimeTicket();

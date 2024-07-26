@@ -43,6 +43,7 @@ import type {
   CRDTTreeNodeIDStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in
@@ -651,9 +652,9 @@ export class Tree {
     range: [Array<number>, Array<number>],
   ): TreePosStructRange {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Tree is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const indexRange: [number, number] = [
@@ -669,9 +670,9 @@ export class Tree {
    */
   indexRangeToPosRange(range: [number, number]): TreePosStructRange {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Tree is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     return this.tree.indexRangeToPosStructRange(range);
@@ -682,9 +683,9 @@ export class Tree {
    */
   posRangeToIndexRange(range: TreePosStructRange): [number, number] {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Tree is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [
@@ -702,9 +703,9 @@ export class Tree {
     range: TreePosStructRange,
   ): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Tree is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [

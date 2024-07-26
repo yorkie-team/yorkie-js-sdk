@@ -16,6 +16,7 @@
 
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
+import { Code, YorkieError } from './error';
 
 export type NextFn<T> = (value: T) => void;
 
@@ -106,11 +107,15 @@ class ObserverProxy<T> implements Observer<T> {
     let observer: Observer<T>;
 
     if (!nextOrObserver) {
-      logger.fatal('missing observer');
+      const ERROR_MESSAGE = 'missing observer';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     if (this.finalized) {
-      logger.fatal('observable is finalized due to previous error');
+      const ERROR_MESSAGE = 'observable is finalized due to previous error';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationBlocked, ERROR_MESSAGE);
     }
 
     if (typeof nextOrObserver === 'object') {

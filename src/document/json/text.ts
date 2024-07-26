@@ -38,6 +38,7 @@ import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TextPosStruct` represents the structure of RGATreeSplitPos.
@@ -92,13 +93,15 @@ export class Text<A extends Indexable = Indexable> {
     attributes?: A,
   ): [number, number] | undefined {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     if (fromIdx > toIdx) {
-      logger.fatal('from should be less than or equal to to');
-      return;
+      const ERROR_MESSAGE = 'from should be less than or equal to to';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
@@ -154,13 +157,15 @@ export class Text<A extends Indexable = Indexable> {
    */
   setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return false;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     if (fromIdx > toIdx) {
-      logger.fatal('from should be less than or equal to to');
-      return false;
+      const ERROR_MESSAGE = 'from should be less than or equal to to';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
@@ -203,9 +208,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   indexRangeToPosRange(range: [number, number]): TextPosStructRange {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const textRange = this.text.indexRangeToPosRange(range[0], range[1]);
@@ -217,9 +222,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   posRangeToIndexRange(range: TextPosStructRange): [number, number] {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     const textRange = this.text.findIndexesFromRange([
@@ -235,9 +240,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   toTestString(): string {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     return this.text.toTestString();
@@ -248,9 +253,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   values(): Array<TextValueType<A>> {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     return this.text.values();
@@ -285,8 +290,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   toString(): string {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      return '';
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     return this.text.toString();
@@ -321,9 +327,9 @@ export class Text<A extends Indexable = Indexable> {
    */
   createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
     if (!this.context || !this.text) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      const ERROR_MESSAGE = 'Text is not initialized yet';
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
     }
 
     return this.text.indexRangeToPosRange(fromIdx, toIdx);

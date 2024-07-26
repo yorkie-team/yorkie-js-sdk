@@ -30,6 +30,7 @@ import {
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -68,10 +69,14 @@ export class RemoveOperation extends Operation {
       this.getParentCreatedAt(),
     ) as CRDTContainer;
     if (!container) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
     if (!(container instanceof CRDTContainer)) {
-      logger.fatal(`only object and array can execute remove: ${container}`);
+      const ERROR_MESSAGE = `only object and array can execute remove: ${container}`;
+      logger.fatal(ERROR_MESSAGE);
+      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.
