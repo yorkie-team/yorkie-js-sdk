@@ -202,7 +202,10 @@ function toValueType(valueType: PrimitiveType): PbValueType {
     case PrimitiveType.Date:
       return PbValueType.DATE;
     default:
-      throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
+      throw new YorkieError(
+        Code.ErrUnsupported,
+        `unsupported type: ${valueType}`,
+      );
   }
 }
 
@@ -216,7 +219,10 @@ function toCounterType(valueType: CounterType): PbValueType {
     case CounterType.LongCnt:
       return PbValueType.LONG_CNT;
     default:
-      throw new YorkieError(Code.Unsupported, `unsupported type: ${valueType}`);
+      throw new YorkieError(
+        Code.ErrUnsupported,
+        `unsupported type: ${valueType}`,
+      );
   }
 }
 
@@ -859,7 +865,7 @@ function fromPresenceChange<P extends Indexable>(
     };
   }
 
-  throw new YorkieError(Code.Unsupported, `unsupported type: ${type}`);
+  throw new YorkieError(Code.ErrUnsupported, `unsupported type: ${type}`);
 }
 
 /**

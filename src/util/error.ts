@@ -28,7 +28,10 @@ export enum Code {
   ErrUnimplemented = 'ErrUnimplemented',
 
   // Unsupported is returned when the operation is not supported.
-  Unsupported = 'unsupported',
+  ErrUnsupported = 'ErrUnsupported',
+
+  // ErrIntended is returned when the error is intended.
+  ErrIntended = 'ErrIntended',
 
   // ErrDocumentNotAttached is returned when the document is not attached.
   ErrDocumentNotAttached = 'ErrDocumentNotAttached',
