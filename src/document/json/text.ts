@@ -303,7 +303,10 @@ export class Text<A extends Indexable = Indexable> {
    */
   public toJSON(): string {
     if (!this.context || !this.text) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrOperationNotReady,
+        'Text is not initialized yet',
+      );
     }
 
     return this.text.toJSON();
@@ -315,7 +318,10 @@ export class Text<A extends Indexable = Indexable> {
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.text) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrOperationNotReady,
+        'Text is not initialized yet',
+      );
     }
 
     return this.text.toJSForTest();

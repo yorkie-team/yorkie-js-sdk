@@ -43,6 +43,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -223,7 +224,8 @@ export class CRDTTreePos {
     const parentNode = tree.findFloorNode(parentID);
     let leftNode = tree.findFloorNode(leftSiblingID);
     if (!parentNode || !leftNode) {
-      throw new Error(
+      throw new YorkieError(
+        Code.ErrOperationNotPermitted,
         `cannot find node of CRDTTreePos(${parentID.toTestString()}, ${leftSiblingID.toTestString()})`,
       );
     }
@@ -514,7 +516,10 @@ export class CRDTTreeNode
    */
   get value() {
     if (!this.isText) {
-      throw new Error(`cannot get value of element node: ${this.type}`);
+      throw new YorkieError(
+        Code.ErrInvalidType,
+        `cannot get value of element node: ${this.type}`,
+      );
     }
 
     return this._value;
@@ -525,7 +530,10 @@ export class CRDTTreeNode
    */
   set value(v: string) {
     if (!this.isText) {
-      throw new Error(`cannot set value of element node: ${this.type}`);
+      throw new YorkieError(
+        Code.ErrInvalidType,
+        `cannot set value of element node: ${this.type}`,
+      );
     }
 
     this._value = v;
@@ -1217,7 +1225,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     ticket: TimeTicket,
   ): void {
     // TODO(hackerwins, easylogic): Implement this with keeping references of the nodes.
-    throw new Error(`not implemented: ${target}, ${source}, ${ticket}`);
+    throw new YorkieError(
+      Code.ErrUnimplemented,
+      `not implemented: ${target}, ${source}, ${ticket}`,
+    );
   }
 
   /**

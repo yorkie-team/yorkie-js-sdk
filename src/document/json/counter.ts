@@ -106,7 +106,7 @@ export class Counter {
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.counter) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(Code.ErrOperationNotReady, 'Counter is not ready');
     }
 
     return this.counter.toJSForTest();

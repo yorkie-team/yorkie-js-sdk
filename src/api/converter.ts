@@ -203,7 +203,7 @@ function toValueType(valueType: PrimitiveType): PbValueType {
       return PbValueType.DATE;
     default:
       throw new YorkieError(
-        Code.ErrUnsupported,
+        Code.ErrInvalidType,
         `unsupported type: ${valueType}`,
       );
   }
@@ -220,7 +220,7 @@ function toCounterType(valueType: CounterType): PbValueType {
       return PbValueType.LONG_CNT;
     default:
       throw new YorkieError(
-        Code.ErrUnsupported,
+        Code.ErrInvalidType,
         `unsupported type: ${valueType}`,
       );
   }
@@ -865,7 +865,7 @@ function fromPresenceChange<P extends Indexable>(
     };
   }
 
-  throw new YorkieError(Code.ErrUnsupported, `unsupported type: ${type}`);
+  throw new YorkieError(Code.ErrInvalidType, `unsupported type: ${type}`);
 }
 
 /**
@@ -1482,7 +1482,7 @@ function bytesToSnapshot<P extends Indexable>(
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
   if (!bytes) {
-    throw new Error('bytes is empty');
+    throw new YorkieError(Code.ErrInvalidArgument, 'bytes is empty');
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
@@ -1501,7 +1501,7 @@ function objectToBytes(obj: CRDTObject): Uint8Array {
  */
 function bytesToArray(bytes?: Uint8Array): CRDTArray {
   if (!bytes) {
-    throw new Error('bytes is empty');
+    throw new YorkieError(Code.ErrInvalidArgument, 'bytes is empty');
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
@@ -1520,7 +1520,7 @@ function arrayToBytes(array: CRDTArray): Uint8Array {
  */
 function bytesToTree(bytes?: Uint8Array): CRDTTree {
   if (!bytes) {
-    throw new Error('bytes is empty');
+    throw new YorkieError(Code.ErrInvalidArgument, 'bytes is empty');
   }
 
   const pbElement = PbJSONElement.fromBinary(bytes);
