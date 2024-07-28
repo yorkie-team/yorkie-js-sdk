@@ -67,14 +67,14 @@ export class SetOperation extends Operation {
   ): ExecutionResult | undefined {
     const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
     if (!obj) {
-      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(obj instanceof CRDTObject)) {
-      const ERROR_MESSAGE = `fail to execute, only object can execute set`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to execute, only object can execute set`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.

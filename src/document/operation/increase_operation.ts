@@ -63,14 +63,14 @@ export class IncreaseOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(parentObject instanceof CRDTCounter)) {
-      const ERROR_MESSAGE = `fail to execute, only Counter can execute increase`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to execute, only Counter can execute increase`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;

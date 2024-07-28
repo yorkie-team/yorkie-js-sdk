@@ -135,9 +135,9 @@ export class CRDTRoot {
       const createdAt = pair.element.getCreatedAt();
       const subPath = pair.parent.subPathOf(createdAt);
       if (subPath === undefined) {
-        const ERROR_MESSAGE = `cant find the given element: ${createdAt.toIDString()}`;
-        logger.fatal(ERROR_MESSAGE);
-        throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+        const ErrorMessage = `cant find the given element: ${createdAt.toIDString()}`;
+        logger.fatal(ErrorMessage);
+        throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
       }
 
       subPaths.unshift(subPath!);

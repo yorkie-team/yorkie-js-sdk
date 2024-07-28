@@ -36,11 +36,11 @@ describe('Primitive', function () {
     });
     assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
     assert.throws(() => {
-      const ERROR_MESSAGE = 'dummy error';
+      const ErrorMessage = 'dummy error';
       doc.update((root) => {
         delete root['k1']['k1-1'];
-        throw new YorkieError(Code.ErrDummy, ERROR_MESSAGE);
-      }, ERROR_MESSAGE);
+        throw new YorkieError(Code.ErrDummy, ErrorMessage);
+      }, ErrorMessage);
     });
     assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
   });

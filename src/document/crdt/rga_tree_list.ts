@@ -181,9 +181,9 @@ export class RGATreeList {
   ): RGATreeListNode {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      const ERROR_MESSAGE = `cant find the given node: ${createdAt.toIDString()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `cant find the given node: ${createdAt.toIDString()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     while (
@@ -235,16 +235,16 @@ export class RGATreeList {
   ): void {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
-      const ERROR_MESSAGE = `cant find the given node: ${prevCreatedAt.toIDString()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `cant find the given node: ${prevCreatedAt.toIDString()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      const ERROR_MESSAGE = `cant find the given node: ${createdAt.toIDString()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `cant find the given node: ${createdAt.toIDString()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     if (
@@ -291,11 +291,11 @@ export class RGATreeList {
       element.getCreatedAt().toIDString(),
     );
     if (!node) {
-      const ERROR_MESSAGE = `fail to find the given createdAt: ${element
+      const ErrorMessage = `fail to find the given createdAt: ${element
         .getCreatedAt()
         .toIDString()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     this.release(node!);
   }

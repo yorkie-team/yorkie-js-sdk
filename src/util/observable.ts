@@ -107,15 +107,15 @@ class ObserverProxy<T> implements Observer<T> {
     let observer: Observer<T>;
 
     if (!nextOrObserver) {
-      const ERROR_MESSAGE = 'missing observer';
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = 'missing observer';
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     if (this.finalized) {
-      const ERROR_MESSAGE = 'observable is finalized due to previous error';
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrOperationNotPermitted, ERROR_MESSAGE);
+      const ErrorMessage = 'observable is finalized due to previous error';
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrOperationNotPermitted, ErrorMessage);
     }
 
     if (typeof nextOrObserver === 'object') {

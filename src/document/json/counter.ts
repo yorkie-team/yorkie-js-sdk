@@ -79,9 +79,9 @@ export class Counter {
    */
   public increase(v: number | Long): Counter {
     if (!this.context || !this.counter) {
-      const ERROR_MESSAGE = 'Counter is not initialized yet';
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrOperationNotReady, ERROR_MESSAGE);
+      const ErrorMessage = 'Counter is not initialized yet';
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
     }
 
     const ticket = this.context.issueTimeTicket();

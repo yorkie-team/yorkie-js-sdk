@@ -69,14 +69,14 @@ export class RemoveOperation extends Operation {
       this.getParentCreatedAt(),
     ) as CRDTContainer;
     if (!container) {
-      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(container instanceof CRDTContainer)) {
-      const ERROR_MESSAGE = `only object and array can execute remove: ${container}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `only object and array can execute remove: ${container}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.

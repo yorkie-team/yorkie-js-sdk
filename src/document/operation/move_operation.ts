@@ -65,14 +65,14 @@ export class MoveOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      const ERROR_MESSAGE = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(parentObject instanceof CRDTArray)) {
-      const ERROR_MESSAGE = `fail to execute, only array can execute move`;
-      logger.fatal(ERROR_MESSAGE);
-      throw new YorkieError(Code.ErrInvalidArgument, ERROR_MESSAGE);
+      const ErrorMessage = `fail to execute, only array can execute move`;
+      logger.fatal(ErrorMessage);
+      throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     const array = parentObject as CRDTArray;
     const previousIndex = Number(array.subPathOf(this.createdAt));
