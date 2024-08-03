@@ -211,10 +211,7 @@ export abstract class Operation {
     // it doesn't have an executedAt yet. The executedAt is set when
     // the operation is executed through undo or redo.
     if (!this.executedAt) {
-      throw new YorkieError(
-        Code.ErrOperationNotReady,
-        'executedAt is not set yet',
-      );
+      throw new YorkieError(Code.ErrNotReady, 'executedAt is not set yet');
     }
     return this.executedAt;
   }

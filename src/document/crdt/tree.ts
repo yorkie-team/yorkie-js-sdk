@@ -225,7 +225,7 @@ export class CRDTTreePos {
     let leftNode = tree.findFloorNode(leftSiblingID);
     if (!parentNode || !leftNode) {
       throw new YorkieError(
-        Code.ErrOperationNotPermitted,
+        Code.ErrRefused,
         `cannot find node of CRDTTreePos(${parentID.toTestString()}, ${leftSiblingID.toTestString()})`,
       );
     }

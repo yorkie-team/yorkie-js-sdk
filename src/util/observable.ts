@@ -115,7 +115,7 @@ class ObserverProxy<T> implements Observer<T> {
     if (this.finalized) {
       const ErrorMessage = 'observable is finalized due to previous error';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotPermitted, ErrorMessage);
+      throw new YorkieError(Code.ErrRefused, ErrorMessage);
     }
 
     if (typeof nextOrObserver === 'object') {

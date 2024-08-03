@@ -81,7 +81,7 @@ export class Counter {
     if (!this.context || !this.counter) {
       const ErrorMessage = 'Counter is not initialized yet';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     const ticket = this.context.issueTimeTicket();
@@ -106,7 +106,8 @@ export class Counter {
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.counter) {
-      throw new YorkieError(Code.ErrOperationNotReady, 'Counter is not ready');
+      const ErrorMessage = 'Counter is not initialized yet';
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     return this.counter.toJSForTest();

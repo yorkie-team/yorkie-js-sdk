@@ -130,10 +130,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children = children;
 
     if (this.isText && this._children.length > 0) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
   }
 
@@ -307,10 +304,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   append(...newNode: Array<T>): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.push(...newNode);
@@ -326,10 +320,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   prepend(...newNode: Array<T>): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.unshift(...newNode);
@@ -343,10 +334,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertBefore(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -363,10 +351,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAfter(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -383,10 +368,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAt(newNode: T, offset: number): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this.insertAtInternal(newNode, offset);
@@ -398,10 +380,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   removeChild(child: T) {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(child);
@@ -457,10 +436,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAfterInternal(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
@@ -477,10 +453,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAtInternal(newNode: T, offset: number): void {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.splice(offset, 0, newNode);
@@ -493,10 +466,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   findOffset(node: T): number {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     if (node.isRemoved) {
@@ -520,10 +490,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   findBranchOffset(node: T): number {
     if (this.isText) {
-      throw new YorkieError(
-        Code.ErrOperationNotPermitted,
-        'Text node cannot have children',
-      );
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     let current: T | undefined = node;

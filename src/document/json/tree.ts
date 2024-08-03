@@ -258,7 +258,7 @@ export class Tree {
   public getSize(): number {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -272,7 +272,7 @@ export class Tree {
   public getNodeSize(): number {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -286,7 +286,7 @@ export class Tree {
   public getIndexTree(): IndexTree<CRDTTreeNode> {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -300,7 +300,7 @@ export class Tree {
   public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -343,7 +343,7 @@ export class Tree {
   ) {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -392,7 +392,7 @@ export class Tree {
   ) {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -508,7 +508,7 @@ export class Tree {
   ): boolean {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -547,7 +547,7 @@ export class Tree {
   ): boolean {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -581,7 +581,7 @@ export class Tree {
   ): boolean {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -614,7 +614,7 @@ export class Tree {
   ): boolean {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -637,7 +637,7 @@ export class Tree {
   public toXML(): string {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -651,7 +651,7 @@ export class Tree {
   public toJSON(): string {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -666,7 +666,7 @@ export class Tree {
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -682,7 +682,7 @@ export class Tree {
   public toJSInfoForTest(): Devtools.TreeNodeInfo {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -696,7 +696,7 @@ export class Tree {
   public getRootTreeNode() {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -710,7 +710,7 @@ export class Tree {
   public indexToPath(index: number): Array<number> {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -724,7 +724,7 @@ export class Tree {
   public pathToIndex(path: Array<number>): number {
     if (!this.context || !this.tree) {
       throw new YorkieError(
-        Code.ErrOperationNotReady,
+        Code.ErrNotInitialized,
         'Tree is not initialized yet',
       );
     }
@@ -741,7 +741,7 @@ export class Tree {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     const indexRange: [number, number] = [
@@ -759,7 +759,7 @@ export class Tree {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     return this.tree.indexRangeToPosStructRange(range);
@@ -772,7 +772,7 @@ export class Tree {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [
@@ -792,7 +792,7 @@ export class Tree {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
       logger.fatal(ErrorMessage);
-      throw new YorkieError(Code.ErrOperationNotReady, ErrorMessage);
+      throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [

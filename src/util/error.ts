@@ -30,7 +30,7 @@ export enum Code {
   // ErrInvalidType is returned when the type is invalid.
   ErrInvalidType = 'ErrInvalidType',
 
-  // ErrDummy is returned when the error is intentional.
+  // ErrDummy is used to verify errors for testing purposes.
   ErrDummy = 'ErrDummy',
 
   // ErrDocumentNotAttached is returned when the document is not attached.
@@ -48,11 +48,14 @@ export enum Code {
   // ErrInvalidArgument is returned when the argument is invalid.
   ErrInvalidArgument = 'ErrInvalidArgument',
 
-  // ErrOperationNotReady is returned when another operation needs to be completed first.
-  ErrOperationNotReady = 'ErrOperationNotReady',
+  // ErrNotInitialized is returned when required initialization has not been completed.
+  ErrNotInitialized = 'ErrNotInitialized',
 
-  // ErrOperationNotPermitted is returned when the operation is not permitted.
-  ErrOperationNotPermitted = 'ErrOperationNotPermitted',
+  // ErrNotReady is returned when execution of following actions is not ready.
+  ErrNotReady = 'ErrNotReady',
+
+  // ErrRefused is returned when the execution is rejected.
+  ErrRefused = 'ErrRefused',
 }
 
 /**

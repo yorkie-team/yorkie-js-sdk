@@ -1771,14 +1771,14 @@ export class Document<T, P extends Indexable = Indexable> {
   private undo(): void {
     if (this.isUpdating) {
       throw new YorkieError(
-        Code.ErrOperationNotPermitted,
+        Code.ErrRefused,
         'Undo is not allowed during an update',
       );
     }
     const undoOps = this.internalHistory.popUndo();
     if (undoOps === undefined) {
       throw new YorkieError(
-        Code.ErrOperationNotPermitted,
+        Code.ErrRefused,
         'There is no operation to be undone',
       );
     }
@@ -1871,7 +1871,7 @@ export class Document<T, P extends Indexable = Indexable> {
   private redo(): void {
     if (this.isUpdating) {
       throw new YorkieError(
-        Code.ErrOperationNotPermitted,
+        Code.ErrRefused,
         'Redo is not allowed during an update',
       );
     }
@@ -1879,7 +1879,7 @@ export class Document<T, P extends Indexable = Indexable> {
     const redoOps = this.internalHistory.popRedo();
     if (redoOps === undefined) {
       throw new YorkieError(
-        Code.ErrOperationNotPermitted,
+        Code.ErrRefused,
         'There is no operation to be redone',
       );
     }
