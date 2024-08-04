@@ -3,10 +3,10 @@ plugins:
   - plugin: es
     out: .
     opt:
-      - target=js+dts
+      - target=ts
       - js_import_style=module
   - plugin: connect-es
     out: .
     opt:
-      - target=js+dts
+      - target=ts
       - js_import_style=module
