@@ -8,7 +8,7 @@ All examples need to run the Yorkie server. So you should run the server before 
 
 ```bash
 # In the root directory of the repository.
-$ docker-compose -f docker/docker-compose.yml up --build -d
+$ docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 The examples have own local dependencies. So you should install dependencies before running examples.
