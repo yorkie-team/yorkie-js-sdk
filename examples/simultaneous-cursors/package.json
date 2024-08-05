@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "yorkie-js-sdk": "^0.4.28"
+    "yorkie-js-sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.0.37",

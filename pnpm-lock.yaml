@@ -23,8 +23,8 @@ importers:
         specifier: 18.2.0
         version: 18.2.0(react@18.2.0)
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/node':
         specifier: 20.4.2
@@ -42,8 +42,8 @@ importers:
   examples/profile-stack:
     dependencies:
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       vite:
         specifier: ^3.2.7
@@ -73,8 +73,8 @@ importers:
         specifier: ^4.7.1
         version: 4.7.1
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/lodash':
         specifier: ^4.14.198
@@ -113,8 +113,8 @@ importers:
         specifier: ^2.4.2
         version: 2.4.2
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/react':
         specifier: ^18.0.24
@@ -141,8 +141,8 @@ importers:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/react':
         specifier: ^18.0.37
@@ -181,8 +181,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1(@lezer/common@1.0.2)
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       typescript:
         specifier: ^4.6.4
@@ -206,8 +206,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/color-hash':
         specifier: ^1.0.2
@@ -228,8 +228,8 @@ importers:
         specifier: ^3.2.41
         version: 3.3.4
       yorkie-js-sdk:
-        specifier: ^0.4.28
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^3.1.2
@@ -298,8 +298,8 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       yorkie-js-sdk:
-        specifier: ^0.4.27
-        version: 0.4.28
+        specifier: workspace:*
+        version: link:../sdk
     devDependencies:
       '@types/chrome':
         specifier: 0.0.251
@@ -335,9 +335,9 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0
     devDependencies:
-      '@buf/googleapis_googleapis.connectrpc_es':
+      '@buf/googleapis_googleapis.bufbuild_es':
         specifier: ^1.4.0-20240524201209-f0e53af8f2fc.3
-        version: 1.4.0-20240524201209-f0e53af8f2fc.3(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
+        version: 1.4.0-20240729201550-8bc2c51e08c4.3(@bufbuild/protobuf@1.10.0)
       '@bufbuild/buf':
         specifier: ^1.28.1
         version: 1.28.1
@@ -549,15 +549,10 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@buf/googleapis_googleapis.bufbuild_es@1.7.2-20240524201209-f0e53af8f2fc.2':
-    resolution: {tarball: https://buf.build/gen/npm/v1/@buf/googleapis_googleapis.bufbuild_es/-/googleapis_googleapis.bufbuild_es-1.7.2-20240524201209-f0e53af8f2fc.2.tgz}
+  '@buf/googleapis_googleapis.bufbuild_es@1.4.0-20240729201550-8bc2c51e08c4.3':
+    resolution: {tarball: https://buf.build/gen/npm/v1/@buf/googleapis_googleapis.bufbuild_es/-/googleapis_googleapis.bufbuild_es-1.4.0-20240729201550-8bc2c51e08c4.3.tgz}
     peerDependencies:
-      '@bufbuild/protobuf': ^1.7.2
-
-  '@buf/googleapis_googleapis.connectrpc_es@1.4.0-20240524201209-f0e53af8f2fc.3':
-    resolution: {tarball: https://buf.build/gen/npm/v1/@buf/googleapis_googleapis.connectrpc_es/-/googleapis_googleapis.connectrpc_es-1.4.0-20240524201209-f0e53af8f2fc.3.tgz}
-    peerDependencies:
-      '@connectrpc/connect': ^1.4.0
+      '@bufbuild/protobuf': ^1.4.0
 
   '@bufbuild/buf-darwin-arm64@1.28.1':
     resolution: {integrity: sha512-nAyvwKkcd8qQTExCZo5MtSRhXLK7e3vzKFKHjXfkveRakSUST2HFlFZAHfErZimN4wBrPTN0V0hNRU8PPjkMpQ==}
@@ -5875,10 +5870,6 @@ packages:
     resolution: {integrity: sha512-9bnSc/HEW2uRy67wc+T8UwauLuPJVn28jb+GtJY16iiKWyvmYJRXVT4UamsAEGQfPohgr2q4Tq0sQbQlxTfi1g==}
     engines: {node: '>=12.20'}
 
-  yorkie-js-sdk@0.4.28:
-    resolution: {integrity: sha512-laDG5LVXV1mW085F4BdagUgIgU4hd+QBD0kon8kAeVA086ZGwXRMlFSYhEZtY1bB+RTSDSe4i78vVGG2Kv6bcg==}
-    engines: {node: '>=18.0.0', npm: '>=7.1.0'}
-
   z-schema@5.0.5:
     resolution: {integrity: sha512-D7eujBWkLa3p2sIpJA0d1pr7es+a7m0vFAnZLlCEKq/Ij2k0MLi9Br2UPxoxdYystm5K1yeBGzub0FlYUEWj2Q==}
     engines: {node: '>=8.0.0'}
@@ -6069,16 +6060,9 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@buf/googleapis_googleapis.bufbuild_es@1.7.2-20240524201209-f0e53af8f2fc.2(@bufbuild/protobuf@1.10.0)':
+  '@buf/googleapis_googleapis.bufbuild_es@1.4.0-20240729201550-8bc2c51e08c4.3(@bufbuild/protobuf@1.10.0)':
     dependencies:
       '@bufbuild/protobuf': 1.10.0
-
-  '@buf/googleapis_googleapis.connectrpc_es@1.4.0-20240524201209-f0e53af8f2fc.3(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))':
-    dependencies:
-      '@buf/googleapis_googleapis.bufbuild_es': 1.7.2-20240524201209-f0e53af8f2fc.2(@bufbuild/protobuf@1.10.0)
-      '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.0)
-    transitivePeerDependencies:
-      - '@bufbuild/protobuf'
 
   '@bufbuild/buf-darwin-arm64@1.28.1':
     optional: true
@@ -12201,13 +12185,6 @@ snapshots:
   yn@3.1.1: {}
 
   yocto-queue@1.0.0: {}
-
-  yorkie-js-sdk@0.4.28:
-    dependencies:
-      '@bufbuild/protobuf': 1.10.0
-      '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.0)
-      '@connectrpc/connect-web': 1.4.0(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.0))
-      long: 5.2.0
 
   z-schema@5.0.5:
     dependencies:

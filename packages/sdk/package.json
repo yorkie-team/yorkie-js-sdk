@@ -21,7 +21,7 @@
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "update:examples": "./scripts/update-examples.sh",
-    "prepare": "npm run build"
+    "prepare": "pnpm run build"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -41,7 +41,7 @@
   },
   "homepage": "https://github.com/yorkie-team/yorkie-js-sdk#readme",
   "devDependencies": {
-    "@buf/googleapis_googleapis.connectrpc_es": "^1.4.0-20240524201209-f0e53af8f2fc.3",
+    "@buf/googleapis_googleapis.bufbuild_es": "^1.4.0-20240524201209-f0e53af8f2fc.3",
     "@bufbuild/buf": "^1.28.1",
     "@bufbuild/protoc-gen-es": "^1.6.0",
     "@connectrpc/protoc-gen-connect-es": "^1.4.0",
