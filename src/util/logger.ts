@@ -91,7 +91,7 @@ export const logger = {
     }
   },
 
-  fatal: (message: string, ...messages: Array<unknown>): void => {
+  fatal: (...messages: Array<unknown>): void => {
     if (typeof console != 'undefined') {
       if (typeof console.error !== 'undefined') {
         console.error('YORKIE F:', ...messages);
