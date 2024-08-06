@@ -636,7 +636,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       : this.findFloorNode(absoluteID);
     if (!node) {
       const ErrorMessage = `the node of the given id should be found: ${absoluteID.toTestString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     const index = this.treeByIndex.indexOf(node!);
@@ -795,7 +794,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     let node = this.findFloorNode(id);
     if (!node) {
       const ErrorMessage = `the node of the given id should be found: ${id.toTestString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -849,7 +847,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): RGATreeSplitNode<T> | undefined {
     if (offset > node.getContentLength()) {
       const ErrorMessage = `offset should be less than or equal to length`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 

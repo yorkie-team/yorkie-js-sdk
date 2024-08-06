@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -136,7 +135,6 @@ export class CRDTRoot {
       const subPath = pair.parent.subPathOf(createdAt);
       if (subPath === undefined) {
         const ErrorMessage = `cant find the given element: ${createdAt.toIDString()}`;
-        logger.fatal(ErrorMessage);
         throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
       }
 

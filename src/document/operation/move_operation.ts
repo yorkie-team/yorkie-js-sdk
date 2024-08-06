@@ -66,12 +66,10 @@ export class MoveOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(parentObject instanceof CRDTArray)) {
       const ErrorMessage = `fail to execute, only array can execute move`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     const array = parentObject as CRDTArray;

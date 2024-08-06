@@ -80,7 +80,6 @@ export class Counter {
   public increase(v: number | Long): Counter {
     if (!this.context || !this.counter) {
       const ErrorMessage = 'Counter is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 

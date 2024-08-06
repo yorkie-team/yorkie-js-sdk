@@ -68,12 +68,10 @@ export class SetOperation extends Operation {
     const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
     if (!obj) {
       const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(obj instanceof CRDTObject)) {
       const ErrorMessage = `fail to execute, only object can execute set`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 

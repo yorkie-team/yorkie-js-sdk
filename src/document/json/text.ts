@@ -94,13 +94,11 @@ export class Text<A extends Indexable = Indexable> {
   ): [number, number] | undefined {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     if (fromIdx > toIdx) {
       const ErrorMessage = 'from should be less than or equal to to';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -158,13 +156,11 @@ export class Text<A extends Indexable = Indexable> {
   setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
     if (fromIdx > toIdx) {
       const ErrorMessage = 'from should be less than or equal to to';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -209,7 +205,6 @@ export class Text<A extends Indexable = Indexable> {
   indexRangeToPosRange(range: [number, number]): TextPosStructRange {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -223,7 +218,6 @@ export class Text<A extends Indexable = Indexable> {
   posRangeToIndexRange(range: TextPosStructRange): [number, number] {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -241,7 +235,6 @@ export class Text<A extends Indexable = Indexable> {
   toTestString(): string {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -254,7 +247,6 @@ export class Text<A extends Indexable = Indexable> {
   values(): Array<TextValueType<A>> {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -291,7 +283,6 @@ export class Text<A extends Indexable = Indexable> {
   toString(): string {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -334,7 +325,6 @@ export class Text<A extends Indexable = Indexable> {
   createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
     if (!this.context || !this.text) {
       const ErrorMessage = 'Text is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 

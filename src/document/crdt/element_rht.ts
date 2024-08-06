@@ -116,7 +116,6 @@ export class ElementRHT {
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): CRDTElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
       const ErrorMessage = `fail to find ${createdAt.toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -148,7 +147,6 @@ export class ElementRHT {
       const ErrorMessage = `fail to find ${element
         .getCreatedAt()
         .toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 

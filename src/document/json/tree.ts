@@ -740,7 +740,6 @@ export class Tree {
   ): TreePosStructRange {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -758,7 +757,6 @@ export class Tree {
   indexRangeToPosRange(range: [number, number]): TreePosStructRange {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -771,7 +769,6 @@ export class Tree {
   posRangeToIndexRange(range: TreePosStructRange): [number, number] {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 
@@ -791,7 +788,6 @@ export class Tree {
   ): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
       const ErrorMessage = 'Tree is not initialized yet';
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrNotInitialized, ErrorMessage);
     }
 

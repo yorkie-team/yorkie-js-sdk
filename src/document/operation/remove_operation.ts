@@ -70,12 +70,10 @@ export class RemoveOperation extends Operation {
     ) as CRDTContainer;
     if (!container) {
       const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(container instanceof CRDTContainer)) {
       const ErrorMessage = `only object and array can execute remove: ${container}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 

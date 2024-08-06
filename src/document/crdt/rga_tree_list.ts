@@ -182,7 +182,6 @@ export class RGATreeList {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       const ErrorMessage = `cant find the given node: ${createdAt.toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -236,14 +235,12 @@ export class RGATreeList {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
       const ErrorMessage = `cant find the given node: ${prevCreatedAt.toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       const ErrorMessage = `cant find the given node: ${createdAt.toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
 
@@ -294,7 +291,6 @@ export class RGATreeList {
       const ErrorMessage = `fail to find the given createdAt: ${element
         .getCreatedAt()
         .toIDString()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     this.release(node!);

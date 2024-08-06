@@ -109,12 +109,10 @@ export class TreeStyleOperation extends Operation {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       const ErrorMessage = `fail to find ${this.getParentCreatedAt()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     if (!(parentObject instanceof CRDTTree)) {
       const ErrorMessage = `fail to execute, only Tree can execute edit`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     const tree = parentObject as CRDTTree;

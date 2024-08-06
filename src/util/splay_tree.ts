@@ -208,7 +208,6 @@ export class SplayTree<V> {
     }
     if (pos > node.getLength()) {
       const ErrorMessage = `out of index range: pos: ${pos} > node.length: ${node.getLength()}`;
-      logger.fatal(ErrorMessage);
       throw new YorkieError(Code.ErrInvalidArgument, ErrorMessage);
     }
     return [node, pos];
