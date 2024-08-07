@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';

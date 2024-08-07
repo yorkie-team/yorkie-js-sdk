@@ -26,7 +26,6 @@ import {
   Primitive,
   PrimitiveType,
 } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 

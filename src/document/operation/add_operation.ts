@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';

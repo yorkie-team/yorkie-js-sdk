@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
