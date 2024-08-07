@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
@@ -25,6 +24,7 @@ import {
   CRDTCounter,
 } from '@yorkie-js-sdk/src/document/crdt/counter';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `Counter` is a custom data type that is used to counter.
@@ -78,9 +78,10 @@ export class Counter {
    */
   public increase(v: number | Long): Counter {
     if (!this.context || !this.counter) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Counter is not initialized yet',
+      );
     }
 
     const ticket = this.context.issueTimeTicket();
@@ -105,7 +106,10 @@ export class Counter {
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.counter) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Counter is not initialized yet',
+      );
     }
 
     return this.counter.toJSForTest();

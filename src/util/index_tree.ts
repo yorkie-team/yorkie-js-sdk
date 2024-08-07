@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '../yorkie';
+import { Code, YorkieError } from './error';
 
 /**
  * About `index`, `path`, `size` and `TreePos` in crdt.IndexTree.
@@ -129,7 +130,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children = children;
 
     if (this.isText && this._children.length > 0) {
-      throw new Error(`Text node cannot have children: ${this.type}`);
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
   }
 
@@ -303,7 +304,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   append(...newNode: Array<T>): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.push(...newNode);
@@ -319,7 +320,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   prepend(...newNode: Array<T>): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.unshift(...newNode);
@@ -333,12 +334,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertBefore(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
-      throw new Error('child not found');
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
     }
 
     this.insertAtInternal(newNode, offset);
@@ -350,12 +351,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAfter(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
-      throw new Error('child not found');
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
     }
 
     this.insertAtInternal(newNode, offset + 1);
@@ -367,7 +368,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAt(newNode: T, offset: number): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this.insertAtInternal(newNode, offset);
@@ -379,12 +380,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   removeChild(child: T) {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(child);
     if (offset === -1) {
-      throw new Error('child not found');
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
     }
 
     this._children.splice(offset, 1);
@@ -435,12 +436,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAfterInternal(newNode: T, referenceNode: T): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     const offset = this._children.indexOf(referenceNode);
     if (offset === -1) {
-      throw new Error('child not found');
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
     }
 
     this.insertAtInternal(newNode, offset + 1);
@@ -452,7 +453,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   insertAtInternal(newNode: T, offset: number): void {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     this._children.splice(offset, 0, newNode);
@@ -465,7 +466,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   findOffset(node: T): number {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     if (node.isRemoved) {
@@ -489,7 +490,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   findBranchOffset(node: T): number {
     if (this.isText) {
-      throw new Error('Text node cannot have children');
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
     let current: T | undefined = node;
@@ -577,15 +578,24 @@ function tokensBetween<T extends IndexTreeNode<T>>(
   callback: (token: TreeToken<T>, ended: boolean) => void,
 ) {
   if (from > to) {
-    throw new Error(`from is greater than to: ${from} > ${to}`);
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `from is greater than to: ${from} > ${to}`,
+    );
   }
 
   if (from > root.size) {
-    throw new Error(`from is out of range: ${from} > ${root.size}`);
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `from is out of range: ${from} > ${root.size}`,
+    );
   }
 
   if (to > root.size) {
-    throw new Error(`to is out of range: ${to} > ${root.size}`);
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `to is out of range: ${to} > ${root.size}`,
+    );
   }
 
   if (from === to) {
@@ -663,7 +673,10 @@ function findTreePos<T extends IndexTreeNode<T>>(
   preferText = true,
 ): TreePos<T> {
   if (index > node.size) {
-    throw new Error(`index is out of range: ${index} > ${node.size}`);
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `index is out of range: ${index} > ${node.size}`,
+    );
   }
 
   if (node.isText) {
@@ -764,7 +777,7 @@ export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
  */
 function findTextPos<T extends IndexTreeNode<T>>(node: T, pathElement: number) {
   if (node.size < pathElement) {
-    throw new Error('unacceptable path');
+    throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
   }
 
   for (let i = 0; i < node.children.length; i++) {
@@ -834,7 +847,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     if (node.isText) {
       const offset = node.parent!.findOffset(node);
       if (offset === -1) {
-        throw new Error('invalid treePos');
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid treePos');
       }
 
       const sizeOfLeftSiblings = addSizeOfLeftSiblings(
@@ -858,7 +871,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     while (node.parent) {
       const offset = node.parent.findOffset(node);
       if (offset === -1) {
-        throw new Error('invalid treePos');
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid treePos');
       }
 
       path.push(offset);
@@ -882,7 +895,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    */
   public pathToTreePos(path: Array<number>): TreePos<T> {
     if (!path.length) {
-      throw new Error('unacceptable path');
+      throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 
     let node = this.root;
@@ -891,7 +904,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       node = node.children[pathElement];
 
       if (!node) {
-        throw new Error('unacceptable path');
+        throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
       }
     }
 
@@ -900,7 +913,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     }
 
     if (node.children.length < path[path.length - 1]) {
-      throw new Error('unacceptable path');
+      throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 
     return {
@@ -965,7 +978,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       const parent = node.parent! as T;
       const offsetOfNode = parent.findOffset(node);
       if (offsetOfNode === -1) {
-        throw new Error('invalid pos');
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
       }
 
       size += addSizeOfLeftSiblings(parent, offsetOfNode);
@@ -979,7 +992,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       const parent = node.parent;
       const offsetOfNode = parent.findOffset(node);
       if (offsetOfNode === -1) {
-        throw new Error('invalid pos');
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
       }
 
       size += addSizeOfLeftSiblings(parent, offsetOfNode);

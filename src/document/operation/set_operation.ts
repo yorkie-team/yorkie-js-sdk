@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
@@ -25,6 +24,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the
@@ -66,10 +66,16 @@ export class SetOperation extends Operation {
   ): ExecutionResult | undefined {
     const obj = root.findByCreatedAt(this.getParentCreatedAt()) as CRDTObject;
     if (!obj) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(obj instanceof CRDTObject)) {
-      logger.fatal(`fail to execute, only object can execute set`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only object can execute set`,
+      );
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.

@@ -660,7 +660,7 @@ export class Document<T, P extends Indexable = Indexable> {
     } catch (err) {
       // drop clone because it is contaminated.
       this.clone = undefined;
-      logger.error(err);
+
       throw err;
     } finally {
       this.isUpdating = false;
@@ -847,7 +847,10 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe {
     if (typeof arg1 === 'string') {
       if (typeof arg2 !== 'function') {
-        throw new Error('Second argument must be a callback function');
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'Second argument must be a callback function',
+        );
       }
       if (arg1 === 'presence') {
         const callback = arg2 as DocEventCallbackMap<P>['presence'];
@@ -1021,7 +1024,7 @@ export class Document<T, P extends Indexable = Indexable> {
         complete,
       );
     }
-    throw new Error(`"${arg1}" is not a valid`);
+    throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
   }
 
   /**
@@ -1761,11 +1764,17 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private undo(): void {
     if (this.isUpdating) {
-      throw new Error('Undo is not allowed during an update');
+      throw new YorkieError(
+        Code.ErrRefused,
+        'Undo is not allowed during an update',
+      );
     }
     const undoOps = this.internalHistory.popUndo();
     if (undoOps === undefined) {
-      throw new Error('There is no operation to be undone');
+      throw new YorkieError(
+        Code.ErrRefused,
+        'There is no operation to be undone',
+      );
     }
 
     this.ensureClone();
@@ -1855,12 +1864,18 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private redo(): void {
     if (this.isUpdating) {
-      throw new Error('Redo is not allowed during an update');
+      throw new YorkieError(
+        Code.ErrRefused,
+        'Redo is not allowed during an update',
+      );
     }
 
     const redoOps = this.internalHistory.popRedo();
     if (redoOps === undefined) {
-      throw new Error('There is no operation to be redone');
+      throw new YorkieError(
+        Code.ErrRefused,
+        'There is no operation to be redone',
+      );
     }
 
     this.ensureClone();

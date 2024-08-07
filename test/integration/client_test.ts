@@ -32,7 +32,7 @@ import {
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
-import { Code } from '@yorkie-js-sdk/src/util/error';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe.sequential('Client', function () {
   afterEach(() => {
@@ -133,7 +133,7 @@ describe.sequential('Client', function () {
       // Simulate network error with fetch
       vi.stubGlobal('fetch', () => {
         return Promise.resolve().then(() => {
-          throw new Error('Failed to fetch');
+          throw new YorkieError(Code.ErrDummy, 'Failed to fetch');
         });
       });
 
@@ -211,7 +211,7 @@ describe.sequential('Client', function () {
     // Simulate network error
     vi.stubGlobal('fetch', () => {
       return Promise.resolve().then(() => {
-        throw new Error('Failed to fetch');
+        throw new YorkieError(Code.ErrDummy, 'Failed to fetch');
       });
     });
 

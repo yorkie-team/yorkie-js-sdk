@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { Code, YorkieError } from './error';
 
 /**
  * `SplayNode` is a node of SplayTree.
@@ -206,7 +206,8 @@ export class SplayTree<V> {
       }
     }
     if (pos > node.getLength()) {
-      logger.fatal(
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
         `out of index range: pos: ${pos} > node.length: ${node.getLength()}`,
       );
     }

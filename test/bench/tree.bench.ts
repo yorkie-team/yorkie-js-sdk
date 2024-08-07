@@ -98,7 +98,7 @@ const benchmarkTreeConvert = (size: number) => {
 
     root.tree = new Tree({
       type: 'doc',
-      children: [{ type: 'p', children: children }],
+      children: [{ type: 'p', children }],
     });
   });
 

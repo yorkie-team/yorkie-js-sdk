@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+import { YorkieError, Code } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `ElementRHTNode` is a node of ElementRHT.
@@ -114,7 +114,10 @@ export class ElementRHT {
    */
   public delete(createdAt: TimeTicket, executedAt: TimeTicket): CRDTElement {
     if (!this.nodeMapByCreatedAt.has(createdAt.toIDString())) {
-      logger.fatal(`fail to find ${createdAt.toIDString()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${createdAt.toIDString()}`,
+      );
     }
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString())!;
@@ -142,8 +145,10 @@ export class ElementRHT {
       element.getCreatedAt().toIDString(),
     );
     if (!node) {
-      logger.fatal(`fail to find ${element.getCreatedAt().toIDString()}`);
-      return;
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${element.getCreatedAt().toIDString()}`,
+      );
     }
 
     const nodeByKey = this.nodeMapByKey.get(node.getStrKey());

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
@@ -30,6 +29,7 @@ import {
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.
@@ -68,10 +68,16 @@ export class RemoveOperation extends Operation {
       this.getParentCreatedAt(),
     ) as CRDTContainer;
     if (!container) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(container instanceof CRDTContainer)) {
-      logger.fatal(`only object and array can execute remove: ${container}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `only object and array can execute remove: ${container}`,
+      );
     }
 
     // NOTE(chacha912): Handle cases where operation cannot be executed during undo and redo.

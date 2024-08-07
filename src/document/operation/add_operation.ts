@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
@@ -23,6 +22,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `AddOperation` is an operation representing adding an element to an Array.
@@ -60,10 +60,16 @@ export class AddOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(parentObject instanceof CRDTArray)) {
-      logger.fatal(`fail to execute, only array can execute add`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only array can execute add`,
+      );
     }
     const array = parentObject as CRDTArray;
     const value = this.value.deepcopy();
