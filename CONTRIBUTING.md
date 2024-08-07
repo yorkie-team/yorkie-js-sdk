@@ -66,7 +66,7 @@ $ npm run build:proto
 Start MongoDB, Yorkie in a terminal session.
 
 ```bash
-$ docker-compose -f docker/docker-compose.yml up --build -d
+$ docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 Start the test in another terminal session.
@@ -79,7 +79,7 @@ To get the latest server locally, run the command below then restart containers 
 
 ```bash
 $ docker pull yorkieteam/yorkie:latest
-$ docker-compose -f docker/docker-compose.yml up --build -d
+$ docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 To print specific console logs, delete the line `return false` in the `onConsoleLog()` function within [`vitest.config.ts`](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/vitest.config.ts#L16).
@@ -116,7 +116,7 @@ $ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
 Start MongoDB and Yorkie in a terminal session.
 
 ```bash
-$ docker-compose -f docker/docker-compose.yml up --build -d
+$ docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 Start the webpack-dev-server in another terminal session.

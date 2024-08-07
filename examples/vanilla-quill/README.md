@@ -44,7 +44,7 @@ $ npm install
 At project root, run below command to start Yorkie.
 
 ```bash
-$ docker-compose -f docker/docker-compose.yml up --build -d
+$ docker compose -f docker/docker-compose.yml up --build -d
 ```
 
 Update the `.env` file like so:
