@@ -661,12 +661,6 @@ export class Document<T, P extends Indexable = Indexable> {
       // drop clone because it is contaminated.
       this.clone = undefined;
 
-      if (err instanceof YorkieError) {
-        logger.error(err.toString());
-      } else {
-        logger.error(err);
-      }
-
       throw err;
     } finally {
       this.isUpdating = false;
