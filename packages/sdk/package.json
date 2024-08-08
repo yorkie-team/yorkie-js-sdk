@@ -2,8 +2,12 @@
   "name": "yorkie-js-sdk",
   "version": "0.4.28",
   "description": "Yorkie JS SDK",
-  "main": "./dist/yorkie-js-sdk.js",
-  "typings": "./dist/yorkie-js-sdk.d.ts",
+  "main": "./src/yorkie.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/yorkie-js-sdk.js",
+    "typings": "./dist/yorkie-js-sdk.d.ts"
+  },
   "files": [
     "dist"
   ],
@@ -59,9 +63,9 @@
     "prettier": "^2.7.1",
     "ts-node": "^10.9.1",
     "typedoc": "^0.25.13",
-    "typescript": "^4.7.4",
+    "typescript": "^5.2.2",
     "typescript-transform-paths": "^3.3.1",
-    "vite": "^4.4.9",
+    "vite": "^5.0.12",
     "vite-plugin-commonjs": "^0.10.1",
     "vite-plugin-dts": "^3.9.1",
     "vite-tsconfig-paths": "^4.2.1",
@@ -77,8 +81,5 @@
     "hooks": {
       "pre-commit": "npm run lint"
     }
-  },
-  "workspaces": [
-    "examples/*"
-  ]
+  }
 }
