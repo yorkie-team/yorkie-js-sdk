@@ -8,9 +8,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config ./webpack.config.js && npm run build:copy-assets",
+    "build": "webpack --config ./webpack.config.js && pnpm build:copy-assets",
     "build:copy-assets": "cp -r ../../examples ./dist && cp ./.env  ./dist/.env",
-    "start": "npm run build && node dist/create-yorkie-app.mjs"
+    "start": "pnpm build && node dist/create-yorkie-app.mjs"
   },
   "repository": {
     "type": "git",
