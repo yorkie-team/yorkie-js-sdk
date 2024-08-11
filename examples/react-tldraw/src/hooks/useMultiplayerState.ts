@@ -234,11 +234,10 @@ export function useMultiplayerState(roomId: string) {
         });
 
         // 02-2. Attach document with initialPresence.
-        await client.attach(doc, {
-          initialPresence: {
-            tdUser: app?.currentUser,
-          },
-        });
+        const option = app?.currentUser && {
+          initialPresence: { tdUser: app.currentUser },
+        };
+        await client.attach(doc, option);
 
         // 03. Initialize document if document not exists.
         doc.update((root) => {

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-hook/throttle": "^2.2.0",
+    "@tldraw/core": "^1.23.2",
     "@tldraw/tldraw": "1.26.3",
     "lodash": "^4.17.21",
     "randomcolor": "^0.6.2",

@@ -74,6 +74,9 @@ importers:
       '@react-hook/throttle':
         specifier: ^2.2.0
         version: 2.2.0(react@18.2.0)
+      '@tldraw/core':
+        specifier: ^1.23.2
+        version: 1.23.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@tldraw/tldraw':
         specifier: 1.26.3
         version: 1.26.3(@types/react-dom@18.2.15)(@types/react@18.2.37)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)
@@ -2860,14 +2863,17 @@ packages:
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
     engines: {node: '>=14.16'}
 
-  '@tldraw/core@1.21.0':
-    resolution: {integrity: sha512-3hvYLR/XwpMI9GvHIHGfYNmkiaKlokx8vekx0Eq/o/NAkqGkGwnZcTG5shbetWzwQTTi5F4vWInJqA/BfX+OCA==}
+  '@tldraw/core@1.23.2':
+    resolution: {integrity: sha512-cx+KfqemSHvVonNGwEolosMOsJt5cl3PGRBaXcZOOXQxnFALF22dnMtm6lbmlQQA71EfqNMP5e+qV3jCwuYaqA==}
     peerDependencies:
       react: '>=16.8'
       react-dom: '>=16.8'
 
   '@tldraw/intersect@1.8.0':
     resolution: {integrity: sha512-0UarshNpyq2+O4o0xHMJIBgF0E630mes5CkMoO+D5xgYppSBIkeqYDcv0ujsmAhMKX1O6Y0ShuuHeflBEULUoQ==}
+
+  '@tldraw/intersect@1.9.2':
+    resolution: {integrity: sha512-teUQLy+p5YT4PIKOHaL+zM0NYD1779mPp02xabP+5LGLvv7tt9VaqJ9D899EYppQbBLN6be6CJUrmibrvLtnUQ==}
 
   '@tldraw/tldraw@1.26.3':
     resolution: {integrity: sha512-u8FfU3Q84y9E0PFLtw857bkmtlos4+/SSta9IrKQugrqVLBWzyixa2Wfk4e8h+Fr3CLCPa7uaBnlvT3Awr6dDQ==}
@@ -2877,6 +2883,9 @@ packages:
 
   '@tldraw/vec@1.8.0':
     resolution: {integrity: sha512-GiS5Df3CzXY/fPBFcM0CKFERZfI4Cg1X33VPZX+NLo7Fwm/h9zu/aU24N1mG75Q9LuMnwKm7woxKr8BiUXGYCg==}
+
+  '@tldraw/vec@1.9.2':
+    resolution: {integrity: sha512-k9vH52MRpJHjVcaahWu6VqvhLeE9h1qL5Z2gLobS9zTMpUJ59kBQPNo0VPzPlDYBpXdS4GxuB4jYQMnKvuPAZg==}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -9862,10 +9871,10 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
-  '@tldraw/core@1.21.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
+  '@tldraw/core@1.23.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@tldraw/intersect': 1.8.0
-      '@tldraw/vec': 1.8.0
+      '@tldraw/intersect': 1.9.2
+      '@tldraw/vec': 1.9.2
       '@use-gesture/react': 10.2.23(react@18.2.0)
       perfect-freehand: 1.2.0
       react: 18.2.0
@@ -9874,6 +9883,10 @@ snapshots:
   '@tldraw/intersect@1.8.0':
     dependencies:
       '@tldraw/vec': 1.8.0
+
+  '@tldraw/intersect@1.9.2':
+    dependencies:
+      '@tldraw/vec': 1.9.2
 
   '@tldraw/tldraw@1.26.3(@types/react-dom@18.2.15)(@types/react@18.2.37)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)':
     dependencies:
@@ -9885,7 +9898,7 @@ snapshots:
       '@radix-ui/react-popover': 1.1.1(@types/react-dom@18.2.15)(@types/react@18.2.37)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-tooltip': 1.1.2(@types/react-dom@18.2.15)(@types/react@18.2.37)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@stitches/react': 1.2.8(react@18.2.0)
-      '@tldraw/core': 1.21.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@tldraw/core': 1.23.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@tldraw/intersect': 1.8.0
       '@tldraw/vec': 1.8.0
       browser-fs-access: 0.31.2
@@ -9905,6 +9918,8 @@ snapshots:
       - typescript
 
   '@tldraw/vec@1.8.0': {}
+
+  '@tldraw/vec@1.9.2': {}
 
   '@trysound/sax@0.2.0': {}
 
