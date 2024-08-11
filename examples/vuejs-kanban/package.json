@@ -11,7 +11,7 @@
     "yorkie-js-sdk": "workspace:*"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^3.1.2",
+    "@vitejs/plugin-vue": "^5.0.3",
     "vite": "^5.0.12"
   }
 }
