@@ -5,7 +5,7 @@ on:
     branches:
       - 'main'
     paths:
-      - tools/devtools/**
+      - packages/devtools/**
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -17,16 +17,15 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install and Build 🔧
         run: |
-          cd tools/devtools
-          npm install
-          npm run build
+          pnpm devtools install
+          pnpm devtools build
 
       - name: Deploy 🚀
         uses: PlasmoHQ/bpp@v3
         with:
           keys: ${{ secrets.BPP_KEYS }}
-          chrome-file: 'tools/devtools/dist/chrome-mv3-prod.zip'
+          chrome-file: 'packages/devtools/dist/chrome-mv3-prod.zip'

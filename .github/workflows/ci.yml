@@ -17,31 +17,34 @@ jobs:
         node-version: [18.x]
     steps:
       - uses: actions/checkout@v2
-
+       - uses: pnpm/action-setup@v2
+        with:
+          version: 8
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - name: Cache Node Moudles
+      - name: Cache pnpm store
         id: cache
         uses: actions/cache@v3
         with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-
+
 
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: npm install
+        run: pnpm install
 
-      - run: npm run lint
-      - run: npm run build
-      - run: npm run build:examples
+      - run: pnpm sdk lint
+      - run: pnpm sdk build
+      - run: pnpm build:examples
       - run: docker compose -f docker/docker-compose-ci.yml up --build -d
-      - run: npm run test:ci
+      - run: pnpm sdk test:ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
@@ -51,4 +54,4 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run benchmark
-        run: npm run test:bench
+        run: pnpm sdk test:bench

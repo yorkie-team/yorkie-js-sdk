@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - tools/create-yorkie-app/**
-      - examples/**
+      - packages/create-yorkie-app/**
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,17 +21,16 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install and Build 🔧
         run: |
-          cd tools/create-yorkie-app
-          npm install
-          npm run build
+          pnpm create install
+          pnpm create build
 
       - name: Publish 🚀
-        run: cd tools/create-yorkie-app && npm publish --provenance
+        run: cd packages/create-yorkie-app && pnpm publish --provenance
         continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

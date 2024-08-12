@@ -16,7 +16,8 @@
     "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
-    "vuejs-kanban": "pnpm --filter=vuejs-kanban"
+    "vuejs-kanban": "pnpm --filter=vuejs-kanban",
+    "build:examples": "pnpm --filter './examples/*' run build"
   },
   "keywords": [],
   "author": "ChaCha",
