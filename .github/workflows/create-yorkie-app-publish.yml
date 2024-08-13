@@ -26,8 +26,9 @@ jobs:
 
       - name: Install and Build 🔧
         run: |
-          pnpm create install
-          pnpm create build
+          cd packages/create-yorkie-app
+          pnpm install
+          pnpm build
 
       - name: Publish 🚀
         run: cd packages/create-yorkie-app && pnpm publish --provenance

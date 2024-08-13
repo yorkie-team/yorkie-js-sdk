@@ -21,8 +21,9 @@ jobs:
 
       - name: Install and Build 🔧
         run: |
-          pnpm devtools install
-          pnpm devtools build
+          cd packages/devtools
+          pnpm install
+          pnpm build
 
       - name: Deploy 🚀
         uses: PlasmoHQ/bpp@v3
