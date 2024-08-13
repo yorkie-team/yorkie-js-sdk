@@ -32,7 +32,6 @@ import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_ed
 import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type {
   ElementNode,
   TextNode,
@@ -43,6 +42,7 @@ import type {
   CRDTTreeNodeIDStruct,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in
@@ -153,7 +153,10 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
  */
 function validateTextNode(textNode: TextNode): boolean {
   if (!textNode.value.length) {
-    throw new Error('text node cannot have empty value');
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      'text node cannot have empty value',
+    );
   }
 
   return true;
@@ -172,7 +175,10 @@ function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
     for (const treeNode of treeNodes) {
       const { type } = treeNode;
       if (type !== DefaultTextType) {
-        throw new Error('element node and text node cannot be passed together');
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'element node and text node cannot be passed together',
+        );
       }
       validateTextNode(treeNode as TextNode);
     }
@@ -180,7 +186,10 @@ function validateTreeNodes(treeNodes: Array<TreeNode>): boolean {
     for (const treeNode of treeNodes) {
       const { type } = treeNode;
       if (type === DefaultTextType) {
-        throw new Error('element node and text node cannot be passed together');
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'element node and text node cannot be passed together',
+        );
       }
     }
   }
@@ -247,7 +256,10 @@ export class Tree {
    */
   public getSize(): number {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.getSize();
@@ -258,7 +270,10 @@ export class Tree {
    */
   public getNodeSize(): number {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.getNodeSize();
@@ -269,7 +284,10 @@ export class Tree {
    */
   public getIndexTree(): IndexTree<CRDTTreeNode> {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.getIndexTree();
@@ -280,11 +298,17 @@ export class Tree {
    */
   public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     if (!path.length) {
-      throw new Error('path should not be empty');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
     }
     const [fromPos, toPos] = this.tree.pathToPosRange(path);
     const ticket = this.context.issueTimeTicket();
@@ -317,11 +341,17 @@ export class Tree {
     attributes: { [key: string]: any },
   ) {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     if (fromIdx > toIdx) {
-      throw new Error('from should be less than or equal to to');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'from should be less than or equal to to',
+      );
     }
 
     const fromPos = this.tree.findPos(fromIdx);
@@ -360,11 +390,17 @@ export class Tree {
     attributesToRemove: Array<string>,
   ) {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     if (fromIdx > toIdx) {
-      throw new Error('from should be less than or equal to to');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'from should be less than or equal to to',
+      );
     }
 
     const fromPos = this.tree.findPos(fromIdx);
@@ -470,13 +506,22 @@ export class Tree {
     splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
     if (fromPath.length !== toPath.length) {
-      throw new Error('path length should be equal');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path length should be equal',
+      );
     }
     if (!fromPath.length || !toPath.length) {
-      throw new Error('path should not be empty');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
     }
 
     const fromPos = this.tree.pathToPos(fromPath);
@@ -500,13 +545,22 @@ export class Tree {
     splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
     if (fromPath.length !== toPath.length) {
-      throw new Error('path length should be equal');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path length should be equal',
+      );
     }
     if (!fromPath.length || !toPath.length) {
-      throw new Error('path should not be empty');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
     }
 
     const fromPos = this.tree.pathToPos(fromPath);
@@ -525,10 +579,16 @@ export class Tree {
     splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
     if (fromIdx > toIdx) {
-      throw new Error('from should be less than or equal to to');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'from should be less than or equal to to',
+      );
     }
 
     const fromPos = this.tree.findPos(fromIdx);
@@ -552,10 +612,16 @@ export class Tree {
     splitLevel = 0,
   ): boolean {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
     if (fromIdx > toIdx) {
-      throw new Error('from should be less than or equal to to');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'from should be less than or equal to to',
+      );
     }
 
     const fromPos = this.tree.findPos(fromIdx);
@@ -569,7 +635,10 @@ export class Tree {
    */
   public toXML(): string {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.toXML();
@@ -580,7 +649,10 @@ export class Tree {
    */
   public toJSON(): string {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.toJSON();
@@ -592,7 +664,10 @@ export class Tree {
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.toJSForTest();
@@ -605,7 +680,10 @@ export class Tree {
    */
   public toJSInfoForTest(): Devtools.TreeNodeInfo {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.toJSInfoForTest();
@@ -616,7 +694,10 @@ export class Tree {
    */
   public getRootTreeNode() {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.getRootTreeNode();
@@ -627,7 +708,10 @@ export class Tree {
    */
   public indexToPath(index: number): Array<number> {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.indexToPath(index);
@@ -638,7 +722,10 @@ export class Tree {
    */
   public pathToIndex(path: Array<number>): number {
     if (!this.context || !this.tree) {
-      throw new Error('it is not initialized yet');
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.pathToIndex(path);
@@ -651,9 +738,10 @@ export class Tree {
     range: [Array<number>, Array<number>],
   ): TreePosStructRange {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     const indexRange: [number, number] = [
@@ -669,9 +757,10 @@ export class Tree {
    */
   indexRangeToPosRange(range: [number, number]): TreePosStructRange {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     return this.tree.indexRangeToPosStructRange(range);
@@ -682,9 +771,10 @@ export class Tree {
    */
   posRangeToIndexRange(range: TreePosStructRange): [number, number] {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [
@@ -702,9 +792,10 @@ export class Tree {
     range: TreePosStructRange,
   ): [Array<number>, Array<number>] {
     if (!this.context || !this.tree) {
-      logger.fatal('it is not initialized yet');
-      // @ts-ignore
-      return;
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
     }
 
     const posRange: [CRDTTreePos, CRDTTreePos] = [

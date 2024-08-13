@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
@@ -25,6 +24,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `EditOperation` is an operation representing editing Text. Most of the same as
@@ -83,10 +83,16 @@ export class EditOperation extends Operation {
   public execute<A extends Indexable>(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(parentObject instanceof CRDTText)) {
-      logger.fatal(`fail to execute, only Text can execute edit`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only Text can execute edit`,
+      );
     }
 
     const text = parentObject as CRDTText<A>;

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
@@ -26,6 +25,7 @@ import {
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -634,7 +634,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       ? this.findFloorNodePreferToLeft(absoluteID)
       : this.findFloorNode(absoluteID);
     if (!node) {
-      logger.fatal(
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
         `the node of the given id should be found: ${absoluteID.toTestString()}`,
       );
     }
@@ -793,7 +794,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): RGATreeSplitNode<T> {
     let node = this.findFloorNode(id);
     if (!node) {
-      logger.fatal(
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
         `the node of the given id should be found: ${id.toTestString()}`,
       );
     }
@@ -847,7 +849,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     offset: number,
   ): RGATreeSplitNode<T> | undefined {
     if (offset > node.getContentLength()) {
-      logger.fatal('offset should be less than or equal to length');
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `offset should be less than or equal to length`,
+      );
     }
 
     if (offset === 0) {

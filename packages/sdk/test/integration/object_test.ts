@@ -8,7 +8,7 @@ import {
   testRPCAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { toStringHistoryOp } from '@yorkie-js-sdk/test/helper/helper';
-import { YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Object', function () {
   it('valid key test', function () {
@@ -63,7 +63,7 @@ describe('Object', function () {
     assert.throws(() => {
       doc.update((root) => {
         root['k2'].push('4');
-        throw new Error('dummy error');
+        throw new YorkieError(Code.ErrDummy, 'dummy error');
       }, 'push "4"');
     }, 'dummy error');
     assert.equal(

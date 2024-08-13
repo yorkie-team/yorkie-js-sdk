@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
@@ -28,6 +27,7 @@ import {
   OperationInfo,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TreeEditOperation` is an operation representing Tree editing.
@@ -85,10 +85,16 @@ export class TreeEditOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(parentObject instanceof CRDTTree)) {
-      logger.fatal(`fail to execute, only Tree can execute edit`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only Tree can execute edit`,
+      );
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;

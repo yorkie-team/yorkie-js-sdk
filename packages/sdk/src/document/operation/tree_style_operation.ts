@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
@@ -28,6 +27,7 @@ import {
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `TreeStyleOperation` represents an operation that modifies the style of the
@@ -107,10 +107,16 @@ export class TreeStyleOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(parentObject instanceof CRDTTree)) {
-      logger.fatal(`fail to execute, only Tree can execute edit`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only Tree can execute edit`,
+      );
     }
     const tree = parentObject as CRDTTree;
     let changes: Array<TreeChange>;

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
 import {
   InitialTimeTicket,
@@ -22,6 +21,7 @@ import {
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.
@@ -180,7 +180,10 @@ export class RGATreeList {
   ): RGATreeListNode {
     let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `cant find the given node: ${createdAt.toIDString()}`,
+      );
     }
 
     while (
@@ -232,12 +235,18 @@ export class RGATreeList {
   ): void {
     const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
-      logger.fatal(`cant find the given node: ${prevCreatedAt.toIDString()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `cant find the given node: ${prevCreatedAt.toIDString()}`,
+      );
     }
 
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
-      logger.fatal(`cant find the given node: ${createdAt.toIDString()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `cant find the given node: ${createdAt.toIDString()}`,
+      );
     }
 
     if (
@@ -284,7 +293,8 @@ export class RGATreeList {
       element.getCreatedAt().toIDString(),
     );
     if (!node) {
-      logger.fatal(
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
         `fail to find the given createdAt: ${element
           .getCreatedAt()
           .toIDString()}`,

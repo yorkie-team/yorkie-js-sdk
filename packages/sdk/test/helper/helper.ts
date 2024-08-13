@@ -36,6 +36,7 @@ import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 export type Indexable = Record<string, any>;
 
@@ -66,9 +67,12 @@ export class EventCollector<E = string> {
             resolve();
           } else {
             reject(
-              new Error(`event is not equal ${count}-
-                expected: ${JSON.stringify(event)},
-                actual: ${JSON.stringify(this.events[count - 1])}`),
+              new YorkieError(
+                Code.ErrInvalidArgument,
+                `event is not equal  ${count}-
+              expected: ${JSON.stringify(event)},
+              actual: ${JSON.stringify(this.events[count - 1])}`,
+              ),
             );
           }
           return;

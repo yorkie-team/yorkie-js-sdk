@@ -27,8 +27,11 @@ export enum Code {
   // ErrUnimplemented is returned when the operation is not implemented.
   ErrUnimplemented = 'ErrUnimplemented',
 
-  // Unsupported is returned when the operation is not supported.
-  Unsupported = 'unsupported',
+  // ErrInvalidType is returned when the type is invalid.
+  ErrInvalidType = 'ErrInvalidType',
+
+  // ErrDummy is used to verify errors for testing purposes.
+  ErrDummy = 'ErrDummy',
 
   // ErrDocumentNotAttached is returned when the document is not attached.
   ErrDocumentNotAttached = 'ErrDocumentNotAttached',
@@ -44,6 +47,15 @@ export enum Code {
 
   // ErrInvalidArgument is returned when the argument is invalid.
   ErrInvalidArgument = 'ErrInvalidArgument',
+
+  // ErrNotInitialized is returned when required initialization has not been completed.
+  ErrNotInitialized = 'ErrNotInitialized',
+
+  // ErrNotReady is returned when execution of following actions is not ready.
+  ErrNotReady = 'ErrNotReady',
+
+  // ErrRefused is returned when the execution is rejected.
+  ErrRefused = 'ErrRefused',
 }
 
 /**
@@ -55,7 +67,6 @@ export class YorkieError extends Error {
 
   constructor(readonly code: Code, readonly message: string) {
     super(message);
-    this.toString = (): string =>
-      `${this.name}: [code=${this.code}]: ${this.message}`;
+    this.toString = (): string => `[code=${this.code}]: ${this.message}`;
   }
 }

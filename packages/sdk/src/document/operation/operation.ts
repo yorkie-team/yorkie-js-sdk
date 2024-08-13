@@ -19,6 +19,7 @@ import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `OpSource` represents the source of the operation. It is used to handle
@@ -210,7 +211,7 @@ export abstract class Operation {
     // it doesn't have an executedAt yet. The executedAt is set when
     // the operation is executed through undo or redo.
     if (!this.executedAt) {
-      throw new Error(`executedAt has not been set yet`);
+      throw new YorkieError(Code.ErrNotReady, 'executedAt is not set yet');
     }
     return this.executedAt;
   }

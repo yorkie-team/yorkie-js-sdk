@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
@@ -22,6 +21,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 /**
  * `MoveOperation` is an operation representing moving an element to an Array.
@@ -64,10 +64,16 @@ export class MoveOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
-      logger.fatal(`fail to find ${this.getParentCreatedAt()}`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
     }
     if (!(parentObject instanceof CRDTArray)) {
-      logger.fatal(`fail to execute, only array can execute move`);
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only array can execute move`,
+      );
     }
     const array = parentObject as CRDTArray;
     const previousIndex = Number(array.subPathOf(this.createdAt));

@@ -3,6 +3,7 @@ import Long from 'long';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {
@@ -35,10 +36,11 @@ describe('Primitive', function () {
     });
     assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
     assert.throws(() => {
+      const errorMsg = 'dummy error';
       doc.update((root) => {
         delete root['k1']['k1-1'];
-        throw Error('dummy error');
-      }, 'dummy error');
+        throw new YorkieError(Code.ErrDummy, errorMsg);
+      }, errorMsg);
     });
     assert.equal('{"k1":{"k1-1":1,"k1-2":2}}', doc.toSortedJSON());
   });
