@@ -19,11 +19,16 @@ $ docker compose -f docker/docker-compose.yml up --build -d
 Install dependencies
 
 ```bash
-$ npm install
+# In the root directory of the repository.
+$ pnpm install
 ```
 
 Start demo project
 
 ```bash
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm profile-stack dev
+
+# Or in the directory of the example.
+$ pnpm dev
 ```

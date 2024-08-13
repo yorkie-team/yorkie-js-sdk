@@ -19,11 +19,16 @@ $ docker compose -f docker/docker-compose.yml up --build -d
 Then install dependencies and run the demo.
 
 ```bash
-$ npm install
+# In the root directory of the repository.
+$ pnpm install
 ```
 
 Now you can run the demo.
 
 ```bash
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm react-todomvc dev
+
+# Or in the directory of the example.
+$ pnpm dev
 ```

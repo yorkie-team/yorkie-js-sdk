@@ -36,17 +36,21 @@ Thanks for contributing!
 
 ### Building yorkie-js-sdk
 
-For building yorkie-js-sdk, You'll first need Node.js installed(Node.js version 18+ and npm version 7.10+ are required).
+For building yorkie-js-sdk, You'll first need Node.js installed(Node.js version 18+ and pnpm version 9.6+ are required).
 
 - [Node.js](https://nodejs.org/en) (version 18+)
-- [npm](https://www.npmjs.com/) (version 7.10+)
+- [pnpm](https://pnpm.io/) (version 9.6+)
 
 ```bash
 # install packages
-$ npm install
+
+# In the root directory of the repository.
+$ pnpm sdk install
 
 # build
-$ npm run build
+
+# In the root directory of the repository.
+$ pnpm sdk build
 ```
 
 To generate proto messages, we use protoc-gen-connect-es, which is a code generator plugin for Protocol Buffer compilers, like buf and protoc. It generates both clients and server definitions from Protocol Buffer schema.
@@ -55,7 +59,9 @@ For more details, see [@connectrpc/protoc-gen-connect-es](https://github.com/con
 
 ```bash
 # generate proto messages and the service client stub classes
-$ npm run build:proto
+
+# In the root directory of the repository.
+$ pnpm sdk build:proto
 ```
 
 > Primary "source of truth" location of protobuf message is
@@ -72,7 +78,8 @@ $ docker compose -f docker/docker-compose.yml up --build -d
 Start the test in another terminal session.
 
 ```bash
-$ npm run test
+# In the root directory of the repository.
+$ pnpm sdk test
 ```
 
 To get the latest server locally, run the command below then restart containers again:
@@ -108,7 +115,8 @@ To run only specific suites or tests, use `.only` and execute the following comm
 Refer to [Test Filtering](https://vitest.dev/guide/filtering#selecting-suites-and-tests-to-run) in `vitest` for more details:
 
 ```bash
-$ npm run test {test file path} # e.g. npm run test integration/tree_test.ts
+# In the root directory of the repository.
+$ pnpm sdk test {test file path} # e.g. pnpm sdk test integration/tree_test.ts
 ```
 
 ### Starting co-editing example with CodeMirror
@@ -122,7 +130,8 @@ $ docker compose -f docker/docker-compose.yml up --build -d
 Start the webpack-dev-server in another terminal session.
 
 ```bash
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm sdk dev
 ```
 
 Open the co-editing example page served by webpack-dev-server in your browser.

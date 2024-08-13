@@ -15,7 +15,8 @@
 Install dependencies
 
 ```bash
-$ npm install
+# In the root directory of the repository.
+$ pnpm install
 ```
 
 Create an account on [Yorkie Dashboard](https://yorkie.dev/dashboard)
@@ -30,7 +31,11 @@ VITE_YORKIE_API_KEY='your_key_xxxx'
 Start demo project
 
 ```bash
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm simultaneous-cursors dev
+
+# Or in the directory of the example.
+$ pnpm dev
 ```
 
 ### With local Yorkie server
@@ -38,7 +43,8 @@ $ npm run dev
 Install dependencies
 
 ```bash
-$ npm install
+# In the root directory of the repository.
+$ pnpm install
 ```
 
 At project root, run below command to start Yorkie server.
@@ -57,5 +63,9 @@ VITE_YORKIE_API_KEY=''
 Start demo project
 
 ```bash
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm simultaneous-cursors dev
+
+# Or in the directory of the example.
+$ pnpm dev
 ```
