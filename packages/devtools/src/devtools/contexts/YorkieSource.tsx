@@ -30,6 +30,7 @@ import {
   type TransactionEvent,
 } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
@@ -125,7 +126,8 @@ export function YorkieSourceProvider({ children }: Props) {
 export function useCurrentDocKey() {
   const value = useContext(DocKeyContext);
   if (value === undefined) {
-    throw new Error(
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
       'useCurrentDocKey should be used within YorkieSourceProvider',
     );
   }
@@ -135,7 +137,10 @@ export function useCurrentDocKey() {
 export function useYorkieDoc() {
   const value = useContext(YorkieDocContext);
   if (value === undefined) {
-    throw new Error('useYorkieDoc should be used within YorkieSourceProvider');
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
+      'useYorkieDoc should be used within YorkieSourceProvider',
+    );
   }
   return value;
 }
@@ -168,7 +173,8 @@ export function useTransactionEvents() {
   );
 
   if (events === undefined) {
-    throw new Error(
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
       'useTransactionEvents should be used within YorkieSourceProvider',
     );
   }

@@ -17,6 +17,7 @@
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useState } from 'react';
 import type { PresenceJsonNode } from '../components/Tree';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 type SelectedPresenceContext = [
   PresenceJsonNode,
@@ -42,7 +43,8 @@ export function SelectedPresenceProvider({ children }: Props) {
 export function useSelectedPresence() {
   const value = useContext(SelectedPresenceContext);
   if (value === undefined) {
-    throw new Error(
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
       'useSelectedPresence should be used within SelectedPresenceProvider',
     );
   }

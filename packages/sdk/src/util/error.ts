@@ -56,6 +56,9 @@ export enum Code {
 
   // ErrRefused is returned when the execution is rejected.
   ErrRefused = 'ErrRefused',
+
+  // ErrContextNotProvided is returned when a required React context is missing
+  ErrContextNotProvided = 'ErrContextNotProvided',
 }
 
 /**
