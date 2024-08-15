@@ -7,7 +7,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "sdk": "pnpm --filter=yorkie-js-sdk",
-    "create": "pnpm --filter=create-yorkie-app",
+    "create-yorkie-app": "pnpm --filter=create-yorkie-app",
     "devtools": "pnpm --filter=yorkie-devtools",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "react-tldraw": "pnpm --filter=react-tldraw",
