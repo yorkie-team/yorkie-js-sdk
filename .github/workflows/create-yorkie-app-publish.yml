@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - packages/create-yorkie-app/**
+      - examples/**
 
 jobs:
   build:
