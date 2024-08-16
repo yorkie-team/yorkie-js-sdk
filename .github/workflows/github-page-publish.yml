@@ -12,36 +12,40 @@ jobs:
       - name: Checkout 🛎️
         uses: actions/checkout@v2.3.1
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Setup Node 🔧
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Cache Node Moudles
+      - name: Cache pnpm store
         id: cache
         uses: actions/cache@v3
         with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-
 
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: npm install
+        run: pnpm install
 
       - name: Build 🔧
         run: |
-          npm run build
-          npm run build:docs
-          npm run build:examples
-          npm run build:ghpages
+          pnpm sdk build
+          pnpm sdk build:docs
+          pnpm build:examples
+          pnpm sdk build:ghpages
 
       - name: Deploy 🚀
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./ghpages
+          publish_dir: ./packages/sdk/ghpages
           enable_jekyll: false

@@ -17,6 +17,7 @@
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useState } from 'react';
 import type { RootTreeNode } from '../components/Tree';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 type SelectedNodeContext = [
   RootTreeNode,
@@ -40,7 +41,8 @@ export function SelectedNodeProvider({ children }: Props) {
 export function useSelectedNode() {
   const value = useContext(SelectedNodeContext);
   if (value === undefined) {
-    throw new Error(
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
       'useSelectedNode should be used within SelectedNodeProvider',
     );
   }

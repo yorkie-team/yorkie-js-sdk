@@ -11,28 +11,33 @@ jobs:
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v2
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Setup Node 🔧
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Cache Node Moudles
+      - name: Cache pnpm store
         id: cache
         uses: actions/cache@v3
         with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-pnpm-
 
       - name: Install Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
-        run: npm install
+        run: pnpm install
 
-      - run: npm run build
-      - run: npm publish --provenance
+      - run: pnpm sdk build
+      - run: pnpm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

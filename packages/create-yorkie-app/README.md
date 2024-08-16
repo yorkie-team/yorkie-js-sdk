@@ -11,15 +11,18 @@ $ npx create-yorkie-app
 The examples have own local dependencies. So you should install dependencies before running examples.
 
 ```bash
-# In the directory of the example.
-$ npm install
+# In the root directory of the repository.
+$ pnpm install
 ```
 
 Then you can run the examples.
 
 ```bash
-# In the directory of the example.
-$ npm run dev
+# In the root directory of the repository.
+$ pnpm <EXAMPLE-NAME> dev
+
+# Or in the directory of the example.
+$ pnpm dev
 ```
 
 Open the browser and go to the URL that is printed in the terminal.

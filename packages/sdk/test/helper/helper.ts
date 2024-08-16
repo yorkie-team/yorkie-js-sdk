@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { assert } from 'chai';
+import { assert } from 'vitest';
 
 import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';

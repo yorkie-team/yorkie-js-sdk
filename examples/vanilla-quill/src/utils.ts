@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { Document, Indexable } from 'yorkie-js-sdk';
-import { YorkieDoc } from './type';
+import { YorkieDoc, YorkiePresence } from './type';
 
 // function to display peers
 export function displayPeers(
@@ -23,7 +23,7 @@ export function displayPeers(
 export function displayLog(
   elem: HTMLElement,
   textElem: HTMLElement,
-  doc: Document<YorkieDoc>,
+  doc: Document<YorkieDoc, YorkiePresence>,
 ) {
   elem.innerText = doc.toJSON();
   textElem.innerText = doc.getRoot().content.toTestString();
