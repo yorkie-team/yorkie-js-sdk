@@ -173,6 +173,11 @@ export enum DocEventType {
    * `PresenceChanged` means that the presences of the client has updated.
    */
   PresenceChanged = 'presence-changed',
+
+  /**
+   * `Broadcast` means that the message is broadcasted to clients who subscribe to the event.
+   */
+  Broadcast = 'broadcast',
 }
 
 /**
@@ -191,7 +196,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | InitializedEvent<P>
   | WatchedEvent<P>
   | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>;
+  | PresenceChangedEvent<P>
+  | BroadcastEvent;
 
 /**
  * `TransactionEvent` represents document events that occur within
@@ -369,6 +375,11 @@ export interface PresenceChangedEvent<P extends Indexable>
   type: DocEventType.PresenceChanged;
   source: OpSource;
   value: { clientID: ActorID; presence: P };
+}
+
+export interface BroadcastEvent extends BaseDocEvent {
+  type: DocEventType.Broadcast;
+  value: { topic: string; payload: any };
 }
 
 type DocEventCallbackMap<P extends Indexable> = {
@@ -589,6 +600,15 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private isUpdating: boolean;
 
+  /**
+   * `broadcastEventHandlers` is a map of broadcast event handlers.
+   * The key is the topic of the broadcast event, and the value is the handler.
+   */
+  private broadcastEventHandlers: Map<
+    string,
+    (topic: string, payload: any) => void
+  >;
+
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
 
@@ -615,6 +635,8 @@ export class Document<T, P extends Indexable = Indexable> {
       undo: this.undo.bind(this),
       redo: this.redo.bind(this),
     };
+
+    this.broadcastEventHandlers = new Map();
 
     setupDevtools(this);
   }
@@ -1025,6 +1047,35 @@ export class Document<T, P extends Indexable = Indexable> {
       );
     }
     throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
+  }
+
+  /**
+   * subscribeBroadcastEvent registers a callback to subscribe to broadcast events
+   * on the document. The callback will be called when the document receives a
+   * broadcast event with the given topic.
+   */
+  public subscribeBroadcastEvent(
+    topic: string,
+    handler: (topic: string, payload: any) => void,
+    error?: ErrorFn,
+  ): Unsubscribe {
+    this.broadcastEventHandlers.set(topic, handler);
+
+    this.eventStream.subscribe((event) => {
+      for (const docEvent of event) {
+        if (docEvent.type !== DocEventType.Broadcast) {
+          continue;
+        }
+
+        if (docEvent.value.topic === topic) {
+          handler(topic, docEvent.value.payload);
+        }
+      }
+    }, error);
+
+    return () => {
+      this.broadcastEventHandlers.delete(topic);
+    };
   }
 
   /**
@@ -1468,7 +1519,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     if (resp.body.case === 'event') {
       const { type, publisher } = resp.body.value;
-      const event: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
+      const event: Array<WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent> =
+        [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
         this.addOnlineClient(publisher);
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
@@ -1493,6 +1545,14 @@ export class Document<T, P extends Indexable = Indexable> {
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: { clientID: publisher, presence },
+          });
+        }
+      } else if (type === PbDocEventType.DOCUMENT_BROADCAST) {
+        if (resp.body.value.body) {
+          const { topic, payload } = resp.body.value.body;
+          event.push({
+            type: DocEventType.Broadcast,
+            value: { topic, payload },
           });
         }
       }
@@ -1583,6 +1643,14 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.PresenceChanged) {
       const { clientID, presence } = event.value;
       this.presences.set(clientID, presence);
+    }
+
+    if (event.type === DocEventType.Broadcast) {
+      const { topic, payload } = event.value;
+      const handler = this.broadcastEventHandlers.get(topic);
+      if (handler) {
+        handler(topic, payload);
+      }
     }
   }
 
