@@ -585,6 +585,52 @@ export class Client {
   }
 
   /**
+   * `broadcast` broadcasts the given payload to the given topic.
+   */
+  public broadcast<T, P extends Indexable>(
+    doc: Document<T, P>,
+    topic: string,
+    payload: any,
+  ): Promise<void> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrDocumentNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    return this.enqueueTask(async () => {
+      return this.rpcClient
+        .broadcast(
+          {
+            clientId: this.id!,
+            documentId: attachment.docID,
+            topic,
+            payload: new TextEncoder().encode(JSON.stringify(payload)),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        )
+        .then(() => {
+          logger.info(
+            `[BC] c:"${this.getKey()}" broadcasts d:"${doc.getKey()}" t:"${topic}"`,
+          );
+        })
+        .catch((err) => {
+          logger.error(`[BC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
+          throw err;
+        });
+    });
+  }
+
+  /**
    * `runSyncLoop` runs the sync loop. The sync loop pushes local changes to
    * the server and pulls remote changes from the server.
    */
