@@ -1550,9 +1550,11 @@ export class Document<T, P extends Indexable = Indexable> {
       } else if (type === PbDocEventType.DOCUMENT_BROADCAST) {
         if (resp.body.value.body) {
           const { topic, payload } = resp.body.value.body;
+          const decoder = new TextDecoder();
+
           event.push({
             type: DocEventType.Broadcast,
-            value: { topic, payload },
+            value: { topic, payload: JSON.parse(decoder.decode(payload)) },
           });
         }
       }
