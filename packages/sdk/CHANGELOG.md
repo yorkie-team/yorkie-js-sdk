@@ -7,6 +7,15 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.4.31] - 2024-08-21
+
+### Changed
+
+- Update example version to v0.4.28 by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/877
+- Unify error throwing methods by @gwbaik9717 https://github.com/yorkie-team/yorkie-js-sdk/pull/878
+- Update docker compose command to V2 by @kokodak in https://github.com/yorkie-team/yorkie-js-sdk/pull/879
+- Introduce monorepo to manage packages using pnpm @gwbaik9717 https://github.com/yorkie-team/yorkie-js-sdk/pull/880
+
 ## [0.4.28] - 2024-07-25
 
 ### Added
