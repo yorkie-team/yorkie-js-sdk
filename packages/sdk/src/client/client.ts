@@ -42,6 +42,7 @@ import {
 import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
+import { validateSerializable } from '../util/validator';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -603,6 +604,13 @@ export class Client {
       throw new YorkieError(
         Code.ErrDocumentNotAttached,
         `${doc.getKey()} is not attached`,
+      );
+    }
+
+    if (!validateSerializable(payload)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'payload is not serializable',
       );
     }
 
