@@ -1061,7 +1061,7 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe {
     this.broadcastEventHandlers.set(topic, handler);
 
-    this.eventStream.subscribe((event) => {
+    const unsubscribe = this.eventStream.subscribe((event) => {
       for (const docEvent of event) {
         if (docEvent.type !== DocEventType.Broadcast) {
           continue;
@@ -1074,6 +1074,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }, error);
 
     return () => {
+      unsubscribe();
       this.broadcastEventHandlers.delete(topic);
     };
   }
