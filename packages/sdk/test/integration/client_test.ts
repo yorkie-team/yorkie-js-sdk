@@ -863,4 +863,24 @@ describe.sequential('Client', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
+
+  it('Throw error when broadcasting unserializeable payload', async ({
+    task,
+  }) => {
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    // broadcast unserializable payload
+    const payload = () => {};
+    const broadcastTopic = 'test';
+
+    expect(async () =>
+      cli.broadcast(doc, broadcastTopic, payload),
+    ).rejects.toThrowErrorCode(Code.ErrInvalidArgument);
+
+    await cli.deactivate();
+  });
 });
