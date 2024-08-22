@@ -7,7 +7,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [0.4.31] - 2024-08-21
+## [0.4.31] - 2024-08-22
 
 ### Changed
 
