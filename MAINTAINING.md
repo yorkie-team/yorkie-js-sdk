@@ -1,6 +1,6 @@
 # Maintaining yorkie-js-sdk
 
-## Releasing a New Version
+## Releasing a New Version Of Yorkie JS SDK
 
 ### 1. Update the version number.
 
