@@ -864,7 +864,9 @@ describe.sequential('Client', function () {
     }, task.name);
   });
 
-  it('Successfully broadcast serializeable payload', async ({ task }) => {
+  it('Should successfully broadcast serializeable payload', async ({
+    task,
+  }) => {
     const cli = new yorkie.Client(testRPCAddr);
     await cli.activate();
 
@@ -881,7 +883,7 @@ describe.sequential('Client', function () {
     await cli.deactivate();
   });
 
-  it('Throw error when broadcasting unserializeable payload', async ({
+  it('Should throw error when broadcasting unserializeable payload', async ({
     task,
   }) => {
     const cli = new yorkie.Client(testRPCAddr);
@@ -900,4 +902,91 @@ describe.sequential('Client', function () {
 
     await cli.deactivate();
   });
+});
+
+it('Should trigger the handler for a subscribed broadcast event', async ({
+  task,
+}) => {
+  await withTwoClientsAndDocuments<{ t: Text }>(
+    async (c1, d1, c2, d2) => {
+      const spy = vi.fn();
+
+      const broadcastTopic = 'test';
+      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic, spy);
+
+      const payload = { a: 1, b: '2' };
+      await c1.broadcast(d1, broadcastTopic, payload);
+
+      // Assuming that every subscriber can receive the broadcast event within 1000ms.
+      await new Promise((res) => setTimeout(res, 1000));
+
+      expect(spy.mock.calls.length).toBe(1);
+      expect(spy.mock.calls[0][0]).toBe(broadcastTopic);
+      expect(spy.mock.calls[0][1]).toEqual(payload);
+
+      unsubscribe();
+    },
+    task.name,
+    SyncMode.Realtime,
+  );
+});
+
+it('Should not trigger the handler for an unsubscribed broadcast event', async ({
+  task,
+}) => {
+  await withTwoClientsAndDocuments<{ t: Text }>(
+    async (c1, d1, c2, d2) => {
+      const spy = vi.fn();
+
+      const broadcastTopic1 = 'test1';
+      const broadcastTopic2 = 'test2';
+
+      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic2, spy);
+
+      const payload = { a: 1, b: '2' };
+      await c1.broadcast(d1, broadcastTopic1, payload);
+
+      // Assuming that every subscriber can receive the broadcast event within 1000ms.
+      await new Promise((res) => setTimeout(res, 1000));
+
+      expect(spy.mock.calls.length).toBe(0);
+
+      unsubscribe();
+    },
+    task.name,
+    SyncMode.Realtime,
+  );
+});
+
+it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
+  task,
+}) => {
+  await withTwoClientsAndDocuments<{ t: Text }>(
+    async (c1, d1, c2, d2) => {
+      const spy = vi.fn();
+
+      const broadcastTopic = 'test';
+      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic, spy);
+
+      const payload = { a: 1, b: '2' };
+      await c1.broadcast(d1, broadcastTopic, payload);
+
+      // Assuming that every subscriber can receive the broadcast event within 1000ms.
+      await new Promise((res) => setTimeout(res, 1000));
+
+      expect(spy.mock.calls.length).toBe(1);
+
+      unsubscribe();
+
+      await c1.broadcast(d1, broadcastTopic, payload);
+
+      // Assuming that every subscriber can receive the broadcast event within 1000ms.
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // No change in the number of calls
+      expect(spy.mock.calls.length).toBe(1);
+    },
+    task.name,
+    SyncMode.Realtime,
+  );
 });
