@@ -28,9 +28,3 @@ After creating the release in step 2, click on the `Publish release` button.
 
 When you publish the release in step 4, [GitHub action](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/npm-publish.yml) will deploy Yorkie JS SDK to [npm](https://www.npmjs.com/package/yorkie-js-sdk).  
 After that, it will be updated on the [cdn](https://cdnjs.com/libraries/yorkie-js-sdk) after some time.
-
-### 6. Update examples
-
-1. Update the version of `yorkie-js-sdk` in the `package.json` of each project in the [examples](https://github.com/yorkie-team/yorkie-js-sdk/tree/main/examples) folder.
-2. Run and build each project, and if an error occurs, fix it.
-3. Create a pull request and merge it into the main branch.
