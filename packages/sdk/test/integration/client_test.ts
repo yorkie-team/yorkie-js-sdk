@@ -864,6 +864,23 @@ describe.sequential('Client', function () {
     }, task.name);
   });
 
+  it('Successfully broadcast serializeable payload', async ({ task }) => {
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    const broadcastTopic = 'test';
+    const payload = { a: 1, b: '2' };
+
+    expect(async () =>
+      cli.broadcast(doc, broadcastTopic, payload),
+    ).not.toThrow();
+
+    await cli.deactivate();
+  });
+
   it('Throw error when broadcasting unserializeable payload', async ({
     task,
   }) => {
