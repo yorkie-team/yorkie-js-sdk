@@ -399,6 +399,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
+  broadcast: (topic: string, payload: any) => void;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -550,6 +551,21 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   Depth
 >;
 
+/*
+ * `SubscribePair` represents the type of the subscribe pair.
+ */
+type SubscribePair = {
+  type: string;
+};
+
+/*
+ * `BroadcastSubscribePair` represents the type of the broadcast subscribe pair.
+ */
+type BroadcastSubscribePair = {
+  type: 'broadcast';
+  topic: string;
+} & SubscribePair;
+
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
@@ -606,7 +622,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private broadcastEventHandlers: Map<
     string,
-    (topic: string, payload: any) => void
+    DocEventCallbackMap<P>['broadcast']
   >;
 
   constructor(key: string, opts?: DocumentOptions) {
@@ -842,6 +858,18 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the document is changed.
+   */
+  public subscribe(
+    type: {
+      type: 'broadcast';
+      topic: string;
+    },
+    next: DocEventCallbackMap<P>['broadcast'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -856,7 +884,11 @@ export class Document<T, P extends Indexable = Indexable> {
     TPath extends PathOf<T>,
     TOperationInfo extends OperationInfoOf<T, TPath>,
   >(
-    arg1: TPath | DocEventTopic | DocEventCallbackMap<P>['default'],
+    arg1:
+      | TPath
+      | DocEventTopic
+      | DocEventCallbackMap<P>['default']
+      | SubscribePair,
     arg2?:
       | NextFn<
           | LocalChangeEvent<TOperationInfo, P>
@@ -1046,37 +1078,33 @@ export class Document<T, P extends Indexable = Indexable> {
         complete,
       );
     }
-    throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
-  }
+    if (typeof arg1 === 'object') {
+      const { type } = arg1 as SubscribePair;
 
-  /**
-   * subscribeBroadcastEvent registers a callback to subscribe to broadcast events
-   * on the document. The callback will be called when the document receives a
-   * broadcast event with the given topic.
-   */
-  public subscribeBroadcastEvent(
-    topic: string,
-    handler: (topic: string, payload: any) => void,
-    error?: ErrorFn,
-  ): Unsubscribe {
-    this.broadcastEventHandlers.set(topic, handler);
+      if (type === 'broadcast') {
+        const { topic } = arg1 as BroadcastSubscribePair;
+        const handler = arg2 as DocEventCallbackMap<P>['broadcast'];
+        const error = arg3 as ErrorFn;
+        this.broadcastEventHandlers.set(topic, handler);
+        const unsubscribe = this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.Broadcast) {
+              continue;
+            }
 
-    const unsubscribe = this.eventStream.subscribe((event) => {
-      for (const docEvent of event) {
-        if (docEvent.type !== DocEventType.Broadcast) {
-          continue;
-        }
+            if (docEvent.value.topic === topic) {
+              handler(topic, docEvent.value.payload);
+            }
+          }
+        }, error);
 
-        if (docEvent.value.topic === topic) {
-          handler(topic, docEvent.value.payload);
-        }
+        return () => {
+          unsubscribe();
+          this.broadcastEventHandlers.delete(topic);
+        };
       }
-    }, error);
-
-    return () => {
-      unsubscribe();
-      this.broadcastEventHandlers.delete(topic);
-    };
+    }
+    throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
   }
 
   /**

@@ -912,7 +912,10 @@ it('Should trigger the handler for a subscribed broadcast event', async ({
       const spy = vi.fn();
 
       const broadcastTopic = 'test';
-      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic, spy);
+      const unsubscribe = d2.subscribe(
+        { type: 'broadcast', topic: broadcastTopic },
+        spy,
+      );
 
       const payload = { a: 1, b: '2' };
       await c1.broadcast(d1, broadcastTopic, payload);
@@ -941,7 +944,10 @@ it('Should not trigger the handler for an unsubscribed broadcast event', async (
       const broadcastTopic1 = 'test1';
       const broadcastTopic2 = 'test2';
 
-      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic2, spy);
+      const unsubscribe = d2.subscribe(
+        { type: 'broadcast', topic: broadcastTopic2 },
+        spy,
+      );
 
       const payload = { a: 1, b: '2' };
       await c1.broadcast(d1, broadcastTopic1, payload);
@@ -966,7 +972,10 @@ it('Should not trigger the handler for a broadcast event after unsubscribing', a
       const spy = vi.fn();
 
       const broadcastTopic = 'test';
-      const unsubscribe = d2.subscribeBroadcastEvent(broadcastTopic, spy);
+      const unsubscribe = d2.subscribe(
+        { type: 'broadcast', topic: broadcastTopic },
+        spy,
+      );
 
       const payload = { a: 1, b: '2' };
       await c1.broadcast(d1, broadcastTopic, payload);
