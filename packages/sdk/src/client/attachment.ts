@@ -107,4 +107,11 @@ export class Attachment<T, P extends Indexable> {
     clearTimeout(this.watchLoopTimerID);
     this.watchLoopTimerID = undefined;
   }
+
+  /**
+   * `unsetClient` unsets the client of the document.
+   */
+  public unsetClient(): void {
+    this.doc.setClient(null);
+  }
 }

@@ -876,9 +876,7 @@ describe.sequential('Client', function () {
     const broadcastTopic = 'test';
     const payload = { a: 1, b: '2' };
 
-    expect(async () =>
-      cli.broadcast(doc, broadcastTopic, payload),
-    ).not.toThrow();
+    expect(async () => doc.broadcast(broadcastTopic, payload)).not.toThrow();
 
     await cli.deactivate();
   });
@@ -897,7 +895,7 @@ describe.sequential('Client', function () {
     const broadcastTopic = 'test';
 
     expect(async () =>
-      cli.broadcast(doc, broadcastTopic, payload),
+      doc.broadcast(broadcastTopic, payload),
     ).rejects.toThrowErrorCode(Code.ErrInvalidArgument);
 
     await cli.deactivate();
@@ -918,7 +916,7 @@ it('Should trigger the handler for a subscribed broadcast event', async ({
       );
 
       const payload = { a: 1, b: '2' };
-      await c1.broadcast(d1, broadcastTopic, payload);
+      await d1.broadcast(broadcastTopic, payload);
 
       // Assuming that every subscriber can receive the broadcast event within 1000ms.
       await new Promise((res) => setTimeout(res, 1000));
@@ -950,7 +948,7 @@ it('Should not trigger the handler for an unsubscribed broadcast event', async (
       );
 
       const payload = { a: 1, b: '2' };
-      await c1.broadcast(d1, broadcastTopic1, payload);
+      await d1.broadcast(broadcastTopic1, payload);
 
       // Assuming that every subscriber can receive the broadcast event within 1000ms.
       await new Promise((res) => setTimeout(res, 1000));
@@ -978,7 +976,7 @@ it('Should not trigger the handler for a broadcast event after unsubscribing', a
       );
 
       const payload = { a: 1, b: '2' };
-      await c1.broadcast(d1, broadcastTopic, payload);
+      await d1.broadcast(broadcastTopic, payload);
 
       // Assuming that every subscriber can receive the broadcast event within 1000ms.
       await new Promise((res) => setTimeout(res, 1000));
@@ -987,7 +985,7 @@ it('Should not trigger the handler for a broadcast event after unsubscribing', a
 
       unsubscribe();
 
-      await c1.broadcast(d1, broadcastTopic, payload);
+      await d1.broadcast(broadcastTopic, payload);
 
       // Assuming that every subscriber can receive the broadcast event within 1000ms.
       await new Promise((res) => setTimeout(res, 1000));

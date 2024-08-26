@@ -78,6 +78,7 @@ import {
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Client } from '@yorkie-js-sdk/src/client/client';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -624,6 +625,8 @@ export class Document<T, P extends Indexable = Indexable> {
     string,
     DocEventCallbackMap<P>['broadcast']
   >;
+
+  private client: Client | null = null;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -1328,6 +1331,15 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
+  }
+
+  /*
+   * `setClient` sets the client of this document.
+   *
+   * @internal
+   */
+  public setClient(client: Client | null): void {
+    this.client = client;
   }
 
   /**
@@ -2068,5 +2080,23 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getRedoStackForTest();
+  }
+
+  /**
+   * `broadcast` the payload to the given topic.
+   */
+  public broadcast(topic: string, payload: any): Promise<void> {
+    if (this.client) {
+      try {
+        return this.client.broadcast(this.getKey(), topic, payload);
+      } catch (e) {
+        throw e;
+      }
+    }
+
+    throw new YorkieError(
+      Code.ErrClientNotFound,
+      'Document is not attached to a client',
+    );
   }
 }

@@ -304,6 +304,7 @@ export class Client {
     }
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(options.initialPresence || {}));
+    doc.setClient(this);
 
     const syncMode = options.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
@@ -588,8 +589,8 @@ export class Client {
   /**
    * `broadcast` broadcasts the given payload to the given topic.
    */
-  public broadcast<T, P extends Indexable>(
-    doc: Document<T, P>,
+  public broadcast(
+    docKey: DocumentKey,
     topic: string,
     payload: any,
   ): Promise<void> {
@@ -599,11 +600,11 @@ export class Client {
         `${this.key} is not active`,
       );
     }
-    const attachment = this.attachmentMap.get(doc.getKey());
+    const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
         Code.ErrDocumentNotAttached,
-        `${doc.getKey()} is not attached`,
+        `${docKey} is not attached`,
       );
     }
 
@@ -623,11 +624,11 @@ export class Client {
             topic,
             payload: new TextEncoder().encode(JSON.stringify(payload)),
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+          { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
         )
         .then(() => {
           logger.info(
-            `[BC] c:"${this.getKey()}" broadcasts d:"${doc.getKey()}" t:"${topic}"`,
+            `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
           );
         })
         .catch((err) => {
@@ -801,6 +802,7 @@ export class Client {
       return;
     }
 
+    attachment.unsetClient();
     attachment.cancelWatchStream();
     this.attachmentMap.delete(docKey);
   }
