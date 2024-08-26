@@ -112,6 +112,6 @@ export class Attachment<T, P extends Indexable> {
    * `unsetClient` unsets the client of the document.
    */
   public unsetClient(): void {
-    this.doc.setClient(null);
+    this.doc.setClient();
   }
 }

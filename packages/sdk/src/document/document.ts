@@ -626,7 +626,7 @@ export class Document<T, P extends Indexable = Indexable> {
     DocEventCallbackMap<P>['broadcast']
   >;
 
-  private client: Client | null = null;
+  private client?: Client;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -864,10 +864,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * The callback will be called when the document is changed.
    */
   public subscribe(
-    type: {
-      type: 'broadcast';
-      topic: string;
-    },
+    type: BroadcastSubscribePair,
     next: DocEventCallbackMap<P>['broadcast'],
     error?: ErrorFn,
   ): Unsubscribe;
@@ -1333,12 +1330,12 @@ export class Document<T, P extends Indexable = Indexable> {
     return this.root.getGarbageLen();
   }
 
-  /*
+  /**
    * `setClient` sets the client of this document.
    *
    * @internal
    */
-  public setClient(client: Client | null): void {
+  public setClient(client?: Client): void {
     this.client = client;
   }
 
@@ -2087,11 +2084,7 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public broadcast(topic: string, payload: any): Promise<void> {
     if (this.client) {
-      try {
-        return this.client.broadcast(this.getKey(), topic, payload);
-      } catch (e) {
-        throw e;
-      }
+      return this.client.broadcast(this.getKey(), topic, payload);
     }
 
     throw new YorkieError(
