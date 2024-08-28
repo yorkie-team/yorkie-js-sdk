@@ -900,95 +900,92 @@ describe.sequential('Client', function () {
 
     await cli.deactivate();
   });
-});
 
-it('Should trigger the handler for a subscribed broadcast event', async ({
-  task,
-}) => {
-  await withTwoClientsAndDocuments<{ t: Text }>(
-    async (c1, d1, c2, d2) => {
-      const eventCollector = new EventCollector<[any]>();
-      const broadcastTopic = 'test';
-      const unsubscribe = d2.subscribe(
-        { type: 'broadcast', topic: broadcastTopic },
-        (payload) => {
-          eventCollector.add([payload]);
-        },
-      );
+  it('Should trigger the handler for a subscribed broadcast event', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<any>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe(
+          { type: 'broadcast', topic: broadcastTopic },
+          (payload) => {
+            eventCollector.add(payload);
+          },
+        );
 
-      const payload = { a: 1, b: '2' };
-      await d1.broadcast(broadcastTopic, payload);
-      await eventCollector.waitAndVerifyNthEvent(1, [payload]);
+        const payload = { a: 1, b: '2' };
+        await d1.broadcast(broadcastTopic, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, payload);
 
-      unsubscribe();
-    },
-    task.name,
-    SyncMode.Realtime,
-  );
-});
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
 
-it('Should not trigger the handler for an unsubscribed broadcast event', async ({
-  task,
-}) => {
-  await withTwoClientsAndDocuments<{ t: Text }>(
-    async (c1, d1, c2, d2) => {
-      const spy = vi.fn();
+  it('Should not trigger the handler for an unsubscribed broadcast event', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const spy = vi.fn();
 
-      const broadcastTopic1 = 'test1';
-      const broadcastTopic2 = 'test2';
+        const broadcastTopic1 = 'test1';
+        const broadcastTopic2 = 'test2';
 
-      const unsubscribe = d2.subscribe(
-        { type: 'broadcast', topic: broadcastTopic2 },
-        spy,
-      );
+        const unsubscribe = d2.subscribe(
+          { type: 'broadcast', topic: broadcastTopic2 },
+          spy,
+        );
 
-      const payload = { a: 1, b: '2' };
-      await d1.broadcast(broadcastTopic1, payload);
+        const payload = { a: 1, b: '2' };
+        await d1.broadcast(broadcastTopic1, payload);
 
-      // Assuming that every subscriber can receive the broadcast event within 1000ms.
-      await new Promise((res) => setTimeout(res, 1000));
+        // Assuming that every subscriber can receive the broadcast event within 1000ms.
+        await new Promise((res) => setTimeout(res, 1000));
 
-      expect(spy.mock.calls.length).toBe(0);
+        expect(spy.mock.calls.length).toBe(0);
 
-      unsubscribe();
-    },
-    task.name,
-    SyncMode.Realtime,
-  );
-});
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
 
-it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
-  task,
-}) => {
-  await withTwoClientsAndDocuments<{ t: Text }>(
-    async (c1, d1, c2, d2) => {
-      const spy = vi.fn();
+  it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<any>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe(
+          { type: 'broadcast', topic: broadcastTopic },
+          (payload) => {
+            eventCollector.add(payload);
+          },
+        );
 
-      const eventCollector = new EventCollector<[any]>();
-      const broadcastTopic = 'test';
-      const unsubscribe = d2.subscribe(
-        { type: 'broadcast', topic: broadcastTopic },
-        (payload) => {
-          spy();
-          eventCollector.add([payload]);
-        },
-      );
+        const payload = { a: 1, b: '2' };
+        await d1.broadcast(broadcastTopic, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, payload);
 
-      const payload = { a: 1, b: '2' };
-      await d1.broadcast(broadcastTopic, payload);
-      await eventCollector.waitAndVerifyNthEvent(1, [payload]);
+        unsubscribe();
 
-      unsubscribe();
+        await d1.broadcast(broadcastTopic, payload);
 
-      await d1.broadcast(broadcastTopic, payload);
+        // Assuming that every subscriber can receive the broadcast event within 1000ms.
+        await new Promise((res) => setTimeout(res, 1000));
 
-      // Assuming that every subscriber can receive the broadcast event within 1000ms.
-      await new Promise((res) => setTimeout(res, 1000));
-
-      // No change in the number of calls
-      expect(spy.mock.calls.length).toBe(1);
-    },
-    task.name,
-    SyncMode.Realtime,
-  );
+        // No change in the number of calls
+        assert.equal(eventCollector.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
 });
