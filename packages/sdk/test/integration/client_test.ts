@@ -907,18 +907,18 @@ it('Should trigger the handler for a subscribed broadcast event', async ({
 }) => {
   await withTwoClientsAndDocuments<{ t: Text }>(
     async (c1, d1, c2, d2) => {
-      const eventCollector = new EventCollector<[string, any]>();
+      const eventCollector = new EventCollector<[any]>();
       const broadcastTopic = 'test';
       const unsubscribe = d2.subscribe(
         { type: 'broadcast', topic: broadcastTopic },
-        (topic, payload) => {
-          eventCollector.add([topic, payload]);
+        (payload) => {
+          eventCollector.add([payload]);
         },
       );
 
       const payload = { a: 1, b: '2' };
       await d1.broadcast(broadcastTopic, payload);
-      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
+      await eventCollector.waitAndVerifyNthEvent(1, [payload]);
 
       unsubscribe();
     },
@@ -964,19 +964,19 @@ it('Should not trigger the handler for a broadcast event after unsubscribing', a
     async (c1, d1, c2, d2) => {
       const spy = vi.fn();
 
-      const eventCollector = new EventCollector<[string, any]>();
+      const eventCollector = new EventCollector<[any]>();
       const broadcastTopic = 'test';
       const unsubscribe = d2.subscribe(
         { type: 'broadcast', topic: broadcastTopic },
-        (topic, payload) => {
+        (payload) => {
           spy();
-          eventCollector.add([topic, payload]);
+          eventCollector.add([payload]);
         },
       );
 
       const payload = { a: 1, b: '2' };
       await d1.broadcast(broadcastTopic, payload);
-      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
+      await eventCollector.waitAndVerifyNthEvent(1, [payload]);
 
       unsubscribe();
 

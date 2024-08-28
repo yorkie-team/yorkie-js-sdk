@@ -400,7 +400,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
-  broadcast: (topic: string, payload: any) => void;
+  broadcast: (payload: any) => void;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -617,15 +617,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   private isUpdating: boolean;
 
-  /**
-   * `broadcastEventHandlers` is a map of broadcast event handlers.
-   * The key is the topic of the broadcast event, and the value is the handler.
-   */
-  private broadcastEventHandlers: Map<
-    string,
-    DocEventCallbackMap<P>['broadcast']
-  >;
-
   private client?: Client;
 
   constructor(key: string, opts?: DocumentOptions) {
@@ -654,8 +645,6 @@ export class Document<T, P extends Indexable = Indexable> {
       undo: this.undo.bind(this),
       redo: this.redo.bind(this),
     };
-
-    this.broadcastEventHandlers = new Map();
 
     setupDevtools(this);
   }
@@ -1085,23 +1074,18 @@ export class Document<T, P extends Indexable = Indexable> {
         const { topic } = arg1 as BroadcastSubscribePair;
         const handler = arg2 as DocEventCallbackMap<P>['broadcast'];
         const error = arg3 as ErrorFn;
-        this.broadcastEventHandlers.set(topic, handler);
-        const unsubscribe = this.eventStream.subscribe((event) => {
+
+        return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.Broadcast) {
               continue;
             }
 
             if (docEvent.value.topic === topic) {
-              handler(topic, docEvent.value.payload);
+              handler(docEvent.value.payload);
             }
           }
         }, error);
-
-        return () => {
-          unsubscribe();
-          this.broadcastEventHandlers.delete(topic);
-        };
       }
     }
     throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
@@ -1683,14 +1667,6 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.PresenceChanged) {
       const { clientID, presence } = event.value;
       this.presences.set(clientID, presence);
-    }
-
-    if (event.type === DocEventType.Broadcast) {
-      const { topic, payload } = event.value;
-      const handler = this.broadcastEventHandlers.get(topic);
-      if (handler) {
-        handler(topic, payload);
-      }
     }
   }
 
