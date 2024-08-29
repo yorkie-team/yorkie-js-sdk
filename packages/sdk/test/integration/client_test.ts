@@ -881,26 +881,6 @@ describe.sequential('Client', function () {
     await cli.deactivate();
   });
 
-  it('Should throw error when broadcasting unserializeable payload', async ({
-    task,
-  }) => {
-    const cli = new yorkie.Client(testRPCAddr);
-    await cli.activate();
-
-    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
-    await cli.attach(doc);
-
-    // broadcast unserializable payload
-    const payload = () => {};
-    const broadcastTopic = 'test';
-
-    expect(async () =>
-      doc.broadcast(broadcastTopic, payload),
-    ).rejects.toThrowErrorCode(Code.ErrInvalidArgument);
-
-    await cli.deactivate();
-  });
-
   it('Should trigger the handler for a subscribed broadcast event', async ({
     task,
   }) => {
@@ -915,7 +895,7 @@ describe.sequential('Client', function () {
         });
 
         const payload = { a: 1, b: '2' };
-        await d1.broadcast(broadcastTopic, payload);
+        d1.broadcast(broadcastTopic, payload);
         await eventCollector.waitAndVerifyNthEvent(1, [
           broadcastTopic,
           payload,
@@ -946,7 +926,7 @@ describe.sequential('Client', function () {
         });
 
         const payload = { a: 1, b: '2' };
-        await d1.broadcast(broadcastTopic1, payload);
+        d1.broadcast(broadcastTopic1, payload);
         await eventCollector.waitAndVerifyNthEvent(1, [
           broadcastTopic1,
           payload,
@@ -975,7 +955,8 @@ describe.sequential('Client', function () {
         });
 
         const payload = { a: 1, b: '2' };
-        await d1.broadcast(broadcastTopic, payload);
+
+        d1.broadcast(broadcastTopic, payload);
         await eventCollector.waitAndVerifyNthEvent(1, [
           broadcastTopic,
           payload,
@@ -983,7 +964,7 @@ describe.sequential('Client', function () {
 
         unsubscribe();
 
-        await d1.broadcast(broadcastTopic, payload);
+        d1.broadcast(broadcastTopic, payload);
 
         // Assuming that every subscriber can receive the broadcast event within 1000ms.
         await new Promise((res) => setTimeout(res, 1000));

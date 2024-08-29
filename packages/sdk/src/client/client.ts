@@ -304,7 +304,12 @@ export class Client {
     }
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(options.initialPresence || {}));
-    doc.setClient(this);
+    const unsubscribeBroacastEvent = doc.subscribe(
+      'broadcast',
+      (topic, payload) => {
+        this.broadcast(doc.getKey(), topic, payload);
+      },
+    );
 
     const syncMode = options.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
@@ -331,6 +336,7 @@ export class Client {
               doc,
               res.documentId,
               syncMode,
+              unsubscribeBroacastEvent,
             ),
           );
 
@@ -802,8 +808,8 @@ export class Client {
       return;
     }
 
-    attachment.unsetClient();
     attachment.cancelWatchStream();
+    attachment.unsubscribeBroadcastEvent();
     this.attachmentMap.delete(docKey);
   }
 

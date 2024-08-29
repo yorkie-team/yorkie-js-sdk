@@ -78,7 +78,6 @@ import {
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { Client } from '@yorkie-js-sdk/src/client/client';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -601,8 +600,6 @@ export class Document<T, P extends Indexable = Indexable> {
    * used to prevent the updater from calling undo/redo.
    */
   private isUpdating: boolean;
-
-  private client?: Client;
 
   constructor(key: string, opts?: DocumentOptions) {
     this.opts = opts || {};
@@ -1284,15 +1281,6 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
-  }
-
-  /**
-   * `setClient` sets the client of this document.
-   *
-   * @internal
-   */
-  public setClient(client?: Client): void {
-    this.client = client;
   }
 
   /**
@@ -2030,14 +2018,12 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `broadcast` the payload to the given topic.
    */
-  public broadcast(topic: string, payload: any): Promise<void> {
-    if (this.client) {
-      return this.client.broadcast(this.getKey(), topic, payload);
-    }
+  public broadcast(topic: string, payload: any) {
+    const broadcastEvent: BroadcastEvent = {
+      type: DocEventType.Broadcast,
+      value: { topic, payload },
+    };
 
-    throw new YorkieError(
-      Code.ErrClientNotFound,
-      'Document is not attached to a client',
-    );
+    this.publish([broadcastEvent]);
   }
 }
