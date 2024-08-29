@@ -400,7 +400,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
-  broadcast: (payload: any) => void;
+  broadcast: (topic: string, payload: any) => void;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -551,21 +551,6 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
   '$.',
   Depth
 >;
-
-/*
- * `SubscribePair` represents the type of the subscribe pair.
- */
-type SubscribePair = {
-  type: string;
-};
-
-/*
- * `BroadcastSubscribePair` represents the type of the broadcast subscribe pair.
- */
-type BroadcastSubscribePair = {
-  type: 'broadcast';
-  topic: string;
-} & SubscribePair;
 
 /**
  * `Document` is a CRDT-based data type. We can represent the model
@@ -853,7 +838,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * The callback will be called when the document is changed.
    */
   public subscribe(
-    type: BroadcastSubscribePair,
+    type: 'broadcast',
     next: DocEventCallbackMap<P>['broadcast'],
     error?: ErrorFn,
   ): Unsubscribe;
@@ -873,11 +858,7 @@ export class Document<T, P extends Indexable = Indexable> {
     TPath extends PathOf<T>,
     TOperationInfo extends OperationInfoOf<T, TPath>,
   >(
-    arg1:
-      | TPath
-      | DocEventTopic
-      | DocEventCallbackMap<P>['default']
-      | SubscribePair,
+    arg1: TPath | DocEventTopic | DocEventCallbackMap<P>['default'],
     arg2?:
       | NextFn<
           | LocalChangeEvent<TOperationInfo, P>
@@ -1009,6 +990,17 @@ export class Document<T, P extends Indexable = Indexable> {
           arg4,
         );
       }
+      if (arg1 === 'broadcast') {
+        const callback = arg2 as DocEventCallbackMap<P>['broadcast'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.Broadcast) {
+              continue;
+            }
+            callback(docEvent.value.topic, docEvent.value.payload);
+          }
+        }, arg3);
+      }
       if (arg1 === 'all') {
         const callback = arg2 as DocEventCallbackMap<P>['all'];
         return this.eventStream.subscribe(callback, arg3, arg4);
@@ -1067,27 +1059,7 @@ export class Document<T, P extends Indexable = Indexable> {
         complete,
       );
     }
-    if (typeof arg1 === 'object') {
-      const { type } = arg1 as SubscribePair;
 
-      if (type === 'broadcast') {
-        const { topic } = arg1 as BroadcastSubscribePair;
-        const handler = arg2 as DocEventCallbackMap<P>['broadcast'];
-        const error = arg3 as ErrorFn;
-
-        return this.eventStream.subscribe((event) => {
-          for (const docEvent of event) {
-            if (docEvent.type !== DocEventType.Broadcast) {
-              continue;
-            }
-
-            if (docEvent.value.topic === topic) {
-              handler(docEvent.value.payload);
-            }
-          }
-        }, error);
-      }
-    }
     throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
   }
 

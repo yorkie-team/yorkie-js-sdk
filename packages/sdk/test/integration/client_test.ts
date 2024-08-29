@@ -906,18 +906,20 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<any>();
+        const eventCollector = new EventCollector<[string, any]>();
         const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe(
-          { type: 'broadcast', topic: broadcastTopic },
-          (payload) => {
-            eventCollector.add(payload);
-          },
-        );
+        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
 
         const payload = { a: 1, b: '2' };
         await d1.broadcast(broadcastTopic, payload);
-        await eventCollector.waitAndVerifyNthEvent(1, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
 
         unsubscribe();
       },
@@ -931,23 +933,26 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const spy = vi.fn();
-
+        const eventCollector = new EventCollector<[string, any]>();
         const broadcastTopic1 = 'test1';
         const broadcastTopic2 = 'test2';
 
-        const unsubscribe = d2.subscribe(
-          { type: 'broadcast', topic: broadcastTopic2 },
-          spy,
-        );
+        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+          if (topic === broadcastTopic1) {
+            eventCollector.add([topic, payload]);
+          } else if (topic === broadcastTopic2) {
+            eventCollector.add([topic, payload]);
+          }
+        });
 
         const payload = { a: 1, b: '2' };
         await d1.broadcast(broadcastTopic1, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic1,
+          payload,
+        ]);
 
-        // Assuming that every subscriber can receive the broadcast event within 1000ms.
-        await new Promise((res) => setTimeout(res, 1000));
-
-        expect(spy.mock.calls.length).toBe(0);
+        assert.equal(eventCollector.getLength(), 1);
 
         unsubscribe();
       },
@@ -961,18 +966,20 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<any>();
+        const eventCollector = new EventCollector<[string, any]>();
         const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe(
-          { type: 'broadcast', topic: broadcastTopic },
-          (payload) => {
-            eventCollector.add(payload);
-          },
-        );
+        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
 
         const payload = { a: 1, b: '2' };
         await d1.broadcast(broadcastTopic, payload);
-        await eventCollector.waitAndVerifyNthEvent(1, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
 
         unsubscribe();
 
