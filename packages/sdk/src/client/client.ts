@@ -306,8 +306,14 @@ export class Client {
     doc.update((_, p) => p.set(options.initialPresence || {}));
     const unsubscribeBroacastEvent = doc.subscribe(
       'broadcast',
-      (topic, payload) => {
-        this.broadcast(doc.getKey(), topic, payload);
+      (topic, payload, onBroadcastError) => {
+        try {
+          this.broadcast(doc.getKey(), topic, payload);
+        } catch (e: unknown) {
+          if (e instanceof Error) {
+            onBroadcastError?.(e);
+          }
+        }
       },
     );
 

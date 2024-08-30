@@ -380,6 +380,7 @@ export interface PresenceChangedEvent<P extends Indexable>
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
   value: { topic: string; payload: any };
+  error?: ErrorFn;
 }
 
 type DocEventCallbackMap<P extends Indexable> = {
@@ -399,7 +400,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
-  broadcast: (topic: string, payload: any) => void;
+  broadcast: (topic: string, payload: any, error?: ErrorFn) => void;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -994,7 +995,11 @@ export class Document<T, P extends Indexable = Indexable> {
             if (docEvent.type !== DocEventType.Broadcast) {
               continue;
             }
-            callback(docEvent.value.topic, docEvent.value.payload);
+            callback(
+              docEvent.value.topic,
+              docEvent.value.payload,
+              docEvent.error,
+            );
           }
         }, arg3);
       }
@@ -2018,10 +2023,11 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `broadcast` the payload to the given topic.
    */
-  public broadcast(topic: string, payload: any) {
+  public broadcast(topic: string, payload: any, error?: ErrorFn) {
     const broadcastEvent: BroadcastEvent = {
       type: DocEventType.Broadcast,
       value: { topic, payload },
+      error,
     };
 
     this.publish([broadcastEvent]);

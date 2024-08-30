@@ -881,6 +881,30 @@ describe.sequential('Client', function () {
     await cli.deactivate();
   });
 
+  it('Should throw error when broadcasting unserializeable payload', async ({
+    task,
+  }) => {
+    const spy = vi.fn();
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    // broadcast unserializable payload
+    const payload = () => {};
+    const broadcastTopic = 'test';
+
+    doc.broadcast(broadcastTopic, payload, spy);
+
+    // Assuming that every subscriber can receive the broadcast event within 1000ms.
+    await new Promise((res) => setTimeout(res, 1000));
+
+    expect(spy).toBeCalledTimes(1);
+
+    await cli.deactivate();
+  });
+
   it('Should trigger the handler for a subscribed broadcast event', async ({
     task,
   }) => {
