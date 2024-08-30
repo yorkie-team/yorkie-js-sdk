@@ -884,7 +884,7 @@ describe.sequential('Client', function () {
   it('Should throw error when broadcasting unserializeable payload', async ({
     task,
   }) => {
-    const spy = vi.fn();
+    const eventCollector = new EventCollector<string>();
     const cli = new yorkie.Client(testRPCAddr);
     await cli.activate();
 
@@ -894,13 +894,15 @@ describe.sequential('Client', function () {
     // broadcast unserializable payload
     const payload = () => {};
     const broadcastTopic = 'test';
+    const broadcastErrMessage = 'payload is not serializable';
 
-    doc.broadcast(broadcastTopic, payload, spy);
+    const errorHandler = (error: Error) => {
+      eventCollector.add(error.message);
+    };
 
-    // Assuming that every subscriber can receive the broadcast event within 1000ms.
-    await new Promise((res) => setTimeout(res, 1000));
+    doc.broadcast(broadcastTopic, payload, errorHandler);
 
-    expect(spy).toBeCalledTimes(1);
+    await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
 
     await cli.deactivate();
   });
