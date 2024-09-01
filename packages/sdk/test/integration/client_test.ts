@@ -914,7 +914,9 @@ describe.sequential('Client', function () {
       async (c1, d1, c2, d2) => {
         const eventCollector = new EventCollector<[string, any]>();
         const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
@@ -926,6 +928,8 @@ describe.sequential('Client', function () {
           broadcastTopic,
           payload,
         ]);
+
+        assert.equal(eventCollector.getLength(), 1);
 
         unsubscribe();
       },
@@ -943,7 +947,9 @@ describe.sequential('Client', function () {
         const broadcastTopic1 = 'test1';
         const broadcastTopic2 = 'test2';
 
-        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
           if (topic === broadcastTopic1) {
             eventCollector.add([topic, payload]);
           } else if (topic === broadcastTopic2) {
@@ -974,7 +980,9 @@ describe.sequential('Client', function () {
       async (c1, d1, c2, d2) => {
         const eventCollector = new EventCollector<[string, any]>();
         const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (topic, payload) => {
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
@@ -997,6 +1005,52 @@ describe.sequential('Client', function () {
 
         // No change in the number of calls
         assert.equal(eventCollector.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not trigger the handler for a broadcast event sent by the publisher to itself', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector1 = new EventCollector<[string, any]>();
+        const eventCollector2 = new EventCollector<[string, any]>();
+        const broadcastTopic = 'test';
+        const payload = { a: 1, b: '2' };
+
+        // Publisher subscribes to the broadcast event
+        const unsubscribe1 = d1.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector1.add([topic, payload]);
+          }
+        });
+
+        const unsubscribe2 = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector2.add([topic, payload]);
+          }
+        });
+
+        d1.broadcast(broadcastTopic, payload);
+
+        // Assuming that D2 takes longer to receive the broadcast event compared to D1
+        await eventCollector2.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        unsubscribe1();
+        unsubscribe2();
+
+        assert.equal(eventCollector1.getLength(), 0);
+        assert.equal(eventCollector2.getLength(), 1);
       },
       task.name,
       SyncMode.Realtime,

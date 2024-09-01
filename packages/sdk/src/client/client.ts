@@ -305,13 +305,16 @@ export class Client {
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(options.initialPresence || {}));
     const unsubscribeBroacastEvent = doc.subscribe(
-      'broadcast',
-      (topic, payload, onBroadcastError) => {
+      'local-broadcast',
+      (event) => {
+        const { topic, payload } = event.value;
+        const errorFn = event.error;
+
         try {
           this.broadcast(doc.getKey(), topic, payload);
-        } catch (e: unknown) {
-          if (e instanceof Error) {
-            onBroadcastError?.(e);
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            errorFn?.(error);
           }
         }
       },

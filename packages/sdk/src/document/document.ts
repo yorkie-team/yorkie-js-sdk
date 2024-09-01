@@ -175,9 +175,14 @@ export enum DocEventType {
   PresenceChanged = 'presence-changed',
 
   /**
-   * `Broadcast` means that the message is broadcasted to clients who subscribe to the event.
+   * `Broadcast` means that the broadcast event is received from the remote client.
    */
   Broadcast = 'broadcast',
+
+  /**
+   * `LocalBroadcast` means that the broadcast event is sent from the local client.
+   */
+  LocalBroadcast = 'local-broadcast',
 }
 
 /**
@@ -197,7 +202,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | WatchedEvent<P>
   | UnwatchedEvent<P>
   | PresenceChangedEvent<P>
-  | BroadcastEvent;
+  | BroadcastEvent
+  | LocalBroadcastEvent;
 
 /**
  * `TransactionEvent` represents document events that occur within
@@ -379,6 +385,12 @@ export interface PresenceChangedEvent<P extends Indexable>
 
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
+  value: { clientID: ActorID; topic: string; payload: any };
+  error?: ErrorFn;
+}
+
+export interface LocalBroadcastEvent extends BaseDocEvent {
+  type: DocEventType.LocalBroadcast;
   value: { topic: string; payload: any };
   error?: ErrorFn;
 }
@@ -400,7 +412,8 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
-  broadcast: (topic: string, payload: any, error?: ErrorFn) => void;
+  broadcast: NextFn<BroadcastEvent>;
+  'local-broadcast': NextFn<LocalBroadcastEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -833,11 +846,20 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the document is changed.
+   * The callback will be called when the broadcast event is received from the remote client.
    */
   public subscribe(
     type: 'broadcast',
     next: DocEventCallbackMap<P>['broadcast'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the local client sends a broadcast event.
+   */
+  public subscribe(
+    type: 'local-broadcast',
+    next: DocEventCallbackMap<P>['local-broadcast'],
     error?: ErrorFn,
   ): Unsubscribe;
   /**
@@ -988,6 +1010,18 @@ export class Document<T, P extends Indexable = Indexable> {
           arg4,
         );
       }
+      if (arg1 === 'local-broadcast') {
+        const callback = arg2 as DocEventCallbackMap<P>['local-broadcast'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.LocalBroadcast) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
       if (arg1 === 'broadcast') {
         const callback = arg2 as DocEventCallbackMap<P>['broadcast'];
         return this.eventStream.subscribe((event) => {
@@ -995,11 +1029,8 @@ export class Document<T, P extends Indexable = Indexable> {
             if (docEvent.type !== DocEventType.Broadcast) {
               continue;
             }
-            callback(
-              docEvent.value.topic,
-              docEvent.value.payload,
-              docEvent.error,
-            );
+
+            callback(docEvent);
           }
         }, arg3);
       }
@@ -1541,7 +1572,11 @@ export class Document<T, P extends Indexable = Indexable> {
 
           event.push({
             type: DocEventType.Broadcast,
-            value: { topic, payload: JSON.parse(decoder.decode(payload)) },
+            value: {
+              clientID: publisher,
+              topic,
+              payload: JSON.parse(decoder.decode(payload)),
+            },
           });
         }
       }
@@ -2024,8 +2059,8 @@ export class Document<T, P extends Indexable = Indexable> {
    * `broadcast` the payload to the given topic.
    */
   public broadcast(topic: string, payload: any, error?: ErrorFn) {
-    const broadcastEvent: BroadcastEvent = {
-      type: DocEventType.Broadcast,
+    const broadcastEvent: LocalBroadcastEvent = {
+      type: DocEventType.LocalBroadcast,
       value: { topic, payload },
       error,
     };
