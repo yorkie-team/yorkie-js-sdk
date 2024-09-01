@@ -31,6 +31,6 @@
     "only-allow": "^1.2.1"
   },
   "lint-staged": {
-    "packages/sdk/**/*.{js,ts,tsx}": "pnpm sdk lint"
+    "packages/sdk/**/*.{js,ts,tsx}": "node lint-staged-filter.js"
   }
 }
