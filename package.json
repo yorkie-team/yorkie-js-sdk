@@ -29,8 +29,5 @@
     "husky": "^9.1.5",
     "lint-staged": "^15.2.9",
     "only-allow": "^1.2.1"
-  },
-  "lint-staged": {
-    "packages/sdk/**/*.{js,ts,tsx}": "pnpm sdk lint"
   }
 }
