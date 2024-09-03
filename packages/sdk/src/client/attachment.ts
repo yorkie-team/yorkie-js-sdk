@@ -1,5 +1,6 @@
 import { Document, Indexable } from '@yorkie-js-sdk/src/document/document';
 import { SyncMode } from '@yorkie-js-sdk/src/client/client';
+import { Unsubscribe } from '../yorkie';
 
 /**
  * `WatchStream` is a stream that watches the changes of the document.
@@ -21,17 +22,21 @@ export class Attachment<T, P extends Indexable> {
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
   watchAbortController?: AbortController;
 
+  unsubscribeBroadcastEvent: Unsubscribe;
+
   constructor(
     reconnectStreamDelay: number,
     doc: Document<T, P>,
     docID: string,
     syncMode: SyncMode,
+    unsubscribeBroacastEvent: Unsubscribe,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.doc = doc;
     this.docID = docID;
     this.syncMode = syncMode;
     this.remoteChangeEventReceived = false;
+    this.unsubscribeBroadcastEvent = unsubscribeBroacastEvent;
   }
 
   /**

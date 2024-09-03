@@ -173,6 +173,16 @@ export enum DocEventType {
    * `PresenceChanged` means that the presences of the client has updated.
    */
   PresenceChanged = 'presence-changed',
+
+  /**
+   * `Broadcast` means that the broadcast event is received from the remote client.
+   */
+  Broadcast = 'broadcast',
+
+  /**
+   * `LocalBroadcast` means that the broadcast event is sent from the local client.
+   */
+  LocalBroadcast = 'local-broadcast',
 }
 
 /**
@@ -191,7 +201,9 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | InitializedEvent<P>
   | WatchedEvent<P>
   | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>;
+  | PresenceChangedEvent<P>
+  | BroadcastEvent
+  | LocalBroadcastEvent;
 
 /**
  * `TransactionEvent` represents document events that occur within
@@ -371,6 +383,18 @@ export interface PresenceChangedEvent<P extends Indexable>
   value: { clientID: ActorID; presence: P };
 }
 
+export interface BroadcastEvent extends BaseDocEvent {
+  type: DocEventType.Broadcast;
+  value: { clientID: ActorID; topic: string; payload: any };
+  error?: ErrorFn;
+}
+
+export interface LocalBroadcastEvent extends BaseDocEvent {
+  type: DocEventType.LocalBroadcast;
+  value: { topic: string; payload: any };
+  error?: ErrorFn;
+}
+
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
     | SnapshotEvent
@@ -388,6 +412,8 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
+  broadcast: NextFn<BroadcastEvent>;
+  'local-broadcast': NextFn<LocalBroadcastEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -820,6 +846,24 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the broadcast event is received from the remote client.
+   */
+  public subscribe(
+    type: 'broadcast',
+    next: DocEventCallbackMap<P>['broadcast'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the local client sends a broadcast event.
+   */
+  public subscribe(
+    type: 'local-broadcast',
+    next: DocEventCallbackMap<P>['local-broadcast'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -966,6 +1010,30 @@ export class Document<T, P extends Indexable = Indexable> {
           arg4,
         );
       }
+      if (arg1 === 'local-broadcast') {
+        const callback = arg2 as DocEventCallbackMap<P>['local-broadcast'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.LocalBroadcast) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'broadcast') {
+        const callback = arg2 as DocEventCallbackMap<P>['broadcast'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.Broadcast) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
       if (arg1 === 'all') {
         const callback = arg2 as DocEventCallbackMap<P>['all'];
         return this.eventStream.subscribe(callback, arg3, arg4);
@@ -1024,6 +1092,7 @@ export class Document<T, P extends Indexable = Indexable> {
         complete,
       );
     }
+
     throw new YorkieError(Code.ErrInvalidArgument, `"${arg1}" is not a valid`);
   }
 
@@ -1468,7 +1537,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     if (resp.body.case === 'event') {
       const { type, publisher } = resp.body.value;
-      const event: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
+      const event: Array<WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent> =
+        [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
         this.addOnlineClient(publisher);
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
@@ -1493,6 +1563,20 @@ export class Document<T, P extends Indexable = Indexable> {
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: { clientID: publisher, presence },
+          });
+        }
+      } else if (type === PbDocEventType.DOCUMENT_BROADCAST) {
+        if (resp.body.value.body) {
+          const { topic, payload } = resp.body.value.body;
+          const decoder = new TextDecoder();
+
+          event.push({
+            type: DocEventType.Broadcast,
+            value: {
+              clientID: publisher,
+              topic,
+              payload: JSON.parse(decoder.decode(payload)),
+            },
           });
         }
       }
@@ -1969,5 +2053,18 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getRedoStackForTest();
+  }
+
+  /**
+   * `broadcast` the payload to the given topic.
+   */
+  public broadcast(topic: string, payload: any, error?: ErrorFn) {
+    const broadcastEvent: LocalBroadcastEvent = {
+      type: DocEventType.LocalBroadcast,
+      value: { topic, payload },
+      error,
+    };
+
+    this.publish([broadcastEvent]);
   }
 }

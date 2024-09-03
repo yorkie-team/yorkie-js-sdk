@@ -863,4 +863,197 @@ describe.sequential('Client', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
+
+  it('Should successfully broadcast serializeable payload', async ({
+    task,
+  }) => {
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    const broadcastTopic = 'test';
+    const payload = { a: 1, b: '2' };
+
+    expect(async () => doc.broadcast(broadcastTopic, payload)).not.toThrow();
+
+    await cli.deactivate();
+  });
+
+  it('Should throw error when broadcasting unserializeable payload', async ({
+    task,
+  }) => {
+    const eventCollector = new EventCollector<string>();
+    const cli = new yorkie.Client(testRPCAddr);
+    await cli.activate();
+
+    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
+    await cli.attach(doc);
+
+    // broadcast unserializable payload
+    const payload = () => {};
+    const broadcastTopic = 'test';
+    const broadcastErrMessage = 'payload is not serializable';
+
+    const errorHandler = (error: Error) => {
+      eventCollector.add(error.message);
+    };
+
+    doc.broadcast(broadcastTopic, payload, errorHandler);
+
+    await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
+
+    await cli.deactivate();
+  });
+
+  it('Should trigger the handler for a subscribed broadcast event', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        const payload = { a: 1, b: '2' };
+        d1.broadcast(broadcastTopic, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        assert.equal(eventCollector.getLength(), 1);
+
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not trigger the handler for an unsubscribed broadcast event', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const broadcastTopic1 = 'test1';
+        const broadcastTopic2 = 'test2';
+
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic1) {
+            eventCollector.add([topic, payload]);
+          } else if (topic === broadcastTopic2) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        const payload = { a: 1, b: '2' };
+        d1.broadcast(broadcastTopic1, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic1,
+          payload,
+        ]);
+
+        assert.equal(eventCollector.getLength(), 1);
+
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        const payload = { a: 1, b: '2' };
+
+        d1.broadcast(broadcastTopic, payload);
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        unsubscribe();
+
+        d1.broadcast(broadcastTopic, payload);
+
+        // Assuming that every subscriber can receive the broadcast event within 1000ms.
+        await new Promise((res) => setTimeout(res, 1000));
+
+        // No change in the number of calls
+        assert.equal(eventCollector.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not trigger the handler for a broadcast event sent by the publisher to itself', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector1 = new EventCollector<[string, any]>();
+        const eventCollector2 = new EventCollector<[string, any]>();
+        const broadcastTopic = 'test';
+        const payload = { a: 1, b: '2' };
+
+        // Publisher subscribes to the broadcast event
+        const unsubscribe1 = d1.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector1.add([topic, payload]);
+          }
+        });
+
+        const unsubscribe2 = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector2.add([topic, payload]);
+          }
+        });
+
+        d1.broadcast(broadcastTopic, payload);
+
+        // Assuming that D2 takes longer to receive the broadcast event compared to D1
+        await eventCollector2.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        unsubscribe1();
+        unsubscribe2();
+
+        assert.equal(eventCollector1.getLength(), 0);
+        assert.equal(eventCollector2.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
 });
