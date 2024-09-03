@@ -26,7 +26,7 @@ module.exports = {
 
     if (filesToLint.length > 0) {
       const fileArgs = filesToLint.join(' ');
-      const command = `pnpm sdk lint ${fileArgs}`;
+      const command = `pnpm exec eslint ${fileArgs} --fix --max-warnings=0 --ext .ts`;
       try {
         execSync(command, { stdio: 'inherit' });
         process.exit(0); // Explicitly exit with 0 on success
