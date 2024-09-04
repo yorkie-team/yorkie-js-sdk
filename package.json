@@ -32,6 +32,9 @@
     "lint-staged": "^15.2.9",
     "only-allow": "^1.2.1",
     "eslint-plugin-jsdoc": "^39.3.3",
-    "eslint-plugin-prettier": "^5.0.0"
+    "eslint-plugin-prettier": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "typescript": "5.3.3"
   }
 }
