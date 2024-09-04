@@ -28,7 +28,7 @@ module.exports = {
         execSync(command, { stdio: 'inherit' });
         process.exit(0);
       } catch (error) {
-        console.error('Linting failed. Commit will be aborted.');
+        console.log('Linting failed. Commit will be aborted.');
         process.exit(1);
       }
     } else {
