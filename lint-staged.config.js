@@ -18,7 +18,7 @@ const removeIgnoredFiles = async (files) => {
 };
 
 module.exports = {
-  'packages/sdk/**/*.{js,ts,tsx}': async (files) => {
+  '**/*.ts': async (files) => {
     const filesToLint = await removeIgnoredFiles(files);
 
     if (filesToLint.length > 0) {
