@@ -1,15 +1,13 @@
 // eslint-disable-next-line no-undef
 module.exports = {
-  root: true,
-  parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'prettier', 'eslint-plugin-tsdoc', 'jsdoc'],
   extends: [
-    'eslint:recommended',
+    '../../.eslintrc.js', // Extends the root ESLint configuration (which includes prettier)
     'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
   ],
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc'], // No need to include prettier here
   rules: {
-    'prettier/prettier': 'error',
     '@typescript-eslint/naming-convention': [
       'error',
       {
@@ -30,19 +28,6 @@ module.exports = {
     ],
     '@typescript-eslint/array-type': ['error', { default: 'generic' }],
     'tsdoc/syntax': 'error',
-    'object-shorthand': ['error', 'always'],
-    'no-unreachable': 'error',
-    'jsdoc/require-jsdoc': [
-      'error',
-      {
-        contexts: ['MethodDefinition:not([accessibility="private"])'],
-        require: {
-          ClassDeclaration: true,
-        },
-        checkConstructors: false,
-        enableFixer: false,
-      },
-    ],
     '@typescript-eslint/no-this-alias': [
       'error',
       {

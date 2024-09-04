@@ -118,10 +118,13 @@ export function deepSort(target: any): any {
   if (typeof target === 'object') {
     return Object.keys(target)
       .sort()
-      .reduce((result, key) => {
-        result[key] = deepSort(target[key]);
-        return result;
-      }, {} as Record<string, any>);
+      .reduce(
+        (result, key) => {
+          result[key] = deepSort(target[key]);
+          return result;
+        },
+        {} as Record<string, any>,
+      );
   }
   return target;
 }

@@ -68,7 +68,10 @@ export class YorkieError extends Error {
   name = 'YorkieError';
   stack?: string;
 
-  constructor(readonly code: Code, readonly message: string) {
+  constructor(
+    readonly code: Code,
+    readonly message: string,
+  ) {
     super(message);
     this.toString = (): string => `[code=${this.code}]: ${this.message}`;
   }

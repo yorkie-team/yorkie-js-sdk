@@ -17,6 +17,7 @@
     "vanilla-quill": "pnpm --filter=vanilla-quill",
     "vuejs-kanban": "pnpm --filter=vuejs-kanban",
     "build:examples": "pnpm --filter './examples/*' run build",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "husky"
   },
   "keywords": [],
@@ -26,8 +27,11 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
+    "eslint": "^8.19.0",
     "husky": "^9.1.5",
     "lint-staged": "^15.2.9",
-    "only-allow": "^1.2.1"
+    "only-allow": "^1.2.1",
+    "eslint-plugin-jsdoc": "^39.3.3",
+    "eslint-plugin-prettier": "^5.0.0"
   }
 }
