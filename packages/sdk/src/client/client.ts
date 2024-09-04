@@ -42,6 +42,7 @@ import {
 import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
+import { validateSerializable } from '../util/validator';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -303,6 +304,21 @@ export class Client {
     }
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(options.initialPresence || {}));
+    const unsubscribeBroacastEvent = doc.subscribe(
+      'local-broadcast',
+      (event) => {
+        const { topic, payload } = event.value;
+        const errorFn = event.error;
+
+        try {
+          this.broadcast(doc.getKey(), topic, payload);
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            errorFn?.(error);
+          }
+        }
+      },
+    );
 
     const syncMode = options.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
@@ -329,6 +345,7 @@ export class Client {
               doc,
               res.documentId,
               syncMode,
+              unsubscribeBroacastEvent,
             ),
           );
 
@@ -585,6 +602,59 @@ export class Client {
   }
 
   /**
+   * `broadcast` broadcasts the given payload to the given topic.
+   */
+  public broadcast(
+    docKey: DocumentKey,
+    topic: string,
+    payload: any,
+  ): Promise<void> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(docKey);
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrDocumentNotAttached,
+        `${docKey} is not attached`,
+      );
+    }
+
+    if (!validateSerializable(payload)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'payload is not serializable',
+      );
+    }
+
+    return this.enqueueTask(async () => {
+      return this.rpcClient
+        .broadcast(
+          {
+            clientId: this.id!,
+            documentId: attachment.docID,
+            topic,
+            payload: new TextEncoder().encode(JSON.stringify(payload)),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
+        )
+        .then(() => {
+          logger.info(
+            `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
+          );
+        })
+        .catch((err) => {
+          logger.error(`[BC] c:"${this.getKey()}" err :`, err);
+          this.handleConnectError(err);
+          throw err;
+        });
+    });
+  }
+
+  /**
    * `runSyncLoop` runs the sync loop. The sync loop pushes local changes to
    * the server and pulls remote changes from the server.
    */
@@ -748,6 +818,7 @@ export class Client {
     }
 
     attachment.cancelWatchStream();
+    attachment.unsubscribeBroadcastEvent();
     this.attachmentMap.delete(docKey);
   }
 

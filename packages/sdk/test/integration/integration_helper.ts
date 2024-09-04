@@ -21,6 +21,7 @@ export async function withTwoClientsAndDocuments<T>(
     d2: Document<T>,
   ) => Promise<void>,
   title: string,
+  syncMode: SyncMode = SyncMode.Manual,
 ): Promise<void> {
   const client1 = new yorkie.Client(testRPCAddr);
   const client2 = new yorkie.Client(testRPCAddr);
@@ -31,8 +32,8 @@ export async function withTwoClientsAndDocuments<T>(
   const doc1 = new yorkie.Document<T>(docKey);
   const doc2 = new yorkie.Document<T>(docKey);
 
-  await client1.attach(doc1, { syncMode: SyncMode.Manual });
-  await client2.attach(doc2, { syncMode: SyncMode.Manual });
+  await client1.attach(doc1, { syncMode });
+  await client2.attach(doc2, { syncMode });
 
   await callback(client1, doc1, client2, doc2);
 
