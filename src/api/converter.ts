@@ -186,7 +186,13 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
 /**
  * `toVersionVector` converts the given model to Protobuf format.
  */
-function toVersionVector(vector: VersionVector): PbVersionVector | undefined {
+function toVersionVector(
+  vector: VersionVector | undefined,
+): PbVersionVector | undefined {
+  if (!vector) {
+    return;
+  }
+
   const pbVector = new PbVersionVector();
   for (const [actorID, lamport] of vector) {
     // TODO(hackerwins): Remove Long after introducing BigInt.
@@ -790,6 +796,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     isRemoved: pack.getIsRemoved(),
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
+    versionVector: toVersionVector(pack.getVersionVector()),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
 }
@@ -1365,6 +1372,8 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     pbPack.snapshot,
     fromVersionVector(pbPack.snapshotVersionVector),
+    fromVersionVector(pbPack.minSyncedVersionVector),
+    fromVersionVector(pbPack.versionVector),
     fromTimeTicket(pbPack.minSyncedTicket),
   );
 }
