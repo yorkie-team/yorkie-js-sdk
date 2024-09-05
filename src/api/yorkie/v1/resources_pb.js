@@ -86,7 +86,9 @@ export const ChangePack = /*@__PURE__*/ proto3.makeMessageType(
     { no: 7, name: "snapshot_version_vector", kind: "message", T: VersionVector },
     { no: 4, name: "changes", kind: "message", T: Change, repeated: true },
     { no: 5, name: "min_synced_ticket", kind: "message", T: TimeTicket },
+    { no: 8, name: "min_synced_version_vector", kind: "message", T: VersionVector },
     { no: 6, name: "is_removed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 9, name: "version_vector", kind: "message", T: VersionVector },
   ],
 );
 

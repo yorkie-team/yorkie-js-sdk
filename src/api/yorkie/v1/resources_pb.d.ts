@@ -187,14 +187,26 @@ export declare class ChangePack extends Message<ChangePack> {
   changes: Change[];
 
   /**
+   * Deprecated
+   *
    * @generated from field: yorkie.v1.TimeTicket min_synced_ticket = 5;
    */
   minSyncedTicket?: TimeTicket;
 
   /**
+   * @generated from field: yorkie.v1.VersionVector min_synced_version_vector = 8;
+   */
+  minSyncedVersionVector?: VersionVector;
+
+  /**
    * @generated from field: bool is_removed = 6;
    */
   isRemoved: boolean;
+
+  /**
+   * @generated from field: yorkie.v1.VersionVector version_vector = 9;
+   */
+  versionVector?: VersionVector;
 
   constructor(data?: PartialMessage<ChangePack>);
 
