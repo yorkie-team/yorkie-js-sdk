@@ -91,14 +91,15 @@ export class ChangeID {
     const lamport = other.lamport.greaterThan(this.lamport)
       ? other.lamport
       : this.lamport.add(1);
+    const maxVersionVector = this.versionVector.max(other.versionVector);
 
     const newID = new ChangeID(
       this.clientSeq,
       lamport,
       this.actor,
-      this.versionVector.deepcopy(),
+      maxVersionVector,
     );
-    newID.versionVector.set(other.actor, other.lamport);
+    newID.versionVector.set(this.actor, lamport);
     return newID;
   }
 
@@ -110,8 +111,10 @@ export class ChangeID {
     const lamport = otherLamport.greaterThan(this.lamport)
       ? otherLamport
       : this.lamport.add(1);
+    const maxVersionVector = this.versionVector.max(vector);
+    maxVersionVector.set(this.actor, lamport);
 
-    return ChangeID.of(this.clientSeq, lamport, this.actor, vector);
+    return ChangeID.of(this.clientSeq, lamport, this.actor, maxVersionVector);
   }
 
   /**
