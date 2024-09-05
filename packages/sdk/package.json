@@ -66,8 +66,5 @@
     "@connectrpc/connect": "^1.4.0",
     "@connectrpc/connect-web": "^1.4.0",
     "long": "^5.2.0"
-  },
-  "resolutions": {
-    "typedoc/typescript": "5.3.3"
   }
 }
