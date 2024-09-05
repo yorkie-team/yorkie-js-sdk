@@ -52,6 +52,17 @@ export class ChangePack<P extends Indexable> {
   private snapshotVersionVector?: VersionVector;
 
   /**
+   * `minSyncedVersionVector` is the min value of each lamport in vector which stored in db.
+   * use this to run GC and filter detached client's lamport from version vector.
+   */
+  private minSyncedVersionVector?: VersionVector;
+
+  /**
+   * `versionVector` is the version vector of document.
+   */
+  private versionVector?: VersionVector;
+
+  /**
    * `minSyncedTicket` is the minimum logical time taken by clients who attach
    * to the document. It is used to collect garbage on the replica on the
    * client.
@@ -65,6 +76,8 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     snapshot?: Uint8Array,
     snapshotVersionVector?: VersionVector,
+    minSyncedVersionVector?: VersionVector,
+    versionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
@@ -74,6 +87,8 @@ export class ChangePack<P extends Indexable> {
     this.snapshot = snapshot;
     this.snapshotVersionVector = snapshotVersionVector;
     this.minSyncedTicket = minSyncedTicket;
+    this.versionVector = versionVector;
+    this.minSyncedVersionVector = minSyncedVersionVector;
   }
 
   /**
@@ -86,6 +101,8 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     snapshot?: Uint8Array,
     snapshotVersionVector?: VersionVector,
+    minSyncedVersionVector?: VersionVector,
+    versionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
     return new ChangePack<P>(
@@ -95,6 +112,8 @@ export class ChangePack<P extends Indexable> {
       changes,
       snapshot,
       snapshotVersionVector,
+      minSyncedVersionVector,
+      versionVector,
       minSyncedTicket,
     );
   }
@@ -167,5 +186,19 @@ export class ChangePack<P extends Indexable> {
    */
   public getMinSyncedTicket(): TimeTicket | undefined {
     return this.minSyncedTicket;
+  }
+
+  /**
+   * `getVersionVector` returns the document's version vector of this pack
+   */
+  public getVersionVector(): VersionVector | undefined {
+    return this.versionVector;
+  }
+
+  /**
+   * `getMinSyncedVersionVector` returns the min synced version vector.
+   */
+  public getMinSyncedVersionVector(): VersionVector | undefined {
+    return this.minSyncedVersionVector;
   }
 }
