@@ -37,6 +37,13 @@ export class VersionVector {
   }
 
   /**
+   * `get` gets the lamport timestamp of the given actor.
+   */
+  public get(actorID: string): Long | undefined {
+    return this.vector.get(actorID);
+  }
+
+  /**
    * `deepcopy` returns a deep copy of this `VersionVector`.
    */
   public deepcopy(): VersionVector {
@@ -50,28 +57,30 @@ export class VersionVector {
   /**
    * `max` returns new version vector which consists of max value of each vector
    */
-  public max(other: Map<string, Long>): VersionVector {
+  public max(other: VersionVector): VersionVector {
     const maxVector = new Map<string, Long>();
 
-    [...(this.vector || [])].forEach(([key, value]) => {
-      const otherLamport = Long.isLong(other.get(key))
-        ? (other.get(key) as Long)
-        : Long.fromInt(0, true);
+    for (const [actorID, lamport] of other) {
+      const currentLamport = this.vector.get(actorID);
+      const maxLamport = currentLamport
+        ? currentLamport.greaterThan(lamport)
+          ? currentLamport
+          : lamport
+        : lamport;
 
-      value.greaterThan(otherLamport)
-        ? maxVector.set(key, value)
-        : maxVector.set(key, otherLamport);
-    });
+      maxVector.set(actorID, maxLamport);
+    }
 
-    [...(other || [])].forEach(([key, value]) => {
-      const currentLamport = Long.isLong(this.vector.get(key))
-        ? (this.vector.get(key) as Long)
-        : Long.fromInt(0, true);
+    for (const [actorID, lamport] of this) {
+      const otherLamport = other.get(actorID);
+      const maxLamport = otherLamport
+        ? otherLamport.greaterThan(lamport)
+          ? otherLamport
+          : lamport
+        : lamport;
 
-      value.greaterThan(currentLamport)
-        ? maxVector.set(key, value)
-        : maxVector.set(key, currentLamport);
-    });
+      maxVector.set(actorID, maxLamport);
+    }
 
     return new VersionVector(maxVector);
   }
