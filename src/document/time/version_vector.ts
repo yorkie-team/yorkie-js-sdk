@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import Long from 'long';
+
 /**
  * `VersionVector` is a vector clock that is used to detect the relationship
  * between changes whether they are causally related or concurrent. It is
@@ -43,6 +45,42 @@ export class VersionVector {
       copied.set(key, value);
     }
     return new VersionVector(copied);
+  }
+
+  /**
+   * `max` returns new version vector which consists of max value of each vector
+   */
+  public max(other: Map<string, Long>): VersionVector {
+    const maxVector = new Map<string, Long>();
+
+    [...(this.vector || [])].forEach(([key, value]) => {
+      const otherLamport = Long.isLong(other.get(key))
+        ? (other.get(key) as Long)
+        : Long.fromInt(0, true);
+
+      value.greaterThan(otherLamport)
+        ? maxVector.set(key, value)
+        : maxVector.set(key, otherLamport);
+    });
+
+    [...(other || [])].forEach(([key, value]) => {
+      const currentLamport = Long.isLong(this.vector.get(key))
+        ? (this.vector.get(key) as Long)
+        : Long.fromInt(0, true);
+
+      value.greaterThan(currentLamport)
+        ? maxVector.set(key, value)
+        : maxVector.set(key, currentLamport);
+    });
+
+    return new VersionVector(maxVector);
+  }
+
+  /**
+   * `getVector` returns vector
+   */
+  public getVector() {
+    return this.vector;
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
