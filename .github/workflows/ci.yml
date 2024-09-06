@@ -41,7 +41,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: pnpm install
 
-      - run: pnpm sdk lint
+      - run: pnpm lint
       - run: pnpm sdk build
       - run: pnpm build:examples
       - run: docker compose -f docker/docker-compose-ci.yml up --build -d

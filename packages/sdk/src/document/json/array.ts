@@ -557,8 +557,8 @@ export class ArrayProxy {
       deleteCount === undefined
         ? length
         : deleteCount < 0
-        ? from
-        : Math.min(from + deleteCount, length);
+          ? from
+          : Math.min(from + deleteCount, length);
     const removeds: JSONArray<JSONElement> = [];
     for (let i = from; i < to; i++) {
       const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
@@ -598,8 +598,8 @@ export class ArrayProxy {
       fromIndex === undefined
         ? 0
         : fromIndex < 0
-        ? Math.max(fromIndex + length, 0)
-        : fromIndex;
+          ? Math.max(fromIndex + length, 0)
+          : fromIndex;
 
     if (from >= length) return false;
 
@@ -634,8 +634,8 @@ export class ArrayProxy {
       fromIndex === undefined
         ? 0
         : fromIndex < 0
-        ? Math.max(fromIndex + length, 0)
-        : fromIndex;
+          ? Math.max(fromIndex + length, 0)
+          : fromIndex;
 
     if (from >= length) return -1;
 
@@ -670,8 +670,8 @@ export class ArrayProxy {
       fromIndex === undefined || fromIndex >= length
         ? length - 1
         : fromIndex < 0
-        ? fromIndex + length
-        : fromIndex;
+          ? fromIndex + length
+          : fromIndex;
 
     if (from < 0) return -1;
 

@@ -1,7 +1,0 @@
-src/api/yorkie/v1/yorkie_grpc_web_pb.d.ts
-src/api/yorkie/v1/yorkie_pb.d.ts
-src/api/yorkie/v1/resources_grpc_web_pb.d.ts
-src/api/yorkie/v1/resources_pb.d.ts
-test/vitest.d.ts
-dist
-lib

@@ -53,9 +53,12 @@ describe('Counter', function () {
         ? counter.getValue()
         : operand.getValue();
 
-      assert.throw(() => {
-        counter.increase(operand);
-      }, `Unsupported type of value: ${typeof errValue}`);
+      assert.throw(
+        () => {
+          counter.increase(operand);
+        },
+        `Unsupported type of value: ${typeof errValue}`,
+      );
     }
 
     const str = Primitive.of('hello', InitialTimeTicket);

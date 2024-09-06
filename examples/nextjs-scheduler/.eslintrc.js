@@ -7,5 +7,6 @@ module.exports = {
         endOfLine: 'auto',
       },
     ],
+    '@next/next/no-html-link-for-pages': 'off',
   },
 };

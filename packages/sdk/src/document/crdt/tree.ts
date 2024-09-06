@@ -1371,8 +1371,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const treePos = node.isText
         ? { node, offset: 0 }
         : parentNode && leftChildNode
-        ? this.toTreePos(parentNode, leftChildNode)
-        : null;
+          ? this.toTreePos(parentNode, leftChildNode)
+          : null;
 
       if (treePos) {
         index = this.indexTree.indexOf(treePos);
