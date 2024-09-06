@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.0] - 2024-09-05
+
+### Added
+
+- Introduce broadcast API for event sharing by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/884
+
+### Fixed
+
+- Update npm-publish command for sdk by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/886
+- Update MAINTAINING.md by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/887
+- Lock version of `@codemirror/view` to prevent potential issues with Korean character input by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/890
+
 ## [0.4.31] - 2024-08-22
 
 ### Changed
