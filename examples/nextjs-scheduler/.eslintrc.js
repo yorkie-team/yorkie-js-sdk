@@ -1,5 +1,5 @@
 module.exports = {
-  extends: ['next', 'plugin:prettier/recommended', '../../.eslintrc.js'],
+  extends: ['next', 'plugin:prettier/recommended'],
   rules: {
     'prettier/prettier': [
       'error',
