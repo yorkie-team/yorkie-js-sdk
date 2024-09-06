@@ -1086,7 +1086,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket()!);
+    this.garbageCollect(pack.getVersionVector()!);
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
@@ -1220,15 +1220,15 @@ export class Document<T, P extends Indexable = Indexable> {
    *
    * @internal
    */
-  public garbageCollect(ticket: TimeTicket): number {
+  public garbageCollect(versionVector: VersionVector): number {
     if (this.opts.disableGC) {
       return 0;
     }
 
     if (this.clone) {
-      this.clone.root.garbageCollect(ticket);
+      this.clone.root.garbageCollect(versionVector);
     }
-    return this.root.garbageCollect(ticket);
+    return this.root.garbageCollect(versionVector);
   }
 
   /**

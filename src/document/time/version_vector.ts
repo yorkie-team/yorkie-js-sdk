@@ -15,6 +15,7 @@
  */
 
 import Long from 'long';
+import { TimeTicket } from './ticket';
 
 /**
  * `VersionVector` is a vector clock that is used to detect the relationship
@@ -86,10 +87,16 @@ export class VersionVector {
   }
 
   /**
-   * `getVector` returns vector
+   * `afterOrEqual` returns vector[other.actorID] is greaterOrEqual than given ticket's lamport
    */
-  public getVector() {
-    return this.vector;
+  public afterOrEqual(other: TimeTicket) {
+    const lamport = this.vector.get(other.getActorID());
+
+    if (!lamport) {
+      return false;
+    }
+
+    return lamport.greaterThanOrEqual(other.getLamport());
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
