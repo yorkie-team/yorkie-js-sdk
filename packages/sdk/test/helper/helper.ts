@@ -28,6 +28,7 @@ import {
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import {
   InitialTimeTicket as ITT,
+  MaxLamport,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
@@ -37,6 +38,9 @@ import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
+import Long from 'long';
 
 export type Indexable = Record<string, any>;
 
@@ -118,13 +122,10 @@ export function deepSort(target: any): any {
   if (typeof target === 'object') {
     return Object.keys(target)
       .sort()
-      .reduce(
-        (result, key) => {
-          result[key] = deepSort(target[key]);
-          return result;
-        },
-        {} as Record<string, any>,
-      );
+      .reduce((result, key) => {
+        result[key] = deepSort(target[key]);
+        return result;
+      }, {} as Record<string, any>);
   }
   return target;
 }
@@ -284,4 +285,19 @@ export function posT(offset = 0): CRDTTreeNodeID {
  */
 export function timeT(): TimeTicket {
   return dummyContext.issueTimeTicket();
+}
+
+// MaxVersionVector return the SyncedVectorMap that contains the given actors as key and Max Lamport.
+export function MaxVersionVector(actors: Array<string>) {
+  if (!actors.length) {
+    actors = [InitialActorID];
+  }
+
+  const vector = new Map<string, Long>();
+
+  actors.forEach((actor) => {
+    vector.set(actor, MaxLamport);
+  });
+
+  return new VersionVector(vector);
 }
