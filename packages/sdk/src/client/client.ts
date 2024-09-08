@@ -43,6 +43,7 @@ import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
+import { Json } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -607,7 +608,7 @@ export class Client {
   public broadcast(
     docKey: DocumentKey,
     topic: string,
-    payload: any,
+    payload: Json,
   ): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(

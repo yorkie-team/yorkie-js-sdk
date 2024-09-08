@@ -385,7 +385,7 @@ export interface PresenceChangedEvent<P extends Indexable>
 
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
-  value: { clientID: ActorID; topic: string; payload: any };
+  value: { clientID: ActorID; topic: string; payload: Json };
   error?: ErrorFn;
 }
 
@@ -420,7 +420,7 @@ export type DocEventTopic = keyof DocEventCallbackMap<never>;
 export type DocEventCallback<P extends Indexable> =
   DocEventCallbackMap<P>[DocEventTopic];
 
-type Json = JsonScalar | JsonArray | JsonObject;
+export type Json = JsonScalar | JsonArray | JsonObject;
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 type JsonScalar = string | number | boolean | null;
@@ -2065,7 +2065,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `broadcast` the payload to the given topic.
    */
-  public broadcast(topic: string, payload: any, error?: ErrorFn) {
+  public broadcast(topic: string, payload: Json, error?: ErrorFn) {
     const broadcastEvent: LocalBroadcastEvent = {
       type: DocEventType.LocalBroadcast,
       value: { topic, payload },
