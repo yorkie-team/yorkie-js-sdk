@@ -1226,7 +1226,13 @@ export class Document<T, P extends Indexable = Indexable> {
   public createChangePack(): ChangePack<P> {
     const changes = Array.from(this.localChanges);
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
-    return ChangePack.create(this.key, checkpoint, false, changes);
+    return ChangePack.create(
+      this.key,
+      checkpoint,
+      false,
+      changes,
+      this.getVersionVector(),
+    );
   }
 
   /**
@@ -2089,5 +2095,12 @@ export class Document<T, P extends Indexable = Indexable> {
     };
 
     this.publish([broadcastEvent]);
+  }
+
+  /**
+   * `getVersionVector` returns the version vector of document
+   */
+  public getVersionVector() {
+    return this.changeID.getVersionVector();
   }
 }
