@@ -86,10 +86,10 @@ function buildDescendants(
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
-      attributes = stringifyObjectValues(attributes);
+      const stringifiedAttributes = stringifyObjectValues(attributes);
       attrs = new RHT();
 
-      for (const [key, value] of Object.entries(attributes)) {
+      for (const [key, value] of Object.entries(stringifiedAttributes)) {
         attrs.set(key, value, ticket);
       }
     }
@@ -125,10 +125,10 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
-      attributes = stringifyObjectValues(attributes);
+      const stringifiedAttributes = stringifyObjectValues(attributes);
       attrs = new RHT();
 
-      for (const [key, value] of Object.entries(attributes)) {
+      for (const [key, value] of Object.entries(stringifiedAttributes)) {
         attrs.set(key, value, ticket);
       }
     }
