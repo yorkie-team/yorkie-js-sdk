@@ -131,6 +131,13 @@ export class VersionVector {
     return new VersionVector(filtered);
   }
 
+  /**
+   * `size` returns size of version vector
+   */
+  public size(): number {
+    return this.vector.size;
+  }
+
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<[string, Long]> {
     for (const [key, value] of this.vector) {

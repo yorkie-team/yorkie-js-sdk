@@ -301,3 +301,26 @@ export function MaxVersionVector(actors: Array<string>) {
 
   return new VersionVector(vector);
 }
+
+export function versionVectorHelper(
+  versionVector: VersionVector,
+  actorData: Array<{ actor: string; lamport: Long }>,
+) {
+  if (versionVector.size() !== actorData.length) {
+    return false;
+  }
+
+  for (const { actor, lamport } of actorData) {
+    const vvLamport = versionVector.get(actor);
+
+    if (!vvLamport) {
+      return false;
+    }
+
+    if (!vvLamport.equals(lamport)) {
+      return false;
+    }
+  }
+
+  return true;
+}
