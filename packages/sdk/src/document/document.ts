@@ -56,7 +56,6 @@ import {
   Checkpoint,
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   OpSource,
   OperationInfo,
@@ -78,6 +77,7 @@ import {
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { VersionVector } from './time/version_vector';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -305,7 +305,11 @@ export interface SnapshotEvent extends BaseDocEvent {
    */
   type: DocEventType.Snapshot;
   source: OpSource.Remote;
-  value: { snapshot?: string; serverSeq: string };
+  value: {
+    snapshot: string | undefined;
+    serverSeq: string;
+    snapshotVector: string;
+  };
 }
 
 /**
@@ -1129,7 +1133,8 @@ export class Document<T, P extends Indexable = Indexable> {
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot(),
+        pack.getSnapshot()!,
+        pack.getSnapshotVersionVector()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
@@ -1156,7 +1161,10 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket()!);
+    this.garbageCollect(pack.getMinSyncedVersionVector()!);
+
+    // 05. Filter detached client's lamport from version vector
+    this.filterVersionVector(pack.getMinSyncedVersionVector()!);
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
@@ -1290,15 +1298,15 @@ export class Document<T, P extends Indexable = Indexable> {
    *
    * @internal
    */
-  public garbageCollect(ticket: TimeTicket): number {
+  public garbageCollect(minSyncedVersionVector: VersionVector): number {
     if (this.opts.disableGC) {
       return 0;
     }
 
     if (this.clone) {
-      this.clone.root.garbageCollect(ticket);
+      this.clone.root.garbageCollect(minSyncedVersionVector);
     }
-    return this.root.garbageCollect(ticket);
+    return this.root.garbageCollect(minSyncedVersionVector);
   }
 
   /**
@@ -1353,11 +1361,15 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array) {
+  public applySnapshot(
+    serverSeq: Long,
+    snapshot: Uint8Array,
+    snapshotVector: VersionVector,
+  ) {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.syncLamport(serverSeq);
+    this.changeID = this.changeID.setClocks(serverSeq, snapshotVector);
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -1367,10 +1379,11 @@ export class Document<T, P extends Indexable = Indexable> {
         type: DocEventType.Snapshot,
         source: OpSource.Remote,
         value: {
+          serverSeq: serverSeq.toString(),
           snapshot: this.isEnableDevtools()
             ? converter.bytesToHex(snapshot)
             : undefined,
-          serverSeq: serverSeq.toString(),
+          snapshotVector: converter.versionVectorToHex(snapshotVector),
         },
       },
     ]);
@@ -1470,7 +1483,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
-    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
@@ -1623,11 +1636,12 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     if (event.type === DocEventType.Snapshot) {
-      const { snapshot, serverSeq } = event.value;
+      const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
       this.applySnapshot(
         Long.fromString(serverSeq),
         converter.hexToBytes(snapshot),
+        converter.hexToVersionVector(snapshotVector),
       );
       return;
     }
@@ -1835,6 +1849,15 @@ export class Document<T, P extends Indexable = Indexable> {
     return this.internalHistory.hasUndo() && !this.isUpdating;
   }
 
+  /**
+   * 'filterVersionVector' filters detached client's lamport from version vector.
+   */
+  private filterVersionVector(minSyncedVersionVector: VersionVector) {
+    const versionVector = this.changeID.getVersionVector();
+    const filteredVersionVector = versionVector.filter(minSyncedVersionVector);
+
+    this.changeID = this.changeID.setVersionVector(filteredVersionVector);
+  }
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
