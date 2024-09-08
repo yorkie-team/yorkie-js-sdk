@@ -18,6 +18,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '../time/version_vector';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
@@ -51,13 +52,28 @@ export class ChangePack<P extends Indexable> {
    * client.
    */
   private minSyncedTicket?: TimeTicket;
+  /**
+   * `snapshotVersionVector` is the version vector which reflect version vector of snapshot
+   */
+  private snapshotVersionVector?: VersionVector;
+  /**
+   * `minSyncedVersionVector` is the version vector which consist of minimum lamport of each active clients.
+   */
+  private minSyncedVersionVector?: VersionVector;
+  /**
+   * `versionVector` is the version vector current document
+   */
+  private versionVector?: VersionVector;
 
   constructor(
     key: string,
     checkpoint: Checkpoint,
     isRemoved: boolean,
     changes: Array<Change<P>>,
+    versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    snapshotVersionVector?: VersionVector,
+    minSyncedVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
@@ -65,9 +81,11 @@ export class ChangePack<P extends Indexable> {
     this.isRemoved = isRemoved;
     this.changes = changes;
     this.snapshot = snapshot;
+    this.snapshotVersionVector = snapshotVersionVector;
     this.minSyncedTicket = minSyncedTicket;
+    this.versionVector = versionVector;
+    this.minSyncedVersionVector = minSyncedVersionVector;
   }
-
   /**
    * `create` creates a new instance of ChangePack.
    */
@@ -76,7 +94,10 @@ export class ChangePack<P extends Indexable> {
     checkpoint: Checkpoint,
     isRemoved: boolean,
     changes: Array<Change<P>>,
+    versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    snapshotVersionVector?: VersionVector,
+    minSyncedVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
     return new ChangePack<P>(
@@ -84,7 +105,10 @@ export class ChangePack<P extends Indexable> {
       checkpoint,
       isRemoved,
       changes,
+      versionVector,
       snapshot,
+      snapshotVersionVector,
+      minSyncedVersionVector,
       minSyncedTicket,
     );
   }
@@ -150,5 +174,26 @@ export class ChangePack<P extends Indexable> {
    */
   public getMinSyncedTicket(): TimeTicket | undefined {
     return this.minSyncedTicket;
+  }
+
+  /**
+   * `getVersionVector` returns the document's version vector of this pack
+   */
+  public getVersionVector(): VersionVector | undefined {
+    return this.versionVector;
+  }
+
+  /**
+   * `getMinSyncedVersionVector` returns the min synced version vector.
+   */
+  public getMinSyncedVersionVector(): VersionVector | undefined {
+    return this.minSyncedVersionVector;
+  }
+
+  /**
+   * `getSnapshotVersionVector` returns the version vector of the snapshot.
+   */
+  public getSnapshotVersionVector(): VersionVector | undefined {
+    return this.snapshotVersionVector;
   }
 }

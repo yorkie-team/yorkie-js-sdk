@@ -20,28 +20,35 @@ import {
   InitialActorID,
 } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { InitialVersionVector, VersionVector } from '../time/version_vector';
 
 /**
  * `ChangeID` is for identifying the Change. This is immutable.
  */
 export class ChangeID {
+  // `clientSeq` is the sequence number of the client that created this change.
   private clientSeq: number;
-
   // `serverSeq` is optional and only present for changes stored on the server.
   private serverSeq?: Long;
-
+  // `lamport` and `actor` are the lamport clock and the actor of this change.
+  // This is used to determine the order of changes in logical time.
   private lamport: Long;
   private actor: ActorID;
+  // `versionVector` is the vector clock of this change. This is used to
+  // determine the relationship is causal or not between changes.
+  private versionVector: VersionVector;
 
   constructor(
     clientSeq: number,
     lamport: Long,
     actor: ActorID,
+    vector: VersionVector,
     serverSeq?: Long,
   ) {
     this.clientSeq = clientSeq;
     this.serverSeq = serverSeq;
     this.lamport = lamport;
+    this.versionVector = vector;
     this.actor = actor;
   }
 
@@ -52,29 +59,58 @@ export class ChangeID {
     clientSeq: number,
     lamport: Long,
     actor: ActorID,
+    vector: VersionVector,
     serverSeq?: Long,
   ): ChangeID {
-    return new ChangeID(clientSeq, lamport, actor, serverSeq);
+    return new ChangeID(clientSeq, lamport, actor, vector, serverSeq);
   }
 
   /**
    * `next` creates a next ID of this ID.
    */
   public next(): ChangeID {
-    return new ChangeID(this.clientSeq + 1, this.lamport.add(1), this.actor);
+    const vector = this.versionVector.deepcopy();
+    vector.set(this.actor, this.lamport.add(1));
+
+    return new ChangeID(
+      this.clientSeq + 1,
+      this.lamport.add(1),
+      this.actor,
+      vector,
+    );
   }
 
   /**
-   * `syncLamport` syncs lamport timestamp with the given ID.
-   *
-   * {@link https://en.wikipedia.org/wiki/Lamport_timestamps#Algorithm}
+   * `syncClocks` syncs logical clocks with the given ID.
    */
-  public syncLamport(otherLamport: Long): ChangeID {
-    if (otherLamport.greaterThan(this.lamport)) {
-      return new ChangeID(this.clientSeq, otherLamport, this.actor);
-    }
+  public syncClocks(other: ChangeID): ChangeID {
+    const lamport = other.lamport.greaterThan(this.lamport)
+      ? other.lamport
+      : this.lamport.add(1);
+    const maxVersionVector = this.versionVector.max(other.versionVector);
 
-    return new ChangeID(this.clientSeq, this.lamport.add(1), this.actor);
+    const newID = new ChangeID(
+      this.clientSeq,
+      lamport,
+      this.actor,
+      maxVersionVector,
+    );
+    newID.versionVector.set(this.actor, lamport);
+    return newID;
+  }
+
+  /**
+   * `setClocks` sets the given clocks to this ID. This is used when the snapshot
+   * is given from the server.
+   */
+  public setClocks(otherLamport: Long, vector: VersionVector): ChangeID {
+    const lamport = otherLamport.greaterThan(this.lamport)
+      ? otherLamport
+      : this.lamport.add(1);
+    const maxVersionVector = this.versionVector.max(vector);
+    maxVersionVector.set(this.actor, lamport);
+
+    return ChangeID.of(this.clientSeq, lamport, this.actor, maxVersionVector);
   }
 
   /**
@@ -88,7 +124,26 @@ export class ChangeID {
    * `setActor` sets the given actor.
    */
   public setActor(actorID: ActorID): ChangeID {
-    return new ChangeID(this.clientSeq, this.lamport, actorID, this.serverSeq);
+    return new ChangeID(
+      this.clientSeq,
+      this.lamport,
+      actorID,
+      this.versionVector,
+      this.serverSeq,
+    );
+  }
+
+  /**
+   * `setVersionVector` sets the given actor.
+   */
+  public setVersionVector(versionVector: VersionVector): ChangeID {
+    return new ChangeID(
+      this.clientSeq,
+      this.lamport,
+      this.actor,
+      versionVector,
+      this.serverSeq,
+    );
   }
 
   /**
@@ -130,6 +185,13 @@ export class ChangeID {
   }
 
   /**
+   * `getVersionVector` returns the version vector of this ID.
+   */
+  public getVersionVector(): VersionVector {
+    return this.versionVector;
+  }
+
+  /**
    * `toTestString` returns a string containing the meta data of this ID.
    */
   public toTestString(): string {
@@ -147,4 +209,5 @@ export const InitialChangeID = new ChangeID(
   0,
   Long.fromInt(0, true),
   InitialActorID,
+  InitialVersionVector,
 );
