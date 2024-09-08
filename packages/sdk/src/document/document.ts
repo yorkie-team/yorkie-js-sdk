@@ -420,11 +420,18 @@ export type DocEventTopic = keyof DocEventCallbackMap<never>;
 export type DocEventCallback<P extends Indexable> =
   DocEventCallbackMap<P>[DocEventTopic];
 
+type Json = JsonScalar | JsonArray | JsonObject;
+
+// eslint-disable-next-line @typescript-eslint/ban-types
+type JsonScalar = string | number | boolean | null;
+type JsonArray = Json[];
+type JsonObject = { [key: string]: Json | undefined };
+
 /**
  * Indexable key, value
  * @public
  */
-export type Indexable = Record<string, any>;
+export type Indexable = Record<string, Json>;
 
 /**
  * Document key type
@@ -438,14 +445,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-    ? CounterOperationInfo
-    : TElement extends Tree
-      ? TreeOperationInfo
-      : TElement extends BaseArray<any>
-        ? ArrayOperationInfo
-        : TElement extends BaseObject<any>
-          ? ObjectOperationInfo
-          : OperationInfo;
+  ? CounterOperationInfo
+  : TElement extends Tree
+  ? TreeOperationInfo
+  : TElement extends BaseArray<any>
+  ? ArrayOperationInfo
+  : TElement extends BaseObject<any>
+  ? ObjectOperationInfo
+  : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -466,24 +473,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-    ? TFirst extends keyof TElement
-      ? TElement[TFirst] extends BaseArray<unknown>
-        ? OperationInfoOfInternal<
-            TElement[TFirst],
-            number,
-            DecreasedDepthOf<TDepth>
-          >
-        : OperationInfoOfInternal<
-            TElement[TFirst],
-            TRest,
-            DecreasedDepthOf<TDepth>
-          >
-      : OperationInfo
-    : TKeyOrPath extends keyof TElement
-      ? TElement[TKeyOrPath] extends BaseArray<unknown>
-        ? ArrayOperationInfo
-        : OperationInfoOfElement<TElement[TKeyOrPath]>
-      : OperationInfo;
+  ? TFirst extends keyof TElement
+    ? TElement[TFirst] extends BaseArray<unknown>
+      ? OperationInfoOfInternal<
+          TElement[TFirst],
+          number,
+          DecreasedDepthOf<TDepth>
+        >
+      : OperationInfoOfInternal<
+          TElement[TFirst],
+          TRest,
+          DecreasedDepthOf<TDepth>
+        >
+    : OperationInfo
+  : TKeyOrPath extends keyof TElement
+  ? TElement[TKeyOrPath] extends BaseArray<unknown>
+    ? ArrayOperationInfo
+    : OperationInfoOfElement<TElement[TKeyOrPath]>
+  : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -491,24 +498,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-    ? 8
-    : Depth extends 8
-      ? 7
-      : Depth extends 7
-        ? 6
-        : Depth extends 6
-          ? 5
-          : Depth extends 5
-            ? 4
-            : Depth extends 4
-              ? 3
-              : Depth extends 3
-                ? 2
-                : Depth extends 2
-                  ? 1
-                  : Depth extends 1
-                    ? 0
-                    : -1;
+  ? 8
+  : Depth extends 8
+  ? 7
+  : Depth extends 7
+  ? 6
+  : Depth extends 6
+  ? 5
+  : Depth extends 5
+  ? 4
+  : Depth extends 4
+  ? 3
+  : Depth extends 3
+  ? 2
+  : Depth extends 2
+  ? 1
+  : Depth extends 1
+  ? 0
+  : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -520,29 +527,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-    ? {
-        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-          ? `${Prefix}${TKey & string}`
-          : TElement[TKey] extends BaseArray<infer TArrayElement>
-            ?
-                | `${Prefix}${TKey & string}`
-                | `${Prefix}${TKey & string}.${number}`
-                | PathOfInternal<
-                    TArrayElement,
-                    `${Prefix}${TKey & string}.${number}.`,
-                    DecreasedDepthOf<Depth>
-                  >
-            :
-                | `${Prefix}${TKey & string}`
-                | PathOfInternal<
-                    TElement[TKey],
-                    `${Prefix}${TKey & string}.`,
-                    DecreasedDepthOf<Depth>
-                  >;
-      }[keyof TElement]
-    : Prefix extends `${infer TRest}.`
-      ? TRest
-      : Prefix;
+  ? {
+      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+        ? `${Prefix}${TKey & string}`
+        : TElement[TKey] extends BaseArray<infer TArrayElement>
+        ?
+            | `${Prefix}${TKey & string}`
+            | `${Prefix}${TKey & string}.${number}`
+            | PathOfInternal<
+                TArrayElement,
+                `${Prefix}${TKey & string}.${number}.`,
+                DecreasedDepthOf<Depth>
+              >
+        :
+            | `${Prefix}${TKey & string}`
+            | PathOfInternal<
+                TElement[TKey],
+                `${Prefix}${TKey & string}.`,
+                DecreasedDepthOf<Depth>
+              >;
+    }[keyof TElement]
+  : Prefix extends `${infer TRest}.`
+  ? TRest
+  : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
