@@ -1163,8 +1163,8 @@ export class Document<T, P extends Indexable = Indexable> {
     if (hasSnapshot) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot()!,
         pack.getVersionVector()!,
+        pack.getSnapshot()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
@@ -1403,8 +1403,8 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public applySnapshot(
     serverSeq: bigint,
-    snapshot: Uint8Array,
     snapshotVector: VersionVector,
+    snapshot?: Uint8Array,
   ) {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
@@ -1680,8 +1680,8 @@ export class Document<T, P extends Indexable = Indexable> {
       if (!snapshot) return;
       this.applySnapshot(
         BigInt(serverSeq),
-        converter.hexToBytes(snapshot),
         converter.hexToVersionVector(snapshotVector),
+        converter.hexToBytes(snapshot),
       );
       return;
     }

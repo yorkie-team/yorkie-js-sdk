@@ -847,7 +847,6 @@ function fromVersionVector(
 
   const vector = new VersionVector();
   Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
-    // TODO(hackerwins): Remove Long after introducing BigInt.
     vector.set(key, BigInt(value.toString()));
   });
   return vector;

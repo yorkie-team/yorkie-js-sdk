@@ -29,7 +29,8 @@ export class ChangeID {
   private clientSeq: number;
   // `serverSeq` is optional and only present for changes stored on the server.
   private serverSeq?: bigint;
-
+  // `lamport` and `actor` are the lamport clock and the actor of this change.
+  // This is used to determine the order of changes in logical time.
   private lamport: bigint;
   private actor: ActorID;
   // `versionVector` is the vector clock of this change. This is used to
