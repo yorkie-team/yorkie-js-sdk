@@ -1,10 +1,10 @@
 import { describe, it, assert } from 'vitest';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import yorkie, { Text, Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { MaxVersionVector } from '../helper/helper';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -48,8 +48,18 @@ describe('Garbage Collection', function () {
     assert.equal(doc2.getGarbageLen(), gcNodeLen);
 
     // Actual garbage-collected nodes
-    assert.equal(doc1.garbageCollect(MaxTimeTicket), gcNodeLen);
-    assert.equal(doc2.garbageCollect(MaxTimeTicket), gcNodeLen);
+    assert.equal(
+      doc1.garbageCollect(
+        MaxVersionVector([client1.getID()!, client2.getID()!]),
+      ),
+      gcNodeLen,
+    );
+    assert.equal(
+      doc2.garbageCollect(
+        MaxVersionVector([client1.getID()!, client2.getID()!]),
+      ),
+      gcNodeLen,
+    );
 
     await client1.deactivate();
     await client2.deactivate();
@@ -460,7 +470,10 @@ describe('Garbage Collection', function () {
       delete root.shape;
     });
     assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 4); // The number of GC nodes must also be 4.
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      4,
+    ); // The number of GC nodes must also be 4.
   });
 
   it('Should work properly when there are multiple nodes to be collected in text type', async function ({

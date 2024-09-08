@@ -15,9 +15,11 @@
  */
 
 import { describe, it, assert, vi, afterEach } from 'vitest';
-import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  EventCollector,
+  MaxVersionVector,
+} from '@yorkie-js-sdk/test/helper/helper';
 
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter, Tree } from '@yorkie-js-sdk/src/yorkie';
@@ -1233,7 +1235,7 @@ describe.sequential('Document', function () {
     assert.equal('{}', doc.toSortedJSON());
     assert.equal(2, doc.getGarbageLen());
 
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     assert.equal('{}', doc.toSortedJSON());
     assert.equal(0, doc.getGarbageLen());
   });
@@ -1249,7 +1251,7 @@ describe.sequential('Document', function () {
     doc.update((root) => root.k1.edit(1, 3, ''));
     assert.equal(doc.getRoot().k1.getTreeByID().size(), 3);
 
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     assert.equal(doc.getRoot().k1.getTreeByID().size(), 2);
   });
 
