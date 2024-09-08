@@ -85,7 +85,7 @@ export class ChangeID {
    */
   public syncClocks(other: ChangeID): ChangeID {
     const lamport = other.lamport.greaterThan(this.lamport)
-      ? other.lamport
+      ? other.lamport.add(1)
       : this.lamport.add(1);
     const maxVersionVector = this.versionVector.max(other.versionVector);
 
