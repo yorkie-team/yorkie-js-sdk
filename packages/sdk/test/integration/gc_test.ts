@@ -4,7 +4,8 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { MaxVersionVector } from '../helper/helper';
+import { MaxVersionVector, versionVectorHelper } from '../helper/helper';
+import Long from 'long';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -65,7 +66,7 @@ describe('Garbage Collection', function () {
     await client2.deactivate();
   });
 
-  it('Can handle tree garbage collection for multi client', async function ({
+  it.only('Can handle tree garbage collection for multi client', async function ({
     task,
   }) {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
@@ -79,7 +80,20 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root.t = new Tree({
@@ -101,19 +115,45 @@ describe('Garbage Collection', function () {
         ],
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+      ]),
+      true,
+    );
 
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+      ]),
+      true,
+    );
 
     // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+      ]),
+      true,
+    );
 
     doc2.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'gh' });
     }, 'removes 2');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 2);
 

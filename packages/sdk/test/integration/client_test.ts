@@ -724,13 +724,8 @@ describe.sequential('Client', function () {
     });
     await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
 
-    console.log(d1.getRoot().tree.toXML());
-    console.log(d2.getRoot().tree.toXML());
-
-    //assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
-    //assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
-
-    assert.equal(d1.getRoot().tree.toXML(), d2.getRoot().tree.toXML());
+    assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+    assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
 
     unsub1();
     unsub2();
