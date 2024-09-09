@@ -7,5 +7,5 @@ export type YorkieDoc = {
 export type YorkiePresence = {
   username: string;
   color: string;
-  selection: TextPosStructRange | undefined;
+  selection?: TextPosStructRange;
 };
