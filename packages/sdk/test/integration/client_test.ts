@@ -892,6 +892,7 @@ describe.sequential('Client', function () {
     await cli.attach(doc);
 
     // broadcast unserializable payload
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const payload = () => {};
     const broadcastTopic = 'test';
     const broadcastErrMessage = 'payload is not serializable';
