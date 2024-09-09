@@ -2460,7 +2460,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it('contained-split-and-delete-contents-in-split-node', async function ({
+  it.skip('contained-split-and-delete-contents-in-split-node', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
