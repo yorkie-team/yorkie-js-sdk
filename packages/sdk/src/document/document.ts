@@ -420,21 +420,26 @@ export type DocEventTopic = keyof DocEventCallbackMap<never>;
 export type DocEventCallback<P extends Indexable> =
   DocEventCallbackMap<P>[DocEventTopic];
 
-export type Json = JsonScalar | JsonArray | JsonObject;
+/**
+ * `Json` represents the JSON data type. It is used to represent the data
+ * structure of the document.
+ */
+export type Json = JsonPrimitive | JsonArray | JsonObject;
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-type JsonScalar = string | number | boolean | null;
+type JsonPrimitive = string | number | boolean | null;
 type JsonArray = Array<Json>;
 type JsonObject = { [key: string]: Json | undefined };
 
 /**
- * Indexable key, value
+ * `Indexable` represents the type of the indexable object. It is used to
+ * represent the presence information of the client.
  * @public
  */
 export type Indexable = Record<string, Json>;
 
 /**
- * Document key type
+ * `DocumentKey` represents the key of the document.
  * @public
  */
 export type DocumentKey = string;

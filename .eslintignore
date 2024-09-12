@@ -9,5 +9,5 @@ packages/sdk/src/api/yorkie/v1/resources_pb.d.ts
 packages/sdk/test/vitest.d.ts
 packages/sdk/lib
 
-# react-tldraw
+# examples
 examples/react-tldraw/src/tldraw.d.ts
