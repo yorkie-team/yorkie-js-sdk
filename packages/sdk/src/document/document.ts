@@ -389,7 +389,7 @@ export interface PresenceChangedEvent<P extends Indexable>
 
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
-  value: { clientID: ActorID; topic: string; payload: any };
+  value: { clientID: ActorID; topic: string; payload: Json };
   error?: ErrorFn;
 }
 
@@ -425,13 +425,25 @@ export type DocEventCallback<P extends Indexable> =
   DocEventCallbackMap<P>[DocEventTopic];
 
 /**
- * Indexable key, value
- * @public
+ * `Json` represents the JSON data type. It is used to represent the data
+ * structure of the document.
  */
-export type Indexable = Record<string, any>;
+export type Json = JsonPrimitive | JsonArray | JsonObject;
+
+// eslint-disable-next-line @typescript-eslint/ban-types
+type JsonPrimitive = string | number | boolean | null;
+type JsonArray = Array<Json>;
+type JsonObject = { [key: string]: Json | undefined };
 
 /**
- * Document key type
+ * `Indexable` represents the type of the indexable object. It is used to
+ * represent the presence information of the client.
+ * @public
+ */
+export type Indexable = Record<string, Json>;
+
+/**
+ * `DocumentKey` represents the key of the document.
  * @public
  */
 export type DocumentKey = string;
@@ -2093,7 +2105,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `broadcast` the payload to the given topic.
    */
-  public broadcast(topic: string, payload: any, error?: ErrorFn) {
+  public broadcast(topic: string, payload: Json, error?: ErrorFn) {
     const broadcastEvent: LocalBroadcastEvent = {
       type: DocEventType.LocalBroadcast,
       value: { topic, payload },

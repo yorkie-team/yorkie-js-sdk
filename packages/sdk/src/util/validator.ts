@@ -17,7 +17,7 @@
 /**
  * `validateSerializable` returns whether the given value is serializable or not.
  */
-export const validateSerializable = (value: any): boolean => {
+export const validateSerializable = (value: unknown): boolean => {
   try {
     const serialized = JSON.stringify(value);
 

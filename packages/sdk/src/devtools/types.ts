@@ -17,20 +17,7 @@
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
-
-/**
- * `Json` represents a JSON value.
- *
- * TODO(hackerwins): We need to replace `Indexable` with `Json`.
- */
-export type Json =
-  | string
-  | number
-  | boolean
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  | null
-  | { [key: string]: Json }
-  | Array<Json>;
+import { Json } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `Client` represents a client value in devtools.
