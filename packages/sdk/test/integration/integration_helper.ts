@@ -13,12 +13,15 @@ export function toDocKey(title: string): string {
     .replace(/[^a-z0-9-]/g, '-');
 }
 
-export async function withTwoClientsAndDocuments<T>(
+export async function withTwoClientsAndDocuments<
+  T,
+  P extends Indexable = Indexable,
+>(
   callback: (
     c1: Client,
-    d1: Document<T>,
+    d1: Document<T, P>,
     c2: Client,
-    d2: Document<T>,
+    d2: Document<T, P>,
   ) => Promise<void>,
   title: string,
   syncMode: SyncMode = SyncMode.Manual,
@@ -29,8 +32,8 @@ export async function withTwoClientsAndDocuments<T>(
   await client2.activate();
 
   const docKey = `${toDocKey(title)}-${new Date().getTime()}`;
-  const doc1 = new yorkie.Document<T>(docKey);
-  const doc2 = new yorkie.Document<T>(docKey);
+  const doc1 = new yorkie.Document<T, P>(docKey);
+  const doc2 = new yorkie.Document<T, P>(docKey);
 
   await client1.attach(doc1, { syncMode });
   await client2.attach(doc2, { syncMode });

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+
 /**
  * `deepcopy` returns a deep copy of the given object.
  */
@@ -40,7 +42,7 @@ export const isEmpty = (object: object) => {
 /**
  * `stringifyObjectValues` makes values of attributes to JSON parsable string.
  */
-export const stringifyObjectValues = <A extends object>(
+export const stringifyObjectValues = <A extends Indexable>(
   attributes: A,
 ): Record<string, string> => {
   const attrs: Record<string, string> = {};
@@ -53,7 +55,7 @@ export const stringifyObjectValues = <A extends object>(
 /**
  `parseObjectValues` returns the JSON parsable string values to the origin states.
  */
-export const parseObjectValues = <A extends object>(
+export const parseObjectValues = <A extends Indexable>(
   attrs: Record<string, string>,
 ): A => {
   const attributes: Record<string, unknown> = {};

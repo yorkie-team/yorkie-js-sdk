@@ -900,6 +900,8 @@ describe.sequential('Client', function () {
       eventCollector.add(error.message);
     };
 
+    // @ts-ignore
+    // Disable type checking for testing purposes
     doc.broadcast(broadcastTopic, payload, errorHandler);
 
     await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);

@@ -82,14 +82,14 @@ function buildDescendants(
     parent.append(textNode);
   } else {
     const { children = [] } = treeNode as ElementNode;
-    let { attributes } = treeNode as ElementNode;
+    const { attributes } = treeNode as ElementNode;
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
-      attributes = stringifyObjectValues(attributes);
+      const stringifiedAttributes = stringifyObjectValues(attributes);
       attrs = new RHT();
 
-      for (const [key, value] of Object.entries(attributes)) {
+      for (const [key, value] of Object.entries(stringifiedAttributes)) {
         attrs.set(key, value, ticket);
       }
     }
@@ -121,14 +121,14 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
     root = CRDTTreeNode.create(CRDTTreeNodeID.of(ticket, 0), type, value);
   } else if (content) {
     const { children = [] } = content as ElementNode;
-    let { attributes } = content as ElementNode;
+    const { attributes } = content as ElementNode;
     let attrs;
 
     if (typeof attributes === 'object' && !isEmpty(attributes)) {
-      attributes = stringifyObjectValues(attributes);
+      const stringifiedAttributes = stringifyObjectValues(attributes);
       attrs = new RHT();
 
-      for (const [key, value] of Object.entries(attributes)) {
+      for (const [key, value] of Object.entries(stringifiedAttributes)) {
         attrs.set(key, value, ticket);
       }
     }

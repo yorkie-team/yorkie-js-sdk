@@ -29,7 +29,7 @@ function toDeltaOperation<T extends TextValueType>(
 ): DeltaOperation {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
-    return { insert: JSON.parse(embed), attributes: restAttributes };
+    return { insert: embed, attributes: restAttributes };
   }
 
   return {

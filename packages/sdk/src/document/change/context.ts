@@ -159,7 +159,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
 
     const reversePresence: Partial<P> = {};
     for (const key of this.reversePresenceKeys) {
-      reversePresence[key as keyof P] = this.previousPresence[key];
+      reversePresence[key as keyof P] = this.previousPresence[key as keyof P];
     }
     return reversePresence;
   }
