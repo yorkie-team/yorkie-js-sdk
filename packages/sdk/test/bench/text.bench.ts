@@ -1,5 +1,4 @@
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { assert, bench, describe } from 'vitest';
 import { MaxVersionVector } from '../helper/helper';
 

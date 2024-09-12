@@ -1,5 +1,4 @@
 import { Document, JSONArray } from '@yorkie-js-sdk/src/yorkie';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
 import { describe, bench, assert } from 'vitest';
