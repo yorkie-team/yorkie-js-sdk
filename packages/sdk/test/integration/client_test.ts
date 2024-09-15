@@ -902,7 +902,9 @@ describe.sequential('Client', function () {
 
     // @ts-ignore
     // Disable type checking for testing purposes
-    doc.broadcast(broadcastTopic, payload, errorHandler);
+    doc.broadcast(broadcastTopic, payload, {
+      error: errorHandler,
+    });
 
     await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
 
@@ -1053,6 +1055,49 @@ describe.sequential('Client', function () {
 
         assert.equal(eventCollector1.getLength(), 0);
         assert.equal(eventCollector2.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should retry broadcasting on network failureand succeeds when network is restored', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        // 01. Simulate Unknown error.
+        vi.stubGlobal('fetch', async () => {
+          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+        });
+        await new Promise((res) => setTimeout(res, 30));
+
+        const payload = { a: 1, b: '2' };
+        d1.broadcast(broadcastTopic, payload);
+
+        // Assuming that every subscriber can receive the broadcast event within 1000ms.
+        await new Promise((res) => setTimeout(res, 1000));
+        assert.equal(eventCollector.getLength(), 0);
+
+        // 02. Back to normal condition
+        vi.unstubAllGlobals();
+
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        unsubscribe();
       },
       task.name,
       SyncMode.Realtime,

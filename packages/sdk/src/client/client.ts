@@ -43,7 +43,7 @@ import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
-import { Json } from '@yorkie-js-sdk/src/document/document';
+import { Json, BroadcastOptions } from '@yorkie-js-sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -159,6 +159,14 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
+};
+
+/**
+ * `DefaultBroadcastOptions` is the default options for broadcast.
+ */
+const DefaultBroadcastOptions = {
+  maxRetries: 10,
+  retryInterval: 1000,
 };
 
 /**
@@ -309,10 +317,11 @@ export class Client {
       'local-broadcast',
       (event) => {
         const { topic, payload } = event.value;
-        const errorFn = event.error;
+        const errorFn = event.options?.error;
+        const options = event.options;
 
         try {
-          this.broadcast(doc.getKey(), topic, payload);
+          this.broadcast(doc.getKey(), topic, payload, options);
         } catch (error: unknown) {
           if (error instanceof Error) {
             errorFn?.(error);
@@ -609,6 +618,7 @@ export class Client {
     docKey: DocumentKey,
     topic: string,
     payload: Json,
+    options?: BroadcastOptions,
   ): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(
@@ -631,28 +641,57 @@ export class Client {
       );
     }
 
-    return this.enqueueTask(async () => {
-      return this.rpcClient
-        .broadcast(
-          {
-            clientId: this.id!,
-            documentId: attachment.docID,
-            topic,
-            payload: new TextEncoder().encode(JSON.stringify(payload)),
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
-        )
-        .then(() => {
-          logger.info(
-            `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
-          );
-        })
-        .catch((err) => {
-          logger.error(`[BC] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
-    });
+    const maxRetries =
+      options?.maxRetries ?? DefaultBroadcastOptions.maxRetries;
+    const retryInterval =
+      options?.retryInterval ?? DefaultBroadcastOptions.retryInterval;
+
+    let retryCount = 0;
+
+    const doLoop = (): Promise<void> => {
+      return this.enqueueTask(async () => {
+        return this.rpcClient
+          .broadcast(
+            {
+              clientId: this.id!,
+              documentId: attachment.docID,
+              topic,
+              payload: new TextEncoder().encode(JSON.stringify(payload)),
+            },
+            { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
+          )
+          .then(() => {
+            logger.info(
+              `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
+            );
+          })
+          .catch((err) => {
+            logger.error(`[BC] c:"${this.getKey()}" err:`, err);
+            if (this.handleConnectError(err)) {
+              if (retryCount < maxRetries) {
+                retryCount++;
+                logger.info(
+                  `[BC] c:"${this.getKey()}" retry attempt ${retryCount}/${maxRetries}`,
+                );
+
+                setTimeout(() => doLoop(), retryInterval);
+              } else {
+                logger.error(
+                  `[BC] c:"${this.getKey()}" exceeded maximum retry attempts`,
+                );
+
+                // Stop retrying after maxRetries
+                throw err;
+              }
+            } else {
+              // Stop retrying if the error is not retryable
+              throw err;
+            }
+          });
+      });
+    };
+
+    return doLoop();
   }
 
   /**
