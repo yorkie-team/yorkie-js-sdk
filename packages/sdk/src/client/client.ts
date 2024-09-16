@@ -165,7 +165,7 @@ const DefaultClientOptions = {
  * `DefaultBroadcastOptions` is the default options for broadcast.
  */
 const DefaultBroadcastOptions = {
-  maxRetries: 10,
+  maxRetries: 0,
   retryInterval: 1000,
 };
 
@@ -315,13 +315,13 @@ export class Client {
     doc.update((_, p) => p.set(options.initialPresence || {}));
     const unsubscribeBroacastEvent = doc.subscribe(
       'local-broadcast',
-      (event) => {
+      async (event) => {
         const { topic, payload } = event.value;
         const errorFn = event.options?.error;
         const options = event.options;
 
         try {
-          this.broadcast(doc.getKey(), topic, payload, options);
+          await this.broadcast(doc.getKey(), topic, payload, options);
         } catch (error: unknown) {
           if (error instanceof Error) {
             errorFn?.(error);
@@ -648,7 +648,7 @@ export class Client {
 
     let retryCount = 0;
 
-    const doLoop = (): Promise<void> => {
+    const doLoop = async (): Promise<any> => {
       return this.enqueueTask(async () => {
         return this.rpcClient
           .broadcast(

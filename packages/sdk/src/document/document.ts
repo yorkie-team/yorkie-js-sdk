@@ -408,21 +408,13 @@ export interface PresenceChangedEvent<P extends Indexable>
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
   value: { clientID: ActorID; topic: string; payload: Json };
-  options?: {
-    error?: ErrorFn;
-    maxRetries?: number;
-    retryInterval?: number;
-  };
+  options?: BroadcastOptions;
 }
 
 export interface LocalBroadcastEvent extends BaseDocEvent {
   type: DocEventType.LocalBroadcast;
   value: { topic: string; payload: any };
-  options?: {
-    error?: ErrorFn;
-    maxRetries?: number;
-    retryInterval?: number;
-  };
+  options?: BroadcastOptions;
 }
 
 type DocEventCallbackMap<P extends Indexable> = {

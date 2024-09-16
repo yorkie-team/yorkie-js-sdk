@@ -33,6 +33,7 @@ import {
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Json } from '@yorkie-js-sdk/src/document/document';
 
 describe.sequential('Client', function () {
   afterEach(() => {
@@ -916,7 +917,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const unsubscribe = d2.subscribe('broadcast', (event) => {
           const { topic, payload } = event.value;
@@ -947,7 +948,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic1 = 'test1';
         const broadcastTopic2 = 'test2';
 
@@ -982,7 +983,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const unsubscribe = d2.subscribe('broadcast', (event) => {
           const { topic, payload } = event.value;
@@ -1020,8 +1021,8 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector1 = new EventCollector<[string, any]>();
-        const eventCollector2 = new EventCollector<[string, any]>();
+        const eventCollector1 = new EventCollector<[string, Json]>();
+        const eventCollector2 = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const payload = { a: 1, b: '2' };
 
@@ -1061,12 +1062,12 @@ describe.sequential('Client', function () {
     );
   });
 
-  it('Should retry broadcasting on network failureand succeeds when network is restored', async ({
+  it('Should retry broadcasting on network failure with retry option and succeeds when network is restored', async ({
     task,
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const unsubscribe = d2.subscribe('broadcast', (event) => {
           const { topic, payload } = event.value;
@@ -1083,9 +1084,13 @@ describe.sequential('Client', function () {
         await new Promise((res) => setTimeout(res, 30));
 
         const payload = { a: 1, b: '2' };
-        d1.broadcast(broadcastTopic, payload);
 
-        // Assuming that every subscriber can receive the broadcast event within 1000ms.
+        // Broadcasting with retry option
+        d1.broadcast(broadcastTopic, payload, {
+          maxRetries: 10,
+        });
+
+        // Failed to broadcast due to network failure
         await new Promise((res) => setTimeout(res, 1000));
         assert.equal(eventCollector.getLength(), 0);
 
@@ -1096,6 +1101,58 @@ describe.sequential('Client', function () {
           broadcastTopic,
           payload,
         ]);
+
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not retry broadcasting on network failure witout retry option', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector2 = new EventCollector<ConnectCode>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        // 01. Simulate Unknown error.
+        vi.stubGlobal('fetch', async () => {
+          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+        });
+
+        await new Promise((res) => setTimeout(res, 30));
+
+        const payload = { a: 1, b: '2' };
+
+        const errorHandler = (error: Error) => {
+          if (error instanceof ConnectError) {
+            eventCollector2.add(error.code);
+          }
+        };
+
+        // Broadcasting without retry option
+        d1.broadcast(broadcastTopic, payload, {
+          error: errorHandler,
+        });
+
+        // Failed to broadcast due to network failure
+        await new Promise((res) => setTimeout(res, 1000));
+        assert.equal(eventCollector.getLength(), 0);
+
+        // 02. Back to normal condition
+        vi.unstubAllGlobals();
+
+        await eventCollector2.waitAndVerifyNthEvent(1, ConnectCode.Unknown);
 
         unsubscribe();
       },
