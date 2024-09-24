@@ -177,6 +177,14 @@ export declare class ChangePack extends Message<ChangePack> {
   snapshot: Uint8Array;
 
   /**
+<<<<<<< HEAD
+=======
+   * @generated from field: yorkie.v1.VersionVector snapshot_version_vector = 7;
+   */
+  snapshotVersionVector?: VersionVector;
+
+  /**
+>>>>>>> e2e48ebd (Modify buf generate)
    * @generated from field: repeated yorkie.v1.Change changes = 4;
    */
   changes: Change[];
@@ -189,12 +197,24 @@ export declare class ChangePack extends Message<ChangePack> {
   minSyncedTicket?: TimeTicket;
 
   /**
+<<<<<<< HEAD
+=======
+   * @generated from field: yorkie.v1.VersionVector min_synced_version_vector = 8;
+   */
+  minSyncedVersionVector?: VersionVector;
+
+  /**
+>>>>>>> e2e48ebd (Modify buf generate)
    * @generated from field: bool is_removed = 6;
    */
   isRemoved: boolean;
 
   /**
+<<<<<<< HEAD
    * @generated from field: yorkie.v1.VersionVector version_vector = 7;
+=======
+   * @generated from field: yorkie.v1.VersionVector version_vector = 9;
+>>>>>>> e2e48ebd (Modify buf generate)
    */
   versionVector?: VersionVector;
 
