@@ -165,8 +165,9 @@ const DefaultClientOptions = {
  * `DefaultBroadcastOptions` is the default options for broadcast.
  */
 const DefaultBroadcastOptions = {
-  maxRetries: 0,
-  retryInterval: 1000,
+  maxRetries: 20,
+  initialRetryInterval: 1000,
+  maxBackoff: 20000,
 };
 
 /**
@@ -643,10 +644,17 @@ export class Client {
 
     const maxRetries =
       options?.maxRetries ?? DefaultBroadcastOptions.maxRetries;
-    const retryInterval =
-      options?.retryInterval ?? DefaultBroadcastOptions.retryInterval;
+    const maxBackoff = DefaultBroadcastOptions.maxBackoff;
 
     let retryCount = 0;
+
+    const exponentialBackoff = (retryCount: number) => {
+      const retryInterval = Math.min(
+        DefaultBroadcastOptions.initialRetryInterval * 2 ** retryCount,
+        maxBackoff,
+      );
+      return retryInterval;
+    };
 
     const doLoop = async (): Promise<any> => {
       return this.enqueueTask(async () => {
@@ -670,11 +678,10 @@ export class Client {
             if (this.handleConnectError(err)) {
               if (retryCount < maxRetries) {
                 retryCount++;
+                setTimeout(() => doLoop(), exponentialBackoff(retryCount - 1));
                 logger.info(
                   `[BC] c:"${this.getKey()}" retry attempt ${retryCount}/${maxRetries}`,
                 );
-
-                setTimeout(() => doLoop(), retryInterval);
               } else {
                 logger.error(
                   `[BC] c:"${this.getKey()}" exceeded maximum retry attempts`,

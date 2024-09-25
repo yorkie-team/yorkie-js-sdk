@@ -1091,7 +1091,7 @@ describe.sequential('Client', function () {
         });
 
         // Failed to broadcast due to network failure
-        await new Promise((res) => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, 3000));
         assert.equal(eventCollector.getLength(), 0);
 
         // 02. Back to normal condition
@@ -1109,7 +1109,7 @@ describe.sequential('Client', function () {
     );
   });
 
-  it('Should not retry broadcasting on network failure witout retry option', async ({
+  it('Should not retry broadcasting on network failure when maxRetries is set to zero', async ({
     task,
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
@@ -1140,13 +1140,13 @@ describe.sequential('Client', function () {
           }
         };
 
-        // Broadcasting without retry option
         d1.broadcast(broadcastTopic, payload, {
           error: errorHandler,
+          maxRetries: 0,
         });
 
         // Failed to broadcast due to network failure
-        await new Promise((res) => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, 3000));
         assert.equal(eventCollector.getLength(), 0);
 
         // 02. Back to normal condition

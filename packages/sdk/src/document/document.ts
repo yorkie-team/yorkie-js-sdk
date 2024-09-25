@@ -94,11 +94,6 @@ export interface BroadcastOptions {
    * `maxRetries` is the maximum number of retries.
    */
   maxRetries?: number;
-
-  /**
-   * `retryInterval` is the interval of retries.
-   */
-  retryInterval?: number;
 }
 
 /**
