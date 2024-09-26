@@ -165,7 +165,7 @@ const DefaultClientOptions = {
  * `DefaultBroadcastOptions` is the default options for broadcast.
  */
 const DefaultBroadcastOptions = {
-  maxRetries: 20,
+  maxRetries: Infinity,
   initialRetryInterval: 1000,
   maxBackoff: 20000,
 };

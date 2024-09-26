@@ -1085,10 +1085,7 @@ describe.sequential('Client', function () {
 
         const payload = { a: 1, b: '2' };
 
-        // Broadcasting with retry option
-        d1.broadcast(broadcastTopic, payload, {
-          maxRetries: 10,
-        });
+        d1.broadcast(broadcastTopic, payload);
 
         // Failed to broadcast due to network failure
         await new Promise((res) => setTimeout(res, 3000));
