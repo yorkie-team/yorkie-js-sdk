@@ -55,12 +55,6 @@ const stressTest = (size: number) => {
   }
 };
 
-interface edit_operation {
-  cursor: number;
-  opeator: number;
-  operand?: string;
-}
-
 describe('splay_tree.edit', () => {
   bench('splay_tree.stress 10000', () => {
     stressTest(10000);
@@ -84,12 +78,18 @@ describe('splay_tree.edit', () => {
 
   bench('editing-trace', () => {
     const tree = new SplayTree<string>();
-    const editTrace = editTraceData as { edits: Array<edit_operation> };
+    const editTrace = editTraceData as {
+      edits: Array<Array<string | number>>;
+      finalText: string;
+    };
     for (const i of editTrace.edits) {
-      if (i.opeator == 0 && i.operand != undefined) {
-        tree.insertAfter(tree.find(i.cursor)[0]!, StringNode.create(i.operand));
-      } else if (i.opeator == 1) {
-        tree.delete(tree.find(i.cursor)[0]!);
+      if (i[0] == 0 && i[0] != undefined) {
+        tree.insertAfter(
+          tree.find(i[1] as number)[0]!,
+          StringNode.create(i[2] as string),
+        );
+      } else if (i[0] == 1) {
+        tree.delete(tree.find(i[1] as number)[0]!);
       }
     }
   });
