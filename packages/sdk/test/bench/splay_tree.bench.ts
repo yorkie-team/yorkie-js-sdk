@@ -3,10 +3,7 @@ import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
 import editTraceData from './editing-trace.json';
 
 class StringNode extends SplayNode<string> {
-  public removed: Boolean = false;
-  constructor(value: string) {
-    super(value);
-  }
+  public removed: boolean = false;
 
   public static create(value: string): StringNode {
     return new StringNode(value);
@@ -84,12 +81,15 @@ describe('splay_tree.edit', () => {
     };
     for (const i of editTrace.edits) {
       if (i[0] == 0 && i[0] != undefined) {
-        tree.insertAfter(
-          tree.find(i[1] as number)[0]!,
-          StringNode.create(i[2] as string),
-        );
+        const node = tree.find(i[1] as number)[0];
+        if (node) {
+          tree.insertAfter(node, StringNode.create(i[2] as string));
+        }
       } else if (i[0] == 1) {
-        tree.delete(tree.find(i[1] as number)[0]!);
+        const nodeToDelete = tree.find(i[1] as number)[0];
+        if (nodeToDelete) {
+          tree.delete(nodeToDelete);
+        }
       }
     }
   });
