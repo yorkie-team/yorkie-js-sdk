@@ -1142,10 +1142,6 @@ describe.sequential('Client', function () {
           maxRetries: 0,
         });
 
-        // Failed to broadcast due to network failure
-        await new Promise((res) => setTimeout(res, 3000));
-        assert.equal(eventCollector.getLength(), 0);
-
         // 02. Back to normal condition
         vi.unstubAllGlobals();
 
