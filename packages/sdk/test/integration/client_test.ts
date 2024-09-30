@@ -33,6 +33,7 @@ import {
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Json } from '@yorkie-js-sdk/src/document/document';
 
 describe.sequential('Client', function () {
   afterEach(() => {
@@ -902,7 +903,9 @@ describe.sequential('Client', function () {
 
     // @ts-ignore
     // Disable type checking for testing purposes
-    doc.broadcast(broadcastTopic, payload, errorHandler);
+    doc.broadcast(broadcastTopic, payload, {
+      error: errorHandler,
+    });
 
     await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
 
@@ -914,7 +917,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const unsubscribe = d2.subscribe('broadcast', (event) => {
           const { topic, payload } = event.value;
@@ -945,7 +948,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic1 = 'test1';
         const broadcastTopic2 = 'test2';
 
@@ -980,7 +983,7 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const unsubscribe = d2.subscribe('broadcast', (event) => {
           const { topic, payload } = event.value;
@@ -1018,8 +1021,8 @@ describe.sequential('Client', function () {
   }) => {
     await withTwoClientsAndDocuments<{ t: Text }>(
       async (c1, d1, c2, d2) => {
-        const eventCollector1 = new EventCollector<[string, any]>();
-        const eventCollector2 = new EventCollector<[string, any]>();
+        const eventCollector1 = new EventCollector<[string, Json]>();
+        const eventCollector2 = new EventCollector<[string, Json]>();
         const broadcastTopic = 'test';
         const payload = { a: 1, b: '2' };
 
@@ -1053,6 +1056,98 @@ describe.sequential('Client', function () {
 
         assert.equal(eventCollector1.getLength(), 0);
         assert.equal(eventCollector2.getLength(), 1);
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should retry broadcasting on network failure with retry option and succeeds when network is restored', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, Json]>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        // 01. Simulate Unknown error.
+        vi.stubGlobal('fetch', async () => {
+          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+        });
+        await new Promise((res) => setTimeout(res, 30));
+
+        const payload = { a: 1, b: '2' };
+
+        d1.broadcast(broadcastTopic, payload);
+
+        // Failed to broadcast due to network failure
+        await new Promise((res) => setTimeout(res, 3000));
+        assert.equal(eventCollector.getLength(), 0);
+
+        // 02. Back to normal condition
+        vi.unstubAllGlobals();
+
+        await eventCollector.waitAndVerifyNthEvent(1, [
+          broadcastTopic,
+          payload,
+        ]);
+
+        unsubscribe();
+      },
+      task.name,
+      SyncMode.Realtime,
+    );
+  });
+
+  it('Should not retry broadcasting on network failure when maxRetries is set to zero', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ t: Text }>(
+      async (c1, d1, c2, d2) => {
+        const eventCollector = new EventCollector<[string, any]>();
+        const eventCollector2 = new EventCollector<ConnectCode>();
+        const broadcastTopic = 'test';
+        const unsubscribe = d2.subscribe('broadcast', (event) => {
+          const { topic, payload } = event.value;
+
+          if (topic === broadcastTopic) {
+            eventCollector.add([topic, payload]);
+          }
+        });
+
+        // 01. Simulate Unknown error.
+        vi.stubGlobal('fetch', async () => {
+          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+        });
+
+        await new Promise((res) => setTimeout(res, 30));
+
+        const payload = { a: 1, b: '2' };
+
+        const errorHandler = (error: Error) => {
+          if (error instanceof ConnectError) {
+            eventCollector2.add(error.code);
+          }
+        };
+
+        d1.broadcast(broadcastTopic, payload, {
+          error: errorHandler,
+          maxRetries: 0,
+        });
+
+        // 02. Back to normal condition
+        vi.unstubAllGlobals();
+
+        await eventCollector2.waitAndVerifyNthEvent(1, ConnectCode.Unknown);
+
+        unsubscribe();
       },
       task.name,
       SyncMode.Realtime,
