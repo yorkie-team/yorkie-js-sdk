@@ -80,6 +80,23 @@ import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
 
 /**
+ * `BroadcastOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface BroadcastOptions {
+  /**
+   * `error` is called when an error occurs.
+   */
+  error?: ErrorFn;
+
+  /**
+   * `maxRetries` is the maximum number of retries.
+   */
+  maxRetries?: number;
+}
+
+/**
  * `DocumentOptions` are the options to create a new document.
  *
  * @public
@@ -390,13 +407,13 @@ export interface PresenceChangedEvent<P extends Indexable>
 export interface BroadcastEvent extends BaseDocEvent {
   type: DocEventType.Broadcast;
   value: { clientID: ActorID; topic: string; payload: Json };
-  error?: ErrorFn;
+  options?: BroadcastOptions;
 }
 
 export interface LocalBroadcastEvent extends BaseDocEvent {
   type: DocEventType.LocalBroadcast;
   value: { topic: string; payload: any };
-  error?: ErrorFn;
+  options?: BroadcastOptions;
 }
 
 type DocEventCallbackMap<P extends Indexable> = {
@@ -454,14 +471,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-    ? CounterOperationInfo
-    : TElement extends Tree
-      ? TreeOperationInfo
-      : TElement extends BaseArray<any>
-        ? ArrayOperationInfo
-        : TElement extends BaseObject<any>
-          ? ObjectOperationInfo
-          : OperationInfo;
+  ? CounterOperationInfo
+  : TElement extends Tree
+  ? TreeOperationInfo
+  : TElement extends BaseArray<any>
+  ? ArrayOperationInfo
+  : TElement extends BaseObject<any>
+  ? ObjectOperationInfo
+  : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -482,24 +499,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-    ? TFirst extends keyof TElement
-      ? TElement[TFirst] extends BaseArray<unknown>
-        ? OperationInfoOfInternal<
-            TElement[TFirst],
-            number,
-            DecreasedDepthOf<TDepth>
-          >
-        : OperationInfoOfInternal<
-            TElement[TFirst],
-            TRest,
-            DecreasedDepthOf<TDepth>
-          >
-      : OperationInfo
-    : TKeyOrPath extends keyof TElement
-      ? TElement[TKeyOrPath] extends BaseArray<unknown>
-        ? ArrayOperationInfo
-        : OperationInfoOfElement<TElement[TKeyOrPath]>
-      : OperationInfo;
+  ? TFirst extends keyof TElement
+    ? TElement[TFirst] extends BaseArray<unknown>
+      ? OperationInfoOfInternal<
+          TElement[TFirst],
+          number,
+          DecreasedDepthOf<TDepth>
+        >
+      : OperationInfoOfInternal<
+          TElement[TFirst],
+          TRest,
+          DecreasedDepthOf<TDepth>
+        >
+    : OperationInfo
+  : TKeyOrPath extends keyof TElement
+  ? TElement[TKeyOrPath] extends BaseArray<unknown>
+    ? ArrayOperationInfo
+    : OperationInfoOfElement<TElement[TKeyOrPath]>
+  : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -507,24 +524,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-    ? 8
-    : Depth extends 8
-      ? 7
-      : Depth extends 7
-        ? 6
-        : Depth extends 6
-          ? 5
-          : Depth extends 5
-            ? 4
-            : Depth extends 4
-              ? 3
-              : Depth extends 3
-                ? 2
-                : Depth extends 2
-                  ? 1
-                  : Depth extends 1
-                    ? 0
-                    : -1;
+  ? 8
+  : Depth extends 8
+  ? 7
+  : Depth extends 7
+  ? 6
+  : Depth extends 6
+  ? 5
+  : Depth extends 5
+  ? 4
+  : Depth extends 4
+  ? 3
+  : Depth extends 3
+  ? 2
+  : Depth extends 2
+  ? 1
+  : Depth extends 1
+  ? 0
+  : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -536,29 +553,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-    ? {
-        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-          ? `${Prefix}${TKey & string}`
-          : TElement[TKey] extends BaseArray<infer TArrayElement>
-            ?
-                | `${Prefix}${TKey & string}`
-                | `${Prefix}${TKey & string}.${number}`
-                | PathOfInternal<
-                    TArrayElement,
-                    `${Prefix}${TKey & string}.${number}.`,
-                    DecreasedDepthOf<Depth>
-                  >
-            :
-                | `${Prefix}${TKey & string}`
-                | PathOfInternal<
-                    TElement[TKey],
-                    `${Prefix}${TKey & string}.`,
-                    DecreasedDepthOf<Depth>
-                  >;
-      }[keyof TElement]
-    : Prefix extends `${infer TRest}.`
-      ? TRest
-      : Prefix;
+  ? {
+      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+        ? `${Prefix}${TKey & string}`
+        : TElement[TKey] extends BaseArray<infer TArrayElement>
+        ?
+            | `${Prefix}${TKey & string}`
+            | `${Prefix}${TKey & string}.${number}`
+            | PathOfInternal<
+                TArrayElement,
+                `${Prefix}${TKey & string}.${number}.`,
+                DecreasedDepthOf<Depth>
+              >
+        :
+            | `${Prefix}${TKey & string}`
+            | PathOfInternal<
+                TElement[TKey],
+                `${Prefix}${TKey & string}.`,
+                DecreasedDepthOf<Depth>
+              >;
+    }[keyof TElement]
+  : Prefix extends `${infer TRest}.`
+  ? TRest
+  : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -2105,11 +2122,11 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `broadcast` the payload to the given topic.
    */
-  public broadcast(topic: string, payload: Json, error?: ErrorFn) {
+  public broadcast(topic: string, payload: Json, options?: BroadcastOptions) {
     const broadcastEvent: LocalBroadcastEvent = {
       type: DocEventType.LocalBroadcast,
       value: { topic, payload },
-      error,
+      options,
     };
 
     this.publish([broadcastEvent]);
