@@ -201,6 +201,7 @@ export declare class ChangePack extends Message<ChangePack> {
 
   /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
    * @generated from field: yorkie.v1.VersionVector min_synced_version_vector = 8;
    */
@@ -208,6 +209,8 @@ export declare class ChangePack extends Message<ChangePack> {
 
   /**
 >>>>>>> e2e48ebd (Modify buf generate)
+=======
+>>>>>>> 37dfee5e (Remove min synced version vector from proto)
    * @generated from field: bool is_removed = 6;
    */
   isRemoved: boolean;
