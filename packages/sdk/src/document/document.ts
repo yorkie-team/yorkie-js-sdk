@@ -1130,7 +1130,9 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    if (pack.hasSnapshot()) {
+    const hasSnapshot = pack.hasSnapshot();
+
+    if (hasSnapshot) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getSnapshot()!,
@@ -1153,7 +1155,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // them after applying the snapshot. We need to treat the local changes
     // as remote changes because the application should apply the local
     // changes to their own document.
-    if (pack.hasSnapshot()) {
+    if (hasSnapshot) {
       this.applyChanges(this.localChanges, OpSource.Remote);
     }
 
@@ -1161,10 +1163,14 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedVersionVector()!);
+    if (!hasSnapshot) {
+      this.garbageCollect(pack.getVersionVector()!);
+    }
 
     // 05. Filter detached client's lamport from version vector
-    this.filterVersionVector(pack.getMinSyncedVersionVector()!);
+    if (!hasSnapshot) {
+      this.filterVersionVector(pack.getVersionVector()!);
+    }
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {

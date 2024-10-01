@@ -54,10 +54,6 @@ export class ChangePack<P extends Indexable> {
   private minSyncedTicket?: TimeTicket;
 
   /**
-   * `minSyncedVersionVector` is the version vector which consist of minimum lamport of each active clients.
-   */
-  private minSyncedVersionVector?: VersionVector;
-  /**
    * `versionVector` is the version vector current document
    */
   private versionVector?: VersionVector;
@@ -69,7 +65,6 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    minSyncedVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
@@ -79,7 +74,6 @@ export class ChangePack<P extends Indexable> {
     this.snapshot = snapshot;
     this.minSyncedTicket = minSyncedTicket;
     this.versionVector = versionVector;
-    this.minSyncedVersionVector = minSyncedVersionVector;
   }
   /**
    * `create` creates a new instance of ChangePack.
@@ -91,7 +85,6 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    minSyncedVersionVector?: VersionVector,
     minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
     return new ChangePack<P>(
@@ -101,7 +94,6 @@ export class ChangePack<P extends Indexable> {
       changes,
       versionVector,
       snapshot,
-      minSyncedVersionVector,
       minSyncedTicket,
     );
   }
@@ -174,12 +166,5 @@ export class ChangePack<P extends Indexable> {
    */
   public getVersionVector(): VersionVector | undefined {
     return this.versionVector;
-  }
-
-  /**
-   * `getMinSyncedVersionVector` returns the min synced version vector.
-   */
-  public getMinSyncedVersionVector(): VersionVector | undefined {
-    return this.minSyncedVersionVector;
   }
 }
