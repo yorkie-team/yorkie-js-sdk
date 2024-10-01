@@ -753,6 +753,7 @@ describe('Garbage Collection', function () {
     );
     assert.equal(doc1.getGarbageLen(), 1);
     await client1.sync();
+    assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
         { actor: client1.getID()!, lamport: Long.fromNumber(3) },
@@ -786,7 +787,7 @@ describe('Garbage Collection', function () {
       ]),
       true,
     );
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(doc1.getGarbageLen(), 3);
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
@@ -795,7 +796,7 @@ describe('Garbage Collection', function () {
       ]),
       true,
     );
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(doc1.getGarbageLen(), 3);
 
     await client1.sync();
     assert.equal(
@@ -805,7 +806,7 @@ describe('Garbage Collection', function () {
       ]),
       true,
     );
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(doc1.getGarbageLen(), 3);
 
     await client2.sync();
     assert.equal(
@@ -815,7 +816,7 @@ describe('Garbage Collection', function () {
       ]),
       true,
     );
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(doc1.getGarbageLen(), 3);
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
@@ -829,6 +830,8 @@ describe('Garbage Collection', function () {
     assert.equal(doc1.getGarbageLen(), 4);
     await client1.sync();
     assert.equal(doc1.getGarbageLen(), 0);
+    await client2.sync();
+    assert.equal(doc2.getGarbageLen(), 0);
 
     await client1.deactivate();
     await client2.deactivate();
