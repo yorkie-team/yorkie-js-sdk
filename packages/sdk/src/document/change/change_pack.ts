@@ -52,6 +52,7 @@ export class ChangePack<P extends Indexable> {
    * client.
    */
   private minSyncedTicket?: TimeTicket;
+
   /**
    * `versionVector` is the version vector current document
    */
