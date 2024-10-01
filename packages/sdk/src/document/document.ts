@@ -1134,7 +1134,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getSnapshot()!,
-        pack.getSnapshotVersionVector()!,
+        pack.getVersionVector()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges(), OpSource.Remote);

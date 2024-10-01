@@ -177,11 +177,6 @@ export declare class ChangePack extends Message<ChangePack> {
   snapshot: Uint8Array;
 
   /**
-   * @generated from field: yorkie.v1.VersionVector snapshot_version_vector = 7;
-   */
-  snapshotVersionVector?: VersionVector;
-
-  /**
    * @generated from field: repeated yorkie.v1.Change changes = 4;
    */
   changes: Change[];
@@ -204,7 +199,7 @@ export declare class ChangePack extends Message<ChangePack> {
   isRemoved: boolean;
 
   /**
-   * @generated from field: yorkie.v1.VersionVector version_vector = 9;
+   * @generated from field: yorkie.v1.VersionVector version_vector = 7;
    */
   versionVector?: VersionVector;
 
