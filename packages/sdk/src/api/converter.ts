@@ -1372,7 +1372,6 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
-    fromVersionVector(pbPack.minSyncedVersionVector),
     fromTimeTicket(pbPack.minSyncedTicket),
   );
 }

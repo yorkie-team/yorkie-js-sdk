@@ -189,11 +189,6 @@ export declare class ChangePack extends Message<ChangePack> {
   minSyncedTicket?: TimeTicket;
 
   /**
-   * @generated from field: yorkie.v1.VersionVector min_synced_version_vector = 8;
-   */
-  minSyncedVersionVector?: VersionVector;
-
-  /**
    * @generated from field: bool is_removed = 6;
    */
   isRemoved: boolean;
