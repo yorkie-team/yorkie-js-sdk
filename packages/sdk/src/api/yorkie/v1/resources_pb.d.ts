@@ -178,6 +178,7 @@ export declare class ChangePack extends Message<ChangePack> {
 
   /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
    * @generated from field: yorkie.v1.VersionVector snapshot_version_vector = 7;
    */
@@ -185,6 +186,8 @@ export declare class ChangePack extends Message<ChangePack> {
 
   /**
 >>>>>>> e2e48ebd (Modify buf generate)
+=======
+>>>>>>> 23340cfc (Remove snapshot version vector)
    * @generated from field: repeated yorkie.v1.Change changes = 4;
    */
   changes: Change[];
@@ -211,10 +214,14 @@ export declare class ChangePack extends Message<ChangePack> {
 
   /**
 <<<<<<< HEAD
+<<<<<<< HEAD
    * @generated from field: yorkie.v1.VersionVector version_vector = 7;
 =======
    * @generated from field: yorkie.v1.VersionVector version_vector = 9;
 >>>>>>> e2e48ebd (Modify buf generate)
+=======
+   * @generated from field: yorkie.v1.VersionVector version_vector = 7;
+>>>>>>> 23340cfc (Remove snapshot version vector)
    */
   versionVector?: VersionVector;
 
