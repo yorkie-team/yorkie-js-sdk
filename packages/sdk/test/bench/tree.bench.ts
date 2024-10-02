@@ -1,6 +1,6 @@
 import { converter, Document, Tree, TreeNode } from '@yorkie-js-sdk/src/yorkie';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { describe, bench, assert } from 'vitest';
+import { MaxVersionVector } from '../helper/helper';
 
 const benchmarkTreeEdit = (size: number) => {
   const doc = new Document<{ tree: Tree }>('test-doc');
@@ -56,7 +56,10 @@ const benchmarkTreeSplitGC = (size: number) => {
   }, `modify ${size} nodes`);
   // 03. GC
   assert.equal(size, doc.getGarbageLen());
-  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  assert.equal(
+    size,
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+  );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };
@@ -83,7 +86,10 @@ const benchmarkTreeEditGC = (size: number) => {
   }, `modify ${size} nodes`);
   // 03. GC
   assert.equal(size, doc.getGarbageLen());
-  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  assert.equal(
+    size,
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+  );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };

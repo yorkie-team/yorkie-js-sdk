@@ -1,8 +1,8 @@
 import { Document, JSONArray } from '@yorkie-js-sdk/src/yorkie';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
 import { describe, bench, assert } from 'vitest';
+import { MaxVersionVector } from '../helper/helper';
 
 const benchmarkObject = (size: number) => {
   const doc = new Document<{ k1: number }>('test-doc');
@@ -40,7 +40,10 @@ const benchmarkArrayGC = (size: number) => {
     delete root.k1;
   });
 
-  assert.equal(size + 1, doc.garbageCollect(MaxTimeTicket));
+  assert.equal(
+    size + 1,
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+  );
 };
 
 describe('Document', () => {

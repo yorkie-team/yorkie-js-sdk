@@ -28,15 +28,18 @@ async function main() {
   await client.activate();
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>(
-    `codemirror6-${new Date()
-      .toISOString()
-      .substring(0, 10)
-      .replace(/-/g, '')}`,
-    {
-      enableDevtools: true,
-    },
-  );
+  // TODO(JOOHOJANG):Put it back to how the document’s dockey was.
+  const doc = new yorkie.Document<YorkieDoc>('dailysync', {
+    enableDevtools: true,
+  });
+  window.addEventListener('beforeunload', async () => {
+    await client.detach(doc);
+    await client.deactivate();
+  });
+  window.addEventListener('unload', async () => {
+    await client.detach(doc);
+    await client.deactivate();
+  });
   doc.subscribe('connection', (event) => {
     network.statusListener(networkStatusElem)(event);
   });

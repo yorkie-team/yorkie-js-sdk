@@ -27,6 +27,7 @@ import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { VersionVector } from '../time/version_vector';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -268,15 +269,14 @@ export class CRDTRoot {
   /**
    * `garbageCollect` purges elements that were removed before the given time.
    */
-  public garbageCollect(ticket: TimeTicket): number {
+  public garbageCollect(minSyncedVersionVector: VersionVector): number {
     let count = 0;
 
     for (const createdAt of this.gcElementSetByCreatedAt) {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      if (
-        pair.element.getRemovedAt() &&
-        ticket.compare(pair.element.getRemovedAt()!) >= 0
-      ) {
+      const removedAt = pair.element.getRemovedAt();
+
+      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
         pair.parent!.purge(pair.element);
         count += this.deregisterElement(pair.element);
       }
@@ -284,7 +284,7 @@ export class CRDTRoot {
 
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
-      if (removedAt !== undefined && ticket.compare(removedAt) >= 0) {
+      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
         pair.parent.purge(pair.child);
 
         this.gcPairMap.delete(pair.child.toIDString());

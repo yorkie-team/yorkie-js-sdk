@@ -1,7 +1,5 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js-sdk/src/document/document';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import {
   JSONArray,
@@ -9,6 +7,7 @@ import {
   Primitive,
   TimeTicket,
 } from '@yorkie-js-sdk/src/yorkie';
+import { MaxVersionVector } from '../helper/helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
@@ -723,7 +722,7 @@ describe('Array', function () {
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
 
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     doc.update((root) => {
       const elem = root.list.getElementByID!(targetID);
       assert.isUndefined(elem);
