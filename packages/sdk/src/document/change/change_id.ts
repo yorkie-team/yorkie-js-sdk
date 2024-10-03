@@ -20,6 +20,7 @@ import {
   InitialActorID,
 } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { InitialCheckpoint } from './checkpoint';
 
 /**
  * `ChangeID` is for identifying the Change. This is immutable.
@@ -99,13 +100,23 @@ export class ChangeID {
   }
 
   /**
-   * `getServerSeq` returns the server sequence of this ID.
+   * `getServerSeq` returns the server sequence of this ID to string.
    */
   public getServerSeq(): string {
     if (this.serverSeq) {
       return this.serverSeq.toString();
     }
     return '';
+  }
+
+  /**
+   * `getServerSeqLong` returns the server sequence of this ID.
+   */
+  public getServerSeqLong(): Long {
+    if (this.serverSeq) {
+      return this.serverSeq;
+    }
+    return InitialCheckpoint.getServerSeq();
   }
 
   /**

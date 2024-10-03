@@ -467,14 +467,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-  ? CounterOperationInfo
-  : TElement extends Tree
-  ? TreeOperationInfo
-  : TElement extends BaseArray<any>
-  ? ArrayOperationInfo
-  : TElement extends BaseObject<any>
-  ? ObjectOperationInfo
-  : OperationInfo;
+    ? CounterOperationInfo
+    : TElement extends Tree
+      ? TreeOperationInfo
+      : TElement extends BaseArray<any>
+        ? ArrayOperationInfo
+        : TElement extends BaseObject<any>
+          ? ObjectOperationInfo
+          : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -495,24 +495,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-  ? TFirst extends keyof TElement
-    ? TElement[TFirst] extends BaseArray<unknown>
-      ? OperationInfoOfInternal<
-          TElement[TFirst],
-          number,
-          DecreasedDepthOf<TDepth>
-        >
-      : OperationInfoOfInternal<
-          TElement[TFirst],
-          TRest,
-          DecreasedDepthOf<TDepth>
-        >
-    : OperationInfo
-  : TKeyOrPath extends keyof TElement
-  ? TElement[TKeyOrPath] extends BaseArray<unknown>
-    ? ArrayOperationInfo
-    : OperationInfoOfElement<TElement[TKeyOrPath]>
-  : OperationInfo;
+    ? TFirst extends keyof TElement
+      ? TElement[TFirst] extends BaseArray<unknown>
+        ? OperationInfoOfInternal<
+            TElement[TFirst],
+            number,
+            DecreasedDepthOf<TDepth>
+          >
+        : OperationInfoOfInternal<
+            TElement[TFirst],
+            TRest,
+            DecreasedDepthOf<TDepth>
+          >
+      : OperationInfo
+    : TKeyOrPath extends keyof TElement
+      ? TElement[TKeyOrPath] extends BaseArray<unknown>
+        ? ArrayOperationInfo
+        : OperationInfoOfElement<TElement[TKeyOrPath]>
+      : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -520,24 +520,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-  ? 8
-  : Depth extends 8
-  ? 7
-  : Depth extends 7
-  ? 6
-  : Depth extends 6
-  ? 5
-  : Depth extends 5
-  ? 4
-  : Depth extends 4
-  ? 3
-  : Depth extends 3
-  ? 2
-  : Depth extends 2
-  ? 1
-  : Depth extends 1
-  ? 0
-  : -1;
+    ? 8
+    : Depth extends 8
+      ? 7
+      : Depth extends 7
+        ? 6
+        : Depth extends 6
+          ? 5
+          : Depth extends 5
+            ? 4
+            : Depth extends 4
+              ? 3
+              : Depth extends 3
+                ? 2
+                : Depth extends 2
+                  ? 1
+                  : Depth extends 1
+                    ? 0
+                    : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -549,29 +549,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-  ? {
-      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-        ? `${Prefix}${TKey & string}`
-        : TElement[TKey] extends BaseArray<infer TArrayElement>
-        ?
-            | `${Prefix}${TKey & string}`
-            | `${Prefix}${TKey & string}.${number}`
-            | PathOfInternal<
-                TArrayElement,
-                `${Prefix}${TKey & string}.${number}.`,
-                DecreasedDepthOf<Depth>
-              >
-        :
-            | `${Prefix}${TKey & string}`
-            | PathOfInternal<
-                TElement[TKey],
-                `${Prefix}${TKey & string}.`,
-                DecreasedDepthOf<Depth>
-              >;
-    }[keyof TElement]
-  : Prefix extends `${infer TRest}.`
-  ? TRest
-  : Prefix;
+    ? {
+        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+          ? `${Prefix}${TKey & string}`
+          : TElement[TKey] extends BaseArray<infer TArrayElement>
+            ?
+                | `${Prefix}${TKey & string}`
+                | `${Prefix}${TKey & string}.${number}`
+                | PathOfInternal<
+                    TArrayElement,
+                    `${Prefix}${TKey & string}.${number}.`,
+                    DecreasedDepthOf<Depth>
+                  >
+            :
+                | `${Prefix}${TKey & string}`
+                | PathOfInternal<
+                    TElement[TKey],
+                    `${Prefix}${TKey & string}.`,
+                    DecreasedDepthOf<Depth>
+                  >;
+      }[keyof TElement]
+    : Prefix extends `${infer TRest}.`
+      ? TRest
+      : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -607,6 +607,9 @@ export class Document<T, P extends Indexable = Indexable> {
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
+
+  public localHistory: Array<Change<P>>;
+  public remoteHistory: Array<Change<P>>;
   private localChanges: Array<Change<P>>;
 
   private root: CRDTRoot;
@@ -653,6 +656,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
+    this.remoteHistory = [];
+    this.localHistory = [];
     this.localChanges = [];
 
     this.eventStream = createObservable<TransactionEvent<P>>((observer) => {
@@ -672,6 +677,59 @@ export class Document<T, P extends Indexable = Indexable> {
     };
 
     setupDevtools(this);
+  }
+
+  /**
+   * `mergeChangeLists` merges listA and listB ordered by serverSeq.
+   */
+  public mergeChangeLists(
+    listA: Array<Change<P>>,
+    listB: Array<Change<P>>,
+  ): Array<Change<P>> {
+    const merged = [];
+
+    const iteratorA = listA.values();
+    const iteratorB = listB.values();
+    let changeA = iteratorA.next();
+    let changeB = iteratorB.next();
+
+    while (!changeA.done && !changeB.done) {
+      if (
+        changeA.value
+          .getID()
+          .getServerSeqLong()
+          .lessThan(changeB.value.getID().getServerSeqLong())
+      ) {
+        merged.push(changeA.value);
+        changeA = iteratorA.next();
+      } else {
+        merged.push(changeB.value);
+        changeB = iteratorB.next();
+      }
+    }
+    while (!changeA.done) {
+      merged.push(changeA.value);
+      changeA = iteratorA.next();
+    }
+    while (!changeB.done) {
+      merged.push(changeB.value);
+      changeB = iteratorB.next();
+    }
+
+    return merged;
+  }
+
+  /**
+   * `getMergedHistory` returns change history of this document ordred by serverSeq.
+   * Unpushed changes are considered to have infinite serverSeq.
+   * TODO(junseo): consider pushonly mode. 
+   */
+  public getMergedHistory(): Array<Change<P>> {
+    const merged = this.mergeChangeLists(this.localHistory, this.remoteHistory);
+    for (const change of this.localChanges) {
+      merged.push(change);
+    }
+    return merged;
   }
 
   /**
@@ -1165,11 +1223,30 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     // 02. Remove local changes applied to server.
+    // And push the changes to local history with appropriate ServerSeq.
+    const initServerSeq = pack
+      .getCheckpoint()
+      .getServerSeq()
+      .subtract(Long.fromNumber(this.localChanges.length));
+    let counter = 0;
+
     while (this.localChanges.length) {
       const change = this.localChanges[0];
       if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
         break;
       }
+      counter += 1;
+      const pushedID = ChangeID.of(
+        change.getID().getClientSeq(),
+        change.getID().getLamport(),
+        change.getID().getActorID(),
+        initServerSeq.add(Long.fromNumber(counter)),
+      );
+      const pushedChange = new Change<P>({
+        ...change,
+        id: pushedID,
+      });
+      this.localHistory.push(pushedChange);
       this.localChanges.shift();
     }
 
@@ -1429,6 +1506,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     for (const change of changes) {
       this.applyChange(change, source);
+      this.remoteHistory.push(change);
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {
