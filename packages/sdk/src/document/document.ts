@@ -722,7 +722,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getMergedHistory` returns change history of this document ordred by serverSeq.
    * Unpushed changes are considered to have infinite serverSeq.
-   * TODO(junseo): consider pushonly mode. 
+   * TODO(junseo): consider pushonly mode.
    */
   public getMergedHistory(): Array<Change<P>> {
     const merged = this.mergeChangeLists(this.localHistory, this.remoteHistory);
