@@ -100,7 +100,7 @@ export class ChangeID {
   }
 
   /**
-   * `getServerSeq` returns the server sequence of this ID to string.
+   * `getServerSeq` returns the server sequence of this ID as string.
    */
   public getServerSeq(): string {
     if (this.serverSeq) {
@@ -110,13 +110,20 @@ export class ChangeID {
   }
 
   /**
-   * `getServerSeqLong` returns the server sequence of this ID.
+   * `getServerSeqAsLong` returns the server sequence of this ID as Long.
    */
-  public getServerSeqLong(): Long {
+  public getServerSeqAsLong(): Long {
     if (this.serverSeq) {
       return this.serverSeq;
     }
     return InitialCheckpoint.getServerSeq();
+  }
+
+  /**
+   * `hasServerSeq` returns whether the server sequence is set.
+   */
+  public hasServerSeq(): boolean {
+    return this.serverSeq !== undefined;
   }
 
   /**
@@ -147,6 +154,13 @@ export class ChangeID {
     return `${this.lamport.toString()}:${this.actor.slice(-2)}:${
       this.clientSeq
     }`;
+  }
+
+  /**
+   * `toUniqueString` returns a unique string for the changes.
+   */
+  public toUniqueString(): string {
+    return `c-${this.clientSeq}-${this.actor}`;
   }
 }
 

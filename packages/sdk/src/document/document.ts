@@ -595,6 +595,79 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 >;
 
 /**
+ * `DocumentVersion` represents the version information of a document.
+ *
+ * @public
+ */
+export class DocumentVersion {
+  private serverSeq: Long;
+  private clientSeq: number;
+  private actorID: ActorID;
+
+  constructor(serverSeq?: Long, clientSeq?: number, actorID?: ActorID) {
+    this.serverSeq = serverSeq || InitialChangeID.getServerSeqAsLong();
+    this.clientSeq = clientSeq || InitialChangeID.getClientSeq();
+    this.actorID = actorID || InitialChangeID.getActorID();
+  }
+
+  /**
+   * `getServerSeq` returns the server sequence number of this version.
+   */
+  public getServerSeq(): Long {
+    return this.serverSeq;
+  }
+
+  /**
+   * `getClientSeq` returns the client sequence number of this version.
+   */
+  public getClientSeq(): number {
+    return this.clientSeq;
+  }
+
+  /**
+   * `getActorID` returns the actor ID of this version.
+   */
+  public getActorID(): ActorID {
+    return this.actorID;
+  }
+
+  /**
+   * `coversChangeID` checks if the given change ID is covered by this version.
+   */
+  public coversChangeID(changeID: ChangeID): boolean {
+    // for local changes
+    if (changeID.getActorID() === this.actorID) {
+      return changeID.getClientSeq() <= this.clientSeq;
+    }
+
+    // for remote changes
+    return (
+      changeID.hasServerSeq() &&
+      changeID.getServerSeqAsLong().lessThanOrEqual(this.serverSeq)
+    );
+  }
+
+  /**
+   * `fromChangeID` creates a new DocumentVersion from the given change ID.
+   */
+  static fromChangeID(changeID: ChangeID): DocumentVersion {
+    // NOTE(junseo): if change is not pushed, its serverSeq is considered as infinite.
+    return new DocumentVersion(
+      changeID.hasServerSeq() ? changeID.getServerSeqAsLong() : Long.MAX_VALUE,
+      changeID.getClientSeq(),
+      changeID.getActorID(),
+    );
+  }
+
+  /**
+   * `toTestString` returns a string for test.
+   */
+  public toTestString(): string {
+    return `(${this.serverSeq.toString()}, ${this.clientSeq}@${this.actorID.slice(-4)})`;
+  }
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  *
@@ -608,8 +681,9 @@ export class Document<T, P extends Indexable = Indexable> {
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
 
-  public localHistory: Array<Change<P>>;
-  public remoteHistory: Array<Change<P>>;
+  private version: DocumentVersion;
+  private localHistory: Array<Change<P>>;
+  private remoteHistory: Array<Change<P>>;
   private localChanges: Array<Change<P>>;
 
   private root: CRDTRoot;
@@ -656,6 +730,8 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
+
+    this.version = new DocumentVersion();
     this.remoteHistory = [];
     this.localHistory = [];
     this.localChanges = [];
@@ -680,6 +756,41 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getVersion` returns the traveling version of this document.
+   */
+  public getVersion(): DocumentVersion {
+    return this.version;
+  }
+
+  /**
+   * `timeTravel` moves the document state to the given version.
+   */
+  public timeTravel(version: DocumentVersion) {
+    // 01. get changes such that change <= version
+    const changes = this.getChangesCoveredBy(version);
+
+    // 02. clear state informations (change is already validated when they are applied)
+    // TODO(junseo): old root GC?
+    this.root = CRDTRoot.create();
+    // this.changeID = InitialChangeID;
+    // this.checkpoint = InitialCheckpoint;
+    this.presences = new Map();
+    this.clone = undefined;
+
+    // 03. apply changes to the empty root
+    for (const change of changes) {
+      // TOOD(junseo): filter change.presenceChange
+      // we only need to apply operations
+      this.applyChange(change, OpSource.Local, true);
+    }
+
+    // 04. change document metadata about time travel, version, isLatest
+    this.version = version;
+
+    // 05. publish time-travel set event for $.counter, $.todos, ...
+  }
+
+  /**
    * `mergeChangeLists` merges listA and listB ordered by serverSeq.
    */
   public mergeChangeLists(
@@ -697,8 +808,8 @@ export class Document<T, P extends Indexable = Indexable> {
       if (
         changeA.value
           .getID()
-          .getServerSeqLong()
-          .lessThan(changeB.value.getID().getServerSeqLong())
+          .getServerSeqAsLong()
+          .lessThan(changeB.value.getID().getServerSeqAsLong())
       ) {
         merged.push(changeA.value);
         changeA = iteratorA.next();
@@ -720,16 +831,48 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getMergedHistory` returns change history of this document ordred by serverSeq.
+   * `getChangeHistoryLen` returns the length of the change history.
+   */
+  public getChangeHistoryLen(): number {
+    return (
+      this.localHistory.length +
+      this.remoteHistory.length +
+      this.localChanges.length
+    );
+  }
+
+  /**
+   * `getVersionFromHistoryIndex` returns the version from the given history index.
+   */
+  public getVersionFromHistoryIndex(idx: number): DocumentVersion {
+    const changes = this.getChangeHistory();
+    if (idx < 0 || idx >= changes.length) {
+      throw new YorkieError(Code.ErrInvalidArgument, `Invalid index: ${idx}`);
+    }
+    return DocumentVersion.fromChangeID(changes[idx].getID());
+  }
+
+  /**
+   * `getChangeHistory` returns change history of this document ordred by serverSeq.
    * Unpushed changes are considered to have infinite serverSeq.
    * TODO(junseo): consider pushonly mode.
    */
-  public getMergedHistory(): Array<Change<P>> {
+  public getChangeHistory(): Array<Change<P>> {
     const merged = this.mergeChangeLists(this.localHistory, this.remoteHistory);
     for (const change of this.localChanges) {
       merged.push(change);
     }
     return merged;
+  }
+
+  /**
+   * `getChangesCoveredBy` returns changes that are covered by the given version.
+   */
+  public getChangesCoveredBy(version: DocumentVersion) {
+    const changes = this.getChangeHistory();
+    return changes.filter((change) => {
+      return version.coversChangeID(change.getID());
+    });
   }
 
   /**
@@ -1521,7 +1664,11 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyChange` applies the given change into this document.
    */
-  public applyChange(change: Change<P>, source: OpSource) {
+  public applyChange(
+    change: Change<P>,
+    source: OpSource,
+    isTravel: boolean = false,
+  ) {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -1577,8 +1724,10 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
-    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
-    if (opInfos.length > 0) {
+    if (!isTravel) {
+      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    }
+    if (!isTravel && opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
         source === OpSource.Remote
@@ -1612,7 +1761,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // This is because 3rd party model should be synced with the Document
     // after RemoteChange event is emitted. If the event is emitted
     // asynchronously, the model can be changed and breaking consistency.
-    if (event.length > 0) {
+    if (!isTravel && event.length > 0) {
       this.publish(event);
     }
   }
