@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Time Travel Example</title>
+    <link
+      href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="quill-two-clients.css" />
+    <link rel="stylesheet" href="time-travel.css" />
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.1.0/dist/quill-cursors.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/color-hash@1.0.3/dist/color-hash.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/short-unique-id@4.4.4/dist/short-unique-id.min.js"></script>
+  </head>
+  <body>
+    <div>
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
+      <div id="client">
+        Client ( id: <span class="client-id"></span>)
+        <div class="syncmode-option">
+          <span>SyncMode: </span>
+          <div class="realtime-sync">
+            <span class="realtime-sync-title">Realtime Sync</span>
+            <div class="option">
+              <input
+                type="radio"
+                id="realtime-pushpull-a"
+                name="syncMode-a"
+                value="pushpull"
+                checked
+              />
+              <label for="realtime-pushpull-a">PushPull</label>
+            </div>
+            <div class="option">
+              <input
+                type="radio"
+                id="realtime-pushonly-a"
+                name="syncMode-a"
+                value="pushonly"
+              />
+              <label for="realtime-pushonly-a">PushOnly</label>
+            </div>
+            <div class="option">
+              <input
+                type="radio"
+                id="realtime-syncoff-a"
+                name="syncMode-a"
+                value="syncoff"
+              />
+              <label for="realtime-syncoff-a">SyncOff</label>
+            </div>
+          </div>
+          <div class="option">
+            <input
+              type="radio"
+              id="manual-a"
+              name="syncMode-a"
+              value="manual"
+            />
+            <label for="manual-a">Manual Sync</label>
+            <button class="manual-sync">sync</button>
+          </div>
+        </div>
+
+        <div class="changes">
+          <h2>History</h2>
+          <div id="change-history">
+            <input type="checkbox" id="auto-travel" checked>auto</input>
+            <button id="renew-history">renew</button>
+            <button id="time-travel" disabled>time-travel</button>
+            <div id="change-history-list"></div>
+            <div class="history-slider">
+              <input type="range" id="version-slider">
+              <p>slider version: <span id="slider-version-text"></span></p>
+              <p>current version: <span id="current-version-text"></span></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="counter">
+          <h2>Counter</h2>
+          <button class="increaseButton">
+            count is <span class="count"></span>
+          </button>
+        </div>
+
+        <h2>Todo List</h2>
+        <div class="todos">
+          <ul class="todoList"></ul>
+          <div class="todoNew">
+            <input type="text" class="todoInput" placeholder="enter.." />
+            <button class="addButton">+</button>
+          </div>
+        </div>
+
+        <h2>Quill Editor</h2>
+        <div id="editor"></div>
+
+        <h2>yorkie document</h2>
+        <pre style="white-space: pre-wrap" id="log-holder"></pre>
+      </div>
+    </div>
+    <script src="./yorkie-js-sdk.js"></script>
+    <script src="./util.js"></script>
+    <script src="./time-travel.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', main);
+    </script>
+  </body>
+</html>
