@@ -321,7 +321,7 @@ export interface SnapshotEvent extends BaseDocEvent {
    * enum {@link DocEventType}.Snapshot
    */
   type: DocEventType.Snapshot;
-  source: OpSource.Remote;
+  source: OpSource.Remote | OpSource.TimeTravel;
   value: { snapshot?: string; serverSeq: string };
 }
 
@@ -605,7 +605,7 @@ export class DocumentVersion {
   private actorID: ActorID;
 
   constructor(serverSeq?: Long, clientSeq?: number, actorID?: ActorID) {
-    this.serverSeq = serverSeq || InitialChangeID.getServerSeqAsLong();
+    this.serverSeq = serverSeq || Long.MAX_VALUE;
     this.clientSeq = clientSeq || InitialChangeID.getClientSeq();
     this.actorID = actorID || InitialChangeID.getActorID();
   }
@@ -625,6 +625,22 @@ export class DocumentVersion {
   }
 
   /**
+   * `forward` moves the version forward to the given change ID.
+   */
+  public forward(changeID: ChangeID) {
+    if (this.actorID === changeID.getActorID()) {
+      this.clientSeq = Math.max(this.clientSeq, changeID.getClientSeq());
+    } else {
+      if (
+        changeID.hasServerSeq() &&
+        changeID.getServerSeqAsLong().greaterThan(this.serverSeq)
+      ) {
+        this.serverSeq = changeID.getServerSeqAsLong();
+      }
+    }
+  }
+
+  /**
    * `getActorID` returns the actor ID of this version.
    */
   public getActorID(): ActorID {
@@ -632,11 +648,18 @@ export class DocumentVersion {
   }
 
   /**
+   * `setActorID` sets the actor ID of this version.
+   */
+  public setActorID(actorID: ActorID) {
+    this.actorID = actorID;
+  }
+
+  /**
    * `coversChangeID` checks if the given change ID is covered by this version.
    */
   public coversChangeID(changeID: ChangeID): boolean {
     // for local changes
-    if (changeID.getActorID() === this.actorID) {
+    if (this.actorID === changeID.getActorID()) {
       return changeID.getClientSeq() <= this.clientSeq;
     }
 
@@ -645,6 +668,17 @@ export class DocumentVersion {
       changeID.hasServerSeq() &&
       changeID.getServerSeqAsLong().lessThanOrEqual(this.serverSeq)
     );
+  }
+
+  /**
+   * `coverChanges` checks if the array of changes is covered by this document version.
+   * array is given as ascending order.
+   */
+  public coverChanges<P extends Indexable>(changes: Array<Change<P>>): boolean {
+    if (changes.length === 0) {
+      return true;
+    }
+    return this.coversChangeID(changes[changes.length - 1].getID());
   }
 
   /**
@@ -732,6 +766,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = InitialCheckpoint;
 
     this.version = new DocumentVersion();
+
     this.remoteHistory = [];
     this.localHistory = [];
     this.localChanges = [];
@@ -763,6 +798,18 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `isLatestVersion` checks if current version of this document is latest.
+   * It's equivalent to `this.version.coverChanges(this.getChangeHistory())`.
+   */
+  public isLatestVersion(): boolean {
+    return (
+      this.version.coverChanges(this.localChanges) &&
+      this.version.coverChanges(this.localHistory) &&
+      this.version.coverChanges(this.remoteHistory)
+    );
+  }
+
+  /**
    * `timeTravel` moves the document state to the given version.
    */
   public timeTravel(version: DocumentVersion) {
@@ -781,13 +828,22 @@ export class Document<T, P extends Indexable = Indexable> {
     for (const change of changes) {
       // TOOD(junseo): filter change.presenceChange
       // we only need to apply operations
-      this.applyChange(change, OpSource.Local, true);
+      this.applyChange(change, OpSource.TimeTravel);
     }
 
     // 04. change document metadata about time travel, version, isLatest
     this.version = version;
 
     // 05. publish time-travel set event for $.counter, $.todos, ...
+    this.publish([
+      {
+        type: DocEventType.Snapshot,
+        source: OpSource.TimeTravel,
+        value: {
+          serverSeq: this.version.getServerSeq().toString(),
+        },
+      },
+    ]);
   }
 
   /**
@@ -886,6 +942,14 @@ export class Document<T, P extends Indexable = Indexable> {
       throw new YorkieError(Code.ErrDocumentRemoved, `${this.key} is removed`);
     }
 
+    // If the document is traveling version, do nothing.
+    if (!this.isLatestVersion()) {
+      throw new YorkieError(
+        Code.ErrNotReady,
+        'Only latest version can be updated',
+      );
+    }
+
     // 01. Update the clone object and create a change.
     this.ensureClone();
     const actorID = this.changeID.getActorID();
@@ -943,6 +1007,7 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       this.localChanges.push(change);
+      this.version.forward(change.getID());
       if (reverseOps.length > 0) {
         this.internalHistory.pushUndo(reverseOps);
       }
@@ -1356,25 +1421,14 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    if (pack.hasSnapshot()) {
-      this.applySnapshot(
-        pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot(),
-      );
-    } else if (pack.hasChanges()) {
-      this.applyChanges(pack.getChanges(), OpSource.Remote);
-    }
-
-    // 02. Remove local changes applied to server.
-    // And push the changes to local history with appropriate ServerSeq.
+    // 01. Push local changes to local history.
+    // TODO(junseo): consider pushonly mode.
     const initServerSeq = pack
       .getCheckpoint()
       .getServerSeq()
       .subtract(Long.fromNumber(this.localChanges.length));
     let counter = 0;
-
-    while (this.localChanges.length) {
-      const change = this.localChanges[0];
+    for (const change of this.localChanges) {
       if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
         break;
       }
@@ -1390,8 +1444,30 @@ export class Document<T, P extends Indexable = Indexable> {
         id: pushedID,
       });
       this.localHistory.push(pushedChange);
-      this.localChanges.shift();
     }
+
+    // 02. Apply snapshot or changes.
+    if (pack.hasSnapshot()) {
+      this.applySnapshot(
+        pack.getCheckpoint().getServerSeq(),
+        pack.getSnapshot(),
+      );
+    } else if (pack.hasChanges()) {
+      this.applyChanges(pack.getChanges(), OpSource.Remote);
+    }
+
+    // 03. Remove local changes applied to server.
+    this.localChanges = this.localChanges.filter(
+      (change) =>
+        change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq(),
+    );
+    // while (this.localChanges.length) {
+    //   const change = this.localChanges[0];
+    //   if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
+    //     break;
+    //   }
+    //   this.localChanges.shift();
+    // }
 
     // NOTE(hackerwins): If the document has local changes, we need to apply
     // them after applying the snapshot. We need to treat the local changes
@@ -1401,13 +1477,13 @@ export class Document<T, P extends Indexable = Indexable> {
       this.applyChanges(this.localChanges, OpSource.Remote);
     }
 
-    // 03. Update the checkpoint.
+    // 04. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // 04. Do Garbage collection.
+    // 05. Do Garbage collection.
     this.garbageCollect(pack.getMinSyncedTicket()!);
 
-    // 05. Update the status.
+    // 06. Update the status.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocumentStatus.Removed);
     }
@@ -1481,6 +1557,7 @@ export class Document<T, P extends Indexable = Indexable> {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
+    this.version.setActorID(actorID);
 
     // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
     // update InitialActor of the root and clone.
@@ -1648,8 +1725,8 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     for (const change of changes) {
-      this.applyChange(change, source);
       this.remoteHistory.push(change);
+      this.applyChange(change, source);
     }
 
     if (logger.isEnabled(LogLevel.Debug)) {
@@ -1664,11 +1741,13 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyChange` applies the given change into this document.
    */
-  public applyChange(
-    change: Change<P>,
-    source: OpSource,
-    isTravel: boolean = false,
-  ) {
+  public applyChange(change: Change<P>, source: OpSource) {
+    const isTravel = source === OpSource.TimeTravel;
+    const isLatest = this.isLatestVersion();
+    if (!isTravel && !isLatest) {
+      return;
+    }
+
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -1724,10 +1803,14 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
-    if (!isTravel) {
-      this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+
+    if (isTravel) {
+      return;
     }
-    if (!isTravel && opInfos.length > 0) {
+    // NOTE(junseo): remote change when version is latest
+    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    this.version.forward(change.getID());
+    if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
         source === OpSource.Remote
@@ -1761,7 +1844,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // This is because 3rd party model should be synced with the Document
     // after RemoteChange event is emitted. If the event is emitted
     // asynchronously, the model can be changed and breaking consistency.
-    if (!isTravel && event.length > 0) {
+    if (event.length > 0) {
       this.publish(event);
     }
   }
