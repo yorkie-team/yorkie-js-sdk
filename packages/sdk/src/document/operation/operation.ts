@@ -30,6 +30,7 @@ export enum OpSource {
   Local = 'local',
   Remote = 'remote',
   UndoRedo = 'undoredo',
+  TimeTravel = 'timetravel',
 }
 
 /**
