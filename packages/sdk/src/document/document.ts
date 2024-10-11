@@ -654,6 +654,10 @@ export class DocumentVersion {
     this.actorID = actorID;
   }
 
+  // public getStableID(): string {
+  //   return `${this.clientSeq}-${this.actorID}`;
+  // }
+
   /**
    * `coversChangeID` checks if the given change ID is covered by this version.
    */
@@ -720,6 +724,8 @@ export class Document<T, P extends Indexable = Indexable> {
   private remoteHistory: Array<Change<P>>;
   private localChanges: Array<Change<P>>;
 
+  private snapshots: Map<string, CRDTRoot>;
+
   private root: CRDTRoot;
   private clone?: {
     root: CRDTRoot;
@@ -771,6 +777,8 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localHistory = [];
     this.localChanges = [];
 
+    this.snapshots = new Map();
+
     this.eventStream = createObservable<TransactionEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
@@ -808,6 +816,32 @@ export class Document<T, P extends Indexable = Indexable> {
       this.version.coverChanges(this.remoteHistory)
     );
   }
+
+  // public getSnapshot(version: DocumentVersion) {
+  //   const versionID = version.getStableID();
+  //   if (!this.snapshots.has(versionID)) {
+  //     throw new YorkieError(
+  //       Code.ErrInvalidArgument,
+  //       `Snapshot not found: ${versionID}`,
+  //     );
+  //   }
+  //   return this.snapshots.get(versionID)!;
+  // }
+
+  // public createSnapshot(version: DocumentVersion) {
+  //   const versionID = version.getStableID();
+  //   if (this.snapshots.has(versionID)) {
+  //     return;
+  //   }
+  //   const snapshot = this.root.deepcopy();
+  //   this.snapshots.set(versionID, snapshot);
+  // }
+
+  // public gotoSnapshot(version: DocumentVersion) {
+  //   const snapshot = this.getSnapshot(version);
+  //   this.root = snapshot.deepcopy();
+  //   this.version = version;
+  // }
 
   /**
    * `timeTravel` moves the document state to the given version.
