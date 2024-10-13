@@ -187,7 +187,7 @@ export async function assertThrowsAsync(
   message?: string,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  let errFn = () => {};
+  let errFn = () => { };
   try {
     await fn();
   } catch (e) {
@@ -284,4 +284,11 @@ export function posT(offset = 0): CRDTTreeNodeID {
  */
 export function timeT(): TimeTicket {
   return dummyContext.issueTimeTicket();
+}
+
+/**
+ * `getLTT` is a helpher function that returns the last time ticket.
+ */
+export function getLTT(): TimeTicket {
+  return dummyContext.getLastTimeTicket();
 }
