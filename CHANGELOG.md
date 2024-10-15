@@ -7,6 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.1] - 2024-10-15
+
+### Added
+
+- Add configurable retry mechanism to broadcast interface by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/901
+
+### Changed
+
+- Ensure `find` and `indexOf` perform splay by @m4ushold in https://github.com/yorkie-team/yorkie-js-sdk/pull/904
+- Restrict presence object type to JSON serializable values by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/898
+
+### Fixed
+
+- Automate Linting with Husky and lint-staged to Prevent CI Failures by @gwbaik9717 in https://github.com/yorkie-team/yorkie-js-sdk/pull/896
+
 ## [0.5.0] - 2024-09-05
 
 ### Added
