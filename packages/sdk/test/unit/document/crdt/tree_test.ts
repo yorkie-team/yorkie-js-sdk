@@ -28,7 +28,7 @@ import {
   TreeNodeForTest,
 } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
-import { idT, posT, timeT } from '@yorkie-js-sdk/test/helper/helper';
+import { idT, posT, timeT, getLTT } from '@yorkie-js-sdk/test/helper/helper';
 
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {
@@ -231,6 +231,37 @@ describe('CRDTTree.Edit', function () {
     );
     assert.equal(t.toIndex(parent, left), 0);
   });
+
+  it('Update removedAt for already deleted nodes during range deletions', function () {
+    //       0
+    // <root> </root>
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
+    assert.equal(t.getRoot().size, 0);
+    assert.equal(t.toXML(), /*html*/ `<r></r>`);
+
+    //           1
+    // <root> <p> h e l l o </p> </root>
+    const p = new CRDTTreeNode(posT(), 'p', []);
+    const txt = new CRDTTreeNode(posT(), 'text', 'hello');
+    p.insertAt(txt, 0);
+    t.editT([0, 0], [p], 0, timeT(), timeT);
+    assert.equal(t.toXML(), /*html*/ `<r><p>hello</p></r>`);
+
+    //           2
+    // <root> <p> </p> </root>
+    t.editT([1, 6], undefined, 0, timeT(), timeT);
+    assert.equal(t.toXML(), /*html*/ `<r><p></p></r>`);
+    assert.isFalse(p.isRemoved);
+    assert.isTrue(txt.getRemovedAt()?.equals(getLTT()));
+
+    //           3
+    // <root> </root>
+    t.editT([0, 2], undefined, 0, timeT(), timeT);
+    assert.equal(t.toXML(), /*html*/ `<r></r>`);
+    assert.isTrue(p.getRemovedAt()?.equals(getLTT()));
+    assert.isTrue(txt.getRemovedAt()?.equals(getLTT()));
+  });
+
 });
 
 describe('CRDTTree.Split', function () {
