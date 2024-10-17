@@ -59,6 +59,12 @@ export enum Code {
 
   // ErrContextNotProvided is returned when a required React context is missing
   ErrContextNotProvided = 'ErrContextNotProvided',
+
+  // ErrPermissionDenied is returned when the authorization webhook denies the request.
+  ErrPermissionDenied = 'ErrPermissionDenied',
+
+  // ErrUnauthenticated is returned when the request does not have valid authentication credentials.
+  ErrUnauthenticated = 'ErrUnauthenticated',
 }
 
 /**
