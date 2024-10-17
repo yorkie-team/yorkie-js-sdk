@@ -125,10 +125,14 @@ export interface ClientOptions {
   apiKey?: string;
 
   /**
-   * `token` is the authentication token of this client. It is used to identify
-   * the user of the client.
+   * `authTokenInjector` is a function to provide a token that will be passed to
+   * the auth webhook. If the token becomes invalid or expires, this function
+   * will be called again with the authError parameter, allowing for token refresh.
+   * `authError` is optional parameter containing error information if the previous
+   * token was invalid or expired.
    */
-  token?: string;
+  // TODO(chacha912): Add a type for authError.
+  authTokenInjector?: (authError?: any) => Promise<string>;
 
   /**
    * `syncLoopDuration` is the duration of the sync loop. After each sync loop,
@@ -184,12 +188,14 @@ export class Client {
   private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
+  private authTokenInjector?: (authError?: any) => Promise<string>;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
 
-  private rpcClient: PromiseClient<typeof YorkieService>;
+  private rpcAddr: string;
+  private rpcClient?: PromiseClient<typeof YorkieService>;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
 
@@ -206,6 +212,7 @@ export class Client {
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
+    this.authTokenInjector = opts.authTokenInjector;
     this.conditions = {
       [ClientCondition.SyncLoop]: false,
       [ClientCondition.WatchLoop]: false,
@@ -216,19 +223,8 @@ export class Client {
       opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
+    this.rpcAddr = rpcAddr;
 
-    // Here we make the client itself, combining the service
-    // definition with the transport.
-    this.rpcClient = createPromiseClient(
-      YorkieService,
-      createGrpcWebTransport({
-        baseUrl: rpcAddr,
-        interceptors: [
-          createAuthInterceptor(opts.apiKey, opts.token),
-          createMetricInterceptor(),
-        ],
-      }),
-    );
     this.taskQueue = [];
   }
 
@@ -237,17 +233,30 @@ export class Client {
    * and receives a unique ID from the server. The given ID is used to
    * distinguish different clients.
    */
-  public activate(): Promise<void> {
+  public async activate(): Promise<void> {
     if (this.isActive()) {
       return Promise.resolve();
     }
 
+    // Here we make the client itself, combining the service
+    // definition with the transport.
+    const token = this.authTokenInjector && (await this.authTokenInjector());
+    this.rpcClient = createPromiseClient(
+      YorkieService,
+      createGrpcWebTransport({
+        baseUrl: this.rpcAddr,
+        interceptors: [
+          createAuthInterceptor(this.apiKey, token),
+          createMetricInterceptor(),
+        ],
+      }),
+    );
+
     return this.enqueueTask(async () => {
-      return this.rpcClient
-        .activateClient(
-          { clientKey: this.key },
-          { headers: { 'x-shard-key': this.apiKey } },
-        )
+      return this.rpcClient!.activateClient(
+        { clientKey: this.key },
+        { headers: { 'x-shard-key': this.apiKey } },
+      )
         .then((res) => {
           this.id = res.clientId;
           this.status = ClientStatus.Activated;
@@ -272,11 +281,10 @@ export class Client {
     }
 
     return this.enqueueTask(async () => {
-      return this.rpcClient
-        .deactivateClient(
-          { clientId: this.id! },
-          { headers: { 'x-shard-key': this.apiKey } },
-        )
+      return this.rpcClient!.deactivateClient(
+        { clientId: this.id! },
+        { headers: { 'x-shard-key': this.apiKey } },
+      )
         .then(() => {
           this.deactivateInternal();
           logger.info(`[DC] c"${this.getKey()}" deactivated`);
@@ -333,14 +341,13 @@ export class Client {
 
     const syncMode = options.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
-      return this.rpcClient
-        .attachDocument(
-          {
-            clientId: this.id!,
-            changePack: converter.toChangePack(doc.createChangePack()),
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        )
+      return this.rpcClient!.attachDocument(
+        {
+          clientId: this.id!,
+          changePack: converter.toChangePack(doc.createChangePack()),
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      )
         .then(async (res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
@@ -405,16 +412,15 @@ export class Client {
     doc.update((_, p) => p.clear());
 
     return this.enqueueTask(async () => {
-      return this.rpcClient
-        .detachDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.docID,
-            changePack: converter.toChangePack(doc.createChangePack()),
-            removeIfNotAttached: options.removeIfNotAttached ?? false,
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        )
+      return this.rpcClient!.detachDocument(
+        {
+          clientId: this.id!,
+          documentId: attachment.docID,
+          changePack: converter.toChangePack(doc.createChangePack()),
+          removeIfNotAttached: options.removeIfNotAttached ?? false,
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      )
         .then((res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
@@ -553,15 +559,14 @@ export class Client {
     pbChangePack.isRemoved = true;
 
     return this.enqueueTask(async () => {
-      return this.rpcClient
-        .removeDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.docID,
-            changePack: pbChangePack,
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        )
+      return this.rpcClient!.removeDocument(
+        {
+          clientId: this.id!,
+          documentId: attachment.docID,
+          changePack: pbChangePack,
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      )
         .then((res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
@@ -658,24 +663,23 @@ export class Client {
 
     const doLoop = async (): Promise<any> => {
       return this.enqueueTask(async () => {
-        return this.rpcClient
-          .broadcast(
-            {
-              clientId: this.id!,
-              documentId: attachment.docID,
-              topic,
-              payload: new TextEncoder().encode(JSON.stringify(payload)),
-            },
-            { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
-          )
+        return this.rpcClient!.broadcast(
+          {
+            clientId: this.id!,
+            documentId: attachment.docID,
+            topic,
+            payload: new TextEncoder().encode(JSON.stringify(payload)),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
+        )
           .then(() => {
             logger.info(
               `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
             );
           })
-          .catch((err) => {
+          .catch(async (err) => {
             logger.error(`[BC] c:"${this.getKey()}" err:`, err);
-            if (this.handleConnectError(err)) {
+            if (await this.handleConnectError(err)) {
               if (retryCount < maxRetries) {
                 retryCount++;
                 setTimeout(() => doLoop(), exponentialBackoff(retryCount - 1));
@@ -723,10 +727,10 @@ export class Client {
 
       Promise.all(syncJobs)
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
 
-          if (this.handleConnectError(err)) {
+          if (await this.handleConnectError(err)) {
             setTimeout(doLoop, this.retrySyncLoopDelay);
           } else {
             this.conditions[ClientCondition.SyncLoop] = false;
@@ -766,7 +770,7 @@ export class Client {
         }
 
         const ac = new AbortController();
-        const stream = this.rpcClient.watchDocument(
+        const stream = this.rpcClient!.watchDocument(
           {
             clientId: this.id!,
             documentId: attachment.docID,
@@ -814,7 +818,7 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (this.handleConnectError(err)) {
+              if (await this.handleConnectError(err)) {
                 onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
@@ -876,16 +880,15 @@ export class Client {
     const { doc, docID } = attachment;
 
     const reqPack = doc.createChangePack();
-    return this.rpcClient
-      .pushPullChanges(
-        {
-          clientId: this.id!,
-          documentId: docID,
-          changePack: converter.toChangePack(reqPack),
-          pushOnly: syncMode === SyncMode.RealtimePushOnly,
-        },
-        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-      )
+    return this.rpcClient!.pushPullChanges(
+      {
+        clientId: this.id!,
+        documentId: docID,
+        changePack: converter.toChangePack(reqPack),
+        pushOnly: syncMode === SyncMode.RealtimePushOnly,
+      },
+      { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+    )
       .then((res) => {
         const respPack = converter.fromChangePack<P>(res.changePack!);
 
@@ -937,7 +940,7 @@ export class Client {
    * `handleConnectError` handles the given error. If the given error can be
    * retried after handling, it returns true.
    */
-  private handleConnectError(err: any): boolean {
+  private async handleConnectError(err: any): Promise<boolean> {
     if (!(err instanceof ConnectError)) {
       return false;
     }
@@ -966,6 +969,22 @@ export class Client {
 
     // TODO(hackerwins): We need to handle more cases.
     // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
+    if (errorCodeOf(err) === Code.ErrUnauthenticated) {
+      const token =
+        this.authTokenInjector && (await this.authTokenInjector(err));
+
+      this.rpcClient = createPromiseClient(
+        YorkieService,
+        createGrpcWebTransport({
+          baseUrl: this.rpcAddr,
+          interceptors: [
+            createAuthInterceptor(this.apiKey, token),
+            createMetricInterceptor(),
+          ],
+        }),
+      );
+      return true;
+    }
 
     return false;
   }
