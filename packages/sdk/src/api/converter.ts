@@ -802,6 +802,18 @@ export function errorCodeOf(error: ConnectError): string {
 }
 
 /**
+ * `errorMetadataOf` returns the error code of the given connect error.
+ */
+export function errorMetadataOf(error: ConnectError): Record<string, string> {
+  const infos = error.findDetails(ErrorInfo);
+  for (const info of infos) {
+    return info.metadata;
+  }
+
+  return {};
+}
+
+/**
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {

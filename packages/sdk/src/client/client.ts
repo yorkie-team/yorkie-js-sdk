@@ -25,7 +25,11 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { converter, errorCodeOf } from '@yorkie-js-sdk/src/api/converter';
+import {
+  converter,
+  errorCodeOf,
+  errorMetadataOf,
+} from '@yorkie-js-sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
@@ -131,8 +135,7 @@ export interface ClientOptions {
    * `authError` is optional parameter containing error information if the previous
    * token was invalid or expired.
    */
-  // TODO(chacha912): Add a type for authError.
-  authTokenInjector?: (authError?: any) => Promise<string>;
+  authTokenInjector?: (authErrorMessage?: string) => Promise<string>;
 
   /**
    * `syncLoopDuration` is the duration of the sync loop. After each sync loop,
@@ -188,7 +191,7 @@ export class Client {
   private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
 
   private apiKey: string;
-  private authTokenInjector?: (authError?: any) => Promise<string>;
+  private authTokenInjector?: (authErrorMessage?: string) => Promise<string>;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -959,19 +962,13 @@ export class Client {
       return true;
     }
 
-    // NOTE(hackerwins): Some errors should fix the state of the client.
-    if (
-      errorCodeOf(err) === Code.ErrClientNotActivated ||
-      errorCodeOf(err) === Code.ErrClientNotFound
-    ) {
-      this.deactivateInternal();
-    }
-
-    // TODO(hackerwins): We need to handle more cases.
-    // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
+    // NOTE(chacha912): If the error is `Unauthenticated`, it means that the
+    // token is invalid or expired. In this case, the client gets a new token
+    // from the `authTokenInjector` and retries the api call.
     if (errorCodeOf(err) === Code.ErrUnauthenticated) {
       const token =
-        this.authTokenInjector && (await this.authTokenInjector(err));
+        this.authTokenInjector &&
+        (await this.authTokenInjector(errorMetadataOf(err).message));
 
       this.rpcClient = createPromiseClient(
         YorkieService,
@@ -984,6 +981,14 @@ export class Client {
         }),
       );
       return true;
+    }
+
+    // NOTE(hackerwins): Some errors should fix the state of the client.
+    if (
+      errorCodeOf(err) === Code.ErrClientNotActivated ||
+      errorCodeOf(err) === Code.ErrClientNotFound
+    ) {
+      this.deactivateInternal();
     }
 
     return false;
