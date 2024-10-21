@@ -170,6 +170,30 @@ export class ObjectProxy {
   }
 
   /**
+   * `buildObjectMembersFromMap` constructs an object where all values from the
+   * user-provided object are transformed into CRDTElements.
+   * This function takes an object and iterates through its values,
+   * converting each value into a corresponding CRDTElement.
+   */
+  public static buildObjectMembersFromMap(
+    context: ChangeContext,
+    value: Map<string, any>,
+  ): { [key: string]: CRDTElement } {
+    const members: { [key: string]: CRDTElement } = {};
+    for (const [k, v] of value) {
+      if (k.includes('.')) {
+        throw new YorkieError(
+          Code.ErrInvalidObjectKey,
+          `key must not contain the '.'.`,
+        );
+      }
+      const createdAt = context.issueTimeTicket();
+      members[k] = buildCRDTElement(context, v, createdAt);
+    }
+    return members;
+  }
+
+  /**
    * `buildObjectMembers` constructs an object where all values from the
    * user-provided object are transformed into CRDTElements.
    * This function takes an object and iterates through its values,

@@ -3,7 +3,7 @@ import yorkie, {
   Counter,
   Text,
   JSONArray,
-  SyncMode,
+  SyncMode, Tree,
 } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -21,6 +21,7 @@ import {
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
 
 describe('Document', function () {
   afterEach(() => {
@@ -1095,6 +1096,492 @@ describe('Document', function () {
         }
       }
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    });
+  });
+
+  describe('Document with InitialRoot', function () {
+    it('Can attach with InitialRoot', async function ({ task }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      const c3 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+      await c3.activate();
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new yorkie.Document(docKey);
+
+      function toMap<T>(obj: Record<string, T>): Map<string, T> {
+        return new Map(Object.entries(obj));
+      }
+      // 01. attach and initialize document
+      await c1.attach(doc1, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 0),
+          content: new Map(
+            Object.entries({
+              x: 1,
+              y: 1,
+            }),
+          ),
+        },
+      });
+      assert.equal(doc1.getStatus(), DocumentStatus.Attached);
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"content":{"x":1,"y":1},"counter":0}',
+      );
+      await c1.sync();
+
+      // 02. attach and initialize document with new fields and if key already exists, it will be discarded
+      const doc2 = new yorkie.Document(docKey);
+      await c2.attach(doc2, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 1),
+          content: new Map(
+            Object.entries({
+              x: 2,
+              y: 2,
+            }),
+          ),
+          new: new Map<string, string>([['k', 'v']]),
+        },
+      });
+      assert.equal(doc2.getStatus(), DocumentStatus.Attached);
+      assert.equal(
+        doc2.toSortedJSON(),
+        '{"content":{"x":1,"y":1},"counter":0,"new":{"k":"v"}}',
+      );
+
+      await c1.deactivate();
+      await c2.deactivate();
+      await c3.deactivate();
+    });
+
+    it('Can attach with InitialRoot after key deletion', async function ({
+      task,
+    }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      const c3 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+      await c3.activate();
+
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new yorkie.Document(docKey);
+      // 01. attach and initialize document
+      await c1.attach(doc1, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 0),
+          content: new Map(
+            Object.entries({
+              x: 1,
+              y: 1,
+            }),
+          ),
+        },
+      });
+      assert.equal(doc1.getStatus(), DocumentStatus.Attached);
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"content":{"x":1,"y":1},"counter":0}',
+      );
+      await c1.sync();
+
+      // 02. client2 attach with initialRoot and delete elements
+      const doc2 = new yorkie.Document(docKey);
+      await c2.attach(doc2);
+      assert.equal(doc2.getStatus(), DocumentStatus.Attached);
+      doc2.update((root) => {
+        delete root['counter'];
+        delete root['content'];
+      });
+      assert.equal(doc2.toSortedJSON(), '{}');
+      await c2.sync();
+
+      const doc3 = new yorkie.Document(docKey);
+      await c3.attach(doc3, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 3),
+          content: new Map(
+            Object.entries({
+              x: 3,
+              y: 3,
+            }),
+          ),
+        },
+      });
+      assert.equal(doc3.getStatus(), DocumentStatus.Attached);
+      assert.equal(
+        doc3.toSortedJSON(),
+        '{"content":{"x":3,"y":3},"counter":3}',
+      );
+
+      await c1.deactivate();
+      await c2.deactivate();
+      await c3.deactivate();
+    });
+
+    it('Can handle concurrent attach with InitialRoot', async function ({
+      task,
+    }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc1 = new yorkie.Document(docKey);
+
+      // 01. user1 attach with initialRoot and client doesn't sync
+      await c1.attach(doc1, {
+        initialRoot: {
+          first_writer: 'user1',
+        },
+      });
+      assert.equal(doc1.getStatus(), DocumentStatus.Attached);
+      assert.equal(doc1.toSortedJSON(), '{"first_writer":"user1"}');
+
+      // 02. user2 attach with initialRoot and client doesn't sync
+      const doc2 = new yorkie.Document(docKey);
+      await c2.attach(doc2, {
+        initialRoot: {
+          first_writer: 'user2',
+        },
+      });
+      assert.equal(doc2.getStatus(), DocumentStatus.Attached);
+      assert.equal(doc2.toSortedJSON(), '{"first_writer":"user2"}');
+
+      // 03. user1 sync first and user2 seconds
+      await c1.sync();
+      await c2.sync();
+
+      // 04. user1's local document's first_writer was user1
+      assert.equal(doc1.toSortedJSON(), '{"first_writer":"user1"}');
+      assert.equal(doc2.toSortedJSON(), '{"first_writer":"user2"}');
+
+      // 05. user1's local document's first_writer is overwritten by user2
+      await c1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"first_writer":"user2"}');
+
+      await c1.deactivate();
+      await c2.deactivate();
+    });
+
+    it('Can attach with InitialRoot by same key', async function ({ task }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+      const doc = new yorkie.Document(docKey);
+
+      const k1 = 'key';
+      const k2 = 'key';
+      const k3 = 'key';
+      const k4 = 'key';
+      const k5 = 'key';
+
+      // Attach the document with initial root containing the same key multiple times
+      await c1.attach(doc, {
+        initialRoot: {
+          [k1]: 1,
+          [k2]: 2,
+          [k3]: 3,
+          [k4]: 4,
+          [k5]: 5,
+        },
+      });
+
+      assert.equal(doc.getStatus(), DocumentStatus.Attached);
+      // The last value should be used when the same key is repeated
+      assert.equal(doc.toSortedJSON(), '{"key":5}');
+
+      await c1.deactivate();
+    });
+
+    it('Can attach with InitialRoot conflict type', async function ({ task }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+
+      const docKey1 = toDocKey(`${task.name}-doc1-${new Date().getTime()}`);
+      const docKey2 = toDocKey(`${task.name}-doc2-${new Date().getTime()}`);
+
+      const doc1 = new yorkie.Document(docKey1);
+
+      // 01. Attach with initialRoot and set counter
+      await c1.attach(doc1, {
+        initialRoot: {
+          k: new Counter(CounterType.LongCnt, 1),
+        },
+      });
+      assert.equal(doc1.getStatus(), DocumentStatus.Attached);
+      await c1.sync();
+
+      // 02. Attach with initialRoot and set text
+      const doc2 = new yorkie.Document(docKey2);
+      await c2.attach(doc2, {
+        initialRoot: {
+          k: new yorkie.Text(),
+        },
+      });
+      assert.equal(doc2.getStatus(), DocumentStatus.Attached);
+      await c2.sync();
+
+      // 03. Client2 tries to update the counter (this should fail as the type is a Text, not a Counter)
+      assert.throws(() => {
+        doc2.update((root) => {
+          root['k'].edit(0, 1, 'a');
+        });
+      });
+
+      await c1.deactivate();
+      await c2.deactivate();
+    });
+
+    it('Can attach with initialRoot support type', async function ({ task }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+
+      type Myint = number;
+
+      interface MyStruct {
+        M: Myint;
+      }
+
+      interface t1 {
+        M: string;
+      }
+
+      interface T1 {
+        M: string;
+      }
+
+      interface T2 {
+        T1: T1;
+        t1: t1;
+        M: string;
+      }
+
+      const nowTime = new Date();
+      const tests = [
+        // supported primitive types
+        {
+          caseName: 'nil',
+          input: null,
+          expectedJSON: `{"k":null}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'int',
+          input: 1,
+          expectedJSON: `{"k":1}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'int32',
+          input: 1,
+          expectedJSON: `{"k":1}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'int64',
+          input: 1,
+          expectedJSON: `{"k":1}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'float32',
+          input: 1.1,
+          expectedJSON: `{"k":1.1}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'float64',
+          input: 1.1,
+          expectedJSON: `{"k":1.1}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'string',
+          input: 'hello',
+          expectedJSON: `{"k":"hello"}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'bool',
+          input: true,
+          expectedJSON: `{"k":true}`,
+          expectPanic: false,
+        },
+        // {
+        //   caseName: 'time',
+        //   input: nowTime,
+        //   expectedJSON: `{"k":"${nowTime.toISOString()}"}`,
+        //   expectPanic: false,
+        // },
+        {
+          caseName: 'Myint',
+          input: 1 as Myint,
+          expectedJSON: `{"k":1}`,
+          expectPanic: false,
+        },
+
+        // unsupported primitive types
+        // { caseName: 'int8', input: 1, expectedJSON: `{}`, expectPanic: true },
+
+        // supported slice, array types
+        {
+          caseName: 'int array',
+          input: [1, 2, 3],
+          expectedJSON: `{"k":[1,2,3]}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'string array',
+          input: ['a', 'b', 'c'],
+          expectedJSON: `{"k":["a","b","c"]}`,
+          expectPanic: false,
+        },
+        // {
+        //   caseName: 'any array',
+        //   input: [null, 1, 1.0, 'hello', true, nowTime, [1, 2, 3]],
+        //   expectedJSON: `{"k":[null,1,1.000000,"hello",true,"${nowTime.toISOString()}",[1,2,3]]}`,
+        //   expectPanic: false,
+        // },
+
+        // supported map types
+        // {
+        //   caseName: 'string:any map',
+        //   input: {
+        //     a: null,
+        //     b: 1,
+        //     c: 1.0,
+        //     d: 'hello',
+        //     e: true,
+        //     // f: nowTime,
+        //     g: [1, 2, 3],
+        //   },
+        //   // expectedJSON: `{"k":{"a":null,"b":1,"c":1.000000,"d":"hello","e":true,"f":"${nowTime.toISOString()}","g":[1,2,3]}}`,
+        //   expectedJSON: `{"k":{"a":null,"b":1,"c":1.000000,"d":"hello","e":true,"g":[1,2,3]}}`,
+        //   expectPanic: false,
+        // },
+
+        // unsupported map types
+        // {
+        //   caseName: 'int map',
+        //   input: new Map(
+        //     Object.entries({
+        //       1: 1,
+        //       2: 2,
+        //     }),
+        //   ),
+        //   expectedJSON: `{}`,
+        //   expectPanic: true,
+        // },
+
+        // supported JSON types
+        {
+          caseName: 'json.Text',
+          input: new Text(),
+          expectedJSON: `{"k":[]}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'json.Tree',
+          input: new Tree({
+            type: 'doc',
+            children: [
+              { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            ],
+          }),
+          expectedJSON: `{"k":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'json.Counter',
+          input: new Counter(CounterType.IntegerCnt, 1),
+          expectedJSON: `{"k":1}`,
+          expectPanic: false,
+        },
+
+        // supported struct types
+        {
+          caseName: 'struct',
+          input: { M: 1 } as MyStruct,
+          expectedJSON: `{"k":{"M":1}}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'struct with slice',
+          input: { M: [1, 2, 3] },
+          expectedJSON: `{"k":{"M":[1,2,3]}}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'struct array',
+          input: [{ M: 1 }, { M: 2 }] as Array<MyStruct>,
+          expectedJSON: `{"k":[{"M":1},{"M":2}]}`,
+          expectPanic: false,
+        },
+        {
+          caseName: 'anonymous struct',
+          input: { M: 'hello' },
+          expectedJSON: `{"k":{"M":"hello"}}`,
+          expectPanic: false,
+        },
+        // {
+        //   caseName: 'struct with embedded struct',
+        //   input: { T1: { M: 'a' } as T1, t1: { M: 'b' } as t1, M: 'c' } as T2,
+        //   expectedJSON: `{"k":{"M":"c","T1":{"M":"a"}}}`,
+        //   expectPanic: false,
+        // },
+
+        // // unsupported struct types
+        // {
+        //   caseName: 'struct with unsupported map',
+        //   input: new Map<string, number>([
+        //     ['a', 1],
+        //     ['b', 2],
+        //   ]),
+        //   expectedJSON: `{}`,
+        //   expectPanic: true,
+        // },
+        // {
+        //   caseName: 'func',
+        //   input: (a: number, b: number) => a + b,
+        //   expectedJSON: `{}`,
+        //   expectPanic: true,
+        // },
+      ];
+
+      for (const test of tests) {
+        await c1.deactivate();
+        await c1.activate();
+
+        const docKey = toDocKey(
+          `${task.name}-${test.caseName}-${new Date().getTime()}`,
+        );
+        const doc = new yorkie.Document(docKey);
+
+        const action = async () => {
+          await c1.attach(doc, {
+            initialRoot: {
+              k: test.input,
+            },
+          });
+        };
+
+        if (test.expectPanic) {
+          assert.throws(action);
+        } else {
+          await action();
+          assert.equal(doc.toSortedJSON(), test.expectedJSON);
+        }
+      }
+
+      await c1.deactivate();
     });
   });
 });
