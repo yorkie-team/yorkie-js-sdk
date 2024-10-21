@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -151,7 +150,7 @@ function toPresenceChange(
  */
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
   return new PbCheckpoint({
-    serverSeq: checkpoint.getServerSeqAsString(),
+    serverSeq: checkpoint.getServerSeq(),
     clientSeq: checkpoint.getClientSeq(),
   });
 }
@@ -162,7 +161,7 @@ function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
 function toChangeID(changeID: ChangeID): PbChangeID {
   return new PbChangeID({
     clientSeq: changeID.getClientSeq(),
-    lamport: changeID.getLamportAsString(),
+    lamport: changeID.getLamport(),
     actorId: toUint8Array(changeID.getActorID()),
     versionVector: toVersionVector(changeID.getVersionVector()),
   });
@@ -177,7 +176,7 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   }
 
   return new PbTimeTicket({
-    lamport: ticket.getLamportAsString(),
+    lamport: ticket.getLamport(),
     delimiter: ticket.getDelimiter(),
     actorId: toUint8Array(ticket.getActorID()),
   });
@@ -825,17 +824,14 @@ export function errorCodeOf(error: ConnectError): string {
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
-  let serverSeq: Long | undefined;
-  if (pbChangeID.serverSeq) {
-    serverSeq = Long.fromString(pbChangeID.serverSeq, true);
-  }
-
+  // TODO(hackerwins): Remove BigInt conversion. Some of the bigint values are
+  // passed as string in the protobuf. We should fix this in the future.
   return ChangeID.of(
     pbChangeID.clientSeq,
-    Long.fromString(pbChangeID.lamport, true),
+    BigInt(pbChangeID.lamport),
     toHexString(pbChangeID.actorId),
     fromVersionVector(pbChangeID.versionVector)!,
-    serverSeq,
+    BigInt(pbChangeID.serverSeq),
   );
 }
 
@@ -852,7 +848,7 @@ function fromVersionVector(
   const vector = new VersionVector();
   Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
     // TODO(hackerwins): Remove Long after introducing BigInt.
-    vector.set(key, Long.fromString(value.toString(), true));
+    vector.set(key, BigInt(value.toString()));
   });
   return vector;
 }
@@ -866,7 +862,7 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   }
 
   return TimeTicket.of(
-    Long.fromString(pbTimeTicket.lamport, true),
+    BigInt(pbTimeTicket.lamport),
     pbTimeTicket.delimiter,
     toHexString(pbTimeTicket.actorId),
   );
@@ -1353,10 +1349,7 @@ function fromChanges<P extends Indexable>(
  * `fromCheckpoint` converts the given Protobuf format to model format.
  */
 function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
-  return Checkpoint.of(
-    Long.fromString(pbCheckpoint.serverSeq, true),
-    pbCheckpoint.clientSeq,
-  );
+  return Checkpoint.of(BigInt(pbCheckpoint.serverSeq), pbCheckpoint.clientSeq);
 }
 
 /**

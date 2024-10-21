@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import {
   ActorID,
   InitialActorID,
@@ -29,10 +28,9 @@ export class ChangeID {
   // `clientSeq` is the sequence number of the client that created this change.
   private clientSeq: number;
   // `serverSeq` is optional and only present for changes stored on the server.
-  private serverSeq?: Long;
-  // `lamport` and `actor` are the lamport clock and the actor of this change.
-  // This is used to determine the order of changes in logical time.
-  private lamport: Long;
+  private serverSeq?: bigint;
+
+  private lamport: bigint;
   private actor: ActorID;
   // `versionVector` is the vector clock of this change. This is used to
   // determine the relationship is causal or not between changes.
@@ -40,10 +38,10 @@ export class ChangeID {
 
   constructor(
     clientSeq: number,
-    lamport: Long,
+    lamport: bigint,
     actor: ActorID,
     vector: VersionVector,
-    serverSeq?: Long,
+    serverSeq?: bigint,
   ) {
     this.clientSeq = clientSeq;
     this.serverSeq = serverSeq;
@@ -57,10 +55,10 @@ export class ChangeID {
    */
   public static of(
     clientSeq: number,
-    lamport: Long,
+    lamport: bigint,
     actor: ActorID,
     vector: VersionVector,
-    serverSeq?: Long,
+    serverSeq?: bigint,
   ): ChangeID {
     return new ChangeID(clientSeq, lamport, actor, vector, serverSeq);
   }
@@ -70,11 +68,11 @@ export class ChangeID {
    */
   public next(): ChangeID {
     const vector = this.versionVector.deepcopy();
-    vector.set(this.actor, this.lamport.add(1));
+    vector.set(this.actor, this.lamport + 1n);
 
     return new ChangeID(
       this.clientSeq + 1,
-      this.lamport.add(1),
+      this.lamport + 1n,
       this.actor,
       vector,
     );
@@ -84,9 +82,8 @@ export class ChangeID {
    * `syncClocks` syncs logical clocks with the given ID.
    */
   public syncClocks(other: ChangeID): ChangeID {
-    const lamport = other.lamport.greaterThan(this.lamport)
-      ? other.lamport.add(1)
-      : this.lamport.add(1);
+    const lamport =
+      other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
     const maxVersionVector = this.versionVector.max(other.versionVector);
 
     const newID = new ChangeID(
@@ -103,10 +100,9 @@ export class ChangeID {
    * `setClocks` sets the given clocks to this ID. This is used when the snapshot
    * is given from the server.
    */
-  public setClocks(otherLamport: Long, vector: VersionVector): ChangeID {
-    const lamport = otherLamport.greaterThan(this.lamport)
-      ? otherLamport
-      : this.lamport.add(1);
+  public setClocks(otherLamport: bigint, vector: VersionVector): ChangeID {
+    const lamport =
+      otherLamport > this.lamport ? otherLamport : this.lamport + 1n;
     const maxVersionVector = this.versionVector.max(vector);
     maxVersionVector.set(this.actor, lamport);
 
@@ -166,7 +162,7 @@ export class ChangeID {
   /**
    * `getLamport` returns the lamport clock of this ID.
    */
-  public getLamport(): Long {
+  public getLamport(): bigint {
     return this.lamport;
   }
 
@@ -207,7 +203,7 @@ export class ChangeID {
  */
 export const InitialChangeID = new ChangeID(
   0,
-  Long.fromInt(0, true),
+  0n,
   InitialActorID,
   InitialVersionVector,
 );

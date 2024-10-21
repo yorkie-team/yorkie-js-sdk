@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
 import {
   ActorID,
@@ -46,11 +45,11 @@ export type TimeTicketStruct = {
  * @public
  */
 export class TimeTicket {
-  private lamport: Long;
+  private lamport: bigint;
   private delimiter: number;
   private actorID: ActorID;
 
-  constructor(lamport: Long, delimiter: number, actorID: string) {
+  constructor(lamport: bigint, delimiter: number, actorID: string) {
     this.lamport = lamport;
     this.delimiter = delimiter;
     this.actorID = actorID;
@@ -60,7 +59,7 @@ export class TimeTicket {
    * `of` creates an instance of Ticket.
    */
   public static of(
-    lamport: Long,
+    lamport: bigint,
     delimiter: number,
     actorID: string,
   ): TimeTicket {
@@ -72,7 +71,7 @@ export class TimeTicket {
    */
   public static fromStruct(struct: TimeTicketStruct): TimeTicket {
     return TimeTicket.of(
-      Long.fromString(struct.lamport, true),
+      BigInt(struct.lamport),
       struct.delimiter,
       struct.actorID,
     );
@@ -123,7 +122,7 @@ export class TimeTicket {
   /**
    * `getLamport` returns the lamport.
    */
-  public getLamport(): Long {
+  public getLamport(): bigint {
     return this.lamport;
   }
 
@@ -161,9 +160,9 @@ export class TimeTicket {
    *  If the receiver or argument is nil, it would panic at runtime.
    */
   public compare(other: TimeTicket): number {
-    if (this.lamport.greaterThan(other.lamport)) {
+    if (this.lamport > other.lamport) {
       return 1;
-    } else if (other.lamport.greaterThan(this.lamport)) {
+    } else if (other.lamport > this.lamport) {
       return -1;
     }
 
@@ -184,17 +183,11 @@ export class TimeTicket {
 
 export const InitialDelimiter = 0;
 export const MaxDelemiter = 4294967295; // UInt32 MAX_VALUE
-export const MaxLamport = Long.MAX_VALUE;
+export const MaxLamport = 9223372036854775807n; // Int64 MAX_VALUE
 
 export const InitialTimeTicket = new TimeTicket(
-  Long.fromNumber(0),
+  0n,
   InitialDelimiter,
-  InitialActorID,
-);
-
-export const NextTimeTicket = new TimeTicket(
-  Long.fromNumber(1),
-  InitialDelimiter + 1,
   InitialActorID,
 );
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { TimeTicket } from './ticket';
 
 /**
@@ -24,23 +23,23 @@ import { TimeTicket } from './ticket';
  * change.
  */
 export class VersionVector {
-  private vector: Map<string, Long>;
+  private vector: Map<string, bigint>;
 
-  constructor(vector?: Map<string, Long>) {
+  constructor(vector?: Map<string, bigint>) {
     this.vector = vector || new Map();
   }
 
   /**
    * `set` sets the lamport timestamp of the given actor.
    */
-  public set(actorID: string, lamport: Long): void {
+  public set(actorID: string, lamport: bigint): void {
     this.vector.set(actorID, lamport);
   }
 
   /**
    * `get` gets the lamport timestamp of the given actor.
    */
-  public get(actorID: string): Long | undefined {
+  public get(actorID: string): bigint | undefined {
     return this.vector.get(actorID);
   }
 
@@ -48,10 +47,10 @@ export class VersionVector {
    * `maxLamport` returns max lamport value from vector
    */
   public maxLamport() {
-    let max = Long.fromNumber(0);
+    let max = BigInt(0);
 
     for (const [, lamport] of this) {
-      if (lamport.greaterThan(max)) {
+      if (lamport > max) {
         max = lamport;
       }
     }
@@ -63,12 +62,12 @@ export class VersionVector {
    * `max` returns new version vector which consists of max value of each vector
    */
   public max(other: VersionVector): VersionVector {
-    const maxVector = new Map<string, Long>();
+    const maxVector = new Map<string, bigint>();
 
     for (const [actorID, lamport] of other) {
       const currentLamport = this.vector.get(actorID);
       const maxLamport = currentLamport
-        ? currentLamport.greaterThan(lamport)
+        ? currentLamport > lamport
           ? currentLamport
           : lamport
         : lamport;
@@ -79,7 +78,7 @@ export class VersionVector {
     for (const [actorID, lamport] of this) {
       const otherLamport = other.get(actorID);
       const maxLamport = otherLamport
-        ? otherLamport.greaterThan(lamport)
+        ? otherLamport > lamport
           ? otherLamport
           : lamport
         : lamport;
@@ -100,14 +99,14 @@ export class VersionVector {
       return false;
     }
 
-    return lamport.greaterThanOrEqual(other.getLamport());
+    return lamport >= other.getLamport();
   }
 
   /**
    * `deepcopy` returns a deep copy of this `VersionVector`.
    */
   public deepcopy(): VersionVector {
-    const copied = new Map<string, Long>();
+    const copied = new Map<string, bigint>();
     for (const [key, value] of this.vector) {
       copied.set(key, value);
     }
@@ -118,7 +117,7 @@ export class VersionVector {
    * `filter` returns new version vector consist of filter's actorID.
    */
   public filter(versionVector: VersionVector) {
-    const filtered = new Map<string, Long>();
+    const filtered = new Map<string, bigint>();
 
     for (const [actorID] of versionVector) {
       const lamport = this.vector.get(actorID);
@@ -139,7 +138,7 @@ export class VersionVector {
   }
 
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public *[Symbol.iterator](): IterableIterator<[string, Long]> {
+  public *[Symbol.iterator](): IterableIterator<[string, bigint]> {
     for (const [key, value] of this.vector) {
       yield [key, value];
     }
