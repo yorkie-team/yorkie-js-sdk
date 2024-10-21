@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import {
   ActorID,
   InitialActorID,
@@ -28,16 +27,16 @@ export class ChangeID {
   private clientSeq: number;
 
   // `serverSeq` is optional and only present for changes stored on the server.
-  private serverSeq?: Long;
+  private serverSeq?: bigint;
 
-  private lamport: Long;
+  private lamport: bigint;
   private actor: ActorID;
 
   constructor(
     clientSeq: number,
-    lamport: Long,
+    lamport: bigint,
     actor: ActorID,
-    serverSeq?: Long,
+    serverSeq?: bigint,
   ) {
     this.clientSeq = clientSeq;
     this.serverSeq = serverSeq;
@@ -50,9 +49,9 @@ export class ChangeID {
    */
   public static of(
     clientSeq: number,
-    lamport: Long,
+    lamport: bigint,
     actor: ActorID,
-    serverSeq?: Long,
+    serverSeq?: bigint,
   ): ChangeID {
     return new ChangeID(clientSeq, lamport, actor, serverSeq);
   }
@@ -61,7 +60,7 @@ export class ChangeID {
    * `next` creates a next ID of this ID.
    */
   public next(): ChangeID {
-    return new ChangeID(this.clientSeq + 1, this.lamport.add(1), this.actor);
+    return new ChangeID(this.clientSeq + 1, this.lamport + 1n, this.actor);
   }
 
   /**
@@ -69,12 +68,12 @@ export class ChangeID {
    *
    * {@link https://en.wikipedia.org/wiki/Lamport_timestamps#Algorithm}
    */
-  public syncLamport(otherLamport: Long): ChangeID {
-    if (otherLamport.greaterThan(this.lamport)) {
+  public syncLamport(otherLamport: bigint): ChangeID {
+    if (otherLamport > this.lamport) {
       return new ChangeID(this.clientSeq, otherLamport, this.actor);
     }
 
-    return new ChangeID(this.clientSeq, this.lamport.add(1), this.actor);
+    return new ChangeID(this.clientSeq, this.lamport + 1n, this.actor);
   }
 
   /**
@@ -111,7 +110,7 @@ export class ChangeID {
   /**
    * `getLamport` returns the lamport clock of this ID.
    */
-  public getLamport(): Long {
+  public getLamport(): bigint {
     return this.lamport;
   }
 
@@ -143,8 +142,4 @@ export class ChangeID {
  * `InitialChangeID` represents the initial state ID. Usually this is used to
  * represent a state where nothing has been edited.
  */
-export const InitialChangeID = new ChangeID(
-  0,
-  Long.fromInt(0, true),
-  InitialActorID,
-);
+export const InitialChangeID = new ChangeID(0, 0n, InitialActorID);

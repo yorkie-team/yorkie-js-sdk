@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-import Long from 'long';
-
 /**
  * `Checkpoint` is used to determine the changes sent and received by the
  * client. This is immutable.
  *
  **/
 export class Checkpoint {
-  private serverSeq: Long;
+  private serverSeq: bigint;
   private clientSeq: number;
 
-  constructor(serverSeq: Long, clientSeq: number) {
+  constructor(serverSeq: bigint, clientSeq: number) {
     this.serverSeq = serverSeq;
     this.clientSeq = clientSeq;
   }
@@ -33,7 +31,7 @@ export class Checkpoint {
   /**
    * `of` creates a new instance of Checkpoint.
    */
-  public static of(serverSeq: Long, clientSeq: number): Checkpoint {
+  public static of(serverSeq: bigint, clientSeq: number): Checkpoint {
     return new Checkpoint(serverSeq, clientSeq);
   }
 
@@ -57,9 +55,8 @@ export class Checkpoint {
       return this;
     }
 
-    const serverSeq = this.serverSeq.greaterThan(other.serverSeq)
-      ? this.serverSeq
-      : other.serverSeq;
+    const serverSeq =
+      this.serverSeq > other.serverSeq ? this.serverSeq : other.serverSeq;
     const clientSeq = Math.max(this.clientSeq, other.clientSeq);
     return Checkpoint.of(serverSeq, clientSeq);
   }
@@ -82,7 +79,7 @@ export class Checkpoint {
   /**
    * `getServerSeq` returns the server seq of this checkpoint.
    */
-  public getServerSeq(): Long {
+  public getServerSeq(): bigint {
     return this.serverSeq;
   }
 
@@ -92,8 +89,7 @@ export class Checkpoint {
    */
   public equals(other: Checkpoint): boolean {
     return (
-      this.clientSeq === other.clientSeq &&
-      this.serverSeq.equals(other.serverSeq)
+      this.clientSeq === other.clientSeq && this.serverSeq == other.serverSeq
     );
   }
 
@@ -109,4 +105,4 @@ export class Checkpoint {
 /**
  * `InitialCheckpoint` is the initial value of the checkpoint.
  */
-export const InitialCheckpoint = new Checkpoint(Long.fromInt(0, true), 0);
+export const InitialCheckpoint = new Checkpoint(0n, 0);

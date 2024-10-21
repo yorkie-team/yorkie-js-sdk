@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import Long from 'long';
 import type { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
 import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
@@ -1382,7 +1381,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: Long, snapshot?: Uint8Array) {
+  public applySnapshot(serverSeq: bigint, snapshot?: Uint8Array) {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
@@ -1654,10 +1653,7 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.Snapshot) {
       const { snapshot, serverSeq } = event.value;
       if (!snapshot) return;
-      this.applySnapshot(
-        Long.fromString(serverSeq),
-        converter.hexToBytes(snapshot),
-      );
+      this.applySnapshot(BigInt(serverSeq), converter.hexToBytes(snapshot));
       return;
     }
 

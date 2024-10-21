@@ -656,7 +656,7 @@ describe('Object', function () {
       let doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 1);
       assert.equal(doc1Checkpoint.getClientSeq(), 1);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 1);
+      assert.equal(doc1Checkpoint.getServerSeq(), 1n);
 
       doc1.update((root) => {
         root.shape = { color: 'black' };
@@ -667,7 +667,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 2);
+      assert.equal(doc1Checkpoint.getServerSeq(), 2n);
 
       await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
@@ -683,7 +683,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+      assert.equal(doc1Checkpoint.getServerSeq(), 4n);
 
       // c2 deleted the shape, so the reverse operation cannot be applied
       doc1.history.undo();
@@ -698,7 +698,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+      assert.equal(doc1Checkpoint.getServerSeq(), 4n);
 
       doc1.update((root) => {
         root.shape = { color: 'red' };
@@ -709,7 +709,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 3);
       assert.equal(doc1Checkpoint.getClientSeq(), 3);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 5);
+      assert.equal(doc1Checkpoint.getServerSeq(), 5n);
     });
 
     it(`Should not propagate changes when there is no applied undo operation`, async function ({
@@ -732,7 +732,7 @@ describe('Object', function () {
       let doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 1);
       assert.equal(doc1Checkpoint.getClientSeq(), 1);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 1);
+      assert.equal(doc1Checkpoint.getServerSeq(), 1n);
 
       doc1.update((root) => {
         root.shape = { color: 'black' };
@@ -743,7 +743,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 2);
+      assert.equal(doc1Checkpoint.getServerSeq(), 2n);
 
       await client2.attach(doc2, { syncMode: SyncMode.Manual });
       assert.equal(doc2.toSortedJSON(), '{"shape":{"color":"black"}}');
@@ -759,7 +759,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+      assert.equal(doc1Checkpoint.getServerSeq(), 4n);
 
       // c2 deleted the shape, so the reverse operation cannot be applied
       doc1.history.undo();
@@ -774,7 +774,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 2);
       assert.equal(doc1Checkpoint.getClientSeq(), 2);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 4);
+      assert.equal(doc1Checkpoint.getServerSeq(), 4n);
 
       doc1.update((root) => {
         root.shape = { color: 'red' };
@@ -785,7 +785,7 @@ describe('Object', function () {
       doc1Checkpoint = doc1.getCheckpoint();
       assert.equal(doc1ChangeID.getClientSeq(), 3);
       assert.equal(doc1Checkpoint.getClientSeq(), 3);
-      assert.equal(doc1Checkpoint.getServerSeq().toInt(), 5);
+      assert.equal(doc1Checkpoint.getServerSeq(), 5n);
     });
 
     it('Can handle concurrent undo/redo: local undo & global redo', async function ({

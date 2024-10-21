@@ -57,8 +57,8 @@ message Change {
 
 message ChangeID {
   uint32 client_seq = 1;
-  int64 server_seq = 2 [jstype = JS_STRING];
-  int64 lamport = 3 [jstype = JS_STRING];
+  int64 server_seq = 2; 
+  int64 lamport = 3;
   bytes actor_id = 4;
 }
 
@@ -136,6 +136,12 @@ message Operation {
     repeated string attributes_to_remove = 6;
     map<string, TimeTicket> created_at_map_by_actor = 7;
   }
+  message ArraySet {
+    TimeTicket parent_created_at = 1;
+    TimeTicket created_at = 2;
+    JSONElementSimple value = 3;
+    TimeTicket executed_at = 4;
+  }
 
   oneof body {
     Set set = 1;
@@ -148,6 +154,7 @@ message Operation {
     Increase increase = 8;
     TreeEdit tree_edit = 9;
     TreeStyle tree_style = 10;
+    ArraySet array_set = 11;
   }
 }
 
@@ -325,7 +332,7 @@ message Presence {
 }
 
 message Checkpoint {
-  int64 server_seq = 1 [jstype = JS_STRING];
+  int64 server_seq = 1; 
   uint32 client_seq = 2;
 }
 
@@ -336,7 +343,7 @@ message TextNodePos {
 }
 
 message TimeTicket {
-  int64 lamport = 1 [jstype = JS_STRING];
+  int64 lamport = 1;
   uint32 delimiter = 2;
   bytes actor_id = 3;
 }
