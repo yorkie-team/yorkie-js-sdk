@@ -220,8 +220,6 @@ export class ChangePack extends Message<ChangePack> {
   changes: Change[] = [];
 
   /**
-   * Deprecated
-   *
    * @generated from field: yorkie.v1.TimeTicket min_synced_ticket = 5;
    */
   minSyncedTicket?: TimeTicket;
