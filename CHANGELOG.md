@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.2] - 2024-10-22
+
+### Changed
+
+- Update target to ES2020 and replace Long with bigint by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/912
+
 ## [0.5.1] - 2024-10-15
 
 ### Added

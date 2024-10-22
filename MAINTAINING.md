@@ -4,7 +4,7 @@
 
 ### 1. Update the version number.
 
-- Update `version` in [package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/package.json#L3).
+- Update `version` in [package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/sdk/package.json#L3).
 
 ### 2. Write changelog of this version in [CHANGELOG.md](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/CHANGELOG.md).
 
