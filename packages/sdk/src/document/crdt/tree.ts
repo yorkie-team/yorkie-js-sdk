@@ -14,36 +14,36 @@
  * limitations under the License.
  */
 
-import {
-  TimeTicket,
-  InitialTimeTicket,
-  TimeTicketStruct,
-  MaxTimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-
 import {
-  IndexTree,
-  TreePos,
-  IndexTreeNode,
-  traverseAll,
-  TokenType,
-} from '@yorkie-js-sdk/src/util/index_tree';
-import { RHT, RHTNode } from './rht';
-import { ActorID } from './../time/actor_id';
-import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+  InitialTimeTicket,
+  MaxTimeTicket,
+  TimeTicket,
+  TimeTicketStruct,
+} from '@yorkie-js-sdk/src/document/time/ticket';
+
+import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
 import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
-import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import type {
   DefaultTextType,
   TreeNodeType,
   TreeToken,
 } from '@yorkie-js-sdk/src/util/index_tree';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import {
+  IndexTree,
+  IndexTreeNode,
+  TokenType,
+  TreePos,
+  traverseAll,
+} from '@yorkie-js-sdk/src/util/index_tree';
+import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
+import { ActorID } from './../time/actor_id';
+import { RHT, RHTNode } from './rht';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -1094,6 +1094,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
             nodesToBeRemoved.push(node);
           }
           tokensToBeRemoved.push([node, tokenType]);
+        } else if (node.isRemoved && editedAt.after(node.removedAt!)) {
+          node.removedAt = editedAt;
+          pairs.push({ parent: this, child: node });
         }
       },
     );
@@ -1371,8 +1374,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const treePos = node.isText
         ? { node, offset: 0 }
         : parentNode && leftChildNode
-          ? this.toTreePos(parentNode, leftChildNode)
-          : null;
+        ? this.toTreePos(parentNode, leftChildNode)
+        : null;
 
       if (treePos) {
         index = this.indexTree.indexOf(treePos);
