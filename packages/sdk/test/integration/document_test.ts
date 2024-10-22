@@ -4,6 +4,9 @@ import yorkie, {
   Text,
   JSONArray,
   SyncMode,
+  PrimitiveValue,
+  Tree,
+  JSONElement,
 } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -22,6 +25,8 @@ import {
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import {LeafElement} from "@yorkie-js-sdk/src/document/json/element";
+import Long from "long";
 
 describe('Document', function () {
   afterEach(() => {
@@ -1173,6 +1178,80 @@ describe('Document', function () {
 
       await c1.deactivate();
       await c2.deactivate();
+    });
+
+    describe('With various types', () => {
+      interface TestCase {
+        caseName: string;
+        input: JSONElement;
+        expectedJSON: string;
+      }
+
+      // TODO(raararaara): Need test cases for Double, Bytes, Date, Object, Array
+      const testCases: Array<TestCase> = [
+        // Custom CRDT Types
+        {
+          caseName: 'json.Tree',
+          input: new Tree({
+            type: 'doc',
+            children: [
+              { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            ],
+          }),
+          expectedJSON: `{"k":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
+        },
+        {
+          caseName: 'json.Text',
+          input: new Text(),
+          expectedJSON: `{"k":[]}`,
+        },
+        {
+          caseName: 'json.Counter',
+          input: new Counter(CounterType.IntegerCnt, 1),
+          expectedJSON: `{"k":1}`,
+        },
+        // Primitives
+        {
+          caseName: 'null',
+          input: null,
+          expectedJSON: `{"k":null}`,
+        },
+        {
+          caseName: 'boolean',
+          input: true,
+          expectedJSON: `{"k":true}`,
+        },
+        {
+          caseName: 'number',
+          input: 1,
+          expectedJSON: `{"k":1}`,
+        },
+        {
+          caseName: 'Long',
+          input: Long.MAX_VALUE,
+          expectedJSON: `{"k":9223372036854775807}`,
+        },
+      ];
+
+      it('Can support various types', async function ({ task }) {
+        for (const { caseName, input, expectedJSON } of testCases) {
+          const c1 = new yorkie.Client(testRPCAddr);
+          await c1.activate();
+          const docKey = toDocKey(
+            `${task.name}-${caseName}-${new Date().getTime()}`,
+          );
+          const doc = new yorkie.Document(docKey);
+
+          await c1.attach(doc, {
+            initialRoot: {
+              k: input,
+            },
+          });
+          assert.equal(doc.toSortedJSON(), expectedJSON);
+
+          await c1.deactivate();
+        }
+      });
     });
   });
 });
