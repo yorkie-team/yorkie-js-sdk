@@ -192,7 +192,6 @@ function toVersionVector(vector?: VersionVector): PbVersionVector | undefined {
 
   const pbVector = new PbVersionVector();
   for (const [actorID, lamport] of vector) {
-    // TODO(hackerwins): Remove Long after introducing BigInt.
     pbVector.vector[actorID] = BigInt(lamport.toString());
   }
   return pbVector;
